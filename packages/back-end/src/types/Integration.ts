@@ -47,7 +47,7 @@ import {
   MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
@@ -239,7 +239,7 @@ export interface SourceIntegrationInterface<
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
   getCurrentTimestamp(): string;
-  getPastExperimentQuery(params: PastExperimentParams): string;
+  getPastExperimentQuery(params: PastExperimentQueryParams): string;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,
   ): string;

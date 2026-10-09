@@ -32,7 +32,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
 export function getInitialInlineFilters(
   factTable: FactTableDefinition,

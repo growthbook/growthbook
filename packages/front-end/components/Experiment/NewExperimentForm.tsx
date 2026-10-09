@@ -7,14 +7,9 @@ import {
 } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
-  getExposureQueryProjects,
-  getPreferredIdentifierType,
-  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -36,9 +31,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   AssignmentQueryCopySource,
-  getExposureQuery,
-  getExposureQueriesForProject,
-  getDefaultIdentifierTypeForQuery,
+  getNewExperimentDatasourceDefaults,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
@@ -143,121 +136,6 @@ export function getDefaultVariations(num: number) {
     });
   }
   return variations;
-}
-
-export function getNewExperimentDatasourceDefaults({
-  datasources,
-  settings,
-  project,
-  initialValue,
-  initialHashAttribute,
-  isImport,
-}: {
-  datasources: DataSourceInterfaceWithParams[];
-  settings: OrganizationSettings;
-  project?: string;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
-  initialHashAttribute?: string;
-  isImport?: boolean;
-}): Pick<
-  ExperimentInterfaceStringDates,
-  "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
-> {
-  const validDatasources = datasources.filter(
-    (d) =>
-      d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
-  );
-
-  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
-
-  const initialId = initialValue?.datasource || settings.defaultDataSource;
-
-  const initialDatasource =
-    (initialId && validDatasources.find((d) => d.id === initialId)) ||
-    validDatasources[0];
-
-  const initialUserIdType = initialHashAttribute
-    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
-        t.attributes?.includes(initialHashAttribute),
-      )?.userIdType ?? "anonymous_id")
-    : "anonymous_id";
-
-  let exposureQuery = getExposureQuery(
-    initialDatasource.settings,
-    initialValue?.exposureQueryId,
-    initialUserIdType,
-  );
-  let outOfScopeIdentifierType: string | undefined;
-  if (
-    exposureQuery &&
-    !isProjectListValidForProject(
-      getExposureQueryProjects(exposureQuery, initialDatasource.projects),
-      project,
-    )
-  ) {
-    // Prefer an in-scope query that keeps the source's identifier.
-    outOfScopeIdentifierType = resolveAnalysisIdentifierType(
-      exposureQuery,
-      initialValue?.exposureQueryIdentifierType,
-    );
-    const inScope = getExposureQueriesForProject(
-      initialDatasource.settings?.queries?.exposure ?? [],
-      project,
-      initialDatasource.projects,
-    );
-    exposureQuery =
-      inScope.find((q) =>
-        getExposureQueryIdentifierTypes(q).includes(
-          outOfScopeIdentifierType ?? "",
-        ),
-      ) ??
-      inScope[0] ??
-      null;
-  }
-
-  const importedQuery =
-    isImport &&
-    exposureQuery &&
-    exposureQuery.id === initialValue?.exposureQueryId
-      ? exposureQuery
-      : null;
-  // Several identifiers: leave the choice blank so the metrics step can require
-  // one. A single-type import takes the identifier discovery counted on.
-  const requireImportedIdentifierChoice =
-    !!importedQuery &&
-    getExposureQueryIdentifierTypes(importedQuery).length > 1;
-
-  /**
-   * Copies (duplicate, from template) keep what the source analyzes on, even
-   * if the query dropped it: the form then looks for another query declaring
-   * it before falling back, and explains the change.
-   */
-  const sourceIdentifierType =
-    exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? isImport
-        ? getPreferredIdentifierType(exposureQuery)
-        : resolveAnalysisIdentifierType(
-            exposureQuery,
-            initialValue.exposureQueryIdentifierType,
-          )
-      : undefined;
-
-  return {
-    datasource: initialDatasource.id,
-    exposureQueryId: exposureQuery?.id || "",
-    exposureQueryIdentifierType: requireImportedIdentifierChoice
-      ? undefined
-      : exposureQuery
-        ? (sourceIdentifierType ??
-          getDefaultIdentifierTypeForQuery(
-            exposureQuery,
-            outOfScopeIdentifierType ??
-              initialValue?.exposureQueryIdentifierType ??
-              initialUserIdType,
-          ))
-        : undefined,
-  };
 }
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({

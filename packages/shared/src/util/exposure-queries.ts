@@ -14,6 +14,10 @@ type ExposureQueryIdentity = Pick<
   "id" | "userIdType" | "userIdTypes"
 >;
 
+export function getPastExperimentQueryName(exposureQueryId: string): string {
+  return `experiments_${exposureQueryId}`;
+}
+
 /** Falls back to `userIdType` for queries saved before `userIdTypes`. */
 export function getExposureQueryIdentifierTypes(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
@@ -21,20 +25,6 @@ export function getExposureQueryIdentifierTypes(
   return query.userIdTypes?.length
     ? query.userIdTypes
     : [query.userIdType].filter(Boolean);
-}
-
-/**
- * An identifier for counting a query's units, where any declared one works.
- * Prefers the legacy `userIdType` so reordering doesn't change the counts, but
- * not once the query stops declaring it.
- */
-export function getPreferredIdentifierType(
-  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
-): string {
-  const declared = getExposureQueryIdentifierTypes(query);
-  return declared.includes(query.userIdType)
-    ? query.userIdType
-    : (declared[0] ?? "");
 }
 
 /**

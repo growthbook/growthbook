@@ -1,8 +1,13 @@
-import React, { FC, useCallback, useState } from "react";
-import { PastExperimentsInterface } from "shared/types/past-experiments";
+import React, { FC, useCallback, useMemo, useState } from "react";
+import {
+  PastExperiment,
+  PastExperimentsInterface,
+} from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import {
+  getExposureQueryIdentifierTypes,
+  getPastExperimentQueryName,
   isProjectListValidForProject,
   parseIntWithDefault,
   parseOptionalInt,
@@ -12,7 +17,11 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQueriesInScope,
+  getExposureQuery,
+  getImportIdentifierTypes,
+} from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
 import RunQueriesButton, {
@@ -29,8 +38,22 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 const numberFormatter = new Intl.NumberFormat();
+
+function QueryNames({ queries }: { queries: { id: string; name: string }[] }) {
+  return (
+    <>
+      {queries.map((q, i) => (
+        <React.Fragment key={q.id}>
+          {i > 0 && (i === queries.length - 1 ? " and " : ", ")}
+          <strong>{q.name}</strong>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
 
 const ImportExperimentList: FC<{
   onImport: (obj: Partial<ExperimentInterfaceStringDates>) => void;
@@ -43,7 +66,8 @@ const ImportExperimentList: FC<{
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
-    existing: Record<string, string>;
+    // Null: imported into a Project the user can't read
+    existing: Record<string, string | null>;
     lookbackDays: number;
   }>(`/experiments/import/${importId}`);
   const datasource = data?.experiments?.datasource
@@ -83,10 +107,66 @@ const ImportExperimentList: FC<{
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
 
+  const inScopeQueries = useMemo(
+    () => (datasource ? getExposureQueriesInScope(datasource, project) : []),
+    [datasource, project],
+  );
+  // Rows counted on an identifier their query no longer declares would import
+  // with a different identifier than their counts, so they're left out.
+  const inScopeIdentifierTypes = useMemo(
+    () =>
+      new Map(
+        inScopeQueries.map((q) => [q.id, getExposureQueryIdentifierTypes(q)]),
+      ),
+    [inScopeQueries],
+  );
+  const { identifierTypes, initialIdentifierType } = useMemo(
+    () => getImportIdentifierTypes(inScopeQueries),
+    [inScopeQueries],
+  );
+  const isRowInScope = useCallback(
+    (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
+      !!inScopeIdentifierTypes
+        .get(e.exposureQueryId)
+        ?.includes(e.identifierType ?? ""),
+    [inScopeIdentifierTypes],
+  );
+  const identifiersWithRows = useMemo(
+    () =>
+      new Set(
+        (data?.experiments?.experiments ?? [])
+          .filter(isRowInScope)
+          .map((e) => e.identifierType),
+      ),
+    [data?.experiments?.experiments, isRowInScope],
+  );
+  const [selectedIdentifierType, setSelectedIdentifierType] = useState<
+    string | null
+  >(null);
+  // Don't open on an identifier with nothing found when another has results
+  const startingIdentifierType =
+    initialIdentifierType === null ||
+    identifiersWithRows.has(initialIdentifierType)
+      ? initialIdentifierType
+      : (identifierTypes.find((t) => identifiersWithRows.has(t)) ??
+        initialIdentifierType);
+  const identifierType =
+    selectedIdentifierType !== null &&
+    identifierTypes.includes(selectedIdentifierType)
+      ? selectedIdentifierType
+      : startingIdentifierType;
+  const isRowAvailable = useCallback(
+    (e: Pick<PastExperiment, "exposureQueryId" | "identifierType">) =>
+      isRowInScope(e) &&
+      (identifierType === null || e.identifierType === identifierType),
+    [isRowInScope, identifierType],
+  );
+
   // Searching
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
+        if (!isRowAvailable(e)) return false;
         if (
           minUsersFilter &&
           e.users < parseIntWithDefault(minUsersFilter, 0)
@@ -97,7 +177,7 @@ const ImportExperimentList: FC<{
           const key = dedupeFilter
             ? e.trackingKey
             : e.trackingKey + "::" + e.exposureQueryId;
-          if (data?.existing?.[key]) {
+          if (data?.existing?.[key] !== undefined) {
             return false;
           }
         }
@@ -144,6 +224,7 @@ const ImportExperimentList: FC<{
       alreadyImportedFilter,
       dedupeFilter,
       data?.existing,
+      isRowAvailable,
       minLengthFilter,
       minUsersFilter,
       minVariationsFilter,
@@ -192,11 +273,56 @@ const ImportExperimentList: FC<{
   }
 
   const hasStarted = data.experiments.queries.length > 0;
-  const importFailed = hasStarted && status === "failed";
+  // Unlike getQueryStatus, an import refresh only fails when every query does.
+  const importFailed =
+    hasStarted &&
+    status !== "running" &&
+    (!!data.experiments.error ||
+      data.experiments.queries.every((q) => q.status === "failed"));
+
+  const identifierRows = pastExpArr.filter(isRowAvailable);
+
+  // Queries the last refresh didn't run (no permission) or that failed. Records
+  // not yet refreshed one query at a time have no runs and can't tell.
+  const lastRunQueries = data.experiments.queries;
+  const staleQueries =
+    status === "running" ||
+    !data.experiments.exposureQueryRuns?.length ||
+    !lastRunQueries.length
+      ? []
+      : inScopeQueries.filter(
+          (q) =>
+            !lastRunQueries.some(
+              (r) =>
+                r.name === getPastExperimentQueryName(q.id) &&
+                r.status === "succeeded",
+            ),
+        );
+  const staleLastRunAt =
+    staleQueries.length === 1
+      ? data.experiments.exposureQueryRuns?.find(
+          (r) => r.exposureQueryId === staleQueries[0].id,
+        )?.lastRunAt
+      : undefined;
+  // How far back every query in view has data
+  const lookbackStart = inScopeQueries.reduce<Date | null>((latest, q) => {
+    const start = data.experiments.exposureQueryRuns?.find(
+      (r) => r.exposureQueryId === q.id,
+    )?.start;
+    if (!start) return latest;
+    const d = getValidDate(start);
+    return !latest || d > latest ? d : latest;
+  }, null);
+
+  const staleQueriesUserCantRun = datasource
+    ? staleQueries.filter(
+        (q) => !permissionsUtil.canRunPastExperimentQuery(q, datasource),
+      )
+    : [];
 
   const totalRows = dedupeFilter
-    ? new Set(pastExpArr.map((e) => e.trackingKey)).size
-    : pastExpArr.length;
+    ? new Set(identifierRows.map((e) => e.trackingKey)).size
+    : identifierRows.length;
 
   return (
     <>
@@ -314,7 +440,34 @@ const ImportExperimentList: FC<{
           )}
         </Callout>
       )}
-      {totalRows === 0 && (
+      {staleQueries.length > 0 && (
+        <Callout status="warning" my="3">
+          <QueryNames queries={staleQueries} />{" "}
+          {staleQueries.length === 1 ? (
+            <>
+              wasn&apos;t included in the last refresh, so its results{" "}
+              {staleLastRunAt
+                ? `are from ${date(staleLastRunAt)}`
+                : "may be out of date"}
+              .
+            </>
+          ) : (
+            <>
+              weren&apos;t included in the last refresh, so their results may be
+              out of date.
+            </>
+          )}
+          {staleQueriesUserCantRun.length > 0 && (
+            <>
+              {" "}
+              Refreshing <QueryNames queries={staleQueriesUserCantRun} />{" "}
+              requires permission to run queries in{" "}
+              {staleQueriesUserCantRun.length === 1 ? "its" : "their"} Projects.
+            </>
+          )}
+        </Callout>
+      )}
+      {identifiersWithRows.size === 0 && (
         <div>
           {status === "running" ? (
             <LoadingSpinner />
@@ -362,15 +515,18 @@ const ImportExperimentList: FC<{
           )}
         </div>
       )}
-      {totalRows > 0 && (
+      {identifiersWithRows.size > 0 && (
         <div>
           <h4>Experiments</h4>
           <p>
             These are all of the experiments we found in your datasource{" "}
             {data.experiments.config && (
               <>
-                from <strong>{date(data.experiments.config.start)}</strong> to{" "}
-                <strong>{date(data.experiments.config.end)}</strong>{" "}
+                from{" "}
+                <strong>
+                  {date(lookbackStart ?? data.experiments.config.start)}
+                </strong>{" "}
+                to <strong>{date(data.experiments.config.end)}</strong>{" "}
                 {!isCloud() && (
                   <Tooltip
                     body={
@@ -386,6 +542,17 @@ const ImportExperimentList: FC<{
             .
           </p>
           <div className="row mb-3 text-align-center bg-light border-top border-bottom">
+            {identifierType !== null && identifierTypes.length > 1 && (
+              <div className="col-auto">
+                <SelectField
+                  label="Identifier"
+                  labelClassName="small mb-0"
+                  value={identifierType}
+                  onChange={setSelectedIdentifierType}
+                  options={identifierTypes.map((t) => ({ label: t, value: t }))}
+                />
+              </div>
+            )}
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
               <Field
@@ -551,6 +718,10 @@ const ImportExperimentList: FC<{
                     <td>
                       {existingId ? (
                         <Link href={`/experiment/${existingId}`}>imported</Link>
+                      ) : existingId === null ? (
+                        <Tooltip body="Imported into a Project you don't have access to">
+                          <Text color="text-mid">imported</Text>
+                        </Tooltip>
                       ) : (
                         <button
                           className={`btn btn-primary`}
@@ -581,6 +752,7 @@ const ImportExperimentList: FC<{
                                 trackingKey: e.trackingKey,
                                 datasource: data?.experiments?.datasource,
                                 exposureQueryId: e.exposureQueryId || "",
+                                exposureQueryIdentifierType: e.identifierType,
                                 variations,
                                 phases: [
                                   {
@@ -625,7 +797,7 @@ const ImportExperimentList: FC<{
                   </tr>
                 );
               })}
-              {items.length <= 0 && totalRows > 0 && (
+              {items.length <= 0 && (
                 <tr>
                   <td colSpan={8}>
                     <Callout status="info">

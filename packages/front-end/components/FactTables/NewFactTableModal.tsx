@@ -9,13 +9,15 @@ import {
   FactTableType,
 } from "shared/types/fact-table";
 import { DocLink } from "@/components/DocLink";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import {
+  getNewExperimentDatasourceDefaults,
+  getInitialFactTableQuery,
+} from "@/services/datasources";
 import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getInitialFactTableQuery } from "@/services/datasources";
 import {
   getNewFactTableProjects,
   isIdentifierCandidate,

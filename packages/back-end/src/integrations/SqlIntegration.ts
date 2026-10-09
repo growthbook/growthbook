@@ -30,7 +30,7 @@ import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentMetricQueryResponseRows,
@@ -450,13 +450,11 @@ export default abstract class SqlIntegration
   hasQuantileSketch(): boolean {
     return false;
   }
-  getPastExperimentQuery(params: PastExperimentParams): string {
-    // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = this.datasource.settings.queries?.exposure || [];
-
+  getPastExperimentQuery(params: PastExperimentQueryParams): string {
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
-      experimentQueries,
+      params.exposureQuery,
+      params.identifierTypes,
       params.from,
       new Date(),
     );
@@ -476,6 +474,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           exposure_query: row.exposure_query,
+          identifier_type: row.identifier_type,
           experiment_id: row.experiment_id,
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",

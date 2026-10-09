@@ -74,7 +74,7 @@ import {
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";

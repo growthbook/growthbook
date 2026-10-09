@@ -19,6 +19,7 @@ const pastExperimentsSchema = new mongoose.Schema({
     {
       _id: false,
       trackingKey: String,
+      identifierType: String,
       experimentName: String,
       variationNames: [String],
       numVariations: Number,
@@ -42,6 +43,15 @@ const pastExperimentsSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   latestData: Date,
+  exposureQueryRuns: [
+    {
+      _id: false,
+      exposureQueryId: String,
+      identifierTypes: [String],
+      start: Date,
+      lastRunAt: Date,
+    },
+  ],
 });
 
 type PastExperimentsDocument = mongoose.Document & PastExperimentsInterface;
