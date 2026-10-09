@@ -37,6 +37,7 @@ describe("executeExperimentStart", () => {
     const context = {
       org: { id: "org_1" },
       userId: "u_scheduler",
+      armer: { userId: "u_scheduler" },
     } as unknown as ReqContext;
 
     await executeExperimentStart(context, experiment);
