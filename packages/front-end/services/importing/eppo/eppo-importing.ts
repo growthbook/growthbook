@@ -1689,7 +1689,7 @@ export async function runEppoImport({
     isSelected,
   );
   const PQueue = (await import("p-queue")).default;
-  const queue = new PQueue({ concurrency: 6 });
+  const parallel = new PQueue({ concurrency: 6 });
 
   const selected = <T>(category: EppoCategory, items: ImportItem<T>[]) =>
     items.filter(
@@ -1716,35 +1716,61 @@ export async function runEppoImport({
   const runId = autoRun.id;
   const outcome: EppoImportOutcome = { runId, completed: 0, failed: 0 };
 
-  const record = async <T extends { id: number }>(
-    category: EppoCategory,
+  // What each category created, sent to the run in one append once the
+  // category finishes so concurrent items never race on the run document
+  type Recorded = { item: ImportItem<unknown>; id: string };
+  let recorded: Recorded[] = [];
+  const record = <T extends { id: number }>(
     item: ImportItem<T>,
     id: string,
   ) => {
+    recorded.push({ item, id });
+  };
+  const flushRecorded = async (category: EppoCategory) => {
     const kind = ARTIFACT_KINDS[category];
-    if (!kind) return;
-    await apiCall(`/auto-runs/${runId}/artifacts`, {
-      method: "POST",
-      body: JSON.stringify({
-        artifacts: [
-          {
+    const batch = recorded;
+    recorded = [];
+    if (!kind || !batch.length) return;
+    try {
+      await apiCall(`/auto-runs/${runId}/artifacts`, {
+        method: "POST",
+        body: JSON.stringify({
+          artifacts: batch.map(({ item, id }) => ({
             kind,
             id,
             label: item.name,
             by: "growthbook",
             detail: item.existingId ? "Updated from Eppo" : "Created from Eppo",
-            externalId: externalId(category, item.eppo.id),
-          },
-        ],
-      }),
-    });
+            externalId: externalId(category, (item.eppo as { id: number }).id),
+          })),
+        }),
+      });
+    } catch (e) {
+      // The objects exist; without the record a re-run would create them
+      // again, so say so on each one
+      batch.forEach(({ item }) => {
+        outcome.completed--;
+        outcome.failed++;
+        setItem(category, item.key, {
+          status: "failed",
+          error: `Imported, but couldn't be recorded in the run report: ${e.message}`,
+        });
+      });
+    }
   };
+
+  // The create endpoints require an owner; an empty one becomes whoever runs
+  // the import. Updates never send it, so a later owner change sticks.
+  const created = <T extends object>(payload: T) => ({ ...payload, owner: "" });
 
   const importEach = async <T>(
     category: EppoCategory,
     items: ImportItem<T>[],
     importItem: (item: ImportItem<T>) => Promise<unknown>,
+    // Writes that read-modify-write one shared document can't overlap
+    { serial = false } = {},
   ) => {
+    const queue = serial ? new PQueue({ concurrency: 1 }) : parallel;
     selected(category, items).forEach((item) => {
       setItem(category, item.key, { status: "pending", error: undefined });
       queue.add(async () => {
@@ -1759,6 +1785,7 @@ export async function runEppoImport({
       });
     });
     await queue.onIdle();
+    await flushRecorded(category);
   };
 
   try {
@@ -1777,16 +1804,26 @@ export async function runEppoImport({
     }
 
     // One call per environment so a plan that disallows one name doesn't
-    // block the rest
-    await importEach("environments", data.environments, async (item) => {
-      if (item.existingId) return;
-      await apiCall("/environment", {
-        method: "PUT",
-        body: JSON.stringify({
-          environments: [{ id: item.key, description: item.eppo.name }],
-        }),
-      });
-    });
+    // block the rest. Serial, since each call rewrites the org's whole list.
+    const createdEnvs = new Set<string>();
+    await importEach(
+      "environments",
+      data.environments,
+      async (item) => {
+        if (item.existingId) return;
+        await apiCall("/environment", {
+          method: "PUT",
+          body: JSON.stringify({
+            environments: [{ id: item.key, description: item.eppo.name }],
+          }),
+        });
+        createdEnvs.add(item.key);
+      },
+      { serial: true },
+    );
+    // An environment the plan refused is dropped from every flag's rules
+    // rather than failing the flag
+    ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     await importEach("tags", data.tags, async (item) => {
       if (item.existingId) return;
@@ -1811,12 +1848,12 @@ export async function runEppoImport({
       } else {
         const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
           "/saved-groups",
-          { method: "POST", body: JSON.stringify(group) },
+          { method: "POST", body: JSON.stringify(created(group)) },
         );
         id = res.savedGroup.id;
       }
       ctx.savedGroupIds.set(item.eppo.id, id);
-      await record("audiences", item, id);
+      record(item, id);
     });
 
     await importEach("factSources", data.factSources, async (item) => {
@@ -1837,13 +1874,13 @@ export async function runEppoImport({
         saved = (
           await apiCall<{ factTable: FactTableInterface }>("/fact-tables", {
             method: "POST",
-            body: JSON.stringify(factTable),
+            body: JSON.stringify(created(factTable)),
           })
         ).factTable;
       }
       ctx.factTableIds.set(item.eppo.id, saved.id);
       ctx.factTableColumns.set(saved.id, getColumnNames(saved.columns));
-      await record("factSources", item, saved.id);
+      record(item, saved.id);
     });
 
     await importEach("metrics", data.metrics, async (item) => {
@@ -1857,12 +1894,12 @@ export async function runEppoImport({
       } else {
         const res = await apiCall<{ factMetric: FactMetricInterface }>(
           "/fact-metrics",
-          { method: "POST", body: JSON.stringify(metric) },
+          { method: "POST", body: JSON.stringify(created(metric)) },
         );
         id = res.factMetric.id;
       }
       ctx.metricIds.set(item.eppo.id, id);
-      await record("metrics", item, id);
+      record(item, id);
     });
 
     await importEach("experiments", data.experiments, async (item) => {
@@ -1921,7 +1958,7 @@ export async function runEppoImport({
         id,
         variations: current?.variations ?? [],
       });
-      await record("experiments", item, id);
+      record(item, id);
     });
 
     await importEach("flags", data.flags, async (item) => {
@@ -1930,7 +1967,7 @@ export async function runEppoImport({
         method: "POST",
         body: JSON.stringify(item.existingId ? toFlagUpdate(flag) : flag),
       });
-      await record("flags", item, item.key);
+      record(item, item.key);
     });
   } finally {
     await apiCall(`/auto-runs/${runId}`, {

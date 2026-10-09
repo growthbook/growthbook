@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { fetch } from "back-end/src/util/http.util";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { EPPO_API_BASE_URL, IS_CLOUD } from "back-end/src/util/secrets";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 import { resolveProxyUrl } from "back-end/src/routers/importing/importing.util";
 
@@ -100,7 +100,7 @@ export const proxyEppoRequest = async (
     });
   }
 
-  const url = resolveProxyUrl(endpoint, "https://eppo.cloud/api/v1/");
+  const url = resolveProxyUrl(endpoint, EPPO_API_BASE_URL);
 
   try {
     const response = await fetch(url, {
