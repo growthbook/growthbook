@@ -126,6 +126,14 @@ function makeExperiment(
   } as unknown as ExperimentInterface;
 }
 
+function makeStoredOwner(
+  experiment: ExperimentInterface = makeExperiment(),
+  context = makeContext(),
+) {
+  mockGetExperimentById.mockResolvedValue(experiment);
+  return new ExperimentChangesetOwner(context, experiment);
+}
+
 function changeset(
   owner: Partial<Pick<VisualChangesetInterface, "experiment">>,
 ): VisualChangesetInterface {
@@ -354,14 +362,16 @@ describe("ExperimentChangesetOwner", () => {
     );
   });
 
-  it("refreshes the experiment's payload keys", async () => {
-    const keys = [{ environment: "dev", project: "prj_1" }];
+  it("refreshes payload keys for the experiment's current project", async () => {
+    const keys = [{ environment: "dev", project: "prj_2" }];
     mockGetPayloadKeys.mockReturnValue(keys);
     const ctx = makeContext();
-    await new ExperimentChangesetOwner(ctx, makeExperiment()).refreshPayloads(
-      "deleted",
-      "vcs_1",
-    );
+    const owner = new ExperimentChangesetOwner(ctx, makeExperiment());
+    const moved = makeExperiment({ project: "prj_2" });
+    mockGetExperimentById.mockResolvedValue(moved);
+    await owner.refreshPayloads("deleted", "vcs_1");
+    expect(mockGetPayloadKeys).toHaveBeenCalledWith(ctx, moved);
+    expect(owner.project).toBe("prj_2");
     expect(mockQueueRefresh).toHaveBeenCalledWith({
       context: ctx,
       payloadKeys: keys,
@@ -369,8 +379,21 @@ describe("ExperimentChangesetOwner", () => {
     });
   });
 
-  it("renames after validation and skips an unchanged name", async () => {
+  it("validates mutations against the stored experiment, not the snapshot", async () => {
     const owner = new ExperimentChangesetOwner(makeContext(), makeExperiment());
+    mockGetExperimentById.mockResolvedValue(
+      makeExperiment({ name: "Renamed elsewhere" }),
+    );
+    expect(await owner.rename("Renamed elsewhere")).toBe("Renamed elsewhere");
+    expect(mockUpdateExperiment).not.toHaveBeenCalled();
+    expect(owner.name).toBe("Renamed elsewhere");
+
+    mockGetExperimentById.mockResolvedValue(null);
+    await expect(owner.rename("Gone")).rejects.toThrow("Experiment not found");
+  });
+
+  it("renames after validation and skips an unchanged name", async () => {
+    const owner = makeStoredOwner();
     expect(await owner.rename("  Exp one  ")).toBe("Exp one");
     expect(mockUpdateExperiment).not.toHaveBeenCalled();
     expect(await owner.rename(" Renamed ")).toBe("Renamed");
@@ -382,8 +405,7 @@ describe("ExperimentChangesetOwner", () => {
 
   describe("addVariation", () => {
     it("appends a variation and rebalances the latest phase", async () => {
-      const owner = new ExperimentChangesetOwner(
-        makeContext(),
+      const owner = makeStoredOwner(
         makeExperiment({
           phases: [
             {
@@ -410,10 +432,7 @@ describe("ExperimentChangesetOwner", () => {
     });
 
     it("names a duplicate after its source", async () => {
-      const owner = new ExperimentChangesetOwner(
-        makeContext(),
-        makeExperiment(),
-      );
+      const owner = makeStoredOwner();
       const added = await owner.addVariation({
         sourceVariationId: TREATMENT.id,
       });
@@ -421,10 +440,7 @@ describe("ExperimentChangesetOwner", () => {
     });
 
     it("rejects an unknown source variation", async () => {
-      const owner = new ExperimentChangesetOwner(
-        makeContext(),
-        makeExperiment(),
-      );
+      const owner = makeStoredOwner();
       await expect(
         owner.addVariation({ sourceVariationId: "var_missing" }),
       ).rejects.toThrow("Source variation not found in this experiment");
@@ -436,8 +452,7 @@ describe("ExperimentChangesetOwner", () => {
     const third = { ...TREATMENT, id: "var_third", key: "2", name: "Third" };
 
     it("refuses to delete control", async () => {
-      const owner = new ExperimentChangesetOwner(
-        makeContext(),
+      const owner = makeStoredOwner(
         makeExperiment({ variations: [CONTROL, TREATMENT, third] }),
       );
       await expect(owner.removeVariation(CONTROL.id)).rejects.toThrow(
@@ -446,10 +461,7 @@ describe("ExperimentChangesetOwner", () => {
     });
 
     it("keeps at least one variant besides control", async () => {
-      const owner = new ExperimentChangesetOwner(
-        makeContext(),
-        makeExperiment(),
-      );
+      const owner = makeStoredOwner();
       await expect(owner.removeVariation(TREATMENT.id)).rejects.toThrow(
         "An experiment must keep at least one variant besides control",
       );
@@ -469,7 +481,7 @@ describe("ExperimentChangesetOwner", () => {
           },
         ] as unknown as ExperimentInterface["phases"],
       });
-      const owner = new ExperimentChangesetOwner(makeContext(), original);
+      const owner = makeStoredOwner(original);
       const { rollback } = await owner.removeVariation(TREATMENT.id);
       const { changes } = mockUpdateExperiment.mock.calls[0][0];
       expect(changes.variations?.map((v) => v.id)).toEqual([
@@ -492,7 +504,7 @@ describe("ExperimentChangesetOwner", () => {
   });
 
   it("renames a variation and skips an unchanged name", async () => {
-    const owner = new ExperimentChangesetOwner(makeContext(), makeExperiment());
+    const owner = makeStoredOwner();
     await expect(owner.renameVariation("var_missing", "x")).rejects.toThrow(
       "Variation not found in this experiment",
     );

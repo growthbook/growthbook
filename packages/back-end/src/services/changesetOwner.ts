@@ -72,6 +72,7 @@ export interface ChangesetOwner {
     opts: { allowRunning: boolean; visualChangesetId: string },
   ): () => Promise<void>;
 
+  reload(): Promise<void>;
   setHasVisualChangesets(value: boolean): Promise<void>;
   refreshPayloads(
     event: ChangesetPayloadEvent,
@@ -159,6 +160,14 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     return requireVisualChangeWrite(req, this.experiment, opts);
   }
 
+  async reload(): Promise<void> {
+    const experiment = await getExperimentById(this.context, this.id);
+    if (!experiment) {
+      throw new Error("Experiment not found");
+    }
+    this.experiment = experiment;
+  }
+
   async setHasVisualChangesets(value: boolean): Promise<void> {
     if (!!this.experiment.hasVisualChangesets === value) return;
     this.experiment = await updateExperiment({
@@ -173,6 +182,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     event: ChangesetPayloadEvent,
     changesetId: string,
   ): Promise<void> {
+    await this.reload();
     const payloadKeys = getPayloadKeys(this.context, this.experiment);
     queueSDKPayloadRefresh({
       context: this.context,
@@ -182,6 +192,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   }
 
   async rename(name: string): Promise<string> {
+    await this.reload();
     const trimmed = name.trim();
     if (trimmed === this.experiment.name) return trimmed;
     const changes: Changeset = { name: trimmed };
@@ -205,6 +216,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     name?: string;
     sourceVariationId?: string;
   }): Promise<{ id: string; name: string }> {
+    await this.reload();
     const experiment = this.experiment;
     const sourceVariation = sourceVariationId
       ? experiment.variations.find((v) => v.id === sourceVariationId)
@@ -273,6 +285,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   }
 
   async removeVariation(variationId: string): Promise<RemoveVariationResult> {
+    await this.reload();
     const experiment = this.experiment;
     const idx = experiment.variations.findIndex((v) => v.id === variationId);
     if (idx < 0) {
@@ -347,6 +360,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   }
 
   async renameVariation(variationId: string, name: string): Promise<string> {
+    await this.reload();
     const experiment = this.experiment;
     const idx = experiment.variations.findIndex((v) => v.id === variationId);
     if (idx < 0) {

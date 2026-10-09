@@ -501,7 +501,10 @@ export const syncVisualChangesWithVariations = async ({
   const unchanged =
     newVisualChanges.length === visualChanges.length &&
     newVisualChanges.every((vc, i) => vc === visualChanges[i]);
-  if (unchanged) return;
+  if (unchanged) {
+    await owner.setHasVisualChangesets(true);
+    return;
+  }
 
   await updateVisualChangeset({
     context,

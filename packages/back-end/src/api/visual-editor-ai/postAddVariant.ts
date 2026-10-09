@@ -60,6 +60,11 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   const sourceChange = sourceVariationId
     ? changeset.visualChanges.find((vc) => vc.variation === sourceVariationId)
     : undefined;
+  if (sourceVariationId && !sourceChange) {
+    return context.throwBadRequestError(
+      "Source variation not found in this changeset",
+    );
+  }
 
   const added = await owner.addVariation({ name, sourceVariationId });
 
