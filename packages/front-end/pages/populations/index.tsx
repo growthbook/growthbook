@@ -6,6 +6,7 @@ import { getPopulationStepsLabel } from "shared/populations";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
@@ -84,13 +85,6 @@ export default function PopulationsPage() {
   if (!populationsEnabled) {
     return <Custom404 />;
   }
-  if (error) {
-    return (
-      <Box className="pagecontents" style={{ margin: "0 auto" }}>
-        <Callout status="error">{error.message}</Callout>
-      </Box>
-    );
-  }
   if (loading) {
     return <LoadingOverlay />;
   }
@@ -102,6 +96,7 @@ export default function PopulationsPage() {
   // Updating during render makes React retry before painting a table with
   // every row filtered out.
   if (
+    !error &&
     datasourceFilter !== ALL_DATASOURCES &&
     !selectableDatasources.some((d) => d.id === datasourceFilter)
   ) {
@@ -124,7 +119,23 @@ export default function PopulationsPage() {
         </Box>
       </Box>
 
-      {!populations.length ? (
+      {error ? (
+        <Callout
+          status="error"
+          action={
+            <Button
+              color="inherit"
+              onClick={async () => {
+                await mutate();
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {error.message}
+        </Callout>
+      ) : !populations.length ? (
         <EmptyState
           title="No populations yet"
           description="Populations are created with the REST API for now. Creating them here is coming soon."
