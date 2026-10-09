@@ -425,6 +425,22 @@ export async function getPortalUrlFromServer(
   });
 }
 
+export async function postNpsResponseToLicenseServer(response: {
+  email: string;
+  score: number;
+  feedback: string;
+  respondedAt: string;
+}) {
+  const url = `${LICENSE_SERVER_URL}nps/response`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...response,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export async function postNewProTrialSubscriptionToLicenseServer(
   organizationId: string,
   companyName: string,
