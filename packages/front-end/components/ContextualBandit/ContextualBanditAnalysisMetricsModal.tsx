@@ -50,7 +50,7 @@ type FormValues = {
  * window reuse the same `ContextualBanditDecisionMetricSettings` component as the
  * creation flow, so editing behaves identically to creating.
  */
-/** Prior arm sample size applied the first time a user enables exploration. */
+/** Prior variation sample size applied the first time a user enables exploration. */
 const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 50;
 
 export default function ContextualBanditAnalysisMetricsModal({
@@ -227,7 +227,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             (!Number.isInteger(priorSampleSize) || priorSampleSize < 1)
           ) {
             throw new Error(
-              "Enter a prior arm sample size of at least 1, or turn off Increase Bandit exploration.",
+              "Enter a prior variation sample size of at least 1, or turn off Increase Bandit exploration.",
             );
           }
 
@@ -359,7 +359,7 @@ export default function ContextualBanditAnalysisMetricsModal({
         <Box mb="2">
           <Switch
             label="Increase Bandit exploration"
-            description="Shrink arm estimates toward a shared mean to facilitate model exploration."
+            description="Shrink variation mean estimates toward a shared mean to facilitate model exploration."
             value={increaseBanditExploration}
             onChange={(v) => {
               form.setValue("increaseBanditExploration", v);

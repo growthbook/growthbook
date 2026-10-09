@@ -701,7 +701,7 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Update Cadence">
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Prior arm sample size">
+                <DetailSectionColumn label="Prior variation sample size">
                   {(cb.priorSampleSize ?? 0) > 0 ? (
                     cb.priorSampleSize
                   ) : (
