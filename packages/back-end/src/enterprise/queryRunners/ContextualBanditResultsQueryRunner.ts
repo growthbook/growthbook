@@ -241,6 +241,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         key: keyById.get(v.id) ?? v.id,
       })),
       this.snapshotSettings.contextualAttributes,
+      this.snapshotSettings.priorSampleSize ?? 0,
     );
 
     const expSnapshotSettings = buildSnapshotSettingsForCb(

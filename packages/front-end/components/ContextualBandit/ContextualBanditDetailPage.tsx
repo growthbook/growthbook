@@ -701,6 +701,13 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Update Cadence">
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
+                <DetailSectionColumn label="Prior variation sample size">
+                  {(cb.priorSampleSize ?? 0) > 0 ? (
+                    cb.priorSampleSize
+                  ) : (
+                    <em>None</em>
+                  )}
+                </DetailSectionColumn>
               </Grid>
               {droppedContextualAttributes.length > 0 && (
                 <Callout status="warning" mt="4">
