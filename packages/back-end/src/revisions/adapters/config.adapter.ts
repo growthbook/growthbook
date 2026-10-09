@@ -48,11 +48,12 @@ import {
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
   configRevisionAffectsServedValue,
-  describeConfigConflictKeys,
+  describeExperimentGuardConflicts,
   evaluateConfigExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
 import {
   captureConfigLockAcknowledgment,
+  describeLockedConfigs,
   evaluateConfigLockConflicts,
 } from "back-end/src/services/configLockGuard";
 import {
@@ -583,16 +584,17 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       context.ignoreWarnings || canBypassApprovalForConfig(context, entity);
     const gates: PublishGate[] = [];
 
-    const experimentConflicts = [
-      ...(await evaluateConfigExperimentGuardConflicts(context, entity)),
-    ].sort();
-    if (experimentConflicts.length) {
+    const experimentConflicts = await evaluateConfigExperimentGuardConflicts(
+      context,
+      entity,
+    );
+    if (experimentConflicts.size) {
       if (override) {
         logger.info(
           {
             configId: entity.id,
             userId: context.userId,
-            conflictKeys: experimentConflicts,
+            conflictKeys: [...experimentConflicts.keys()].sort(),
           },
           "Config experiment guard overridden on a direct publish",
         );
@@ -600,11 +602,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "experiment-guard",
         severity: "warning",
-        messages: [
-          `Publishing this Config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
+        messages: await describeExperimentGuardConflicts(
+          context,
+          experimentConflicts,
+        ),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
@@ -633,11 +634,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "dependent-config-locked",
         severity: "warning",
-        messages: [
-          `Publishing this Config changes the resolved value of locked Config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
+        messages: await describeLockedConfigs(context, lockConflicts),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
