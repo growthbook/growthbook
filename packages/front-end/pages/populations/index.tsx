@@ -7,7 +7,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
 import Table, {
   TableBody,
@@ -16,7 +16,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
@@ -129,20 +129,25 @@ export default function PopulationsPage() {
           title="No populations yet"
           description="Populations are created with the REST API for now. Creating them here is coming soon."
           leftButton={
-            <Link href={CREATE_POPULATION_DOCS} target="_blank">
+            <LinkButton
+              href={CREATE_POPULATION_DOCS}
+              variant="outline"
+              external
+            >
               View the API docs
-            </Link>
+            </LinkButton>
           }
           rightButton={null}
         />
       ) : (
         <>
           <Flex justify="between" align="center" gap="3" mb="3" wrap="wrap">
-            <Flex gap="3" align="center">
-              <Box width="300px">
-                <Field
-                  placeholder="Search populations"
+            <Flex gap="3" align="center" wrap="wrap">
+              <Box width={{ initial: "100%", sm: "300px" }}>
+                <TextField
                   type="search"
+                  placeholder="Search populations"
+                  aria-label="Search populations"
                   {...searchInputProps}
                 />
               </Box>
@@ -173,13 +178,13 @@ export default function PopulationsPage() {
                   Name
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="identifierLabel">
-                  Identifier
+                  Identifier Types
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="stepsLabel">
                   Steps
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
-                  Last updated
+                  Last Updated
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="ownerName">
                   Owner
