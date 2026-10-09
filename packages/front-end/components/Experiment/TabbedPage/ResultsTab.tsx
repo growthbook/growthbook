@@ -14,7 +14,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { PiQuestion } from "react-icons/pi";
+import { PiInfo } from "react-icons/pi";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -61,7 +61,7 @@ function AnalysisSettingInfo({
     >
       <Box as="span" display="inline-block" tabIndex={0} aria-label={ariaLabel}>
         <UIText color="text-low">
-          <PiQuestion size={16} style={{ display: "block" }} aria-hidden />
+          <PiInfo size={16} style={{ display: "block" }} aria-hidden />
         </UIText>
       </Box>
     </UITooltip>
@@ -230,8 +230,6 @@ export default function ResultsTab({
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
 
-  // Each active adjustment (Bayesian prior/CUPED/post-stratification) alters
-  // every result column, not just the raw diff. Surface a per-setting tooltip.
   const engineIsBayesian =
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
   const anyMetricUsesProperPrior =
