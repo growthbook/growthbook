@@ -90,6 +90,23 @@ export function holdoutEnvsForChange({
   return { envs: [...envs], unresolved };
 }
 
+export function interleavingEnvsForChange({
+  existing,
+  updated,
+  environmentIds,
+}: {
+  existing: { environmentSettings?: Record<string, { enabled?: boolean }> };
+  /** Omitted on create, or when the change doesn't touch environments. */
+  updated?: { environmentSettings?: Record<string, { enabled?: boolean }> };
+  environmentIds: string[];
+}): string[] {
+  const envs = new Set(servingEnvironments(existing, environmentIds));
+  if (updated) {
+    servingEnvironments(updated, environmentIds).forEach((e) => envs.add(e));
+  }
+  return [...envs];
+}
+
 export function featurePublishFootprint({
   feature,
   liveRules,
