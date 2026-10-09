@@ -1,0 +1,71 @@
+.stepper {
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-high);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    color: var(--color-text-low);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+    border-radius: var(--radius-2);
+  }
+}
+
+.indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--accent-a3);
+  color: var(--accent-11);
+
+  .active & {
+    background-color: var(--accent-11);
+    color: var(--accent-1);
+  }
+
+  .completed & {
+    background-color: var(--green-11);
+    color: var(--green-1);
+  }
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.connector {
+  flex: 1 1 var(--space-4);
+  min-width: var(--space-4);
+  border-bottom: 1px dashed var(--accent-11);
+
+  &.completed {
+    border-bottom-style: solid;
+  }
+}
+
+// Too narrow for a single row: drop the connectors and let steps wrap.
+@media (max-width: 501px) {
+  .stepper {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    column-gap: var(--space-4);
+  }
+
+  .connector {
+    display: none;
+  }
+}

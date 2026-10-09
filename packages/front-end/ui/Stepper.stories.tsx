@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import Stepper from "@/components/Stepper/Stepper";
+import Stepper from "@/ui/Stepper";
 
 export default function StepperStories() {
   const [stepperStep, setStepperStep] = useState(0);
@@ -10,7 +10,6 @@ export default function StepperStories() {
       <Stepper
         step={stepperStep}
         setStep={setStepperStep}
-        setError={() => {}}
         steps={[
           { label: "Step 1", enabled: true },
           { label: "Step 2", enabled: true },
