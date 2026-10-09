@@ -1,13 +1,24 @@
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Grid } from "@radix-ui/themes";
 import { ApiAutoRun, autoRunMetaString } from "shared/validators";
+import {
+  createdByRun,
+  TeardownFailure,
+  teardownRun,
+} from "@/services/importing/eppo/eppo-importing";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import {
   ExperimentFeatureCard,
   FeatureFlagFeatureCard,
 } from "@/components/GetStarted/FeaturedCards";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import UiLink from "@/ui/Link";
@@ -140,6 +151,7 @@ function CreatedTable({
 
 /** Type | Name | Review — no environment column; it doesn't apply to these. */
 function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
+  const reviewable = (a: Artifact) => a.action !== "deleted";
   return (
     <Table variant="list">
       <TableHeader>
@@ -158,7 +170,11 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
             <TableCell style={{ verticalAlign: "middle" }}>
               <NameCell name={a.label} subtitle={a.detail} />
             </TableCell>
-            <ReviewCell href={KIND[a.kind].href(a.id)} />
+            {reviewable(a) ? (
+              <ReviewCell href={KIND[a.kind].href(a.id)} />
+            ) : (
+              <TableCell />
+            )}
           </TableRow>
         ))}
       </TableBody>
@@ -166,14 +182,79 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
   );
 }
 
+// Removes everything an import run created, with a confirmation step
+function DeleteRunButton({
+  run,
+  onDone,
+}: {
+  run: ApiAutoRun;
+  onDone: () => Promise<unknown>;
+}) {
+  const { apiCall } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const [failures, setFailures] = useState<TeardownFailure[]>([]);
+  const created = createdByRun(run);
+  if (!created.length && !failures.length) return null;
+  return (
+    <>
+      {failures.length > 0 && (
+        <Callout status="error" size="md" mb="4">
+          <Text weight="medium" as="div">
+            {failures.length === 1
+              ? "1 item couldn't be deleted"
+              : `${failures.length} items couldn't be deleted`}
+          </Text>
+          <Box mt="1">
+            {failures.map(({ artifact, error }) => (
+              <Text as="div" size="sm" key={`${artifact.kind}:${artifact.id}`}>
+                {KIND[artifact.kind].label} {artifact.label}: {error}
+              </Text>
+            ))}
+          </Box>
+        </Callout>
+      )}
+      {created.length > 0 && (
+        <Flex justify="end" mb="4">
+          <Button
+            color="red"
+            variant="outline"
+            onClick={() => setConfirming(true)}
+          >
+            {created.length === 1
+              ? "Delete the 1 item this run created"
+              : `Delete the ${created.length} items this run created`}
+          </Button>
+        </Flex>
+      )}
+      {confirming && (
+        <ConfirmDialog
+          title="Delete everything this run created?"
+          content="Feature Flags, experiments, metrics, Fact Tables, Saved Groups, environments and tags created by this import are deleted. Items it only updated are kept. This can't be undone."
+          yesText="Delete"
+          color="red"
+          onCancel={() => setConfirming(false)}
+          onConfirm={async () => {
+            const result = await teardownRun(run, apiCall);
+            setFailures(result.failures);
+            setConfirming(false);
+            await onDone();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 export default function AutoRunPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const { data, error, isLoading } = useApi<{ autoRun: ApiAutoRun }>(
+  const { data, error, isLoading, mutate } = useApi<{ autoRun: ApiAutoRun }>(
     `/auto-runs/${id}`,
     { shouldRun: () => router.isReady && !!id },
   );
+  const { mutateDefinitions } = useDefinitions();
+  const { refreshOrganization } = useUser();
 
   const run = data?.autoRun;
   const completed = run?.outcome === "completed";
@@ -247,6 +328,12 @@ export default function AutoRunPage() {
             instead of being created twice.
           </Callout>
         )}
+        <DeleteRunButton
+          run={run}
+          onDone={() =>
+            Promise.all([mutate(), mutateDefinitions(), refreshOrganization()])
+          }
+        />
         {run.artifacts.length > 0 ? (
           <Section
             title="Imported from Eppo"

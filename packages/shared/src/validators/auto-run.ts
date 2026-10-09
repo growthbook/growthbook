@@ -10,6 +10,12 @@ import { namedSchema } from "./openapi-helpers";
 
 export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
 export const MAX_AUTO_RUN_ARTIFACTS = 2000;
+export const autoRunArtifactActions = [
+  "created",
+  "updated",
+  "existing",
+  "deleted",
+] as const;
 export const autoRunOutcomes = ["completed", "partial", "failed"] as const;
 
 // Closed list: the page renders per kind, and teardown needs to know the collection.
@@ -57,6 +63,9 @@ export const autoRunArtifact = z
     // importer re-run looks this up to update what it created instead of creating
     // it again.
     externalId: z.string().max(200).nullable().optional(),
+    // What the run did to this object. Only "created" objects belong to the
+    // run, so teardown removes those and leaves updated ones alone.
+    action: z.enum(autoRunArtifactActions).optional(),
     dateCreated: z.date(),
   })
   .strict();
@@ -121,6 +130,10 @@ const apiAutoRunArtifact = z
       .describe(
         "Id in the system this was imported from, when it was imported",
       ),
+    action: z
+      .enum(autoRunArtifactActions)
+      .optional()
+      .describe("What the run did to this object"),
     dateCreated: z.iso.datetime(),
   })
   .strict();

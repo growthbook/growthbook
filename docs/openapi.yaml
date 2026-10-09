@@ -61863,6 +61863,13 @@ paths:
                     - type: string
                       maxLength: 200
                     - type: 'null'
+                action:
+                  type: string
+                  enum:
+                    - created
+                    - updated
+                    - existing
+                    - deleted
               required:
                 - kind
                 - id
@@ -81188,6 +81195,14 @@ components:
                 anyOf:
                   - type: string
                   - type: 'null'
+              action:
+                description: What the run did to this object
+                type: string
+                enum:
+                  - created
+                  - updated
+                  - existing
+                  - deleted
               dateCreated:
                 type: string
                 format: date-time
@@ -84493,6 +84508,14 @@ components:
           anyOf:
             - type: string
             - type: 'null'
+        action:
+          description: What the run did to this object
+          type: string
+          enum:
+            - created
+            - updated
+            - existing
+            - deleted
         dateCreated:
           type: string
           format: date-time

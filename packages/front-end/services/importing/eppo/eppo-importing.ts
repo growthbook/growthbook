@@ -1356,6 +1356,126 @@ export const ARTIFACT_KINDS: Record<EppoCategory, AutoRunArtifact["kind"]> = {
 
 export const EPPO_RUN_SOURCE = "eppo-import";
 
+type ArtifactAction = NonNullable<AutoRunArtifact["action"]>;
+
+function artifactAction(
+  category: EppoCategory,
+  item: ImportItem<unknown>,
+): { action: ArtifactAction; detail: string } {
+  if (!item.existingId) {
+    return { action: "created", detail: "Created from Eppo" };
+  }
+  if (category === "environments" || category === "tags") {
+    return { action: "existing", detail: "Already in GrowthBook" };
+  }
+  return { action: "updated", detail: "Updated from Eppo" };
+}
+
+// Objects a run created, in the reverse of import order so nothing is
+// deleted while something later still references it
+const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
+  "feature",
+  "experiment",
+  "metric",
+  "fact-table",
+  "saved-group",
+  "environment",
+  "tag",
+];
+
+export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
+  return run.artifacts
+    .filter((a) => a.action === "created")
+    .sort(
+      (a, b) => TEARDOWN_ORDER.indexOf(a.kind) - TEARDOWN_ORDER.indexOf(b.kind),
+    );
+}
+
+async function deleteArtifact(
+  artifact: ApiAutoRun["artifacts"][number],
+  apiCall: ApiCall,
+) {
+  const id = encodeURIComponent(artifact.id);
+  switch (artifact.kind) {
+    case "feature":
+      // Delete requires the archive step first
+      await apiCall(`/feature/${id}/archive`, {
+        method: "POST",
+        body: JSON.stringify({ archived: true }),
+      });
+      await apiCall(`/feature/${id}`, { method: "DELETE" });
+      return;
+    case "experiment":
+      await apiCall(`/experiment/${id}`, { method: "DELETE" });
+      return;
+    case "metric":
+      await apiCall(`/fact-metrics/${id}`, { method: "DELETE" });
+      return;
+    case "fact-table":
+      await apiCall(`/fact-tables/${id}`, { method: "DELETE" });
+      return;
+    case "saved-group":
+      await apiCall(`/saved-groups/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ archived: true }),
+      });
+      await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
+      return;
+    case "environment":
+      await apiCall(`/environment/${id}`, { method: "DELETE" });
+      return;
+    case "tag":
+      await apiCall("/tag", {
+        method: "DELETE",
+        body: JSON.stringify({ id: artifact.id }),
+      });
+      return;
+    case "sdk-connection":
+    case "attribute":
+      throw new Error(`Can't delete a ${artifact.kind}`);
+  }
+}
+
+export type TeardownFailure = {
+  artifact: ApiAutoRun["artifacts"][number];
+  error: string;
+};
+
+// Removes everything a run created, one object at a time so a reference that
+// blocks one delete doesn't stop the rest, and records each removal on the run
+export async function teardownRun(
+  run: ApiAutoRun,
+  apiCall: ApiCall,
+): Promise<{ deleted: number; failures: TeardownFailure[] }> {
+  const failures: TeardownFailure[] = [];
+  let deleted = 0;
+  for (const artifact of createdByRun(run)) {
+    try {
+      await deleteArtifact(artifact, apiCall);
+      await apiCall(`/auto-runs/${run.id}/artifacts`, {
+        method: "POST",
+        body: JSON.stringify({
+          artifacts: [
+            {
+              kind: artifact.kind,
+              id: artifact.id,
+              label: artifact.label,
+              by: artifact.by,
+              detail: "Deleted",
+              externalId: artifact.externalId ?? null,
+              action: "deleted",
+            },
+          ],
+        }),
+      });
+      deleted++;
+    } catch (e) {
+      failures.push({ artifact, error: e.message });
+    }
+  }
+  return { deleted, failures };
+}
+
 // Eppo id -> GrowthBook id, as recorded by previous import runs
 export type ImportedIds = Record<
   Exclude<EppoCategory, "environments" | "tags">,
@@ -1385,8 +1505,13 @@ export function getImportedIds(
     .forEach((run) => {
       run.artifacts.forEach((a) => {
         const [category, eppoId] = (a.externalId ?? "").split(":");
-        if (!(category in ids) || !eppoId || !exists(a.kind, a.id)) return;
-        ids[category as keyof ImportedIds].set(Number(eppoId), a.id);
+        if (!(category in ids) || !eppoId) return;
+        const key = category as keyof ImportedIds;
+        if (a.action === "deleted" || !exists(a.kind, a.id)) {
+          ids[key].delete(Number(eppoId));
+          return;
+        }
+        ids[key].set(Number(eppoId), a.id);
       });
     });
   return ids;
@@ -1740,11 +1865,7 @@ export async function runEppoImport({
             id,
             label: item.name,
             by: "growthbook",
-            detail: item.existingId
-              ? category === "environments" || category === "tags"
-                ? "Already in GrowthBook"
-                : "Updated from Eppo"
-              : "Created from Eppo",
+            ...artifactAction(category, item),
             externalId: externalId(category, (item.eppo as { id: number }).id),
           })),
         }),

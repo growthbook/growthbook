@@ -1,4 +1,5 @@
 import React, { Fragment, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
 import { ApiAutoRun } from "shared/validators";
 import {
@@ -77,6 +78,7 @@ const inProject = (project: string, projects?: string[] | null) =>
   !project || !projects?.length || projects.includes(project);
 
 export default function ImportFromEppo() {
+  const router = useRouter();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const {
@@ -109,7 +111,6 @@ export default function ImportFromEppo() {
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
-  const [lastRunId, setLastRunId] = useState<string | null>(null);
   // Explicit (de)selections; everything else follows its default
   const [selection, setSelection] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -249,7 +250,6 @@ export default function ImportFromEppo() {
       setEppo(await fetchEppoData(apiKey, apiCall));
       setResults({});
       setSelection({});
-      setLastRunId(null);
     } catch (e) {
       setError(e.message);
     }
@@ -279,6 +279,7 @@ export default function ImportFromEppo() {
     };
     const timer = window.setInterval(flush, 250);
 
+    let runId: string | null = null;
     try {
       const outcome = await runEppoImport({
         data,
@@ -294,7 +295,7 @@ export default function ImportFromEppo() {
           pending[id] = { ...pending[id], ...update };
         },
       });
-      setLastRunId(outcome.runId);
+      runId = outcome.runId;
       track("Eppo import finished", {
         source: "eppo",
         completed: outcome.completed,
@@ -314,6 +315,7 @@ export default function ImportFromEppo() {
       refreshOrganization(),
     ]);
     setBusy(null);
+    if (runId) router.push(`/auto-runs/${runId}`);
   };
 
   const nonStringFlags = eppo?.flags.some((f) => f.variation_type !== "STRING");
@@ -373,13 +375,6 @@ export default function ImportFromEppo() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
-        </Callout>
-      ) : null}
-
-      {lastRunId ? (
-        <Callout status="success" mb="4">
-          Import finished.{" "}
-          <Link href={`/auto-runs/${lastRunId}`}>View import report</Link>
         </Callout>
       ) : null}
 
