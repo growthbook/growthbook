@@ -1,11 +1,12 @@
 import React, { useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { getFunnelStepDisplayLabel } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getMetricPreviewUnitLabel } from "@/components/FactTables/MetricEditor/metricPreview";
 import Text from "@/ui/Text";
 import FunnelStepsChart, { FunnelChartSeries } from "./FunnelStepsChart";
 
@@ -13,10 +14,12 @@ export default function FunnelChart({
   exploration,
   submittedExploreState,
   animate = true,
+  compact = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
   submittedExploreState: ExplorationConfig;
   animate?: boolean;
+  compact?: boolean;
 }) {
   const { getFactTableById } = useDefinitions();
 
@@ -106,12 +109,49 @@ export default function FunnelChart({
     );
   }
 
-  return (
+  const chart = (
     <FunnelStepsChart
       stepLabels={stepNames}
       series={sortedSeries}
       yAxisScale={yAxisScale}
       animate={animate}
     />
+  );
+
+  if (!compact) return chart;
+
+  // Metric previews have no breakdown, so this row covers the whole funnel.
+  const counts = sortedSeries[0].counts;
+  const entered = counts[0];
+  const completed = counts[counts.length - 1];
+  const dataset = submittedExploreState.dataset;
+  const unitLabel =
+    dataset.type === "funnel" && dataset.unit
+      ? getMetricPreviewUnitLabel(
+          dataset.unit,
+          getFactTableById(dataset.steps[0]?.factTableId ?? ""),
+        ).label.toLowerCase()
+      : "users";
+
+  return (
+    <Flex direction="column" gap="2" width="100%" minWidth="0">
+      {submittedExploreState.dimensions.length === 0 && (
+        <Box>
+          <div style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}>
+            {entered > 0 ? `${((completed / entered) * 100).toFixed(1)}%` : "—"}
+          </div>
+          <Text as="div" size="sm" color="text-mid">
+            Overall funnel completion rate
+          </Text>
+          <Text as="div" size="sm" color="text-mid">
+            {completed.toLocaleString()} of {entered.toLocaleString()}{" "}
+            {unitLabel}
+          </Text>
+        </Box>
+      )}
+      <Flex height="280px" flexShrink="0" minWidth="0">
+        {chart}
+      </Flex>
+    </Flex>
   );
 }
