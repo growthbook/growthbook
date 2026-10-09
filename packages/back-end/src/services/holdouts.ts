@@ -544,6 +544,8 @@ async function rollbackExperimentAfterHoldoutFailure(
       context,
       experiment,
       changes: revertChanges,
+      // Callers refresh the holdout's payload themselves.
+      bypassWebhooks: true,
     });
     return true;
   } catch (revertError) {
@@ -806,6 +808,8 @@ export async function updateHoldoutWithExperiment(
       context,
       experiment,
       changes: experimentChanges,
+      // `refreshPayload` covers both the old and the new holdout footprint.
+      bypassWebhooks: true,
     });
   }
 
@@ -997,6 +1001,8 @@ export async function setHoldoutStage(
       context,
       experiment,
       changes,
+      // `refreshPayload` runs once the holdout write lands.
+      bypassWebhooks: true,
     });
     let updatedHoldout: HoldoutInterface;
     try {
