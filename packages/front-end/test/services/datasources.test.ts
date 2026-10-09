@@ -5,6 +5,8 @@ import {
   getIdentifierTypeForHashAttribute,
   isIdentifierUndeclared,
   getCopiedAssignmentQueryNotice,
+  getExposureQueriesForProject,
+  getExposureQueriesInScope,
   getCopySourceIdentifierType,
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
@@ -194,6 +196,60 @@ describe("getDefaultIdentifierTypeForQuery", () => {
 
   it("returns the first declared identifier when no preference is given", () => {
     expect(getDefaultIdentifierTypeForQuery(query)).toBe("user_id");
+  });
+});
+
+describe("getExposureQueriesForProject", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+
+  it("keeps unscoped queries and those scoped to the project", () => {
+    const ids = (project: string) =>
+      getExposureQueriesForProject([scoped, unscoped], project, []).map(
+        (q) => q.id,
+      );
+    expect(ids("prj_a")).toEqual(["exq_a", "exq_all"]);
+    expect(ids("prj_b")).toEqual(["exq_all"]);
+  });
+
+  it("scopes a query with no projects to its data source's", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b", ["prj_a"]),
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueriesInScope", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+  it("requires every holdout project to be covered", () => {
+    const datasource = {
+      projects: [],
+      settings: { queries: { exposure: [scoped, unscoped] } },
+    };
+    expect(
+      getExposureQueriesInScope(datasource, "", ["prj_a", "prj_b"]),
+    ).toEqual([unscoped]);
   });
 });
 

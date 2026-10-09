@@ -22,7 +22,7 @@ import {
   ExperimentTemplateInterface,
   UpdateTemplateProps,
 } from "shared/types/experiment";
-import { DataSourceInterface } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { UpdateProps } from "shared/types/base-model";
 import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -37,7 +37,11 @@ import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
-import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
+import {
+  PermissionError,
+  getExposureQueryProjects,
+  isEventForwarderEventsFactTable,
+} from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
 import {
@@ -1364,6 +1368,29 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       datasource,
       "editDatasourceSettings",
+    );
+  };
+
+  /** An assignment query needs the permission in every project it covers. */
+  public canUpdateExposureQuery = (
+    query: Pick<ExposureQuery, "projects">,
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: getExposureQueryProjects(query, datasource.projects) },
+      "editDatasourceSettings",
+    );
+  };
+
+  /** Whether some project scope exists that the user could add a query in. */
+  public canAddExposureQuery = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    const projects = datasource.projects?.length
+      ? datasource.projects
+      : ["", ...Object.keys(this.userPermissions.projects)];
+    return projects.some((p) =>
+      this.hasPermission("editDatasourceSettings", p),
     );
   };
 

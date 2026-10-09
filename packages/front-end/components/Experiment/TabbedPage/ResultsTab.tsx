@@ -43,6 +43,7 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   newPhase?: (() => void) | null;
+  holdoutProjects?: string[];
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
   envs: string[];
@@ -100,6 +101,7 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -352,6 +354,7 @@ export default function ResultsTab({
             editMetrics={true}
             editVariationIds={false}
             source={"results-tab"}
+            holdoutProjects={holdoutProjects}
           />
         ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>

@@ -70,6 +70,7 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   assertValidAssignmentQuerySelectionChange,
   getExposureQueriesForDatasource,
+  RecordAssignmentQueryScope,
 } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
@@ -1552,12 +1553,14 @@ export async function assertValidMonitoringConfigChange(
   ctx: ReqContext | ApiReqContext,
   previous: RampMonitoringConfig | null | undefined,
   next: RampMonitoringConfig | null | undefined,
+  scope?: RecordAssignmentQueryScope,
 ): Promise<void> {
   if (!next) return;
   await assertValidAssignmentQuerySelectionChange(
     ctx,
     previous ? toMonitoringSelection(previous) : null,
     toMonitoringSelection(next),
+    scope,
   );
 }
 

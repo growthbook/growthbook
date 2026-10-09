@@ -393,6 +393,10 @@ export async function createHoldoutWithExperiment(
         identifierType: data.assignmentQueryIdentifierType,
         onOmitted,
         field: "assignmentQuery",
+        scope: {
+          projects: data.projects ?? [],
+          datasourceProjects: datasource?.projects,
+        },
       },
     );
     if (!parsed.ok) throw new Error(parsed.error);
@@ -726,6 +730,10 @@ export async function updateHoldoutWithExperiment(
           },
           onOmitted: "requireUnambiguous",
           field: "assignmentQuery",
+          scope: {
+            projects: body.projects ?? holdout.projects,
+            datasourceProjects: datasource?.projects,
+          },
         },
       );
       if (!resolved.ok) throw new Error(resolved.error);

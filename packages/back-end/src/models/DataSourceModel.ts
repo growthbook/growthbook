@@ -5,6 +5,8 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueryProjectScopeError,
+  getExposureQueryProjectScopeViolations,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -303,6 +305,18 @@ export async function removeProjectFromDatasources(
     { organization, projects: project },
     { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+
+  // Also drop the project from assignment query scopes; a stale reference left
+  // behind would fail the scope check on the next data source save. A separate
+  // update, since `$[]` errors on data sources without an exposure array.
+  await DataSourceModel.updateMany(
+    { organization, "settings.queries.exposure.projects": project },
+    {
+      $pull: { "settings.queries.exposure.$[].projects": project },
+      $set: { dateUpdated: new Date() },
+    },
+  );
+
   await touchDefinitionsVersion(organization);
 }
 
@@ -460,6 +474,30 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
+/** Project names are only looked up once a save is rejected. */
+async function assertExposureQueriesWithinProjectScope(
+  context: ReqContext | ApiReqContext,
+  exposureQueries: ExposureQuery[],
+  datasourceProjects: string[],
+  /** The data source's projects before this save, when it changes them. */
+  previousDatasourceProjects?: string[],
+) {
+  const violations = getExposureQueryProjectScopeViolations(
+    exposureQueries,
+    datasourceProjects,
+  );
+  if (!violations.length) return;
+  const projects = await context.models.projects.getByIds([
+    ...new Set(violations.flatMap((v) => v.projects)),
+  ]);
+  throw new Error(
+    getExposureQueryProjectScopeError(violations, {
+      projectNames: new Map(projects.map((p) => [p.id, p.name])),
+      previousDatasourceProjects,
+    }),
+  );
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -537,6 +575,11 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
+  await assertExposureQueriesWithinProjectScope(
+    context,
+    settings.queries?.exposure ?? [],
+    projects ?? [],
+  );
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   let model: DataSourceDocument;
@@ -764,6 +807,17 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
+  // Check the resulting state, since narrowing projects alone can strand a
+  // query. Before validation, which can run every query against the warehouse.
+  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
+    await assertExposureQueriesWithinProjectScope(
+      context,
+      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
+      updates.projects ?? datasource.projects ?? [],
+      updates.projects !== undefined ? (datasource.projects ?? []) : undefined,
+    );
+  }
+
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
@@ -785,6 +839,7 @@ export async function updateDataSource(
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
+
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
@@ -860,6 +915,7 @@ export function toDataSourceApiInterface(
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
       error: q.error,
+      projects: q.projects || [],
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

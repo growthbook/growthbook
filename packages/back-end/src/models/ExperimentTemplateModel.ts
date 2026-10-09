@@ -196,6 +196,7 @@ export class ExperimentTemplatesModel extends BaseClass {
         exposureQueryId: doc.exposureQueryId,
         identifierType: doc.exposureQueryIdentifierType,
       },
+      { project: doc.project ?? "" },
     );
   }
 

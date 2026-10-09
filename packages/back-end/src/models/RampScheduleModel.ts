@@ -444,10 +444,13 @@ export class RampScheduleModel extends BaseClass {
     doc: RampScheduleInterface,
     previousDoc?: RampScheduleInterface,
   ) {
+    const project = this.getProject(doc);
     await assertValidMonitoringConfigChange(
       this.context,
       previousDoc?.monitoringConfig,
       doc.monitoringConfig,
+      // A ramp without an anchoring feature has no project to check against.
+      project === undefined ? undefined : { project },
     );
   }
   protected override async beforeUpdate(

@@ -1,4 +1,6 @@
 import {
+  getChangedExposureQueries,
+  getDataSourceSaveChanges,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -8,6 +10,9 @@ import {
   parseAssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
+  getExposureQueryProjectScopeViolations,
+  getExposureQueryProjectScopeError,
+  isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
   getPreferredIdentifierType,
   withKeptIdentifierType,
@@ -676,5 +681,266 @@ describe("getPreferredIdentifierType", () => {
         userIdTypes: ["user_id"],
       }),
     ).toBe("user_id");
+  });
+});
+
+describe("getExposureQueryProjectScopeViolations", () => {
+  it("lists each query's projects outside the data source's", () => {
+    expect(
+      getExposureQueryProjectScopeViolations(
+        [
+          { name: "Q1", projects: ["p1", "p3"] },
+          { name: "Q2", projects: ["p1"] },
+        ],
+        ["p1", "p2"],
+      ),
+    ).toEqual([{ name: "Q1", projects: ["p3"] }]);
+  });
+
+  it("treats an empty data source project list as all projects", () => {
+    expect(
+      getExposureQueryProjectScopeViolations(
+        [{ name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueryProjectScopeError", () => {
+  const projectNames = new Map([
+    ["prj_a", "Mobile"],
+    ["prj_b", "Web"],
+  ]);
+
+  it("explains a removed Project with the queries scoped to it", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [
+          { name: "Q1", projects: ["prj_a"] },
+          { name: "Q2", projects: ["prj_a"] },
+        ],
+        { projectNames, previousDatasourceProjects: ["prj_a", "prj_b"] },
+      ),
+    ).toBe(
+      'Can\'t remove Mobile from this Data Source while assignment queries are scoped to it: "Q1", "Q2". Remove Mobile from those queries first.',
+    );
+  });
+
+  it("treats narrowing from all Projects as removing them", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_b"] }],
+        { projectNames, previousDatasourceProjects: [] },
+      ),
+    ).toBe(
+      'Can\'t remove these Projects from this Data Source while assignment queries are scoped to them: Mobile ("Q1"); Web ("Q1"). Remove those Projects from the queries first.',
+    );
+  });
+
+  it("explains a query scoped beyond the data source, falling back to ids", () => {
+    expect(
+      getExposureQueryProjectScopeError(
+        [{ name: "Q1", projects: ["prj_a", "prj_gone"] }],
+        { projectNames },
+      ),
+    ).toBe(
+      "Assignment query \"Q1\" is scoped to Mobile, prj_gone, which aren't among this Data Source's Projects.",
+    );
+  });
+});
+
+describe("isExposureQueryAvailableForProjects", () => {
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: [], datasourceProjects: [] },
+      ),
+    ).toBe(true);
+    expect(
+      isExposureQueryAvailableForProjects(
+        {},
+        { holdoutProjects: ["prj_a"], datasourceProjects: undefined },
+      ),
+    ).toBe(true);
+  });
+
+  it("requires a scoped query to cover every project", () => {
+    const query = { projects: ["prj_a", "prj_b"] };
+    expect(
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: ["prj_a"],
+        datasourceProjects: [],
+      }),
+    ).toBe(true);
+    expect(
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: ["prj_a", "prj_c"],
+        datasourceProjects: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a scoped query when all projects are covered", () => {
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: ["prj_a"] },
+        { holdoutProjects: [], datasourceProjects: [] },
+      ),
+    ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: [], datasourceProjects: dsProjects },
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: ["prj_a", "prj_c"], datasourceProjects: dsProjects },
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        { holdoutProjects: ["prj_b"], datasourceProjects: dsProjects },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("assignment query project scope", () => {
+  const scoped = query({
+    id: "eq_scoped",
+    name: "Scoped",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+
+  it("rejects a query outside the project, unless the scope check is skipped", () => {
+    const selection = {
+      exposureQueryId: "eq_scoped",
+      onOmitted: "defaultToFirst" as const,
+    };
+    expect(
+      parseAssignmentQuerySelection([scoped], {
+        ...selection,
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Scoped" isn\'t available for the selected project',
+    });
+    expect(parseAssignmentQuerySelection([scoped], selection).ok).toBe(true);
+  });
+
+  it("scopes a query with no projects to its data source's", () => {
+    const unscoped = query({
+      id: "eq_unscoped",
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    const parse = (project: string) =>
+      parseAssignmentQuerySelection([unscoped], {
+        exposureQueryId: "eq_unscoped",
+        onOmitted: "defaultToFirst",
+        scope: { project, datasourceProjects: ["prj_a"] },
+      }).ok;
+    expect(parse("prj_a")).toBe(true);
+    expect(parse("prj_b")).toBe(false);
+  });
+
+  it("only checks a new or changed selection", () => {
+    const previous = { datasource: "ds_1", exposureQueryId: "eq_scoped" };
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }),
+    ).toMatchObject({ ok: true, changed: false });
+    expect(
+      resolveAssignmentQuerySelectionChange([scoped], {
+        previous: null,
+        next: previous,
+        onOmitted: "defaultToFirst",
+        scope: { project: "prj_b", datasourceProjects: [] },
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("getChangedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+
+  it("ignores validation errors and unchanged queries", () => {
+    expect(
+      getChangedExposureQueries([a, b], [{ ...a, error: "bad" }, b]),
+    ).toEqual([]);
+  });
+
+  it("lists added, changed and removed queries", () => {
+    const changed = { ...a, query: "SELECT 3" };
+    const added = { query: "SELECT 4" };
+    expect(getChangedExposureQueries([a, b], [changed, added])).toEqual([
+      { previous: a, next: changed },
+      { previous: null, next: added },
+      { previous: b, next: null },
+    ]);
+  });
+});
+
+describe("getDataSourceSaveChanges", () => {
+  const eq = {
+    id: "eq_a",
+    name: "A",
+    userIdType: "user_id",
+    query: "SELECT 1",
+  };
+  const datasource = {
+    settings: { queries: { exposure: [eq] }, userIdTypes: [] },
+  };
+
+  it("treats an assignment query edit alone as no other change", () => {
+    const edited = { ...eq, query: "SELECT 2" };
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: { ...datasource.settings, queries: { exposure: [edited] } },
+      }),
+    ).toEqual({
+      changesOtherFields: false,
+      exposureQueryChanges: [{ previous: eq, next: edited }],
+    });
+  });
+
+  it("counts any other body field, even an unchanged or unknown one", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, { name: "Same name" })
+        .changesOtherFields,
+    ).toBe(true);
+    expect(
+      getDataSourceSaveChanges(datasource, { someFutureField: 1 })
+        .changesOtherFields,
+    ).toBe(true);
+  });
+
+  it("counts a settings change outside the assignment queries", () => {
+    expect(
+      getDataSourceSaveChanges(datasource, {
+        settings: {
+          ...datasource.settings,
+          userIdTypes: [{ userIdType: "user_id" }],
+        },
+      }).changesOtherFields,
+    ).toBe(true);
   });
 });
