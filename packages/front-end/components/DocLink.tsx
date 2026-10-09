@@ -7,6 +7,7 @@ export type { DocSection };
 /** Display-only titles for Cmd+K / search; keys stay aligned with `docSections`. */
 const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
   growthbook_clickhouse: "Managed Warehouse",
+  ipAddresses: "IP Addresses",
   buildYourOwn: "Build Your Own SDK",
   ga4BigQuery: "GA4 BigQuery",
   sdks: "SDKs",

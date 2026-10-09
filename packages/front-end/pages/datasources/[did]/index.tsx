@@ -35,6 +35,7 @@ import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSetting
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import Badge from "@/ui/Badge";
 import {
   DropdownMenu,
@@ -53,6 +54,10 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
+import EditProjectsForm from "@/components/Projects/EditProjectsForm";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBEdit } from "@/components/Icons";
+import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
 import AddEventTrackerModal, {
   getAddableEventTrackers,
 } from "@/components/Settings/EditDataSource/AddEventTrackerModal";
@@ -69,10 +74,12 @@ export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
+  const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [eventTrackerOpen, setEventTrackerOpen] = useState(false);
   const [
     deleteBlockedByEventForwarderModalOpen,
@@ -86,6 +93,7 @@ const DataSourcePage: FC = () => {
     mutateDefinitions,
     ready,
     error,
+    projects,
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
@@ -279,8 +287,12 @@ const DataSourcePage: FC = () => {
               {canUpdateConnectionParams && (
                 <DropdownMenuItem
                   onClick={() => {
-                    setEditConn(true);
                     setDropdownOpen(false);
+                    if (newDataSourceOnboarding.enabled) {
+                      router.push(`/datasources/${d.id}/connect`);
+                    } else {
+                      setEditConn(true);
+                    }
                   }}
                 >
                   Edit Connection Info
@@ -418,7 +430,7 @@ const DataSourcePage: FC = () => {
           <Text weight="medium">Last Updated:</Text>{" "}
           {datetime(d.dateUpdated ?? "")}
         </Text>
-        <Box>
+        <Flex align="center" gap="1">
           <Text color="text-mid" weight="medium">
             Projects:{" "}
           </Text>
@@ -431,13 +443,29 @@ const DataSourcePage: FC = () => {
               All Projects
             </Text>
           )}
-        </Box>
+          {canUpdateDataSourceSettings && projects.length > 0 && (
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
+                setEditProjectsOpen(true);
+              }}
+            >
+              <GBEdit />
+            </Link>
+          )}
+        </Flex>
       </Flex>
-      {d.description && (
-        <Box mb="3">
-          <Text color="text-mid">{d.description}</Text>
-        </Box>
-      )}
+      <DataSourceDescription
+        value={d.description || ""}
+        canEdit={canUpdateDataSourceSettings}
+        save={async (description) => {
+          await apiCall(`/datasource/${d.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ description }),
+          });
+          await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+        }}
+      />
 
       {!d.properties?.hasSettings && (
         <Box mt="3">
@@ -660,6 +688,40 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           </>
         )}
       </Box>
+      {editProjectsOpen && (
+        <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Data Sources."
+                }
+              />
+            </>
+          }
+          cancel={() => setEditProjectsOpen(false)}
+          entityName="Data Source"
+          mutate={() => {
+            mutateDefinitions({});
+            mutateCurrentDataSource();
+          }}
+          value={d.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateDataSourceSettings({
+              projects: [project],
+            })
+          }
+          save={async (projects) => {
+            await apiCall(`/datasource/${d.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                projects,
+              }),
+            });
+          }}
+        />
+      )}
       {editConn && (
         <DataSourceForm
           existing={true}

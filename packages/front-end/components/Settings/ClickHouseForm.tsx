@@ -11,15 +11,17 @@ const ClickHouseForm: FC<{
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
-      <HostWarning
-        host={params.url}
-        setHost={(url) => {
-          setParams({
-            url,
-          });
-        }}
-      />
       <div className="row">
+        <div className="col-md-12">
+          <HostWarning
+            host={params.url}
+            setHost={(url) => {
+              setParams({
+                url,
+              });
+            }}
+          />
+        </div>
         <div className="form-group col-md-12">
           <label>URL</label>
           <input
@@ -31,7 +33,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -42,7 +44,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -52,7 +54,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Username</label>
           <input
             type="text"
@@ -62,7 +64,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"

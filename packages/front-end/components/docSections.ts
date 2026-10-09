@@ -151,6 +151,7 @@ export const docSections = {
   managedWarehouseIngestionApi: "/app/managed-warehouse#ingestion-api",
   eventForwarder: "/app/event-forwarder",
   eventForwarderZerobus: "/app/event-forwarder#finding-your-zerobus-endpoint",
+  ipAddresses: "/ip-addresses",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",

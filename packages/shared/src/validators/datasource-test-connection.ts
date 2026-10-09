@@ -10,7 +10,7 @@ const omittedFromConnectionTest = [
   "google_analytics",
 ] as const satisfies readonly DataSourceType[];
 
-type TestableDataSourceType = Exclude<
+export type TestableDataSourceType = Exclude<
   DataSourceType,
   (typeof omittedFromConnectionTest)[number]
 >;
@@ -21,6 +21,14 @@ export const testableDataSourceTypes = dataSourceTypes.filter(
   (type): type is TestableDataSourceType =>
     !omittedFromConnectionTestSet.has(type),
 ) as [TestableDataSourceType, ...TestableDataSourceType[]];
+
+const testableDataSourceTypeSet = new Set<string>(testableDataSourceTypes);
+
+export function isTestableDataSourceType(
+  type: string | undefined | null,
+): type is TestableDataSourceType {
+  return !!type && testableDataSourceTypeSet.has(type);
+}
 
 export const testDataSourceConnectionBodySchema = z.strictObject({
   type: z.enum(testableDataSourceTypes),
