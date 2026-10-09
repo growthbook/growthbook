@@ -67,20 +67,25 @@ export default function PopulationsPage() {
     [datasourceFilter],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
-    useSearch({
-      items: populationsWithLabels,
-      defaultSortField: "name",
-      localStorageKey: "populations",
-      searchFields: [
-        "name^3",
-        "description",
-        "identifierLabel",
-        "stepsLabel",
-        "ownerName",
-      ],
-      filterResults,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    clear,
+    SortableTableColumnHeader,
+  } = useSearch({
+    items: populationsWithLabels,
+    defaultSortField: "name",
+    localStorageKey: "populations",
+    searchFields: [
+      "name^3",
+      "description",
+      "identifierLabel",
+      "stepsLabel",
+      "ownerName",
+    ],
+    filterResults,
+  });
 
   if (!populationsEnabled) {
     return <Custom404 />;
@@ -240,7 +245,17 @@ export default function PopulationsPage() {
               {!items.length && isFiltered && (
                 <TableRow>
                   <TableCell colSpan={6} style={{ textAlign: "center" }}>
-                    No matching populations.
+                    No matching populations.{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        clear();
+                        setDatasourceFilter(ALL_DATASOURCES);
+                      }}
+                    >
+                      Clear filters
+                    </a>
                   </TableCell>
                 </TableRow>
               )}
