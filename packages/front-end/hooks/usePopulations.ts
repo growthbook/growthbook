@@ -21,18 +21,19 @@ export function usePopulations(
     enabled && orgId ? `${orgId}::/api/v1/populations` : null,
     async () => {
       const populations: ApiPopulation[] = [];
-      let offset = 0;
-      for (;;) {
+      let offset: number | null = 0;
+      while (offset !== null) {
         const page = await restApiCall(populationEndpoints.listPopulations, {
           query: { limit: POPULATION_PAGE_LIMIT, offset },
         });
         populations.push(...page.populations);
         const nextOffset = page.nextOffset ?? null;
-        if (!page.hasMore || nextOffset === null || nextOffset <= offset) {
-          return populations;
-        }
-        offset = nextOffset;
+        offset =
+          page.hasMore && nextOffset !== null && nextOffset > offset
+            ? nextOffset
+            : null;
       }
+      return populations;
     },
   );
 
