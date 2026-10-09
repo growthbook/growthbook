@@ -6,6 +6,9 @@ Before changing front-end code, read the relevant detailed guide:
 
 - React, UI components, and Bootstrap migration: `../../.agents/guides/frontend/react-patterns.md`
 - Data fetching, mutations, cache refresh, and error handling: `../../.agents/guides/frontend/data-fetching.md`
+- Icons — `Pi*` and `GB*` for new code, legacy `react-icons` sets: `../../.agents/guides/frontend/icons.md`
+- Accessibility — keyboard operability, accessible names, focus: `../../.agents/guides/frontend/accessibility.md`
+- Error, loading, disabled, and empty states: `../../.agents/guides/frontend/ui-states.md`
 - Permissions and commercial-feature gates: `../../.agents/guides/permissions.md`
 - Copy and casing for labels, headings, buttons, and body copy: `../../.agents/guides/ui-copy-style.md`
 
