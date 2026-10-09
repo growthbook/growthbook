@@ -121,7 +121,11 @@ export function guardWarningReader(context: Context): Context {
   return context.warningReaderContext ?? context;
 }
 
-// One line per conflict, in conflict-key order, naming only what the publisher can read.
+// Why the conflicts matter and what to do instead, closing every guard warning.
+const EXPERIMENT_GUARD_CONSEQUENCE =
+  "Changing what a running experiment serves partway through can invalidate its results. To avoid this, schedule the publish for after the experiment stops.";
+
+// One line per conflict, in conflict-key order, naming only what the publisher can read, then the consequence.
 export async function describeExperimentGuardConflicts(
   context: Context,
   conflicts: ExperimentGuardConflicts,
@@ -152,7 +156,7 @@ export async function describeExperimentGuardConflicts(
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([, conflict]) => describeExperimentGuardConflict(conflict, readable));
   // Conflicts the publisher can't read can describe identically.
-  return [...new Set(lines)];
+  return [...new Set(lines), EXPERIMENT_GUARD_CONSEQUENCE];
 }
 
 // The conflict set for publishing this config: configs affected by the publish
