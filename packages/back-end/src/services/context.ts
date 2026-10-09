@@ -264,6 +264,10 @@ export class ReqContextClass {
   // never cache one across requests.
   public scanContextOverride?: ReqContextClass;
 
+  // The requester whose read access bounds what guard warnings name, when this
+  // context is an admin overlay (bulk publish) rather than the requester's own.
+  public warningReaderContext?: ReqContextClass;
+
   // Proposed feature states for the bulk publisher's overlay scan context,
   // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
   // single funnel every cross-entity validator reads features through), so
