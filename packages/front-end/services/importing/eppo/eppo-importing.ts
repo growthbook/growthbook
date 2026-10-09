@@ -687,7 +687,7 @@ function requireColumn(
     !columns.some((c) => c.toLowerCase() === column.toLowerCase())
   ) {
     const name = ctx.eppo.factSources.find((f) => f.id === factSourceId)?.name;
-    throw new Error(`Column "${column}" isn't in the "${name}" fact table`);
+    throw new Error(`Column "${column}" isn't in the "${name}" Fact Table`);
   }
   return column;
 }
@@ -1101,7 +1101,7 @@ export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "tags", label: "Tags" },
   { key: "audiences", label: "Audiences → Saved Groups" },
   { key: "flags", label: "Feature Flags" },
-  { key: "factSources", label: "Fact sources → fact tables" },
+  { key: "factSources", label: "Fact sources → Fact Tables" },
   { key: "metrics", label: "Metrics → Fact Metrics" },
   { key: "experiments", label: "Experiments" },
 ];

@@ -576,7 +576,7 @@ describe("transformMetric", () => {
     // Warehouses fold column names differently
     expect(sum("revenue").numerator).toMatchObject({ column: "revenue" });
     expect(() => sum("__count__")).toThrow(
-      'Column "__count__" isn\'t in the "Purchases" fact table',
+      'Column "__count__" isn\'t in the "Purchases" Fact Table',
     );
     expect(() => sum(null)).toThrow("needs a value column");
     expect(() => sum("")).toThrow("needs a value column");

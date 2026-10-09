@@ -1,5 +1,5 @@
 import React, { Fragment, useMemo, useState } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
 import {
   buildImportData,
   CATEGORIES,
@@ -26,8 +26,8 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
 import Table, {
   TableBody,
@@ -76,7 +76,10 @@ export default function ImportFromEppo() {
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
   const [project, setProject] = useState("");
-  const [datasourceId, setDatasourceId] = useState(datasources[0]?.id ?? "");
+  // Only preselected when there's a single one; null until someone picks
+  const [pickedDatasourceId, setDatasourceId] = useState<string | null>(null);
+  const datasourceId =
+    pickedDatasourceId ?? (datasources.length === 1 ? datasources[0].id : "");
   const datasource = getDatasourceById(datasourceId);
 
   const [eppo, setEppo] = useState<EppoData | null>(null);
@@ -141,11 +144,16 @@ export default function ImportFromEppo() {
     !deselected.has(itemId(category, key));
   const selectable = (category: EppoCategory) =>
     getItems(category).filter((item) => item.status !== "invalid");
-  const selectedCount = CATEGORIES.reduce(
-    (sum, { key }) =>
-      sum + selectable(key).filter((i) => isSelected(key, i.key)).length,
-    0,
+  const selectedItems = CATEGORIES.flatMap(({ key }) =>
+    selectable(key)
+      .filter((item) => isSelected(key, item.key))
+      .map((item) => ({ category: key, item })),
   );
+  const selectedCount = selectedItems.length;
+  // Existing environments are left as they are
+  const overwriteCount = selectedItems.filter(
+    ({ category, item }) => item.existingId && category !== "environments",
+  ).length;
   const setSelected = (ids: string[], selected: boolean) =>
     setDeselected((prev) => {
       const next = new Set(prev);
@@ -254,7 +262,7 @@ export default function ImportFromEppo() {
               value: ds.id,
             }))}
             onChange={setDatasourceId}
-            helpText="Required to import fact sources and metrics"
+            helpText="Required to import Fact Tables and Fact Metrics"
           />
         </Grid>
         <Flex gap="3" mt="4">
@@ -279,6 +287,14 @@ export default function ImportFromEppo() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
+        </Callout>
+      ) : null}
+
+      {overwriteCount ? (
+        <Callout status="warning" mb="4">
+          {`${overwriteCount} selected ${
+            overwriteCount === 1 ? "item already exists" : "items already exist"
+          } in GrowthBook and will be overwritten.`}
         </Callout>
       ) : null}
 
@@ -317,12 +333,16 @@ export default function ImportFromEppo() {
                   <Table size="sm">
                     <TableHeader>
                       <TableRow>
-                        <TableColumnHeader style={{ width: 40 }} />
+                        <TableColumnHeader style={{ width: 40 }}>
+                          <VisuallyHidden>Select</VisuallyHidden>
+                        </TableColumnHeader>
                         <TableColumnHeader>Name</TableColumnHeader>
                         <TableColumnHeader style={{ width: 140 }}>
                           Status
                         </TableColumnHeader>
-                        <TableColumnHeader style={{ width: 80 }} />
+                        <TableColumnHeader style={{ width: 100 }}>
+                          <VisuallyHidden>Preview</VisuallyHidden>
+                        </TableColumnHeader>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -333,6 +353,10 @@ export default function ImportFromEppo() {
                             <TableRow>
                               <TableCell>
                                 <Checkbox
+                                  size="sm"
+                                  label={
+                                    <VisuallyHidden>{item.name}</VisuallyHidden>
+                                  }
                                   value={
                                     item.status !== "invalid" &&
                                     isSelected(category, item.key)
@@ -344,9 +368,9 @@ export default function ImportFromEppo() {
                               <TableCell>
                                 {item.name}
                                 {item.error ? (
-                                  <Text as="div" size="sm" color="text-low">
+                                  <HelperText status="error" size="sm">
                                     {item.error}
-                                  </Text>
+                                  </HelperText>
                                 ) : null}
                               </TableCell>
                               <TableCell>
@@ -354,18 +378,22 @@ export default function ImportFromEppo() {
                               </TableCell>
                               <TableCell>
                                 <Link
+                                  aria-expanded={expanded === id}
                                   onClick={() =>
                                     setExpanded(expanded === id ? null : id)
                                   }
                                 >
-                                  {expanded === id ? "Hide" : "View"}
+                                  {expanded === id ? "Hide JSON" : "View JSON"}
                                 </Link>
                               </TableCell>
                             </TableRow>
                             {expanded === id ? (
                               <TableRow>
                                 <TableCell colSpan={4}>
-                                  <Grid columns="2" gap="3">
+                                  <Grid
+                                    columns={{ initial: "1", md: "2" }}
+                                    gap="3"
+                                  >
                                     <Code
                                       language="json"
                                       filename="Eppo"
