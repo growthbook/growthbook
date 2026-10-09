@@ -1,6 +1,6 @@
 /**
- * Event forwarder sink types. bigquery and snowflake are Confluent Cloud managed
- * connectors; databricks is written by the GrowthBook-owned consumer (Zerobus).
+ * Event forwarder sink types. snowflake is a Confluent Cloud managed connector;
+ * databricks and bigquery are written by the GrowthBook-owned consumer.
  */
 export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
@@ -22,12 +22,14 @@ export interface BigQueryEventForwarderConfigDraft {
   serviceAccountKey?: string;
 }
 
-/** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */
+/** Encrypted payload read by the consumer; credentials are copied from datasource params at sync time. */
 export interface BigQueryEventForwarderStoredConfig {
   projectId?: string;
   dataset: string;
   tablePrefix: string;
   serviceAccountKey?: string;
+  /** Table names within `dataset`. */
+  tables: { events: string; experiment_viewed: string; feature_usage: string };
 }
 
 /**

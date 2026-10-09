@@ -1,5 +1,5 @@
-import { ReactNode, ReactElement } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { ReactNode, ReactElement, useRef } from "react";
+import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -18,6 +18,7 @@ import type {
   RevisionRampAction,
   RevisionRampCreateAction,
 } from "shared/validators";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import ContextualBanditLink from "@/components/ContextualBandit/ContextualBanditLink";
@@ -61,7 +62,7 @@ function ExperimentLink({
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
-// and an inline ReactDiffViewer for multi-line / JSON values.
+// and an inline diff viewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
 // card header already provides the heading).
 function ValueChangedField({
@@ -73,6 +74,7 @@ function ValueChangedField({
   pre: string | null | undefined;
   post: string | null | undefined;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   if (isEqual(pre, post)) return null;
   // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
   const displayVal = (v: string | null | undefined): ReactNode =>
@@ -113,14 +115,16 @@ function ValueChangedField({
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
       <div
+        ref={scrollRef}
         className="diff-wrapper diff-wrapper-compact"
         style={{ maxHeight: 250, overflowY: "auto" }}
       >
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}
           styles={COMPACT_DIFF_STYLES}
+          scrollRef={scrollRef}
         />
       </div>
     </div>

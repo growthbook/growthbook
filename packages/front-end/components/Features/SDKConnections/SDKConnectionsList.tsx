@@ -26,6 +26,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import { PayloadSizeIcon } from "./PayloadSizeNotices";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -184,7 +185,8 @@ export default function SDKConnectionsList() {
                   <td className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
-                    </Link>
+                    </Link>{" "}
+                    <PayloadSizeIcon connection={connection} />
                     {connection.managedBy?.type ? (
                       <div>
                         <Badge

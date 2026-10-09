@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { SavedGroupMetadata } from "shared/types/saved-group";
+import {
+  findAllReferencedSavedGroupIds,
+  savedGroupIdsInTargeting,
+} from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -124,45 +129,66 @@ export default function RuleList(props: RuleListProps) {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { savedGroups, getProjectById } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const { data: savedGroupsWithCondition } = useApi<{
-    savedGroups: SavedGroupWithoutValues[];
-  }>("/saved-groups");
-  const conditionById = useMemo<Map<string, string | undefined>>(() => {
-    const map = new Map<string, string | undefined>();
-    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
-      map.set(g.id, g.condition);
-    }
-    return map;
-  }, [savedGroupsWithCondition]);
+  // Saved group ids this feature's rules name (any env), in targeting entries
+  // and inside conditions.
+  const referencedGroupIds = useMemo<string[]>(
+    () => [...new Set((feature.rules ?? []).flatMap(savedGroupIdsInTargeting))],
+    [feature.rules],
+  );
 
-  // Missing conditions or values keep conflict detection conservative.
+  // Those groups plus the ones they reach through condition groups, without
+  // values. Missing entries keep conflict detection conservative.
+  const metadataPath = referencedGroupIds.length
+    ? `/saved-groups/metadata?ids=${encodeURIComponent(
+        referencedGroupIds.join(","),
+      )}`
+    : "";
+  const { data: referencedMetadata } = useApi<{
+    savedGroups: SavedGroupMetadata[];
+    missingIds: string[];
+  }>(metadataPath, { shouldRun: () => !!metadataPath });
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
-    for (const g of savedGroups) {
+    for (const g of referencedMetadata?.savedGroups ?? []) {
       map.set(g.id, {
         type: g.type,
         attributeKey: g.attributeKey,
-        condition: conditionById.get(g.id),
+        condition: g.condition,
       });
     }
     return map;
-  }, [savedGroups, conditionById]);
+  }, [referencedMetadata]);
+  // Deleted groups a rule names or reaches through condition groups, which
+  // serve as empty
+  const missingSavedGroupIds = useMemo(
+    () => new Set(referencedMetadata?.missingIds ?? []),
+    [referencedMetadata],
+  );
+  const getMissingSavedGroupIds = useCallback(
+    (rule: FeatureRule) =>
+      missingSavedGroupIds.size
+        ? [
+            ...findAllReferencedSavedGroupIds(
+              savedGroupIdsInTargeting(rule),
+              savedGroupDefs,
+            ),
+          ].filter((id) => missingSavedGroupIds.has(id))
+        : [],
+    [missingSavedGroupIds, savedGroupDefs],
+  );
 
-  // ID-list saved group ids referenced by this feature's rules (any env).
-  const referencedListGroupIds = useMemo<string[]>(() => {
-    const ids = new Set<string>();
-    for (const r of feature.rules ?? []) {
-      for (const sg of r.savedGroups ?? []) {
-        for (const id of sg.ids) {
-          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
-        }
-      }
-    }
-    return [...ids];
-  }, [feature.rules, savedGroupDefs]);
+  // Lists over the conflict-analysis cap stay opaque, so their values are
+  // never fetched; empty lists have nothing to fetch.
+  const listGroupIdsToLoad = useMemo<string[]>(
+    () =>
+      (referencedMetadata?.savedGroups ?? [])
+        .filter((g) => g.type === "list" && g.hasValues && !g.largeValues)
+        .map((g) => g.id),
+    [referencedMetadata],
+  );
 
   // Lazily-fetched ID-list values, keyed by saved group id.
   const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
@@ -170,9 +196,7 @@ export default function RuleList(props: RuleListProps) {
   );
 
   useEffect(() => {
-    const toFetch = referencedListGroupIds.filter(
-      (id) => !listGroupValues.has(id),
-    );
+    const toFetch = listGroupIdsToLoad.filter((id) => !listGroupValues.has(id));
     if (!toFetch.length) return;
     let cancelled = false;
     Promise.all(
@@ -192,7 +216,7 @@ export default function RuleList(props: RuleListProps) {
     return () => {
       cancelled = true;
     };
-  }, [referencedListGroupIds, listGroupValues, apiCall]);
+  }, [listGroupIdsToLoad, listGroupValues, apiCall]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
@@ -437,6 +461,8 @@ export default function RuleList(props: RuleListProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        // Rules off screen render as they scroll in, changing height mid-drag
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragEnd={async ({ active, over }) => {
           if (!canEdit) {
             setActiveId(null);
@@ -527,6 +553,7 @@ export default function RuleList(props: RuleListProps) {
                 setRuleModal={setRuleModal}
                 unreachable={isUnreachable(rule.id)}
                 conflictBanners={ruleConflictBanners(rule.id)}
+                getMissingSavedGroupIds={getMissingSavedGroupIds}
                 version={version}
                 setVersion={setVersion}
                 locked={locked}

@@ -54,7 +54,9 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
  * @param res
  */
 export const getHoldout = async (
-  req: AuthRequest<null, { id: string }>,
+  // `summary` leaves out the linked features and experiments, which only the
+  // holdout's own page lists.
+  req: AuthRequest<null, { id: string }, { summary?: string }>,
   res: Response<{
     status: 200 | 404;
     holdout?: HoldoutInterface;
@@ -88,6 +90,16 @@ export const getHoldout = async (
     });
   }
 
+  const envs = getEnabledHoldoutEnvironments(holdout.environmentSettings);
+  if (req.query.summary) {
+    return res.status(200).json({
+      status: 200,
+      holdout,
+      experiment: holdoutExperiment,
+      envs,
+    });
+  }
+
   const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
   const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
 
@@ -103,7 +115,7 @@ export const getHoldout = async (
     experiment: holdoutExperiment,
     linkedFeatures,
     linkedExperiments,
-    envs: getEnabledHoldoutEnvironments(holdout.environmentSettings),
+    envs,
   });
 };
 
