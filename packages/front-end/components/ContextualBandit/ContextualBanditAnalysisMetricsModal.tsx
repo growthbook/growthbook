@@ -1,5 +1,5 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ApiContextualBanditInterface,
@@ -7,7 +7,7 @@ import {
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -16,7 +16,7 @@ import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -119,6 +119,7 @@ export default function ContextualBanditAnalysisMetricsModal({
   });
 
   const increaseBanditExploration = form.watch("increaseBanditExploration");
+  const priorSampleSizeId = useId();
 
   const watchedDatasource = form.watch("datasource");
   const watchedQueryId = form.watch("exposureQueryId");
@@ -357,11 +358,7 @@ export default function ContextualBanditAnalysisMetricsModal({
 
         <Box mb="2">
           <Switch
-            label={
-              <Text weight="medium" color="text-high">
-                Increase Bandit exploration
-              </Text>
-            }
+            label="Increase Bandit exploration"
             description="Shrink arm estimates toward a shared mean to facilitate model exploration."
             value={increaseBanditExploration}
             onChange={(v) => {
@@ -382,21 +379,26 @@ export default function ContextualBanditAnalysisMetricsModal({
         </Box>
 
         {increaseBanditExploration ? (
-          <Box mb="3">
-            <Flex align="center" gap="1" mb="1">
-              <Text weight="medium" size="md">
-                Prior arm sample size
+          <TextField
+            mb="3"
+            id={priorSampleSizeId}
+            type="number"
+            min={1}
+            step={1}
+            style={{ width: 90 }}
+            label={
+              <Text
+                as="label"
+                htmlFor={priorSampleSizeId}
+                weight="medium"
+                size="md"
+              >
+                Prior arm sample size{" "}
+                <Tooltip body="The number of prior (pseudo) observations used to shrink each arm toward a shared mean. The larger the prior sample size, the stronger the exploration." />
               </Text>
-              <Tooltip body="The number of prior (pseudo) observations used to shrink each arm toward a shared mean. The larger the prior sample size, the stronger the exploration." />
-            </Flex>
-            <Field
-              {...form.register("priorSampleSize", { valueAsNumber: true })}
-              type="number"
-              min={1}
-              step={1}
-              style={{ width: 90 }}
-            />
-          </Box>
+            }
+            {...form.register("priorSampleSize", { valueAsNumber: true })}
+          />
         ) : null}
       </ModalStandard>
     </FormProvider>

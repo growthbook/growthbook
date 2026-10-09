@@ -705,7 +705,7 @@ export default function ContextualBanditDetailPage({
                   {(cb.priorSampleSize ?? 0) > 0 ? (
                     cb.priorSampleSize
                   ) : (
-                    <em>Off</em>
+                    <em>None</em>
                   )}
                 </DetailSectionColumn>
               </Grid>
