@@ -975,7 +975,10 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",

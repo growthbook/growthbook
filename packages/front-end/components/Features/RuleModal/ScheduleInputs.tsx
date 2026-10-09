@@ -3,6 +3,7 @@
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
 
+import { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import SelectField from "@/components/Forms/SelectField";
@@ -65,7 +66,7 @@ const END_OPTIONS = [
 ];
 
 function formatOptionLabel(
-  option: { label: string; tooltip?: string },
+  option: { label: string; tooltip?: ReactNode },
   meta: { context: string },
 ) {
   if (meta.context === "value") return <>{option.label}</>;

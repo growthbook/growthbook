@@ -116,6 +116,18 @@ const publishRevisionsBypassedGate = z.object({
 export const postReleasePublishRevisionsValidator = {
   method: "post" as const,
   path: "/releases/publish-revisions",
+  confirmation: [
+    "feature.publish",
+    "savedGroup.publish",
+    "constant.publish",
+    "config.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postReleasePublishRevisions",
   summary: "Atomically publish revisions across multiple entities",
   description:

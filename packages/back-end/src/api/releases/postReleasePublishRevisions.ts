@@ -15,6 +15,11 @@ import {
   parseFeatureRevisionId,
 } from "back-end/src/models/FeatureRevisionModel";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
+import {
+  confirmationLink,
+  REVISION_PUBLISH_LABEL,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   commitBulkPublish,
@@ -189,6 +194,30 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   if (plan.blockingGates.length) {
     throw new PublishBlockedError(plan.blockingGates.map(serializeGate));
   }
+
+  // One confirmation covers the whole release.
+  const labels = new Set(
+    plan.items.map(({ ref }) =>
+      ref.entityType === "feature"
+        ? ("feature.publish" as const)
+        : REVISION_PUBLISH_LABEL[ref.entityType],
+    ),
+  );
+  await requireConfirmation(req.context, {
+    actions: [...labels].map((action) => ({ action, environments: [] })),
+    bypassing: plan.items.flatMap((item) => item.bypassedGates),
+    project: "",
+    summary: `Publish ${plan.items
+      .map(({ ref }) => callerIdFor(ref.entityType, ref.entityId))
+      .join(", ")}`,
+    links: plan.items.map(({ ref }) =>
+      confirmationLink(
+        ref.entityType === "saved-group" ? "savedGroup" : ref.entityType,
+        callerIdFor(ref.entityType, ref.entityId),
+      ),
+    ),
+    pin: plan.items.map((item) => item.baseline),
+  });
 
   let result;
   try {

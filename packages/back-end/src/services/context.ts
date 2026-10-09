@@ -102,6 +102,7 @@ import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspac
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
+import { ConfirmationModel } from "back-end/src/models/ConfirmationModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
@@ -160,6 +161,7 @@ export type ModelName =
   | "slackUserLinks"
   | "slackTaskClaims"
   | "apiKeys"
+  | "confirmations"
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
@@ -220,6 +222,7 @@ export const modelClasses = {
   slackUserLinks: SlackUserLinkModel,
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
+  confirmations: ConfirmationModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
@@ -353,6 +356,9 @@ export class ReqContextClass {
    */
   public dispatchedRequest: OverrideSource | null = null;
 
+  /** Set while a confirmed request replays, so its hold lets the write through. */
+  public confirmationId: string | null = null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
@@ -401,6 +407,7 @@ export class ReqContextClass {
       slackUserLinks: new SlackUserLinkModel(this),
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
+      confirmations: new ConfirmationModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
@@ -429,6 +436,7 @@ export class ReqContextClass {
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  public apiKeyData?: ApiKeyInterface;
   private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
@@ -480,6 +488,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.apiKeyData = apiKeyData;
     this.req = req;
 
     if (this.req && this.req.log) {

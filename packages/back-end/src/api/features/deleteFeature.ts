@@ -8,6 +8,10 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { assertFeatureDeletable } from "back-end/src/services/features";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 // Single handler shared by v1 and v2: identical semantics, identical response
@@ -65,6 +69,14 @@ export async function deleteFeatureHandler(
   // a prerequisite dangles their gate and drops them from the SDK payload, so
   // block regardless of archived state or REST bypass.
   await assertFeatureDeletable(req.context, feature.id);
+
+  await requireConfirmation(req.context, {
+    actions: [{ action: "feature.delete", environments: [...deleteFootprint] }],
+    project: feature.project || "",
+    summary: `Delete ${feature.id}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
 
   await deleteFeature(req.context, feature);
 

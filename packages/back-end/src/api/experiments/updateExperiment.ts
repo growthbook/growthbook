@@ -49,6 +49,11 @@ import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/sr
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  experimentChangeLabels,
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -452,6 +457,17 @@ export const updateExperiment = createApiRequestHandler(
     experiment.status === "draft" && changes.status === "running";
 
   await validateExperimentChange({ context: req.context, experiment, changes });
+
+  await requireConfirmation(req.context, {
+    actions: experimentChangeLabels(experiment, changes).map((action) => ({
+      action,
+      environments: [],
+    })),
+    project: experiment.project || "",
+    summary: `Change ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: [experiment.status, experiment.phases],
+  });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;

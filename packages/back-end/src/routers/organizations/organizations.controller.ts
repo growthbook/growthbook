@@ -12,7 +12,12 @@ import {
 import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  AgreementType,
+  ConfirmRule,
+  confirmRulesValidator,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -1612,6 +1617,11 @@ export async function putOrganization(
         if (!context.permissions.canManageNorthStarMetric()) {
           context.permissions.throwPermissionError();
         }
+      } else if (k === "confirmRules") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        confirmRulesValidator.parse(settings.confirmRules);
       } else if (k === "namespaces") {
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
@@ -1914,6 +1924,7 @@ export async function postApiKey(
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ProjectMemberRole[];
     expiresAt?: string | null;
+    confirmRules?: ConfirmRule[] | null;
   }>,
   res: Response,
 ) {
@@ -1928,6 +1939,7 @@ export async function postApiKey(
     additionalRoles,
     projectRoles,
     expiresAt: expiresAtInput,
+    confirmRules,
   } = req.body;
 
   const expiresAt = parseExpiresAt(expiresAtInput);
@@ -1949,6 +1961,7 @@ export async function postApiKey(
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
   // Handle organization secret tokens
@@ -1961,6 +1974,7 @@ export async function postApiKey(
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -1991,6 +2005,7 @@ export async function putApiKey(
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ProjectMemberRole[];
       expiresAt?: string | null;
+      confirmRules?: ConfirmRule[] | null;
     },
     { id: string }
   >,
@@ -2007,6 +2022,7 @@ export async function putApiKey(
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   } = req.body;
 
   // The model returns both the pre- and post-update docs from a single read so
@@ -2023,6 +2039,7 @@ export async function putApiKey(
       projectRoles,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
+      confirmRules,
     });
 
   await req.audit({

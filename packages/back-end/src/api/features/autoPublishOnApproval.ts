@@ -44,6 +44,7 @@ import {
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
+import { wouldHold } from "back-end/src/services/confirmations";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 
 export async function canEnableFeatureAutoPublishOnApproval(
@@ -362,6 +363,10 @@ export async function maybeAutoPublishFeatureRevision(
   if (isScheduledPublishPending(revision) && !isScheduledPublishDue(revision)) {
     return revision;
   }
+
+  // Left approved when this key's publishes need a person's confirmation; the
+  // publish request then holds like any other.
+  if (wouldHold(context, ["feature.publish"])) return revision;
 
   const enablerContext = await getArmedPublishContext(context, revision);
   if (!enablerContext) {

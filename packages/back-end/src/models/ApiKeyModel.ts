@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
+import { apiKeySchema, ConfirmRule } from "shared/validators";
 import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
 import {
   addDays,
@@ -370,6 +370,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     description: string;
     roleId: string;
@@ -378,6 +379,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -391,6 +393,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -404,6 +407,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     userId: string;
     description: string;
@@ -413,6 +417,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -428,6 +433,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -498,6 +504,7 @@ export class ApiKeyModel extends BaseClass {
       projectRoles,
       description,
       expiresAt,
+      confirmRules,
     }: {
       role?: string;
       scopedRole?: string;
@@ -508,6 +515,7 @@ export class ApiKeyModel extends BaseClass {
       description?: string;
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
+      confirmRules?: ConfirmRule[] | null;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -543,6 +551,7 @@ export class ApiKeyModel extends BaseClass {
           additionalRoles: scopedRole ? additionalRoles : undefined,
           projectRoles: scopedRole ? projectRoles : undefined,
           ...(expiresAt !== undefined && { expiresAt }),
+          ...(confirmRules !== undefined && { confirmRules }),
         },
         { forceCanUpdate: true },
       );
@@ -580,6 +589,7 @@ export class ApiKeyModel extends BaseClass {
         projectRoles,
         description,
         ...(expiresAt !== undefined && { expiresAt }),
+        ...(confirmRules !== undefined && { confirmRules }),
       },
       { forceCanUpdate: true },
     );
@@ -832,6 +842,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     environment: string;
     project: string;
@@ -846,6 +857,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -876,6 +888,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      ...(confirmRules ? { confirmRules } : {}),
     });
   }
 }

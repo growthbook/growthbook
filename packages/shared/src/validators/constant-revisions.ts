@@ -279,6 +279,7 @@ export const getConstantRevisionMergeStatusValidator = {
 export const postConstantRevisionValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key",
+  confirmation: [],
   operationId: "postConstantRevision",
   summary: "Create a draft revision",
   description:
@@ -295,6 +296,7 @@ export const postConstantRevisionValidator = {
 export const postConstantRevisionDiscardValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/discard",
+  confirmation: [],
   operationId: "postConstantRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -309,6 +311,14 @@ export const postConstantRevisionDiscardValidator = {
 export const postConstantRevisionPublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/publish",
+  confirmation: [
+    "constant.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -330,6 +340,14 @@ export const postConstantRevisionPublishValidator = {
 export const postConstantRevisionRevertValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/revert",
+  confirmation: [
+    "constant.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConstantRevisionRevert",
   summary: "Revert the constant to a prior revision",
   description:
@@ -358,6 +376,7 @@ export const postConstantRevisionRevertValidator = {
 export const postConstantRevisionRebaseValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/rebase",
+  confirmation: [],
   operationId: "postConstantRevisionRebase",
   summary: "Rebase a draft revision onto the current live constant",
   description:
@@ -382,6 +401,7 @@ export const postConstantRevisionRebaseValidator = {
 export const postConstantRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/request-review",
+  confirmation: [],
   operationId: "postConstantRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -404,6 +424,7 @@ export const postConstantRevisionRequestReviewValidator = {
 export const postConstantRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/submit-review",
+  confirmation: [],
   operationId: "postConstantRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
@@ -428,6 +449,7 @@ export const postConstantRevisionSubmitReviewValidator = {
 export const putConstantRevisionMetadataValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/metadata",
+  confirmation: [],
   operationId: "putConstantRevisionMetadata",
   summary: "Update constant metadata in a draft revision",
   description:
@@ -450,6 +472,7 @@ export const putConstantRevisionMetadataValidator = {
 export const putConstantRevisionValueValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/value",
+  confirmation: [],
   operationId: "putConstantRevisionValue",
   summary: "Update the value of a constant draft revision",
   description:
@@ -478,6 +501,7 @@ export const putConstantRevisionValueValidator = {
 export const putConstantRevisionArchiveValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/archive",
+  confirmation: [],
   operationId: "putConstantRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -500,6 +524,14 @@ export const putConstantRevisionArchiveValidator = {
 export const postConstantRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/schedule-publish",
+  confirmation: [
+    "constant.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConstantRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -527,6 +559,7 @@ export const postConstantRevisionSchedulePublishValidator = {
 export const postConstantRevisionReopenValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/reopen",
+  confirmation: [],
   operationId: "postConstantRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -541,6 +574,7 @@ export const postConstantRevisionReopenValidator = {
 export const postConstantRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/recall-review",
+  confirmation: [],
   operationId: "postConstantRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -555,6 +589,7 @@ export const postConstantRevisionRecallReviewValidator = {
 export const postConstantRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/undo-review",
+  confirmation: [],
   operationId: "postConstantRevisionUndoReview",
   summary: "Retract your own review verdict",
   description:

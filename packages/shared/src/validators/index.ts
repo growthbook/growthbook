@@ -53,6 +53,7 @@ export * from "./feature-webhook-schemas";
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
+export * from "./confirmations";
 export * from "./figma-connection";
 export * from "./slack-workspace-connection";
 export * from "./ai-credential";

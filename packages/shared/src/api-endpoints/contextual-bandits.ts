@@ -308,6 +308,8 @@ export const addContextualBanditLinkedFeature = {
   summary: "Link a feature to a Contextual Bandit",
   description:
     "Adds a `contextual-bandit-ref` rule to the bottom of the feature's rule list and links the feature to this contextual bandit. The rule lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+  confirmation: ["feature.other"] as const,
+  confirmationInHandler: true,
   operationId: "addContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "post" as const,
@@ -336,6 +338,8 @@ export const updateContextualBanditLinkedFeature = {
   summary: "Replace a Contextual Bandit's rule on a linked feature",
   description:
     "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, Saved Groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+  confirmation: ["feature.other"] as const,
+  confirmationInHandler: true,
   operationId: "updateContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "put" as const,
@@ -366,6 +370,8 @@ export const deleteContextualBanditLinkedFeature = {
   summary: "Unlink a feature from a Contextual Bandit",
   description:
     "Removes every `contextual-bandit-ref` rule pointing at this contextual bandit from the feature and drops the feature from the bandit's linked-feature list. The rule removal lands in a draft revision unless `autoPublish` is set. When the feature has no such rule left, only the linkage is cleared.",
+  confirmation: ["feature.other"] as const,
+  confirmationInHandler: true,
   operationId: "deleteContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "delete" as const,

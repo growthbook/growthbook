@@ -114,6 +114,18 @@ export class LicenseServerError extends Error {
 
 export class VercelInstallationNotFound extends Error {}
 
+// Thrown before a held request's first write; runApiHandler turns it into a 202.
+export class ConfirmationRequiredError extends Error {
+  status = 202;
+  constructor(
+    readonly body: Record<string, unknown>,
+    readonly headers: Record<string, string>,
+  ) {
+    super(String(body.message));
+    this.name = "ConfirmationRequiredError";
+  }
+}
+
 export class BadRequestError extends Error {
   status = 400;
   constructor(message: string) {

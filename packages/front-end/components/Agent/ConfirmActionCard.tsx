@@ -51,27 +51,7 @@ export default function ConfirmActionCard({
         <Text size="sm" weight="medium">
           Apply this change?
         </Text>
-        <Flex
-          align="center"
-          gap="2"
-          wrap="wrap"
-          style={{
-            padding: "6px 8px",
-            borderRadius: "var(--radius-2)",
-            background: "var(--gray-a3)",
-          }}
-        >
-          <MethodPill method={prompt.method} />
-          <code
-            style={{
-              fontSize: 12,
-              color: "var(--gray-12)",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {prompt.path}
-          </code>
-        </Flex>
+        <RequestLine method={prompt.method} path={prompt.path} />
         {prompt.summary &&
           prompt.summary !== `${prompt.method} ${prompt.path}` && (
             // On the card's scale, or the write reads larger than its heading.
@@ -113,6 +93,39 @@ export default function ConfirmActionCard({
         </Flex>
       </Flex>
     </AssistantBubble>
+  );
+}
+
+/** The gated call's method and path on one tinted line. */
+export function RequestLine({
+  method,
+  path,
+}: {
+  method: string;
+  path: string;
+}) {
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      wrap="wrap"
+      style={{
+        padding: "6px 8px",
+        borderRadius: "var(--radius-2)",
+        background: "var(--gray-a3)",
+      }}
+    >
+      <MethodPill method={method} />
+      <code
+        style={{
+          fontSize: 12,
+          color: "var(--gray-12)",
+          overflowWrap: "anywhere",
+        }}
+      >
+        {path}
+      </code>
+    </Flex>
   );
 }
 

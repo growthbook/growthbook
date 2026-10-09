@@ -12,6 +12,10 @@ import {
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 function formatScheduledStartUtc(date: Date): string {
@@ -42,6 +46,15 @@ export const postExperimentStart = createApiRequestHandler(
   if (existing.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
+
+  // Staging a scheduled start is held too: it starts later with no one present.
+  await requireConfirmation(context, {
+    actions: [{ action: "experiment.start", environments: [] }],
+    project: existing.project || "",
+    summary: `Start ${existing.name}`,
+    links: [confirmationLink("experiment", existing.id, existing.name)],
+    pin: existing.status,
+  });
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";

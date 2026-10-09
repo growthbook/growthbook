@@ -411,6 +411,7 @@ export const getFeatureRevisionLatestV2Validator = {
 export const postFeatureRevisionV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions",
+  confirmation: [],
   operationId: "postFeatureRevisionV2",
   summary: "Create a draft revision",
   description:
@@ -438,6 +439,7 @@ export const postFeatureRevisionV2Validator = {
 export const postFeatureRevisionDiscardV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/discard",
+  confirmation: [],
   operationId: "postFeatureRevisionDiscardV2",
   summary: "Discard a draft revision",
   tags: ["feature-revisions-v2"],
@@ -451,6 +453,7 @@ export const postFeatureRevisionDiscardV2Validator = {
 export const postFeatureRevisionReopenV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/reopen",
+  confirmation: [],
   operationId: "postFeatureRevisionReopenV2",
   summary: "Reopen a discarded revision as a draft",
   description:
@@ -466,6 +469,18 @@ export const postFeatureRevisionReopenV2Validator = {
 export const postFeatureRevisionPublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/publish",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionPublishV2",
   summary: "Publish a draft revision",
   description:
@@ -489,6 +504,14 @@ export const postFeatureRevisionPublishV2Validator = {
 export const postFeatureRevisionRevertV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
+  confirmation: [
+    "feature.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postFeatureRevisionRevertV2",
   summary: "Revert the feature to a prior revision",
   tags: ["feature-revisions-v2"],
@@ -675,6 +698,7 @@ export const getFeatureRevisionDiffV2Validator = {
 export const postFeatureRevisionRebasePreviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase/preview",
+  confirmation: [],
   operationId: "postFeatureRevisionRebasePreviewV2",
   summary: "Preview a rebase without applying it",
   description:
@@ -690,6 +714,7 @@ export const postFeatureRevisionRebasePreviewV2Validator = {
 export const postFeatureRevisionRebaseV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase",
+  confirmation: [],
   operationId: "postFeatureRevisionRebaseV2",
   summary: "Rebase a draft revision onto the current live version",
   description:
@@ -705,6 +730,7 @@ export const postFeatureRevisionRebaseV2Validator = {
 export const postFeatureRevisionRequestReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
+  confirmation: [],
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:
@@ -731,6 +757,14 @@ export const postFeatureRevisionRequestReviewV2Validator = {
 export const postFeatureRevisionSchedulePublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/schedule-publish",
+  confirmation: [
+    "feature.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postFeatureRevisionSchedulePublishV2",
   summary: "Schedule (or cancel) a deferred publish for a draft revision",
   description:
@@ -761,6 +795,7 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
 export const postFeatureRevisionSubmitReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
+  confirmation: [],
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
   description:
@@ -784,6 +819,7 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
 export const postFeatureRevisionRecallReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/recall-review",
+  confirmation: [],
   operationId: "postFeatureRevisionRecallReviewV2",
   summary: "Recall a review request (revert to draft)",
   description:
@@ -799,6 +835,7 @@ export const postFeatureRevisionRecallReviewV2Validator = {
 export const postFeatureRevisionUndoReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/undo-review",
+  confirmation: [],
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
   description:
@@ -864,6 +901,7 @@ export const getFeatureRevisionLogV2Validator = {
 export const putFeatureRevisionLogCommentV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/log/:logId",
+  confirmation: [],
   operationId: "putFeatureRevisionLogCommentV2",
   summary: "Edit the comment text of an owned log entry",
   description:
@@ -885,6 +923,7 @@ export const putFeatureRevisionLogCommentV2Validator = {
 export const deleteFeatureRevisionLogEntryV2Validator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/log/:logId",
+  confirmation: [],
   operationId: "deleteFeatureRevisionLogEntryV2",
   summary: "Delete an owned revision Comment entry",
   description:
@@ -900,6 +939,7 @@ export const deleteFeatureRevisionLogEntryV2Validator = {
 export const postFeatureRevisionToggleV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",
+  confirmation: [],
   operationId: "postFeatureRevisionToggleV2",
   summary: "Toggle an environment on/off in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -920,6 +960,7 @@ export const postFeatureRevisionToggleV2Validator = {
 export const putFeatureRevisionDefaultValueV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/default-value",
+  confirmation: [],
   operationId: "putFeatureRevisionDefaultValueV2",
   summary: "Set the default value in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -950,6 +991,7 @@ export const putFeatureRevisionDefaultValueV2Validator = {
 export const putFeatureRevisionPrerequisitesV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/prerequisites",
+  confirmation: [],
   operationId: "putFeatureRevisionPrerequisitesV2",
   summary: "Set feature-level prerequisites in a draft revision",
   description:
@@ -979,6 +1021,7 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
 export const putFeatureRevisionMetadataV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/metadata",
+  confirmation: [],
   operationId: "putFeatureRevisionMetadataV2",
   summary: "Update revision metadata",
   tags: ["feature-revisions-v2"],
@@ -1017,6 +1060,7 @@ export const putFeatureRevisionMetadataV2Validator = {
 export const putFeatureRevisionArchiveV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/archive",
+  confirmation: [],
   operationId: "putFeatureRevisionArchiveV2",
   summary: "Set archived state in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -1036,6 +1080,7 @@ export const putFeatureRevisionArchiveV2Validator = {
 export const putFeatureRevisionHoldoutV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/holdout",
+  confirmation: [],
   operationId: "putFeatureRevisionHoldoutV2",
   summary: "Set holdout in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -1062,6 +1107,7 @@ export const putFeatureRevisionHoldoutV2Validator = {
 export const postFeatureRevisionRuleAddV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
+  confirmation: [],
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
@@ -1093,6 +1139,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
 export const postFeatureRevisionRulesReorderV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules/reorder",
+  confirmation: [],
   operationId: "postFeatureRevisionRulesReorderV2",
   summary: "Reorder rules in the revision",
   description:
@@ -1114,6 +1161,7 @@ export const postFeatureRevisionRulesReorderV2Validator = {
 export const putFeatureRevisionRuleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: [],
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
@@ -1145,6 +1193,7 @@ export const putFeatureRevisionRuleV2Validator = {
 export const deleteFeatureRevisionRuleV2Validator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: [],
   operationId: "deleteFeatureRevisionRuleV2",
   summary: "Delete a rule from a draft revision",
   description:
@@ -1165,6 +1214,7 @@ export const deleteFeatureRevisionRuleV2Validator = {
 export const putFeatureRevisionRuleRampScheduleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: [],
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
@@ -1183,6 +1233,7 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
 export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: [],
   operationId: "deleteFeatureRevisionRuleRampScheduleV2",
   summary: "Remove ramp schedule from a rule",
   description:

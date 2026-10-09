@@ -8,6 +8,10 @@ import { setExperimentSchedule } from "back-end/src/services/experimentSchedulin
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 export const putExperimentSchedule = createApiRequestHandler(
@@ -26,6 +30,22 @@ export const putExperimentSchedule = createApiRequestHandler(
   if (scheduleWriteNeedsRunPermission(experiment, req.body)) {
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
+
+  // A scheduled start or stop happens later with no one present, so it's held now.
+  await requireConfirmation(req.context, {
+    actions: [
+      ...(req.body.startAt
+        ? [{ action: "experiment.start" as const, environments: [] }]
+        : []),
+      ...(req.body.stopAt || req.body.stopAfter
+        ? [{ action: "experiment.stop" as const, environments: [] }]
+        : []),
+    ],
+    project: experiment.project || "",
+    summary: `Schedule ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: experiment.statusUpdateSchedule ?? null,
+  });
 
   // Full-replace: the body is the complete desired schedule + stop-plan state, so
   // omitted fields are passed through as cleared.
