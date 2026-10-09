@@ -24,6 +24,7 @@ import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
+import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -225,6 +226,13 @@ API_MODELS.forEach((modelClass) => {
     description: spec.navDescription ?? "",
   };
 });
+
+// Not JSON, so it can't use createApiRequestHandler. Documented on
+// postSavedGroupUpload.
+router.get(
+  "/v1/saved-groups/:id/uploads/:version/file",
+  getSavedGroupUploadFile,
+);
 
 allRoutes.forEach((route) => {
   if (!route.method) {

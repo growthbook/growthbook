@@ -535,6 +535,24 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/remote-saved-groups/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*", "**/shared*", "**/sdk-*"],
+              message:
+                "remote-saved-groups has no dependencies: GrowthBook and its loaders both use it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/sdk-{js,react}/**/*"],
 
     rules: {
@@ -644,6 +662,7 @@ export default defineConfig([
       "./packages/sdk-js/src/**/*.{ts,tsx}",
       "./packages/sdk-react/src/**/*.{ts,tsx}",
       "./packages/stats-ts/src/**/*.{ts,tsx}",
+      "./packages/remote-saved-groups/src/**/*.{ts,tsx}",
     ],
 
     // Exclude test dirs everywhere: shared/test and back-end/test are outside

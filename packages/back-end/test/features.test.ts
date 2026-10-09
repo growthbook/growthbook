@@ -1,7 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
+import {
+  getSavedGroupPayloadStrategy,
+  SavedGroupPayloadStrategy,
+} from "shared/sdk-versioning";
 import { FeatureDefinition } from "shared/types/sdk";
 import {
   FeatureInterface,
@@ -44,9 +47,17 @@ import {
 // means no SDK connection, which is what previews and the in-app evaluators do.
 const v1Strategy = (groupMap: GroupMap) =>
   getSavedGroupPayloadStrategy({ groupMap });
-const v2Strategy = (groupMap: GroupMap) =>
+// `remoteReferences` adds savedGroupReferencesRemote.
+const v2Strategy = (
+  groupMap: GroupMap,
+  { remoteReferences = false }: { remoteReferences?: boolean } = {},
+) =>
   getSavedGroupPayloadStrategy({
-    capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+    capabilities: [
+      "savedGroupReferences",
+      "savedGroupReferencesV2",
+      ...(remoteReferences ? ["savedGroupReferencesRemote" as const] : []),
+    ],
     savedGroupFormat: "referencesV2",
     groupMap,
   });
@@ -4109,6 +4120,96 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
       }),
     ).toEqual({
       $and: [{ id_a: { $inGroup: "list_a" } }, { browser: "chrome" }],
+    });
+  });
+});
+
+describe("mergeConditionAndSavedGroups with remote groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["vip", { type: "remote", attributeKey: "account_id" }],
+    ["beta", { type: "remote", attributeKey: "user_id" }],
+    ["list_a", { type: "list", values: ["0"], attributeKey: "id_a" }],
+  ]);
+  // Like a payload build: merge, then finalize, which adds the guard.
+  const build = (
+    strategy: SavedGroupPayloadStrategy,
+    args: Omit<
+      Parameters<typeof mergeConditionAndSavedGroups>[0],
+      "savedGroupStrategy"
+    >,
+  ) => {
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy: strategy,
+      ...args,
+    });
+    strategy.finalizeCondition(condition);
+    return condition;
+  };
+
+  it("merges remote groups into the rule's condition", () => {
+    expect(
+      build(v2Strategy(groupMap), {
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          { match: "all", ids: ["vip"] },
+          { match: "none", ids: ["beta"] },
+        ],
+      }),
+    ).toEqual({
+      $and: [
+        { country: "US" },
+        { __remoteGroupIds: { $in: ["vip"] } },
+        { __remoteGroupIds: { $nin: ["beta"] } },
+      ],
+      __remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("ANDs one check per group for match: all", () => {
+    expect(
+      build(v1Strategy(groupMap), {
+        savedGroups: [{ match: "all", ids: ["vip", "beta"] }],
+      }),
+    ).toEqual({
+      $and: [
+        { __remoteGroupIds: { $in: ["vip"] } },
+        { __remoteGroupIds: { $in: ["beta"] } },
+      ],
+      __remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("ORs remote and other groups for match: any", () => {
+    expect(
+      build(v2Strategy(groupMap), {
+        savedGroups: [{ match: "any", ids: ["list_a", "vip", "beta"] }],
+      }),
+    ).toEqual({
+      $or: [
+        { $savedGroup: { id: "list_a" } },
+        { __remoteGroupIds: { $in: ["vip"] } },
+        { __remoteGroupIds: { $in: ["beta"] } },
+      ],
+      __remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("keeps references with savedGroupReferencesRemote", () => {
+    expect(
+      build(v2Strategy(groupMap, { remoteReferences: true }), {
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          { match: "all", ids: ["vip"] },
+          { match: "none", ids: ["beta"] },
+        ],
+      }),
+    ).toEqual({
+      $and: [
+        { country: "US" },
+        { $savedGroup: { id: "vip" } },
+        { $not: { $savedGroup: { id: "beta" } } },
+      ],
+      __remoteGroupIds: { $exists: true },
     });
   });
 });

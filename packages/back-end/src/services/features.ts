@@ -46,6 +46,7 @@ import {
   getSavedGroupPayloadStrategy,
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
+  forEachRemoteGroupIdInCondition,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
   SavedGroupPayloadStrategy,
@@ -812,18 +813,27 @@ export function getUsedSavedGroupIds(
       });
     }
   };
+  // Remote groups can also appear as `__remoteGroupIds` checks, for SDKs that
+  // can't read their references, e.g. {"__remoteGroupIds": {"$in": ["grp_1"]}}.
+  // Their entries still tell the SDK which attribute to look up.
+  const addConditionToUsedGroupIds = (condition: unknown) => {
+    recursiveWalk(condition, addToUsedGroupIds);
+    forEachRemoteGroupIdInCondition(condition, groupMap, (id) =>
+      seedIds.add(id),
+    );
+  };
   Object.values(features).forEach((feature) => {
     if (!feature.rules) {
       return;
     }
     feature.rules.forEach((rule) => {
-      recursiveWalk(rule.condition, addToUsedGroupIds);
-      recursiveWalk(rule.parentConditions, addToUsedGroupIds);
+      addConditionToUsedGroupIds(rule.condition);
+      addConditionToUsedGroupIds(rule.parentConditions);
     });
   });
   experimentsDefinitions.forEach((experimentDefinition) => {
-    recursiveWalk(experimentDefinition.condition, addToUsedGroupIds);
-    recursiveWalk(experimentDefinition.parentConditions, addToUsedGroupIds);
+    addConditionToUsedGroupIds(experimentDefinition.condition);
+    addConditionToUsedGroupIds(experimentDefinition.parentConditions);
   });
 
   return findAllReferencedSavedGroupIds(seedIds, groupMap);
@@ -3403,6 +3413,8 @@ export function applySavedGroupHashing(
 ): SavedGroupInterface[] {
   const clonedGroups = clone(savedGroups);
   clonedGroups.forEach((group) => {
+    // Remote IDs are not in the payload; resolvers look them up unhashed.
+    if (group.type === "remote") return;
     const attribute = attributes.find(
       (attr) => attr.property === group.attributeKey,
     );

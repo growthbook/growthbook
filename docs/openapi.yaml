@@ -756,6 +756,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/SavedGroupRevisionReview" />
+  - name: SavedGroupUpload_model
+    x-displayName: Saved Group Upload
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupUpload" />
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
@@ -21800,6 +21803,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - name: type
+          in: query
+          description: Only list Saved Groups of this type
+          schema:
+            description: Only list Saved Groups of this type
+            type: string
+            enum:
+              - condition
+              - list
+              - remote
       responses:
         '200':
           description: Successful response
@@ -21845,6 +21858,7 @@ paths:
                   enum:
                     - condition
                     - list
+                    - remote
                 condition:
                   description: >-
                     When type = 'condition', this is the JSON-encoded condition
@@ -21852,8 +21866,8 @@ paths:
                   type: string
                 attributeKey:
                   description: >-
-                    When type = 'list', this is the attribute key the group is
-                    based on
+                    When type = 'list' or 'remote', this is the attribute key
+                    the group is based on
                   type: string
                 values:
                   description: >-
@@ -22288,6 +22302,266 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/saved-groups/abc123/references' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/uploads:
+    get:
+      operationId: listSavedGroupUploads
+      summary: List the uploads of a remote saved group
+      description: Newest first.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - uploads
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSavedGroupUpload
+      summary: Upload a new version of a remote saved group's IDs
+      description: >-
+        Replaces the group's IDs with the next version. The start and end of the
+        file are checked for one ID per line; loaders trim and deduplicate the
+        IDs. The SDK payload doesn't change; loaders pick up the new version
+        from `latestUpload` on the saved group, and download it from `GET
+        /saved-groups/{id}/uploads/{version}/file`, which redirects to a signed
+        storage URL and supports `If-None-Match`.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileKey:
+                  description: The `fileKey` from the upload URL endpoint
+                  type: string
+              required:
+                - fileKey
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"fileKey":"org_abc/remote-saved-groups/grp_123/uploads/1234.csv"}'
+  /v1/saved-groups/{id}/upload-url:
+    post:
+      operationId: postSavedGroupUploadUrl
+      summary: Get a signed URL to upload a remote saved group CSV
+      description: >-
+        Upload a CSV with one ID per line to the returned URL with
+        `Content-Type: text/csv`, then create an upload with the `fileKey`. A
+        first line equal to the attribute name is a header. Needs S3 or Google
+        Cloud Storage.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signedUrl:
+                    type: string
+                  fields:
+                    description: >-
+                      Form fields for an S3 presigned POST. When null, PUT the
+                      file to `signedUrl` instead.
+                    anyOf:
+                      - type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      - type: 'null'
+                  fileKey:
+                    description: Pass this to the create upload endpoint after uploading
+                    type: string
+                  maxBytes:
+                    type: integer
+                  expiresAt:
+                    format: date-time
+                    type: string
+                required:
+                  - signedUrl
+                  - fields
+                  - fileKey
+                  - maxBytes
+                  - expiresAt
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/upload-url' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/uploads/{version}/loads:
+    post:
+      operationId: postSavedGroupUploadLoad
+      summary: Report loading a remote saved group upload into a data store
+      description: >-
+        Called by remote saved group loaders. Each report replaces the previous
+        one from the same `storeId`. Needs permission to publish the saved
+        group.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                storeId:
+                  description: >-
+                    Identifies the data store, such as one Redis. Loaders
+                    sharing a store report with the same id.
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                status:
+                  description: >-
+                    Loaders validate the file while loading it, so each store
+                    reports its own result.
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: loading
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: loaded
+                        rowCount:
+                          description: Unique IDs loaded
+                          type: integer
+                          minimum: 0
+                      required:
+                        - type
+                        - rowCount
+                      additionalProperties: false
+                    - description: >-
+                        The file has problems, so the store kept serving the
+                        previous upload
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          const: invalid
+                        invalidLineCount:
+                          type: integer
+                          minimum: 0
+                        errors:
+                          description: The first problems found in the file
+                          maxItems: 10
+                          type: array
+                          items:
+                            type: string
+                            maxLength: 500
+                      required:
+                        - type
+                        - invalidLineCount
+                        - errors
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: failed
+                        error:
+                          description: A problem in the data store, not the file
+                          type: string
+                          maxLength: 2000
+                      required:
+                        - type
+                        - error
+                      additionalProperties: false
+              required:
+                - storeId
+                - status
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3/loads'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"storeId":"7f3c2a9e-redis-us-east","status":{"type":"loaded","rowCount":120000}}'
   /v1/saved-groups-revisions/{savedGroupId}:
     get:
       operationId: getSavedGroupRevisions
@@ -69291,6 +69565,23 @@ components:
           type: boolean
         useEmptyListGroup:
           type: boolean
+        latestUpload:
+          description: >-
+            When type = 'remote', the newest valid upload of its IDs, or null if
+            there is none. Loaders load this version.
+          anyOf:
+            - type: object
+              properties:
+                version:
+                  type: integer
+                dateCreated:
+                  format: date-time
+                  type: string
+              required:
+                - version
+                - dateCreated
+              additionalProperties: false
+            - type: 'null'
       required:
         - id
         - type
@@ -69677,6 +69968,159 @@ components:
           type: string
       required:
         - id
+      additionalProperties: false
+    SavedGroupUpload:
+      type: object
+      properties:
+        savedGroupId:
+          type: string
+        version:
+          type: integer
+        size:
+          description: File size in bytes
+          type: integer
+        dateCreated:
+          format: date-time
+          type: string
+        createdBy:
+          type: string
+        status:
+          description: >-
+            `pending` until GrowthBook has checked the whole file. Loaders only
+            see `valid` uploads.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: pending
+              required:
+                - type
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: valid
+                idCount:
+                  description: IDs in the file, before removing duplicates
+                  type: integer
+                  minimum: 0
+              required:
+                - type
+                - idCount
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: invalid
+                invalidLineCount:
+                  type: integer
+                  minimum: 0
+                errors:
+                  description: The first problems found in the file
+                  maxItems: 10
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 500
+              required:
+                - type
+                - invalidLineCount
+                - errors
+              additionalProperties: false
+        loads:
+          description: Each data store's latest report on loading this upload
+          type: array
+          items:
+            type: object
+            properties:
+              storeId:
+                description: >-
+                  Identifies the data store, such as one Redis. Loaders sharing
+                  a store report with the same id.
+                type: string
+                minLength: 1
+                maxLength: 100
+              status:
+                description: >-
+                  Loaders validate the file while loading it, so each store
+                  reports its own result.
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: loading
+                    required:
+                      - type
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: loaded
+                      rowCount:
+                        description: Unique IDs loaded
+                        type: integer
+                        minimum: 0
+                    required:
+                      - type
+                      - rowCount
+                    additionalProperties: false
+                  - description: >-
+                      The file has problems, so the store kept serving the
+                      previous upload
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        const: invalid
+                      invalidLineCount:
+                        type: integer
+                        minimum: 0
+                      errors:
+                        description: The first problems found in the file
+                        maxItems: 10
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 500
+                    required:
+                      - type
+                      - invalidLineCount
+                      - errors
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: failed
+                      error:
+                        description: A problem in the data store, not the file
+                        type: string
+                        maxLength: 2000
+                    required:
+                      - type
+                      - error
+                    additionalProperties: false
+              dateUpdated:
+                format: date-time
+                type: string
+            required:
+              - storeId
+              - status
+              - dateUpdated
+            additionalProperties: false
+      required:
+        - savedGroupId
+        - version
+        - size
+        - dateCreated
+        - createdBy
+        - status
+        - loads
       additionalProperties: false
     Constant:
       type: object
@@ -84647,6 +85091,7 @@ x-tagGroups:
       - SavedGroupRevisionActivityLogEntry_model
       - SavedGroupRevisionRef_model
       - SavedGroupRevisionReview_model
+      - SavedGroupUpload_model
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model

@@ -1,5 +1,6 @@
 import { listSavedGroupsValidator } from "shared/validators";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import { addLatestUploads } from "back-end/src/services/remoteSavedGroups";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -13,8 +14,11 @@ export const listSavedGroups = createApiRequestHandler(
   const allWithoutValues =
     await req.context.models.savedGroups.getAllWithoutValues();
 
+  const { type } = req.query;
   const { filtered, returnFields } = applyPagination(
-    allWithoutValues.sort((a, b) => a.id.localeCompare(b.id)),
+    allWithoutValues
+      .filter((g) => !type || g.type === type)
+      .sort((a, b) => a.id.localeCompare(b.id)),
     req.query,
   );
 
@@ -25,12 +29,15 @@ export const listSavedGroups = createApiRequestHandler(
 
   return {
     savedGroups: await resolveOwnerEmails(
-      filtered.flatMap((g) => {
-        const full = byId.get(g.id);
-        return full
-          ? [req.context.models.savedGroups.toApiInterface(full)]
-          : [];
-      }),
+      await addLatestUploads(
+        req.context,
+        filtered.flatMap((g) => {
+          const full = byId.get(g.id);
+          return full
+            ? [req.context.models.savedGroups.toApiInterface(full)]
+            : [];
+        }),
+      ),
       req.context,
     ),
     ...returnFields,

@@ -158,6 +158,16 @@ export const apiSavedGroupValidator = namedSchema(
       projects: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       useEmptyListGroup: z.boolean().optional(),
+      latestUpload: z
+        .object({
+          version: z.number().int(),
+          dateCreated: z.string().meta({ format: "date-time" }),
+        })
+        .nullable()
+        .describe(
+          "When type = 'remote', the newest valid upload of its IDs, or null if there is none. Loaders load this version.",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -168,9 +178,7 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 const postSavedGroupBody = z
   .object({
     name: z.string().describe("The display name of the Saved Group"),
-    // TODO(remote-saved-groups): accept "remote" once the handler supports it.
-    type: z
-      .enum(["condition", "list"])
+    type: savedGroupTypeValidator
       .describe(
         "The type of Saved Group (inferred from other arguments if missing)",
       )
@@ -184,7 +192,7 @@ const postSavedGroupBody = z
     attributeKey: z
       .string()
       .describe(
-        "When type = 'list', this is the attribute key the group is based on",
+        "When type = 'list' or 'remote', this is the attribute key the group is based on",
       )
       .optional(),
     values: z
@@ -202,7 +210,8 @@ const postSavedGroupBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(refineRemoteSavedGroupBody);
 
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
@@ -242,6 +251,9 @@ export const listSavedGroupsValidator = {
   querySchema: z
     .object({
       ...paginationQueryFields,
+      type: savedGroupTypeValidator
+        .describe("Only list Saved Groups of this type")
+        .optional(),
     })
     .strict(),
   paramsSchema: z.never(),

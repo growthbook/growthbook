@@ -6,6 +6,10 @@ import { updateSavedGroup } from "./updateSavedGroup";
 import { archiveSavedGroup, unarchiveSavedGroup } from "./archiveSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
 import { getSavedGroupReferences } from "./getSavedGroupReferences";
+import { listSavedGroupUploads } from "./listSavedGroupUploads";
+import { postSavedGroupUploadUrl } from "./postSavedGroupUploadUrl";
+import { postSavedGroupUpload } from "./postSavedGroupUpload";
+import { postSavedGroupUploadLoad } from "./postSavedGroupUploadLoad";
 
 // Revision routes
 import { listSavedGroupRevisions } from "./listSavedGroupRevisions";
@@ -42,6 +46,12 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   unarchiveSavedGroup,
   getSavedGroupReferences,
   deleteSavedGroup,
+
+  // Remote saved group uploads
+  listSavedGroupUploads,
+  postSavedGroupUploadUrl,
+  postSavedGroupUpload,
+  postSavedGroupUploadLoad,
 
   // Revisions — reading & listing.
   // `latest` MUST precede the `:version` route below; otherwise its int param

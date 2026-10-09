@@ -22,6 +22,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { DraftConflict } from "shared/types/draft-conflict";
+import type { ApiSavedGroupUpload } from "shared/validators";
 import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
   canStageArchiveDraft,
@@ -35,6 +36,11 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  createRemoteSavedGroupUpload,
+  getRemoteSavedGroupUploadUrl,
+  listRemoteSavedGroupUploads,
+} from "back-end/src/services/remoteSavedGroups";
 import {
   isRevisionRequired,
   createOrUpdateRevision,
@@ -141,9 +147,6 @@ export const postSavedGroup = async (
       org.settings?.savedGroupSizeLimit,
       context.permissions.canBypassSavedGroupSizeLimit(projects),
     );
-  } else if (type === "remote") {
-    // TODO(remote-saved-groups): allow once the back end supports them.
-    throw new Error("Remote Saved Groups are not supported yet");
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
@@ -1277,3 +1280,40 @@ export const getSavedGroupsMetadata = async (
 };
 
 // endregion GET /saved-groups/metadata
+
+// region remote saved group uploads
+
+export const getSavedGroupUploads = async (
+  req: AuthRequest<never, { id: string }>,
+  res: Response<{ status: 200; uploads: ApiSavedGroupUpload[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const uploads = await listRemoteSavedGroupUploads(context, req.params.id);
+  return res.status(200).json({ status: 200, uploads });
+};
+
+export const postSavedGroupUploadUrl = async (
+  req: AuthRequest<never, { id: string }>,
+  res: Response<
+    { status: 200 } & Awaited<ReturnType<typeof getRemoteSavedGroupUploadUrl>>
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const upload = await getRemoteSavedGroupUploadUrl(context, req.params.id);
+  return res.status(200).json({ status: 200, ...upload });
+};
+
+export const postSavedGroupUpload = async (
+  req: AuthRequest<{ fileKey: string }, { id: string }>,
+  res: Response<{ status: 200; upload: ApiSavedGroupUpload }>,
+) => {
+  const context = getContextFromReq(req);
+  const upload = await createRemoteSavedGroupUpload(
+    context,
+    req.params.id,
+    req.body.fileKey,
+  );
+  return res.status(200).json({ status: 200, upload });
+};
+
+// endregion remote saved group uploads

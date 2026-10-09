@@ -70,6 +70,7 @@ import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { SavedGroupUploadModel } from "back-end/src/models/SavedGroupUploadModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
 import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
@@ -148,6 +149,7 @@ export type ModelName =
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "savedGroupUploads"
   | "constants"
   | "configs"
   | "teams"
@@ -208,6 +210,7 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  savedGroupUploads: SavedGroupUploadModel,
   constants: ConstantModel,
   configs: ConfigModel,
   teams: TeamModel,
@@ -385,6 +388,7 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      savedGroupUploads: new SavedGroupUploadModel(this),
       constants: new ConstantModel(this),
       configs: new ConfigModel(this),
       teams: new TeamModel(this),

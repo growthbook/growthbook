@@ -286,9 +286,13 @@ export function createReferencesV2Strategy(
     buildSavedGroupsPayload: (usedSavedGroups) =>
       organization
         ? buildV2SavedGroupsPayload(
-            // Leave out any group type this SDK cannot read.
-            usedSavedGroups.filter((g) =>
-              capabilities.includes(SAVED_GROUP_TYPE_CAPABILITY[g.type]),
+            // Leave out any group type this SDK cannot read. Remote entries
+            // only name an attribute, so every v2 SDK gets them, telling it
+            // what to look up even when rules check __remoteGroupIds directly.
+            usedSavedGroups.filter(
+              (g) =>
+                g.type === "remote" ||
+                capabilities.includes(SAVED_GROUP_TYPE_CAPABILITY[g.type]),
             ),
             organization,
             new Map(usedSavedGroups.map((g) => [g.id, g])),
