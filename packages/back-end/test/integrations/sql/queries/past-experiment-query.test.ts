@@ -23,8 +23,8 @@ describe("getPastExperimentQuery", () => {
     );
 
     expect(sql.match(/FROM\s+t\b/g)).toHaveLength(1);
-    expect(sql).toMatch(/COUNT\(distinct anonymous_id\) as users_0/);
-    expect(sql).toMatch(/COUNT\(distinct user_id\) as users_1/);
+    expect(sql).toMatch(/COUNT\(DISTINCT anonymous_id\) as users_0/);
+    expect(sql).toMatch(/COUNT\(DISTINCT user_id\) as users_1/);
     expect(sql).toMatch(/'user_id'\s*AS\s*VARCHAR\) as identifier_type/i);
     // Noise thresholds are per identifier
     expect(sql).toMatch(
