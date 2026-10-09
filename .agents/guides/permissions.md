@@ -28,7 +28,7 @@ Can be granted for all projects or specific projects:
 - `editSavedGroupDrafts`, `reviewSavedGroups`, `publishSavedGroups`,
   `revertSavedGroups`, `createSavedGroups`, `deleteSavedGroups`,
   `bypassApprovalSavedGroups`
-- `createMetrics`, `createAnalyses`, `createSegments`
+- `createMetrics`, `createAnalyses`, `createSegments`, `managePopulations`
 - `manageFactTables`, `manageFactMetrics`
 - `manageTargetingAttributes`
 - `createDatasources`, `editDatasourceSettings`, `runQueries`
