@@ -1395,6 +1395,24 @@ export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
     );
 }
 
+const wasUpdated = (a: ApiAutoRun["artifacts"][number]) =>
+  a.action === "updated" || (!a.action && a.detail === "Updated from Eppo");
+
+// What this run created that a later import of the same source has since
+// updated; tearing this run down deletes those too
+export function updatedByLaterRuns(
+  run: ApiAutoRun,
+  runs: ApiAutoRun[],
+): ApiAutoRun["artifacts"] {
+  const updated = new Set(
+    runs
+      .filter((r) => r.source === run.source && r.dateCreated > run.dateCreated)
+      .flatMap((r) => r.artifacts.filter(wasUpdated))
+      .map((a) => `${a.kind}:${a.id}`),
+  );
+  return createdByRun(run).filter((a) => updated.has(`${a.kind}:${a.id}`));
+}
+
 async function deleteArtifact(
   artifact: ApiAutoRun["artifacts"][number],
   apiCall: ApiCall,

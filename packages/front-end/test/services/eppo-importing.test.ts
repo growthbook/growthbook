@@ -15,6 +15,7 @@ import {
   toExperimentUpdate,
   toPhaseDate,
   TransformContext,
+  updatedByLaterRuns,
   transformExperiment,
   transformFactSource,
   transformFlag,
@@ -1011,6 +1012,50 @@ describe("getImportedIds", () => {
     expect(ids.metrics).toEqual(new Map([[1, "fact__new"]]));
     expect(ids.audiences.size).toBe(0);
     expect(ids.flags).toEqual(new Map([[3, "flag-a"]]));
+  });
+});
+
+describe("updatedByLaterRuns", () => {
+  const run = (
+    dateCreated: string,
+    artifacts: Partial<ApiAutoRun["artifacts"][number]>[],
+  ): ApiAutoRun =>
+    ({
+      id: `arun_${dateCreated}`,
+      source: "eppo-import",
+      dateCreated,
+      artifacts: artifacts.map((a) => ({
+        kind: "feature",
+        id: "",
+        label: "",
+        by: "growthbook",
+        detail: null,
+        dateCreated,
+        ...a,
+      })),
+    }) as ApiAutoRun;
+
+  it("lists what this run created that a later import updated", () => {
+    const target = run("2024-02-01", [
+      { id: "flag-a", action: "created" },
+      { id: "flag-b", action: "created" },
+      { kind: "saved-group", id: "grp_1", detail: "Created from Eppo" },
+      { id: "flag-c", action: "updated" },
+    ]);
+    const updated = updatedByLaterRuns(target, [
+      target,
+      run("2024-03-01", [
+        { id: "flag-a", action: "updated" },
+        { id: "flag-c", action: "updated" },
+        { kind: "saved-group", id: "grp_1", detail: "Updated from Eppo" },
+      ]),
+      run("2024-01-01", [{ id: "flag-b", action: "updated" }]),
+      {
+        ...run("2024-04-01", [{ id: "flag-b", action: "updated" }]),
+        source: "cli-wizard",
+      },
+    ]);
+    expect(updated.map((a) => a.id)).toEqual(["flag-a", "grp_1"]);
   });
 });
 

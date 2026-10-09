@@ -6,6 +6,7 @@ import {
   createdByRun,
   TeardownFailure,
   teardownRun,
+  updatedByLaterRuns,
 } from "@/services/importing/eppo/eppo-importing";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -195,6 +196,10 @@ function DeleteRunButton({
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<TeardownFailure[]>([]);
   const created = createdByRun(run);
+  const { data: runsData } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs", {
+    shouldRun: () => created.length > 0,
+  });
+  const updatedLater = updatedByLaterRuns(run, runsData?.autoRuns ?? []);
   return (
     <>
       {failures.length > 0 && (
@@ -230,7 +235,16 @@ function DeleteRunButton({
       {confirming && (
         <ConfirmDialog
           title="Delete everything this run created?"
-          content="Everything this import created is deleted: Feature Flags, experiments, metrics, Fact Tables, Saved Groups, environments and tags, including any a later import has updated since. Items this run only updated are kept. This can't be undone."
+          content={
+            <>
+              Everything this import created is deleted: Feature Flags,
+              experiments, metrics, Fact Tables, Saved Groups, environments and
+              tags. Items this run only updated are kept.
+              {updatedLater.length > 0 &&
+                ` A later import has since updated ${updatedLater.map((a) => `${KIND[a.kind].label} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it is" : "they are"} deleted too.`}{" "}
+              This can&apos;t be undone.
+            </>
+          }
           yesText="Delete"
           color="red"
           onCancel={() => setConfirming(false)}
