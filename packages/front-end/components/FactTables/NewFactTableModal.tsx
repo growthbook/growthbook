@@ -127,7 +127,13 @@ function MappingRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-export default function NewFactTableModal({ close }: { close: () => void }) {
+export default function NewFactTableModal({
+  close,
+  datasourceId: initialDatasourceId,
+}: {
+  close: () => void;
+  datasourceId?: string;
+}) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
@@ -138,6 +144,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [step, setStep] = useState(0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );

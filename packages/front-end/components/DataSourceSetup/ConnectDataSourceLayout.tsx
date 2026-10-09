@@ -28,7 +28,7 @@ import Field from "@/components/Forms/Field";
 import spinnerStyles from "@/components/LoadingSpinner.module.scss";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getInitialSettings } from "@/services/datasources";
+import { getInitialSettings, hasEventTrackerSql } from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import { ensureAndReturn } from "@/types/utils";
@@ -271,16 +271,31 @@ export default function ConnectDataSourceLayout({
           setup,
         });
       } else {
+        const initialSettings = getInitialSettings(
+          schemaFormat,
+          ensureAndReturn(datasource.params),
+        );
+        // Event trackers come with known identifiers and assignment SQL. A
+        // custom warehouse starts empty so the user defines them in Finish
+        // Setting Up.
+        const prefill = hasEventTrackerSql(schemaFormat);
         const res = await apiCall<{ id: string }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
             ...datasource,
             settings: {
-              ...getInitialSettings(
-                schemaFormat,
-                ensureAndReturn(datasource.params),
-              ),
+              ...initialSettings,
               ...(datasource.settings || {}),
+              ...(prefill
+                ? {}
+                : {
+                    userIdTypes: [],
+                    queries: {
+                      ...initialSettings.queries,
+                      ...(datasource.settings?.queries || {}),
+                      exposure: [],
+                    },
+                  }),
             },
           }),
         });

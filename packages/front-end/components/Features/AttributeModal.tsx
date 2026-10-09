@@ -33,6 +33,8 @@ import TagsField from "./FeatureModal/TagsField";
 export interface Props {
   close: () => void;
   attribute?: string;
+  /** Starting values when creating a new attribute. Ignored when editing. */
+  initialValues?: Pick<Partial<SDKAttribute>, "property" | "hashAttribute">;
 }
 
 const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
@@ -45,7 +47,11 @@ const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
   "string[]": 'Useful for things like "tags"',
   "secureString[]": "Useful for passing multiple values securely",
 };
-export default function AttributeModal({ close, attribute }: Props) {
+export default function AttributeModal({
+  close,
+  attribute,
+  initialValues,
+}: Props) {
   const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
@@ -57,7 +63,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const form = useForm<SDKAttribute>({
     defaultValues: {
-      property: attribute || "",
+      property: attribute || initialValues?.property || "",
       description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute
@@ -70,7 +76,9 @@ export default function AttributeModal({ close, attribute }: Props) {
         ? current?.format || ""
         : "") as SDKAttributeFormat,
       enum: current?.enum || "",
-      hashAttribute: !!current?.hashAttribute,
+      hashAttribute: attribute
+        ? !!current?.hashAttribute
+        : !!initialValues?.hashAttribute,
       disableEqualityConditions: current?.disableEqualityConditions || false,
       tags: current?.tags || [],
       customFields: current?.customFields || {},

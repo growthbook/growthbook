@@ -25,13 +25,22 @@ type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
+  /** Identifier the new query should start on. Falls back to the first type. */
+  defaultIdentifierType?: string;
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  defaultIdentifierType,
+  onSave,
+  onCancel,
+}) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -47,9 +56,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       value: userIdType,
     }),
   );
-  const defaultUserId = userIdTypeOptions
-    ? userIdTypeOptions[0]?.value
-    : "user_id";
+  const knownIdentifierTypes = new Set(
+    userIdTypeOptions?.map((option) => option.value) ?? [],
+  );
+  const defaultUserId =
+    (defaultIdentifierType && knownIdentifierTypes.has(defaultIdentifierType)
+      ? defaultIdentifierType
+      : userIdTypeOptions?.[0]?.value) || "user_id";
 
   /** Each selected identifier must come back as a same-named column. */
   const buildDefaultQuery = (userIdTypes: string[]) => {
