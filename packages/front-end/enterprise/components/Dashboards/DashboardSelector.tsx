@@ -22,6 +22,7 @@ export interface DashboardSelectorProps {
   // Adds a "no selection" option that calls setValue("") when chosen.
   allowClear?: boolean;
   clearLabel?: string;
+  placeholder?: string;
 }
 
 export default function DashboardSelector({
@@ -36,6 +37,7 @@ export default function DashboardSelector({
   disabled = false,
   allowClear = false,
   clearLabel = "None",
+  placeholder,
 }: DashboardSelectorProps) {
   return (
     <Select
@@ -43,7 +45,9 @@ export default function DashboardSelector({
         minWidth: "200px",
         ...style,
       }}
-      value={allowClear && !value ? CLEAR_VALUE : value}
+      placeholder={placeholder}
+      // Radix only shows the placeholder when value is undefined, not "".
+      value={value || (allowClear ? CLEAR_VALUE : undefined)}
       setValue={(newValue) => {
         if (newValue === "__create__") {
           onCreateNew?.();
@@ -70,7 +74,9 @@ export default function DashboardSelector({
           <SelectItem value={defaultDashboard.id}>
             <OverflowText maxWidth={400}>{defaultDashboard.title}</OverflowText>
           </SelectItem>
-          <SelectSeparator />
+          {dashboards.some((d) => d.id !== defaultDashboard.id) && (
+            <SelectSeparator />
+          )}
         </>
       )}
       {dashboards.map((dash) =>
