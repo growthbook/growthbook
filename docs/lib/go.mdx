@@ -8,6 +8,7 @@ toc_max_heading_level: 5
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import GoEventTracking from "/snippets/partials/sdk-event-tracking/_go.mdx";
 
 <SdkResources sdk="go" />
 
@@ -704,6 +705,12 @@ fmt.Println(result.StickyBucketUsed) // true or false
 ```
 
 The `InExperiment` flag is set to true only if the user was randomly assigned a variation. If the user fails any targeting rules or is forced into a specific variation, this flag will be false.
+
+## GrowthBook Event Tracking
+
+Sends experiment view, feature usage, and custom events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<GoEventTracking />
 
 ## Experiment Tracking and Feature Usage Callbacks
 

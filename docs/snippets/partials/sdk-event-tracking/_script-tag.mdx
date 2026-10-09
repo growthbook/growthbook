@@ -1,0 +1,32 @@
+Add `data-tracking="growthbook"` to the script tag. It reports events that already fired; it does not enroll users in an experiment.
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-tracking="growthbook"
+  data-event-ingestor-host="https://us-east-1.gb-ingest.com"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+Push custom events to the `window.gbEvents` array:
+
+```html
+<script>
+  window.gbEvents = window.gbEvents || [];
+
+  // Without properties
+  window.gbEvents.push("Page View");
+
+  // With properties
+  window.gbEvents.push({
+    eventName: "Button Click",
+    properties: { button: "Sign Up" },
+  });
+</script>
+```
+
+| Attribute                  | Description                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `data-event-ingestor-host` | Ingestor for your Data Region.                                                        |
+| `data-event-transport`     | `auto` (default), `beacon`, or `fetch`, like the JavaScript SDK's `transport` option. |

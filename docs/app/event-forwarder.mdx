@@ -4,6 +4,8 @@ description: Forward GrowthBook Cloud tracking events to your warehouse so you c
 sidebarTitle: Event Forwarder
 ---
 
+import SdkEventTracking from '/snippets/partials/_sdk-event-tracking.mdx';
+
 GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to track events in your app and we will enrich and forward them to your data warehouse in near real-time.
 
 ## Benefits
@@ -23,7 +25,7 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 
 ## Connection Permissions
 
-When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access before provisioning the Confluent connector.
+When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access.
 
 ### BigQuery
 
@@ -48,7 +50,7 @@ The Snowflake connection **must use key-pair authentication** — password authe
 | `CREATE TABLE`  | Schema                   |
 | `INSERT`        | Tables                   |
 
-`CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+`CREATE TABLE` and `CREATE SCHEMA` are required because we use Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
@@ -97,9 +99,9 @@ Zerobus Ingest is a serverless Databricks feature billed to **your** Databricks 
 
 ## Network Access
 
-If your warehouse restricts access by IP — a Snowflake network policy, a BigQuery VPC Service Control perimeter, a firewall in front of either — it needs to admit **two** different sources. GrowthBook Cloud connects from `52.70.79.40` to create the destination tables and validate write access, and the Confluent connector streams your events from a separate pool of addresses that depends on your Data Region.
+For [Event Forwarder](/app/event-forwarder), you must always allow incoming connections from GrowthBook Cloud's primary ip address (`52.70.79.40/32`).
 
-Both lists are on the [IP addresses](/ip-addresses#event-forwarder-connections-to-your-warehouse) page. Allow all of them before enabling the forwarder — a partial list shows up as a connector that validates once and then fails later, because any address in the pool can be the one that connects.
+If you are using our `eu-west-1` ingestor region, you also must allow traffic from `54.74.233.97/32`.
 
 ## Get Started
 
@@ -109,158 +111,16 @@ The event forwarder is an advanced Pro/Enterprise feature and must be enabled fo
 
 There are 2 ways to send events to GrowthBook:
 
-1. With our [SDKs](#with-sdks) (limited language support)
+1. With our [SDKs](#with-sdks)
 2. With our [Ingestion API](#ingestion-api)
 
 ### With SDKs
 
-The following SDKs have a built-in plugin to automatically send events.
-
-- [HTML Script Tag](#html-script-tag)
-- [Client-Side JavaScript / React](#client-side-javascript-react)
-- [Node.js](#node-js)
-
-For everything else, use the [Ingestion API](#ingestion-api).
-
-When the plugin is added, these SDKs will automatically send feature usage and experiment view events to GrowthBook. They also expose a helper method to log additional custom events with optional properties.
-
-All of the attributes in the SDK are sent along with events as context.
-
-#### HTML Script Tag
-
-Add `data-tracking="growthbook"` to forward experiment view events that already fired. It does not enroll users in an experiment.
-
-```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY"
-  data-tracking="growthbook"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-To track additional events, use the `window.gbEvents` global variable. You can push events to this array, and they will be tracked.
-
-```html
-<script>
-  // Ensure the global variable exists
-  window.gbEvents = window.gbEvents || [];
-
-  // Simple (no properties)
-  window.gbEvents.push("Page View");
-
-  function handleSignUpClick() {
-    // With custom properties
-    window.gbEvents.push({
-      eventName: "Button Click",
-      properties: {
-        button: "Sign Up"
-      }
-    });
-  }
-</script>
-<button onclick="handleSignUpClick()">Sign Up</button>
-```
-
-#### Client-Side JavaScript / React {#client-side-javascript-react}
-
-Use the `growthbookTrackingPlugin` to enable tracking. We recommend also using the `autoAttributesPlugin` to include many common attributes in your events (browser, session_id, etc.).
-
-```js
-import { GrowthBook } from "@growthbook/growthbook";
-import {
-  autoAttributesPlugin,
-  growthbookTrackingPlugin
-} from "@growthbook/growthbook/plugins";
-
-const gb = new GrowthBook({
-    clientKey: "YOUR_CLIENT_KEY",
-    plugins: [
-        autoAttributesPlugin(),
-        growthbookTrackingPlugin()
-    ]
-});
-```
-
-Use the `logEvent` method to track additional custom events:
-
-```js
-// Simple (no properties)
-gb.logEvent("Page View");
-
-// With custom properties
-gb.logEvent("Button Click", {
-  button: "Sign Up",
-});
-```
-
-Feature usage events are enabled by default. Disable them without affecting
-experiment view or custom events:
-
-```js
-growthbookTrackingPlugin({
-  enableFeatureUsageEvents: false,
-});
-```
-
-#### Event Delivery on Page Navigation
-
-Events are batched and sent with `fetch` using `keepalive`, and when the page
-is hidden or unloading the queue is flushed with `navigator.sendBeacon`. Both
-survive the page being torn down, so exposure events are not lost when a user
-navigates away immediately — which matters especially for **redirect
-experiments**, where the losing request would otherwise skew traffic splits
-and trigger SRM warnings.
-
-You can override this with the `transport` option (`data-event-transport` on
-the script tag): `"auto"` (default, described above), `"beacon"` (always
-prefer `sendBeacon`), or `"fetch"` (never use `sendBeacon`).
-
-```js
-growthbookTrackingPlugin({ transport: "beacon" });
-```
-
-#### Node.js
-
-Use the `growthbookTrackingPlugin` to enable tracking:
-
-```js
-import { GrowthBookClient } from "@growthbook/growthbook";
-import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
-
-const gb = new GrowthBookClient({
-  clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
-  plugins: [growthbookTrackingPlugin()],
-});
-```
-
-Use the `logEvent` method to track additional custom events:
-
-```js
-gb.logEvent("Sign Up", {
-  accountPlan: "pro"
-}, userContext);
-```
-
-User-scoped instances also have a `logEvent` method that doesn't require the user context:
-
-```js
-req.growthbook.logEvent("Sign Up", {
-  accountPlan: "pro"
-});
-```
+<SdkEventTracking />
 
 #### Sending events to the right region
 
-The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, override the ingestor host so events reach the right Kafka/Confluent resources instead of being dropped:
-
-- **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
-- **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:
-
-```js
-growthbookTrackingPlugin({
-  ingestorHost: "https://eu-west-1.gb-ingest.com",
-})
-```
+The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, set the ingestor host option shown for your SDK above to `https://eu-west-1.gb-ingest.com`. Otherwise events won't reach the proper ingestion server and your events will be dropped.
 
 You can find your Event Forwarder's configured region on the data source's Event Forwarder settings.
 
@@ -288,7 +148,7 @@ curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_
 }]'
 ```
 
-Using the wrong host means events won't reach the Kafka/Confluent resources your forwarder is actually wired up to.
+Using the wrong host means events won't reach the proper ingestion server and your events will be dropped.
 
 #### Experiment View Events
 

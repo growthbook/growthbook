@@ -10,7 +10,7 @@
     },
     {
       "version": "1.7.0",
-      "capabilities": ["contextualBandits"]
+      "capabilities": ["contextualBandits", "trackingPlugin"]
     },
     {
       "version": "1.6.5"
@@ -42,8 +42,7 @@
       "version": "1.4.1"
     },
     {
-      "version": "1.4.0",
-      "capabilities": ["trackingPlugin"]
+      "version": "1.4.0"
     },
     {
       "version": "1.3.1"
