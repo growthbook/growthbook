@@ -147,7 +147,7 @@ export function getPastExperimentQuery(
       )
     ${dialect.selectStarLimit(
       `__limited`,
-      MAX_ROWS_PAST_EXPERIMENTS_QUERY * identifierTypes.length,
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY,
       `ORDER BY start_date DESC, experiment_id ASC, variation_id ASC, identifier_type ASC`,
     )}`,
     dialect.formatDialect,
