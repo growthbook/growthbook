@@ -47,6 +47,8 @@ const KIND: Record<
   },
   "fact-table": { label: "Fact Table", href: (id) => `/fact-tables/${id}` },
   "saved-group": { label: "Saved Group", href: (id) => `/saved-groups/${id}` },
+  environment: { label: "Environment", href: () => "/environments" },
+  tag: { label: "Tag", href: () => "/tags" },
 };
 
 function NameCell({

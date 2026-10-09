@@ -21,6 +21,8 @@ export const autoRunArtifactKinds = [
   "metric",
   "fact-table",
   "saved-group",
+  "environment",
+  "tag",
 ] as const;
 
 // Flat scalars, deliberately. Everything the wizard learns about the machine it ran

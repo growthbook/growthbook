@@ -61838,6 +61838,8 @@ paths:
                     - metric
                     - fact-table
                     - saved-group
+                    - environment
+                    - tag
                 id:
                   description: Id, or key for Feature Flags
                   type: string
@@ -81166,6 +81168,8 @@ components:
                   - metric
                   - fact-table
                   - saved-group
+                  - environment
+                  - tag
               id:
                 type: string
               label:
@@ -84469,6 +84473,8 @@ components:
             - metric
             - fact-table
             - saved-group
+            - environment
+            - tag
         id:
           type: string
         label:

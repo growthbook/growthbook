@@ -1344,9 +1344,9 @@ export const CATEGORIES: { key: EppoCategory; label: string }[] = [
 ];
 
 // Auto Run artifact kinds for the categories a run records
-export const ARTIFACT_KINDS: Partial<
-  Record<EppoCategory, AutoRunArtifact["kind"]>
-> = {
+export const ARTIFACT_KINDS: Record<EppoCategory, AutoRunArtifact["kind"]> = {
+  environments: "environment",
+  tags: "tag",
   audiences: "saved-group",
   factSources: "fact-table",
   metrics: "metric",
@@ -1730,7 +1730,7 @@ export async function runEppoImport({
     const kind = ARTIFACT_KINDS[category];
     const batch = recorded;
     recorded = [];
-    if (!kind || !batch.length) return;
+    if (!batch.length) return;
     try {
       await apiCall(`/auto-runs/${runId}/artifacts`, {
         method: "POST",
@@ -1740,7 +1740,11 @@ export async function runEppoImport({
             id,
             label: item.name,
             by: "growthbook",
-            detail: item.existingId ? "Updated from Eppo" : "Created from Eppo",
+            detail: item.existingId
+              ? category === "environments" || category === "tags"
+                ? "Already in GrowthBook"
+                : "Updated from Eppo"
+              : "Created from Eppo",
             externalId: externalId(category, (item.eppo as { id: number }).id),
           })),
         }),
@@ -1810,14 +1814,16 @@ export async function runEppoImport({
       "environments",
       data.environments,
       async (item) => {
-        if (item.existingId) return;
-        await apiCall("/environment", {
-          method: "PUT",
-          body: JSON.stringify({
-            environments: [{ id: item.key, description: item.eppo.name }],
-          }),
-        });
-        createdEnvs.add(item.key);
+        if (!item.existingId) {
+          await apiCall("/environment", {
+            method: "PUT",
+            body: JSON.stringify({
+              environments: [{ id: item.key, description: item.eppo.name }],
+            }),
+          });
+          createdEnvs.add(item.key);
+        }
+        record(item, item.key);
       },
       { serial: true },
     );
@@ -1826,15 +1832,17 @@ export async function runEppoImport({
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     await importEach("tags", data.tags, async (item) => {
-      if (item.existingId) return;
-      await apiCall("/tag", {
-        method: "POST",
-        body: JSON.stringify({
-          id: item.key,
-          description: item.eppo.description ?? "",
-          color: "blue",
-        }),
-      });
+      if (!item.existingId) {
+        await apiCall("/tag", {
+          method: "POST",
+          body: JSON.stringify({
+            id: item.key,
+            description: item.eppo.description ?? "",
+            color: "blue",
+          }),
+        });
+      }
+      record(item, item.key);
     });
 
     await importEach("audiences", data.audiences, async (item) => {
