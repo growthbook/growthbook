@@ -82458,6 +82458,32 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorCustomHookErrorDetails:
+      type: object
+      properties:
+        hooks:
+          type: array
+          items:
+            type: object
+            properties:
+              hookName:
+                type: string
+              rejected:
+                type: boolean
+              message:
+                type: string
+              stack:
+                type: string
+              log:
+                type: string
+            required:
+              - hookName
+              - rejected
+              - message
+            additionalProperties: false
+      required:
+        - hooks
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:

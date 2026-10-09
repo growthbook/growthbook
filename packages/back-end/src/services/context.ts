@@ -90,6 +90,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
@@ -173,6 +174,7 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
+  | "interleavings"
   | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs"
@@ -234,6 +236,7 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavings: InterleavingModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
@@ -266,6 +269,10 @@ export class ReqContextClass {
   // self-referentially so nested evaluations inherit it. Request-scoped only —
   // never cache one across requests.
   public scanContextOverride?: ReqContextClass;
+
+  // The requester whose read access bounds what guard warnings name, when this
+  // context is an admin overlay (bulk publish) rather than the requester's own.
+  public warningReaderContext?: ReqContextClass;
 
   // Proposed feature states for the bulk publisher's overlay scan context,
   // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
@@ -412,6 +419,7 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavings: new InterleavingModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),

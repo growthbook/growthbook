@@ -336,6 +336,7 @@ export const entityEvents = {
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
+  interleaving: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 

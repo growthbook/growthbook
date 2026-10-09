@@ -26,6 +26,7 @@ import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 import { captureAttribution } from "./attribution-capture";
+import { ApiCallError } from "./apiCallError";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -558,7 +559,7 @@ export const AuthProvider: React.FC<{
               if (errorHandler) {
                 errorHandler(responseData);
               }
-              throw new Error(responseData.message || "There was an error");
+              throw new ApiCallError(responseData);
             }
             return responseData;
           }
@@ -568,7 +569,7 @@ export const AuthProvider: React.FC<{
         if (errorHandler) {
           errorHandler(responseData);
         }
-        throw new Error(responseData.message || "There was an error");
+        throw new ApiCallError(responseData);
       }
 
       return responseData;
