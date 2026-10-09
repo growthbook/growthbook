@@ -18,7 +18,7 @@ export function getPastExperimentQuery(
   const countUnits = (identifierType: string) =>
     dialect.hasCountDistinctHLL()
       ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
-      : `COUNT(distinct ${identifierType})`;
+      : `COUNT(DISTINCT ${identifierType})`;
   return format(
     `-- Past Experiments
     WITH
