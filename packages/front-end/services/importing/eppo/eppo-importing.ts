@@ -1401,14 +1401,28 @@ async function deleteArtifact(
 ) {
   const id = encodeURIComponent(artifact.id);
   switch (artifact.kind) {
-    case "feature":
-      // Delete requires the archive step first
-      await apiCall(`/feature/${id}/archive`, {
-        method: "POST",
-        body: JSON.stringify({ archived: true }),
-      });
-      await apiCall(`/feature/${id}`, { method: "DELETE" });
+    case "feature": {
+      // Delete requires the archive step first; autoPublish lands it now
+      // rather than opening a draft
+      const archive = (archived: boolean) =>
+        apiCall(`/feature/${id}/archive`, {
+          method: "POST",
+          body: JSON.stringify({
+            archived,
+            autoPublish: true,
+            ignoreWarnings: true,
+          }),
+        });
+      await archive(true);
+      try {
+        await apiCall(`/feature/${id}`, { method: "DELETE" });
+      } catch (e) {
+        // Leave the flag as it was, not archived and invisible
+        await archive(false).catch(() => undefined);
+        throw e;
+      }
       return;
+    }
     case "experiment":
       await apiCall(`/experiment/${id}`, { method: "DELETE" });
       return;
@@ -1418,13 +1432,23 @@ async function deleteArtifact(
     case "fact-table":
       await apiCall(`/fact-tables/${id}`, { method: "DELETE" });
       return;
-    case "saved-group":
-      await apiCall(`/saved-groups/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ archived: true }),
-      });
-      await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
+    case "saved-group": {
+      const archive = (archived: boolean) =>
+        apiCall(`/saved-groups/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({ archived }),
+        });
+      await archive(true);
+      try {
+        await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
+      } catch (e) {
+        // An archived group drops out of the lists the next import matches
+        // against, so a half-done delete would make it import twice
+        await archive(false).catch(() => undefined);
+        throw e;
+      }
       return;
+    }
     case "environment":
       await apiCall(`/environment/${id}`, { method: "DELETE" });
       return;
@@ -1511,6 +1535,7 @@ export function getImportedIds(
         const [category, eppoId] = (a.externalId ?? "").split(":");
         if (!(category in ids) || !eppoId) return;
         const key = category as keyof ImportedIds;
+        if (a.action === "failed") return;
         if (a.action === "deleted" || !exists(a.kind, a.id)) {
           ids[key].delete(Number(eppoId));
           return;
@@ -1847,7 +1872,7 @@ export async function runEppoImport({
 
   // What each category created, sent to the run in one append once the
   // category finishes so concurrent items never race on the run document
-  type Recorded = { item: ImportItem<unknown>; id: string };
+  type Recorded = { item: ImportItem<unknown>; id: string; error?: string };
   let recorded: Recorded[] = [];
   const record = <T extends { id: number }>(
     item: ImportItem<T>,
@@ -1864,12 +1889,14 @@ export async function runEppoImport({
       await apiCall(`/auto-runs/${runId}/artifacts`, {
         method: "POST",
         body: JSON.stringify({
-          artifacts: batch.map(({ item, id }) => ({
+          artifacts: batch.map(({ item, id, error }) => ({
             kind,
             id,
             label: item.name,
             by: "growthbook",
-            ...artifactAction(category, item),
+            ...(error
+              ? { action: "failed", detail: error.slice(0, 500) }
+              : artifactAction(category, item)),
             externalId: externalId(category, (item.eppo as { id: number }).id),
           })),
         }),
@@ -1877,7 +1904,8 @@ export async function runEppoImport({
     } catch (e) {
       // The objects exist; without the record a re-run would create them
       // again, so say so on each one
-      batch.forEach(({ item }) => {
+      batch.forEach(({ item, error }) => {
+        if (error) return;
         outcome.completed--;
         outcome.failed++;
         setItem(category, item.key, {
@@ -1910,6 +1938,15 @@ export async function runEppoImport({
         } catch (e) {
           outcome.failed++;
           setItem(category, item.key, { status: "failed", error: e.message });
+          // Failures go on the run too, so the report says what and why. The
+          // id is the Eppo reference since nothing was created in GrowthBook.
+          recorded.push({
+            item,
+            id:
+              item.existingId ??
+              externalId(category, (item.eppo as { id: number }).id),
+            error: e.message,
+          });
         }
       });
     });

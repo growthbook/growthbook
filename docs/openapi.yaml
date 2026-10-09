@@ -61870,6 +61870,7 @@ paths:
                     - updated
                     - existing
                     - deleted
+                    - failed
               required:
                 - kind
                 - id
@@ -81203,6 +81204,7 @@ components:
                   - updated
                   - existing
                   - deleted
+                  - failed
               dateCreated:
                 type: string
                 format: date-time
@@ -84516,6 +84518,7 @@ components:
             - updated
             - existing
             - deleted
+            - failed
         dateCreated:
           type: string
           format: date-time

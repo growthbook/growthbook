@@ -15,6 +15,7 @@ export const autoRunArtifactActions = [
   "updated",
   "existing",
   "deleted",
+  "failed",
 ] as const;
 export const autoRunOutcomes = ["completed", "partial", "failed"] as const;
 

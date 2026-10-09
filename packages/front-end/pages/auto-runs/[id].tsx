@@ -151,7 +151,8 @@ function CreatedTable({
 
 /** Type | Name | Review — no environment column; it doesn't apply to these. */
 function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
-  const reviewable = (a: Artifact) => a.action !== "deleted";
+  const reviewable = (a: Artifact) =>
+    a.action !== "deleted" && a.action !== "failed";
   return (
     <Table variant="list">
       <TableHeader>
@@ -194,11 +195,10 @@ function DeleteRunButton({
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<TeardownFailure[]>([]);
   const created = createdByRun(run);
-  if (!created.length && !failures.length) return null;
   return (
     <>
       {failures.length > 0 && (
-        <Callout status="error" size="md" mt="5">
+        <Callout status="error" size="md" mb="4" style={{ width: "100%" }}>
           <Text weight="medium" as="div">
             {failures.length === 1
               ? "1 item couldn't be deleted"
@@ -213,19 +213,19 @@ function DeleteRunButton({
           </Box>
         </Callout>
       )}
-      {created.length > 0 && (
-        <Flex justify="end" mt="6">
-          <Button
-            color="red"
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirming(true)}
-          >
-            {created.length === 1
-              ? "Delete the 1 item this run created"
-              : `Delete the ${created.length} items this run created`}
-          </Button>
-        </Flex>
+      {created.length > 0 ? (
+        <Button
+          color="red"
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirming(true)}
+        >
+          {created.length === 1
+            ? "Delete the 1 item this run created"
+            : `Delete the ${created.length} items this run created`}
+        </Button>
+      ) : (
+        <span />
       )}
       {confirming && (
         <ConfirmDialog
@@ -303,6 +303,8 @@ export default function AutoRunPage() {
   // An importer run is a record of what it created, not a setup to finish
   if (run.source === "eppo-import") {
     const failed = run.metadata.failed;
+    const failedItems = run.artifacts.filter((a) => a.action === "failed");
+    const imported = run.artifacts.filter((a) => a.action !== "failed");
     return (
       <Container
         size="3"
@@ -325,26 +327,41 @@ export default function AutoRunPage() {
             {failed === 1
               ? "1 item failed to import"
               : `${failed} items failed to import`}
-            . Fetch from Eppo again to retry; items listed below update in place
+            . Fetch from Eppo again to retry; imported items update in place
             instead of being created twice.
           </Callout>
         )}
-        {run.artifacts.length > 0 ? (
+        {imported.length > 0 ? (
           <Section
             title="Imported from Eppo"
             description="Open an item to review its settings. Importing again updates these instead of creating duplicates."
           >
-            <SetUpTable artifacts={run.artifacts} />
+            <SetUpTable artifacts={imported} />
           </Section>
         ) : (
           <Callout status="info">Nothing was imported in this run.</Callout>
         )}
-        <DeleteRunButton
-          run={run}
-          onDone={() =>
-            Promise.all([mutate(), mutateDefinitions(), refreshOrganization()])
-          }
-        />
+        {failedItems.length > 0 && (
+          <Section
+            title="Failed to import"
+            description="Why each item couldn't be imported. Fix the cause and import again."
+          >
+            <SetUpTable artifacts={failedItems} />
+          </Section>
+        )}
+        <Flex justify="between" align="center" mt="6" gap="3" wrap="wrap">
+          <DeleteRunButton
+            run={run}
+            onDone={() =>
+              Promise.all([
+                mutate(),
+                mutateDefinitions(),
+                refreshOrganization(),
+              ])
+            }
+          />
+          <LinkButton href="/">Continue to home</LinkButton>
+        </Flex>
       </Container>
     );
   }
