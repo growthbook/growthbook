@@ -591,6 +591,15 @@ export type DailyUsage = {
   managedClickhouseEvents: number;
 };
 
+// One row per day, SDK key and request type; empty key is image traffic.
+export type DailyUsageByKey = {
+  date: string;
+  key: string;
+  type: string;
+  requests: number;
+  bandwidth: number;
+};
+
 type UsageLimit = number | "unlimited";
 
 export type UsageLimits = {

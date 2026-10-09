@@ -3,8 +3,11 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { DailyUsage } from "shared/types/organization";
-import { dailyUsageForOrgResponseValidator } from "shared/validators";
+import type { DailyUsage, DailyUsageByKey } from "shared/types/organization";
+import {
+  dailyUsageByKeyForOrgResponseValidator,
+  dailyUsageForOrgResponseValidator,
+} from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -251,4 +254,27 @@ export async function getDailyUsageForOrg(
     );
   }
   return parsed.data.days;
+}
+
+export async function getDailyUsageByKeyForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsageByKey[]> {
+  const json = await postManagedClickhouseJson("daily-usage-by-key-for-org", {
+    orgId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const parsed = dailyUsageByKeyForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-by-key-for-org endpoint",
+    );
+    throw new Error(
+      "Unexpected response shape from daily-usage-by-key-for-org endpoint",
+    );
+  }
+  return parsed.data.rows;
 }

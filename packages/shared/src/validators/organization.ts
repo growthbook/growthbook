@@ -225,3 +225,20 @@ export const dailyUsageForOrgResponseValidator = z
     days: z.array(dailyUsageValidator),
   })
   .strict();
+
+/** Daily CDN usage by SDK key from license server managed-clickhouse/daily-usage-by-key-for-org */
+export const dailyUsageByKeyValidator = z
+  .object({
+    date: z.string(),
+    key: z.string(),
+    type: z.string(),
+    requests: z.number(),
+    bandwidth: z.number(),
+  })
+  .strict();
+
+export const dailyUsageByKeyForOrgResponseValidator = z
+  .object({
+    rows: z.array(dailyUsageByKeyValidator),
+  })
+  .strict();
