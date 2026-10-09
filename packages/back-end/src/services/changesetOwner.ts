@@ -530,6 +530,14 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
         );
   }
 
+  async reload(): Promise<void> {
+    const cb = await this.context.models.contextualBandits.getById(this.id);
+    if (!cb) {
+      throw new Error("Contextual bandit not found");
+    }
+    this.cb = cb;
+  }
+
   async setHasVisualChangesets(value: boolean): Promise<void> {
     if (!!this.cb.hasVisualChangesets === value) return;
     this.cb = await this.context.models.contextualBandits.update(this.cb, {
@@ -538,6 +546,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async refreshPayloads(event: ChangesetPayloadEvent): Promise<void> {
+    await this.reload();
     this.cb = await onContextualBanditVisualStateChanged(
       this.context,
       this.cb,
@@ -546,6 +555,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async rename(name: string): Promise<string> {
+    await this.reload();
     const trimmed = name.trim();
     if (trimmed === this.cb.name) return trimmed;
     this.cb = await this.context.models.contextualBandits.update(this.cb, {
@@ -561,6 +571,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     name?: string;
     sourceVariationId?: string;
   }): Promise<{ id: string; name: string }> {
+    await this.reload();
     const source = sourceVariationId
       ? this.editableVariations().find((v) => v.id === sourceVariationId)
       : undefined;
@@ -608,6 +619,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async removeVariation(variationId: string): Promise<RemoveVariationResult> {
+    await this.reload();
     const { updated } = await executeContextualBanditVariationChange(
       this.context,
       this.cb,
@@ -618,6 +630,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async renameVariation(variationId: string, name: string): Promise<string> {
+    await this.reload();
     const current = this.editableVariations().find((v) => v.id === variationId);
     if (!current) {
       throw new Error("Variation not found in this contextual bandit");
