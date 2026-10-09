@@ -390,7 +390,7 @@ export default function ContextualBanditAnalysisMetricsModal({
               <Text
                 as="label"
                 htmlFor={priorSampleSizeId}
-                weight="medium"
+                weight="semibold"
                 size="md"
               >
                 Prior variation sample size{" "}
