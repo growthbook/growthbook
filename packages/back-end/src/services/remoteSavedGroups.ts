@@ -174,6 +174,9 @@ function getCsvOptions(
   };
 }
 
+/** Only confirmed content errors allow deleting the staged file. */
+class InvalidRemoteSavedGroupUploadError extends BadRequestError {}
+
 async function checkUploadedCsv(
   context: Context,
   group: SavedGroupInterface,
@@ -183,9 +186,10 @@ async function checkUploadedCsv(
   if (size === null) {
     throw new BadRequestError("Could not find the uploaded file");
   }
-  if (size === 0) throw new BadRequestError("The file is empty");
+  if (size === 0)
+    throw new InvalidRemoteSavedGroupUploadError("The file is empty");
   if (size > REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES) {
-    throw new BadRequestError("The file is too large");
+    throw new InvalidRemoteSavedGroupUploadError("The file is too large");
   }
 
   const csvOptions = getCsvOptions(context, group);
@@ -215,12 +219,12 @@ async function checkUploadedCsv(
         end: s.isEnd,
       }).idCount;
     } catch (e) {
-      throw new BadRequestError((e as Error).message);
+      throw new InvalidRemoteSavedGroupUploadError((e as Error).message);
     }
   });
   // Blank ends don't make a large file empty; the full check decides that.
   if (!idCount && samples.length === 1) {
-    throw new BadRequestError("The file has no IDs");
+    throw new InvalidRemoteSavedGroupUploadError("The file has no IDs");
   }
   return size;
 }
@@ -271,10 +275,12 @@ export async function createRemoteSavedGroupUpload(
   try {
     size = await checkUploadedCsv(context, group, fileKey);
   } catch (e) {
-    // Nothing was recorded yet, so the copy is only this request's, and the
-    // staged file won't be used.
+    // No record owns the copy yet. Keep the staged file on storage failures
+    // so the client can retry without uploading it again.
     deleteCopy();
-    await deleteStagedFile(sourceKey);
+    if (e instanceof InvalidRemoteSavedGroupUploadError) {
+      await deleteStagedFile(sourceKey);
+    }
     throw e;
   }
 

@@ -426,7 +426,40 @@ describe("createRemoteSavedGroupUpload", () => {
     expect(uploads.map((u) => u.version).sort()).toEqual([1, 2]);
   });
 
-  it("deletes only its own copy when the sample check fails", async () => {
+  it.each(["size", "missing size", "range"])(
+    "keeps the staged file when the %s read fails, so submission can be retried",
+    async (failure) => {
+      const { context, uploads } = makeContext();
+      const sourceKey = stagingKey("a");
+      files.set(sourceKey, Buffer.from("u1\n"));
+      if (failure === "size") {
+        jest
+          .mocked(getFileSize)
+          .mockRejectedValueOnce(new Error("storage down"));
+      } else if (failure === "missing size") {
+        // The storage helper returns null for failed HEAD requests too.
+        jest.mocked(getFileSize).mockResolvedValueOnce(null);
+      } else {
+        jest
+          .mocked(readFileRange)
+          .mockRejectedValueOnce(new Error("storage down"));
+      }
+
+      await expect(
+        createRemoteSavedGroupUpload(context, "grp_1", sourceKey),
+      ).rejects.toThrow();
+      expect(uploads).toHaveLength(0);
+      expect([...files.keys()]).toEqual([sourceKey]);
+      expect(queueValidateRemoteSavedGroupUpload).not.toHaveBeenCalled();
+
+      await createRemoteSavedGroupUpload(context, "grp_1", sourceKey);
+      expect(uploads).toHaveLength(1);
+      expect(files.get(uploads[0].fileKey)?.toString()).toBe("u1\n");
+      expect(files.has(sourceKey)).toBe(false);
+    },
+  );
+
+  it("deletes the copy and staged file when the CSV is invalid", async () => {
     const { context, uploads } = makeContext();
     files.set(stagingKey("a"), Buffer.from("a,b\n"));
 
