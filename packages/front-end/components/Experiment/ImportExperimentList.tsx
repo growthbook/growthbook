@@ -612,7 +612,7 @@ const ImportExperimentList: FC<{
             size="sm"
             value={data.experiments.datasource}
             setValue={changeDatasource}
-            style={{ minWidth: 260 }}
+            style={{ width: 320, maxWidth: "100%" }}
           >
             {supportedDatasources.map((d) => (
               <SelectItem key={d.id} value={d.id}>

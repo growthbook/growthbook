@@ -139,6 +139,7 @@ const ImportExperimentModal: FC<{
                   label="Choose a Data Source"
                   value={datasourceId}
                   setValue={(value) => setDatasourceId(value)}
+                  style={{ width: 320, maxWidth: "100%" }}
                 >
                   {validDatasources.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
