@@ -168,7 +168,12 @@ function getProbeParams(
         input.config.serviceAccountKey,
       );
     case "snowflake":
-      return input.params;
+      // Probe as the forwarder's role (the one streaming writes with) and warehouse.
+      return {
+        ...input.params,
+        role: input.config.role?.trim() || input.params.role,
+        warehouse: input.config.warehouse?.trim() || input.params.warehouse,
+      };
     case "databricks":
       // Zerobus only accepts Databricks-issued OAuth credentials; fail before probing.
       if (!databricksParamsSupportEventForwarder(input.params)) {
