@@ -25,7 +25,7 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 
 ## Connection Permissions
 
-When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access before provisioning the Confluent connector.
+When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access.
 
 ### BigQuery
 
@@ -50,7 +50,7 @@ The Snowflake connection **must use key-pair authentication** — password authe
 | `CREATE TABLE`  | Schema                   |
 | `INSERT`        | Tables                   |
 
-`CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+`CREATE TABLE` and `CREATE SCHEMA` are required because we use Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
@@ -99,9 +99,9 @@ Zerobus Ingest is a serverless Databricks feature billed to **your** Databricks 
 
 ## Network Access
 
-If your warehouse restricts access by IP — a Snowflake network policy, a BigQuery VPC Service Control perimeter, a firewall in front of either — it needs to admit **two** different sources. GrowthBook Cloud connects from `52.70.79.40` to create the destination tables and validate write access, and the Confluent connector streams your events from a separate pool of addresses that depends on your Data Region.
+For [Event Forwarder](/app/event-forwarder), you must always allow incoming connections from GrowthBook Cloud's primary ip address (`52.70.79.40/32`).
 
-Both lists are on the [IP addresses](/ip-addresses#event-forwarder-connections-to-your-warehouse) page. Allow all of them before enabling the forwarder — a partial list shows up as a connector that validates once and then fails later, because any address in the pool can be the one that connects.
+If you are using our `eu-west-1` ingestor region, you also must allow traffic from `54.74.233.97/32`.
 
 ## Get Started
 
@@ -120,7 +120,7 @@ There are 2 ways to send events to GrowthBook:
 
 #### Sending events to the right region
 
-The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, set the ingestor host option shown for your SDK above to `https://eu-west-1.gb-ingest.com`. Otherwise events won't reach the Kafka/Confluent resources your forwarder uses and will be dropped.
+The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, set the ingestor host option shown for your SDK above to `https://eu-west-1.gb-ingest.com`. Otherwise events won't reach the proper ingestion server and your events will be dropped.
 
 You can find your Event Forwarder's configured region on the data source's Event Forwarder settings.
 
@@ -148,7 +148,7 @@ curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_
 }]'
 ```
 
-Using the wrong host means events won't reach the Kafka/Confluent resources your forwarder is actually wired up to.
+Using the wrong host means events won't reach the proper ingestion server and your events will be dropped.
 
 #### Experiment View Events
 
