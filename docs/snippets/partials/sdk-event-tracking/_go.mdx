@@ -1,0 +1,36 @@
+Requires `github.com/growthbook/growthbook-golang` v0.5.0 or later.
+
+```go
+import (
+    "context"
+
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("YOUR_CLIENT_KEY"),
+    gb.WithSseDataSource(),
+    gb.WithGrowthBookTracking(gb.TrackingPluginConfig{
+        IngestorHost: "https://us-east-1.gb-ingest.com",
+    }),
+)
+if err != nil {
+    // handle error
+}
+defer client.Close() // sends pending events
+```
+
+Log custom events with `LogEvent`, on a client scoped to the current user. Don't call `Close()` on that client; it closes the shared plugin.
+
+```go
+userClient, _ := client.WithAttributes(gb.Attributes{"id": "user-123"})
+
+userClient.LogEvent(context.Background(), "Button Click", gb.EventProperties{"button": "Sign Up"})
+```
+
+| Option         | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `IngestorHost` | Ingestor for your Data Region.                                  |
+| `BatchSize`    | Events to queue before sending. Default `100`.                  |
+| `BatchTimeout` | How long to wait before sending a partial batch. Default `10s`. |

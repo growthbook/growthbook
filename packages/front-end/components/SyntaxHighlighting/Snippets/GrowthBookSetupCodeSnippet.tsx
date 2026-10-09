@@ -871,7 +871,7 @@ func main() {
 // that closes the shared client.
 userClient, _ := client.WithAttributes(gb.Attributes{"id": "user-123"})
 
-userClient.LogEvent(ctx, "Request Completed", gb.EventProperties{
+userClient.LogEvent(context.TODO(), "Request Completed", gb.EventProperties{
 	"latency": 250,
 })
               `.trim()}

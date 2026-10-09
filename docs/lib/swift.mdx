@@ -6,6 +6,7 @@ sidebarTitle: Swift (iOS)
 
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import SwiftEventTracking from "/snippets/partials/sdk-event-tracking/_swift.mdx";
 
 This SDK supports the following platforms and versions:
 
@@ -623,6 +624,12 @@ gb.subscribe { experiment, result in
 // Clear all subscriptions when done
 gb.clearSubscriptions()
 ```
+
+### GrowthBook tracking plugin
+
+Sends experiment view and feature usage events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<SwiftEventTracking />
 
 ## Security Features
 
