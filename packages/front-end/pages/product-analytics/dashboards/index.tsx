@@ -43,11 +43,12 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
+import DefaultDashboardMenuItems from "@/enterprise/components/Dashboards/DefaultDashboardMenuItems";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, userId } = useUser();
-  const { project } = useDefinitions();
+  const { project, projects, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -150,6 +151,31 @@ export default function DashboardsPage() {
     },
     [apiCall, mutateDashboards],
   );
+
+  // A dashboard scoped to specific projects can only be set as the default
+  // for one of those; a global dashboard (no projects) is eligible for any
+  // project. Either way, setting a project's default requires permission on
+  // that project specifically, not on the dashboard.
+  const getEligibleProjectsForDefault = (d: DashboardInterface) => {
+    return projects.filter(
+      (p) =>
+        isProjectListValidForProject(d.projects, p.id) &&
+        permissionsUtil.canUpdateProject(p.id),
+    );
+  };
+
+  const setDefaultDashboard = async (
+    projectId: string,
+    dashId: string | null,
+  ) => {
+    await apiCall(`/projects/${projectId}/default-dashboard`, {
+      method: "PUT",
+      body: JSON.stringify({
+        defaultDashboardId: dashId,
+      }),
+    });
+    mutateDefinitions();
+  };
 
   if (loading || saving) return <LoadingOverlay />;
 
@@ -352,6 +378,8 @@ export default function DashboardsPage() {
                             permissionsUtil.canCreateGeneralDashboards(d);
                           const canManageSharingAndEditLevels =
                             canEdit && (isOwner || isAdmin);
+                          const eligibleProjectsForDefault =
+                            getEligibleProjectsForDefault(d);
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -462,6 +490,14 @@ export default function DashboardsPage() {
                                       >
                                         Share...
                                       </DropdownMenuItem>
+
+                                      <DefaultDashboardMenuItems
+                                        dashboard={d}
+                                        eligibleProjects={
+                                          eligibleProjectsForDefault
+                                        }
+                                        onSetDefault={setDefaultDashboard}
+                                      />
 
                                       {canDelete && (
                                         <>
