@@ -116,6 +116,11 @@ export function describeExperimentGuardConflict(
   return `Publishing changes the live value that ${subject} reads from ${source}${via}.`;
 }
 
+// Whose read access bounds what a guard warning names.
+export function guardWarningReader(context: Context): Context {
+  return context.warningReaderContext ?? context;
+}
+
 // One line per conflict, in conflict-key order, naming only what the publisher can read.
 export async function describeExperimentGuardConflicts(
   context: Context,
@@ -131,20 +136,23 @@ export async function describeExperimentGuardConflicts(
   );
   const featureIds = new Set(values.flatMap((c) => [...c.featureIds]));
   // Loaded with the publisher's context, so each list holds only what they can read.
+  const reader = guardWarningReader(context);
   const [experiments, bandits, configs, features] = await Promise.all([
-    getExperimentsByIds(context, refIds(false)),
-    context.models.contextualBandits.getByIds(refIds(true)),
-    Promise.all([...configKeys].map((k) => context.models.configs.getByKey(k))),
-    getFeaturesByIds(context, [...featureIds]),
+    getExperimentsByIds(reader, refIds(false)),
+    reader.models.contextualBandits.getByIds(refIds(true)),
+    Promise.all([...configKeys].map((k) => reader.models.configs.getByKey(k))),
+    getFeaturesByIds(reader, [...featureIds]),
   ]);
   const readable: ExperimentGuardReadable = {
     experiments: new Set([...experiments, ...bandits].map((e) => e.id)),
     configs: new Set(configs.flatMap((c) => (c ? [c.key] : []))),
     features: new Set(features.map((f) => f.id)),
   };
-  return [...conflicts]
+  const lines = [...conflicts]
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([, conflict]) => describeExperimentGuardConflict(conflict, readable));
+  // Conflicts the publisher can't read can describe identically.
+  return [...new Set(lines)];
 }
 
 // The conflict set for publishing this config: configs affected by the publish
@@ -480,15 +488,16 @@ export async function assertConfigExperimentGuard(
     return;
   }
 
-  const lines = await describeExperimentGuardConflicts(context, conflicts);
   if (decision.action === "block-immediate") {
+    const lines = await describeExperimentGuardConflicts(context, conflicts);
     throw new SoftWarningError(
       `${lines.join(" ")} Re-submit with ignoreWarnings to proceed.`,
       lines,
     );
   }
+  // Names nothing: stored on the draft and sent to webhooks, whose readers may differ.
   throw new TerminalPublishError(
-    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled. ${lines.join(" ")} Re-open the draft and re-confirm to publish.`,
+    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled. Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -688,15 +697,15 @@ export async function assertConstantExperimentGuard(
     return;
   }
 
-  const lines = await describeExperimentGuardConflicts(context, conflicts);
   if (decision.action === "block-immediate") {
+    const lines = await describeExperimentGuardConflicts(context, conflicts);
     throw new SoftWarningError(
       `${lines.join(" ")} Re-submit with ignoreWarnings to proceed.`,
       lines,
     );
   }
   throw new TerminalPublishError(
-    `Constant publish blocked by the experiment guard: the affected running experiments have changed since this publish was scheduled. ${lines.join(" ")} Re-open the draft and re-confirm to publish.`,
+    `Constant publish blocked by the experiment guard: the affected running experiments have changed since this publish was scheduled. Re-open the draft and re-confirm to publish.`,
   );
 }
 

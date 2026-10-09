@@ -53,6 +53,7 @@ import {
 } from "back-end/src/services/experimentGuard";
 import {
   captureConfigLockAcknowledgment,
+  describeLockedConfigs,
   evaluateConfigLockConflicts,
 } from "back-end/src/services/configLockGuard";
 import {
@@ -633,11 +634,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "dependent-config-locked",
         severity: "warning",
-        messages: [
-          `Publishing this Config changes the resolved value of locked Config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
+        messages: await describeLockedConfigs(context, lockConflicts),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
