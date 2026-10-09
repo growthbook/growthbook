@@ -8,7 +8,11 @@ import {
 
 const now = new Date();
 
-const factTable: Pick<FactTableInterface, "sql" | "eventName" | "filters"> = {
+const factTable: Pick<
+  FactTableInterface,
+  "id" | "sql" | "eventName" | "filters"
+> = {
+  id: "ftb_orders",
   sql: "SELECT user_id, country, amount FROM orders",
   eventName: "orders",
   filters: [
@@ -167,6 +171,7 @@ describe("factMetricRowFilterValidation", () => {
         "SELECT * FROM __table LIMIT 0",
         undefined,
         "factTableValidation",
+        "ftb_orders",
       );
     });
 

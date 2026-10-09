@@ -200,6 +200,7 @@ async function runWriteAccessProbe({
       }),
       undefined,
       "pipelineValidation",
+      null,
     );
     created = true;
   } catch (error) {
@@ -214,6 +215,7 @@ async function runWriteAccessProbe({
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
       } catch (error) {
         const dropError = getErrorMessage(error);

@@ -19,6 +19,7 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testQueryTypeValidator,
   testDataSourceConnectionBodySchema,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
@@ -1212,6 +1213,7 @@ export async function postValidatePipelineSettings(
       }),
       undefined,
       "pipelineValidation",
+      null,
     );
     results.create.result = "success";
   } catch (e) {
@@ -1237,6 +1239,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -1268,6 +1271,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.drop = { result: "success" };
       } catch (e) {
@@ -1406,10 +1410,14 @@ export async function testLimitedQuery(
     timestampColumn?: string;
     limit?: number;
     detectColumns?: boolean;
+    queryType?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  const queryType = testQueryTypeValidator
+    .catch("testQuery")
+    .parse(req.body.queryType);
 
   const {
     query,
@@ -1444,6 +1452,7 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
+    queryType,
     templateVariables,
     maxLimit,
     timestampColumn,

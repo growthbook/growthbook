@@ -140,6 +140,7 @@ export interface SourceIntegrationInterface<
     sql: string,
     timestampCols: string[] | undefined,
     queryType: QueryType,
+    factTableId: string | null,
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
@@ -303,7 +304,10 @@ export interface SourceIntegrationInterface<
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<PastExperimentQueryResponse>;
-  runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  runColumnsTopValuesQuery?(
+    sql: string,
+    factTableId: string | null,
+  ): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
