@@ -3743,6 +3743,18 @@ export async function postFeatureSync(
     environments.filter((e) => envSettingsIn?.[e]?.rules !== undefined),
   );
 
+  // v2 callers (the importers) send the whole flat `rules` array instead, which
+  // replaces the feature's rules so a sync lands the same rules whether or not
+  // the feature already exists. Like create, the two shapes can't be mixed.
+  const flatRulesIn = Array.isArray(data.rules) ? data.rules : undefined;
+  if (flatRulesIn?.length && inboundEnvs.size) {
+    throw new Error(
+      "Feature sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
+    );
+  }
+  const replaceRules = !!flatRulesIn && !inboundEnvs.size;
+  if (replaceRules) addIdsToFlatRules(flatRulesIn, feature.id);
+
   const buildNextFlatRules = (): FeatureRule[] => {
     const result: FeatureRule[] = [];
 
@@ -3784,7 +3796,8 @@ export async function postFeatureSync(
 
     return result;
   };
-  const nextFlatRules = buildNextFlatRules();
+  const nextFlatRules =
+    replaceRules && flatRulesIn ? flatRulesIn : buildNextFlatRules();
   const changes: Partial<FeatureRevisionInterface> = {
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
@@ -3829,6 +3842,9 @@ export async function postFeatureSync(
     ) {
       needsNewRevision = true;
     }
+  }
+  if (replaceRules && !isEqual(nextFlatRules, liveFeatureRules)) {
+    needsNewRevision = true;
   }
 
   // Lands like every other dashboard route: draft, review check, then the

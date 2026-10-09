@@ -81,6 +81,54 @@ export const proxyStatsigRequest = async (
   }
 };
 
+// Unlike Statsig and LaunchDarkly, Eppo's API rejects browser (CORS) requests,
+// so this proxy is the only way to reach it and is available on Cloud too. It
+// is read-only and pinned to Eppo's API host.
+export const proxyEppoRequest = async (
+  req: AuthRequest<{
+    endpoint: string;
+    apiKey: string;
+  }>,
+  res: Response,
+) => {
+  const { endpoint, apiKey } = req.body;
+
+  if (!endpoint || !apiKey) {
+    return res.status(400).json({
+      status: 400,
+      message: "Missing required fields: endpoint and apiKey",
+    });
+  }
+
+  const url = resolveProxyUrl(endpoint, "https://eppo.cloud/api/v1/");
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "X-Eppo-Token": apiKey,
+      },
+      // A redirect could send this request (and the key) off Eppo's host
+      redirect: "error",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({
+        status: response.status,
+        message: `Eppo API error: ${response.statusText} - ${errorText}`,
+      });
+    }
+
+    const data = await response.json();
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch from Eppo API",
+    });
+  }
+};
+
 export const proxyLaunchDarklyRequest = async (
   req: AuthRequest<{
     url: string;
