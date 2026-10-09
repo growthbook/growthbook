@@ -167,6 +167,30 @@ export function snapToUtcDayStart(date: Date): Date {
   return snapped;
 }
 
+// Drop seconds and milliseconds. Used to make repeated warehouse queries for a
+// rolling "last N hours" window produce byte-identical SQL within the same
+// minute, so the query cache can actually hit.
+export function snapToMinuteStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setSeconds(0, 0);
+  return snapped;
+}
+
+/**
+ * Round up to the next minute, leaving a value already on a boundary alone.
+ *
+ * The companion to {@link snapToMinuteStart} for an exclusive upper bound. A
+ * calendar range ends at 23:59:59.999, so flooring it would drop that day's
+ * final minute from a `timestamp < end` comparison; ceiling lands on the next
+ * midnight, which is exactly the intended range. Every instant within a minute
+ * still maps to one value, so the query cache keeps hitting.
+ */
+export function snapToMinuteEnd(date: Date): Date {
+  const snapped = snapToMinuteStart(date);
+  if (snapped.getTime() === date.getTime()) return snapped;
+  return new Date(snapped.getTime() + 60 * 1000);
+}
+
 export function precedingUtcDayStart(date: Date): Date {
   const dayStart = snapToUtcDayStart(date);
   return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);

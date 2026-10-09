@@ -123,6 +123,8 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // Experiment exposure log
+  | "experimentExposures"
   // AI agent SQL queries (Ask Your Data)
   | "askDataAgentQuery"
 

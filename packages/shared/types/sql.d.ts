@@ -198,6 +198,10 @@ export interface SqlDialect {
     limit: number,
     additionalClauses?: string,
   ) => string;
+  // Trailing clause for a paginated SELECT. Dialects disagree on both the
+  // keywords and their order, and SQL Server has no LIMIT at all, so callers
+  // must not hand-write "LIMIT n OFFSET m". Requires an ORDER BY on SQL Server.
+  paginate: (limit: number, offset: number) => string;
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (

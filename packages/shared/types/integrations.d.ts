@@ -18,6 +18,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
+  RowFilter,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
@@ -930,6 +931,28 @@ export type FeatureEvalDiagnosticsQueryResponse =
   QueryResponse<FeatureEvalDiagnosticsQueryResponseRows> & {
     truncated?: boolean;
   };
+
+export type ExperimentExposuresQueryParams = {
+  experimentId: string;
+  experimentTrackingKey: string;
+  exposureQuerySql: string;
+  userIdType: string;
+  startDate: Date;
+  endDate: Date;
+  dimensions: string[];
+  /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
+  rowFilters?: RowFilter[];
+  limit: number;
+};
+
+// The query selects every column the exposure query returns, so the shape is
+// only known at runtime. shapeExposureRows() in
+// back-end/src/services/experiment-exposures.ts splits it into typed fields
+// and the `extra` bag behind the expandable row.
+export type ExperimentExposuresQueryResponseRows = Record<string, unknown>[];
+
+export type ExperimentExposuresQueryResponse =
+  QueryResponse<ExperimentExposuresQueryResponseRows>;
 
 export interface TestQueryRow {
   [key: string]: unknown;

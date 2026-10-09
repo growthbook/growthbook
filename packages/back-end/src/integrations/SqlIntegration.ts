@@ -75,6 +75,8 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
@@ -168,6 +170,7 @@ import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import { getExperimentExposuresQuery as getExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
@@ -1115,6 +1118,21 @@ export default abstract class SqlIntegration
       statistics,
       truncated,
     };
+  }
+
+  getExperimentExposuresQuery(params: ExperimentExposuresQueryParams): string {
+    return getExperimentExposuresQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  // Rows are returned raw. shapeExposureRows() owns coercion and the split
+  // between typed columns and the `extra` bag, so it stays unit-testable.
+  async runExperimentExposuresQuery(
+    query: string,
+  ): Promise<ExperimentExposuresQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "experimentExposures",
+    });
+    return { rows, statistics };
   }
 
   getExperimentFactMetricsQuery(

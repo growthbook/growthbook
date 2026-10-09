@@ -11,6 +11,9 @@ export const mssqlDialect: SqlDialect = {
     limit: number,
     additionalClauses: string = "",
   ) => `SELECT TOP ${limit} * FROM ${from} ${additionalClauses}`,
+  // No LIMIT keyword; OFFSET/FETCH is the paging form and requires an ORDER BY.
+  paginate: (limit: number, offset: number) =>
+    `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`,
   addTime: (
     col: string,
     unit: "hour" | "minute",

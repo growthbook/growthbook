@@ -30,6 +30,12 @@ export type TableProps = Omit<
   /** Pins the last column to the right edge while the rest scrolls under it. */
   stickyLastColumn?: boolean;
   /**
+   * Height cap for the `scrollX` region, e.g. 480 or "60vh". Without it the
+   * region grows to the viewport, which pushes anything below the table (such
+   * as pagination) out of view.
+   */
+  maxHeight?: number | string;
+  /**
    * px floor for the table itself. Under a fixed layout a column with no width
    * takes only the leftover space, so without a floor it collapses to zero once
    * the specified widths fill the container. `useTableColumns` computes this.
@@ -46,6 +52,7 @@ export default function Table({
   roundedCorners,
   scrollX,
   stickyLastColumn,
+  maxHeight,
   minTableWidth,
   className,
   ...props
@@ -129,6 +136,10 @@ export default function Table({
             "--table-sticky-top": `${stickyTopOffset}px`,
           }),
           ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
+          ...(maxHeight !== undefined && {
+            "--table-max-height":
+              typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight,
+          }),
         } as React.CSSProperties
       }
       data-table-list
