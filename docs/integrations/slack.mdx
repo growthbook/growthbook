@@ -1,77 +1,160 @@
 ---
 title: Slack integration
-toc_max_heading_level: 5
-description: "Receive GrowthBook event alerts in a Slack channel: create an incoming webhook, connect it in GrowthBook, and subscribe to the events you care about."
+sidebarTitle: Slack
+description: "Connect the GrowthBook Slack app to your workspace, choose which channels get experiment and Feature Flag notifications, and ask the GrowthBook AI assistant questions from Slack."
 ---
 
-import { ExternalLink } from "/snippets/ExternalLink.jsx";
+The GrowthBook Slack app connects a Slack workspace to your GrowthBook organization. Once it's connected, you can:
 
-The GrowthBook Slack integration allows you to receive alerts for the events that you care about in a Slack channel of your choosing.
+- **Send notifications to channels.** Choose which projects, environments, tags, and events each channel hears about.
+- **Get visual cards.** Experiment launches, experiment stops, and sample ratio mismatch (SRM) warnings arrive as image cards. Everything else arrives as a formatted text message.
+- **Ask the AI assistant.** Mention `@GrowthBook` in a channel, or send it a direct message, to ask about your experiments and Feature Flags. See [Slack AI assistant](/integrations/slack/ai-assistant).
 
-## Creating and configuring an app in Slack
+<Info>
+This page covers the Slack app. If you set up Slack before the app was available, your incoming webhook connections still work. See [Legacy Slack webhooks](/integrations/slack/legacy-webhooks) to manage them or move them to the app.
+</Info>
 
-### Create a Slack app
+## Requirements
 
-The first step to setting up the GrowthBook Slack integration is to create a new app under your workspace's owned apps. You will need administrative privileges for your workspace in order to be able to manage apps.
+- **GrowthBook permission:** You need the `manageIntegrations` permission. The **Admin** role includes it. To give it to someone else, use a custom role that includes the **Integrations Full Access** policy. See [user permissions](/account/user-permissions).
+- **Slack permission:** You need permission to install apps in your Slack workspace.
+- **If you self-host GrowthBook:** Create your own Slack app before you connect. See [Self-hosted Slack setup](/integrations/slack/self-hosted). GrowthBook Cloud users can skip this step.
 
-Navigate to your workspace’s apps and choose to create a new app. You can get to that page directly from [Slack's new app page](https://api.slack.com/apps?new_app=1).
+Notifications are available on every plan. The AI assistant has [extra requirements](/integrations/slack/ai-assistant#requirements).
 
-<Frame>![Create a new Slack app](/static/images/integrations/slack/slack-create-app.png)</Frame>
+## Connect your Slack workspace
 
-Name the app and choose the workspace. In this case we created the app named GrowthBook Alerts and are picking the GrowthBook Dev workspace.
+1. In GrowthBook, go to [Settings → Slack](https://app.growthbook.io/integrations/slack). If **Slack** isn't in your **Settings** menu, you don't have permission to manage integrations. Ask an admin to connect Slack or give you access (see [Requirements](#requirements)).
+2. Click **Connect to Slack**.
+3. Slack asks you to pick a workspace and approve the GrowthBook app's permissions. Click **Allow**.
+4. Slack sends you back to GrowthBook. You'll see **Slack workspace connected successfully.**, and the **Add a Slack Channel** dialog opens so you can pick your first channel.
 
-<Frame>![Name the Slack app and choose a workspace](/static/images/integrations/slack/slack-name-app-choose-workspace.png)</Frame>
+You can also start from Slack's side, for example with an **Add to Slack** button. When Slack sends you back to GrowthBook, you'll be asked to confirm which GrowthBook organization should own the workspace. If you belong to more than one organization, pick one from the **Organization** list, then click **Connect to _your organization_**.
 
-### Create an Incoming Webhook
+<Note>
+**One workspace per organization.** Each Slack workspace connects to exactly one GrowthBook organization, and each organization connects to exactly one Slack workspace. To move either side, disconnect the existing connection first.
 
-We will be alerting via Slack's incoming webhooks functionality. Under the **Basic Information** tab of your app, click on **Incoming Webhooks**.
+Slack Enterprise Grid org-wide installs aren't supported. Install the app into a specific workspace instead.
 
-<Frame>![Slack Incoming Webhooks settings](/static/images/integrations/slack/slack-incoming-webhooks.png)</Frame>
+</Note>
 
-### Subscribe a channel to alerts
+## Add a channel
 
-Click on the button at the bottom of the **Incoming Webhooks** page that says **Add New Webhook to Workspace**.
+1. On the Slack integration page, click **Add channel**.
+2. Search for the channel in the **Channel** field.
+3. Click **Add channel**.
 
-You will be asked to install the app into your workspace. Choose the desired channel you'd like to receive notifications in.
+GrowthBook joins public channels on its own. Private channels work differently:
 
-<Frame>![Install the Slack app and choose a channel](/static/images/integrations/slack/slack-install-flow.png)</Frame>
+1. In the private channel in Slack, run `/invite @GrowthBook`.
+2. Back in GrowthBook, click the refresh button next to the **Channel** field. The private channel now shows up in the list.
 
-Once you've completed this flow, you will see a URL available for you to copy. Save this value for later.
+New channels start with the recommended experiment and Feature Flag events, across all projects, environments, and tags. Adjust them in the next step.
 
-<Frame>![Copy the Slack incoming webhook URL](/static/images/integrations/slack/slack-copy-webhook-url.png)</Frame>
+## Choose what each channel receives
 
-## Add the Slack integration to GrowthBook
+Select a channel in the list on the left to open its settings. Changes don't apply until you click **Save settings**.
 
-Next step is to log in to the GrowthBook app and visit the **Webhooks** tab under **Settings**, also available at [Settings → Webhooks](https://app.growthbook.io/settings/webhooks). You will need privileges to manage webhooks in order for this menu item to be available.
+### Scope
 
-Click the **Create an Event Webhook** button. You should see a modal pop up with some fields for configuring the Slack notification webhook.
+The **Scope** card limits which resources trigger notifications:
 
-<Frame>![Create a Slack event webhook in GrowthBook](/static/images/webhooks/slack/new-webhook.png)</Frame>
+- **Projects**
+- **Environments**
+- **Tags**
 
-Then, configure the following:
+An empty filter includes everything. When you pick values, an event only needs to match one of the selected values in each filter.
 
-- **Name**: The name of the integration. In case you have multiple integrations, this can help you tell them apart. This will also show in the contextual text alongside the alerts.
-- **Endpoint URL**: Copy and paste the webhook URL provided by your slack app.
-- **Payload**: Select the `Slack` payload.
-- **Event filters**: You can optionally filter by events you care about. For example, if you only care about when features are deleted, you can choose `feature.deleted` from the list. If you care about all events, leave this blank.
-- **Environment filters**: You can optionally choose to filter by environment. For example, if you only want to hear about events that are for the production environment, you can choose `production` from the list. For all environments, leave this blank.
-- **Project filters**: You can optionally choose to filter by project. For example, if you have a project named "Onboarding V2" and you only want to alert for that project, you can choose that project from the projects list. For all projects, leave this blank.
-- **Tag filters**: You can optionally choose to filter by tag. For all events regardless of tag, leave this blank.
+### Events
 
-After configuring all the fields, press **Create** to save your new Slack notification webhook.
+Events are grouped into categories: **Feature Flags**, **Experiments**, **Holdouts**, **Saved Groups**, **Constants**, **Configs**, and **SDK Connections**. Turn a category on with its switch, then pick what it should send under **Notify about**:
 
-You can also edit these fields at any point if you make a mistake.
+| Option                 | What the channel receives                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| **Recommended events** | A curated set of the most useful events for the category. This is what new channels start with. |
+| **All events**         | Every event in the category, including any events GrowthBook adds in the future.                |
+| **Custom selection**   | Only the events you check. Click **Show events** to see the full list.                          |
 
-<Frame>![Edit a Slack notification webhook in GrowthBook](/static/images/webhooks/slack/edit-webhook.png)</Frame>
+The recommended events for the two default categories are:
 
-### Adding more alerts
+- **Experiments:** experiment started, stopped, ending soon, and stale; ship, rollback, and review decisions; and health warnings such as SRM.
+- **Feature Flags:** revisions published or reverted; Safe Rollout ship, rollback, and unhealthy alerts; review requested; and changes requested.
 
-If you'd like to be alerted in another Slack channel, you can add another Incoming Webhook in Slack.
+The **SDK Connections** category has one event, **Payload size warning**. It fires when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store.
 
-Then, you can create new integrations in the GrowthBook dashboard, specifying all of the same information except adding your new webhook URL.
+Each channel needs at least one event selected. To pause a channel instead, use **Disable notifications** (see [Manage channels](#manage-channels)).
 
-## Testing your alerts
+For the full list of events and what each one means, see [Event webhook events](/app/webhooks/event-webhooks/events).
 
-You are now ready to test your alerts. First, you can hit the `Test` button on the webhook settings page. This should trigger a test notification.
+### Message format
 
-Next, perform one of the actions you're watching if you've added Event filters. If you haven't added any event filters, the quickest way to test it's working is to either create a new test feature (then delete it if it's not needed), or toggle an environment on or off for an existing feature.
+The **Message Format** card controls how notifications look in the channel:
+
+- **Light:** an image card on a white background. This is the default.
+- **Dark:** the same card on a dark background, for dark Slack themes.
+- **Text only:** every notification is sent as a text message.
+
+Image cards are available for these events:
+
+- Experiment started
+- Experiment stopped
+- Experiment warning, for SRM warnings only
+
+Every other event is sent as text, even when **Light** or **Dark** is selected. If a card can't be created or uploaded, GrowthBook sends the text version instead, so the notification still arrives.
+
+Use the **Preview** panel to see how any event will look with the selected format. Each event is labeled **(card)** or **(text)**.
+
+<Tip>
+Cards are rendered on the GrowthBook server. No experiment data is sent to an outside image service.
+</Tip>
+
+## Send a test notification
+
+1. Open the channel's actions menu (**⋮**) and choose **Send test**.
+2. Pick a **Message type**. A preview shows what will be sent.
+3. Click **Send to _#channel_**.
+
+The test uses the format you currently have selected, even if you haven't saved it yet. It doesn't create a real event. In Slack, the message is labeled **Test notification — sample data**.
+
+To see a card, test with **Experiment started** or **Experiment stopped** and a **Light** or **Dark** format.
+
+## Manage channels
+
+The channel's actions menu (**⋮**) has these options:
+
+- **Disable notifications** / **Enable notifications:** pause or resume the channel without losing its settings. Click **Save settings** afterward.
+- **Send test:** see [Send a test notification](#send-a-test-notification).
+- **Delete channel:** stop sending notifications to this channel and remove its settings.
+
+The channel header shows when GrowthBook last delivered a notification there.
+
+Slack channels you connect through the app also show up under [Settings → Webhooks](https://app.growthbook.io/settings/webhooks) with a **Managed in Slack settings** badge. Edit them from the Slack integration page, not the webhooks page.
+
+## Manage the workspace
+
+Use the **Manage workspace** menu next to the workspace name:
+
+- **Reconnect:** run the Slack approval again. Do this if you see a **Reconnect needed** badge. The badge means the app needs permissions it wasn't granted when it was installed, usually after a GrowthBook update.
+- **Disconnect:** remove the workspace and all of its channel connections from GrowthBook.
+
+Disconnecting only removes the connection on the GrowthBook side. To fully revoke GrowthBook's access, also remove the GrowthBook app from your workspace in Slack.
+
+## Troubleshooting
+
+**A private channel isn't in the list.**
+Run `/invite @GrowthBook` in the channel in Slack, then click the refresh button next to the **Channel** field.
+
+**"GrowthBook can't join private channels itself."**
+The app can only join public channels on its own. Invite it to the private channel with `/invite @GrowthBook`, then try again.
+
+**Notifications stopped arriving.**
+Check that the channel shows **Active**, not **Inactive** or **Disabled**. If the workspace shows **Reconnect needed**, choose **Manage workspace → Reconnect**. Then send a test notification to confirm delivery.
+
+**"Slack could not deliver the test notification."**
+The app may have been removed from the channel or the workspace. Re-invite `@GrowthBook` to the channel, or reconnect the workspace.
+
+**"Slack did not return a workspace id."**
+You tried to install the app across a whole Enterprise Grid org. Install it into a single workspace instead.
+
+**I'm getting duplicate notifications.**
+You probably still have a [legacy Slack webhook](/integrations/slack/legacy-webhooks) or a Slack [event webhook](/app/webhooks/event-webhooks) posting to the same channel. Delete the old connection once the app is working.
