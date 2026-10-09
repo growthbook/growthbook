@@ -34,7 +34,10 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
-import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import {
+  projectFilterQuery,
+  readableProjectsClause,
+} from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
 import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
@@ -265,6 +268,37 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     };
 
     return this._find(filter, { sort: { id: 1 } });
+  }
+
+  /** Names for prompts: official first, then most recently updated; archived excluded. */
+  public async getRecentNamesForPrompt({
+    limit,
+    datasourceId,
+    readableProjects,
+  }: {
+    limit: number;
+    datasourceId?: string;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  }): Promise<string[]> {
+    if (readableProjects?.length === 0) return [];
+    const docs = await this._find(
+      {
+        archived: { $ne: true },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor.
+        ...readableProjectsClause(readableProjects),
+      },
+      {
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+        // Without this, _find loads every match and slices after its own
+        // permission filter. canRead below stays the authority.
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return docs.filter((m) => this.canRead(m)).map((m) => m.name);
   }
 
   public static upgradeFactMetricDoc(

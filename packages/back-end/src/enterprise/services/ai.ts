@@ -410,6 +410,7 @@ export const simpleCompletion = async ({
   returnType = "text",
   jsonSchema,
   overrideModel,
+  maxOutputTokens,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -420,6 +421,8 @@ export const simpleCompletion = async ({
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: AIModel;
+  /** Hard stop on the reply; latency-sensitive callers keep it small. */
+  maxOutputTokens?: number;
 }) => {
   const { defaultAIModel, keySource } = await getAISettingsForOrg(
     context,
@@ -450,6 +453,7 @@ export const simpleCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
+    ...(maxOutputTokens != null ? { maxOutputTokens } : {}),
   };
 
   let numTokensUsed: number | undefined;

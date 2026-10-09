@@ -2,6 +2,7 @@ import React, {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -12,7 +13,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
-import { Flex } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
@@ -46,6 +47,8 @@ import TokenHoverCard, {
 } from "./TokenHoverCard";
 import DictationButton from "./DictationButton";
 import { useDictation } from "./useDictation";
+import { GhostText, GHOST_TEXT_NAME, docEnd } from "./extensions/ghostText";
+import { useAutocomplete } from "./useAutocomplete";
 import SuggestionList, {
   SUGGESTION_LISTBOX_ID,
   suggestionOptionId,
@@ -83,6 +86,14 @@ export interface ChatComposerProps {
   mentionItemsReady?: boolean;
   /** Omit to hide slash commands (PA chat has none). */
   skillItems?: SkillItem[];
+  /** Inline AI continuation of the draft; Tab accepts. */
+  autocomplete?: boolean;
+  /** Recent turns steer the continuation. */
+  conversationId?: string;
+  /** A whole reply to offer in an empty draft, from the assistant's last message. */
+  suggestedReply?: { key: string; text: string };
+  /** Canned prompts to complete against before asking the model. */
+  quickSuggestions?: readonly string[];
 }
 
 type ActiveSuggestion =
@@ -141,6 +152,10 @@ function ChatComposer(
     mentionItems,
     mentionItemsReady = false,
     skillItems,
+    autocomplete = false,
+    conversationId,
+    suggestedReply,
+    quickSuggestions,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -153,6 +168,23 @@ function ChatComposer(
   const rows = suggestion ? toRows(suggestion) : [];
   const suggestionVisible = suggestion !== null;
   const suggestionOpen = rows.length > 0;
+  // The ghost is only drawn for an empty caret at the end, so the hint, the
+  // shortcut and the fetch follow the same condition.
+  const [caretAtEnd, setCaretAtEnd] = useState(true);
+  const {
+    ghost: ghostText,
+    accept: acceptGhost,
+    dismiss: dismissGhost,
+  } = useAutocomplete({
+    text: value,
+    enabled:
+      autocomplete && caretAtEnd && !loading && !disabled && !suggestionVisible,
+    conversationId,
+    suggestedReply,
+    quickSuggestions,
+  });
+  const ghost = suggestionVisible || !caretAtEnd ? "" : ghostText;
+  const ghostId = useId();
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Read by the editor's Enter handler, which is configured before dictation exists.
@@ -220,6 +252,7 @@ function ChatComposer(
       TextNode,
       HardBreak,
       UndoRedo,
+      GhostText,
       Placeholder.configure({
         placeholder,
         showOnlyWhenEditable: false,
@@ -303,6 +336,12 @@ function ChatComposer(
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": "Chat message",
+        ...(ghost
+          ? {
+              "aria-describedby": ghostId,
+              "aria-keyshortcuts": "Tab ArrowRight",
+            }
+          : {}),
         ...(suggestionVisible
           ? {
               "aria-expanded": "true",
@@ -331,6 +370,26 @@ function ChatComposer(
           }
           return false;
         }
+        // Plain Tab or Right arrow, as in Claude. Modifier combos keep their
+        // own meaning (Shift+Tab moves focus, Alt/Cmd+Right jump words).
+        if (
+          ghost &&
+          (event.key === "Tab" || event.key === "ArrowRight") &&
+          !(event.shiftKey || event.ctrlKey || event.altKey || event.metaKey)
+        ) {
+          const { selection, doc } = view.state;
+          const end = docEnd(doc);
+          // Same condition the ghost is drawn under: a caret at the very end.
+          if (selection.empty && selection.to === end) {
+            view.dispatch(view.state.tr.insertText(ghost, end));
+            acceptGhost();
+            return true;
+          }
+        }
+        if (ghost && event.key === "Escape") {
+          dismissGhost();
+          return true;
+        }
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           if (!loading && !disabled && !dictatingRef.current) {
@@ -342,6 +401,10 @@ function ChatComposer(
       },
     },
     onUpdate: ({ editor: e }) => onChange(editorToText(e)),
+    onSelectionUpdate: ({ editor: e }) => {
+      const { selection, doc } = e.state;
+      setCaretAtEnd(selection.empty && selection.to === docEnd(doc));
+    },
   });
 
   useImperativeHandle(
@@ -372,6 +435,12 @@ function ChatComposer(
     if (!editor) return;
     editor.storage[SKILL_COMMAND_NAME].items = skillItems ?? [];
   }, [editor, skillItems]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.storage[GHOST_TEXT_NAME].text = ghost;
+    editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
+  }, [editor, ghost]);
 
   const handleFocus = useCallback(() => setFocused(true), []);
   const handleBlur = useCallback(() => setFocused(false), []);
@@ -475,6 +544,15 @@ function ChatComposer(
       onMouseLeave={scheduleHideCard}
     >
       <TokenHoverCard hovered={hoveredToken} cardRef={cardRef} />
+      {ghost && (
+        <VisuallyHidden id={ghostId}>Suggestion: {ghost}</VisuallyHidden>
+      )}
+      {/* Static text, always mounted: announced once when a suggestion appears, not on every keystroke. */}
+      <VisuallyHidden role="status">
+        {ghost
+          ? "Suggestion available. Press Tab or Right arrow to accept."
+          : ""}
+      </VisuallyHidden>
       {suggestionVisible && suggestion && (
         <SuggestionList
           items={rows}
