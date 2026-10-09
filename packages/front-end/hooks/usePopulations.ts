@@ -17,8 +17,9 @@ export function usePopulations(
 ) {
   const { orgId } = useAuth();
   const restApiCall = useRestApiCall();
+  const shouldFetch = enabled && !!orgId;
   const { data, error, mutate } = useSWR<ApiPopulation[], Error>(
-    enabled && orgId ? `${orgId}::/api/v1/populations` : null,
+    shouldFetch ? `${orgId}::/api/v1/populations` : null,
     async () => {
       const populations: ApiPopulation[] = [];
       let offset: number | null = 0;
@@ -46,7 +47,7 @@ export function usePopulations(
   );
 
   return {
-    loading: enabled && !error && !data,
+    loading: shouldFetch && !error && !data,
     populations,
     error,
     mutate,
