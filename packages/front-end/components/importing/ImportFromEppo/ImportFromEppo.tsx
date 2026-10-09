@@ -56,7 +56,16 @@ const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   flags: (id) => `/features/${id}`,
 };
 
-function StatusBadge({ item }: { item: ImportItem<unknown> }) {
+// Existing environments and tags are left as they are
+const UNTOUCHED: EppoCategory[] = ["environments", "tags"];
+
+function StatusBadge({
+  item,
+  category,
+}: {
+  item: ImportItem<unknown>;
+  category: EppoCategory;
+}) {
   switch (item.status) {
     case "invalid":
       return <Badge color="red" label="Can't import" />;
@@ -66,6 +75,9 @@ function StatusBadge({ item }: { item: ImportItem<unknown> }) {
       return <Badge color="green" label="Imported" />;
     case "pending":
       if (item.match === "name") return <Badge color="amber" label="Exists" />;
+      if (item.existingId && UNTOUCHED.includes(category)) {
+        return <Badge color="gray" label="No change" />;
+      }
       return (
         <Badge color="gray" label={item.existingId ? "Update" : "Create"} />
       );
@@ -230,10 +242,14 @@ export default function ImportFromEppo() {
       .map((item) => ({ category: key, item })),
   );
   const selectedCount = selectedItems.length;
-  // Existing environments and tags are left as they are
-  const updateCount = selectedItems.filter(
-    ({ category, item }) =>
-      item.existingId && category !== "environments" && category !== "tags",
+  const updating = selectedItems.filter(
+    ({ category, item }) => item.existingId && !UNTOUCHED.includes(category),
+  );
+  const updateCount = updating.filter(
+    ({ item }) => item.match === "run",
+  ).length;
+  const overwriteCount = updating.filter(
+    ({ item }) => item.match === "name",
   ).length;
   const setSelected = (ids: string[], selected: boolean) =>
     setSelection((prev) => {
@@ -379,10 +395,22 @@ export default function ImportFromEppo() {
       ) : null}
 
       {updateCount ? (
-        <Callout status="warning" mb="4">
+        <Callout status="info" mb="4">
           {`${updateCount} selected ${
             updateCount === 1 ? "item" : "items"
-          } already in GrowthBook will be updated to match Eppo. Rules on an existing Feature Flag are replaced; owners, tags and projects are kept.`}
+          } from earlier imports will be updated to match Eppo. Rules on an existing Feature Flag are replaced; owners, tags and projects are kept.`}
+        </Callout>
+      ) : null}
+
+      {overwriteCount ? (
+        <Callout status="warning" mb="4">
+          {`${overwriteCount} selected ${
+            overwriteCount === 1 ? "item was" : "items were"
+          } not created by an Eppo import and only ${
+            overwriteCount === 1 ? "shares" : "share"
+          } a name or key with the Eppo item. Importing overwrites ${
+            overwriteCount === 1 ? "it" : "them"
+          } with Eppo's definition.`}
         </Callout>
       ) : null}
 
@@ -471,6 +499,10 @@ export default function ImportFromEppo() {
                                       {item.existingId}
                                     </Link>
                                   </HelperText>
+                                ) : item.existingId ? (
+                                  <HelperText status="info" size="sm">
+                                    Already in GrowthBook
+                                  </HelperText>
                                 ) : null}
                                 {item.error ? (
                                   <HelperText status="error" size="sm">
@@ -479,7 +511,7 @@ export default function ImportFromEppo() {
                                 ) : null}
                               </TableCell>
                               <TableCell>
-                                <StatusBadge item={item} />
+                                <StatusBadge item={item} category={category} />
                               </TableCell>
                               <TableCell>
                                 <Link

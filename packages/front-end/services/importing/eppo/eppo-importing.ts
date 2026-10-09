@@ -1383,9 +1383,13 @@ const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
   "tag",
 ];
 
+// Runs recorded before `action` existed carry the same fact in `detail`
+export const wasCreated = (a: ApiAutoRun["artifacts"][number]) =>
+  a.action === "created" || (!a.action && a.detail === "Created from Eppo");
+
 export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
   return run.artifacts
-    .filter((a) => a.action === "created")
+    .filter(wasCreated)
     .sort(
       (a, b) => TEARDOWN_ORDER.indexOf(a.kind) - TEARDOWN_ORDER.indexOf(b.kind),
     );
