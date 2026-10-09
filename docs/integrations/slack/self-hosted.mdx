@@ -59,7 +59,9 @@ Click **Connect to Slack** and follow the steps in [Connect your Slack workspace
 
 ## Updating an existing Slack app
 
-If you created your Slack app by hand or from an older manifest, update it to match the current one. Copy the manifest from **Set up Slack app** and paste it into your app's **App Manifest** page in Slack, or set these values yourself:
+If you created your Slack app by hand or from an older manifest, update it in Slack to match the settings below. You can change them on each settings page, or edit them all at once on your app's **App Manifest** page.
+
+The **Set up Slack app** button only appears while `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are unset, so it isn't available once your instance is configured.
 
 - **OAuth redirect URL:** `https://YOUR_APP_ORIGIN/integrations/slack`
 - **Event Subscriptions request URL:** `https://YOUR_API_HOST/integrations/slack/events`
