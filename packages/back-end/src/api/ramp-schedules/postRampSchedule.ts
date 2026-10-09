@@ -36,6 +36,10 @@ import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleMode
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 // Strict: a rule field placed on the step or action instead of inside `patch`
 // would otherwise be dropped and the step stored with nothing to apply.
@@ -82,6 +86,8 @@ export const postBodyStep = z
 const postRampScheduleValidator = {
   method: "post" as const,
   path: "/ramp-schedules",
+  confirmation: ["rampSchedule.start"] as const,
+  confirmationInHandler: true,
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
   description:
@@ -433,6 +439,17 @@ export const postRampSchedule = createApiRequestHandler(
   const monitoringConfig = body.monitoringConfig
     ? await resolveApiMonitoringConfig(req.context, body.monitoringConfig, null)
     : null;
+
+  // Attaching on creation controls a live rule without a revision publish.
+  if (hasTarget) {
+    await requireConfirmation(req.context, {
+      actions: [{ action: "rampSchedule.start", environments: [] }],
+      project: feature?.project || "",
+      summary: `Attach a ramp schedule to ${body.featureId}`,
+      links: [confirmationLink("feature", body.featureId!)],
+      pin: feature?.dateUpdated ?? null,
+    });
+  }
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,

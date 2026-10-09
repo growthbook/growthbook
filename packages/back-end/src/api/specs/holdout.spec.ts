@@ -13,6 +13,7 @@ import { OpenApiModelSpec } from "shared/api-model";
 export const holdoutStartEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
+  confirmation: ["experiment.start"] as const,
   operationId: "startHoldout",
   validator: apiHoldoutActionValidator,
   zodReturnObject: apiHoldoutActionReturn,
@@ -25,6 +26,7 @@ export const holdoutStartEndpoint = {
 export const holdoutStartAnalysisEndpoint = {
   pathFragment: "/:id/start-analysis",
   verb: "post" as const,
+  confirmation: ["experiment.other"] as const,
   operationId: "startHoldoutAnalysis",
   validator: apiHoldoutActionValidator,
   zodReturnObject: apiHoldoutActionReturn,
@@ -37,6 +39,7 @@ export const holdoutStartAnalysisEndpoint = {
 export const holdoutStopEndpoint = {
   pathFragment: "/:id/stop",
   verb: "post" as const,
+  confirmation: ["experiment.stop"] as const,
   operationId: "stopHoldout",
   validator: apiHoldoutActionValidator,
   zodReturnObject: apiHoldoutActionReturn,
@@ -57,6 +60,7 @@ export const holdoutApiSpec = {
   crudValidatorOverrides: {
     list: apiListHoldoutsValidator,
   },
+  confirmation: { create: [], update: ["experiment.other"] },
   customEndpoints: [
     holdoutStartEndpoint,
     holdoutStartAnalysisEndpoint,

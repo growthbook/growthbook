@@ -19,6 +19,7 @@ import ReactSelect, {
   FormatOptionLabelMeta,
   ClearIndicatorProps,
   DropdownIndicatorProps,
+  FilterOptionOption,
 } from "react-select";
 import {
   SortableContainer,
@@ -293,6 +294,12 @@ export type MultiSelectFieldProps = Omit<
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  /** Keep chosen options in the menu (e.g. to show checkmarks) instead of hiding them. */
+  hideSelectedOptions?: boolean;
+  filterOption?: (
+    option: FilterOptionOption<SingleValue>,
+    inputValue: string,
+  ) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
   size?: MultiSelectFieldSize;
@@ -322,6 +329,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   formatGroupLabel,
   onPaste: userOnPaste,
   isOptionDisabled,
+  hideSelectedOptions,
+  filterOption,
   noMenu,
   required,
   pattern,
@@ -627,6 +636,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     : {})}
                   placeholder={initialOption ?? placeholder}
                   isOptionDisabled={isOptionDisabled}
+                  hideSelectedOptions={hideSelectedOptions}
+                  filterOption={filterOption}
                   {...{ ...ReactSelectProps, ...mergeStyles }}
                 />
                 {required && (

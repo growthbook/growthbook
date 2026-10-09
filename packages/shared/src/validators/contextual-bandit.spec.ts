@@ -20,6 +20,7 @@ import {
 export const startContextualBanditEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
+  confirmation: ["experiment.start"] as const,
   operationId: "startContextualBandit",
   validator: apiContextualBanditStartValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -29,6 +30,7 @@ export const startContextualBanditEndpoint = {
 export const stopContextualBanditEndpoint = {
   pathFragment: "/:id/stop",
   verb: "post" as const,
+  confirmation: ["experiment.stop"] as const,
   operationId: "stopContextualBandit",
   validator: apiContextualBanditStopValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -38,6 +40,7 @@ export const stopContextualBanditEndpoint = {
 export const refreshContextualBanditEndpoint = {
   pathFragment: "/:id/refresh",
   verb: "post" as const,
+  confirmation: [],
   operationId: "refreshContextualBandit",
   validator: apiContextualBanditRefreshValidator,
   zodReturnObject: apiContextualBanditRefreshReturn,
@@ -47,6 +50,7 @@ export const refreshContextualBanditEndpoint = {
 export const updateVariationsContextualBanditEndpoint = {
   pathFragment: "/:id/variations",
   verb: "post" as const,
+  confirmation: ["experiment.other"] as const,
   operationId: "updateContextualBanditVariations",
   validator: apiContextualBanditUpdateVariationsValidator,
   zodReturnObject: apiContextualBanditVariationsReturn,
@@ -57,6 +61,7 @@ export const updateVariationsContextualBanditEndpoint = {
 export const cancelContextualBanditEndpoint = {
   pathFragment: "/:id/cancel",
   verb: "post" as const,
+  confirmation: [],
   operationId: "cancelContextualBandit",
   validator: apiContextualBanditCancelValidator,
   zodReturnObject: apiContextualBanditCancelReturn,
@@ -76,6 +81,7 @@ export const contextualBanditApiSpec = {
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
+  confirmation: { create: [], update: ["experiment.other"] },
   customEndpoints: [
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,

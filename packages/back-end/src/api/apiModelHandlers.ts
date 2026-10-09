@@ -111,7 +111,10 @@ export function getOpenApiRoutesForApiConfig(
     const returnKey = getCrudReturnKey(spec, action);
     const hasResponseOverride =
       !!spec.crudValidatorOverrides?.[action]?.responseSchema;
-    const route = createApiRequestHandler(endpoint)(async (req) => {
+    const route = createApiRequestHandler({
+      ...endpoint,
+      confirmation: spec.confirmation?.[action],
+    })(async (req) => {
       const modelInstance = req.context.models[
         apiConfig.modelKey
       ] as unknown as MinimalApiModel;

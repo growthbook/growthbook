@@ -130,6 +130,7 @@ export const postVisualChangesetsValidator = {
     })
     .strict(),
   summary: "Create a visual changeset for an experiment",
+  confirmation: ["experiment.other"] as const,
   operationId: "postVisualChangesets",
   tags: ["visual-changesets"],
   method: "post" as const,
@@ -238,6 +239,7 @@ export const putVisualChangesetValidator = {
     })
     .strict(),
   summary: "Update a visual changeset",
+  confirmation: ["experiment.other"] as const,
   operationId: "putVisualChangeset",
   tags: ["visual-changesets"],
   method: "put" as const,
@@ -291,6 +293,7 @@ export const postVisualChangeValidator = {
     })
     .strict(),
   summary: "Create a visual change for a visual changeset",
+  confirmation: ["experiment.other"] as const,
   operationId: "postVisualChange",
   tags: ["visual-changesets"],
   method: "post" as const,
@@ -322,6 +325,7 @@ export const putVisualChangeValidator = {
     })
     .strict(),
   summary: "Update a visual change for a visual changeset",
+  confirmation: ["experiment.other"] as const,
   operationId: "putVisualChange",
   tags: ["visual-changesets"],
   method: "put" as const,

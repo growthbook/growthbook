@@ -35,6 +35,10 @@ import {
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  experimentChangeLabels,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
@@ -395,6 +399,19 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context,
       phasePrerequisites(newExperiment.phases),
     );
+
+    // Created running, stopped or with a scheduled start: judged as a change
+    // from a draft of itself.
+    await requireConfirmation(req.context, {
+      actions: experimentChangeLabels(
+        { ...newExperiment, status: "draft", statusUpdateSchedule: undefined },
+        newExperiment,
+      ).map((action) => ({ action, environments: [] })),
+      project: newExperiment.project || "",
+      summary: `Create ${newExperiment.name}`,
+      links: [],
+      pin: null,
+    });
 
     const experiment = await createExperiment({
       data: newExperiment,

@@ -48,6 +48,7 @@ const postVariationImageUploadValidator = {
   }),
   method: "post" as const,
   path: "/experiments/:id/variation/:variationId/screenshot/upload",
+  confirmation: [],
   operationId: "postVariationImageUpload",
   summary: "Upload a variation screenshot",
   tags: ["experiments"],

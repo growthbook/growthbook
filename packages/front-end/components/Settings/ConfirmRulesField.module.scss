@@ -1,0 +1,26 @@
+.check {
+  opacity: 0;
+}
+
+.checked {
+  opacity: 1;
+}
+
+// Ghost buttons pull themselves outward; keep the caret in its column.
+.caret {
+  margin: 0;
+}
+
+// Preview what a click would do to the checkmark, unless the pointer is on the caret.
+:global(
+    .gb-multi-select__option:not(.gb-multi-select__option--is-disabled)
+  ):hover:not(:has(.caret:hover)) {
+  .check {
+    opacity: 0.4;
+  }
+
+  .checked {
+    opacity: 1;
+    color: var(--blue-11);
+  }
+}

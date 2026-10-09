@@ -8,6 +8,10 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveProjectScopeFromInput,
@@ -164,4 +168,20 @@ export function buildContextualBanditRefRule(
           : v.value,
     })),
   };
+}
+
+// Publishing the rule change now is held; staging it in a draft is not.
+export async function holdLinkedFeaturePublish(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  autoPublish: boolean | undefined,
+) {
+  if (!autoPublish) return;
+  await requireConfirmation(context, {
+    actions: [{ action: "feature.other", environments: [] }],
+    project: feature.project || "",
+    summary: `Publish the contextual bandit rule on ${feature.id}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
 }

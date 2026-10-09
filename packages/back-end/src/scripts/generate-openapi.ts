@@ -6,11 +6,26 @@ import {
   namedSchemaRegistry,
   apiErrorRegistry,
   ApiErrorCode,
+  CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
+import { routeConfirmation } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 import { getBuild } from "back-end/src/util/build";
+
+// Top-level body fields, across the arms of a union body.
+function bodyFieldNames(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+  const s = schema as Record<string, unknown>;
+  const arms = [s.anyOf, s.oneOf, s.allOf].flatMap((a) =>
+    Array.isArray(a) ? a : [],
+  );
+  return [
+    ...Object.keys((s.properties as object | undefined) ?? {}),
+    ...arms.flatMap(bodyFieldNames),
+  ];
+}
 
 const openApiTags = [
   "projects",
@@ -707,6 +722,7 @@ curl https://api.growthbook.io/api/v1/features \
       version,
       deprecated,
       possibleErrors,
+      confirmation,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -951,6 +967,22 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
+    // Its own labels, plus an override for each skip flag it accepts.
+    const accepted = [
+      // Shared parameters are refs keyed by their name.
+      ...parameters.map((p) =>
+        "name" in p ? p.name : (p.$ref.split("/").pop() ?? ""),
+      ),
+      ...bodyFieldNames(requestBody?.content["application/json"].schema),
+    ];
+    const labels = [
+      ...new Set([
+        ...routeConfirmation(method, tags, confirmation),
+        ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, label]) =>
+          accepted.includes(flag) ? [label] : [],
+        ),
+      ]),
+    ];
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,
@@ -962,6 +994,7 @@ curl https://api.growthbook.io/api/v1/features \
       ...(requestBody !== undefined && { requestBody }),
       responses,
       "x-codeSamples": codeSamples,
+      ...(labels.length > 0 && { "x-growthbook-confirmation": labels }),
     };
   }
 

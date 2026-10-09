@@ -1,6 +1,11 @@
 import { Request, RequestHandler } from "express";
 import { z, ZodType, ZodNever, output, core } from "zod";
-import { ApiPaginationFields, ApiErrorCode } from "shared/validators";
+import {
+  ApiPaginationFields,
+  ApiErrorCode,
+  ConfirmLabel,
+} from "shared/validators";
+import { routeConfirmation } from "shared/util";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -12,10 +17,12 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
+import { holdAtRoute } from "back-end/src/services/confirmations";
 import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
+  ConfirmationRequiredError,
   MergeConflictError,
   SoftWarningError,
 } from "./errors";
@@ -182,7 +189,11 @@ export async function runApiHandler(
     query?: ZodType;
   },
   handler: (req: never) => Promise<unknown>,
-): Promise<{ status: number; body: unknown }> {
+): Promise<{
+  status: number;
+  body: unknown;
+  headers?: Record<string, string>;
+}> {
   const allErrors: string[] = [];
   if (schemas.params && !(schemas.params instanceof ZodNever)) {
     const validated = validate(schemas.params, req.params);
@@ -216,6 +227,9 @@ export async function runApiHandler(
     const result = await handler(req as never);
     return { status: 200, body: result };
   } catch (e) {
+    if (e instanceof ConfirmationRequiredError) {
+      return { status: 202, body: e.body, headers: e.headers };
+    }
     const body: ApiErrorResponse = { message: e.message };
     if (e instanceof ApiError) {
       body.code = e.code;
@@ -311,6 +325,8 @@ export type OpenApiRoute<
   excludeFromSpec?: boolean;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
+  confirmation?: readonly ConfirmLabel[];
+  confirmationInHandler?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -344,6 +360,8 @@ export function createApiRequestHandler<
     deprecated,
     deprecationDate,
     possibleErrors,
+    confirmation,
+    confirmationInHandler,
   } = data;
 
   return (
@@ -356,6 +374,18 @@ export function createApiRequestHandler<
       >,
     ) => Promise<z.infer<ResponseSchema>>,
   ) => {
+    // Every write is checked before the handler runs, for its own labels and
+    // any check it asks to skip, unless the handler holds once it knows what
+    // changes. Inside the raw handler, so replays pass the same hold.
+    const labels = routeConfirmation(method, tags, confirmation);
+    if (method !== "get" && !confirmationInHandler) {
+      const inner = handler;
+      handler = async (req) => {
+        await holdAtRoute(req.context, labels, method, path, req, summary);
+        return inner(req);
+      };
+    }
+
     const wrappedHandler: WrappedRequestHandler<
       ParamsSchema,
       BodySchema,
@@ -363,7 +393,7 @@ export function createApiRequestHandler<
       ResponseSchema
     > = async (req, res, next) => {
       try {
-        const { status, body } = await runApiHandler(
+        const { status, body, headers } = await runApiHandler(
           req,
           {
             params: paramsSchema,
@@ -372,6 +402,7 @@ export function createApiRequestHandler<
           },
           handler,
         );
+        if (headers) res.set(headers);
         return res
           .status(status)
           .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
@@ -407,6 +438,7 @@ export function createApiRequestHandler<
       rawHandler: handler,
       excludeFromSpec,
       possibleErrors,
+      confirmation,
     };
 
     return route;

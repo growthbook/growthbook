@@ -278,6 +278,7 @@ export const getConfigRevisionMergeStatusValidator = {
 export const postConfigRevisionValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key",
+  confirmation: [],
   operationId: "postConfigRevision",
   summary: "Create a draft revision",
   description:
@@ -294,6 +295,7 @@ export const postConfigRevisionValidator = {
 export const postConfigRevisionDiscardValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/discard",
+  confirmation: [],
   operationId: "postConfigRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -308,6 +310,14 @@ export const postConfigRevisionDiscardValidator = {
 export const postConfigRevisionPublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/publish",
+  confirmation: [
+    "config.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -329,6 +339,14 @@ export const postConfigRevisionPublishValidator = {
 export const postConfigRevisionRevertValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/revert",
+  confirmation: [
+    "config.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConfigRevisionRevert",
   summary: "Revert the config to a prior revision",
   description:
@@ -357,6 +375,7 @@ export const postConfigRevisionRevertValidator = {
 export const postConfigRevisionRebaseValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/rebase",
+  confirmation: [],
   operationId: "postConfigRevisionRebase",
   summary: "Rebase a draft revision onto the current live config",
   description:
@@ -385,6 +404,7 @@ export const postConfigRevisionRebaseValidator = {
 export const postConfigRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/request-review",
+  confirmation: [],
   operationId: "postConfigRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -404,6 +424,7 @@ export const postConfigRevisionRequestReviewValidator = {
 export const postConfigRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/submit-review",
+  confirmation: [],
   operationId: "postConfigRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
@@ -426,6 +447,14 @@ export const postConfigRevisionSubmitReviewValidator = {
 export const postConfigRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/schedule-publish",
+  confirmation: [
+    "config.publish",
+    "override.ignoreWarnings",
+    "override.skipSchemaValidation",
+    "override.skipHooks",
+    "override.bypassApproval",
+    "override.restBypassesReviews",
+  ] as const,
   operationId: "postConfigRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -453,6 +482,7 @@ export const postConfigRevisionSchedulePublishValidator = {
 export const postConfigRevisionReopenValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/reopen",
+  confirmation: [],
   operationId: "postConfigRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -467,6 +497,7 @@ export const postConfigRevisionReopenValidator = {
 export const postConfigRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/recall-review",
+  confirmation: [],
   operationId: "postConfigRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -483,6 +514,7 @@ export const postConfigRevisionRecallReviewValidator = {
 export const putConfigRevisionMetadataValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/metadata",
+  confirmation: [],
   operationId: "putConfigRevisionMetadata",
   summary: "Update config metadata in a draft revision",
   description:
@@ -521,6 +553,7 @@ export const putConfigRevisionMetadataValidator = {
 export const putConfigRevisionValueValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/value",
+  confirmation: [],
   operationId: "putConfigRevisionValue",
   summary: "Update the value of a config draft revision",
   description:
@@ -551,6 +584,7 @@ export const putConfigRevisionValueValidator = {
 export const putConfigRevisionPropertyValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/property",
+  confirmation: [],
   operationId: "putConfigRevisionProperty",
   summary: "Set one property of a config draft revision's value",
   description:
@@ -576,6 +610,7 @@ export const putConfigRevisionPropertyValidator = {
 export const deleteConfigRevisionPropertyValidator = {
   method: "delete" as const,
   path: "/configs-revisions/:key/:version/property",
+  confirmation: [],
   operationId: "deleteConfigRevisionProperty",
   summary: "Remove one property from a config draft revision's value",
   description:
@@ -595,6 +630,7 @@ export const deleteConfigRevisionPropertyValidator = {
 export const putConfigRevisionSchemaValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/schema",
+  confirmation: [],
   operationId: "putConfigRevisionSchema",
   summary: "Update or import the schema of a config draft revision",
   description:
@@ -625,6 +661,7 @@ export const putConfigRevisionSchemaValidator = {
 export const putConfigRevisionProjectionValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/projection",
+  confirmation: [],
   operationId: "putConfigRevisionProjection",
   summary: "Set (or update) a config's per-source render projection on a draft",
   description:
@@ -658,6 +695,7 @@ export const putConfigRevisionProjectionValidator = {
 export const deleteConfigRevisionProjectionValidator = {
   method: "delete" as const,
   path: "/configs-revisions/:key/:version/projection",
+  confirmation: [],
   operationId: "deleteConfigRevisionProjection",
   summary: "Remove a config's per-source render projection on a draft",
   description:
@@ -678,6 +716,7 @@ export const deleteConfigRevisionProjectionValidator = {
 export const putConfigRevisionArchiveValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/archive",
+  confirmation: [],
   operationId: "putConfigRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -698,6 +737,7 @@ export const putConfigRevisionArchiveValidator = {
 export const postConfigRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/undo-review",
+  confirmation: [],
   operationId: "postConfigRevisionUndoReview",
   summary: "Retract your own review verdict",
   description:

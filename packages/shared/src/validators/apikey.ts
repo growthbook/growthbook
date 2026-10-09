@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
+import { confirmRulesValidator } from "./confirmations";
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
@@ -102,6 +103,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .optional()
     .describe(
       "OAuth scopes granted at issuance. Stored for audit; Phase 1 tokens act as the full user (PAT-equivalent).",
+    ),
+  confirmRules: confirmRulesValidator
+    .nullable()
+    .optional()
+    .describe(
+      "Actions this key can't complete until a person confirms them, on top of the organization's rules. Null or absent means off.",
     ),
 });
 

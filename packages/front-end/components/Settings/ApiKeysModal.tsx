@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { ConfirmRule } from "shared/validators";
 import {
   getExpirationProblem,
   latestEditedExpiration,
@@ -18,6 +19,10 @@ import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
+import ConfirmRulesField, {
+  SUGGESTED_CONFIRM_RULES,
+  withoutEmptyRules,
+} from "./ConfirmRulesField";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -112,6 +117,12 @@ const ApiKeysModal: FC<{
     projectRoles: source?.projectRoles,
   });
   const [scoped, setScoped] = useState(!!source?.scoped);
+  const [confirmRules, setConfirmRules] = useState<ConfirmRule[] | null>(
+    source?.confirmRules ?? null,
+  );
+  const confirmRulesBody = {
+    confirmRules: confirmRules ? withoutEmptyRules(confirmRules) : null,
+  };
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
   const canScopeToken =
@@ -130,6 +141,7 @@ const ApiKeysModal: FC<{
           ...(expirationChanged && {
             expiresAt: expiresAt?.toISOString() ?? null,
           }),
+          ...confirmRulesBody,
         }),
       });
       track("Edit API Key", {
@@ -146,12 +158,14 @@ const ApiKeysModal: FC<{
           type: "user",
           ...patScope,
           expiresAt: expiresAt?.toISOString() ?? null,
+          ...confirmRulesBody,
         }
       : {
           description: value.description,
           type: role,
           ...roleStateData,
           expiresAt: expiresAt?.toISOString() ?? null,
+          ...confirmRulesBody,
         };
     if (!created.current) {
       await apiCall("/keys", {
@@ -199,6 +213,22 @@ const ApiKeysModal: FC<{
         setValue={setExpiresAt}
         existing={existingKey}
       />
+      <Checkbox
+        label="Require confirmation"
+        description={
+          personalAccessToken
+            ? "Hold these actions until you confirm them in GrowthBook, on top of your organization's rules."
+            : "Hold these actions until someone allowed to make the change confirms it in GrowthBook."
+        }
+        value={confirmRules !== null}
+        setValue={(on) => setConfirmRules(on ? SUGGESTED_CONFIRM_RULES : null)}
+        mb="3"
+      />
+      {confirmRules && (
+        <Box mb="3">
+          <ConfirmRulesField value={confirmRules} setValue={setConfirmRules} />
+        </Box>
+      )}
       {canDeleteSource && (
         <Box mb="3">
           <Checkbox

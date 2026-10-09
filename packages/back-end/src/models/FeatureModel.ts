@@ -4724,6 +4724,7 @@ export async function createAndPublishRevision({
   comment,
   canBypassApprovalChecks,
   revertedFrom,
+  beforeLanding,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4733,6 +4734,8 @@ export async function createAndPublishRevision({
   comment?: string;
   canBypassApprovalChecks: boolean;
   revertedFrom?: number;
+  /** Runs once the change is known to be allowed, before anything is written. */
+  beforeLanding?: (gate: { bypassesApproval: boolean }) => Promise<void>;
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
@@ -4794,6 +4797,7 @@ export async function createAndPublishRevision({
         "Enable 'REST API always bypasses approval requirements' in organization settings.",
     );
   }
+  await beforeLanding?.({ bypassesApproval: requiresReview });
 
   const mergeForPublish = (revision: FeatureRevisionInterface) => {
     const result = autoMerge(liveBase, liveBase, revision, allEnvironments, {});
