@@ -3670,7 +3670,8 @@ export async function postFeatureSync(
       FeatureInterface,
       "organization" | "version" | "dateCreated" | "dateUpdated"
     >,
-    { id: string }
+    { id: string },
+    { mirror?: string }
   >,
   res: Response<
     { status: 200; feature: FeatureInterface },
@@ -3700,9 +3701,14 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  // Per-environment on/off toggles land with the rules so a re-sync carries a
-  // kill switch flipped in the source system. Only envs that actually change
-  // are sent, keeping unchanged envs out of the revision and the permission check.
+  // `?mirror=true` makes an existing feature match the payload: flat `rules`
+  // replace its rules and on/off toggles land, so a re-sync carries a kill
+  // switch flipped in the source system. Other callers keep the older
+  // behavior, which ignores both on update.
+  const mirror = req.query?.mirror === "true";
+
+  // Only envs that actually change are sent, keeping unchanged envs out of
+  // the revision and the permission check.
   const environmentsEnabled: Record<string, boolean> = {};
   const envEnabledIn = data.environmentSettings as
     | Record<string, { enabled?: boolean }>
@@ -3710,6 +3716,7 @@ export async function postFeatureSync(
   for (const env of environments) {
     const enabled = envEnabledIn?.[env]?.enabled;
     if (
+      mirror &&
       typeof enabled === "boolean" &&
       enabled !== !!feature.environmentSettings?.[env]?.enabled
     ) {
@@ -3757,7 +3764,8 @@ export async function postFeatureSync(
   const envSettingsIn = data.environmentSettings as
     | Record<string, { rules?: FeatureRule[] }>
     | undefined;
-  const flatRulesIn = Array.isArray(data.rules) ? data.rules : undefined;
+  const flatRulesIn =
+    mirror && Array.isArray(data.rules) ? data.rules : undefined;
   if (flatRulesIn) {
     // Keep stored seeds for rules echoed by id so a re-sync doesn't re-bucket
     inheritStoredRolloutSeeds(flatRulesIn, liveFeatureRules);

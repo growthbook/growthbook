@@ -147,11 +147,9 @@ export default function ImportFromEppo() {
           .filter((sg) => inProject(project, sg.projects))
           .map((sg) => [sg.groupName, sg.id]),
       ),
-      features: new Set(
-        features
-          .filter((f) => inProject(project, f.project ? [f.project] : []))
-          .map((f) => f.id),
-      ),
+      // Feature keys are unique across the org, and syncing a key updates
+      // whichever Project's flag owns it
+      features: new Set(features.map((f) => f.id)),
       factTables: new Map(
         factTables
           .filter(

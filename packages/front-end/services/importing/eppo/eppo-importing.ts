@@ -1,4 +1,4 @@
-import { pick } from "lodash";
+import { isEqual, pick } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
@@ -317,9 +317,18 @@ export async function fetchEppoData(
 }
 
 // An experiment GrowthBook has, so flags can reference it and re-imports keep its ids
+export type PhaseTargeting = {
+  condition: string;
+  savedGroups: NonNullable<FeatureRule["savedGroups"]>;
+  coverage: number;
+};
+
 export type GBExperimentRef = {
   id: string;
   variations: { id: string; key: string }[];
+  // Who the GrowthBook experiment's phase includes, once known. An
+  // experiment-ref rule serves the phase's targeting, not its own.
+  phase?: PhaseTargeting;
 };
 
 export type TransformContext = {
@@ -362,15 +371,16 @@ export function widenValues(values: string[]): (string | number | boolean)[] {
   return [...out];
 }
 
+// Eppo never matches a user who doesn't send the attribute, while the SDK
+// treats a missing value as null (or "0" for versions) and can match it
 function conditionToGB({ attribute, operator, values }: EppoCondition) {
   switch (operator) {
     case "ONE_OF":
       return { [attribute]: { $in: widenValues(values) } };
     case "NOT_ONE_OF":
-      // Eppo doesn't match a missing attribute; $nin alone would
       return { [attribute]: { $exists: true, $nin: widenValues(values) } };
     case "MATCHES":
-      return { [attribute]: { $regex: values.join("|") } };
+      return { [attribute]: { $exists: true, $regex: values.join("|") } };
     case "IS_NULL":
       return {
         [attribute]: { $exists: String(values[0]).toLowerCase() === "false" },
@@ -383,8 +393,8 @@ function conditionToGB({ attribute, operator, values }: EppoCondition) {
       const value = values[0] ?? "";
       const op = operator.toLowerCase();
       return value.trim() !== "" && !isNaN(Number(value))
-        ? { [attribute]: { [`$${op}`]: Number(value) } }
-        : { [attribute]: { [`$v${op}`]: value } };
+        ? { [attribute]: { $exists: true, [`$${op}`]: Number(value) } }
+        : { [attribute]: { $exists: true, [`$v${op}`]: value } };
     }
     default:
       throw new Error(`Unsupported targeting operator: ${operator}`);
@@ -479,7 +489,7 @@ export function getVariationValue(
 function getAllocationTargeting(
   allocation: EppoAllocation,
   ctx: TransformContext,
-): Pick<FeatureRule, "condition" | "savedGroups"> {
+): Omit<PhaseTargeting, "coverage"> {
   const rules = allocation.targeting_rules ?? [];
   const audiences = allocation.audiences ?? [];
 
@@ -507,6 +517,43 @@ function getAllocationTargeting(
     condition: JSON.stringify(ors.length === 1 ? ors[0] : { $or: ors }),
     savedGroups: [],
   };
+}
+
+const allocationCoverage = (a: EppoAllocation) =>
+  Math.min(1, Math.max(0, a.percent_exposure ?? 1));
+
+// Who the flag allocations an Eppo experiment analyzes include, when they all
+// agree, so the GrowthBook experiment's phase can carry it
+export function getLinkedTargeting(
+  experimentId: number,
+  ctx: TransformContext,
+): PhaseTargeting | null {
+  const linked = ctx.eppo.flags.flatMap((f) =>
+    (f.allocations ?? []).filter(
+      (a) => !a.archived_at && a.experiment?.id === experimentId,
+    ),
+  );
+  if (!linked.length) return null;
+  try {
+    const all = linked.map((a) => ({
+      ...getAllocationTargeting(a, ctx),
+      coverage: allocationCoverage(a),
+    }));
+    return all.every((t) => sameTargeting(t, all[0])) ? all[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+const parseCondition = (condition: string) =>
+  condition ? (JSON.parse(condition) as unknown) : {};
+
+export function sameTargeting(a: PhaseTargeting, b: PhaseTargeting) {
+  return (
+    a.coverage === b.coverage &&
+    isEqual(a.savedGroups ?? [], b.savedGroups ?? []) &&
+    isEqual(parseCondition(a.condition), parseCondition(b.condition))
+  );
 }
 
 export function getFlagAttributes(flag: EppoFlag, eppo: EppoData): string[] {
@@ -589,12 +636,21 @@ export function transformFlag(
     }
     const served = servedVariations(a);
     if (!served.length) return;
-    // Eppo evaluates allocations top-down and the default one comes last, so
-    // only the default itself is redundant with defaultValue
-    if (a.is_default) return;
+    // Eppo evaluates allocations top-down and each environment's default comes
+    // last. The one defaultValue came from is redundant; another environment's
+    // default becomes a rule there unless it serves the same thing.
+    if (a === defaultAllocation) return;
+    const coverage = allocationCoverage(a);
+    if (
+      a.is_default &&
+      coverage === 1 &&
+      served.length === 1 &&
+      getVariation(served[0].variation_id).value === defaultValue
+    ) {
+      return;
+    }
 
     const targeting = getAllocationTargeting(a, ctx);
-    const coverage = Math.min(1, Math.max(0, a.percent_exposure ?? 1));
 
     // Allocations without an environment apply to all of them
     const environments = flagEnvs
@@ -613,9 +669,19 @@ export function transformFlag(
 
     if (served.length > 1) {
       // Link the imported experiment when its variations line up with the flag's
+      // and its phase targets the same users, since the rule serves the phase's
+      // targeting and coverage rather than its own
       const linked = a.experiment && ctx.experiments.get(a.experiment.id);
       const byKey = new Map([...variations.values()].map((v) => [v.key, v]));
-      if (linked && linked.variations.every((v) => byKey.has(v.key))) {
+      const phase =
+        linked &&
+        (linked.phase ?? getLinkedTargeting(a.experiment?.id ?? 0, ctx));
+      if (
+        linked &&
+        linked.variations.every((v) => byKey.has(v.key)) &&
+        phase &&
+        sameTargeting(phase, { ...targeting, coverage })
+      ) {
         rules.push({
           ...base,
           type: "experiment-ref",
@@ -1200,9 +1266,11 @@ export function transformExperiment(
         dateEnded:
           status === "stopped" ? (experiment.assignments_end_date ?? "") : "",
         reason: "",
-        coverage: experiment.traffic_allocation ?? 1,
-        condition: "",
-        savedGroups: [],
+        ...(getLinkedTargeting(experiment.id, ctx) ?? {
+          coverage: experiment.traffic_allocation ?? 1,
+          condition: "",
+          savedGroups: [],
+        }),
         prerequisites: [],
         variationWeights,
         variations: variations.map((v) => ({
@@ -1287,8 +1355,12 @@ export function mergePhase(
   existing: ExperimentPhaseStringDates,
   incoming: ExperimentPhaseStringDates,
 ) {
+  const targeted = !!incoming.condition || !!incoming.savedGroups?.length;
   return {
     ...existing,
+    ...(targeted
+      ? { condition: incoming.condition, savedGroups: incoming.savedGroups }
+      : {}),
     coverage: incoming.coverage,
     variationWeights: incoming.variationWeights,
     variations: incoming.variations,
@@ -1572,7 +1644,7 @@ export type ExistingIds = {
   // Same-named entities in the selected project (and Data Source) that an
   // import did not create. Offered as updates, not applied by default.
   savedGroups: Map<string, string>; // name
-  features: Set<string>; // key
+  features: Set<string>; // key, in any project
   factTables: Map<string, string>; // name, on the selected Data Source
   factMetrics: Map<string, string>; // name, on the selected Data Source
   experiments: Map<string, string>; // tracking key
@@ -2158,15 +2230,26 @@ export async function runEppoImport({
           current = res.experiment ?? current;
           const last = current.phases.length - 1;
           if (phase && last >= 0) {
+            const merged = mergePhase(current.phases[last], phase);
             await apiCall(`/experiment/${id}/phase/${last}`, {
               method: "PUT",
-              body: JSON.stringify(mergePhase(current.phases[last], phase)),
+              body: JSON.stringify(merged),
             });
+            current = {
+              ...current,
+              phases: [...current.phases.slice(0, last), { ...merged }],
+            };
           }
         }
+        const livePhase = current?.phases[current.phases.length - 1];
         ctx.experiments.set(item.eppo.id, {
           id,
           variations: current?.variations ?? [],
+          phase: livePhase && {
+            condition: livePhase.condition ?? "",
+            savedGroups: livePhase.savedGroups ?? [],
+            coverage: livePhase.coverage ?? 1,
+          },
         });
         record(item, id);
       }),
@@ -2174,10 +2257,13 @@ export async function runEppoImport({
 
     await importEach("flags", data.flags, async (item) => {
       const flag = transformFlag(item.eppo, ctx);
-      await apiCall(`/feature/${encodeURIComponent(item.key)}/sync`, {
-        method: "POST",
-        body: JSON.stringify(item.existingId ? toFlagUpdate(flag) : flag),
-      });
+      await apiCall(
+        `/feature/${encodeURIComponent(item.key)}/sync?mirror=true`,
+        {
+          method: "POST",
+          body: JSON.stringify(item.existingId ? toFlagUpdate(flag) : flag),
+        },
+      );
       record(item, item.key);
     });
   } finally {

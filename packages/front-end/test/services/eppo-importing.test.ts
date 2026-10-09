@@ -139,11 +139,11 @@ describe("rulesToCondition", () => {
       $or: [
         {
           country: { $in: ["US", "CA"] },
-          age: { $gte: 18 },
-          appVersion: { $vlt: "2.1.0" },
+          age: { $exists: true, $gte: 18 },
+          appVersion: { $exists: true, $vlt: "2.1.0" },
         },
         {
-          email: { $regex: "@acme\\.com$" },
+          email: { $exists: true, $regex: "@acme\\.com$" },
           plan: { $exists: true },
           tier: { $exists: true, $nin: ["free"] },
         },
@@ -161,7 +161,12 @@ describe("rulesToCondition", () => {
           ],
         },
       ]),
-    ).toEqual({ $and: [{ age: { $gt: 18 } }, { age: { $lt: 65 } }] });
+    ).toEqual({
+      $and: [
+        { age: { $exists: true, $gt: 18 } },
+        { age: { $exists: true, $lt: 65 } },
+      ],
+    });
   });
 
   it("returns null without rules", () => {
@@ -277,7 +282,9 @@ describe("transformFlag", () => {
         id: "fr_eppo_1",
         type: "force",
         value: "true",
-        condition: JSON.stringify({ email: { $regex: "@acme" } }),
+        condition: JSON.stringify({
+          email: { $exists: true, $regex: "@acme" },
+        }),
         environments: ["production"],
       }),
       expect.objectContaining({
@@ -407,6 +414,7 @@ describe("transformFlag", () => {
     const [rule] = transformFlag(
       flag,
       mkCtx({
+        eppo: { ...EPPO, flags: [flag] },
         experiments: new Map([
           [
             5,
@@ -434,6 +442,111 @@ describe("transformFlag", () => {
     expect(transformFlag(flag, mkCtx()).rules[0]).toMatchObject({
       type: "experiment",
     });
+  });
+
+  it("links a targeted allocation only when the phase targets the same users", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        percent_exposure: 0.5,
+        targeting_rules: [
+          {
+            conditions: [
+              { attribute: "country", operator: "ONE_OF", values: ["US"] },
+            ],
+          },
+        ],
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 5, name: "Checkout test", status: "RUNNING" },
+      }),
+    ]);
+    const eppo = {
+      ...EPPO,
+      flags: [flag],
+      experiments: [
+        {
+          id: 5,
+          name: "Checkout test",
+          status: "RUNNING",
+          variations: [
+            {
+              variation_id: 1,
+              variant_key: "on",
+              name: "On",
+              is_control: true,
+              is_active: true,
+            },
+            {
+              variation_id: 2,
+              variant_key: "off",
+              name: "Off",
+              is_control: false,
+              is_active: true,
+            },
+          ],
+        } as EppoExperiment,
+      ],
+    };
+    const targeting = {
+      condition: JSON.stringify({ country: { $in: ["US"] } }),
+      savedGroups: [],
+      coverage: 0.5,
+    };
+    // The new experiment's phase carries the allocation's targeting
+    expect(
+      transformExperiment(eppo.experiments[0], mkCtx({ eppo })).phases?.[0],
+    ).toMatchObject(targeting);
+
+    const variations = [
+      { id: "var_a", key: "off" },
+      { id: "var_b", key: "on" },
+    ];
+    const ruleFor = (phase?: typeof targeting) =>
+      transformFlag(
+        flag,
+        mkCtx({
+          eppo,
+          experiments: new Map([[5, { id: "exp_1", variations, phase }]]),
+        }),
+      ).rules[0];
+    expect(ruleFor()).toMatchObject({ type: "experiment-ref" });
+    expect(ruleFor(targeting)).toMatchObject({ type: "experiment-ref" });
+    // A live phase that targets everyone would widen the test, so keep the
+    // allocation's own targeting on an inline rule
+    expect(
+      ruleFor({ condition: "", savedGroups: [], coverage: 1 }),
+    ).toMatchObject({
+      type: "experiment",
+      coverage: 0.5,
+      condition: targeting.condition,
+    });
+  });
+
+  it("keeps another environment's default where it serves something else", () => {
+    const feature = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          is_default: true,
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+        mkAllocation({ id: 2, is_default: true, environment_id: 101 }),
+      ]),
+      mkCtx(),
+    );
+    expect(feature.defaultValue).toBe("false");
+    expect(feature.rules).toEqual([
+      expect.objectContaining({
+        id: "fr_eppo_2",
+        type: "force",
+        value: "true",
+        environments: ["test"],
+      }),
+    ]);
   });
 
   it("only references environments the org will have", () => {
