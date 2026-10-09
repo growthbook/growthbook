@@ -5,11 +5,10 @@ import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -29,21 +28,13 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
+  const canCreateMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
   });
-
-  const [showNewModal, setShowNewModal] = React.useState(false);
 
   return (
     <Box className="pagecontents container-fluid">
-      {showNewModal && (
-        <NewMetricModal
-          close={() => setShowNewModal(false)}
-          source={"metrics-empty-state"}
-        />
-      )}
-      <CreateMetricFromTemplate />
+      <MetricTemplateRedirect />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
       </Box>
@@ -70,12 +61,11 @@ const MetricsPage = (): React.ReactElement => {
                 body="You don't have permission to add metrics in this project."
                 shouldDisplay={!canCreateMetric}
               >
-                <Button
-                  disabled={!canCreateMetric}
-                  onClick={() => setShowNewModal(true)}
-                >
-                  Add Metric
-                </Button>
+                {canCreateMetric ? (
+                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                ) : (
+                  <Button disabled>Add metric</Button>
+                )}
               </Tooltip>
             )}
           </Box>
