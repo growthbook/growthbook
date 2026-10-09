@@ -813,8 +813,8 @@ export function getUsedSavedGroupIds(
       });
     }
   };
-  // Remote groups can also appear as `__remoteGroupIds` checks, for SDKs that
-  // can't read their references, e.g. {"__remoteGroupIds": {"$in": ["grp_1"]}}.
+  // Remote groups can also appear as `__gb_remoteGroupIds` checks, for SDKs that
+  // can't read their references, e.g. {"__gb_remoteGroupIds": {"$in": ["grp_1"]}}.
   // Their entries still tell the SDK which attribute to look up.
   const addConditionToUsedGroupIds = (condition: unknown) => {
     recursiveWalk(condition, addToUsedGroupIds);

@@ -4158,10 +4158,10 @@ describe("mergeConditionAndSavedGroups with remote groups", () => {
     ).toEqual({
       $and: [
         { country: "US" },
-        { __remoteGroupIds: { $in: ["vip"] } },
-        { __remoteGroupIds: { $nin: ["beta"] } },
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $nin: ["beta"] } },
       ],
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
@@ -4172,10 +4172,10 @@ describe("mergeConditionAndSavedGroups with remote groups", () => {
       }),
     ).toEqual({
       $and: [
-        { __remoteGroupIds: { $in: ["vip"] } },
-        { __remoteGroupIds: { $in: ["beta"] } },
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $in: ["beta"] } },
       ],
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
@@ -4187,10 +4187,10 @@ describe("mergeConditionAndSavedGroups with remote groups", () => {
     ).toEqual({
       $or: [
         { $savedGroup: { id: "list_a" } },
-        { __remoteGroupIds: { $in: ["vip"] } },
-        { __remoteGroupIds: { $in: ["beta"] } },
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $in: ["beta"] } },
       ],
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
@@ -4209,7 +4209,7 @@ describe("mergeConditionAndSavedGroups with remote groups", () => {
         { $savedGroup: { id: "vip" } },
         { $not: { $savedGroup: { id: "beta" } } },
       ],
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 });

@@ -1,14 +1,6 @@
 import { z } from "zod";
-import { REMOTE_GROUP_IDS_ATTRIBUTE } from "shared/constants";
 
 import { namedSchema } from "./openapi-helpers";
-
-/** An attribute property, which can't be the reserved remote group attribute. */
-export const attributePropertyValidator = z
-  .string()
-  .refine((property) => property !== REMOTE_GROUP_IDS_ATTRIBUTE, {
-    message: `${REMOTE_GROUP_IDS_ATTRIBUTE} is a reserved attribute name`,
-  });
 
 const enumFieldDescription =
   "Comma-separated list of allowed values. Required for the 'enum' datatype. " +
@@ -46,7 +38,7 @@ export const apiAttributeValidator = namedSchema(
 // Corresponds to postAttribute path requestBody
 const postAttributeBody = z
   .object({
-    property: attributePropertyValidator.describe("The attribute property"),
+    property: z.string().describe("The attribute property"),
     datatype: z
       .enum([
         "boolean",

@@ -291,7 +291,7 @@ export function createReferencesV2Strategy(
         ? buildV2SavedGroupsPayload(
             // Leave out any group type this SDK cannot read. Remote entries
             // only name an attribute, so every v2 SDK gets them, telling it
-            // what to look up even when rules check __remoteGroupIds directly.
+            // what to look up even when rules check __gb_remoteGroupIds directly.
             usedSavedGroups.filter(
               (g) =>
                 g.type === "remote" ||

@@ -62,6 +62,7 @@ import {
   getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
+import { isMissingRemoteGroupIds } from "./remoteSavedGroups";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -475,6 +476,13 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
+  /** The user's remote saved groups, for example from your back end's resolver. */
+  public setRemoteGroupIds(remoteGroupIds: string[]) {
+    this._options.remoteGroupIds = remoteGroupIds;
+    this._render();
+    this._updateAllAutoExperiments();
+  }
+
   public async setForcedVariations(vars: Record<string, number>) {
     this._options.forcedVariations = vars || {};
     if (this._options.remoteEval) {
@@ -676,9 +684,22 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(): EvalContext {
+    const user = this._getUserContext();
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(user, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See setRemoteGroupIds.",
+        {},
+      );
+    }
     return {
-      user: this._getUserContext(),
+      user,
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
@@ -694,6 +715,7 @@ export class GrowthBook<
             ...this._options.attributes,
           }
         : this._options.attributes,
+      remoteGroupIds: this._options.remoteGroupIds,
       enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,

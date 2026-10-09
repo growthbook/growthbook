@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { SavedGroupsPayload } from "./types/growthbook";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 import {
   ConditionInterface,
   SavedGroupReference,
@@ -86,6 +87,14 @@ function evalSavedGroup(
     if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
     return isIn(getPath(obj, key), entry.values);
+  }
+
+  if (entry.type === "remote") {
+    // Another attribute needs a derived group, which isn't supported yet
+    if (attributeKey !== undefined && attributeKey !== entry.attributeKey)
+      return false;
+    const groupIds = getPath(obj, REMOTE_GROUP_IDS_ATTRIBUTE);
+    return Array.isArray(groupIds) && groupIds.includes(id);
   }
 
   if (entry.type === "condition") {

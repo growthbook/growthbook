@@ -1,9 +1,8 @@
-import { REMOTE_GROUP_IDS_ATTRIBUTE } from "../../src/constants";
-import { isRemoteGroupSupportedAttribute } from "../../src/util/saved-groups";
 import {
-  attributePropertyValidator,
-  postAttributeValidator,
-} from "../../src/validators/attributes";
+  isInternalAttributeName,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "../../src/constants";
+import { isRemoteGroupSupportedAttribute } from "../../src/util/saved-groups";
 import { postSavedGroupBodyValidator } from "../../src/validators/saved-group";
 import { listSavedGroupUploadsValidator } from "../../src/validators/remote-saved-group-upload";
 
@@ -46,23 +45,11 @@ describe("remote saved group bodies", () => {
   });
 });
 
-describe("reserved attribute name", () => {
-  it("rejects __remoteGroupIds", () => {
-    expect(
-      attributePropertyValidator.safeParse(REMOTE_GROUP_IDS_ATTRIBUTE).success,
-    ).toBe(false);
-    expect(
-      postAttributeValidator.bodySchema.safeParse({
-        property: REMOTE_GROUP_IDS_ATTRIBUTE,
-        datatype: "string",
-      }).success,
-    ).toBe(false);
-  });
-
-  it("accepts other names", () => {
-    expect(attributePropertyValidator.safeParse("account_id").success).toBe(
-      true,
-    );
+describe("isInternalAttributeName", () => {
+  it("recognizes GrowthBook's internal attributes by their prefix", () => {
+    expect(isInternalAttributeName(REMOTE_GROUP_IDS_ATTRIBUTE)).toBe(true);
+    expect(isInternalAttributeName("account_id")).toBe(false);
+    expect(isInternalAttributeName("__remoteGroupIds")).toBe(false);
   });
 });
 

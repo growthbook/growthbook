@@ -17,11 +17,11 @@ import { andConditionsInto } from "./walk";
  * Remote saved groups in SDK payloads.
  *
  * A remote group's IDs aren't in the payload. SDKs check the user's
- * `__remoteGroupIds` attribute instead, which a resolver sets. Remote groups
+ * `__gb_remoteGroupIds` attribute instead, which a resolver sets. Remote groups
  * are handled around the format strategies, not inside them:
  *
  * - Before a strategy sees a condition, remote groups are rewritten for the
- *   SDK: `attribute` mode writes attribute conditions on `__remoteGroupIds`,
+ *   SDK: `attribute` mode writes attribute conditions on `__gb_remoteGroupIds`,
  *   for SDKs without savedGroupReferencesRemote; `referenceV2` mode writes
  *   `$savedGroup` references.
  * - After, a guard makes any rule using a remote group match nobody until the
@@ -48,12 +48,12 @@ export function getRemoteGroupMode(
 // region Conditions
 
 /**
- * The attribute condition on `__remoteGroupIds` for groups targeted together:
+ * The attribute condition on `__gb_remoteGroupIds` for groups targeted together:
  *
- *   all  -> {"__remoteGroupIds": {"$in": ["a"]}} for one group,
- *           {"__remoteGroupIds": {"$all": ["a", "b"]}} for several
- *   any  -> {"__remoteGroupIds": {"$in": ["a", "b"]}}
- *   none -> {"__remoteGroupIds": {"$nin": ["a", "b"]}}
+ *   all  -> {"__gb_remoteGroupIds": {"$in": ["a"]}} for one group,
+ *           {"__gb_remoteGroupIds": {"$all": ["a", "b"]}} for several
+ *   any  -> {"__gb_remoteGroupIds": {"$in": ["a", "b"]}}
+ *   none -> {"__gb_remoteGroupIds": {"$nin": ["a", "b"]}}
  */
 export function createAttributeConditionFromGroupIds(
   groupIds: string[],
@@ -120,16 +120,16 @@ export function convertInGroupOperator(
  *
  *   {"$savedGroups": ["grp_vip", "grp_beta"]}
  *     attribute   -> {"$savedGroups": ["grp_beta"],
- *                     "__remoteGroupIds": {"$in": ["grp_vip"]}}
+ *                     "__gb_remoteGroupIds": {"$in": ["grp_vip"]}}
  *     referenceV2 -> {"$savedGroups": ["grp_beta"],
  *                     "$savedGroup": {"id": "grp_vip"}}
  *
  *   {"account_id": {"$inGroup": "grp_vip"}}
- *     attribute   -> {"__remoteGroupIds": {"$in": ["grp_vip"]}}
+ *     attribute   -> {"__gb_remoteGroupIds": {"$in": ["grp_vip"]}}
  *     referenceV2 -> {"$savedGroup": {"id": "grp_vip"}}
  *
  *   {"account_id": {"$notInGroup": "grp_vip"}}
- *     attribute   -> {"__remoteGroupIds": {"$nin": ["grp_vip"]}}
+ *     attribute   -> {"__gb_remoteGroupIds": {"$nin": ["grp_vip"]}}
  *     referenceV2 -> {"$not": {"$savedGroup": {"id": "grp_vip"}}}
  *
  *   {"account_id": {"$not": {"$inGroup": "grp_vip"}}}
@@ -335,9 +335,9 @@ export function failClosedOnRemoteOverride(
 }
 
 /**
- * Adds an `$exists` condition on the `__remoteGroupIds` attribute if the
+ * Adds an `$exists` condition on the `__gb_remoteGroupIds` attribute if the
  * condition uses remote groups. This is done because users whose remote
- * groups haven't been looked up yet have no `__remoteGroupIds`, and a "not in
+ * groups haven't been looked up yet have no `__gb_remoteGroupIds`, and a "not in
  * group" check would let all of them through; with `$exists` the rule matches
  * nobody until the lookup is done.
  */
@@ -368,9 +368,9 @@ export function addRemoteGroupIdsGuard(
 
 /**
  * Calls `fn` with each remote group ID a payload condition checks through
- * `__remoteGroupIds`, so those groups still get `savedGroups` entries:
+ * `__gb_remoteGroupIds`, so those groups still get `savedGroups` entries:
  *
- *   {"__remoteGroupIds": {"$in": ["grp_1"], "$nin": ["grp_2"]}}
+ *   {"__gb_remoteGroupIds": {"$in": ["grp_1"], "$nin": ["grp_2"]}}
  *     -> "grp_1", "grp_2"
  */
 export function forEachRemoteGroupIdInCondition(

@@ -59,6 +59,8 @@ export type {
   SavedGroupsValues,
   SavedGroupsPayload,
   SavedGroupPayloadEntry,
+  RemoteSavedGroup,
+  SavedGroupResolver,
   EventLogger,
   EventProperties,
   Plugin,
@@ -107,6 +109,13 @@ export type {
 } from "./sticky-bucket-service";
 
 export { evalCondition } from "./mongrule";
+
+export {
+  getRemoteSavedGroups,
+  redisResolver,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
+export type { RedisSetClient } from "./remoteSavedGroups";
 
 export {
   isURLTargeted,

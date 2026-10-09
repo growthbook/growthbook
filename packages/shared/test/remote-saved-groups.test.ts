@@ -57,22 +57,22 @@ const strategyFor = (
 describe("createAttributeConditionFromGroupIds", () => {
   it("uses $in for any, and for all with one group", () => {
     expect(createAttributeConditionFromGroupIds(["a", "b"], "any")).toEqual({
-      __remoteGroupIds: { $in: ["a", "b"] },
+      __gb_remoteGroupIds: { $in: ["a", "b"] },
     });
     expect(createAttributeConditionFromGroupIds(["a"], "all")).toEqual({
-      __remoteGroupIds: { $in: ["a"] },
+      __gb_remoteGroupIds: { $in: ["a"] },
     });
   });
 
   it("uses $all for all with several groups", () => {
     expect(createAttributeConditionFromGroupIds(["a", "b"], "all")).toEqual({
-      __remoteGroupIds: { $all: ["a", "b"] },
+      __gb_remoteGroupIds: { $all: ["a", "b"] },
     });
   });
 
   it("uses $nin for none", () => {
     expect(createAttributeConditionFromGroupIds(["a"], "none")).toEqual({
-      __remoteGroupIds: { $nin: ["a"] },
+      __gb_remoteGroupIds: { $nin: ["a"] },
     });
   });
 });
@@ -83,22 +83,22 @@ describe("addRemoteGroupIdsGuard", () => {
     addRemoteGroupIdsGuard(condition, groupMap);
     expect(condition).toEqual({
       $not: { $savedGroup: { id: "vip" } },
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
   it("follows condition groups", () => {
     const condition = { $not: { $savedGroup: { id: "cond_vip" } } };
     addRemoteGroupIdsGuard(condition, groupMap);
-    expect(condition).toHaveProperty("__remoteGroupIds", { $exists: true });
+    expect(condition).toHaveProperty("__gb_remoteGroupIds", { $exists: true });
   });
 
   it("adds to existing operators once", () => {
-    const condition = { __remoteGroupIds: { $nin: ["vip"] } };
+    const condition = { __gb_remoteGroupIds: { $nin: ["vip"] } };
     addRemoteGroupIdsGuard(condition, groupMap);
     addRemoteGroupIdsGuard(condition, groupMap);
     expect(condition).toEqual({
-      __remoteGroupIds: { $nin: ["vip"], $exists: true },
+      __gb_remoteGroupIds: { $nin: ["vip"], $exists: true },
     });
   });
 
@@ -116,11 +116,11 @@ describe.each([
 ])("remote groups in %s", (_, strategy) => {
   it("rewrites groups", () => {
     expect(strategy.createCondition({ groupId: "vip", include: true })).toEqual(
-      { __remoteGroupIds: { $in: ["vip"] } },
+      { __gb_remoteGroupIds: { $in: ["vip"] } },
     );
     expect(
       strategy.createCondition({ groupId: "vip", include: false }),
-    ).toEqual({ __remoteGroupIds: { $nin: ["vip"] } });
+    ).toEqual({ __gb_remoteGroupIds: { $nin: ["vip"] } });
   });
 
   it("rewrites $inGroup and $notInGroup on the group's attribute", () => {
@@ -130,8 +130,8 @@ describe.each([
     };
     strategy.finalizeCondition(condition);
     expect(condition).toEqual({
-      $and: [{ country: "US" }, { __remoteGroupIds: { $nin: ["vip"] } }],
-      __remoteGroupIds: { $exists: true },
+      $and: [{ country: "US" }, { __gb_remoteGroupIds: { $nin: ["vip"] } }],
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
@@ -146,8 +146,8 @@ describe.each([
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
     strategy.finalizeCondition(condition);
     expect(condition).toEqual({
-      $not: { __remoteGroupIds: { $in: ["vip"] } },
-      __remoteGroupIds: { $exists: true },
+      $not: { __gb_remoteGroupIds: { $in: ["vip"] } },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 });
@@ -169,7 +169,7 @@ describe("remote groups in referencesV2 with the capability", () => {
     strategy.finalizeCondition(condition);
     expect(condition).toEqual({
       $savedGroup: { id: "vip" },
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 
@@ -194,7 +194,7 @@ describe("remote groups in a condition group with the capability", () => {
       $not: {
         $and: [{ $savedGroup: { id: "list" } }, { $savedGroup: { id: "vip" } }],
       },
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 });
@@ -206,7 +206,7 @@ describe("remote entries in referencesV2 without the capability", () => {
       vip: { type: "remote", attributeKey: "account_id" },
       cond_vip: {
         type: "condition",
-        condition: { __remoteGroupIds: { $in: ["vip"] } },
+        condition: { __gb_remoteGroupIds: { $in: ["vip"] } },
       },
     });
   });
@@ -259,9 +259,13 @@ describe("remote groups evaluate correctly", () => {
   const member = {
     account_id: "a1",
     parent_id: "p1",
-    __remoteGroupIds: ["vip"],
+    __gb_remoteGroupIds: ["vip"],
   };
-  const nonMember = { account_id: "a2", parent_id: "p2", __remoteGroupIds: [] };
+  const nonMember = {
+    account_id: "a2",
+    parent_id: "p2",
+    __gb_remoteGroupIds: [],
+  };
   const unresolved = { account_id: "a3", parent_id: "p3" };
 
   describe.each(formats)("in %s", (_, capabilities, format) => {
@@ -330,7 +334,7 @@ describe("remote groups evaluate correctly", () => {
     strategy.finalizeCondition(negated);
     expect(negated).toEqual({
       $not: { $savedGroup: { id: "vip" } },
-      __remoteGroupIds: { $exists: true },
+      __gb_remoteGroupIds: { $exists: true },
     });
     const override = { $not: { parent_id: { $inGroup: "vip" } } };
     strategy.finalizeCondition(override);
