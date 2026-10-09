@@ -1,0 +1,57 @@
+name: Release notes
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # Append the "Self-hosted build impact" notes of PRs that changed build files
+  build-changes:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' && !github.event.release.prerelease }}
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Append self-hosted build changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          body=$(gh release view "$TAG" --json body --jq .body)
+          if grep -q '^## Self-hosted build changes' <<< "$body"; then
+            echo "Already appended."
+            exit 0
+          fi
+
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^")
+          prs=""
+          for sha in $(git rev-list --no-merges "$prev..$TAG"); do
+            changes=$(.github/scripts/build-changes.sh "$sha^" "$sha")
+            [ -n "$changes" ] || continue
+            prs+=" $(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '.[0].number // empty')"
+          done
+
+          notes=""
+          for pr in $prs; do
+            pr_json=$(gh pr view "$pr" --json title,body,labels)
+            if jq -e '.labels | any(.name == "no-build-impact")' <<< "$pr_json" > /dev/null; then continue; fi
+            impact=$(jq -r .body <<< "$pr_json" | .github/scripts/build-impact-section.sh)
+            # PRs from before the Build impact check have no note; list them anyway
+            notes+="- $(jq -r .title <<< "$pr_json") (#$pr)"$'\n'
+            if [ -n "$impact" ]; then notes+="$(sed 's/^/  /' <<< "$impact")"$'\n'; fi
+          done
+
+          if [ -z "$notes" ]; then
+            echo "No build changes since $prev."
+            exit 0
+          fi
+
+          printf '%s\n\n## Self-hosted build changes\n\nChanges since %s that affect building the Docker image from source.\n\n%s' \
+            "$body" "$prev" "$notes" > notes.md
+          gh release edit "$TAG" --notes-file notes.md
