@@ -43,6 +43,7 @@ import {
   decodeExplorationConfig,
   explorationConfigParser,
   ExplorerDraftConfig,
+  getInitialInlineFilters,
   previousTimeFrameQueryParser,
   comparisonModeQueryParser,
   stripExplorerDraftFields,
@@ -493,7 +494,12 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           dataset: {
             ...createEmptyDataset("fact_table"),
             factTableId: factTable.id,
-            values: [createEmptyValue("fact_table")],
+            values: [
+              {
+                ...createEmptyValue("fact_table"),
+                rowFilters: getInitialInlineFilters(factTable),
+              },
+            ],
           },
         } as ExplorerDraftConfig;
       } else if (ready) {

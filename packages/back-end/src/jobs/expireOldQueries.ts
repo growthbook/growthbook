@@ -1,5 +1,6 @@
 import Agenda from "agenda";
 import { Queries, QueryInterface } from "shared/types/query";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
@@ -9,9 +10,12 @@ import {
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
+  findSnapshotById,
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
+import { SnapshotReapReason } from "back-end/src/services/experimentUpdateExecutionLogger";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
@@ -34,15 +38,22 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { ApiReqContext } from "back-end/types/api";
+
 const JOB_NAME = "expireOldQueries";
 
 // The time after which a snapshot is considered stalled
 const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 // The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
+// How long after the last query finished a fresh incremental lock heartbeat
+// still defers the reaper. The heartbeat is a timer, so it proves the process
+// is alive, not that the run is progressing.
+const STALLED_HEARTBEAT_DEFER_CAP_MS = 60 * 60 * 1000;
 // The runner beats every queued query doc it owns every 30 seconds; 5 minutes
 // without a beat is ten missed beats, enough to consider it stalled
 const QUEUED_HEARTBEAT_STALE_MS = 5 * 60 * 1000;
@@ -85,17 +96,18 @@ const expireOldQueries = async () => {
   const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
-    logger.info("Updating status of snapshot " + snapshot.id);
+    logger.warn("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
       context,
       id: snapshot.id,
       updates: {
-        error: "Queries were interupted. Please try updating results again.",
+        error: "Queries were interrupted. Please try updating results again.",
         status: "error",
         queries: snapshot.queries,
       },
+      conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
 
     // Release the incremental refresh lock if this snapshot held it.
@@ -119,7 +131,7 @@ const expireOldQueries = async () => {
     logger.info("Updating status of report " + report.id);
     updateQueryStatus(report.queries, queryIds);
     await updateReport(report.organization, report.id, {
-      error: "Queries were interupted. Please try updating results again.",
+      error: "Queries were interrupted. Please try updating results again.",
       queries: report.queries,
     });
   }
@@ -133,7 +145,7 @@ const expireOldQueries = async () => {
     await updateMetricQueriesAndStatus(metric, {
       queries: metric.queries,
       analysisError:
-        "Queries were interupted. Please try re-running the analysis.",
+        "Queries were interrupted. Please try re-running the analysis.",
     });
   }
 
@@ -148,7 +160,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(pastExperiment.queries, queryIds);
     await updatePastExperiments(pastExperiment, {
       queries: pastExperiment.queries,
-      error: "Queries were interupted. Please try refreshing the list.",
+      error: "Queries were interrupted. Please try refreshing the list.",
     });
   }
 
@@ -164,7 +176,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(metricAnalysis.queries, queryIds);
     await context.models.metricAnalysis.update(metricAnalysis, {
       queries: metricAnalysis.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
+      error: "Queries were interrupted. Please try refreshing the results.",
     });
   }
 
@@ -222,7 +234,7 @@ const expireOldQueries = async () => {
     updateQueryStatus(run.queries, queryIds);
     await finalizeStuckAggregatedFactTableRun(run, {
       queries: run.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
+      error: "Queries were interrupted. Please try refreshing the results.",
     });
   }
 
@@ -356,6 +368,95 @@ async function reapStalledSnapshots() {
     const isOrphanedDag =
       verdict === "orphaned-dead" || verdict === "orphaned-unknown";
 
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+
+    // When every query succeeded, finalize the snapshot from the persisted
+    // results instead of erroring it. The cross-org candidate can be stale, so
+    // re-read in the org context and require the snapshot to still be running
+    // on the same queries. A declined or failed recovery falls through to the
+    // error write below, which records why as the reap reason.
+    let recoverError = "";
+    let reason: SnapshotReapReason = isOrphanedDag
+      ? "orphaned"
+      : "not-finalized";
+    if (queryStatuses.every((q) => q.status === "succeeded")) {
+      let freshSnapshot: ExperimentSnapshotInterface | null;
+      try {
+        freshSnapshot = await findSnapshotById(context, snapshot.id);
+        if (freshSnapshot?.status === "running") {
+          const freshQueryIds = new Set(
+            freshSnapshot.queries.map((q) => q.query),
+          );
+          const sameQueries =
+            freshQueryIds.size === queryIds.length &&
+            queryIds.every((id) => freshQueryIds.has(id));
+
+          // The snapshot changed since the original scan, so our succeeded
+          // statuses describe a stale query set. Skip rather than error.
+          if (!sameQueries) continue;
+
+          // Results runners never hold the lock, so a fresh heartbeat means
+          // the incremental runner is still alive (including analysis).
+          // TODO: have a proper heartbeat for all queryRunners
+          if (
+            await context.models.incrementalRefresh.hasFreshLockHeartbeat(
+              snapshot.experiment,
+              snapshot.id,
+            )
+          ) {
+            const lastFinishedAt = Math.max(
+              0,
+              ...queryStatuses.map((q) => q.finishedAt?.getTime() ?? 0),
+            );
+            if (now - lastFinishedAt < STALLED_HEARTBEAT_DEFER_CAP_MS) {
+              logger.info(
+                `Deferring stalled snapshot ${snapshot.id}: its runner is still heartbeating the incremental refresh lock`,
+              );
+              continue;
+            }
+            logger.warn(
+              `Reaping stalled snapshot ${snapshot.id} despite a fresh incremental refresh lock heartbeat: its last query finished over ${STALLED_HEARTBEAT_DEFER_CAP_MS / 60000} minutes ago, so the runner looks hung`,
+            );
+          }
+        }
+      } catch (e) {
+        // The runner may still be alive, and erroring would release its lock
+        // to a new refresh.
+        logger.warn(
+          e,
+          `Skipping stalled snapshot ${snapshot.id} this tick: failed to check whether its runner is still alive`,
+        );
+        continue;
+      }
+
+      if (freshSnapshot?.status === "running") {
+        try {
+          const recovery = await recoverStalledSnapshot(context, freshSnapshot);
+          if (recovery.kind === "recovered") {
+            logger.warn(
+              `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
+            );
+            // Retry in case the runner's own release failed.
+            await releaseStalledSnapshotLock(context, snapshot);
+            continue;
+          }
+          reason =
+            recovery.kind === "declined"
+              ? `recovery-declined:${recovery.reason}`
+              : "recovery-failed";
+        } catch (e) {
+          // A failed finalize must still leave the snapshot terminal, so fall
+          // through to the error write below instead of retrying every tick.
+          recoverError = getErrorMessage(e);
+          reason = "recovery-failed";
+          logger.warn(
+            e,
+            `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
+          );
+        }
+      }
+    }
+
     const statusById = new Map(queryStatuses.map((s) => [s.id, s.status]));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
@@ -371,9 +472,9 @@ async function reapStalledSnapshots() {
       ? shouldScheduleSnapshotRetry
         ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
-      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
+      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
+        (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     const reaped = await errorSnapshotIfStillRunning(
       context,
       snapshot.id,
@@ -388,10 +489,11 @@ async function reapStalledSnapshots() {
         : isOrphanedDag
           ? "query"
           : "analysis",
+      { concludedBy: "reaper", reason },
     );
     if (!reaped) continue;
 
-    logger.info(
+    logger.warn(
       isOrphanedDag
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
@@ -434,15 +536,20 @@ async function reapStalledSnapshots() {
       }
     }
 
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for stalled snapshot",
-        ),
-      );
+    await releaseStalledSnapshotLock(context, snapshot);
   }
+}
+
+// No-op if a newer run has taken the lock (releaseLock filters on snapshot id).
+async function releaseStalledSnapshotLock(
+  context: ApiReqContext,
+  snapshot: { experiment: string; id: string },
+) {
+  await context.models.incrementalRefresh
+    .releaseLock(snapshot.experiment, snapshot.id)
+    .catch((e) =>
+      logger.warn(e, "Failed to release incremental lock for stalled snapshot"),
+    );
 }
 
 export default async function (agenda: Agenda) {
@@ -570,7 +677,7 @@ async function reapStalledContextualBanditSnapshots() {
     );
     if (res.modifiedCount === 0) continue;
 
-    logger.info(
+    logger.warn(
       orphanedDag
         ? `Reaped orphaned contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): all ${queryIds.length} queries terminal but status still running`,
@@ -696,7 +803,7 @@ async function reapStalledAggregatedFactTableRuns() {
     });
     if (!reaped) continue;
 
-    logger.info(
+    logger.warn(
       orphanedDag
         ? `Reaped orphaned aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): all ${queryIds.length} queries terminal but run never finalized`,

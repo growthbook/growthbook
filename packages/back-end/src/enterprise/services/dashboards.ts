@@ -548,7 +548,7 @@ export async function updateDashboardExplorations(
       }
       // This should never happen when cache="never", but just in case
       if (!primaryResult.value) {
-        throw new Error("Failed run to run product analytics query");
+        throw new Error("Failed to run product analytics query");
       }
       // A failed run resolves rather than rejecting, so without this the block
       // would point at a broken result and the refresh would report success.

@@ -40,6 +40,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
@@ -50,7 +51,10 @@ import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetDataSourceByIdBypassPermission,
+  getDataSourcesByIds,
+} from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
@@ -85,6 +89,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
@@ -95,6 +100,8 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -151,6 +158,8 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "slackWorkspaceConnections"
+  | "slackUserLinks"
+  | "slackTaskClaims"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -163,6 +172,7 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
+  | "interleavings"
   | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs"
@@ -209,6 +219,8 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
+  slackUserLinks: SlackUserLinkModel,
+  slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -221,6 +233,7 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavings: InterleavingModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
@@ -238,6 +251,12 @@ type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
 
+/**
+ * Where a request's override flags (ignoreWarnings, skipSchemaValidation,
+ * skipHooks) are read from.
+ */
+type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
+
 export class ReqContextClass {
   // When set, guard evaluators use this as their org-wide scan context instead
   // of minting a fresh one per evaluation. Sharing one context makes the
@@ -247,6 +266,10 @@ export class ReqContextClass {
   // self-referentially so nested evaluations inherit it. Request-scoped only —
   // never cache one across requests.
   public scanContextOverride?: ReqContextClass;
+
+  // The requester whose read access bounds what guard warnings name, when this
+  // context is an admin overlay (bulk publish) rather than the requester's own.
+  public warningReaderContext?: ReqContextClass;
 
   // Proposed feature states for the bulk publisher's overlay scan context,
   // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
@@ -325,6 +348,14 @@ export class ReqContextClass {
   // gates, so they must run with guards active — hence a separate flag.
   public bulkPublishApplying?: boolean;
 
+  /**
+   * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
+   * Set by the agent while it replays a confirmed call: the flags belong to
+   * that call, not to the chat request (web) or to its absence (Slack, which
+   * would otherwise read as a background job that ignores every warning).
+   */
+  public dispatchedRequest: OverrideSource | null = null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
@@ -370,6 +401,8 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
+      slackUserLinks: new SlackUserLinkModel(this),
+      slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
@@ -382,6 +415,7 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavings: new InterleavingModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
@@ -399,11 +433,23 @@ export class ReqContextClass {
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
 
   protected userPermissions: UserPermissions;
+
+  // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
+  // with the work), a user as themselves, an org key as itself.
+  public get armer(): { userId?: string; apiKey?: string } {
+    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    return this.userId ? { userId: this.userId } : { apiKey: this.apiKey };
+  }
+
+  public get armerId(): string | null {
+    return this.armer.userId || this.armer.apiKey || null;
+  }
 
   public constructor({
     org,
@@ -454,12 +500,16 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(
-        user,
-        org,
-        teams || [],
-        restrictedProjects,
-      );
+      this.scopedApiKey = !!apiKeyData?.scoped;
+      this.userPermissions = apiKeyData?.userId
+        ? getPersonalAccessTokenPermissions(
+            apiKeyData,
+            user,
+            org,
+            teams || [],
+            restrictedProjects,
+          )
+        : getUserPermissions(user, org, teams || [], restrictedProjects);
     }
     // If an API key or background job is making this request
     else {
@@ -494,15 +544,20 @@ export class ReqContextClass {
   // declare the field, but not fully: `z.never()` bodies and internal routes
   // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
-    if (!this.req) return true;
+    const req = this.overrideSource;
+    if (!req) return true;
     if (this.bodyFlag("ignoreWarnings")) return true;
-    const v = this.req.query?.ignoreWarnings;
+    const v = req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private get overrideSource(): OverrideSource | undefined {
+    return this.dispatchedRequest ?? this.req;
+  }
+
   private bodyFlag(field: string): boolean {
-    const body = this.req?.body;
+    const body = this.overrideSource?.body;
     return (
       !!body &&
       typeof body === "object" &&
@@ -543,8 +598,9 @@ export class ReqContextClass {
   }
 
   private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.[flag];
+    const req = this.overrideSource;
+    if (!req) return false;
+    const queryValue = req.query?.[flag];
     return (
       this.bodyFlag(flag) ||
       (typeof queryValue === "string" && stringToBoolean(queryValue))
@@ -691,10 +747,7 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
     );
-    // An org doesn't have that many data sources, so we just fetch them all
-    await this.addMissingForeignRefs("datasource", datasource, () =>
-      getDataSourcesByOrganization(this),
-    );
+    await this.loadDataSourceRefs(datasource);
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids),
     );
@@ -702,6 +755,46 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
+
+  /**
+   * Fetches only the requested data sources, once per request. Concurrent
+   * lookups share a load, and an id still missing afterwards isn't in the org
+   * or isn't readable, so it isn't refetched.
+   */
+  private dataSourceLoads = new Map<string, Promise<void>>();
+  private async loadDataSourceRefs(ids: string[] | undefined): Promise<void> {
+    if (!ids?.length) return;
+    const loads = this.dataSourceLoads;
+    const missing = [...new Set(ids)].filter(
+      (id) => !this.foreignRefs.datasource.has(id) && !loads.has(id),
+    );
+    if (missing.length) {
+      const load: Promise<void> = getDataSourcesByIds(this, missing).then(
+        (datasources) => {
+          // A forget during the load means these may already be stale.
+          if (this.dataSourceLoads !== loads) return;
+          datasources.forEach((ds) =>
+            this.foreignRefs.datasource.set(ds.id, ds),
+          );
+        },
+        (error) => {
+          missing.forEach((id) => {
+            if (loads.get(id) === load) loads.delete(id);
+          });
+          throw error;
+        },
+      );
+      missing.forEach((id) => loads.set(id, load));
+    }
+    await Promise.all(ids.map((id) => loads.get(id)));
+  }
+
+  /** Called after a data source write, so later reads in the request see it. */
+  public forgetDataSourceRefs(): void {
+    this.foreignRefs.datasource.clear();
+    this.dataSourceLoads = new Map();
+  }
+
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
     type: K,
     ids: string[] | undefined,
@@ -716,6 +809,17 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  /**
+   * Defined on the context so validation helpers needn't import
+   * DataSourceModel. Uncached, and never written to foreignRefs because
+   * serializers read those.
+   */
+  public async dangerouslyGetDataSourceByIdBypassPermission(
+    id: string,
+  ): Promise<DataSourceInterface | null> {
+    return dangerouslyGetDataSourceByIdBypassPermission(this, id);
   }
 
   // This is defined on the context to prevent a circular dependency between UserModel and BaseModel

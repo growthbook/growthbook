@@ -2,7 +2,6 @@
 title: Using a CDN
 description: Put a CDN in front of the GrowthBook features API to cache SDK payloads and scale flag delivery.
 sidebarTitle: Using a CDN
-slug: cdn
 ---
 
 You can add a CDN in between your GrowthBook SDKs and your GrowthBook API Server. This will act as a caching layer when serving feature flags and enable virtually limitless scaling with very low maintenance costs.
@@ -49,7 +48,7 @@ Most of our SDKs accept an `apiHost` setting. Simply change this from your Growt
 
 ## Purging / Invalidation
 
-When you make changes withing GrowthBook, the CDN will not pick up the changes until it refreshes its cache (default 30 seconds).
+When you make changes within GrowthBook, the CDN will not pick up the changes until it refreshes its cache (default 30 seconds).
 
 For most apps, this short delay is perfectly fine. If you want faster rollouts, you can have GrowthBook tell your CDN to refresh as soon as changes are made.
 

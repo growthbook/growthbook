@@ -2,7 +2,10 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   RampStartAction,
   RampStartPatch,
@@ -15,6 +18,7 @@ import {
   RampScheduleTemplateInterface,
   RampStep,
   RampStepAction,
+  RevisionRampDetachAction,
   SafeRolloutInterface,
   isAwaitingStartApproval,
   startApprovalPending,
@@ -27,12 +31,18 @@ import {
   getEnvsFromRampSchedule,
   isRampScheduleServing,
   rampRuleEnvKey,
+  RAMP_PATCH_RULE_FIELDS,
+  rampPlanControlledFields,
   rampTargetFootprint,
+  detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
+  toMonitoringSelection,
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
+  isSameAssignmentQuerySelection,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -57,6 +67,10 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  assertValidAssignmentQuerySelectionChange,
+  getExposureQueriesForDatasource,
+} from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -493,6 +507,16 @@ export function computeEffectivePatch(
       for (const [k, v] of Object.entries(fields)) {
         (existing as Record<string, unknown>)[k] = v;
       }
+      // Environment scope is one setting spelled as two fields: a later list
+      // narrows an all-environments anchor, a later wildcard drops the list.
+      if (
+        Array.isArray(fields.environments) &&
+        !("allEnvironments" in fields)
+      ) {
+        existing.allEnvironments = false;
+      } else if (fields.allEnvironments && !("environments" in fields)) {
+        existing.environments = null;
+      }
     } else {
       byTarget.set(act.targetId, { ruleId, ...fields } as RampStartPatch);
     }
@@ -665,18 +689,17 @@ export function applyPatchToRule(
   if ("prerequisites" in patch) {
     updated.prerequisites = patch.prerequisites ?? undefined;
   }
-  // Process `environments` before `allEnvironments` so that when both appear in
-  // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
-  // the explicit `allEnvironments: true` always wins and is not silently reset
-  // to false by the `environments` branch running afterwards.
-  if ("environments" in patch) {
+  // Only a list scopes the rule; a null or undefined list changes nothing, since
+  // dropping the key would widen the rule and Mongo stores an undefined key as
+  // null. `allEnvironments` runs last so an explicit true wins over the list.
+  if (Array.isArray(patch.environments)) {
     updated.allEnvironments = false;
-    updated.environments = patch.environments ?? undefined;
+    updated.environments = patch.environments;
   }
   if ("allEnvironments" in patch) {
     updated.allEnvironments = patch.allEnvironments ?? false;
     if (patch.allEnvironments) {
-      updated.environments = undefined;
+      delete updated.environments;
     }
   }
   if ("force" in patch) {
@@ -726,6 +749,18 @@ export function applyPatchToRule(
   return updated;
 }
 
+// A rule with no list serves every environment; say so, since a null list in
+// a patch no longer means anything.
+function ruleScopeAsStartPatch(
+  rule: FeatureRule,
+): Pick<RampStartPatch, "allEnvironments" | "environments"> {
+  return {
+    allEnvironments:
+      rule.environments === undefined ? true : (rule.allEnvironments ?? null),
+    environments: rule.environments ?? null,
+  };
+}
+
 export function getStartPatchForRule(
   rule: FeatureRule,
 ): Omit<RampStartPatch, "ruleId"> {
@@ -741,8 +776,7 @@ export function getStartPatchForRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
-    allEnvironments: ruleState.allEnvironments ?? null,
-    environments: ruleState.environments ?? null,
+    ...ruleScopeAsStartPatch(rule),
     enabled: ruleState.enabled ?? null,
   };
 
@@ -835,6 +869,408 @@ export function resolveRampStartState({
   return {};
 }
 
+// Rule fields the start anchor carries, minus `enabled` (engine-owned while a
+// ramp is live); the two environment fields are compared as one below.
+const RAMP_BASE_FIELDS = [
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+  "value",
+  "hashAttribute",
+  "seed",
+  "hashVersion",
+] as const;
+
+// Absent, empty and (for hashVersion) the SDK's implicit v1 all read the same.
+function baseFieldValue(field: string, value: unknown): unknown {
+  if (field === "hashVersion") return value ?? 1;
+  if (value === "" || (Array.isArray(value) && !value.length)) return null;
+  return value ?? null;
+}
+
+function changedRampBaseFields(live: FeatureRule, next: FeatureRule): string[] {
+  const a = live as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const changed: string[] = RAMP_BASE_FIELDS.filter(
+    (f) => !isEqual(baseFieldValue(f, a[f]), baseFieldValue(f, b[f])),
+  );
+  const envs = (r: Record<string, unknown>) => [
+    r.allEnvironments ?? null,
+    r.environments ?? null,
+  ];
+  if (!isEqual(envs(a), envs(b))) changed.push("environments");
+  return changed;
+}
+
+function ruleFieldsAsStartPatch(
+  rule: FeatureRule,
+  fields: string[],
+): Partial<RampStartPatch> {
+  const r = rule as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (f === "value") {
+      if ("value" in r) patch.force = r.value;
+    } else if (f === "environments") {
+      Object.assign(patch, ruleScopeAsStartPatch(rule));
+    } else {
+      patch[f] = r[f] ?? null;
+    }
+  }
+  return patch as Partial<RampStartPatch>;
+}
+
+// One start action's edited fields, keyed the way the engine binds actions.
+type RampStartActionPatch = {
+  targetId: string;
+  ruleId: string;
+  patch: Partial<RampStartPatch>;
+};
+export type RampBaseStateUpdate = {
+  schedule: RampScheduleInterface;
+  patches: RampStartActionPatch[];
+};
+export type RampBaseStateRefusal = {
+  kind: "ramp-running" | "ramp-controlled-field" | "ramp-shared-base-state";
+  scheduleId: string;
+  message: string;
+};
+export type RampBaseStateSyncPlan = {
+  refusals: RampBaseStateRefusal[];
+  updates: RampBaseStateUpdate[];
+};
+
+// Dashboard wording for the rule fields the API names as-is.
+const RAMP_FIELD_LABELS: Record<string, string> = {
+  coverage: "rollout %",
+  value: "value",
+  condition: "attribute targeting",
+  savedGroups: "saved groups",
+  prerequisites: "prerequisites",
+  environments: "environments",
+  allEnvironments: "environments",
+  hashAttribute: "sample-by attribute",
+  seed: "seed",
+  hashVersion: "hash version",
+};
+
+// Refuse edits under a running ramp or to fields a step sets; carry other
+// anchor fields into the start action so every replay keeps them.
+export function planRampBaseStateSync({
+  featureId,
+  schedules,
+  liveRules,
+  nextRules,
+  apiRequest = false,
+}: {
+  featureId: string;
+  schedules: RampScheduleInterface[];
+  liveRules: FeatureRule[];
+  nextRules: FeatureRule[];
+  // API callers get field names and routes; the dashboard gets plain wording.
+  apiRequest?: boolean;
+}): RampBaseStateSyncPlan {
+  const refusals: RampBaseStateRefusal[] = [];
+  const updates: RampBaseStateUpdate[] = [];
+  const label = (f: string) => (apiRequest ? f : (RAMP_FIELD_LABELS[f] ?? f));
+  for (const schedule of schedules) {
+    if (!ANCHORED_RAMP_SCHEDULE_STATUSES.includes(schedule.status)) continue;
+    const startActions = schedule.startActions ?? [];
+    // Keyed like the engine binds actions; legacy env-split siblings share one.
+    const patches = new Map<string, RampStartActionPatch>();
+    for (const target of schedule.targets) {
+      if (
+        target.status !== "active" ||
+        target.entityType !== "feature" ||
+        target.entityId !== featureId
+      ) {
+        continue;
+      }
+      const controlled = rampPlanControlledFields(schedule, target.id);
+      const setBy = (f: string) =>
+        controlled.get(f) ??
+        (f === "environments" ? controlled.get("allEnvironments") : undefined);
+      const live = resolveRampTargets(
+        { ruleId: target.ruleId, environment: target.environment ?? null },
+        liveRules,
+      );
+      const forTarget = (a: RampStartAction) => a.targetId === target.id;
+      const anchorFor = (ruleId: string) =>
+        startActions.find((a) => forTarget(a) && a.patch.ruleId === ruleId) ??
+        startActions.find(
+          (a) =>
+            forTarget(a) && stemRuleId(a.patch.ruleId) === stemRuleId(ruleId),
+        );
+      const refusedAnchors = new Set<RampStartAction>();
+      for (const liveRule of live) {
+        const next = nextRules.find((r) => r.id === liveRule.id);
+        if (!next) continue;
+        const changed = changedRampBaseFields(liveRule, next);
+        if (!changed.length) continue;
+        // A schedule with no steps only replays its anchor at the cutoff, so
+        // there is nothing to pause for.
+        if (schedule.status === "running" && schedule.steps.length > 0) {
+          refusals.push({
+            kind: "ramp-running",
+            scheduleId: schedule.id,
+            message: apiRequest
+              ? `Rule "${liveRule.id}" is part of the running ramp schedule "${schedule.name}" (${schedule.id}). ` +
+                `Pause it before publishing changes to this rule: POST /api/v1/ramp-schedules/${schedule.id}/actions/pause.`
+              : `Rule "${liveRule.id}" has a running ramp-up. Pause it before publishing changes to the rule.`,
+          });
+          continue;
+        }
+        const owned = changed
+          .filter((f) => setBy(f))
+          .map((f) => `${label(f)} is set by ${setBy(f)}`);
+        if (owned.length) {
+          refusals.push({
+            kind: "ramp-controlled-field",
+            scheduleId: schedule.id,
+            message: apiRequest
+              ? `Rule "${liveRule.id}": ${owned.join(", ")} of ramp schedule "${schedule.name}" (${schedule.id}). ` +
+                `Change it in the plan: PUT /api/v1/ramp-schedules/${schedule.id}, or on a draft with ` +
+                `PUT /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule.`
+              : `Rule "${liveRule.id}": the ${owned.join(", ")} of its ramp-up. Change it in the ramp-up plan.`,
+          });
+          continue;
+        }
+        const anchor = anchorFor(liveRule.id);
+        if (!anchor || refusedAnchors.has(anchor)) continue;
+        // A legacy all-environment target replays one anchor onto every
+        // migrated sibling, so it can only carry a value they all end up with.
+        const edit = ruleFieldsAsStartPatch(next, changed);
+        const diverging = live.filter(
+          (r) =>
+            r.id !== liveRule.id &&
+            anchorFor(r.id) === anchor &&
+            !isEqual(
+              ruleFieldsAsStartPatch(
+                nextRules.find((n) => n.id === r.id) ?? r,
+                changed,
+              ),
+              edit,
+            ),
+        );
+        if (diverging.length) {
+          refusedAnchors.add(anchor);
+          const others = diverging.map((r) => `"${r.id}"`).join(", ");
+          const rules = `${diverging.length === 1 ? "Rule" : "Rules"} ${others}`;
+          refusals.push({
+            kind: "ramp-shared-base-state",
+            scheduleId: schedule.id,
+            message: apiRequest
+              ? `Rule "${liveRule.id}" shares one base state with ${rules} in the legacy ramp schedule "${schedule.name}" (${schedule.id}), so this change would also apply there. ` +
+                `Remove the ramp from the rule (DELETE /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule), publish the change, then attach a new ramp schedule.`
+              : `Rule "${liveRule.id}" shares its ramp-up with ${rules}, so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.`,
+          });
+          continue;
+        }
+        const key = `${anchor.targetId}:${anchor.patch.ruleId}`;
+        const prior = patches.get(key)?.patch ?? {};
+        patches.set(key, {
+          targetId: anchor.targetId,
+          ruleId: anchor.patch.ruleId,
+          patch: { ...prior, ...edit },
+        });
+      }
+    }
+    if (patches.size) {
+      updates.push({ schedule, patches: [...patches.values()] });
+    }
+  }
+  return { refusals, updates };
+}
+
+function patchStartActions(
+  startActions: RampStartAction[],
+  patches: RampStartActionPatch[],
+): RampStartAction[] {
+  return startActions.map((a) => {
+    const p = patches.find(
+      (x) => x.targetId === a.targetId && x.ruleId === a.patch.ruleId,
+    );
+    return p ? { ...a, patch: { ...a.patch, ...p.patch } } : a;
+  });
+}
+
+const BASE_STATE_SYNC_PREFIX = "Base state updated by publishing revision";
+const ruleField = (patchKey: string) =>
+  RAMP_PATCH_RULE_FIELDS[patchKey] ?? patchKey;
+
+// "… revision 3: fr_a: condition, value; fr_b: coverage" — the rewind reads
+// this back to see which fields a later publish took over.
+function baseStateSyncReason(
+  revisionVersion: number,
+  patches: RampStartActionPatch[],
+): string {
+  const perRule = patches.map(
+    (p) => `${p.ruleId}: ${Object.keys(p.patch).map(ruleField).join(", ")}`,
+  );
+  return `${BASE_STATE_SYNC_PREFIX} ${revisionVersion}: ${perRule.join("; ")}`;
+}
+
+function baseStateSyncFields(reason: string): Map<string, Set<string>> {
+  const byRule = new Map<string, Set<string>>();
+  for (const entry of reason.slice(reason.indexOf(": ") + 2).split("; ")) {
+    const i = entry.indexOf(": ");
+    if (i > 0)
+      byRule.set(entry.slice(0, i), new Set(entry.slice(i + 2).split(", ")));
+  }
+  return byRule;
+}
+
+export async function planRampBaseStateSyncForPublish(
+  ctx: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  result: MergeResultChanges,
+  {
+    // Bulk reads through a scan context; the wording follows the caller.
+    apiRequest = ctx.isApiRequest,
+    // Targets this publish detaches: the ramp is leaving the rule, so its edit
+    // is neither refused nor anchored. Not while a stepped schedule runs — the
+    // detach lands after the save and can lose the lock to a firing step, so
+    // "pause first" still applies there.
+    detaching = [],
+  }: { apiRequest?: boolean; detaching?: RevisionRampDetachAction[] } = {},
+): Promise<RampBaseStateSyncPlan> {
+  if (!result.rules) return { refusals: [], updates: [] };
+  const schedules = await ctx.models.rampSchedules.findAnchoredByTargetFeature(
+    feature.id,
+  );
+  return planRampBaseStateSync({
+    featureId: feature.id,
+    schedules: schedules.map((schedule) => {
+      if (schedule.status === "running" && schedule.steps.length > 0) {
+        return schedule;
+      }
+      const detached = detachedRampTargets(schedule, detaching);
+      return detached.length
+        ? {
+            ...schedule,
+            targets: schedule.targets.filter((t) => !detached.includes(t)),
+          }
+        : schedule;
+    }),
+    liveRules: feature.rules ?? [],
+    nextRules: result.rules,
+    apiRequest,
+  });
+}
+
+export type RampBaseStatePreImage = {
+  id: string;
+  // Per edited start action: the written fields and their values before.
+  patches: (RampStartActionPatch & { before: Partial<RampStartPatch> })[];
+  event: RampEvent;
+};
+
+const sameAction = (a: RampStartAction, p: RampStartActionPatch) =>
+  a.targetId === p.targetId && a.patch.ruleId === p.ruleId;
+
+// Writes each planned base state under the advance lock against a fresh read,
+// so nothing that landed since planning is overwritten or slipped past.
+export async function applyRampBaseStateSync(
+  ctx: ReqContext | ApiReqContext,
+  updates: RampBaseStateUpdate[],
+  revisionVersion: number,
+  written: RampBaseStatePreImage[],
+): Promise<void> {
+  for (const { schedule, patches } of updates) {
+    await runLockedRampScheduleAction(ctx, schedule.id, async (fresh) => {
+      const actions = fresh.startActions ?? [];
+      const anchors = patches.map((p) => actions.find((a) => sameAction(a, p)));
+      // The gates ran on a pre-lock snapshot; a resume or re-plan since then
+      // must send the publish back through them rather than slip past.
+      const stale =
+        (fresh.status === "running" && fresh.steps.length > 0) ||
+        anchors.some((a) => !a) ||
+        !isEqual(
+          getEnvsFromRampSchedule(fresh),
+          getEnvsFromRampSchedule(schedule),
+        ) ||
+        patches.some((p) => {
+          const controlled = rampPlanControlledFields(fresh, p.targetId);
+          return Object.keys(p.patch).some((k) => controlled.has(ruleField(k)));
+        });
+      if (stale) {
+        throw new ConflictError(
+          `Ramp schedule "${fresh.name}" changed while publishing; retry the publish`,
+        );
+      }
+      const eventHistory = appendRampEvent(fresh, "config-edited", {
+        reason: baseStateSyncReason(revisionVersion, patches),
+        userId: ctx.userId,
+      });
+      written.push({
+        id: fresh.id,
+        patches: patches.map((p, i) => ({
+          ...p,
+          before: pick(anchors[i]!.patch, Object.keys(p.patch)),
+        })),
+        event: eventHistory[eventHistory.length - 1],
+      });
+      await ctx.models.rampSchedules.updateById(fresh.id, {
+        startActions: patchStartActions(actions, patches),
+        eventHistory,
+      });
+    });
+  }
+}
+
+// Puts back only the fields this publish still owns (a later write wins, even
+// one that wrote the same value) and removes only the event row it added.
+export async function restoreRampBaseStates(
+  ctx: ReqContext | ApiReqContext,
+  preImages: RampBaseStatePreImage[],
+): Promise<void> {
+  for (const { id, patches, event } of preImages) {
+    await runLockedRampScheduleAction(ctx, id, async (fresh) => {
+      // History is append-only, so position orders writes that share a
+      // millisecond. An event already truncated away counts everything as later.
+      const history = fresh.eventHistory ?? [];
+      const at = (e: RampEvent) => new Date(e.timestamp).getTime();
+      const mine = history.findIndex(
+        (e) =>
+          e.type === event.type &&
+          e.reason === event.reason &&
+          at(e) === at(event),
+      );
+      const laterWrites = history
+        .slice(mine + 1)
+        .filter(
+          (e) =>
+            e.type === "config-edited" &&
+            e.reason?.startsWith(BASE_STATE_SYNC_PREFIX),
+        );
+      const startActions = (fresh.startActions ?? []).map((a) => {
+        const p = patches.find((x) => sameAction(a, x));
+        if (!p) return a;
+        const takenOver = new Set(
+          laterWrites.flatMap((e) => [
+            ...(baseStateSyncFields(e.reason ?? "").get(p.ruleId) ?? []),
+          ]),
+        );
+        const patch = { ...a.patch } as Record<string, unknown>;
+        const written = p.patch as Record<string, unknown>;
+        const before = p.before as Record<string, unknown>;
+        for (const key of Object.keys(written)) {
+          if (takenOver.has(ruleField(key))) continue;
+          if (!isEqual(patch[key], written[key])) continue;
+          if (key in before) patch[key] = before[key];
+          else delete patch[key];
+        }
+        return { ...a, patch: patch as RampStartPatch };
+      });
+      await ctx.models.rampSchedules.updateById(id, {
+        startActions,
+        eventHistory: mine < 0 ? history : history.filter((_, i) => i !== mine),
+      });
+    });
+  }
+}
+
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment, judgeTargeting, notes } = opts;
@@ -856,6 +1292,9 @@ export const featureEntityHandler: EntityHandler = {
       const entries = actions.flatMap((action) => {
         if (action.targetType !== "feature-rule") return [];
         const { ruleId, ...patch } = action.patch;
+        // A null list stored before it was refused at write time changes
+        // nothing when applied, so it is not judged either.
+        if (patch.environments === null) delete patch.environments;
         return resolveRampTargets(
           { ruleId, environment: environment ?? null },
           updatedRules,
@@ -929,6 +1368,7 @@ export const featureEntityHandler: EntityHandler = {
       context: ctx,
       feature,
       user,
+      baseVersion: feature.version,
       environments: ctx.environments,
       changes: { rules: updatedRules },
       publish: false,
@@ -950,7 +1390,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
-      skipValueSchemaNet: true,
+      rampEnginePublish: true,
     });
   },
 };
@@ -1104,18 +1544,67 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-function monitoringConfigRequiresSafeRolloutResync(
+/**
+ * Every monitoring writer (REST, internal, revision publish) saves through the
+ * ramp models, whose customValidation calls this.
+ */
+export async function assertValidMonitoringConfigChange(
+  ctx: ReqContext | ApiReqContext,
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig | null | undefined,
+): Promise<void> {
+  if (!next) return;
+  await assertValidAssignmentQuerySelectionChange(
+    ctx,
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+}
+
+/** The monitoring data source is nested, so BaseModel wouldn't cache it. */
+export function withMonitoringDatasourceKey<K extends { datasource?: string }>(
+  keys: K,
+  mc: Pick<RampMonitoringConfig, "datasourceId"> | null | undefined,
+): K {
+  return mc?.datasourceId ? { ...keys, datasource: mc.datasourceId } : keys;
+}
+
+async function monitoringSelectionChanged(
+  ctx: ReqContext | ApiReqContext,
+  current: RampMonitoringConfig,
+  next: RampMonitoringConfig,
+): Promise<boolean> {
+  const previous = toMonitoringSelection(current);
+  const selection = toMonitoringSelection(next);
+  // Only a changed identifier on the same query needs the queries to compare.
+  if (isSameAssignmentQuerySelection(previous, selection, [])) return false;
+  if (
+    previous.datasource !== selection.datasource ||
+    previous.exposureQueryId !== selection.exposureQueryId
+  ) {
+    return true;
+  }
+  return !isSameAssignmentQuerySelection(
+    previous,
+    selection,
+    await getExposureQueriesForDatasource(ctx, next.datasourceId),
+  );
+}
+
+async function monitoringConfigRequiresSafeRolloutResync(
+  ctx: ReqContext | ApiReqContext,
   current: RampScheduleInterface["monitoringConfig"],
   next: RampScheduleInterface["monitoringConfig"],
-): boolean {
+): Promise<boolean> {
   if (!current || !next) return current !== next;
-  return (
-    current.datasourceId !== next.datasourceId ||
-    current.exposureQueryId !== next.exposureQueryId ||
+  if (
     current.updateScheduleMinutes !== next.updateScheduleMinutes ||
     !sameStringArray(current.guardrailMetricIds, next.guardrailMetricIds) ||
     !sameStringArray(current.signalMetricIds, next.signalMetricIds)
-  );
+  ) {
+    return true;
+  }
+  return monitoringSelectionChanged(ctx, current, next);
 }
 
 export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
@@ -1125,10 +1614,11 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
 ): Promise<void> {
   if (
     !schedule.safeRolloutId ||
-    !monitoringConfigRequiresSafeRolloutResync(
+    !(await monitoringConfigRequiresSafeRolloutResync(
+      ctx,
       schedule.monitoringConfig,
       nextMonitoringConfig,
-    )
+    ))
   ) {
     return;
   }
@@ -1138,7 +1628,7 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
   );
   if (safeRollout?.startedAt) {
     throw new Error(
-      "Cannot change SafeRollout-backed monitoring data source, exposure query, metrics, or update cadence after monitoring has started.",
+      "Cannot change SafeRollout-backed monitoring data source, exposure query, identifier type, metrics, or update cadence after monitoring has started.",
     );
   }
 }
@@ -1363,10 +1853,20 @@ export async function ensureSafeRolloutForMonitoredRamp(
 
   const trackingKey = `ramp_${schedule.id}`;
 
+  /**
+   * Stored explicitly, so a legacy monitoring config doesn't make it implicit.
+   */
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    (await getExposureQueriesForDatasource(ctx, mc.datasourceId)).find(
+      (q) => q.id === mc.exposureQueryId,
+    ),
+    mc.exposureQueryIdentifierType,
+  );
   const sr = await ctx.models.safeRollout.create({
     featureId: schedule.entityId,
     datasourceId: mc.datasourceId,
     exposureQueryId: mc.exposureQueryId,
+    exposureQueryIdentifierType,
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
@@ -3316,12 +3816,9 @@ export async function updateRampMonitoringConfig(
   // drift between the schedule config and what the SafeRollout actually queries.
   if (schedule.safeRolloutId && schedule.monitoringConfig) {
     const existing = schedule.monitoringConfig;
-    if (
-      newConfig.datasourceId !== existing.datasourceId ||
-      newConfig.exposureQueryId !== existing.exposureQueryId
-    ) {
+    if (await monitoringSelectionChanged(ctx, existing, newConfig)) {
       throw new Error(
-        "Cannot change datasourceId or exposureQueryId while a SafeRollout is active. " +
+        "Cannot change datasourceId, exposureQuery, or its identifier type while a SafeRollout is active. " +
           "Stop the schedule and create a new one to change the data source.",
       );
     }

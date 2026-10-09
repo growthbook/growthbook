@@ -1,8 +1,8 @@
 /**
- * Event forwarder sink types backed by Confluent Cloud managed connectors.
- * Reference implementations: bigquery, snowflake.
+ * Event forwarder sink types. snowflake is a Confluent Cloud managed connector;
+ * databricks and bigquery are written by the GrowthBook-owned consumer.
  */
-export type EventForwarderSinkType = "bigquery" | "snowflake";
+export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
 export type EventForwarderStatus =
   | "pending"
@@ -22,12 +22,14 @@ export interface BigQueryEventForwarderConfigDraft {
   serviceAccountKey?: string;
 }
 
-/** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */
+/** Encrypted payload read by the consumer; credentials are copied from datasource params at sync time. */
 export interface BigQueryEventForwarderStoredConfig {
   projectId?: string;
   dataset: string;
   tablePrefix: string;
   serviceAccountKey?: string;
+  /** Table names within `dataset`. */
+  tables: { events: string; experiment_viewed: string; feature_usage: string };
 }
 
 /**
@@ -57,6 +59,28 @@ export interface SnowflakeEventForwarderStoredConfig {
   warehouse?: string;
 }
 
+/** Databricks sink settings edited in the event forwarder UI. */
+export interface DatabricksEventForwarderConfigDraft {
+  catalog: string;
+  schema: string;
+  tablePrefix: string;
+  zerobusEndpoint: string;
+}
+
+/** Encrypted payload read by the consumer; connection fields are copied from datasource params at sync time. */
+export interface DatabricksEventForwarderStoredConfig {
+  catalog: string;
+  schema: string;
+  tablePrefix: string;
+  zerobusEndpoint: string;
+  /** Fully qualified `catalog.schema.table`, no backticks. */
+  tables: { events: string; experiment_viewed: string; feature_usage: string };
+  host: string;
+  path: string;
+  oauthClientId: string;
+  oauthClientSecret: string;
+}
+
 export type EventForwarderConfigDraft =
   | {
       sinkType: "bigquery";
@@ -67,6 +91,12 @@ export type EventForwarderConfigDraft =
   | {
       sinkType: "snowflake";
       config: SnowflakeEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
+    }
+  | {
+      sinkType: "databricks";
+      config: DatabricksEventForwarderConfigDraft;
       /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
       region?: "us-east-1" | "eu-west-1";
     };

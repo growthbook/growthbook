@@ -105,10 +105,43 @@ export function customFieldValuesEqual(
   return aKeys.every((key) => a[key] === b[key]);
 }
 
+/**
+ * Every active field for a section, ignoring project scope. For views that span
+ * projects — the attributes table under "All Projects" lists attributes from
+ * every project, so restricting its columns to global fields would hide
+ * project-scoped metadata that some visible rows actually carry.
+ */
+export function filterCustomFieldsForSection(
+  customFields: CustomField[] | undefined,
+  section: CustomFieldSection,
+) {
+  return customFields?.filter(
+    (v) => v.active !== false && v.sections?.includes(section),
+  );
+}
+
 export function filterCustomFieldsForSectionAndProject(
   customFields: CustomField[] | undefined,
   section: CustomFieldSection,
   project: string | undefined,
+) {
+  return filterCustomFieldsForSectionAndProjects(
+    customFields,
+    section,
+    project === undefined ? undefined : [project],
+  );
+}
+
+/**
+ * Plural variant for entities scoped to several projects at once, such as
+ * attributes. A field applies when it is global or overlaps the entity's
+ * projects; an entity with no projects is org-wide and gets global fields only,
+ * matching the single-project behaviour.
+ */
+export function filterCustomFieldsForSectionAndProjects(
+  customFields: CustomField[] | undefined,
+  section: CustomFieldSection,
+  projects: string[] | undefined,
 ) {
   const filteredCustomFields = customFields?.filter(
     (v) => v.active !== false && v.sections?.includes(section),
@@ -117,17 +150,21 @@ export function filterCustomFieldsForSectionAndProject(
     return filteredCustomFields;
   }
 
-  const normalizedProject = normalizeProject(project);
+  const normalizedProjects = (projects ?? [])
+    .map((p) => normalizeProject(p))
+    .filter((p): p is string => !!p);
   const normalizedCustomFields = filteredCustomFields.map((v) => ({
     ...v,
     projects: (v.projects ?? []).map((p) => p.trim()).filter(Boolean),
   }));
 
-  if (!normalizedProject) {
+  if (!normalizedProjects.length) {
     return normalizedCustomFields.filter((v) => v.projects.length === 0);
   }
 
-  return normalizedCustomFields.filter((v) => {
-    return v.projects.length === 0 || v.projects.includes(normalizedProject);
-  });
+  return normalizedCustomFields.filter(
+    (v) =>
+      v.projects.length === 0 ||
+      v.projects.some((p) => normalizedProjects.includes(p)),
+  );
 }

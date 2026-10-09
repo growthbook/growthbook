@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import { getDefinitionsData } from "back-end/src/services/definitions";
 import {
   getDefinitionsVersionCollections,
@@ -33,12 +36,10 @@ const READ_METHODS: ReadMethod[] = [
 ];
 
 describe("definitions version coverage guard", () => {
-  let mongod: MongoMemoryServer;
   let context: ReqContext;
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
 
     context = new ReqContextClass({
       org: {
@@ -82,8 +83,7 @@ describe("definitions version coverage guard", () => {
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   it("only reads collections whose writes bump the definitions version", async () => {

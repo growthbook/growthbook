@@ -28,6 +28,8 @@ import {
   rampStartAction,
   rampStartPatch,
   rampMonitoringConfig,
+  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   stepHoldConditions,
 } from "./ramp-schedule";
 
@@ -326,6 +328,13 @@ export const JSONSchemaDef = z
   })
   .strict();
 
+// REST input shape: a JSON body can't carry a Date, so the server stamps `date`.
+export const apiJSONSchemaDefInput = JSONSchemaDef.omit({
+  date: true,
+}).describe(
+  "Validation schema to stage on the draft. The server sets `date`, so don't send it.",
+);
+
 const revisionLog = z
   .object({
     // Optional — legacy log entries stored inline on the revision document
@@ -452,6 +461,9 @@ const minimalFeatureRevisionInterface = z
     scheduledPublishLockEdits: z.boolean().optional(),
     scheduledPublishLockOthers: z.boolean().optional(),
     scheduledPublishBypassApproval: z.boolean().optional(),
+    // Lets the flag page load a draft together with its base, without first
+    // loading the draft to find out which base that is.
+    baseVersion: z.number().optional(),
   })
   .strict();
 
@@ -531,6 +543,7 @@ export const revisionRampCreateAction = z.object({
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  monitoringConfig: apiRampMonitoringConfigInput.optional(),
   steps: z.array(revisionApiRampStep).optional(),
   startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
@@ -578,9 +591,17 @@ const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
+/**
+ * Revision responses return the stored flat monitoring config with its
+ * assignment query grouped, like every other response.
+ */
 export const apiRevisionRampAction = z.discriminatedUnion("mode", [
-  apiRevisionRampCreateAction,
-  apiRevisionRampUpdateAction,
+  apiRevisionRampCreateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
+  apiRevisionRampUpdateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
   revisionRampDetachAction,
 ]);
 
@@ -679,10 +700,16 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .nullable()
       .optional(),
     // Ramp schedule actions (create/detach) to execute atomically when this revision
-    // is published. This ensures ramp schedules are never orphaned by draft abandonment
-    // or revision reverts. Real-time state changes (pause, resume, rollback, etc.)
+    // is published. This ensures ramp schedules are never orphaned by draft
+    // abandonment. Real-time state changes (pause, resume, rollback, etc.)
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
+    // The ramp schedules controlling this feature's rules once this revision
+    // landed, recorded at publish. A revert to this revision detaches any ramp
+    // not listed. Absent on revisions published before it was recorded.
+    rampAttachments: z
+      .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
+      .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
     // User IDs who have made edits to this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.

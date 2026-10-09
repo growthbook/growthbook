@@ -9,6 +9,7 @@ import {
   ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
+  RevisionChanges,
   ApiFeature,
 } from "shared/validators";
 import {
@@ -38,14 +39,11 @@ import { GroupMap } from "shared/types/saved-group";
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
 import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
-import {
-  hasAttributeCondition,
-  hasTargetingConfigured,
-} from "../experiments/targeting";
+import { hasTargetingConfigured } from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
-  conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
+  describeSavedGroupError,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -569,6 +567,7 @@ type RampRulePatch = {
   coverage?: number | null;
   hashAttribute?: string | null;
 };
+type RampTargetAction = { targetId?: string | null; patch?: object | null };
 
 // A partial-coverage patch for `ruleId` with no patch naming a hash attribute;
 // on a force rule such a plan is refused at write and at fire time.
@@ -591,6 +590,42 @@ export function rampPlanLacksHashAttribute(
     patches.some((p) => (p.coverage ?? 1) < 1) &&
     !patches.some((p) => p.hashAttribute)
   );
+}
+
+// Patch fields in rule terms; `force` is the rule's `value`.
+export const RAMP_PATCH_RULE_FIELDS: Record<string, string> = {
+  coverage: "coverage",
+  condition: "condition",
+  savedGroups: "savedGroups",
+  prerequisites: "prerequisites",
+  allEnvironments: "allEnvironments",
+  environments: "environments",
+  force: "value",
+  enabled: "enabled",
+};
+
+// Rule fields a plan's steps or end state set on one target, with where each is
+// first set ("step 2", "end state"). A publish refuses direct edits to these.
+export function rampPlanControlledFields(
+  plan: {
+    steps?: { actions?: RampTargetAction[] | null }[] | null;
+    endActions?: RampTargetAction[] | null;
+  },
+  targetId: string,
+): Map<string, string> {
+  const controlled = new Map<string, string>();
+  const collect = (action: RampTargetAction, where: string) => {
+    if (action.targetId !== targetId) return;
+    for (const key of Object.keys(action.patch ?? {})) {
+      const field = RAMP_PATCH_RULE_FIELDS[key];
+      if (field && !controlled.has(field)) controlled.set(field, where);
+    }
+  };
+  (plan.steps ?? []).forEach((step, i) =>
+    (step.actions ?? []).forEach((a) => collect(a, `step ${i + 1}`)),
+  );
+  (plan.endActions ?? []).forEach((a) => collect(a, "end state"));
+  return controlled;
 }
 
 // The attribute a new rollout buckets on when none is chosen: `id` when it is
@@ -886,24 +921,31 @@ const isUnconditionalTempRollout = (
   return true;
 };
 
-const hasNoCondition = (rule: FeatureRule): boolean =>
-  !hasAttributeCondition(rule.condition);
-
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
 ) => {
+  // Bandits, safe rollouts and inline experiments split traffic. When unsure,
+  // a flag is not called stale.
+  if (
+    rules.some(
+      (r) =>
+        r.type === "contextual-bandit-ref" ||
+        r.type === "safe-rollout" ||
+        r.type === "experiment",
+    )
+  ) {
+    return false;
+  }
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
 
+  // Prerequisites target too: the rule serves only when the parent passes.
   const rolloutRulesOnesided =
     !rolloutRules.length ||
-    rolloutRules.every(
-      (r) => r.coverage === 1 && hasNoCondition(r) && !r.savedGroups?.length,
-    );
+    rolloutRules.every((r) => r.coverage === 1 && !hasTargetingConfigured(r));
 
   const forceRulesOnesided =
-    !forceRules.length ||
-    forceRules.every((r) => hasNoCondition(r) && !r.savedGroups?.length);
+    !forceRules.length || forceRules.every((r) => !hasTargetingConfigured(r));
 
   return rolloutRulesOnesided && forceRulesOnesided;
 };
@@ -1140,6 +1182,7 @@ export function isFeatureStale({
     );
 
   const visitedFeatures = new Set<string>();
+  const rootId = feature.id;
 
   const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
@@ -1164,13 +1207,17 @@ export function isFeatureStale({
         const f = featuresMap.get(id);
         return !f || !visit(f).stale;
       });
-      dependentExperiments =
-        dependentExperiments ??
+      // The caller's dependents and draft date describe the requested
+      // feature only; every dependent the walk visits is looked up on its own.
+      const isRoot = feature.id === rootId;
+      const featureDependentExperiments =
+        (isRoot ? dependentExperiments : undefined) ??
         getDependentExperiments(
           feature,
           experiments,
           experimentDependencyIndex,
         );
+      const draftDate = isRoot ? mostRecentDraftDate : undefined;
 
       const envResults = buildEnvResults(
         feature,
@@ -1178,7 +1225,7 @@ export function isFeatureStale({
         experimentMap,
         nonStaleDependentFeatureIds,
         featuresMap,
-        dependentExperiments,
+        featureDependentExperiments,
       );
 
       if (feature.neverStale)
@@ -1194,8 +1241,8 @@ export function isFeatureStale({
       // Active drafts block stale. Abandoned drafts (>1 month) don't force
       // stale on their own — they surface as the reason only if envs are also stale.
       let hasAbandonedDraft = false;
-      if (mostRecentDraftDate !== undefined && mostRecentDraftDate !== null) {
-        if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+      if (draftDate !== undefined && draftDate !== null) {
+        if (draftDate >= subMonths(new Date(), 1)) {
           return { stale: false, reason: "active-draft", envResults };
         }
         hasAbandonedDraft = true;
@@ -1204,10 +1251,13 @@ export function isFeatureStale({
       if (nonStaleDependentFeatureIds.length) {
         return { stale: false, reason: "has-dependents", envResults };
       }
-      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e),
+      const hasNonStaleDependentExperiments = featureDependentExperiments.some(
+        (e) => includeExperimentInPayload(e),
       );
-      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+      if (
+        featureDependentExperiments.length &&
+        hasNonStaleDependentExperiments
+      ) {
         return { stale: false, reason: "has-dependents", envResults };
       }
 
@@ -1753,6 +1803,7 @@ export {
   isRevisionEditLockedBySchedule,
   findPublishLockingScheduledRevision,
 } from "../revisions/scheduledPublish";
+export { getFeaturePageDefaultVersion } from "../revisions/featurePageVersion";
 
 // True if publishing the draft would change anything outside the target
 // ref rule(s) matched by `isTargetRef`. Compares effective post-publish state
@@ -2109,6 +2160,75 @@ export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
   return { kept, pruned };
 }
 
+// The record fields a rebase rewrites; a failed publish restores exactly these.
+export const REBASED_REVISION_FIELDS = [
+  "baseVersion",
+  "defaultValue",
+  "rules",
+  "environmentsEnabled",
+  "prerequisites",
+  "archived",
+  "metadata",
+  "holdout",
+] as const;
+
+export type RebasedRevisionChanges = Required<
+  Pick<RevisionChanges, (typeof REBASED_REVISION_FIELDS)[number]>
+> &
+  Pick<RevisionChanges, "rampActions">;
+
+// A draft re-expressed on top of live, the way a rebase records it. A draft
+// that goes on being edited also drops ramp actions whose rule the merge removed.
+export function rebasedRevisionChanges({
+  feature,
+  revision,
+  liveVersion,
+  result,
+  environmentIds,
+  pruneRampActions = true,
+}: {
+  feature: FeatureInterface;
+  revision: Pick<FeatureRevisionInterface, "rampActions">;
+  liveVersion: number;
+  result: MergeResultChanges;
+  environmentIds: string[];
+  pruneRampActions?: boolean;
+}): { changes: RebasedRevisionChanges; logValue: string } {
+  const rules = result.rules ?? feature.rules ?? [];
+  const environmentsEnabled: Record<string, boolean> = {};
+  environmentIds.forEach((env) => {
+    environmentsEnabled[env] =
+      result.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+  });
+  const liveMetadata = featureMetadataEnvelope(feature);
+  const { kept, pruned } = pruneRampActions
+    ? pruneOrphanedRampActions(revision.rampActions, rules)
+    : { kept: revision.rampActions, pruned: [] };
+  return {
+    changes: {
+      baseVersion: liveVersion,
+      defaultValue: result.defaultValue ?? feature.defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites: result.prerequisites ?? feature.prerequisites ?? [],
+      archived: result.archived ?? feature.archived ?? false,
+      metadata: result.metadata
+        ? { ...liveMetadata, ...result.metadata }
+        : liveMetadata,
+      holdout:
+        "holdout" in result
+          ? (result.holdout ?? null)
+          : (feature.holdout ?? null),
+      ...(pruned.length > 0 ? { rampActions: kept } : {}),
+    },
+    logValue: JSON.stringify(
+      pruned.length > 0 ? { ...result, prunedRampActions: pruned } : result,
+    ),
+  };
+}
+
 export function autoMerge(
   live: RevisionFields,
   base: RevisionFields,
@@ -2460,12 +2580,22 @@ export function validateCondition(
     }
 
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
-    if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
+    recursiveWalk(
+      scrubbed,
+      createV1SavedGroupsOperatorHandler(groupMap || new Map()),
+    );
+    const savedGroupError = describeSavedGroupError(
+      scrubbed,
+      skipSavedGroupCycleCheck,
+    );
+    if (savedGroupError) {
       return {
         success: false,
         empty: false,
-        error: "Condition includes invalid or cyclic saved group reference",
+        // Without the groups, every referenced group would read as missing
+        error: groupMap
+          ? savedGroupError
+          : "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",
       };
     }
 
@@ -2486,6 +2616,30 @@ export function validateCondition(
       return { success: false, empty: false, error: errMsg };
     }
   }
+}
+
+// Prerequisite conditions run against {"value": <flag_value>}, never the
+// user's attributes, so a Saved Group's targeting has nothing to match there.
+export function validatePrerequisiteCondition(
+  condition?: string,
+): ValidateConditionReturn {
+  let usesSavedGroups = false;
+  try {
+    recursiveWalk(JSON.parse(condition || "{}"), ([key]) => {
+      if (key === "$savedGroups") usesSavedGroups = true;
+    });
+  } catch {
+    // validateCondition reports the syntax error
+  }
+  if (usesSavedGroups) {
+    return {
+      success: false,
+      empty: false,
+      error:
+        '$savedGroups cannot be used in prerequisite conditions, which are evaluated against {"value": <flag_value>} rather than attributes. Use $inGroup to match the value against a Saved Group\'s list.',
+    };
+  }
+  return validateCondition(condition);
 }
 
 export function validateAndFixCondition(
@@ -2952,7 +3106,7 @@ export function getDependentExperiments(
   });
 }
 
-// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+// Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
   if (condition && condition !== "{}") {
     try {

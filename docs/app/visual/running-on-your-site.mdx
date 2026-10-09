@@ -1,15 +1,14 @@
 ---
 title: "Run Visual Experiments: SDK Setup and Anti-Flicker"
-description: Install the Script Tag, JavaScript, React, or Edge SDK to run Visual Editor A/B tests on your live site and reduce flicker.
+description: Install the Script Tag, JavaScript, React, or Edge SDK to run AI Visual Editor A/B tests on your live site and reduce flicker.
 sidebarTitle: Running on your site
-slug: /app/visual/running-on-your-site
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 <CommercialFeature feature="visual-editor" />
 
-The [Visual Editor](/app/visual) is where you design A/B tests with a WYSIWYG editor. To actually render those tests on your
+The [AI Visual Editor](/app/visual) is where you design A/B tests with a WYSIWYG editor. To actually render those tests on your
 live site for real users, you need to install one of GrowthBook's SDKs. This page walks through which SDK to pick,
 how to install it, and how to avoid the most common pitfall of client-side A/B testing — **flicker**, also known as **flash of original content (FOOC)**.
 
@@ -95,7 +94,7 @@ GrowthBook's works hard to keep the library size as small as possible and our pe
 
 ### Strategy 4: Consider whether visual testing is the right tool
 
-Heavily client-side-rendered apps (complex React/Vue/Svelte that re-render the DOM after hydration) are especially prone to flicker, because the visual editor's DOM mutations can be overwritten by the framework's re-render. For those, [Feature Flags](/app/features) implemented in code are usually a better fit than visual experiments — the variation is rendered by your application itself, so there's no race condition.
+Heavily client-side-rendered apps (complex React/Vue/Svelte that re-render the DOM after hydration) are especially prone to flicker, because the AI Visual Editor's DOM mutations can be overwritten by the framework's re-render. For those, [Feature Flags](/app/features) implemented in code are usually a better fit than visual experiments — the variation is rendered by your application itself, so there's no race condition.
 
 ## Content Security Policy (CSP)
 

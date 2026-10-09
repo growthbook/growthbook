@@ -72,7 +72,7 @@ export default function ExplorationBubble({
   const isTable = isTableChartType(chartData.config.chartType);
 
   return (
-    <AssistantBubble wide>
+    <AssistantBubble variant="artifact">
       {showSaveModal && (
         <SaveToDashboardModal
           close={() => setShowSaveModal(false)}

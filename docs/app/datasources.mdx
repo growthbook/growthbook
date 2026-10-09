@@ -2,7 +2,6 @@
 title: Data Source Configuration
 description: Connect a warehouse, pick an event tracker schema, and define assignment queries, identifier types, and join tables.
 sidebarTitle: Data Source Configuration
-slug: /app/datasources
 ---
 
 ## Overview
@@ -14,6 +13,7 @@ Data Sources are how GrowthBook connects to your data warehouse so that it can p
 When adding a new Data Source in Growthbook from /datasources page we first guide you to select what event tracker software you use, or you can choose custom if you don't use any of the popular third party event trackers that we support. Telling us which event tracker you use, gives us an idea on the likely shape of your data. This will help us generate the correct sql to extract out the aggregated statistics from your site with as little modification on your end as possible. Here is Growthbook's current list of event trackers that we support with links for more details on how to set them up with GrowthBook:
 
 - [Amplitude](/event-trackers/amplitude)
+- [Arize Phoenix (Postgres only, beta)](/event-trackers/phoenix)
 - [CleverTap](/event-trackers/clevertap)
 - [Firebase](/event-trackers/firebase)
 - [Freshpaint](/event-trackers/freshpaint)
@@ -22,6 +22,7 @@ When adding a new Data Source in Growthbook from /datasources page we first guid
 - [Heap Analytics](/event-trackers/heap)
 - [Jitsu](/event-trackers/jitsu)
 - [Keen IO](/event-trackers/keenio)
+- [Langfuse (ClickHouse only, beta)](/event-trackers/langfuse)
 - [Matomo](/guide/matomo)
 - [Mixpanel](/guide/mixpanel)
 - [MParticle](/event-trackers/mparticle)
@@ -43,7 +44,7 @@ There are some cases where a single database column isn't enough to uniquely ide
 
 ### Experiment Assignment Queries
 
-An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query declares one or more identifier types (defined above), and each experiment picks the one it's analyzed on. You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
 
 <Note>
 **Queries used to generate experiment results**

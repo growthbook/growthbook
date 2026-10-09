@@ -17,7 +17,7 @@ export const deleteEnvironment = createApiRequestHandler(
 
   const environment = environments.find((env) => env.id === id);
   if (!environment) {
-    throw Error(`Environment ${id} does not exists!`);
+    throw Error(`Environment ${id} does not exist!`);
   }
 
   if (!req.context.permissions.canDeleteEnvironment(environment))

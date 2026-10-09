@@ -80,7 +80,7 @@ import {
   apiCreateMyResourceBody,
   apiUpdateMyResourceBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const myResourceApiSpec = {
   modelSingular: "myResource",
@@ -149,6 +149,20 @@ export class MyResourceModel extends BaseClass {
   }
 }
 ```
+
+#### Calling the endpoints from the front-end
+
+The front-end can't import `src/api/specs/`. For a resource the front-end calls, declare the spec in `shared/validators` as `as const satisfies OpenApiModelSpec` (import the type from `shared/api-model`). `as const` keeps the response keys literal. Then export one endpoint per route from a `shared/api-endpoints` module:
+
+```typescript
+export const getMyResource = crudEndpoint(myResourceApiSpec, "get");
+export const archiveMyResource = customEndpoint(
+  myResourceApiSpec,
+  archiveMyResourceEndpoint,
+);
+```
+
+`crudEndpoint` only accepts actions the spec enables, and `pnpm generate-openapi` fails on any endpoint the back-end doesn't mount. `contextualBanditApiSpec` is a working example.
 
 #### Overriding standard CRUD handlers
 
@@ -410,3 +424,11 @@ shorthand becomes a one-step ramp action. Gate them the same way.
   whose stored counterpart was unscheduled; and the ramp-schedule update
   endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
   rather than adding an inline check.
+- Review gating (`services/rampPlanReview.ts`) covers attaching a schedule to a
+  live rule and re-planning one. Lifecycle actions, `eject-target` and `DELETE`
+  are deliberately never gated: cleanup must not need an approval.
+- A publish that edits a rule under an anchored schedule (`ready`, `running`,
+  `paused`) goes through `planRampBaseStateSync` (`services/rampSchedule.ts`)
+  in both landing paths: refused while the schedule runs (pause first) and for
+  a field a step sets; any other anchor field is written into the schedule's
+  `startActions`. Engine replays pass `rampEnginePublish` and skip it.

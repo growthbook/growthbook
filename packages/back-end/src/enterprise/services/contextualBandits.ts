@@ -26,15 +26,11 @@ import {
   VariationWeightPair,
   RevisionRampAction,
 } from "shared/validators";
-import {
-  autoMerge,
-  generateVariationId,
-  reconcileMergeBaselines,
-  validateFeatureValue,
-} from "shared/util";
+import { generateVariationId, validateFeatureValue } from "shared/util";
 import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
+  assertUniqueVariationKeys,
   conditionFromLeafClauses,
   diffVariations,
   getActiveVariations,
@@ -54,6 +50,11 @@ import { discardIfJustCreated } from "back-end/src/api/features/validations";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  PendingDraftFailure,
+  PendingDraftFailureReason,
+} from "back-end/src/services/experiment-feature";
+import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -75,10 +76,6 @@ import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBa
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import {
-  PendingDraftFailure,
-  PendingDraftFailureReason,
-} from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -250,21 +247,21 @@ async function publishContextualBanditRevision({
     feature,
     revision,
   });
-  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+  const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+    context,
     feature,
+    revision,
     live,
     base,
-  );
-  const mergeResult = autoMerge(
-    mergeLive,
-    mergeBase,
-    revision,
-    context.environments,
-    {},
   );
   if (!mergeResult.success) {
     throw new Error(
       `Unable to auto-publish: please resolve conflicts on draft #${revision.version} before publishing.`,
+    );
+  }
+  if (rebaseRequired) {
+    throw new Error(
+      `Unable to auto-publish: rebase draft #${revision.version} with live before publishing.`,
     );
   }
 
@@ -1059,6 +1056,7 @@ export async function executeContextualBanditVariationChange(
       id: string;
       name?: string;
       description?: string;
+      key?: string;
     }>;
   },
 ): Promise<{
@@ -1114,7 +1112,10 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  const updateMap = new Map<string, { name?: string; description?: string }>();
+  const updateMap = new Map<
+    string,
+    { name?: string; description?: string; key?: string }
+  >();
   for (const u of updateVariationsIn) {
     if (updateMap.has(u.id)) {
       throw new BadRequestError(
@@ -1131,14 +1132,22 @@ export async function executeContextualBanditVariationChange(
         `Variation id in both updateVariations and removeVariationIds: ${u.id}`,
       );
     }
-    const patch: { name?: string; description?: string } = {};
+    const patch: { name?: string; description?: string; key?: string } = {};
     if (u.name !== undefined) patch.name = u.name;
     if (u.description !== undefined) patch.description = u.description;
+    if (u.key !== undefined) {
+      if (!u.key.trim()) {
+        throw new BadRequestError(`Variation key cannot be empty: ${u.id}`);
+      }
+      patch.key = u.key;
+    }
     updateMap.set(u.id, patch);
   }
 
   let nextKeyCounter = parseInt(
-    nextContextualBanditVariationKey(cb.variations.map((x) => x.key)),
+    nextContextualBanditVariationKey(
+      cb.variations.map((x) => updateMap.get(x.id)?.key ?? x.key),
+    ),
     10,
   );
   const nextKey = () => String(nextKeyCounter++);
@@ -1187,6 +1196,12 @@ export async function executeContextualBanditVariationChange(
   ];
 
   assertUniqueVariationIds(newVariations);
+  // Tombstoned arms keep their keys so historical exposures stay attributable;
+  // a renamed or added arm must not collide with them either.
+  assertUniqueVariationKeys([
+    ...newVariations,
+    ...cb.variations.filter(isDeactivatedVariation),
+  ]);
   assertAtLeastTwoVariations(newVariations);
 
   const diff = diffVariations(previousVisible, newVariations);
@@ -1984,6 +1999,7 @@ export function buildSnapshotSettingsForCb(
     queryFilter: "",
     datasourceId: cbSnapshotSettings.datasourceId,
     exposureQueryId: cbSnapshotSettings.contextualBanditQueryId,
+    exposureQueryIdentifierType: cbSnapshotSettings.userIdType,
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
     goalMetrics: decisionMetric ? [decisionMetric] : [],

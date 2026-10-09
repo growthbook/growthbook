@@ -2,17 +2,23 @@ import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { isExpired } from "shared/api-key-expiration";
 import {
+  APP_ORIGIN,
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
-import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
+import {
+  ApiKeyModel,
+  COLLECTION_NAME as API_KEY_COLLECTION,
+} from "back-end/src/models/ApiKeyModel";
 import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -36,13 +42,13 @@ export const isApiKeyForUserInOrganization = (
 };
 
 export const roleForApiKey = (
-  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
+  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret" | "scoped">,
 ): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;
 
-  // The role will need to be evaluated
-  if (apiKey.userId) return null;
+  // PATs take the user's role, capped by their own only when scoped
+  if (apiKey.userId) return (apiKey.scoped && apiKey.role) || null;
 
   // If there's a role assigned, return that
   if (apiKey.role) return apiKey.role;
@@ -117,8 +123,26 @@ export async function dangerousLookupOrganizationByApiKey(
 
   const migrated = migrateApiKey(removeMongooseFields(doc));
 
-  if (migrated.expiresAt && migrated.expiresAt.getTime() <= Date.now()) {
-    throw new Error("This API key has expired");
+  // The one expiry check for every caller. The attempt is recorded first so a
+  // lapsed key's `lastUsed` shows whether something still depends on it.
+  if (isExpired(migrated.expiresAt)) {
+    await ApiKeyModel.dangerousRecordUsageByKey(
+      lookupKey,
+      migrated.organization,
+    ).catch((err) =>
+      logger.warn(
+        { err, apiKeyId: migrated.id },
+        "Failed to record API key usage",
+      ),
+    );
+    // OAuth clients refresh on their own; anything else needs a person to replace it.
+    throw new Error(
+      migrated.oauthClientId
+        ? "This API key has expired"
+        : migrated.userId
+          ? `This personal access token has expired. Create a new one at ${APP_ORIGIN}/account/personal-access-tokens`
+          : `This API key has expired. An admin can create a new one at ${APP_ORIGIN}/settings/keys`,
+    );
   }
 
   return migrated;
