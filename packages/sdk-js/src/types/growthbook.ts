@@ -261,6 +261,8 @@ export type RenderFunction = () => void;
 export type Options = {
   enabled?: boolean;
   attributes?: Attributes;
+  /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
+  remoteGroupIds?: string[];
   url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -388,6 +390,8 @@ export type UserContext = {
   qaMode?: boolean;
   enableDevMode?: boolean;
   attributes?: Attributes;
+  /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
+  remoteGroupIds?: string[];
   url?: string;
   blockedChangeIds?: string[];
   stickyBucketAssignmentDocs?: Record<
@@ -628,7 +632,21 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
 /** The savedGroupReferencesV2 shape of one saved group, of any type. */
 export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
-  | { type: "condition"; condition: ConditionInterface };
+  | { type: "condition"; condition: ConditionInterface }
+  // IDs live outside the payload; see `SavedGroupResolver`
+  | { type: "remote"; attributeKey: string };
+
+/** A remote saved group from the payload, as a resolver sees it. */
+export type RemoteSavedGroup = { id: string; attributeKey: string };
+
+/**
+ * Looks up which of `groups` a user is in, from their `attributes` (only the
+ * ones remote groups use). Returns the group IDs.
+ */
+export type SavedGroupResolver = (args: {
+  attributes: Attributes;
+  groups: RemoteSavedGroup[];
+}) => Promise<string[]>;
 
 /** The `savedGroups` payload field. Entries may use either shape above. */
 export type SavedGroupsPayload = Record<

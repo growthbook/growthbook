@@ -12,7 +12,13 @@ import {
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import {
+  assertRemoteSavedGroupsEnabled,
+  assertRemoteSavedGroupAttribute,
+  savedGroupUpdated,
+} from "back-end/src/services/savedGroups";
+import { BadRequestError } from "back-end/src/util/errors";
+import { deleteRemoteSavedGroupUploads } from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
@@ -155,6 +161,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
       await assertSavedGroupProjectScope(this.context, doc, previousDoc);
     }
+    if (doc.type === "remote") {
+      this.validateRemoteGroup(doc, previousDoc, writeOptions);
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -163,6 +172,37 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         "saved group",
         previousDoc ? { condition: previousDoc.condition } : undefined,
         doc.projects,
+      );
+    }
+  }
+
+  private validateRemoteGroup(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    // Archiving stays possible after the flag is turned off, for cleanup.
+    const onlyArchiving =
+      !!previousDoc &&
+      isEqual(
+        omit(doc, ["archived", "dateUpdated"]),
+        omit(previousDoc, ["archived", "dateUpdated"]),
+      );
+    if (!onlyArchiving && !writeOptions?.isCompensation) {
+      assertRemoteSavedGroupsEnabled(this.context.org);
+    }
+    // Every write path ends here (APIs, revisions), unlike request validators.
+    if (doc.values?.length || doc.condition) {
+      throw new BadRequestError(
+        "Remote Saved Groups cannot have values or a condition",
+      );
+    }
+    if (!previousDoc) {
+      assertRemoteSavedGroupAttribute(this.context.org, doc.attributeKey);
+    } else if (doc.attributeKey !== previousDoc.attributeKey) {
+      // Loaders store IDs by attribute, so changing it would need a reload.
+      throw new BadRequestError(
+        "The attributeKey of a remote Saved Group cannot change",
       );
     }
   }
@@ -219,6 +259,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: SavedGroupInterface) {
+    if (doc.type === "remote") {
+      await deleteRemoteSavedGroupUploads(this.context, doc.id);
+    }
     await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
   }
 

@@ -304,7 +304,8 @@ export function mergeConditionAndSavedGroups({
         if (group.type === "condition") {
           // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
-        } else {
+        } else if (group.type === "list") {
+          // Remote groups' IDs aren't in GrowthBook, so they're never empty.
           const hasValues = group.hasValues ?? group.values?.length;
           // List groups must have defined values
           if (hasValues === undefined) return false;

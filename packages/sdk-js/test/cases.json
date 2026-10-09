@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.9.0",
+  "specVersion": "0.10.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -12573,6 +12573,377 @@
         0,
         false,
         false
+      ]
+    ]
+  },
+  "savedGroupReferencesRemote": {
+    "evalCondition": [
+      [
+        "in group: member",
+        {
+          "$savedGroup": {
+            "id": "grp_vip"
+          }
+        },
+        {
+          "account_id": "a1",
+          "__gb_remoteGroupIds": ["grp_vip"]
+        },
+        true,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "in group: non-member",
+        {
+          "$savedGroup": {
+            "id": "grp_vip"
+          }
+        },
+        {
+          "account_id": "a2",
+          "__gb_remoteGroupIds": []
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "in group: groups not resolved",
+        {
+          "$savedGroup": {
+            "id": "grp_vip"
+          }
+        },
+        {
+          "account_id": "a3"
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "not in group: member",
+        {
+          "$not": {
+            "$savedGroup": {
+              "id": "grp_vip"
+            }
+          },
+          "__gb_remoteGroupIds": {
+            "$exists": true
+          }
+        },
+        {
+          "account_id": "a1",
+          "__gb_remoteGroupIds": ["grp_vip"]
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "not in group: non-member",
+        {
+          "$not": {
+            "$savedGroup": {
+              "id": "grp_vip"
+            }
+          },
+          "__gb_remoteGroupIds": {
+            "$exists": true
+          }
+        },
+        {
+          "account_id": "a2",
+          "__gb_remoteGroupIds": []
+        },
+        true,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "not in group: groups not resolved",
+        {
+          "$not": {
+            "$savedGroup": {
+              "id": "grp_vip"
+            }
+          },
+          "__gb_remoteGroupIds": {
+            "$exists": true
+          }
+        },
+        {
+          "account_id": "a3"
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "another attribute isn't supported",
+        {
+          "$savedGroup": {
+            "id": "grp_vip",
+            "attributeKey": "parent_id"
+          }
+        },
+        {
+          "account_id": "a1",
+          "__gb_remoteGroupIds": ["grp_vip"],
+          "parent_id": "p1"
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "the entry's own attribute is allowed",
+        {
+          "$savedGroup": {
+            "id": "grp_vip",
+            "attributeKey": "account_id"
+          }
+        },
+        {
+          "account_id": "a1",
+          "__gb_remoteGroupIds": ["grp_vip"]
+        },
+        true,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "__gb_remoteGroupIds must be an array",
+        {
+          "$savedGroup": {
+            "id": "grp_vip"
+          }
+        },
+        {
+          "account_id": "a1",
+          "__gb_remoteGroupIds": "grp_vip"
+        },
+        false,
+        {
+          "grp_vip": {
+            "type": "remote",
+            "attributeKey": "account_id"
+          },
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1"]
+          }
+        }
+      ]
+    ],
+    "feature": [
+      [
+        "remoteGroupIds on the context sets the user's groups",
+        {
+          "attributes": {
+            "account_id": "a1"
+          },
+          "remoteGroupIds": ["grp_vip"],
+          "savedGroups": {
+            "grp_vip": {
+              "type": "remote",
+              "attributeKey": "account_id"
+            },
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1"]
+            }
+          },
+          "features": {
+            "flag": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "$savedGroup": {
+                      "id": "grp_vip"
+                    }
+                  },
+                  "force": true,
+                  "id": "rule_1"
+                }
+              ]
+            }
+          }
+        },
+        "flag",
+        {
+          "value": true,
+          "on": true,
+          "off": false,
+          "source": "force",
+          "ruleId": "rule_1"
+        }
+      ],
+      [
+        "remoteGroupIds wins over the __gb_remoteGroupIds attribute",
+        {
+          "attributes": {
+            "account_id": "a1",
+            "__gb_remoteGroupIds": ["grp_vip"]
+          },
+          "remoteGroupIds": [],
+          "savedGroups": {
+            "grp_vip": {
+              "type": "remote",
+              "attributeKey": "account_id"
+            },
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1"]
+            }
+          },
+          "features": {
+            "flag": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "$savedGroup": {
+                      "id": "grp_vip"
+                    }
+                  },
+                  "force": true,
+                  "id": "rule_1"
+                }
+              ]
+            }
+          }
+        },
+        "flag",
+        {
+          "value": false,
+          "on": false,
+          "off": true,
+          "source": "defaultValue",
+          "ruleId": ""
+        }
+      ],
+      [
+        "the __gb_remoteGroupIds attribute works on its own",
+        {
+          "attributes": {
+            "account_id": "a1",
+            "__gb_remoteGroupIds": ["grp_vip"]
+          },
+          "savedGroups": {
+            "grp_vip": {
+              "type": "remote",
+              "attributeKey": "account_id"
+            },
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1"]
+            }
+          },
+          "features": {
+            "flag": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "$savedGroup": {
+                      "id": "grp_vip"
+                    }
+                  },
+                  "force": true,
+                  "id": "rule_1"
+                }
+              ]
+            }
+          }
+        },
+        "flag",
+        {
+          "value": true,
+          "on": true,
+          "off": false,
+          "source": "force",
+          "ruleId": "rule_1"
+        }
       ]
     ]
   }

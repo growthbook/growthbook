@@ -22,6 +22,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   redirects: true,
   savedGroupReferences: true,
   savedGroupReferencesV2: true,
+  savedGroupReferencesRemote: true,
   visualEditor: true,
   visualEditorDragDrop: true,
   visualEditorJS: true,

@@ -26,6 +26,7 @@ import type {
   TrackingCallbackWithUser,
   UserContext,
   WidenPrimitives,
+  SavedGroupResolver,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -44,6 +45,10 @@ import {
   runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
+import {
+  isMissingRemoteGroupIds,
+  resolveRemoteGroupIds,
+} from "./remoteSavedGroups";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -274,6 +279,36 @@ export class GrowthBookClient<
     return result;
   }
 
+  /**
+   * A copy of `userContext` with the user's remote saved groups from
+   * `resolver`, or `userContext` unchanged if the resolver fails.
+   * Requires a Saved Group References v2 payload for group metadata. With
+   * inline/v1 payloads, resolve membership in the app and set `remoteGroupIds`
+   * directly instead of calling this helper.
+   */
+  public async addRemoteSavedGroups(
+    userContext: UserContext,
+    resolver: SavedGroupResolver,
+  ): Promise<UserContext> {
+    try {
+      const remoteGroupIds = await resolveRemoteGroupIds(
+        {
+          ...this._options.globalAttributes,
+          ...userContext.attributes,
+          ...userContext.attributeOverrides,
+        },
+        this._options.savedGroups,
+        resolver,
+      );
+      return { ...userContext, remoteGroupIds };
+    } catch (error) {
+      this.log("Could not resolve remote saved groups", { error });
+      return userContext;
+    }
+  }
+
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(userContext: UserContext): EvalContext {
     if (this._options.globalAttributes) {
       userContext = {
@@ -283,6 +318,16 @@ export class GrowthBookClient<
           ...userContext.attributes,
         },
       };
+    }
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(userContext, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See addRemoteSavedGroups.",
+        {},
+      );
     }
 
     return {

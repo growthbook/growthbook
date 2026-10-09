@@ -32,6 +32,7 @@ export const SAVED_GROUP_TYPE_CAPABILITY: Record<
 > = {
   list: "savedGroupReferencesV2",
   condition: "savedGroupReferencesV2",
+  remote: "savedGroupReferencesRemote",
 };
 
 /**
@@ -171,6 +172,7 @@ export function rewriteLegacySavedGroupOperators(
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
 
     const operators = value as Record<string, unknown>;
+    let removed = false;
 
     for (const [operator, include] of Object.entries(
       LEGACY_OPERATOR_INCLUDES,
@@ -179,6 +181,7 @@ export function rewriteLegacySavedGroupOperators(
       if (typeof groupId !== "string") continue;
 
       delete operators[operator];
+      removed = true;
 
       const group = groupMap.get(groupId);
       // Only an ID List has values for these operators to compare against, and
@@ -198,7 +201,8 @@ export function rewriteLegacySavedGroupOperators(
       }
     }
 
-    if (!Object.keys(operators).length) delete object[field];
+    // Only an object emptied here; an unrelated {} is a real condition.
+    if (removed && !Object.keys(operators).length) delete object[field];
   }
 
   if (references.length) andConditionsInto(object, references);
@@ -254,6 +258,10 @@ function buildV2PayloadEntry(
         return null;
       }
     }
+    case "remote": {
+      if (!group.attributeKey) return null;
+      return { type: "remote", attributeKey: group.attributeKey };
+    }
   }
 }
 
@@ -281,9 +289,13 @@ export function createReferencesV2Strategy(
     buildSavedGroupsPayload: (usedSavedGroups) =>
       organization
         ? buildV2SavedGroupsPayload(
-            // Leave out any group type this SDK cannot read.
-            usedSavedGroups.filter((g) =>
-              capabilities.includes(SAVED_GROUP_TYPE_CAPABILITY[g.type]),
+            // Leave out any group type this SDK cannot read. Remote entries
+            // only name an attribute, so every v2 SDK gets them, telling it
+            // what to look up even when rules check __gb_remoteGroupIds directly.
+            usedSavedGroups.filter(
+              (g) =>
+                g.type === "remote" ||
+                capabilities.includes(SAVED_GROUP_TYPE_CAPABILITY[g.type]),
             ),
             organization,
             new Map(usedSavedGroups.map((g) => [g.id, g])),

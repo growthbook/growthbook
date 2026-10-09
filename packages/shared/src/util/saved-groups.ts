@@ -47,6 +47,19 @@ export function isIdListSupportedAttribute(
   return !!datatype && ID_LIST_DATATYPES.includes(datatype);
 }
 
+// Remote groups are matched by a lookup outside the SDK, which can't hash values.
+export const REMOTE_GROUP_DATATYPES: SDKAttributeType[] = [
+  "number",
+  "string",
+] as const;
+export function isRemoteGroupSupportedAttribute(
+  attribute?: Pick<SDKAttribute, "datatype" | "disableEqualityConditions">,
+): boolean {
+  if (attribute?.disableEqualityConditions) return false;
+  const datatype = attribute?.datatype;
+  return !!datatype && REMOTE_GROUP_DATATYPES.includes(datatype);
+}
+
 export function getSavedGroupsValuesFromGroupMap(
   groupMap: GroupMap,
 ): SavedGroupsValues {
@@ -338,3 +351,13 @@ export function savedGroupMergeResultHasChanges(
   if (!result.success) return false;
   return Object.keys(result.result).length > 0;
 }
+
+/**
+ * The largest CSV a remote Saved Group upload can be: S3's limit for one
+ * upload. That's about 145 million UUIDs (37 bytes a line) or 200 million
+ * typical email addresses (about 26 bytes a line).
+ */
+export const REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+
+/** How much of each end of an uploaded CSV is checked. */
+export const REMOTE_SAVED_GROUP_SAMPLE_BYTES = 64 * 1024;

@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureRule } from "shared/types/feature";
+import { SavedGroupType } from "shared/types/saved-group";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { ruleProjectScope } from "shared/util";
@@ -219,7 +220,7 @@ type Expr =
 // the front-end loads ID-list values lazily — until they arrive a list group is
 // opaque (its attribute is still tracked for soft overlap).
 export type SavedGroupForConflicts = {
-  type: "list" | "condition";
+  type: SavedGroupType;
   attributeKey?: string;
   values?: string[];
   condition?: string;
@@ -404,6 +405,10 @@ function savedGroupToExpr(
       };
     }
     // Values not loaded yet (or empty) — opaque, but track the attribute.
+    return opaque(group.attributeKey ? [group.attributeKey] : []);
+  }
+  // Remote IDs are never loaded.
+  if (group.type === "remote") {
     return opaque(group.attributeKey ? [group.attributeKey] : []);
   }
   if (

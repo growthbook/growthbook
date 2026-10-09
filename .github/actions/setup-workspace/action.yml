@@ -4,7 +4,9 @@ description: Install pnpm, Node and workspace dependencies, then build the share
 inputs:
   build-deps:
     description: >-
-      Which packages to build: "true" all, "sdk" just the SDKs, "false" none.
+      Which packages to build: "true" all, "sdk" just the SDKs and
+      @growthbook/remote-saved-groups (published packages whose types come
+      from dist/), "false" none.
       shared and stats-ts resolve types from src/, so only jobs that execute
       their code need "true".
     default: "true"
@@ -32,7 +34,7 @@ runs:
       shell: bash
       run: |
         lock=$(git hash-object pnpm-lock.yaml)
-        sdk="$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)"
+        sdk="$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)-$(git rev-parse HEAD:packages/remote-saved-groups)"
         shared=$(git rev-parse HEAD:packages/shared)
         # Each key includes what that package compiles against, not just itself.
         {
@@ -50,6 +52,7 @@ runs:
         path: |
           packages/sdk-js/dist
           packages/sdk-react/dist
+          packages/remote-saved-groups/dist
         key: ${{ steps.keys.outputs.sdk }}
 
     - name: Build SDKs

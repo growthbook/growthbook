@@ -51,6 +51,7 @@
     "@google-cloud/storage": "^5.20.5",
     "@growthbook/growthbook": "^1.8.1",
     "@growthbook/proxy-eval": "^1.1.2",
+    "@growthbook/remote-saved-groups": "^0.1.0",
     "@opentelemetry/api": "~1.9.0",
     "@opentelemetry/auto-instrumentations-node": "0.79.0",
     "@opentelemetry/exporter-logs-otlp-http": "~0.221.0",

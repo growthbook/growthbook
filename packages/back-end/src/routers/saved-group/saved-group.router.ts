@@ -2,6 +2,8 @@ import express from "express";
 import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
+  paginationQueryFields,
+  postSavedGroupUploadBodyValidator,
   putSavedGroupBodyValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -97,6 +99,32 @@ router.put(
     body: putSavedGroupBodyValidator,
   }),
   savedGroupController.putSavedGroup,
+);
+
+router.get(
+  "/:id/uploads",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    query: z.object(paginationQueryFields).strict(),
+  }),
+  savedGroupController.getSavedGroupUploads,
+);
+
+router.post(
+  "/:id/upload-url",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  savedGroupController.postSavedGroupUploadUrl,
+);
+
+router.post(
+  "/:id/uploads",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    body: postSavedGroupUploadBodyValidator,
+  }),
+  savedGroupController.postSavedGroupUpload,
 );
 
 router.delete(

@@ -101,10 +101,12 @@ function historyQuery(
 
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
+  // A fixed id makes the insert idempotent: a repeat fails as a duplicate key.
+  id: string = generateId("aud_"),
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: generateId("aud_"),
+    id,
   });
   return toInterface(auditDoc);
 }
