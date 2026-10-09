@@ -528,7 +528,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   getHelperDimensions={({ node }) =>
                     node.getBoundingClientRect()
                   }
-                  id={id}
+                  inputId={id}
                   ref={ref}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
