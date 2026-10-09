@@ -393,8 +393,8 @@ export default function ContextualBanditAnalysisMetricsModal({
                 weight="medium"
                 size="md"
               >
-                Prior arm sample size{" "}
-                <Tooltip body="The number of prior (pseudo) observations used to shrink each arm toward a shared mean. The larger the prior sample size, the stronger the exploration." />
+                Prior variation sample size{" "}
+                <Tooltip body="The number of prior (pseudo) observations used to shrink each variation mean toward a shared mean. The larger the prior sample size, the stronger the exploration." />
               </Text>
             }
             {...form.register("priorSampleSize", { valueAsNumber: true })}
