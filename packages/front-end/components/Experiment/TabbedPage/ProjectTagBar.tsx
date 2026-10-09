@@ -86,13 +86,15 @@ export default function ProjectTagBar({
       : toUTCDate(lastPhase?.dateStarted ?? "");
     const endDate = lastPhase?.dateEnded
       ? toUTCDate(lastPhase.dateEnded)
-      : "now";
+      : experiment.status === "running"
+        ? "now"
+        : null;
 
     if (!startDate) {
       return "not started";
     }
 
-    return `${startDate} - ${endDate}`;
+    return `${startDate} - ${endDate ?? "unknown"}`;
   };
 
   const renderTotalRuntimeTooltip = (): JSX.Element | string => {
