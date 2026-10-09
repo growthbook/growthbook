@@ -308,9 +308,10 @@ async function deleteStagedFile(sourceKey: string): Promise<void> {
 }
 
 /**
- * Audits a recorded upload, then queues its check while it's pending.
- * Submitting the file again runs this again: that recovers a failed queue or
- * audit, and jobs and audit events are unique per upload, so nothing repeats.
+ * Audits a recorded upload, then queues its check while it's pending. If
+ * either fails, the request fails and the upload stays pending, so loaders
+ * never see an unaudited upload. Submitting the file again runs this again,
+ * and jobs and audit events are unique per upload, so nothing repeats.
  */
 async function finishUpload(
   context: Context,
@@ -334,10 +335,7 @@ async function finishUpload(
       `aud_${upload.id}`,
     );
   } catch (err) {
-    if (!isDuplicateKeyError(err)) {
-      // Submitting the file again retries it.
-      logger.error({ err }, "Could not audit a remote Saved Group upload");
-    }
+    if (!isDuplicateKeyError(err)) throw err;
   }
   if (upload.status.type === "pending") {
     await queueValidateRemoteSavedGroupUpload(context.org.id, upload.id);

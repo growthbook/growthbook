@@ -326,24 +326,30 @@ describe("createRemoteSavedGroupUpload", () => {
       throw new Error("connection reset before the acknowledgment");
     });
 
-    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    await expect(
+      createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a")),
+    ).rejects.toThrow();
     await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
 
     expect(audits.size).toBe(1);
   });
 
-  it("writes the audit event on retry when the first write failed", async () => {
+  it("fails without queueing the check when the audit fails, and retries both", async () => {
     const { context, audits } = makeContext();
     files.set(stagingKey("a"), Buffer.from("u1\n"));
     jest
       .mocked(context.auditLog)
       .mockRejectedValueOnce(new Error("audit down"));
 
-    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    await expect(
+      createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a")),
+    ).rejects.toThrow("audit down");
     expect(audits.size).toBe(0);
+    expect(queueValidateRemoteSavedGroupUpload).not.toHaveBeenCalled();
     await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
 
     expect(audits.size).toBe(1);
+    expect(queueValidateRemoteSavedGroupUpload).toHaveBeenCalledTimes(1);
   });
 
   it("recovers when queueing the check failed", async () => {

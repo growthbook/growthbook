@@ -4,6 +4,7 @@ import type {
   SavedGroupResolver,
   SavedGroupsPayload,
 } from "./types/growthbook";
+import { getPath } from "./util";
 
 /**
  * The attribute evaluation reads a user's remote saved groups from. Internal
@@ -50,13 +51,11 @@ export async function resolveRemoteGroupIds(
   const groups = getRemoteSavedGroups(savedGroups);
   if (!groups.length) return [];
   return resolver({
-    attributes: groups.reduce<Attributes>(
-      (used, { attributeKey }) =>
-        attributeKey in attributes
-          ? { ...used, [attributeKey]: attributes[attributeKey] }
-          : used,
-      {},
-    ),
+    // Keyed by `attributeKey`, which can be a dot-separated path.
+    attributes: groups.reduce<Attributes>((used, { attributeKey }) => {
+      const value = getPath(attributes, attributeKey);
+      return value === null ? used : { ...used, [attributeKey]: value };
+    }, {}),
     groups,
   });
 }
@@ -73,21 +72,33 @@ export type RedisSetClient = {
  */
 export function redisResolver(redis: RedisSetClient): SavedGroupResolver {
   return async ({ attributes, groups }) => {
-    const keys = unique(groups.map((g) => g.attributeKey)).reduce<string[]>(
+    const lookups = unique(groups.map((g) => g.attributeKey)).reduce<
+      { attribute: string; key: string }[]
+    >(
       (all, attribute) =>
         all.concat(
-          toLookupValues(attributes[attribute]).map(
-            (value) => `gb:member:${attribute}:${value}`,
-          ),
+          toLookupValues(attributes[attribute]).map((value) => ({
+            attribute,
+            key: `gb:member:${attribute}:${value}`,
+          })),
         ),
       [],
     );
-    const members = await Promise.all(keys.map((k) => redis.sMembers(k)));
-    const wanted = groups.map((g) => g.id);
+    const members = await Promise.all(
+      lookups.map(({ key }) => redis.sMembers(key)),
+    );
+    // Only keep groups on the looked-up attribute: keys can collide when
+    // attributes or values contain ":", e.g. `a:b` + `c` and `a` + `b:c`.
     return unique(
-      ([] as string[])
-        .concat(...members)
-        .filter((id) => wanted.indexOf(id) !== -1),
+      lookups.reduce<string[]>(
+        (ids, { attribute }, i) =>
+          ids.concat(
+            members[i].filter((id) =>
+              groups.some((g) => g.id === id && g.attributeKey === attribute),
+            ),
+          ),
+        [],
+      ),
     );
   };
 }

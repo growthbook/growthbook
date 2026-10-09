@@ -11,7 +11,7 @@ import {
   OperatorConditionValue,
   VarType,
 } from "./types/mongrule";
-import { paddedVersionString } from "./util";
+import { getPath, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -105,20 +105,6 @@ function evalSavedGroup(
 
   // A group type added after this SDK was built
   return false;
-}
-
-// Return value at dot-separated path of an object
-function getPath(obj: TestedObj, path: string) {
-  const parts = path.split(".");
-  let current: any = obj;
-  for (let i = 0; i < parts.length; i++) {
-    if (current && typeof current === "object" && parts[i] in current) {
-      current = current[parts[i]];
-    } else {
-      return null;
-    }
-  }
-  return current;
 }
 
 // Transform a regex string into a real RegExp object

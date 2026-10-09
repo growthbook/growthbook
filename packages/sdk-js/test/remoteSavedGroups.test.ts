@@ -56,6 +56,28 @@ describe("GrowthBookClient.addRemoteSavedGroups", () => {
     expect(gb.isOn("vip", user)).toBe(false);
   });
 
+  it("reads dot-separated attribute keys from nested attributes", async () => {
+    const resolver = jest.fn<
+      ReturnType<SavedGroupResolver>,
+      Parameters<SavedGroupResolver>
+    >(async () => []);
+    const gb = new GrowthBookClient().initSync({
+      payload: {
+        features,
+        savedGroups: {
+          grp_email: { type: "remote", attributeKey: "user.email" },
+        },
+      },
+    });
+    await gb.addRemoteSavedGroups(
+      { attributes: { user: { email: "a@b.c" } } },
+      resolver,
+    );
+    expect(resolver.mock.calls[0][0].attributes).toEqual({
+      "user.email": "a@b.c",
+    });
+  });
+
   it("leaves the context unchanged when the resolver fails", async () => {
     const user = { attributes: { account_id: "a1" } };
     const resolved = await client().addRemoteSavedGroups(user, async () => {
@@ -83,6 +105,16 @@ describe("GrowthBook.setRemoteGroupIds", () => {
     expect(gb.isOn("vip")).toBe(false);
     gb.setRemoteGroupIds(["grp_vip"]);
     expect(gb.isOn("vip")).toBe(true);
+    gb.destroy();
+  });
+
+  it("includes them in the attributes sent for remote evaluation", () => {
+    const gb = new GrowthBook({ attributes: { account_id: "a1" } });
+    gb.setRemoteGroupIds(["grp_vip"]);
+    expect(gb.getAttributes()).toEqual({
+      account_id: "a1",
+      __gb_remoteGroupIds: ["grp_vip"],
+    });
     gb.destroy();
   });
 });
@@ -122,6 +154,19 @@ describe("redisResolver", () => {
     });
     expect(ids).toEqual(["grp_vip"]);
     expect(client.sMembers).toHaveBeenCalledTimes(2);
+  });
+
+  it("only returns groups on the attribute that was looked up", async () => {
+    // `a:b` + `c` and `a` + `b:c` share a key.
+    const client = redis({ "gb:member:a:b:c": ["grp_ab", "grp_a"] });
+    const ids = await redisResolver(client)({
+      attributes: { a: "b:c" },
+      groups: [
+        { id: "grp_ab", attributeKey: "a:b" },
+        { id: "grp_a", attributeKey: "a" },
+      ],
+    });
+    expect(ids).toEqual(["grp_a"]);
   });
 
   it("skips values that can't be keys", async () => {

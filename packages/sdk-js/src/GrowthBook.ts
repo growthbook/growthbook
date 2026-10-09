@@ -62,7 +62,10 @@ import {
   getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
-import { isMissingRemoteGroupIds } from "./remoteSavedGroups";
+import {
+  isMissingRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -477,8 +480,12 @@ export class GrowthBook<
   }
 
   /** The user's remote saved groups, for example from your back end's resolver. */
-  public setRemoteGroupIds(remoteGroupIds: string[]) {
+  public async setRemoteGroupIds(remoteGroupIds: string[]) {
     this._options.remoteGroupIds = remoteGroupIds;
+    if (this._options.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
   }
@@ -511,8 +518,15 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
-    return { ...this._options.attributes, ...this._options.attributeOverrides };
+  public getAttributes(): Attributes {
+    // Remote evaluation sends these, so it includes remote group IDs.
+    return {
+      ...this._options.attributes,
+      ...this._options.attributeOverrides,
+      ...(this._options.remoteGroupIds && {
+        [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
+      }),
+    };
   }
 
   public getForcedVariations() {

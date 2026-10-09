@@ -15,7 +15,6 @@ import { UpdateFilter } from "mongodb";
 import {
   assertRemoteSavedGroupsEnabled,
   assertRemoteSavedGroupAttribute,
-  assertRemoteSavedGroupStorage,
   savedGroupUpdated,
 } from "back-end/src/services/savedGroups";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -199,7 +198,6 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       );
     }
     if (!previousDoc) {
-      assertRemoteSavedGroupStorage();
       assertRemoteSavedGroupAttribute(this.context.org, doc.attributeKey);
     } else if (doc.attributeKey !== previousDoc.attributeKey) {
       // Loaders store IDs by attribute, so changing it would need a reload.
