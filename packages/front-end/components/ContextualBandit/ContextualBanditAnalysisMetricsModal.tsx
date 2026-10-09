@@ -51,7 +51,7 @@ type FormValues = {
  * creation flow, so editing behaves identically to creating.
  */
 /** Prior arm sample size applied the first time a user enables exploration. */
-const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 25;
+const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 50;
 
 export default function ContextualBanditAnalysisMetricsModal({
   cb,
