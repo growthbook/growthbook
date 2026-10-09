@@ -403,7 +403,7 @@ export async function getExperimentStartChecklistStatus(
   return items;
 }
 
-async function loadAndValidateExperimentForStatusChange(
+export async function loadAndValidateExperimentForStatusChange(
   context: ReqContext,
   experimentId: string,
 ) {

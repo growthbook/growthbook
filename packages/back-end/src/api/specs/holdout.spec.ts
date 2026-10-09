@@ -53,7 +53,7 @@ export const holdoutApiSpec = {
     createBody: apiCreateHoldoutBody,
     updateBody: apiUpdateHoldoutBody,
   },
-  crudActions: ["get", "create", "list", "update"],
+  crudActions: ["get", "create", "list", "update", "delete"],
   crudValidatorOverrides: {
     list: apiListHoldoutsValidator,
   },
