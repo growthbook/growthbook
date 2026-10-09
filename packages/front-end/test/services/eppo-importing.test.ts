@@ -8,6 +8,7 @@ import {
   getVariationValue,
   rulesToCondition,
   toEnvironmentId,
+  toPhaseDate,
   TransformContext,
   transformExperiment,
   transformFactSource,
@@ -575,7 +576,7 @@ describe("transformMetric", () => {
     // Warehouses fold column names differently
     expect(sum("revenue").numerator).toMatchObject({ column: "revenue" });
     expect(() => sum("__count__")).toThrow(
-      'Column "__count__" isn\'t in the "Purchases" Fact Table',
+      'Column "__count__" isn\'t in the "Purchases" fact table',
     );
     expect(() => sum(null)).toThrow("needs a value column");
     expect(() => sum("")).toThrow("needs a value column");
@@ -637,7 +638,7 @@ describe("transformMetric", () => {
         mkMetric({ numerator_aggregation: agg("sum") }),
         mkCtx({ factTableIds: new Map() }),
       ),
-    ).toThrow('"Purchases" Fact Source');
+    ).toThrow('"Purchases" fact source');
   });
 });
 
@@ -706,5 +707,13 @@ describe("transformExperiment", () => {
       variationWeights: [0.25, 0.75],
       dateEnded: "2024-02-01T00:00:00Z",
     });
+  });
+});
+
+describe("toPhaseDate", () => {
+  it("formats UTC dates for the phase endpoint", () => {
+    expect(toPhaseDate("2024-02-01T00:00:00Z")).toBe("2024-02-01T00:00");
+    expect(toPhaseDate("2024-02-01T02:30:00+02:00")).toBe("2024-02-01T00:30");
+    expect(toPhaseDate(undefined)).toBe("");
   });
 });

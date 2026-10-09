@@ -25,7 +25,7 @@ const supportedServices = [
     icon: "eppo",
     path: "eppo",
     accentColor: "#000",
-    text: "Import your flags, audiences, experiments, and warehouse-native metrics from Eppo.",
+    text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
   },
 ];
 

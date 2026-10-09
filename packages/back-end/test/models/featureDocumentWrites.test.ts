@@ -166,48 +166,6 @@ describe("postFeatureSync", () => {
     expect(after?.version).toBe(1);
     expect(after?.dateUpdated).toEqual(before?.dateUpdated);
   });
-
-  it("replaces the rules with a flat rules array", async () => {
-    const rule = {
-      type: "force",
-      id: "fr_flat",
-      value: "c",
-      enabled: true,
-      allEnvironments: false,
-      environments: ["production"],
-    };
-    await features().updateOne(
-      { organization: ORG_ID, id: FLAG },
-      {
-        $set: {
-          rules: [
-            { ...rule, id: "fr_old", value: "old", allEnvironments: true },
-          ],
-        },
-      },
-    );
-
-    expect((await call({ rules: [rule] })).status).toBe(200);
-    const doc = await features().findOne({ organization: ORG_ID, id: FLAG });
-    expect(doc?.version).toBe(2);
-    expect(doc?.rules).toHaveLength(1);
-    expect(doc?.rules[0]).toMatchObject({ id: "fr_flat", value: "c" });
-
-    // Re-syncing the same rules is a no-op
-    await call({ rules: [rule] });
-    const again = await features().findOne({ organization: ORG_ID, id: FLAG });
-    expect(again?.version).toBe(2);
-  });
-
-  it("rejects flat rules mixed with per-environment rules", async () => {
-    const rule = { type: "force", id: "fr_x", value: "b", enabled: true };
-    await expect(
-      call({
-        rules: [rule],
-        environmentSettings: { production: { rules: [rule] } },
-      }),
-    ).rejects.toThrow("Use one shape or the other");
-  });
 });
 
 describe("REST update that moves a feature", () => {

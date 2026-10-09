@@ -239,7 +239,7 @@ export default function ImportFromEppo() {
             helpText="REST API key from Eppo Admin > API Keys"
           />
           <SelectField
-            label="GrowthBook project"
+            label="GrowthBook Project"
             value={project}
             initialOption="All Projects"
             options={projects.map((p) => ({ label: p.name, value: p.id }))}
@@ -254,7 +254,7 @@ export default function ImportFromEppo() {
               value: ds.id,
             }))}
             onChange={setDatasourceId}
-            helpText="Required for Fact Sources and Metrics"
+            helpText="Required to import fact sources and metrics"
           />
         </Grid>
         <Flex gap="3" mt="4">
@@ -285,8 +285,8 @@ export default function ImportFromEppo() {
       {missingVariationValues ? (
         <Callout status="warning" mb="4">
           Eppo&apos;s API doesn&apos;t return variation values, so each Feature
-          Flag variation uses its key as the value. Check non-string flags after
-          importing.
+          Flag variation uses its key as the value. Check non-string Feature
+          Flags after importing.
         </Callout>
       ) : null}
 

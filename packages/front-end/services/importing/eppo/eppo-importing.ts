@@ -5,11 +5,13 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ColumnInterface,
   ColumnRef,
   CreateFactMetricProps,
   CreateFactTableProps,
+  FactMetricInterface,
   FactTableInterface,
   FunnelStep,
   MetricCappingSettings,
@@ -26,7 +28,6 @@ import {
   DEFAULT_TARGET_MDE,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { ApiCallType } from "@/services/auth";
 import { ensureAttributeExists } from "@/services/importing/statsig/transformers/attributeCreator";
 
 // Eppo REST API shapes (https://eppo.cloud/api/docs), limited to the fields we use
@@ -217,16 +218,17 @@ export type EppoData = {
   experiments: EppoExperiment[];
 };
 
+type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
+
 // Eppo doesn't send CORS headers, so every request goes through our back-end
 async function getFromEppo<T>(
   endpoint: string,
   apiKey: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: ApiCallType<any>,
+  apiCall: ApiCall,
 ): Promise<T[]> {
   let res: unknown;
   try {
-    res = await apiCall("/importing/eppo", {
+    res = await apiCall<unknown>("/importing/eppo", {
       method: "POST",
       body: JSON.stringify({ endpoint, apiKey }),
     });
@@ -243,8 +245,7 @@ async function getAllPages<T>(
   endpoint: string,
   pageSize: number,
   apiKey: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: ApiCallType<any>,
+  apiCall: ApiCall,
 ): Promise<T[]> {
   const all: T[] = [];
   // ponytail: page cap guards against an API that ignores offset
@@ -262,8 +263,7 @@ async function getAllPages<T>(
 
 export async function fetchEppoData(
   apiKey: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: ApiCallType<any>,
+  apiCall: ApiCall,
 ): Promise<EppoData> {
   const get = <T>(endpoint: string) =>
     getFromEppo<T>(endpoint, apiKey, apiCall);
@@ -645,7 +645,7 @@ function toColumnRef(
   const factTableId = ctx.factTableIds.get(factSourceId);
   if (!factTableId) {
     const name = ctx.eppo.factSources.find((f) => f.id === factSourceId)?.name;
-    throw new Error(`Import the "${name ?? factSourceId}" Fact Source first`);
+    throw new Error(`Import the "${name ?? factSourceId}" fact source first`);
   }
   const dimensions = ctx.eppo.factSources.flatMap((f) => f.dimensions ?? []);
   return {
@@ -687,7 +687,7 @@ function requireColumn(
     !columns.some((c) => c.toLowerCase() === column.toLowerCase())
   ) {
     const name = ctx.eppo.factSources.find((f) => f.id === factSourceId)?.name;
-    throw new Error(`Column "${column}" isn't in the "${name}" Fact Table`);
+    throw new Error(`Column "${column}" isn't in the "${name}" fact table`);
   }
   return column;
 }
@@ -1101,7 +1101,7 @@ export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "tags", label: "Tags" },
   { key: "audiences", label: "Audiences → Saved Groups" },
   { key: "flags", label: "Feature Flags" },
-  { key: "factSources", label: "Fact Sources → Fact Tables" },
+  { key: "factSources", label: "Fact sources → fact tables" },
   { key: "metrics", label: "Metrics → Fact Metrics" },
   { key: "experiments", label: "Experiments" },
 ];
@@ -1117,6 +1117,11 @@ export type ExistingIds = {
   experiments: Map<string, string>; // tracking key
   factTableColumns: Map<string, string[]>; // Fact Table id
 };
+
+// The phase endpoint takes UTC dates as "yyyy-MM-ddTHH:mm"
+export function toPhaseDate(date?: string): string {
+  return date ? new Date(date).toISOString().slice(0, 16) : "";
+}
 
 export function getColumnNames(
   columns: Pick<ColumnInterface, "column" | "deleted">[],
@@ -1257,8 +1262,7 @@ export async function runEppoImport({
   project: string;
   datasource: DataSourceInterfaceWithParams | null;
   attributeSchema: SDKAttribute[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: ApiCallType<any>;
+  apiCall: ApiCall;
   setItem: (category: EppoCategory, key: string, update: ImportResult) => void;
 }) {
   const ctx = getInitialContext(eppo, existing, project, datasource);
@@ -1345,8 +1349,11 @@ export async function runEppoImport({
     if (id) {
       await apiCall(`/saved-groups/${id}`, { method: "PUT", body });
     } else {
-      const res = await apiCall("/saved-groups", { method: "POST", body });
-      id = res.savedGroup.id as string;
+      const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
+        "/saved-groups",
+        { method: "POST", body },
+      );
+      id = res.savedGroup.id;
     }
     ctx.savedGroupIds.set(item.eppo.id, id);
   });
@@ -1367,10 +1374,14 @@ export async function runEppoImport({
         body: JSON.stringify(omit(factTable, ["datasource", "columns"])),
       });
       // Fetched again since a SQL change re-detects the columns
-      saved = (await apiCall(`/fact-tables/${item.existingId}`)).factTable;
+      saved = (
+        await apiCall<{ factTable: FactTableInterface }>(
+          `/fact-tables/${item.existingId}`,
+        )
+      ).factTable;
     } else {
       saved = (
-        await apiCall("/fact-tables", {
+        await apiCall<{ factTable: FactTableInterface }>("/fact-tables", {
           method: "POST",
           body: JSON.stringify(factTable),
         })
@@ -1389,25 +1400,49 @@ export async function runEppoImport({
         body: JSON.stringify(omit(metric, ["datasource"])),
       });
     } else {
-      const res = await apiCall("/fact-metrics", {
-        method: "POST",
-        body: JSON.stringify(metric),
-      });
-      id = res.factMetric.id as string;
+      const res = await apiCall<{ factMetric: FactMetricInterface }>(
+        "/fact-metrics",
+        { method: "POST", body: JSON.stringify(metric) },
+      );
+      id = res.factMetric.id;
     }
     ctx.metricIds.set(item.eppo.id, id);
   });
 
   await importEach("experiments", data.experiments, async (item) => {
-    const body = JSON.stringify(transformExperiment(item.eppo, ctx));
-    const save = (id?: string) =>
-      apiCall(id ? `/experiment/${id}` : "/experiments", {
+    const { phases, ...experiment } = transformExperiment(item.eppo, ctx);
+    let id = item.existingId;
+    if (!id) {
+      const res = await apiCall<{
+        duplicateTrackingKey?: boolean;
+        existingId?: string;
+      }>("/experiments", {
         method: "POST",
-        body,
+        body: JSON.stringify({ ...experiment, phases }),
       });
-    const res = await save(item.existingId);
-    // Tracking key matched an experiment we didn't know about (e.g. archived)
-    if (res.duplicateTrackingKey) await save(res.existingId);
+      // Tracking key matched an experiment we didn't know about (e.g. archived)
+      if (!res.duplicateTrackingKey || !res.existingId) return;
+      id = res.existingId;
+    }
+
+    // Updates ignore `phases`, so the latest phase is saved on its own
+    const res = await apiCall<{
+      experiment?: ExperimentInterfaceStringDates | null;
+    }>(`/experiment/${id}`, {
+      method: "POST",
+      body: JSON.stringify(experiment),
+    });
+    const phase = phases?.[0];
+    const last = (res.experiment?.phases.length ?? 0) - 1;
+    if (!phase || last < 0) return;
+    await apiCall(`/experiment/${id}/phase/${last}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        ...phase,
+        dateStarted: toPhaseDate(phase.dateStarted),
+        dateEnded: toPhaseDate(phase.dateEnded),
+      }),
+    });
   });
 }
 
