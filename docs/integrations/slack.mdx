@@ -67,7 +67,7 @@ An empty filter includes everything. When you pick values, an event only needs t
 
 ### Events
 
-Events are grouped into categories: **Feature Flags**, **Experiments**, **Holdouts**, **Saved Groups**, **Constants**, and **Configs**. Turn a category on with its switch, then pick what it should send under **Notify about**:
+Events are grouped into categories: **Feature Flags**, **Experiments**, **Holdouts**, **Saved Groups**, **Constants**, **Configs**, and **SDK Connections**. Turn a category on with its switch, then pick what it should send under **Notify about**:
 
 | Option                 | What the channel receives                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
@@ -79,6 +79,8 @@ The recommended events for the two default categories are:
 
 - **Experiments:** experiment started, stopped, ending soon, and stale; ship, rollback, and review decisions; and health warnings such as SRM.
 - **Feature Flags:** revisions published or reverted; Safe Rollout ship, rollback, and unhealthy alerts; review requested; and changes requested.
+
+The **SDK Connections** category has one event, **Payload size warning**. It fires when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store.
 
 Each channel needs at least one event selected. To pause a channel instead, use **Disable notifications** (see [Manage channels](#manage-channels)).
 
