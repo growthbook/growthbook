@@ -94,7 +94,7 @@ import {
   EventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
   RampScheduleInterface,
@@ -4238,7 +4238,7 @@ export async function getFeatureReviewFootprint({
 // the way the review panel judges it.
 // Who may retract a verdict on a draft: anyone who could review it now, or the
 // verdict's own author even after the draft or their role moved them out of
-// its reviewer set, including a key that assumes their role.
+// its reviewer set. A key assuming the author's role must be able to review.
 export async function assertCanUndoFeatureReview({
   context,
   feature,
@@ -4250,19 +4250,27 @@ export async function assertCanUndoFeatureReview({
   revision: FeatureRevisionInterface;
   user: EventUser;
 }): Promise<void> {
-  const ownVerdict =
-    !!context.authorUserId &&
-    (revision.reviews ?? []).some(
-      (r) => r.userId === reviewerKeyForEventUser(user),
-    );
-  if (ownVerdict) return;
-  if (
-    !context.permissions.canReviewFeatureDrafts(
+  const footprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  const approverProjects = await getFeatureReviewApproverProjects({
+    context,
+    feature,
+    revision,
+  });
+  const canReview = (reviewer: ReqContext | ApiReqContext) =>
+    reviewer.permissions.canReviewFeatureDrafts(
       feature,
-      await getFeatureReviewFootprint({ context, feature, revision }),
-      await getFeatureReviewApproverProjects({ context, feature, revision }),
-    )
-  ) {
+      footprint,
+      approverProjects,
+    );
+  const ownVerdict =
+    !!context.actorId &&
+    (revision.reviews ?? []).some((r) => r.userId === eventUserIdentity(user));
+  if (ownVerdict && context.authorRightsAllow(canReview)) return;
+  if (!canReview(context)) {
     context.permissions.throwPermissionError();
   }
 }

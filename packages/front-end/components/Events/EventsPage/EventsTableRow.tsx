@@ -50,7 +50,8 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           <span className="py-1 d-block nowrap">
             {user?.type === "dashboard" ? (
               <span title={user.email}>{user.name}</span>
-            ) : user?.type === "api_key" && eventUserPerson(user) ? (
+            ) : user?.type === "api_key" &&
+              (user.requestedBy || eventUserPerson(user)) ? (
               <EventUser user={user} display="name" />
             ) : user?.type === "api_key" ? (
               <span title={user.apiKey}>

@@ -17,7 +17,7 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
-import { eventUserPerson } from "shared/validators";
+import { eventUserIdentity, eventUserPerson } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -423,8 +423,8 @@ export class ReqContextClass {
   public superAdmin = false;
 
   // The person a request acts for: the signed-in user, a personal token's
-  // owner, or the member an org key names with X-GrowthBook-Requested-By. Use
-  // it for attribution, draft targeting and review verdicts.
+  // owner, or the member whose role an org key assumes. Use it for owners,
+  // `mine` and anything that needs a person.
   public get actingPerson(): {
     id: string;
     name: string;
@@ -439,14 +439,20 @@ export class ReqContextClass {
       : null;
   }
 
-  // Who holds author rights on drafts, comments and verdicts: the person, but
-  // for an org key only when it assumes their role, past which an unverified
-  // header's author rights add little.
-  public get authorUserId(): string {
-    if (this.userId) return this.userId;
-    return this.auditUser?.type === "api_key" && this.auditUser.assumedRole
-      ? this.actingUserId
-      : "";
+  // Who the request acts as for authorship, contributions and verdicts: its
+  // person, else the org key itself. Empty for the system.
+  public get actorId(): string {
+    return this.userId || eventUserIdentity(this.auditUser) || "";
+  }
+
+  // An org key assuming a member's role may use that member's author rights
+  // only where its own role allows the action too, so it never does more than
+  // the key alone could. `check` runs against the key's own permissions.
+  public authorRightsAllow(check: (context: this) => boolean): boolean {
+    if (!this.assumingKeyPermissions) return true;
+    const keyContext: this = Object.create(this);
+    keyContext.permissions = this.assumingKeyPermissions;
+    return check(keyContext);
   }
 
   public get actingUserId(): string {
@@ -467,6 +473,7 @@ export class ReqContextClass {
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
+  private assumingKeyPermissions: Permissions | null = null;
 
   protected userPermissions: UserPermissions;
 
@@ -559,14 +566,16 @@ export class ReqContextClass {
         environments: [] as string[],
       };
 
-      this.userPermissions =
-        userPermissions ??
-        getRolePermissions(
-          { ...roleInfo, role },
-          org,
-          teams || [],
-          restrictedProjects,
-        );
+      const rolePermissions = getRolePermissions(
+        { ...roleInfo, role },
+        org,
+        teams || [],
+        restrictedProjects,
+      );
+      this.userPermissions = userPermissions ?? rolePermissions;
+      if (userPermissions) {
+        this.assumingKeyPermissions = new Permissions(rolePermissions);
+      }
     }
 
     this.permissions = new Permissions(this.userPermissions);

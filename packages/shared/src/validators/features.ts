@@ -623,7 +623,7 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 export const revisionReviewSchema = z
   .object({
     // Stable reviewer identifier used for upserts/queries: the person behind
-    // the verdict, or a key id on legacy verdicts. See `reviewerKeyForEventUser`.
+    // the verdict, or a key id on legacy verdicts. See `eventUserIdentity`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.

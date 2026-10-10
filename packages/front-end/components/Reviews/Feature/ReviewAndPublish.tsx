@@ -2,7 +2,7 @@ import {
   eventUserCredit,
   eventUserPerson,
   eventUserPersonId,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
   RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
@@ -384,7 +384,7 @@ export default function ReviewAndPublish({
         byUser.clear();
         continue;
       }
-      const uid = reviewerKeyForEventUser(entry.user ?? null);
+      const uid = eventUserIdentity(entry.user ?? null);
       if (!uid) continue;
       const timestamp = entry.timestamp as unknown as string;
       if (entry.action === "Approved") {

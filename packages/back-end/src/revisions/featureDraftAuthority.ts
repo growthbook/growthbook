@@ -16,7 +16,7 @@ import {
 } from "shared/permissions";
 import type { TargetingScoped } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { eventUserPersonId, FeatureRevisionInterface } from "shared/validators";
+import { eventUserIdentity, FeatureRevisionInterface } from "shared/validators";
 import {
   assertCanLandRevision,
   canAdvanceDraftWithNarrowAtom,
@@ -67,10 +67,25 @@ export function authoredFeatureDraft(
   context: ReqContext | ApiReqContext,
   draft: Pick<FeatureRevisionInterface, "createdBy" | "contributors">,
 ): boolean {
-  const userId = context.authorUserId;
+  const userId = context.actorId;
   if (!userId) return false;
-  if (eventUserPersonId(draft.createdBy) === userId) return true;
+  if (eventUserIdentity(draft.createdBy) === userId) return true;
   return (draft.contributors ?? []).includes(userId);
+}
+
+// Authorship stands in for draft authority. An org key assuming the author's
+// role must hold draft authority itself.
+function hasFeatureAuthorRights(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: Pick<FeatureRevisionInterface, "createdBy" | "contributors">,
+): boolean {
+  return (
+    authoredFeatureDraft(context, draft) &&
+    context.authorRightsAllow((keyContext) =>
+      keyContext.permissions.canEditFeatureDrafts(feature),
+    )
+  );
 }
 
 // Authority to CREATE a flag in the state the body describes.
@@ -168,7 +183,7 @@ export async function canAdvanceFeatureDraft({
 }): Promise<boolean> {
   return canAdvanceDraftWithNarrowAtom({
     holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
-    isAuthor: authoredFeatureDraft(context, draft),
+    isAuthor: hasFeatureAuthorRights(context, feature, draft),
     holdsAnyLandingAtom:
       hasRevertAuthority(context, feature) ||
       hasDeleteAuthority(context, feature),
@@ -197,7 +212,7 @@ export async function canDiscardFeatureDraft({
 }): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
-    isAuthor: authoredFeatureDraft(context, draft),
+    isAuthor: hasFeatureAuthorRights(context, feature, draft),
   });
 }
 
@@ -213,7 +228,7 @@ export async function canReopenFeatureDraft({
 }): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
-    isAuthor: authoredFeatureDraft(context, draft),
+    isAuthor: hasFeatureAuthorRights(context, feature, draft),
   });
 }
 
@@ -229,7 +244,7 @@ export async function canRecallFeatureReview({
 }): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
-    isAuthor: authoredFeatureDraft(context, draft),
+    isAuthor: hasFeatureAuthorRights(context, feature, draft),
   });
 }
 

@@ -131,7 +131,7 @@ export {
   eventUserLabel,
   eventUserPerson,
   eventUserPersonId,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
   eventUserCredit,
 } from "./event-user";
 export type {

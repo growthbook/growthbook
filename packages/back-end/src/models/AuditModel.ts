@@ -129,7 +129,7 @@ export async function findRecentAuditByUserIdAndOrganization(
   const userAudits = await AuditModel.find({
     $or: [
       { organization, "user.id": userId },
-      { organization, "user.requestedBy.id": userId },
+      { organization, "user.requestedBy.id": userId, "user.assumedRole": true },
     ],
   })
     .select("-details")

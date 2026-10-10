@@ -1,5 +1,5 @@
 import { diffLines } from "diff";
-import { eventUserPerson, type RevisionLog } from "shared/validators";
+import { eventUserCredit, type RevisionLog } from "shared/validators";
 import type { Review } from "shared/enterprise";
 
 // ── Diff comment references ──
@@ -401,7 +401,7 @@ export function buildAnchoredCommentMap(
       entry.timestamp instanceof Date
         ? entry.timestamp.toISOString()
         : String(entry.timestamp);
-    const person = eventUserPerson(entry.user ?? null);
+    const person = eventUserCredit(entry.user ?? null);
     const userId = person?.id;
     const userName = person?.name || person?.email || undefined;
     for (const ref of parseDiffRefs(comment)) {

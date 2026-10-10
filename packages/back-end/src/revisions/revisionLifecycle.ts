@@ -15,7 +15,7 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import {
   draftAuthorityOnRow,
-  isRevisionAuthor,
+  hasAuthorRights,
   retractAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 import { assertCasAuthority } from "back-end/src/models/casLoop";
@@ -37,7 +37,7 @@ export async function recallRevisionReview({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.authorUserId) &&
+    !hasAuthorRights(context, revision, "draft") &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();
@@ -45,7 +45,7 @@ export async function recallRevisionReview({
 
   const recalled = await context.models.revisions.recallReview(
     revision.id,
-    context.actingUserId,
+    context.actorId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, recalled, {
@@ -69,7 +69,7 @@ export async function reopenRevision({
   }
 
   if (
-    !isRevisionAuthor(revision.authorId, context.authorUserId) &&
+    !hasAuthorRights(context, revision, "draft") &&
     !canRevisionOwnedAction(context, revision, "draft")
   ) {
     context.permissions.throwPermissionError();
@@ -77,7 +77,7 @@ export async function reopenRevision({
 
   const reopened = await context.models.revisions.reopen(
     revision.id,
-    context.actingUserId,
+    context.actorId,
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, reopened, {
@@ -103,7 +103,7 @@ export async function undoRevisionReview({
 
   const updated = await context.models.revisions.undoReview(
     revision.id,
-    context.actingUserId,
+    context.actorId,
     authority,
     // The cycle this caller was looking at when they asked to retract.
     revision.reviewCycle ?? 0,

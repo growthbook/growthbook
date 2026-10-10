@@ -68,7 +68,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
-  eventUserPersonId,
+  eventUserIdentity,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -1537,7 +1537,7 @@ export async function postFeatureReviewOrComment(
   }
 
   if (
-    eventUserPersonId(revision.createdBy) === context.userId &&
+    eventUserIdentity(revision.createdBy) === context.actorId &&
     review !== "Comment"
   ) {
     throw Error("cannot submit a review for yourself");
@@ -1673,7 +1673,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  if (eventUserPersonId(revision.createdBy) === context.userId) {
+  if (eventUserIdentity(revision.createdBy) === context.actorId) {
     throw Error("Cannot approve a draft you created");
   }
 
@@ -6244,7 +6244,7 @@ export async function postFeatureArchive(
       model: "feature",
       entity: feature,
       revision: {
-        authorId: eventUserPersonId(targetDraft.createdBy) ?? undefined,
+        authorId: eventUserIdentity(targetDraft.createdBy) ?? undefined,
         contributors: targetDraft.contributors,
       },
       userId: context.userId,

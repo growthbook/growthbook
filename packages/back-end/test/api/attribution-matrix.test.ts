@@ -70,18 +70,31 @@ const ACTORS = [
 ] as const;
 type Actor = (typeof ACTORS)[number];
 
-// What each caller should be credited with, for Dana.
+// What each caller should be credited with, for Dana: the person, and the
+// identity drafts and verdicts record, which is the key itself when it names
+// no one.
 const EXPECT: Record<
   Actor,
-  { personId: string; armer: string; hasPerson: boolean }
+  { personId: string; actorId: string; armer: string; hasPerson: boolean }
 > = {
-  "a personal token": { personId: dana.id, armer: dana.id, hasPerson: true },
+  "a personal token": {
+    personId: dana.id,
+    actorId: dana.id,
+    armer: dana.id,
+    hasPerson: true,
+  },
   "a key naming the member": {
     personId: dana.id,
+    actorId: dana.id,
     armer: `${KEY.id}:${dana.id}`,
     hasPerson: true,
   },
-  "a key naming no one": { personId: "", armer: KEY.id, hasPerson: false },
+  "a key naming no one": {
+    personId: "",
+    actorId: KEY.id,
+    armer: KEY.id,
+    hasPerson: false,
+  },
 };
 
 function contextFor(
@@ -236,7 +249,7 @@ describe("attribution across callers", () => {
     const stored = (id: string) => collection("revisions").findOne({ id });
 
     it.each(ACTORS)("credits %s through a reviewed publish", async (actor) => {
-      const { personId, hasPerson } = EXPECT[actor];
+      const { personId, actorId, hasPerson } = EXPECT[actor];
       const key = await createEntity(actor);
       const entity = await collection(cfg.collection).findOne({
         organization: ORG_ID,
@@ -245,7 +258,7 @@ describe("attribution across callers", () => {
 
       const { id, version } = await draft(actor, key);
       const path = `${revisions}/${key}/${version}`;
-      expect((await stored(id))?.authorId).toBe(personId);
+      expect((await stored(id))?.authorId).toBe(actorId);
 
       const mine = await as(actor).get(`${revisions}/${key}?mine=true`);
       if (hasPerson) {
@@ -290,11 +303,11 @@ describe("attribution across callers", () => {
       const comment = approved?.reviews.find(
         (r: { decision: string }) => r.decision === "comment",
       );
-      expect(comment?.userId).toBe(personId);
+      expect(comment?.userId).toBe(actorId);
       const requested = approved?.activityLog.find(
         (a: { action: string }) => a.action === "review-requested",
       );
-      expect(requested?.userId).toBe(personId);
+      expect(requested?.userId).toBe(actorId);
 
       const approvedEvent = await collection("events").findOne({
         organizationId: ORG_ID,
@@ -324,7 +337,7 @@ describe("attribution across callers", () => {
       ).toBe(bob.id);
 
       expect((await as(actor).post(`${path}/publish`)).status).toBe(200);
-      expect((await stored(id))?.resolution?.userId).toBe(personId);
+      expect((await stored(id))?.resolution?.userId).toBe(actorId);
       const publishedEvent = await collection("events").findOne({
         organizationId: ORG_ID,
         event: `${cfg.event}.revision.published`,
@@ -337,7 +350,7 @@ describe("attribution across callers", () => {
     it.each(ACTORS)(
       "fires a publish %s scheduled as the same person",
       async (actor) => {
-        const { personId, armer } = EXPECT[actor];
+        const { actorId, armer } = EXPECT[actor];
         const key = await createEntity(actor);
         const { id, version } = await draft(actor, key);
 
@@ -354,7 +367,7 @@ describe("attribution across callers", () => {
           armed?.activityLog.find(
             (a: { action: string }) => a.action === "scheduled-publish",
           )?.userId,
-        ).toBe(personId);
+        ).toBe(actorId);
 
         await collection("revisions").updateOne(
           { id },
@@ -373,7 +386,7 @@ describe("attribution across callers", () => {
 
         const fired = await stored(id);
         expect(fired?.status).toBe("merged");
-        expect(fired?.resolution?.userId).toBe(personId);
+        expect(fired?.resolution?.userId).toBe(actorId);
       },
     );
   });
@@ -666,6 +679,77 @@ describe("attribution across callers", () => {
     });
   });
 
+  describe("a key reviewing as itself", () => {
+    const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
+    const draftSavedGroup = async () => {
+      const created = await as("a personal token").post(
+        "/api/v1/saved-groups",
+        { name: "Testers", values: ["u1"], attributeKey: "userId" },
+      );
+      expect(created.status).toBe(200);
+      const id = created.body.savedGroup.id;
+      const draft = await as("a personal token").put(
+        `/api/v1/saved-groups-revisions/${id}/new/values`,
+        { values: ["u2"] },
+      );
+      expect(draft.status).toBe(200);
+      const path = `/api/v1/saved-groups-revisions/${id}/${draft.body.revision.version}`;
+      expect(
+        (await as("a personal token").post(`${path}/request-review`)).status,
+      ).toBe(200);
+      return { path, revisionId: draft.body.revision.id as string };
+    };
+    const withRequiredApproval = async (work: () => Promise<void>) => {
+      const settings = org.settings as Record<string, unknown>;
+      settings.approvalFlows = { savedGroups: [{ required: true }] };
+      try {
+        await work();
+      } finally {
+        delete settings.approvalFlows;
+      }
+    };
+
+    it("approves with its own role, and the approval counts", async () => {
+      await withRequiredApproval(async () => {
+        const { path, revisionId } = await draftSavedGroup();
+        const approve = (key: ApiKeyWithRole) =>
+          as("a key naming no one", dana, key).post(`${path}/submit-review`, {
+            decision: "approve",
+            skipAutoPublish: true,
+          });
+        expect((await approve(READONLY_KEY)).status).toBe(403);
+        expect((await approve(KEY)).status).toBe(200);
+        const verdict = (
+          await collection("revisions").findOne({ id: revisionId })
+        )?.reviews.find((r: { decision: string }) => r.decision === "approve");
+        expect(verdict?.userId).toBe(KEY.id);
+        // An engineer can't bypass approval, so only the key's counts here.
+        await withRole(bob, "engineer", async () => {
+          expect(
+            (await as("a personal token", bob).post(`${path}/publish`)).status,
+          ).toBe(200);
+        });
+      });
+    });
+
+    it("records a key that names a member as itself as the reviewer", async () => {
+      const { path, revisionId } = await draftSavedGroup();
+      const res = await as("a key naming the member", bob, {
+        ...KEY,
+        requesterPermissions: "key",
+      }).post(`${path}/submit-review`, {
+        decision: "approve",
+        skipAutoPublish: true,
+      });
+      expect(res.status).toBe(200);
+      const verdict = (
+        await collection("revisions").findOne({ id: revisionId })
+      )?.reviews.find((r: { decision: string }) => r.decision === "approve");
+      expect(verdict?.userId).toBe(KEY.id);
+      expect(verdict?.user?.requestedBy?.id).toBe(bob.id);
+    });
+  });
+
   describe("author rights through a key", () => {
     const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
     const OWN_ROLE_KEY = {
@@ -674,16 +758,18 @@ describe("attribution across callers", () => {
       requesterPermissions: "key" as const,
     };
     const NAMED = [
-      ["naming the draft's author", dana, READONLY_KEY, 200],
-      ["naming someone else", bob, READONLY_KEY, 403],
-      ["that keeps its own role, naming the author", dana, OWN_ROLE_KEY, 403],
+      ["an admin key naming the draft's author", dana, KEY, 200],
+      ["a read-only key naming the draft's author", dana, READONLY_KEY, 403],
+      ["an admin key naming someone else", bob, KEY, 403],
+      ["a read-only key naming the author as itself", dana, OWN_ROLE_KEY, 403],
     ] as const;
 
-    // Dana writes a draft, then loses draft permissions, so only her author
-    // rights can let a read-only key discard it, and only when it names her.
+    // Dana writes a draft, then the named member loses draft permissions, so
+    // only the author's rights can let the request through: when the key names
+    // the author and its own role could discard the draft.
 
     it.each(NAMED)(
-      "lets a read-only key %s discard a constant draft",
+      "lets %s discard a constant draft",
       async (_, person, key, status) => {
         const create = await as("a personal token").post("/api/v1/constants", {
           key: "timeout",
@@ -698,7 +784,7 @@ describe("attribution across callers", () => {
         );
         const version = draft.body.revision.version;
 
-        await withRole(dana, "readonly", async () => {
+        await withRole(person, "readonly", async () => {
           const res = await as("a key naming the member", person, key).post(
             `/api/v1/constants-revisions/timeout/${version}/discard`,
           );
@@ -708,7 +794,7 @@ describe("attribution across callers", () => {
     );
 
     it.each(NAMED)(
-      "lets a read-only key %s discard a feature draft",
+      "lets %s discard a feature draft",
       async (_, person, key, status) => {
         const create = await as("a personal token").post("/api/v2/features", {
           id: "checkout-flow",
@@ -722,7 +808,7 @@ describe("attribution across callers", () => {
         );
         const version = draft.body.revision.version;
 
-        await withRole(dana, "readonly", async () => {
+        await withRole(person, "readonly", async () => {
           const res = await as("a key naming the member", person, key).post(
             `/api/v2/features/checkout-flow/revisions/${version}/discard`,
           );
@@ -837,7 +923,7 @@ describe("attribution across callers", () => {
       if (status === 400) expect(res.body.message).toMatch(/Requested-By/);
     });
 
-    it("records the named member and whether the request assumed their role", async () => {
+    it("records the named member, who owns what the key creates only when assumed", async () => {
       expect((await createProject("optional", dana.email, "Web")).status).toBe(
         200,
       );
@@ -861,7 +947,7 @@ describe("attribution across callers", () => {
       const owners = await collection("projects")
         .find({ organization: ORG_ID })
         .toArray();
-      expect(owners.map((p) => p.owner).sort()).toEqual([bob.id, dana.id]);
+      expect(owners.map((p) => p.owner ?? "").sort()).toEqual(["", dana.id]);
     });
   });
 
@@ -922,6 +1008,7 @@ describe("attribution across callers", () => {
           apiKey: KEY.id,
           name: KEY.description,
           requestedBy: dana,
+          assumedRole: true,
         },
         event: "feature.create",
         entity: { object: "feature", id: "checkout-flow" },

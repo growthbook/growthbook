@@ -15,9 +15,6 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
-export const REVIEW_NEEDS_A_MEMBER =
-  "Submitting a review requires a user identity. Name the member with X-GrowthBook-Requested-By, or use a personal access token.";
-
 // Identityless API keys cannot claim authorship of authorless revisions.
 export function isRevisionAuthor(
   authorId: string | undefined,
@@ -41,10 +38,25 @@ export function mayBeRevisionAuthor(
 // `target` in its guard fields — otherwise the authority answer is computed from a
 // snapshot the write does not pin, and a concurrent rebase changes it underneath.
 // The guard-completeness check in `casLoop` enforces this.
+// An author's rights over their own revision stand in for `action` authority.
+// An org key assuming the author's role must hold that authority itself.
+export function hasAuthorRights(
+  context: Context,
+  revision: Revision,
+  action: "draft" | "review",
+): boolean {
+  return (
+    isRevisionAuthor(revision.authorId, context.actorId) &&
+    context.authorRightsAllow((keyContext) =>
+      canRevisionOwnedAction(keyContext, revision, action),
+    )
+  );
+}
+
 export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
   return {
     check: (existing) => {
-      if (isRevisionAuthor(existing.authorId, context.authorUserId)) return;
+      if (hasAuthorRights(context, existing, "draft")) return;
       if (!canRevisionOwnedAction(context, existing, "draft")) {
         context.permissions.throwPermissionError();
       }
@@ -114,8 +126,11 @@ export function retractAuthorityOnRow(
   return {
     check: (existing) => {
       const ownVerdict =
-        !!context.authorUserId &&
-        existing.reviews.some((r) => r.userId === context.authorUserId);
+        !!context.actorId &&
+        existing.reviews.some((r) => r.userId === context.actorId) &&
+        context.authorRightsAllow((keyContext) =>
+          canRevisionOwnedAction(keyContext, existing, "review"),
+        );
       if (!ownVerdict && !canRevisionOwnedAction(context, existing, "review")) {
         context.permissions.throwPermissionError();
       }
@@ -130,7 +145,7 @@ export async function canDiscardRevision(
 ): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor: isRevisionAuthor(revision.authorId, context.authorUserId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
   });
 }
 
@@ -154,7 +169,7 @@ export async function canAdvanceRevision(
 
   return canAdvanceDraftWithNarrowAtom({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor: isRevisionAuthor(revision.authorId, context.authorUserId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
     holdsAnyLandingAtom: hasRevert || hasDelete,
     matchesNarrowAtom: async () => {
       if (

@@ -104,13 +104,13 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     // Hard lock: no inline bypass on the publish path — only the unlock
     // route. assertConfigNotLocked below is the backstop.
     ...collectConfigLockGate(config),
-    ...collectRevisionGovernanceGates({
+    ...(await collectRevisionGovernanceGates({
       context: req.context,
       adapter,
       targetType: "config",
       entity: config as unknown as Record<string, unknown>,
       revision,
-    }),
+    })),
   ];
   gates.push(
     ...((await adapter.collectPublishGates?.(

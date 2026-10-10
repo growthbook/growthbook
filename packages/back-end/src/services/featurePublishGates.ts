@@ -22,6 +22,7 @@ import {
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
@@ -196,14 +197,15 @@ export async function assessRevisionApproval({
     }),
     liveRampScheduleEnvs,
   });
-  const approvers = (revision.reviews ?? [])
+  const approverIds = (revision.reviews ?? [])
     .filter((r) => r.status === "approved")
     .map((r) => r.userId)
-    .filter((id): id is string => !!id)
-    .map((id) => ({
-      id,
-      roleInfo: context.org.members.find((m) => m.id === id) ?? null,
-    }));
+    .filter((id): id is string => !!id);
+  const roles = await getApproverRoles(context, approverIds);
+  const approvers = approverIds.map((id) => ({
+    id,
+    roleInfo: roles.get(id) ?? null,
+  }));
   const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,

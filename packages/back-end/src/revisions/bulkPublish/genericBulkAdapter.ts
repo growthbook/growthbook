@@ -136,7 +136,7 @@ export function makeGenericBulkAdapter(
     }) {
       const raw = revision.raw as Revision;
       // Collect governance in caller context, then perform authoritative landing checks.
-      const gates: PublishGate[] = collectRevisionGovernanceGates({
+      const gates: PublishGate[] = await collectRevisionGovernanceGates({
         context: callerContext,
         adapter,
         targetType,

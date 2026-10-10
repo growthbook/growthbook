@@ -101,8 +101,9 @@ export default function EventUser({
     return <span>System</span>;
   }
 
-  const person = eventUserPerson(user);
   const requestedBy = user.type === "api_key" ? user.requestedBy : undefined;
+  // A key acting as itself still shows who asked.
+  const person = requestedBy ?? eventUserPerson(user);
   let name = person?.name ?? ("name" in user ? user.name : "") ?? "";
   let email = person?.email ?? "";
   const isApi = user.type === "api_key" && !requestedBy;

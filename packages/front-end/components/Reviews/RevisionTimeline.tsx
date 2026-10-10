@@ -1,7 +1,7 @@
 import {
   eventUserCredit,
   eventUserPersonId,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
 } from "shared/validators";
 import { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -657,7 +657,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid = reviewerKeyForEventUser(entry.user ?? null);
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid) continue;
         for (let j = i + 1; j < sorted.length; j++) {
           const next = sorted[j];
@@ -679,7 +679,7 @@ export default function RevisionTimeline({
             retractions.set(entry, { kind: "recall", label });
             break;
           }
-          const nextUid = reviewerKeyForEventUser(next.user ?? null);
+          const nextUid = eventUserIdentity(next.user ?? null);
           if (nextUid !== uid) continue;
           if (next.action === "Undo Review") {
             retractions.set(entry, { kind: "self", label: "Retracted" });
@@ -701,7 +701,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid = reviewerKeyForEventUser(entry.user ?? null);
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid || uid !== userId) continue;
         if (retractions.has(entry)) continue;
         activeVerdict = entry;

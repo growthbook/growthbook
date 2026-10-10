@@ -41,8 +41,7 @@ import {
   RevisionMetadata,
   RevisionRampAction,
   RevisionReview,
-  eventUserPersonId,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import {
@@ -466,7 +465,7 @@ function revisionPersonFilter({
 }): Record<string, unknown> {
   const createdBy = (id: string) => [
     { "createdBy.id": id },
-    { "createdBy.requestedBy.id": id },
+    { "createdBy.requestedBy.id": id, "createdBy.assumedRole": true },
   ];
   const clauses: Record<string, unknown>[] = [];
   if (author) clauses.push({ $or: createdBy(author) });
@@ -1612,8 +1611,8 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors as user ID strings via atomic $addToSet.
-  const contributorId = eventUserPersonId(log.user);
+  // Track contributors by identity via atomic $addToSet.
+  const contributorId = eventUserIdentity(log.user);
   const contributorUpdate =
     contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
@@ -2733,7 +2732,7 @@ export async function submitReviewAndComments(
       : reviewSubmittedType === "Requested Changes"
         ? ("changes-requested" as const)
         : null;
-  const reviewerKey = reviewerKeyForEventUser(user);
+  const reviewerKey = eventUserIdentity(user);
   const newReview: RevisionReview | null =
     verdict !== null && reviewerKey !== null
       ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
@@ -2972,7 +2971,7 @@ export function activeReviewsFromLog(
       byReviewer.clear();
       continue;
     }
-    const key = reviewerKeyForEventUser(entry.user);
+    const key = eventUserIdentity(entry.user);
     if (key === null) continue;
     if (entry.action === "Approved" || entry.action === "Requested Changes") {
       byReviewer.set(key, {
@@ -3043,7 +3042,7 @@ export async function undoReview(
     );
   }
 
-  const retractingKey = reviewerKeyForEventUser(user);
+  const retractingKey = eventUserIdentity(user);
   // Keyless callers (e.g. system events) never hold a baked verdict to undo.
   if (retractingKey === null) {
     throw new Error("You have no active review verdict to undo");

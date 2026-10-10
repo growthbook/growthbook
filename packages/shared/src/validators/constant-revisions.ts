@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   apiEventUser,
-  personIdField,
+  actorIdField,
   REQUIRES_PERSON_NOTE,
   REVIEW_VERDICT_NOTE,
 } from "./event-user";
@@ -116,7 +116,7 @@ export const apiConstantRevisionValidator = namedSchema(
       version: z.number().int().optional(),
       title: z.string().optional(),
       status: revisionStatusSchema,
-      authorId: personIdField,
+      authorId: actorIdField,
       authorEmail: z.string().optional(),
       contributors: z.array(z.string()).optional(),
       revertedFrom: z.string().optional(),
@@ -127,7 +127,7 @@ export const apiConstantRevisionValidator = namedSchema(
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
-          userId: personIdField,
+          userId: actorIdField,
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .strict()
