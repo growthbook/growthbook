@@ -77,6 +77,74 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery query job location", () => {
+  let integration: BigQuery;
+  let mockJob: MockBigQueryJob;
+  let mockCreateQueryJob: jest.Mock;
+  let mockGetDatasetMetadata: jest.Mock;
+  let mockDataset: jest.Mock;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+
+    mockJob = {
+      id: "job_123",
+      getQueryResults: jest.fn().mockResolvedValue([[], undefined, undefined]),
+      getMetadata: jest.fn().mockResolvedValue([{}]),
+    };
+
+    mockCreateQueryJob = jest.fn().mockResolvedValue([mockJob]);
+    mockGetDatasetMetadata = jest
+      .fn()
+      .mockResolvedValue([{ location: "asia-northeast3" }]);
+    mockDataset = jest
+      .fn()
+      .mockReturnValue({ getMetadata: mockGetDatasetMetadata });
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(integration as any, "getClient")
+      .mockReturnValue({
+        createQueryJob: mockCreateQueryJob,
+        dataset: mockDataset,
+      });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("passes the default dataset region as the query job location", async () => {
+    integration.params = { defaultDataset: "my_dataset" };
+
+    await integration.runQuery("SELECT 1");
+
+    expect(mockDataset).toHaveBeenCalledWith("my_dataset");
+    expect(mockCreateQueryJob).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "asia-northeast3" }),
+    );
+  });
+
+  it("omits location when no default dataset is configured", async () => {
+    integration.params = {};
+
+    await integration.runQuery("SELECT 1");
+
+    expect(mockDataset).not.toHaveBeenCalled();
+    expect(mockCreateQueryJob.mock.calls[0][0]).not.toHaveProperty("location");
+  });
+
+  it("omits location when the dataset region lookup fails", async () => {
+    integration.params = { defaultDataset: "my_dataset" };
+    mockGetDatasetMetadata.mockRejectedValue(new Error("forbidden"));
+
+    await integration.runQuery("SELECT 1");
+
+    expect(mockCreateQueryJob.mock.calls[0][0]).not.toHaveProperty("location");
+  });
+});
+
 describe("BigQuery getExternalQueryStatus (status-only)", () => {
   let integration: BigQuery;
   let mockJob: { getMetadata: jest.Mock };
