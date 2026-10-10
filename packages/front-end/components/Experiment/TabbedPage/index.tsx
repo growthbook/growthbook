@@ -5,7 +5,14 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AnimationEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
@@ -128,6 +135,31 @@ export default function TabbedPage({
       ? "results"
       : "overview";
   const [tab, setTab] = useState<ExperimentTab>(defaultTab);
+  // Which way the last tab switch went, in the tab bar's order, so the new
+  // tab's content drifts in from that side on a redesigned experiment (set
+  // in review; see .redesigned-tab-enter below). Null until the first
+  // switch, so nothing animates on page load. A sub-view change within a
+  // tab (e.g. results/...) isn't a switch. Updated during render, React's
+  // pattern for state that follows a value, so it's set before the new tab
+  // paints.
+  const tabBase = (t: ExperimentTab) =>
+    experimentTabs.indexOf(t.split("/")[0] as ExperimentTabName);
+  const [prevTab, setPrevTab] = useState<ExperimentTab>(tab);
+  const [tabDirection, setTabDirection] = useState<"forward" | "back" | null>(
+    null,
+  );
+  if (tab !== prevTab) {
+    setPrevTab(tab);
+    if (tabBase(tab) !== tabBase(prevTab)) {
+      setTabDirection(tabBase(tab) > tabBase(prevTab) ? "forward" : "back");
+    }
+  }
+  // Once the new tab has settled, the marker goes, taking the animation's
+  // overflow clip with it, so wide content (results tables) isn't clipped.
+  // Only the wrapper's own animation: ones inside it bubble up too.
+  const onTabEnterEnd = (e: AnimationEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) setTabDirection(null);
+  };
   // Moving to another experiment (client-side, without a remount): back to
   // that one's default, unless its URL names a tab.
   const loadedExperimentId = useRef(experiment.id);
@@ -472,7 +504,9 @@ export default function TabbedPage({
             // redesigned-tab-cards: see the card outline rule in the style
             // block below.
             className:
-              "container-fluid pagecontents d-block redesigned-tab-cards",
+              "container-fluid pagecontents d-block redesigned-tab-cards redesigned-tab-enter",
+            "data-tab-direction": tabDirection ?? undefined,
+            onAnimationEnd: onTabEnterEnd,
             style: {
               padding: "var(--space-5) var(--space-6) var(--space-6)",
               maxWidth: "none",
@@ -507,6 +541,52 @@ export default function TabbedPage({
         <style jsx global>{`
           .radix-themes.radix-themes.radix-themes {
             --color-background: var(--color-panel-solid);
+          }
+          /* Switching tabs (set in review), as the Setup rail's tabs: the
+            newly shown tab's content fades in while drifting 8px from the
+            side it's coming from, in the tab bar's order. Each tab stays
+            mounted and is shown by display, so the animation replays every
+            time one is shown again; data-tab-direction is set only after a
+            first switch, so nothing animates on load, and cleared when the
+            animation ends. The sideways overflow is clipped while it moves
+            (clip, not hidden, so the sticky rail and footer still stick),
+            and only then. Instant for reduced motion. The tab
+            underline's handoff is .setupTabs (ExperimentHeader.module.scss). */
+          .redesigned-tab-enter[data-tab-direction].d-block {
+            animation: redesigned-tab-in 260ms cubic-bezier(0.22, 1, 0.36, 1)
+              both;
+            overflow-x: clip;
+          }
+          .redesigned-tab-enter[data-tab-direction="back"].d-block {
+            animation-name: redesigned-tab-in-back;
+          }
+          @keyframes redesigned-tab-in {
+            from {
+              opacity: 0;
+              transform: translateX(8px);
+            }
+            to {
+              opacity: 1;
+              transform: none;
+            }
+          }
+          @keyframes redesigned-tab-in-back {
+            from {
+              opacity: 0;
+              transform: translateX(-8px);
+            }
+            to {
+              opacity: 1;
+              transform: none;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            /* No animation, so no animationend to clear the marker: no
+              clip either. */
+            .redesigned-tab-enter[data-tab-direction].d-block {
+              animation: none;
+              overflow-x: visible;
+            }
           }
           /* The tab bar's pinned top follows the sticky title row's height
             (--experiment-tabs-top); here it eases over the same 120ms as the
@@ -758,7 +838,12 @@ export default function TabbedPage({
             tab === "overview" && !showDashboardView
               ? "d-block"
               : "d-none d-print-block",
+            useRedesignedSetup && "redesigned-tab-enter",
           )}
+          data-tab-direction={
+            useRedesignedSetup ? (tabDirection ?? undefined) : undefined
+          }
+          onAnimationEnd={useRedesignedSetup ? onTabEnterEnd : undefined}
         >
           {useRedesignedSetup ? (
             <SetupPage

@@ -169,11 +169,15 @@ export default function SetupPage({
   // The saved baseline: the experiment's backed fields, plus the stubbed
   // fields as of the last save (they have nowhere else to live).
   // A draft created with "Set up with AI" starts from the fixture's duration
-  // (prototype only; see aiSetupFixture.ts).
-  const [stubBase, setStubBase] = useState<StubbedPart>(() => ({
-    ...pickStubbed(draftFromExperiment(experiment, sequentialDefaults)),
-    ...readAiSetupDuration(experiment.id),
-  }));
+  // (prototype only; see aiSetupFixture.ts), ending after it rather than
+  // the default "Manually".
+  const [stubBase, setStubBase] = useState<StubbedPart>(() => {
+    const aiDuration = readAiSetupDuration(experiment.id);
+    return {
+      ...pickStubbed(draftFromExperiment(experiment, sequentialDefaults)),
+      ...(aiDuration ? { ...aiDuration, endMode: "after" as const } : {}),
+    };
+  });
   const base = useMemo(
     () => ({
       ...draftFromExperiment(experiment, sequentialDefaults, deliveryType),

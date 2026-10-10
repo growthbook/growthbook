@@ -723,6 +723,13 @@ export default function SetupRail({
   // it.
   const showToDo = experiment.status === "draft";
   const [tab, setTab] = useState<"details" | "comments">("details");
+  // Which way the last switch went, so the new panel drifts in from that
+  // side (set in review; see .railPanel). Null until the first switch, so
+  // the panel doesn't animate in on page load.
+  const [tabDirection, setTabDirection] = useState<"forward" | "back" | null>(
+    null,
+  );
+  const RAIL_TAB_ORDER: (typeof tab)[] = ["details", "comments"];
   // Unselected tabs at 400. "normal" is 400, the same as
   // --font-weight-regular; React's style type doesn't accept a var() here.
   const tabWeight = (value: typeof tab): CSSProperties | undefined =>
@@ -835,7 +842,15 @@ export default function SetupRail({
         ) : null}
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as typeof tab)}
+          onValueChange={(v) => {
+            const next = v as typeof tab;
+            setTabDirection(
+              RAIL_TAB_ORDER.indexOf(next) > RAIL_TAB_ORDER.indexOf(tab)
+                ? "forward"
+                : "back",
+            );
+            setTab(next);
+          }}
           // A column that can shrink below its content, so the panel under the
           // tab row can scroll.
           style={{
@@ -877,6 +892,8 @@ export default function SetupRail({
           as the side padding), 16px at the bottom. */}
           <Box
             pb="4"
+            className={styles.railPanel}
+            data-direction={tabDirection ?? undefined}
             style={{
               // The rail's own scroll area; the tab row above stays put.
               flex: 1,

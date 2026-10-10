@@ -227,7 +227,8 @@ export function draftFromExperiment(
     trackingKey: experiment.trackingKey ?? "",
     dataSourceResets: {},
     deliveryType,
-    endMode: "after",
+    // "Manually" by default (set in review; was "after", 14 days).
+    endMode: "stopped",
     endAfter: 14,
     endUnit: "days",
     endAt: null,
@@ -431,4 +432,68 @@ export function draftWeights(draft: SetupDraft): number[] {
     Object.values(draft.splitWeights),
     draft.variations.map((v) => v.id),
   );
+}
+
+// What a scheduled end does, in the API's vocabulary (scheduledStopPlan's
+// mode and fallback; EditScheduleModal has the same types).
+export type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
+export type ScheduledStopFallback = "notify" | "force-ship";
+
+// The line under Ends when it's scheduled (set in review): what actually
+// happens at the end. The copy lives here, in one place. variationName is
+// the fallback / forced variation's display name; null when none is chosen
+// yet. The date or duration isn't mentioned, so it's the same for "After…"
+// and "On date".
+export function scheduledEndHelperText({
+  mode,
+  fallback,
+  variationName,
+}: {
+  mode: ScheduledStopMode;
+  fallback?: ScheduledStopFallback;
+  variationName: string | null;
+}): string {
+  const variation = variationName ?? "the selected variation";
+  switch (mode) {
+    case "notify":
+      return "Won't stop on its own. You'll be prompted to review and decide.";
+    case "auto-ship":
+      return fallback === "force-ship"
+        ? `Ships the winner if one is found and results are healthy. Otherwise ships ${variation}.`
+        : "Ships the winner if one is found and results are healthy. Otherwise keeps running.";
+    case "force-ship":
+      return `Stops and ships ${variation}, whatever the results.`;
+    case "stop":
+      return "Stops. Nothing ships.";
+  }
+}
+
+// The Setup page's STUBBED At End fields, read as a scheduledStopPlan:
+// "Notify only" is notify; "Ship the winning variation" is auto-ship, with
+// "Keep running" as the notify fallback and "Ship a specific variation" as
+// force-ship. The prototype offers no force-ship or stop mode yet. With no
+// variation chosen, defaultVariationId's is named: pass what the variation
+// select shows by default (the first variation, Control), so the line names
+// it rather than "the selected variation" (set in review).
+export function scheduledStopPlanFromDraft(
+  draft: Pick<
+    SetupDraft,
+    "atEnd" | "noClearWinner" | "noClearWinnerVariationId" | "variations"
+  >,
+  defaultVariationId?: string,
+): {
+  mode: ScheduledStopMode;
+  fallback?: ScheduledStopFallback;
+  variationName: string | null;
+} {
+  const variationId = draft.noClearWinnerVariationId ?? defaultVariationId;
+  const variationName =
+    draft.variations.find((v) => v.id === variationId)?.name || null;
+  if (draft.atEnd === "notify") return { mode: "notify", variationName };
+  return {
+    mode: "auto-ship",
+    fallback:
+      draft.noClearWinner === "ship-variation" ? "force-ship" : "notify",
+    variationName,
+  };
 }

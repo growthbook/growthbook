@@ -8,7 +8,12 @@ import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { isMetricGroupId } from "shared/experiments";
 import { format } from "date-fns-tz";
 import clsx from "clsx";
-import { PiCaretRight, PiInfo } from "react-icons/pi";
+import {
+  PiCaretRight,
+  PiInfo,
+  PiLightningBold,
+  PiPencilSimpleBold,
+} from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -18,8 +23,10 @@ import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import headerStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
 import planStyles from "./AnalysisPlan.module.scss";
 import GreyContainer from "./GreyContainer";
 import GoalMetricPopover from "./GoalMetricPopover";
@@ -31,7 +38,11 @@ import Collapse from "./Collapse";
 import AdvancedAnalysisFields, {
   AdvancedAnalysisState,
 } from "./AdvancedAnalysisFields";
-import { SetupDraft } from "./setupDraft";
+import {
+  scheduledEndHelperText,
+  scheduledStopPlanFromDraft,
+  SetupDraft,
+} from "./setupDraft";
 
 // Design values: a 176px label column for every Analysis Plan row, and 128px
 // for the labels inside the Timing and Decision containers (the design's
@@ -41,11 +52,11 @@ const ROW_LABEL_PX = 176;
 const INNER_LABEL_PX = 128;
 
 // The Timing and Decision controls' shared width (set in review): Ends'
-// "On Date" pair, the 140px mode select, InnerRow's 12px gap (gap="3") and
-// the 208px date field. Ends' "After" [n] [Days] fills the same width (Days
+// "On Date" pair, the 164px mode select (set in review; was 140px, and
+// Starts' matches), InnerRow's 12px gap (gap="3") and the 208px date field. Ends' "After" [n] [Days] fills the same width (Days
 // takes what's left), and every Decision select matches it, so all their
 // right edges line up.
-const ENDS_MODE_PX = 140;
+const ENDS_MODE_PX = 164;
 const ENDS_NUMBER_PX = 70;
 const CONTROL_GAP_PX = 12;
 // Starts' and Ends' date fields, set in review.
@@ -277,6 +288,9 @@ export default function AnalysisPlan({
   const { organization, hasCommercialFeature } = useUser();
   const { getDecisionCriteria } = useRunningExperimentStatus();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Timing starts collapsed to a one-line summary (set in review); its
+  // pencil opens the controls, which then stay open.
+  const [timingOpen, setTimingOpen] = useState(false);
 
   const hasDecisionFramework =
     !!organization?.settings?.decisionFrameworkEnabled &&
@@ -371,6 +385,34 @@ export default function AnalysisPlan({
 
   const variations = experiment.variations ?? [];
 
+  // Timing's collapsed summary, from the draft: "Starts and ends manually."
+  // or e.g. "Starts manually and ends after 14 days.", then the power
+  // analysis line.
+  const startSummary =
+    draft.startMode === "date" && draft.startAt
+      ? format(new Date(draft.startAt), "MMM d, yyyy h:mm a")
+      : null;
+  const endSummary =
+    draft.endMode === "after"
+      ? `after ${draft.endAfter} ${
+          draft.endAfter === 1 ? draft.endUnit.replace(/s$/, "") : draft.endUnit
+        }`
+      : draft.endMode === "date" && draft.endAt
+        ? format(new Date(draft.endAt), "MMM d, yyyy h:mm a")
+        : null;
+  // STUBBED: the prototype has no power analysis yet (set in review: one is
+  // coming), so the summary always says none is attached. When there is
+  // one, describe it here instead.
+  const powerAnalysisSummary = "No power analysis attached.";
+  const timingSummary = `${
+    !startSummary && !endSummary
+      ? "Starts and ends manually."
+      : `Starts ${startSummary ?? "manually"} and ends ${
+          endSummary ?? "manually"
+        }.`
+  } ${powerAnalysisSummary}`;
+  const canOpenTiming = editable || (startLocked && !!onEditSchedule);
+
   return (
     <Box className={planStyles.plan}>
       {/* The id is the To Do list's jump target. */}
@@ -437,123 +479,235 @@ export default function AnalysisPlan({
       <Flex direction="column" gap="2" mt="6">
         <Row
           label="Timing"
-          labelPaddingTop={firstInnerRowLabelTop(editable && !startLocked)}
+          labelPaddingTop={
+            timingOpen
+              ? firstInnerRowLabelTop(editable && !startLocked)
+              : // Centred on the collapsed row: the 32px Edit button where
+                // there is one, else the summary's 16px line (Text sm). The
+                // box's 16px padding, plus half of what the row is taller
+                // than the label's 20px line.
+                16 + ((canOpenTiming ? 32 : 16) - 20) / 2
+          }
         >
-          <GreyContainer>
-            <Flex direction="column" gap="3">
-              {/* With a locked schedule, hovering anywhere on the row shows
+          {!timingOpen ? (
+            // Collapsed: the settings in a sentence, and an Edit button,
+            // pencil first, always shown, to open the controls below (set in
+            // review). Read-only, just the sentence.
+            <GreyContainer>
+              {/* The sentence on the left, the Edit button at the far right
+                (set in review; tried it 12px after the sentence), at least
+                12px apart. */}
+              <Flex align="center" justify="between" gap="3">
+                {/* 12px, as the inner rows' labels (e.g. Decision Criteria),
+                  in --slate-11 (set in review; tried --slate-10, below 4.5:1
+                  here), set on a wrapper that Text inherits from (Text takes
+                  only its preset colours): 5.65:1 on the grey box. Wraps if
+                  long. */}
+                <Box style={{ color: "var(--slate-11)" }}>
+                  <Text size="sm">{timingSummary}</Text>
+                </Box>
+                {canOpenTiming ? (
+                  // An outline button styled as the header's "Test" (set in
+                  // review; was a ghost button): grey outline, --slate-6
+                  // darkening to --slate-9 on hover (.outlineButton), text
+                  // and icon in --slate-12. Medium, the default.
+                  <Button
+                    variant="outline"
+                    color="gray"
+                    className={clsx(
+                      headerStyles.outlineButton,
+                      planStyles.timingEdit,
+                    )}
+                    style={{ color: "var(--slate-12)" }}
+                    icon={<PiPencilSimpleBold size={14} />}
+                    aria-label="Edit timing"
+                    onClick={() => setTimingOpen(true)}
+                  >
+                    Edit
+                  </Button>
+                ) : null}
+              </Flex>
+            </GreyContainer>
+          ) : (
+            <GreyContainer>
+              <Flex direction="column" gap="3">
+                {/* With a locked schedule, hovering anywhere on the row shows
                 the value's pencil (set in review; .hoverEdit). */}
-              <InnerRow
-                label="Starts"
-                className={
-                  startLocked && onEditSchedule
-                    ? planStyles.hoverEdit
-                    : undefined
-                }
-              >
-                {editable && !startLocked ? (
-                  <>
-                    <Select
-                      value={draft.startMode}
-                      setValue={(v) =>
-                        update({ startMode: v as SetupDraft["startMode"] })
-                      }
-                      style={{ width: 140 }}
-                    >
-                      <SelectItem value="manual">Manually</SelectItem>
-                      <SelectItem value="date">On Date</SelectItem>
-                    </Select>
-                    {draft.startMode === "date" ? (
-                      <SetupDateField
-                        date={draft.startAt ?? undefined}
-                        disableBefore={new Date()}
-                        setDate={(d) =>
-                          update({ startAt: d ? d.toISOString() : null })
+                <InnerRow
+                  label="Starts"
+                  className={
+                    startLocked && onEditSchedule
+                      ? planStyles.hoverEdit
+                      : undefined
+                  }
+                >
+                  {editable && !startLocked ? (
+                    <>
+                      <Select
+                        value={draft.startMode}
+                        setValue={(v) =>
+                          update({ startMode: v as SetupDraft["startMode"] })
                         }
+                        // The same width as Ends' mode select.
+                        style={{ width: ENDS_MODE_PX }}
+                      >
+                        <SelectItem value="manual">Manually</SelectItem>
+                        <SelectItem value="date">On Date</SelectItem>
+                      </Select>
+                      {draft.startMode === "date" ? (
+                        <SetupDateField
+                          date={draft.startAt ?? undefined}
+                          disableBefore={new Date()}
+                          setDate={(d) =>
+                            update({ startAt: d ? d.toISOString() : null })
+                          }
+                        />
+                      ) : null}
+                    </>
+                  ) : startLocked && onEditSchedule ? (
+                    // The page's pencil (EditButton), shown on hover or focus
+                    // of the whole row (.hoverEdit on the InnerRow), 8px after
+                    // the value (set in review; was 4px).
+                    <Flex align="center" gap="2">
+                      <Text>{startDisplay}</Text>
+                      <EditButton
+                        label="Edit schedule"
+                        onClick={onEditSchedule}
                       />
-                    ) : null}
-                  </>
-                ) : startLocked && onEditSchedule ? (
-                  // The page's pencil (EditButton), shown on hover or focus
-                  // of the whole row (.hoverEdit on the InnerRow), 8px after
-                  // the value (set in review; was 4px).
-                  <Flex align="center" gap="2">
+                    </Flex>
+                  ) : (
                     <Text>{startDisplay}</Text>
-                    <EditButton
-                      label="Edit schedule"
-                      onClick={onEditSchedule}
-                    />
-                  </Flex>
-                ) : (
-                  <Text>{startDisplay}</Text>
-                )}
-              </InnerRow>
-              {/* STUBBED: the experiment model has no end schedule. These
+                  )}
+                </InnerRow>
+                {/* STUBBED: the experiment model has no end schedule. These
                 controls edit the local draft only and are never saved — see
                 STUBBED_FIELDS in setupDraft.ts. */}
-              <InnerRow label="Ends">
-                {editable ? (
-                  <>
-                    <Select
-                      value={draft.endMode}
-                      setValue={(v) =>
-                        update({ endMode: v as SetupDraft["endMode"] })
-                      }
-                      style={{ width: ENDS_MODE_PX }}
-                    >
-                      <SelectItem value="after">After</SelectItem>
-                      <SelectItem value="stopped">Manually</SelectItem>
-                      <SelectItem value="date">On Date</SelectItem>
-                    </Select>
-                    {draft.endMode === "after" ? (
-                      <>
-                        <TextField
-                          type="number"
-                          min={1}
-                          value={String(draft.endAfter)}
-                          onChange={(e) =>
-                            update({
-                              endAfter: Math.max(1, Number(e.target.value)),
-                            })
-                          }
-                          style={{ width: ENDS_NUMBER_PX }}
-                        />
-                        <Select
-                          value={draft.endUnit}
-                          setValue={(v) =>
-                            update({ endUnit: v as SetupDraft["endUnit"] })
-                          }
-                          style={{ width: ENDS_UNIT_PX }}
-                        >
-                          <SelectItem value="days">Days</SelectItem>
-                          <SelectItem value="weeks">Weeks</SelectItem>
-                        </Select>
-                        {/* No colour: --gray-12, the same as the selects'
-                          text beside it (set in review). */}
-                        <Text>from start</Text>
-                      </>
-                    ) : draft.endMode === "date" ? (
-                      <SetupDateField
-                        date={draft.endAt ?? undefined}
-                        disableBefore={draft.startAt ?? new Date()}
-                        setDate={(d) =>
-                          update({ endAt: d ? d.toISOString() : null })
+                <InnerRow label="Ends">
+                  {editable ? (
+                    <>
+                      <Select
+                        value={draft.endMode}
+                        setValue={(v) =>
+                          update({ endMode: v as SetupDraft["endMode"] })
                         }
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <Text>
-                    {draft.endMode === "after"
-                      ? `After ${draft.endAfter} ${draft.endUnit} from start`
-                      : draft.endMode === "date" && draft.endAt
-                        ? format(new Date(draft.endAt), "MMM d, yyyy h:mm a")
-                        : END_LABELS[draft.endMode]}
-                  </Text>
-                )}
-              </InnerRow>
-            </Flex>
-          </GreyContainer>
+                        style={{ width: ENDS_MODE_PX }}
+                      >
+                        <SelectItem value="after">After</SelectItem>
+                        <SelectItem value="stopped">Manually</SelectItem>
+                        <SelectItem value="date">On Date</SelectItem>
+                      </Select>
+                      {draft.endMode === "after" ? (
+                        <>
+                          <TextField
+                            type="number"
+                            min={1}
+                            value={String(draft.endAfter)}
+                            onChange={(e) =>
+                              update({
+                                endAfter: Math.max(1, Number(e.target.value)),
+                              })
+                            }
+                            style={{ width: ENDS_NUMBER_PX }}
+                          />
+                          <Select
+                            value={draft.endUnit}
+                            setValue={(v) =>
+                              update({ endUnit: v as SetupDraft["endUnit"] })
+                            }
+                            style={{ width: ENDS_UNIT_PX }}
+                          >
+                            <SelectItem value="days">Days</SelectItem>
+                            <SelectItem value="weeks">Weeks</SelectItem>
+                          </Select>
+                          {/* No colour: --gray-12, the same as the selects'
+                          text beside it (set in review). */}
+                          <Text>from start</Text>
+                        </>
+                      ) : draft.endMode === "date" ? (
+                        <SetupDateField
+                          date={draft.endAt ?? undefined}
+                          disableBefore={draft.startAt ?? new Date()}
+                          setDate={(d) =>
+                            update({ endAt: d ? d.toISOString() : null })
+                          }
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text>
+                      {draft.endMode === "after"
+                        ? `After ${draft.endAfter} ${draft.endUnit} from start`
+                        : draft.endMode === "date" && draft.endAt
+                          ? format(new Date(draft.endAt), "MMM d, yyyy h:mm a")
+                          : END_LABELS[draft.endMode]}
+                    </Text>
+                  )}
+                </InnerRow>
+                {/* Under the Ends controls, when the end is scheduled
+                  ("After…" or "On date"; none for Manually): what actually
+                  happens at the end, from the At End settings (set in
+                  review; replaces "May end sooner if …", which was wrong:
+                  decision criteria never stop an experiment on their own).
+                  The copy is scheduledEndHelperText's (setupDraft.ts). Its
+                  own line rather than inside Ends' row, so the Ends label
+                  stays centred on the controls; lined up with them (the
+                  label column plus the 12px gap) and 4px under them (the
+                  rows' 12px gap, less 8px). As the page's other small helper
+                  text: 12px, --slate-11. */}
+                {editable && draft.endMode !== "stopped" ? (
+                  <Box
+                    style={{
+                      paddingLeft: INNER_LABEL_PX + CONTROL_GAP_PX,
+                      marginTop: "calc(var(--space-1) - var(--space-3))",
+                      color: "var(--slate-11)",
+                    }}
+                  >
+                    <Text size="sm">
+                      {scheduledEndHelperText(
+                        // The variation select's own default (the first
+                        // variation) when none is chosen.
+                        scheduledStopPlanFromDraft(draft, variations[0]?.id),
+                      )}
+                    </Text>
+                  </Box>
+                ) : null}
+                {/* STUBBED: the prototype has no power analysis yet (set in
+                  review: a representation is coming). The button does
+                  nothing for now; read-only shows "None", as the summary's
+                  "No power analysis attached." */}
+                {/* The description in the label's info icon (set in review;
+                  tried it as text beside the button). Not when read-only,
+                  which has no button to run. */}
+                <InnerRow
+                  label="Power"
+                  info={editable ? "See how long it needs to run" : undefined}
+                >
+                  {editable ? (
+                    // Styled as Timing's Edit button (set in review): the
+                    // header's outline button, --slate-12, label at 400,
+                    // icon first; one size down, small (24px, 12px label).
+                    <Button
+                      variant="outline"
+                      color="gray"
+                      size="sm"
+                      className={clsx(
+                        headerStyles.outlineButton,
+                        planStyles.timingEdit,
+                      )}
+                      style={{ color: "var(--slate-12)" }}
+                      // Phosphor's lightning, bold, as the page's other icons
+                      // (set in review; tried a bar chart).
+                      icon={<PiLightningBold size={12} />}
+                    >
+                      Run Power Analysis
+                    </Button>
+                  ) : (
+                    <Text>None</Text>
+                  )}
+                </InnerRow>
+              </Flex>
+            </GreyContainer>
+          )}
         </Row>
 
         {hasDecisionFramework ? (

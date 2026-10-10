@@ -3,6 +3,8 @@ import {
   changedFields,
   draftFromExperiment,
   rebaseDraft,
+  scheduledEndHelperText,
+  scheduledStopPlanFromDraft,
 } from "@/components/Experiment/TabbedPage/SetupPage/setupDraft";
 
 const experiment = {
@@ -39,7 +41,7 @@ describe("setupDraft", () => {
     const base = draftFromExperiment(experiment);
     const draft = {
       ...base,
-      endMode: "stopped" as const,
+      endMode: "date" as const,
       atEnd: "ship-winner" as const,
     };
     expect(changedFields(base, draft)).toEqual(["endMode", "atEnd"]);
@@ -205,5 +207,122 @@ describe("setupDraft", () => {
       datasource: "ds_1",
       exposureQueryId: "user_id",
     });
+  });
+});
+
+describe("scheduledEndHelperText", () => {
+  it("describes each mode", () => {
+    expect(
+      scheduledEndHelperText({ mode: "notify", variationName: null }),
+    ).toBe("Won't stop on its own. You'll be prompted to review and decide.");
+    expect(
+      scheduledEndHelperText({
+        mode: "auto-ship",
+        fallback: "notify",
+        variationName: "Control",
+      }),
+    ).toBe(
+      "Ships the winner if one is found and results are healthy. Otherwise keeps running.",
+    );
+    expect(
+      scheduledEndHelperText({
+        mode: "auto-ship",
+        fallback: "force-ship",
+        variationName: "Control",
+      }),
+    ).toBe(
+      "Ships the winner if one is found and results are healthy. Otherwise ships Control.",
+    );
+    expect(
+      scheduledEndHelperText({ mode: "force-ship", variationName: "Control" }),
+    ).toBe("Stops and ships Control, whatever the results.");
+    expect(scheduledEndHelperText({ mode: "stop", variationName: null })).toBe(
+      "Stops. Nothing ships.",
+    );
+  });
+
+  it("falls back when no variation is chosen", () => {
+    expect(
+      scheduledEndHelperText({ mode: "force-ship", variationName: null }),
+    ).toBe("Stops and ships the selected variation, whatever the results.");
+    expect(
+      scheduledEndHelperText({
+        mode: "auto-ship",
+        fallback: "force-ship",
+        variationName: null,
+      }),
+    ).toBe(
+      "Ships the winner if one is found and results are healthy. Otherwise ships the selected variation.",
+    );
+  });
+});
+
+describe("scheduledStopPlanFromDraft", () => {
+  const variations = [
+    { id: "v0", name: "Control", description: "" },
+    { id: "v1", name: "Treatment", description: "" },
+  ];
+
+  it("reads notify only as notify", () => {
+    expect(
+      scheduledStopPlanFromDraft({
+        atEnd: "notify",
+        noClearWinner: "keep-running",
+        noClearWinnerVariationId: null,
+        variations,
+      }),
+    ).toEqual({ mode: "notify", variationName: null });
+  });
+
+  it("reads ship-the-winner with each fallback", () => {
+    expect(
+      scheduledStopPlanFromDraft({
+        atEnd: "ship-winner",
+        noClearWinner: "keep-running",
+        noClearWinnerVariationId: null,
+        variations,
+      }),
+    ).toEqual({ mode: "auto-ship", fallback: "notify", variationName: null });
+    expect(
+      scheduledStopPlanFromDraft({
+        atEnd: "ship-winner",
+        noClearWinner: "ship-variation",
+        noClearWinnerVariationId: "v1",
+        variations,
+      }),
+    ).toEqual({
+      mode: "auto-ship",
+      fallback: "force-ship",
+      variationName: "Treatment",
+    });
+  });
+
+  it("names the default variation when none is chosen", () => {
+    expect(
+      scheduledStopPlanFromDraft(
+        {
+          atEnd: "ship-winner",
+          noClearWinner: "ship-variation",
+          noClearWinnerVariationId: null,
+          variations,
+        },
+        "v0",
+      ),
+    ).toEqual({
+      mode: "auto-ship",
+      fallback: "force-ship",
+      variationName: "Control",
+    });
+  });
+
+  it("has no variation name for an unknown or unset id", () => {
+    expect(
+      scheduledStopPlanFromDraft({
+        atEnd: "ship-winner",
+        noClearWinner: "ship-variation",
+        noClearWinnerVariationId: "gone",
+        variations,
+      }).variationName,
+    ).toBeNull();
   });
 });

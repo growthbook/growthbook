@@ -362,6 +362,7 @@ export default function ExperimentHeader({
   // review). See the matching container style in index.tsx. Only the parts
   // about the Setup tab's right rail check onSetupTab.
   const setupLayout = !isBandit && !isHoldout && !showDashboardView;
+
   const onSetupTab = setupLayout && tab === "overview";
 
   // --- Sticky title row (redesigned page) ---------------------------------
@@ -1147,7 +1148,15 @@ export default function ExperimentHeader({
             </Box>
           </Flex>
 
-          <Flex direction="row" align="center" gap="2" flexShrink="0">
+          <Flex
+            direction="row"
+            align="center"
+            gap="2"
+            flexShrink="0"
+            // The header's buttons' labels at 400 on the redesigned page
+            // (set in review; .headerActions).
+            className={setupLayout ? headerStyles.headerActions : undefined}
+          >
             {isHoldout && holdout?.nextScheduledStatusUpdate ? (
               <Button
                 variant="ghost"

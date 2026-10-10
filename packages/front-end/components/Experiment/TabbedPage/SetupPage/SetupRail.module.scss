@@ -135,6 +135,81 @@ div.todoItem {
   color: var(--gray-12);
 }
 
+// Switching tabs (set in review): the new tab's underline grows out from its
+// centre as it fades in, while the old one shrinks and fades out, one calm
+// handoff rather than a jump. Radix only draws the active tab's underline, so
+// every tab gets one here, shown by opacity and width. Instant for reduced
+// motion.
+$rail-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+.railTabs :global(.rt-BaseTabListTrigger)::before {
+  box-sizing: border-box;
+  content: "";
+  height: 2px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--accent-indicator);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition:
+    opacity 220ms $rail-ease-out,
+    transform 260ms $rail-ease-out;
+}
+
+.railTabs :global(.rt-BaseTabListTrigger[data-state="active"])::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+// The new panel's content (set in review): fades in while drifting 8px from
+// the side it's coming from (from the right going to Comments, from the left
+// going back to Details). Radix removes the panel being left, so only the
+// arrival is animated. Instant for reduced motion.
+// After a switch only (data-direction is set by the first one), not on
+// page load.
+.railPanel[data-direction] > :global(.rt-TabsContent[data-state="active"]) {
+  animation: rail-panel-in 260ms $rail-ease-out both;
+}
+
+.railPanel[data-direction="back"]
+  > :global(.rt-TabsContent[data-state="active"]) {
+  animation-name: rail-panel-in-back;
+}
+
+@keyframes rail-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rail-panel-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .railTabs :global(.rt-BaseTabListTrigger)::before {
+    transition: none;
+  }
+
+  .railPanel[data-direction] > :global(.rt-TabsContent[data-state="active"]) {
+    animation: none;
+  }
+}
+
 // The rail's eyebrows, "To Do", "General" and "Data" (set in review): the same as the
 // Targeting card's section labels on this page (.sectionLabel in
 // TargetingConditions.module.scss), 11px, weight 500, uppercase, 0.04em

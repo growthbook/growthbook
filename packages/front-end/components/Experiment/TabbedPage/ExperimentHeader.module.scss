@@ -6,6 +6,39 @@
   color: var(--gray-12);
 }
 
+// Switching tabs (set in review), as the Setup rail's tabs
+// (SetupRail.module.scss): the new tab's underline grows out from its centre
+// as it fades in, while the old one shrinks and fades out. Radix only draws
+// the active tab's underline, so every tab gets one here, shown by opacity
+// and width. Also on the experiments list's tabs, which share this class.
+// Instant for reduced motion.
+.setupTabs :global(.rt-BaseTabListTrigger)::before {
+  box-sizing: border-box;
+  content: "";
+  height: 2px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--accent-indicator);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.setupTabs :global(.rt-BaseTabListTrigger[data-state="active"])::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setupTabs :global(.rt-BaseTabListTrigger)::before {
+    transition: none;
+  }
+}
+
 // The header's outline buttons on the Setup tab (Test, the kebab): a
 // --slate-6 outline (Radix's inset box-shadow, redrawn in the colour set in
 // review) that eases to --slate-9 over 150ms on hover, like the page's
@@ -40,4 +73,16 @@
 // entirely when the banner renders nothing (see ExperimentHeader.tsx).
 .decisionBanner:empty {
   display: none;
+}
+
+// The redesigned header's buttons (Test, Actions, ...): their labels at 400
+// (set in review), in place of the 500 @/ui/Button gives every label, as
+// Timing's Edit button. Not the primary buttons, solid or soft (e.g. Start,
+// Scheduled), which keep 500 (set in review). Covers buttons added here
+// later.
+.headerActions
+  :global(
+    .rt-BaseButton:not(.rt-variant-solid):not(.rt-variant-soft) .rt-Text
+  ) {
+  font-weight: var(--font-weight-regular);
 }

@@ -202,3 +202,10 @@
     transition: none;
   }
 }
+
+// Timing's collapsed Edit button (set in review): its label at 400, in
+// place of the 500 @/ui/Button gives every label. Only this button; the
+// header's Test, which shares its outline style, keeps 500.
+.timingEdit :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
+}
