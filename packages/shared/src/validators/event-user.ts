@@ -27,20 +27,20 @@ export const eventUserRequestedBy = z
 
 export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 
-export const personIdField = z
+export const actorIdField = z
   .string()
   .describe(
-    "The person's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. Empty when an organization API key named no one",
+    "Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself",
   );
 
 export const REVIEW_VERDICT_NOTE =
-  "A verdict (`approve` or `request-changes`) belongs to the person behind the request: the signed-in member, a personal access token's owner, or the member an organization API key names with `X-GrowthBook-Requested-By`. An organization API key that names no one can only comment, and no one can rule on a draft created in their own name.";
+  "A verdict (`approve` or `request-changes`) belongs to whoever the request acts as: the signed-in member, a personal access token's owner, the member whose role an organization API key assumes, or otherwise the key itself, judged on the key's own role. No one can rule on a draft they created.";
 
 export const REQUIRES_PERSON_NOTE =
-  "Requires a personal access token, or an organization API key that names a member with `X-GrowthBook-Requested-By`.";
+  "Requires a personal access token, or an organization API key that assumes the role of a member it names with `X-GrowthBook-Requested-By`.";
 
 const requestedByField = eventUserRequestedBy.describe(
-  "The member an organization API key named with `X-GrowthBook-Requested-By`. When present, this member is the person behind the action.",
+  "The member an organization API key named with `X-GrowthBook-Requested-By`. When `assumedRole` is true, this member is the person behind the action; otherwise the key acted as itself and this only records who asked.",
 );
 
 const assumedRoleField = z
@@ -119,7 +119,8 @@ export const eventUser = z.union([
 export type EventUser = z.infer<typeof eventUser>;
 
 // The person behind an event user: the signed-in member, a personal token's
-// user, or the member an org key acted for. Null for keys acting as nobody.
+// user, or the member whose role an org key assumed. Null for a key acting as
+// itself, even when it names who asked.
 export function eventUserPerson(
   user: EventUser,
 ): { id?: string; name?: string; email?: string } | null {
@@ -128,7 +129,7 @@ export function eventUserPerson(
     return { id: user.id, name: user.name, email: user.email };
   }
   if (user.type === "api_key") {
-    if (user.requestedBy) return user.requestedBy;
+    if (user.requestedBy) return user.assumedRole ? user.requestedBy : null;
     return user.id ? { id: user.id, name: user.name, email: user.email } : null;
   }
   return null;
@@ -138,10 +139,9 @@ export function eventUserPersonId(user: EventUser): string | null {
   return eventUserPerson(user)?.id || null;
 }
 
-// Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users). The
-// member an org key names is the reviewer, not the key.
-export function reviewerKeyForEventUser(user: EventUser): string | null {
+// Who an event user acts as: its person, else the key itself. Authorship and
+// verdicts compare these, so a key acting as itself is its own identity.
+export function eventUserIdentity(user: EventUser): string | null {
   if (!user) return null;
   if (user.type === "dashboard") return user.id;
   if (user.type === "api_key") {
@@ -165,7 +165,9 @@ export function eventUserLabel(
 ): string {
   if (!user) return "";
   if (user.type === "system") return "System";
-  const person = eventUserPerson(user);
+  // A key acting as itself still names who asked.
+  const person =
+    (user.type === "api_key" && user.requestedBy) || eventUserPerson(user);
   const name = (person?.id && nameFor?.(person.id)) || person?.name;
   const personText =
     withEmail && name && person?.email
@@ -183,13 +185,13 @@ export const eventReviewer = z
     id: z
       .string()
       .describe(
-        "The reviewer's user ID: the signed-in member, a personal access token's owner, or the member an organization API key named",
+        "The reviewer's user ID: the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed. Absent when a key reviewed as itself",
       )
       .optional(),
     name: z
       .string()
       .describe(
-        "The reviewer's name, or the key's name when an organization API key named no one",
+        "The reviewer's name, or the key's name when an organization API key reviewed as itself",
       )
       .optional(),
     email: z.string().describe("The reviewer's email").optional(),

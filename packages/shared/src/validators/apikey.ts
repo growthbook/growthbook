@@ -72,7 +72,7 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   requesterPermissions: requesterPermissionsValidator
     .optional()
     .describe(
-      "Org API keys only. With a named member, `assume` (the default) gives the request only what both the key and the member can do; `key` keeps the key's own role and only records who asked",
+      "Org API keys only. With a named member, `assume` (the default) acts as that member, with only what both the key and the member can do; `key` acts as the key itself, with its own role, drafts, verdicts and ownership, and only records who asked",
     ),
   disabled: z
     .boolean()

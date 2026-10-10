@@ -189,7 +189,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
 
 A reviewer submits a decision with `POST .../submit-review`. `decision` is one of `approve`, `request-changes`, or `comment`. With `blockSelfApproval` enabled (controlled by the org's **Require approval from a non-editor** setting), authors and contributors cannot submit `approve` on their own drafts.
 
-`approve` and `request-changes` need a person behind the request: use a Personal Access Token, or have an organization API key name the reviewer with `X-GrowthBook-Requested-By`. The decision counts as that member's.
+An organization API key reviews as itself, judged on its own role, unless it assumes the role of a member it names with `X-GrowthBook-Requested-By`; then the decision counts as that member's.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/submit-review' \

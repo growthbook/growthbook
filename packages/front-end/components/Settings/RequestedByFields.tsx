@@ -56,13 +56,11 @@ const RequestedByFields: FC<{
               <SelectItem value="assume">Assume member&apos;s role</SelectItem>
               <SelectItem value="key">Use key&apos;s role</SelectItem>
             </Select>
-            <Box>
-              {permissions === "assume" && (
-                <HelperText status="info">
-                  Only what both this key and the member can do.
-                </HelperText>
-              )}
-            </Box>
+            <HelperText status="info">
+              {permissions === "assume"
+                ? "Acts as the member, with only what both this key and the member can do."
+                : "Acts as the key itself. The member's name is only recorded in history."}
+            </HelperText>
           </>
         )}
       </Grid>
