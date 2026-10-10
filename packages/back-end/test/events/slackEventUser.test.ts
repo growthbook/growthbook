@@ -5,8 +5,14 @@ const dana = { id: "u_dana", name: "Dana", email: "dana@example.com" };
 describe("getEventUserFormatted", () => {
   it.each([
     [
-      "an org key naming Dana",
-      { type: "api_key", apiKey: "key_ci", name: "CI key", requestedBy: dana },
+      "an org key assuming Dana's role",
+      {
+        type: "api_key",
+        apiKey: "key_ci",
+        name: "CI key",
+        requestedBy: dana,
+        assumedRole: true,
+      },
       "Dana (dana@example.com) via CI key",
     ],
     [

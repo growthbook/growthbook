@@ -34985,8 +34985,13 @@ paths:
                             type: string
                             format: date-time
                           approvedBy:
-                            description: User ID of the approver.
+                            description: >-
+                              Who approved: the approver's user ID, or the API
+                              key's ID when a key approved as itself.
                             type: string
+                          approvedByUser:
+                            description: The approver, with an API key's name.
+                            $ref: '#/components/schemas/EventUser'
                           context:
                             description: Surface through which the approval was granted.
                             type: string
@@ -35395,8 +35400,13 @@ paths:
                             type: string
                             format: date-time
                           approvedBy:
-                            description: User ID of the approver.
+                            description: >-
+                              Who approved: the approver's user ID, or the API
+                              key's ID when a key approved as itself.
                             type: string
+                          approvedByUser:
+                            description: The approver, with an API key's name.
+                            $ref: '#/components/schemas/EventUser'
                           context:
                             description: Surface through which the approval was granted.
                             type: string
@@ -35895,8 +35905,13 @@ paths:
                             type: string
                             format: date-time
                           approvedBy:
-                            description: User ID of the approver.
+                            description: >-
+                              Who approved: the approver's user ID, or the API
+                              key's ID when a key approved as itself.
                             type: string
+                          approvedByUser:
+                            description: The approver, with an API key's name.
+                            $ref: '#/components/schemas/EventUser'
                           context:
                             description: Surface through which the approval was granted.
                             type: string
@@ -36308,8 +36323,13 @@ paths:
                             type: string
                             format: date-time
                           approvedBy:
-                            description: User ID of the approver.
+                            description: >-
+                              Who approved: the approver's user ID, or the API
+                              key's ID when a key approved as itself.
                             type: string
+                          approvedByUser:
+                            description: The approver, with an API key's name.
+                            $ref: '#/components/schemas/EventUser'
                           context:
                             description: Surface through which the approval was granted.
                             type: string
@@ -65495,6 +65515,12 @@ components:
             token's owner. Absent for an organization API key, which names its
             member in `requestedBy`
           type: string
+        apiKey:
+          description: >-
+            The ID of the API key used, when the action came through one.
+            Revision fields such as `authorId` hold this ID when an organization
+            API key acted as itself
+          type: string
         name:
           description: The member's name, or the key's name for an organization API key
           type: string
@@ -66738,9 +66764,13 @@ components:
           description: >-
             User or API key the deferred publish will run as. Its authority is
             re-checked when the publish fires. An organization API key that
-            named a member with `X-GrowthBook-Requested-By` is recorded as
-            `<keyId>:<memberId>`, and runs with that member as its requester.
+            assumed the role of a member it named with
+            `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and
+            runs with that member as its requester.
           type: string
+        autoPublishEnabledByUser:
+          description: Who armed the deferred publish, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         scheduledPublishAttempts:
           description: >-
             How many times the poller has tried to publish this revision. Read
@@ -66767,10 +66797,10 @@ components:
             properties:
               userId:
                 description: >-
-                  The reviewer's user ID: the signed-in member, a personal
-                  access token's owner, or the member an organization API key
-                  named with `X-GrowthBook-Requested-By`. Older verdicts from
-                  organization API keys carry the key ID
+                  Who reviewed: the user ID of the signed-in member, a personal
+                  access token's owner, or the member whose role an organization
+                  API key assumed; otherwise the key's own ID, when it reviewed
+                  as itself
                 type: string
               user:
                 $ref: '#/components/schemas/EventUser'
@@ -69521,6 +69551,9 @@ components:
             token's owner, or the member whose role an organization API key
             assumed; otherwise the key's own ID, when it acted as itself
           type: string
+        author:
+          description: Who created the revision, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         authorEmail:
           type: string
         contributors:
@@ -69544,9 +69577,13 @@ components:
           description: >-
             User or API key the deferred publish will run as. Its authority is
             re-checked when the publish fires. An organization API key that
-            named a member with `X-GrowthBook-Requested-By` is recorded as
-            `<keyId>:<memberId>`, and runs with that member as its requester.
+            assumed the role of a member it named with
+            `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and
+            runs with that member as its requester.
           type: string
+        autoPublishEnabledByUser:
+          description: Who armed the deferred publish, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         scheduledPublishAt:
           description: >-
             When the deferred publish fires. Absent when the revision publishes
@@ -69595,6 +69632,8 @@ components:
                 API key assumed; otherwise the key's own ID, when it acted as
                 itself
               type: string
+            user:
+              $ref: '#/components/schemas/EventUser'
             dateCreated:
               format: date-time
               type: string
@@ -69983,6 +70022,9 @@ components:
             token's owner, or the member whose role an organization API key
             assumed; otherwise the key's own ID, when it acted as itself
           type: string
+        author:
+          description: Who created the revision, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         authorEmail:
           type: string
         contributors:
@@ -70006,9 +70048,13 @@ components:
           description: >-
             User or API key the deferred publish will run as. Its authority is
             re-checked when the publish fires. An organization API key that
-            named a member with `X-GrowthBook-Requested-By` is recorded as
-            `<keyId>:<memberId>`, and runs with that member as its requester.
+            assumed the role of a member it named with
+            `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and
+            runs with that member as its requester.
           type: string
+        autoPublishEnabledByUser:
+          description: Who armed the deferred publish, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         scheduledPublishAt:
           description: >-
             When the deferred publish fires. Absent when the revision publishes
@@ -70057,6 +70103,8 @@ components:
                 API key assumed; otherwise the key's own ID, when it acted as
                 itself
               type: string
+            user:
+              $ref: '#/components/schemas/EventUser'
             dateCreated:
               format: date-time
               type: string
@@ -70701,6 +70749,9 @@ components:
             token's owner, or the member whose role an organization API key
             assumed; otherwise the key's own ID, when it acted as itself
           type: string
+        author:
+          description: Who created the revision, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         authorEmail:
           type: string
         contributors:
@@ -70724,9 +70775,13 @@ components:
           description: >-
             User or API key the deferred publish will run as. Its authority is
             re-checked when the publish fires. An organization API key that
-            named a member with `X-GrowthBook-Requested-By` is recorded as
-            `<keyId>:<memberId>`, and runs with that member as its requester.
+            assumed the role of a member it named with
+            `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and
+            runs with that member as its requester.
           type: string
+        autoPublishEnabledByUser:
+          description: Who armed the deferred publish, with an API key's name
+          $ref: '#/components/schemas/EventUser'
         scheduledPublishAt:
           description: >-
             When the deferred publish fires. Absent when the revision publishes
@@ -70775,6 +70830,8 @@ components:
                 API key assumed; otherwise the key's own ID, when it acted as
                 itself
               type: string
+            user:
+              $ref: '#/components/schemas/EventUser'
             dateCreated:
               format: date-time
               type: string
@@ -73826,8 +73883,13 @@ components:
                   type: string
                   format: date-time
                 approvedBy:
-                  description: User ID of the approver.
+                  description: >-
+                    Who approved: the approver's user ID, or the API key's ID
+                    when a key approved as itself.
                   type: string
+                approvedByUser:
+                  description: The approver, with an API key's name.
+                  $ref: '#/components/schemas/EventUser'
                 context:
                   description: Surface through which the approval was granted.
                   type: string

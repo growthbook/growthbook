@@ -32,6 +32,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
@@ -1856,6 +1857,22 @@ export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
     status: 200,
     keys,
   });
+}
+
+// The current role of each key that approved as itself, so the review panel
+// judges a key's approval the way publishing does. Members' roles are already
+// on the client.
+export async function getApproverKeyRoles(
+  req: AuthRequest<null, null, { ids?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const ids = (req.query.ids ?? "")
+    .split(",")
+    .filter((id) => id && !context.org.members.some((m) => m.id === id))
+    .slice(0, 100);
+  const roles = await getApproverRoles(context, ids);
+  res.status(200).json({ status: 200, roles: Object.fromEntries(roles) });
 }
 
 // Rejects a malformed date rather than letting `new Date()` yield Invalid Date,

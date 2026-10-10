@@ -5,11 +5,11 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { revisionActor, eventUserToApiEventUser } from "shared/validators";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import { eventUserToApiEventUser } from "back-end/src/services/features";
 
 function toIsoString(d: Date | string | null | undefined): string {
   if (d === null || d === undefined) return new Date(0).toISOString();
@@ -56,6 +56,11 @@ export function revisionEnvelopeToApi(revision: Revision) {
     ...(revision.title ? { title: revision.title } : {}),
     status: revision.status,
     authorId: revision.authorId,
+    ...(revision.authorId && {
+      author: eventUserToApiEventUser(
+        revisionActor(revision, revision.authorId),
+      ),
+    }),
     ...(revision.contributors && revision.contributors.length > 0
       ? { contributors: revision.contributors }
       : {}),
@@ -68,6 +73,11 @@ export function revisionEnvelopeToApi(revision: Revision) {
           resolution: {
             action: revision.resolution.action,
             userId: revision.resolution.userId,
+            ...(revision.resolution.userId && {
+              user: eventUserToApiEventUser(
+                revisionActor(revision, revision.resolution.userId),
+              ),
+            }),
             dateCreated: toIsoString(revision.resolution.dateCreated),
           },
         }

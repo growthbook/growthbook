@@ -120,6 +120,9 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       title: z.string().optional(),
       status: revisionStatusSchema,
       authorId: actorIdField,
+      author: apiEventUser
+        .optional()
+        .describe("Who created the revision, with an API key's name"),
       authorEmail: z.string().optional(),
       contributors: z.array(z.string()).optional(),
       revertedFrom: z.string().optional(),
@@ -131,6 +134,7 @@ export const apiSavedGroupRevisionValidator = namedSchema(
         .object({
           action: z.enum(["merged", "discarded"]),
           userId: actorIdField,
+          user: apiEventUser.optional(),
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .strict()

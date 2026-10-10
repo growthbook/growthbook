@@ -81,7 +81,6 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  ApiEventUser,
   ApiFeatureEnvironment,
   ApiFeatureEnvironmentV2,
   apiFeatureRevisionV2Validator,
@@ -92,6 +91,7 @@ import {
   ApiFeatureWithRevisionsV2,
   ContextualBanditInterface,
   EventUser,
+  eventUserToApiEventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
   eventUserIdentity,
@@ -135,6 +135,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
+import { armerActor } from "back-end/src/util/api-key.util";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
@@ -2517,39 +2518,6 @@ function eventUserToString(
   return user.name || undefined;
 }
 
-// API-safe projection of the internal EventUser union. Deliberately never
-// exposes the api_key actor's `apiKey` field — only stable identifying fields.
-export function eventUserToApiEventUser(
-  user: FeatureRevisionInterface["createdBy"] | undefined,
-): ApiEventUser | undefined {
-  if (!user) return undefined;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
-        ...(user.assumedRole ? { assumedRole: true } : {}),
-      };
-    case "system":
-      return {
-        type: "system",
-        id: user.id,
-      };
-  }
-  // Fail closed for legacy stored documents with an unrecognized type.
-  return undefined;
-}
-
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -2890,6 +2858,11 @@ export function revisionToApiInterfaceV2(
     // `autoPublishEnabledBy` it can't tell whose authority the publish will use.
     ...(rev.autoPublishEnabledBy !== undefined && {
       autoPublishEnabledBy: rev.autoPublishEnabledBy,
+    }),
+    ...(rev.autoPublishEnabledBy && {
+      autoPublishEnabledByUser: eventUserToApiEventUser(
+        armerActor(rev, rev.autoPublishEnabledBy),
+      ),
     }),
     ...(rev.scheduledPublishAttempts !== undefined && {
       scheduledPublishAttempts: rev.scheduledPublishAttempts,

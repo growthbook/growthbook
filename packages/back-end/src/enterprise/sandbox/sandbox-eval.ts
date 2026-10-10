@@ -4,8 +4,9 @@ import {
   CustomHookErrorDetail,
   CustomHookInterface,
   CustomHookType,
-  eventUserPersonId,
+  eventUserIdentity,
   hookEntityType,
+  revisionActor,
 } from "shared/validators";
 import {
   getConfigAncestorKeys,
@@ -66,11 +67,16 @@ export async function runValidateFeatureHooks({
 }
 
 // For hooks that gate on team rather than identity.
-// One member expansion per hook call. Still a member = user, else an API key.
-async function memberDirectory(context: Context) {
+// One member expansion per hook call. Still a member = user, else the actor
+// the revision stored for that identity, such as a key that acted as itself.
+async function memberDirectory(
+  context: Context,
+  revision: Parameters<typeof revisionActor>[0] = {},
+) {
   const members = await expandOrgMembers(context.org.members ?? []);
   const byId = new Map(members.map((m) => [m.id, m]));
   return (userId: string) => {
+    const stored = revisionActor(revision, userId);
     const user: EventUser = byId.has(userId)
       ? {
           type: "dashboard",
@@ -78,7 +84,9 @@ async function memberDirectory(context: Context) {
           name: byId.get(userId)?.name || "",
           email: byId.get(userId)?.email || "",
         }
-      : { type: "api_key", apiKey: userId };
+      : stored?.type === "api_key"
+        ? stored
+        : { type: "api_key", apiKey: userId };
     return {
       user,
       teams: teamsForMember(userId, context.org, context.teams ?? []),
@@ -91,8 +99,9 @@ async function hookAuthorship(
   context: Context,
   authorId: string | undefined,
   contributors: string[] | undefined,
+  revision: Parameters<typeof revisionActor>[0],
 ) {
-  const resolve = await memberDirectory(context);
+  const resolve = await memberDirectory(context, revision);
   return {
     author: authorId ? { userId: authorId, ...resolve(authorId) } : null,
     coauthors: coauthorIds(authorId, contributors).map((id) => ({
@@ -119,8 +128,9 @@ async function withHookRevisionContext<
   if (!revision) return revision;
   const authorship = await hookAuthorship(
     context,
-    eventUserPersonId(revision.createdBy ?? null) ?? undefined,
+    eventUserIdentity(revision.createdBy ?? null) ?? undefined,
     revision.contributors,
+    { createdBy: revision.createdBy ?? undefined },
   );
   return {
     ...revision,
@@ -502,11 +512,13 @@ export type ConfigRevisionHookInput = {
   // Stored as-is; the prep maps them to the feature-shaped entries hooks see.
   reviews: {
     userId: string;
+    user?: EventUser;
     decision: string;
     comment?: string;
     stale?: boolean;
     dateCreated: Date;
   }[];
+  activityLog?: { user?: EventUser }[];
 };
 
 type ConfigRevisionHookArgs = {
@@ -536,6 +548,7 @@ async function prepareConfigRevisionHookCall({
           context,
           revision.authorId,
           revision.contributors,
+          revision,
         )),
         reviews: await hookReviewerVerdicts(context, revision.reviews),
       }

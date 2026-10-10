@@ -1,4 +1,6 @@
 import { Revision } from "shared/enterprise";
+import { eventUserToApiEventUser } from "shared/validators";
+import { armerActor } from "back-end/src/util/api-key.util";
 
 function serializeDate(
   date: Date | string | null | undefined,
@@ -17,7 +19,12 @@ export function revisionScheduleApiFields(revision: Revision) {
   return {
     ...(revision.autoPublishOnApproval ? { autoPublishOnApproval: true } : {}),
     ...(revision.autoPublishEnabledBy
-      ? { autoPublishEnabledBy: revision.autoPublishEnabledBy }
+      ? {
+          autoPublishEnabledBy: revision.autoPublishEnabledBy,
+          autoPublishEnabledByUser: eventUserToApiEventUser(
+            armerActor(revision, revision.autoPublishEnabledBy),
+          ),
+        }
       : {}),
     ...(scheduledPublishAt ? { scheduledPublishAt } : {}),
     ...(revision.scheduledPublishLockEdits

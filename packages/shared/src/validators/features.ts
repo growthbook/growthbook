@@ -699,17 +699,16 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // User IDs who have made edits to this draft. Populated incrementally via
+    // Identities (user or API key IDs) that have edited this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
     /** Review-cycle identity; absent legacy values are treated as cycle 0. */
     reviewCycle: z.number().optional(),
     autoPublishOnApproval: z.boolean().optional(),
-    // User ID of whoever most recently armed `autoPublishOnApproval` — the
-    // auto-publish executes with this user's authority. Absent when armed by
-    // an actor without a user ID (e.g. an API key), in which case the
-    // publish falls back to `createdBy`.
+    // Who most recently armed `autoPublishOnApproval`, and whose authority the
+    // auto-publish runs with: a user ID, an API key ID, or `<keyId>:<memberId>`
+    // for a key that assumed a member's role.
     autoPublishEnabledBy: z.string().optional(),
     // Defers an armed revision's auto-publish until on/after this date (and, if
     // required, approved). null/absent = publish as soon as approved.

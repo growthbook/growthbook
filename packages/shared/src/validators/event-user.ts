@@ -49,8 +49,8 @@ const assumedRoleField = z
     "True when the request assumed the named member's role, with only the permissions both the key and the member hold. Absent when the key kept its own role.",
   );
 
-// Actor shape the REST API returns: the event user without the API key id.
-// For an organization API key, `name` is the key's name.
+// Actor shape the REST API returns. For an organization API key, `name` is the
+// key's name and `apiKey` its ID.
 export const apiEventUser = namedSchema(
   "EventUser",
   z
@@ -64,6 +64,12 @@ export const apiEventUser = namedSchema(
         .string()
         .describe(
           "The member's user ID: the signed-in member, or a personal access token's owner. Absent for an organization API key, which names its member in `requestedBy`",
+        )
+        .optional(),
+      apiKey: z
+        .string()
+        .describe(
+          "The ID of the API key used, when the action came through one. Revision fields such as `authorId` hold this ID when an organization API key acted as itself",
         )
         .optional(),
       name: z
@@ -150,9 +156,38 @@ export function eventUserIdentity(user: EventUser): string | null {
   return null;
 }
 
-// One line naming an actor: "Dana via CI key" when an org key named Dana,
-// "Pat (API)" for a personal access token, "CI key (API)" for a key that named
-// no one. `nameFor` supplies a member's current name.
+// The stored actor behind an identity on a revision: its creator, publisher, a
+// verdict or an activity entry. Falls back to a member reference for entries
+// that predate stored actors.
+export function revisionActor(
+  revision: {
+    createdBy?: EventUser;
+    publishedBy?: EventUser;
+    reviews?: { user?: EventUser }[];
+    activityLog?: { user?: EventUser }[];
+  },
+  id: string,
+): EventUser {
+  const actors = [
+    revision.createdBy,
+    revision.publishedBy,
+    ...(revision.reviews ?? []).map((r) => r.user),
+    ...(revision.activityLog ?? []).map((e) => e.user),
+  ];
+  return (
+    actors.find((actor) => !!actor && eventUserIdentity(actor) === id) ?? {
+      type: "dashboard",
+      id,
+      name: "",
+      email: "",
+    }
+  );
+}
+
+// One line naming an actor, led by whoever acted: "Dana via CI key" when an org
+// key assumed Dana's role, "CI key for Dana" when it acted as itself and named
+// her, "Pat (API)" for a personal access token, "CI key (API)" for a key that
+// named no one. `nameFor` supplies a member's current name.
 export function eventUserLabel(
   user: EventUser,
   {
@@ -175,7 +210,11 @@ export function eventUserLabel(
       : name || person?.email || person?.id || "";
   if (user.type === "dashboard") return personText;
   const keyName = user.id ? "" : user.name || "";
-  if (user.requestedBy) return `${personText} via ${keyName || "API key"}`;
+  if (user.requestedBy) {
+    return user.assumedRole
+      ? `${personText} via ${keyName || "API key"}`
+      : `${keyName || "API key"} for ${personText}`;
+  }
   if (personText) return `${personText} (API)`;
   return keyName ? `${keyName} (API)` : "API key";
 }
@@ -225,4 +264,34 @@ export function auditUserToEventUser(
   }
   const u = user as AuditUserLoggedIn;
   return { type: "dashboard", id: u.id, email: u.email, name: u.name };
+}
+
+// The REST shape of a stored actor.
+export function eventUserToApiEventUser(
+  user: EventUser | undefined,
+): ApiEventUser | undefined {
+  if (!user) return undefined;
+  switch (user.type) {
+    case "dashboard":
+      return {
+        type: "dashboard",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "api_key":
+      return {
+        type: "api_key",
+        apiKey: user.apiKey,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        ...(user.requestedBy ? { requestedBy: user.requestedBy } : {}),
+        ...(user.assumedRole ? { assumedRole: true } : {}),
+      };
+    case "system":
+      return { type: "system", id: user.id };
+  }
+  // Fail closed for legacy stored documents with an unrecognized type.
+  return undefined;
 }

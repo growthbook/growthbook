@@ -1,7 +1,9 @@
-import { getFeatureRevisionLogV2Validator } from "shared/validators";
+import {
+  getFeatureRevisionLogV2Validator,
+  eventUserToApiEventUser,
+} from "shared/validators";
 import { getValidDate } from "shared/dates";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { eventUserToApiEventUser } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";

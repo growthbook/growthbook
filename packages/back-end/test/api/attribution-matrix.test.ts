@@ -259,6 +259,15 @@ describe("attribution across callers", () => {
       const { id, version } = await draft(actor, key);
       const path = `${revisions}/${key}/${version}`;
       expect((await stored(id))?.authorId).toBe(actorId);
+      if (!hasPerson) {
+        // REST pairs the key's ID with its name.
+        const listed = await as(actor).get(path);
+        expect(listed.body.revision.author).toMatchObject({
+          type: "api_key",
+          apiKey: KEY.id,
+          name: KEY.description,
+        });
+      }
 
       const mine = await as(actor).get(`${revisions}/${key}?mine=true`);
       if (hasPerson) {

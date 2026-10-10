@@ -2,10 +2,12 @@ import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import {
+  EventUser,
   EventUserApiKey,
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { revisionActor } from "shared/validators";
 import {
   assumesRequesterRole,
   requesterHeaderPolicy,
@@ -215,6 +217,30 @@ export function decodeArmingApiKeyId(id: string): {
 } {
   const [apiKeyId, requesterId] = id.split(ARMING_REQUESTER_SEPARATOR, 2);
   return { apiKeyId, requesterId: requesterId || null };
+}
+
+// The stored actor that armed deferred work, from the revision's own actors.
+export function armerActor(
+  revision: Parameters<typeof revisionActor>[0],
+  armerId: string,
+): EventUser {
+  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armerId);
+  if (requesterId) {
+    const actors = [
+      revision.createdBy,
+      revision.publishedBy,
+      ...(revision.reviews ?? []).map((r) => r.user),
+      ...(revision.activityLog ?? []).map((e) => e.user),
+    ];
+    const found = actors.find(
+      (a) =>
+        a?.type === "api_key" &&
+        a.apiKey === apiKeyId &&
+        a.requestedBy?.id === requesterId,
+    );
+    if (found) return found;
+  }
+  return revisionActor(revision, armerId);
 }
 
 // The actor an API key request records: a personal token as its owner, an org

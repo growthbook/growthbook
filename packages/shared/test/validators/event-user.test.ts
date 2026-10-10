@@ -4,6 +4,7 @@ import {
   eventUserLabel,
   eventUserPersonId,
   eventUserIdentity,
+  revisionActor,
   type EventUser,
 } from "../../src/validators";
 
@@ -66,8 +67,8 @@ describe("actor helpers", () => {
       "an org key naming Dana as itself",
       null,
       "key_ci",
-      "Dana via CI key",
-      "Dana (dana@example.com) via CI key",
+      "CI key for Dana",
+      "CI key for Dana (dana@example.com)",
       { name: "CI key" },
     ],
     [
@@ -165,5 +166,23 @@ describe("actor helpers", () => {
         ).toEqual(SAME[row]);
       },
     );
+  });
+
+  it("finds the stored actor behind an identity on a revision", () => {
+    const key = actors["an org key naming no one"];
+    const revision = {
+      reviews: [{ user: actors["a signed-in member"] }],
+      activityLog: [{ user: key }],
+    };
+    expect(revisionActor(revision, "key_ci")).toBe(key);
+    expect(revisionActor(revision, "u_dana")).toBe(
+      actors["a signed-in member"],
+    );
+    expect(revisionActor(revision, "u_gone")).toEqual({
+      type: "dashboard",
+      id: "u_gone",
+      name: "",
+      email: "",
+    });
   });
 });
