@@ -24,6 +24,23 @@ export type LeafWeight = z.infer<typeof leafWeightValidator>;
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
+/**
+ * Lightweight health summary persisted on the CB doc after each successful
+ * results run.
+ */
+export const contextualBanditAnalysisSummaryValidator = z.object({
+  snapshotId: z.string(),
+  health: z
+    .object({
+      srm: z.number().nullable(),
+      totalUsers: z.number(),
+    })
+    .optional(),
+});
+export type ContextualBanditAnalysisSummary = z.infer<
+  typeof contextualBanditAnalysisSummaryValidator
+>;
+
 // Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
 const contextualBanditVariationStatus = [
   "active",
@@ -107,6 +124,7 @@ export const contextualBanditValidator = baseSchema
     autoSnapshots: z.boolean().optional(),
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
+    analysisSummary: contextualBanditAnalysisSummaryValidator.optional(),
   })
   .strict();
 
@@ -168,6 +186,7 @@ export const apiContextualBanditValidator = namedSchema(
     conversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     stage: z.enum(banditStageType).optional(),
     stageDateStarted: z.iso.datetime().optional(),
+    analysisSummary: contextualBanditAnalysisSummaryValidator.optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
   }),

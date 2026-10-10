@@ -85,6 +85,19 @@ export function getExperimentUnitsQuery(
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
 
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  // Contextual bandits attribute each user to their first exposure (one unit per
+  // user), so multi-variation users are never bucketed as '__multiple__'.
+  const variationValuePerUnit =
+    isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
+
   const {
     contextualExposureSelectCols,
     contextualUnitsBaseSelectCols,
@@ -231,16 +244,7 @@ export function getExperimentUnitsQuery(
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${unitDimensions
           .map(

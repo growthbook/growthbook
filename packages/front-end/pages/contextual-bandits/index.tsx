@@ -406,6 +406,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                             <ExperimentStatusIndicator
                               experimentData={contextualBanditStatusIndicatorData(
                                 e,
+                                e.analysisSummary?.health ?? undefined,
                               )}
                             />
                           </td>

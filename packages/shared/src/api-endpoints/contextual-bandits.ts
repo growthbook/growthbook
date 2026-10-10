@@ -3,6 +3,10 @@ import type { LinkedFeatureInfo } from "shared/types/experiment";
 import { crudEndpoint, customEndpoint } from "../api-model";
 import { booleanQueryField } from "../validators/shared";
 import { contextualLeafClauseValidator } from "../validators/contextual-bandit-event";
+import {
+  contextualBanditSrmLatestPeriodValidator,
+  contextualBanditTrafficValidator,
+} from "../validators/contextual-bandit-snapshot";
 import { queryPointerValidator } from "../validators/queries";
 import {
   contextualBanditEventResponseShape,
@@ -252,8 +256,10 @@ export const getContextualBanditResults = {
               statistic: z.number(),
               pValue: z.number(),
               degreesOfFreedom: z.number().int().nonnegative(),
+              latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
             })
             .nullable(),
+          traffic: contextualBanditTrafficValidator.nullable(),
         })
         .nullable(),
     })
