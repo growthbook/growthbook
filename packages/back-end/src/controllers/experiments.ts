@@ -11,6 +11,7 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  parseAssignmentQuerySelection,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -114,6 +115,7 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -507,7 +509,7 @@ export async function postSimilarExperiments(
       includeArchived: false,
     },
   );
-  // filter to only experiments that have hypothesises, and enough words to make a good search:
+  // filter to only experiments that have hypotheses, and enough words to make a good search:
   const filteredPreviousExps = previousExperiments.filter((e) => {
     const words =
       (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
@@ -868,12 +870,22 @@ export async function getExperimentIncrementalRefresh(
         })
       : null;
 
+    /**
+     * Bypasses read scope: a viewer who can't read the data source must still
+     * get the same answer. Only the matching decision leaves the server.
+     */
+    const datasource = snapshot
+      ? await context.dangerouslyGetDataSourceByIdBypassPermission(
+          experiment.datasource,
+        )
+      : null;
     if (
       legacyDoc &&
       snapshot &&
       legacyDocDescribesPhase({
         legacyDoc,
         snapshotSettings: snapshot.settings,
+        exposureQueries: datasource?.settings.queries?.exposure ?? [],
       })
     ) {
       incrementalRefresh = legacyDoc;
@@ -1273,6 +1285,7 @@ export async function postExperiments(
     trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
+    exposureQueryIdentifierType: data.exposureQueryIdentifierType,
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases
@@ -1365,6 +1378,19 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
+    if (datasource && obj.exposureQueryId) {
+      const parsed = parseAssignmentQuerySelection(
+        datasource.settings.queries?.exposure ?? [],
+        {
+          exposureQueryId: obj.exposureQueryId,
+          identifierType: obj.exposureQueryIdentifierType,
+          onOmitted: "defaultToFirst",
+        },
+      );
+      if (!parsed.ok) throw new Error(parsed.error);
+      obj.exposureQueryIdentifierType = parsed.identifierType;
+    }
+
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
@@ -1372,6 +1398,7 @@ export async function postExperiments(
         exposureQueryId:
           data.exposureQueryId ||
           datasource?.settings.queries?.exposure?.[0]?.id,
+        exposureQueryIdentifierType: obj.exposureQueryIdentifierType,
         dimensionIds: data.precomputedUnitDimensionIds,
       });
     }
@@ -1619,7 +1646,7 @@ export async function postExperiment(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: experiment.customFields,
@@ -1870,6 +1897,7 @@ export async function postExperiment(
     "owner",
     "datasource",
     "exposureQueryId",
+    "exposureQueryIdentifierType",
     "userIdType",
     "hashAttribute",
     "fallbackAttribute",
@@ -1961,11 +1989,7 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(
-    experiment,
-    changes,
-    context.userId || undefined,
-  );
+  normalizeStatusUpdateScheduleChanges(experiment, changes, context.armer);
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -1991,10 +2015,34 @@ export async function postExperiment(
     };
   }
 
+  const resolvedSelection = await resolveAssignmentQueryIdentifier(context, {
+    previous: {
+      datasource: experiment.datasource ?? "",
+      exposureQueryId: experiment.exposureQueryId,
+      identifierType: experiment.exposureQueryIdentifierType,
+    },
+    next: {
+      datasource: changes.datasource ?? experiment.datasource ?? "",
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      /**
+       * The body's, not `changes`: re-sending the stored value on a new query
+       * leaves it out of `changes` but is still an explicit choice.
+       */
+      identifierType: data.exposureQueryIdentifierType,
+    },
+    onOmitted: "defaultToFirst",
+  });
+  // Also overrides an echoed identifier on an unchanged selection, so an
+  // implicit experiment stays implicit.
+  if (resolvedSelection.changed || "exposureQueryIdentifierType" in changes) {
+    changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
+  }
+
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||
     changes.datasource !== undefined ||
-    changes.exposureQueryId !== undefined;
+    changes.exposureQueryId !== undefined ||
+    changes.exposureQueryIdentifierType !== undefined;
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
       changes.precomputedUnitDimensionIds ??
@@ -2004,6 +2052,10 @@ export async function postExperiment(
       changes.datasource ?? experiment.datasource ?? "";
     const effectiveExposureQueryId =
       changes.exposureQueryId ?? experiment.exposureQueryId;
+    const effectiveExposureQueryIdentifierType =
+      "exposureQueryIdentifierType" in changes
+        ? changes.exposureQueryIdentifierType
+        : experiment.exposureQueryIdentifierType;
     if (effectivePrecomputedUnitDimensionIds.length > 0) {
       const effectiveDatasource = effectiveDatasourceId
         ? await getDataSourceById(context, effectiveDatasourceId)
@@ -2012,6 +2064,7 @@ export async function postExperiment(
         context,
         datasource: effectiveDatasource,
         exposureQueryId: effectiveExposureQueryId,
+        exposureQueryIdentifierType: effectiveExposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
     }
@@ -2946,7 +2999,7 @@ export async function postExperimentTargeting(
   );
 
   await validateChangedPhaseReferences(
-    [{ condition, savedGroups }],
+    [{ condition, savedGroups, prerequisites }],
     experiment.phases.slice(-1),
     context,
   );
@@ -3433,6 +3486,7 @@ export async function postSnapshotAnalysis(
       context,
       id,
       updates: { settings: snapshot.settings },
+      conclusion: null,
     });
   }
 
@@ -4362,7 +4416,7 @@ export async function postExperimentFeatureValues(
         {},
       );
 
-      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
+      // This should never happen since we only allow auto-publishing new revisions, but guard against it just in case
       if (!mergeResult.success) {
         res.status(400).json({
           status: 400,

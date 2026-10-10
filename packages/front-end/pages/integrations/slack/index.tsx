@@ -18,6 +18,7 @@ import { FaSlack } from "react-icons/fa";
 import { PiArrowClockwise } from "react-icons/pi";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
+import useSlackChannels from "@/components/SlackIntegrations/useSlackChannels";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -45,14 +46,6 @@ type SlackOAuthConnectionResponse = {
   slackIntegration: SlackOAuthIntegrationInterface | null;
 };
 
-type SlackChannelOption = {
-  id: string;
-  name: string;
-  isPrivate: boolean;
-  isMember: boolean;
-  alreadyConnected: boolean;
-};
-
 type WorkspaceGroup = {
   teamId: string;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
@@ -77,44 +70,13 @@ function AddChannelModal({
   onAdded: (integration: SlackOAuthIntegrationInterface) => Promise<void>;
 }) {
   const { apiCall } = useAuth();
-  const [channels, setChannels] = useState<SlackChannelOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    channels,
+    loading,
+    error: loadError,
+    refresh,
+  } = useSlackChannels(teamId);
   const [selected, setSelected] = useState("");
-
-  const fetchChannels = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const allChannels: SlackChannelOption[] = [];
-      let cursor: string | null = null;
-      do {
-        const response = await apiCall<{
-          channels: SlackChannelOption[];
-          nextCursor: string | null;
-        }>(
-          `/integrations/slack/channels?teamId=${encodeURIComponent(teamId)}${
-            cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
-          }`,
-        );
-        allChannels.push(...response.channels);
-        cursor = response.nextCursor;
-      } while (cursor);
-      setChannels(allChannels);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load Slack channels.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [apiCall, teamId]);
-
-  useEffect(() => {
-    fetchChannels();
-  }, [fetchChannels]);
 
   const connectedIds = useMemo(
     () =>
@@ -162,7 +124,18 @@ function AddChannelModal({
             id="slack-channel"
             containerStyle={{ marginBottom: 0 }}
             placeholder={
-              loading ? "Loading channels…" : "Search for a channel…"
+              !loading
+                ? "Search for a channel…"
+                : channels.length === 0
+                  ? "Loading channels…"
+                  : `Search ${channels.length.toLocaleString()} ${
+                      channels.length === 1 ? "channel" : "channels"
+                    }, still loading…`
+            }
+            noOptionsMessage={() =>
+              loading
+                ? "No matches yet, still loading channels…"
+                : "No matching channels"
             }
             value={selected}
             options={channels.map((channel) => ({
@@ -186,7 +159,7 @@ function AddChannelModal({
           title="Refresh channels"
           loading={loading}
           style={{ flexShrink: 0, alignSelf: "stretch", height: "auto" }}
-          onClick={() => fetchChannels()}
+          onClick={refresh}
         >
           <PiArrowClockwise size={16} aria-hidden />
         </Button>

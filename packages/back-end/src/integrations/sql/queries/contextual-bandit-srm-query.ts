@@ -43,7 +43,7 @@ export function getContextualBanditSrmQuery(
     );
   }
 
-  const userIdType = exposureQuery.userIdType;
+  const userIdType = exposureQuery.identifierType;
   const timestampColumn = "e.timestamp";
   const startDate: Date = settings.startDate;
   const endDate: Date | undefined = settings.endDate;

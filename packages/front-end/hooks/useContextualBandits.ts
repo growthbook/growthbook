@@ -1,34 +1,25 @@
-import {
-  ApiContextualBanditInterface,
-  ContextualBanditSrmLatestPeriod,
-  listContextualBanditsEndpoint,
-} from "shared/validators";
+import { ApiContextualBanditInterface } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type {
-  ExperimentSnapshotTraffic,
-  SnapshotStatusSummary,
-} from "shared/types/experiment-snapshot";
-import type { ContextualBanditSnapshot } from "shared/types/stats";
-import type { ContextualBanditResultsView } from "shared/experiments";
-import type { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getContextualBanditResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
 import type { IssueValue } from "@/components/HealthTab/IssueTags";
-import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useRestApi } from "@/services/restApi";
-import useApi from "./useApi";
+import { useRestApi, useRestApiCall } from "@/services/restApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
 export function useContextualBandits(
   project?: string,
   includeArchived: boolean = false,
 ) {
-  const { data, error, mutate } = useRestApi(listContextualBanditsEndpoint, {
-    query: { projectId: project || undefined },
-  });
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.listContextualBandits,
+    {
+      query: { projectId: project || undefined },
+    },
+  );
 
   const allContextualBandits = useMemo(
     () => data?.contextualBandits ?? [],
@@ -60,11 +51,10 @@ export function useContextualBandits(
 
 /** Single-CB fetch returning the CB-native API shape. */
 export function useContextualBandit(cbId: string | undefined) {
-  const { data, error, mutate } = useApi<{
-    contextualBandit: ApiContextualBanditInterface;
-  }>(cbId ? `/api/v1/contextual-bandits/${cbId}` : "", {
-    shouldRun: () => !!cbId,
-  });
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.getContextualBandit,
+    cbId ? { params: { id: cbId } } : null,
+  );
 
   return {
     loading: !!cbId && !error && !data,
@@ -74,38 +64,19 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
-export type ContextualBanditResultsLatest = SnapshotStatusSummary & {
-  srm?: {
-    statistic: number;
-    pValue: number;
-    degreesOfFreedom: number;
-    latestPeriod?: ContextualBanditSrmLatestPeriod;
-  } | null;
-  traffic?: ExperimentSnapshotTraffic | null;
-};
-
-export type ContextualBanditResultsResponse = {
-  status: number;
-  contextualBanditSnapshot: ContextualBanditSnapshot | null;
-  overallWeights: { variationId: string; weight: number | null }[] | null;
-  results: ContextualBanditResultsView | null;
-  latest: ContextualBanditResultsLatest | null;
-};
-
 /**
  * CB-native results state: fetches the CB results snapshot, auto-polls while a run is in progress,
  * and exposes a refresh action. Replaces the experiment `useSnapshot()` context for CBs.
  */
 export function useContextualBanditResults(cbId: string | undefined) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
-  const { data, error, mutate, isValidating } =
-    useApi<ContextualBanditResultsResponse>(
-      cbId ? `/api/v1/contextual-bandits/${cbId}/results` : "",
-      { shouldRun: () => !!cbId },
-    );
+  const { data, error, mutate, isValidating } = useRestApi(
+    contextualBanditEndpoints.getContextualBanditResults,
+    cbId ? { params: { id: cbId } } : null,
+  );
 
   const latest = data?.latest ?? null;
   const isRunning = latest?.status === "running";
@@ -123,17 +94,23 @@ export function useContextualBanditResults(cbId: string | undefined) {
     setRefreshing(true);
     setRefreshError("");
     try {
-      await apiCall<{ snapshotId: string; cbeId?: string }>(
-        `/api/v1/contextual-bandits/${cbId}/refresh`,
-        { method: "POST" },
-      );
+      await restApiCall(contextualBanditEndpoints.refreshContextualBandit, {
+        params: { id: cbId },
+      });
       await mutate();
     } catch (e) {
       setRefreshError(e instanceof Error ? e.message : String(e));
     } finally {
       setRefreshing(false);
     }
-  }, [apiCall, cbId, mutate]);
+  }, [restApiCall, cbId, mutate]);
+
+  const cancel = useCallback(async () => {
+    if (!cbId) return;
+    await restApiCall(contextualBanditEndpoints.cancelContextualBandit, {
+      params: { id: cbId },
+    });
+  }, [restApiCall, cbId]);
 
   return {
     loading: !!cbId && !error && !data,
@@ -144,24 +121,19 @@ export function useContextualBanditResults(cbId: string | undefined) {
     error,
     mutate,
     refresh,
+    cancel,
     refreshing,
     refreshError,
     setRefreshError,
   };
 }
 
-export type ContextualBanditLinkedFeaturesResponse = {
-  linkedFeatures: LinkedFeatureInfo[];
-  environments: string[];
-};
-
 /** Fetches the features linked to a CB (enriched `LinkedFeatureInfo[]`) for the Linked Features section. */
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
-  const { data, error, mutate } =
-    useApi<ContextualBanditLinkedFeaturesResponse>(
-      cbId ? `/api/v1/contextual-bandits/${cbId}/linked-features` : "",
-      { shouldRun: () => !!cbId },
-    );
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.getContextualBanditLinkedFeatures,
+    cbId ? { params: { id: cbId } } : null,
+  );
 
   return {
     loading: !!cbId && !error && !data,

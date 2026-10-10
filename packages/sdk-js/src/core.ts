@@ -127,6 +127,18 @@ function onExperimentViewed(
       ),
     );
   }
+
+  // Deduped above — subscribers fire once per unique experiment assignment.
+  if (ctx.user.experimentViewedSubs?.size) {
+    const user = getTrackingUserContext(ctx.user);
+    ctx.user.experimentViewedSubs.forEach((cb) => {
+      try {
+        cb(experiment, result, user);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
   return calls;
 }
 
@@ -884,7 +896,7 @@ function getContextualBanditLeaf(
 
 const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
 
-function buildContextualBanditExperiment<T>(
+export function buildContextualBanditExperiment<T>(
   experiment: Experiment<T>,
   contextualBanditRef: string,
   id: string,

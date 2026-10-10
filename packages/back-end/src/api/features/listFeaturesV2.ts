@@ -7,11 +7,7 @@ import { loadFeaturesPage } from "./listFeatures";
 
 export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
   async (req) => {
-    const r = await loadFeaturesPage(
-      req.context,
-      req.organization.id,
-      req.query,
-    );
+    const r = await loadFeaturesPage(req.context, req.query);
     if (r.empty) return r.response;
     const rampSchedules =
       await req.context.models.rampSchedules.getAllByFeatureIds(

@@ -1,7 +1,19 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  SchemaFormat,
+} from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
+import { Flex } from "@radix-ui/themes";
+import TextField from "@/ui/TextField";
+import { eventSchemas } from "@/services/eventSchema";
+
+// Only options that feed generated resources (fact tables, metrics) are
+// editable after creation; the rest only shape the initial exposure SQL.
+const EDITABLE_OPTIONS: Partial<Record<SchemaFormat, string[]>> = {
+  amplitude: ["projectId"],
+  langfuse: ["projectId"],
+  phoenix: ["projectName"],
+};
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -33,25 +45,28 @@ export default function EditSchemaOptions({
     setSchemaOptions({ [e.target.name]: e.target.value });
   };
 
-  if (datasource.settings?.schemaFormat === "amplitude") {
-    return (
-      <div>
-        <label>
-          Amplitude Project ID{" "}
-          <Tooltip body="This is required if you want to use our automatic metric generation. You can find this in your Amplitude account by going to your organizational settings and locating your project settings." />
-        </label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="projectId"
-          value={datasource.settings?.schemaOptions?.projectId || ""}
-          onChange={onParamChange}
-          placeholder="123456"
-        />
-      </div>
-    );
+  const schemaFormat = datasource.settings?.schemaFormat;
+  const editable = schemaFormat ? EDITABLE_OPTIONS[schemaFormat] : undefined;
+  const options = (
+    eventSchemas.find((s) => s.value === schemaFormat)?.options ?? []
+  ).filter((o) => editable?.includes(o.name));
+  if (!options.length) {
+    return null;
   }
 
-  return null;
+  return (
+    <Flex direction="column" gap="3">
+      {options.map(({ name, label, type, helpText }) => (
+        <TextField
+          key={name}
+          type={type === "number" ? "number" : "text"}
+          name={name}
+          label={label}
+          helpText={helpText}
+          value={String(datasource.settings?.schemaOptions?.[name] ?? "")}
+          onChange={onParamChange}
+        />
+      ))}
+    </Flex>
+  );
 }

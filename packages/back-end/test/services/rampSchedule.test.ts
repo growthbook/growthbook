@@ -89,6 +89,12 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   registerRevisionPublishedHook: jest.fn(),
 }));
 
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));
@@ -374,7 +380,7 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(true);
   });
 
-  it("does not overwrite unpatchd fields", () => {
+  it("does not overwrite unpatched fields", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);

@@ -20,18 +20,15 @@ const TIME_PARTITIONING: bq.TableMetadata["timePartitioning"] = {
   field: EVENT_FORWARDER_AVRO_PARTITION_FIELD,
 };
 
-/** Fields present on every forwarder table. */
-const BASE_FIELDS: bq.TableField[] = [
+// Same columns on all three tables, as the ingestor sends the full row to each
+// and the consumer drops any column the table lacks.
+const TABLE_SCHEMA: bq.TableField[] = [
   { name: "event_name", type: "STRING", mode: "REQUIRED" },
   { name: "event_uuid", type: "STRING", mode: "NULLABLE" },
   { name: "timestamp", type: "TIMESTAMP", mode: "NULLABLE" },
   { name: "received_at", type: "TIMESTAMP", mode: "NULLABLE" },
   { name: "client_key", type: "STRING", mode: "NULLABLE" },
   { name: "environment", type: "STRING", mode: "NULLABLE" },
-];
-
-const MAIN_TABLE_SCHEMA: bq.TableField[] = [
-  ...BASE_FIELDS,
   { name: "sdk_language", type: "STRING", mode: "NULLABLE" },
   { name: "sdk_version", type: "STRING", mode: "NULLABLE" },
   { name: "ip", type: "STRING", mode: "NULLABLE" },
@@ -41,20 +38,6 @@ const MAIN_TABLE_SCHEMA: bq.TableField[] = [
   { name: "geo_lon", type: "FLOAT64", mode: "NULLABLE" },
   { name: "experiment_id", type: "STRING", mode: "NULLABLE" },
   { name: "variation_id", type: "STRING", mode: "NULLABLE" },
-  { name: "feature_key", type: "STRING", mode: "NULLABLE" },
-  { name: "properties", type: "JSON", mode: "NULLABLE" },
-  { name: "attributes", type: "JSON", mode: "NULLABLE" },
-];
-
-const EXPERIMENT_VIEWED_SCHEMA: bq.TableField[] = [
-  ...BASE_FIELDS,
-  { name: "experiment_id", type: "STRING", mode: "NULLABLE" },
-  { name: "variation_id", type: "STRING", mode: "NULLABLE" },
-  { name: "attributes", type: "JSON", mode: "NULLABLE" },
-];
-
-const FEATURE_USAGE_SCHEMA: bq.TableField[] = [
-  ...BASE_FIELDS,
   { name: "feature_key", type: "STRING", mode: "NULLABLE" },
   { name: "properties", type: "JSON", mode: "NULLABLE" },
   { name: "attributes", type: "JSON", mode: "NULLABLE" },
@@ -143,10 +126,10 @@ export type EnsureEventForwarderBigQueryTablesParams = {
  * - `{prefix}_feature_usage` — dedicated table for Feature Evaluated events
  *
  * All three are DAY-partitioned on `received_at`. `attributes` and `properties`
- * are stored as native BigQuery JSON columns.
+ * are stored as native BigQuery JSON columns. Existing tables are left as they are.
  *
- * Called during provisioning before the Confluent connector is started, because
- * the connector is configured with `auto.create.tables=false`.
+ * Called during provisioning: neither the Confluent connector
+ * (`auto.create.tables=false`) nor the Storage Write API consumer creates tables.
  */
 export async function ensureEventForwarderBigQueryTables(
   params: EnsureEventForwarderBigQueryTablesParams,
@@ -163,8 +146,8 @@ export async function ensureEventForwarderBigQueryTables(
   );
 
   await Promise.all([
-    ensureTable(ds, tableNames.events, MAIN_TABLE_SCHEMA),
-    ensureTable(ds, tableNames.experimentViewed, EXPERIMENT_VIEWED_SCHEMA),
-    ensureTable(ds, tableNames.featureUsage, FEATURE_USAGE_SCHEMA),
+    ensureTable(ds, tableNames.events, TABLE_SCHEMA),
+    ensureTable(ds, tableNames.experimentViewed, TABLE_SCHEMA),
+    ensureTable(ds, tableNames.featureUsage, TABLE_SCHEMA),
   ]);
 }
