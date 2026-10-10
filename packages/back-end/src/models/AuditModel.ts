@@ -125,9 +125,12 @@ export async function findRecentAuditByUserIdAndOrganization(
   userId: string,
   organization: string,
 ): Promise<Omit<AuditInterface, "details">[]> {
+  // `organization` in each branch, so each can use its own index.
   const userAudits = await AuditModel.find({
-    organization,
-    $or: [{ "user.id": userId }, { "user.requestedBy.id": userId }],
+    $or: [
+      { organization, "user.id": userId },
+      { organization, "user.requestedBy.id": userId },
+    ],
   })
     .select("-details")
     .limit(10)
