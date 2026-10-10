@@ -1,4 +1,5 @@
 import {
+  eventUserCredit,
   eventUserPerson,
   eventUserPersonId,
   reviewerKeyForEventUser,
@@ -357,7 +358,7 @@ export default function ReviewAndPublish({
             r.status === "approved-stale" ||
             r.status === "changes-requested-stale",
           timestamp: new Date(r.timestamp).toISOString(),
-          name: eventUserPerson(r.user)?.name || undefined,
+          name: eventUserCredit(r.user).name || undefined,
           email: eventUserPerson(r.user)?.email || undefined,
         })),
       );

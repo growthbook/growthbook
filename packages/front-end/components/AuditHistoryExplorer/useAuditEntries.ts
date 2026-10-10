@@ -50,6 +50,7 @@ function toAuditUserInfo(user: AuditInterface["user"]): AuditUserInfo {
     return {
       type: "apikey",
       apiKey: key.apiKey,
+      id: key.id,
       name: key.name,
       email: key.email,
       requestedBy: key.requestedBy,

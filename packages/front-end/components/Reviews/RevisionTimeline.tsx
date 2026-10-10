@@ -1,5 +1,5 @@
 import {
-  eventUserPerson,
+  eventUserCredit,
   eventUserPersonId,
   reviewerKeyForEventUser,
 } from "shared/validators";
@@ -668,9 +668,9 @@ export default function RevisionTimeline({
             break;
           }
           if (next.action === "Recall Review") {
-            const recaller = eventUserPerson(next.user);
-            const recallerName = recaller?.name || recaller?.email || null;
-            const isSelfRecall = !!recaller?.id && recaller.id === userId;
+            const recaller = eventUserCredit(next.user ?? null);
+            const recallerName = recaller.name || recaller.email || null;
+            const isSelfRecall = !!recaller.id && recaller.id === userId;
             const label = isSelfRecall
               ? "Discarded by you"
               : recallerName
