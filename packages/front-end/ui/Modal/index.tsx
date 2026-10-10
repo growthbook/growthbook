@@ -270,20 +270,13 @@ function Description({ children }: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Body — the scrollable content area. `padding` is its inset; "0" suits
-// full-bleed tables.
+// Body — the scrollable content area.
 //
 // Auto-renders an ErrorDisplay when setError has been called on the context,
 // so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
-function Body({
-  children,
-  padding = "0 var(--space-7) var(--space-5)",
-}: {
-  children: ReactNode;
-  padding?: string;
-}) {
+function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error, errorDetails } = useModalContext();
   return (
     <ScrollArea
@@ -293,7 +286,10 @@ function Body({
       scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
-      <Box className={styles.body} style={{ padding }}>
+      <Box
+        className={styles.body}
+        style={{ padding: "0 var(--space-7) var(--space-5)" }}
+      >
         {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
       </Box>

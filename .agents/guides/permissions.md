@@ -245,7 +245,7 @@ context.permissions.throwPermissionError("Custom error message");
 
 ### The Acting User vs the Credential
 
-An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingPerson` (and `actingUserId`, `actingUserName`, `actingUserEmail`) is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
+An org API key can name a member with `X-GrowthBook-Requested-By`. `context.actingPerson` (and `actingUserId`, `actingUserName`) is that member, the signed-in user, or a personal token's owner; `context.userId` stays empty for org keys.
 
 - Use the acting person for attribution, owners, contributors, draft targeting (`mine`), review verdicts and anything a notification or log credits.
 - An org key naming a member gets only what both the key's role and the member allow (`getKeyPermissionsForRequest`), unless the key is set to keep its own role. Author rights on drafts, comments and verdicts (acting on your own draft without draft permission, editing your own comments, retracting your own verdict) use `context.authorUserId`: the person, but for an org key only when it assumes the member's role.

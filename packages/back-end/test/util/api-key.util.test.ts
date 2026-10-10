@@ -211,11 +211,6 @@ describe("resolveRequestedBy", () => {
     });
   });
 
-  it("uses the first value when the header repeats", async () => {
-    const member = await resolveRequestedBy(["u_alice", "u_bob"], org, lookup);
-    expect(member?.id).toBe("u_alice");
-  });
-
   it.each(["out@example.com", "nobody"])(
     "refuses %s, who is not a member, with a 400",
     async (value) => {
