@@ -53,7 +53,10 @@ import {
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
-import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getContextForArmedPublisherInOrg,
+} from "back-end/src/services/organizations";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
@@ -1186,7 +1189,11 @@ export async function maybeAutoPublishRevision(
       // doomed publish and re-fire the webhook; also clears the stale fingerprint.
       let disarmed = revision;
       try {
-        disarmed = await context.models.revisions.setAutoPublishOnApproval(
+        // As the system: whoever triggered the publish may hold no authority
+        // over the revision, e.g. a reviewer withdrawing their own verdict.
+        disarmed = await getContextForAgendaJobByOrgObject(
+          context.org,
+        ).models.revisions.setAutoPublishOnApproval(
           revision.id,
           context.actingUserId,
           false,
