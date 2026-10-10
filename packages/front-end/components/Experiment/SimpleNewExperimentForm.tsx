@@ -18,6 +18,7 @@ import {
   PiPencilSimple,
   PiSparkle,
   PiX,
+  PiXBold,
 } from "react-icons/pi";
 import Modal from "@/ui/Modal";
 import headerStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
@@ -1001,6 +1002,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       // 32px at the sides, --space-6 (set in review, trying it; 40px by
       // default).
       paddingX="var(--space-6)"
+      // The header's and footer's dividers one shade lighter, --gray-a5
+      // (set in review; Radix's --gray-a6 by default).
+      dividerColor="var(--gray-a5)"
       dismissible={false}
       hasDescription={false}
       trackingEventModalType="simple-new-experiment-create"
@@ -1018,16 +1022,39 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             colour, two sizes down (16px; tried 18px and its 20px), at 600 (set in
             review; tried its 500). */}
           <Modal.Title pageHeading>Create Experiment</Modal.Title>
-          {onSwitchToLegacy && showSwitchToOldExpCreate ? (
-            // No height of its own, centred on the title's line, so it
-            // doesn't make the header taller than the trimmed title (set
-            // in review; see Modal.Header's divider).
-            <Box style={{ height: 0, display: "flex", alignItems: "center" }}>
+          {/* The header's right side: the switch link, when shown, then a
+            close button (set in review), as Cancel does. No height of
+            their own, centred on the title's line, so they don't make the
+            header taller than the trimmed title (see Modal.Header's
+            divider). FALLBACK: Radix IconButton; @/ui/ has no icon
+            button. */}
+          <Flex
+            align="center"
+            gap="4"
+            style={{ height: 0, marginLeft: "auto" }}
+          >
+            {onSwitchToLegacy && showSwitchToOldExpCreate ? (
               <Link onClick={onSwitchToLegacy} color="gray">
                 Switch to old experience
               </Link>
-            </Box>
-          ) : null}
+            ) : null}
+            <Modal.Close>
+              <IconButton
+                type="button"
+                variant="ghost"
+                color="gray"
+                // One size down (set in review; was 2): a 16px × in a 24px
+                // hover area.
+                size="1"
+                aria-label="Close"
+                onClick={() => onClose?.()}
+              >
+                {/* Bold, in --slate-10, a shade lighter (set in review;
+                  tried --slate-11). */}
+                <PiXBold size={16} style={{ color: "var(--slate-10)" }} />
+              </IconButton>
+            </Modal.Close>
+          </Flex>
         </Modal.Header>
         {/* Scrolls right up to the header's and footer's dividers (set in
           review), with no blank band at either. */}
@@ -1480,10 +1507,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             <Modal.Close>
               <Button
                 variant="ghost"
+                // Its text as the Attach .md button's (set in review):
+                // --slate-12 at 400 (.ghostButton), in place of the violet
+                // ghost's. No outline on hover; the grey ghost's soft fill
+                // (--gray-a3) shows instead. 6px corners on that fill,
+                // --radius-3, as Create's.
+                color="gray"
+                className={styles.ghostButton}
                 onClick={() => onClose?.()}
-                // 6px corners on its hover fill, --radius-3, as Create's
-                // (set in review, trying it).
-                style={{ borderRadius: "var(--radius-3)" }}
+                style={{
+                  borderRadius: "var(--radius-3)",
+                  color: "var(--slate-12)",
+                }}
               >
                 Cancel
               </Button>

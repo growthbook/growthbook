@@ -129,6 +129,9 @@ type RootProps = TrackingEventModalProps & {
   // and the header's, body's and footer's right padding (where the body's
   // scrollbar sits). Optional and additive.
   paddingX?: string;
+  // The header's and footer's dividers' colour, in place of Radix's
+  // separator grey (--gray-a6). Optional and additive.
+  dividerColor?: string;
   children: ReactNode;
 };
 
@@ -142,6 +145,7 @@ function Root({
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
   paddingX = "40px",
+  dividerColor,
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
@@ -251,6 +255,7 @@ function Root({
                 }
               : {}),
             "--inset-padding-left": paddingX,
+            ...(dividerColor ? { "--modal-divider-color": dividerColor } : {}),
             // "full" centred in the window. Radix pads its dialogs 32px above
             // but max(32px, 6vh) below, which lifts a window-filling dialog
             // by half the difference; this moves it back down by that much.
@@ -307,7 +312,13 @@ function Header({
       {row}
       <Box ml="-3">
         <Inset side="x">
-          <Separator size="4" style={{ marginTop: "28px" }} />
+          <Separator
+            size="4"
+            style={{
+              marginTop: "28px",
+              backgroundColor: "var(--modal-divider-color, var(--accent-a6))",
+            }}
+          />
         </Inset>
       </Box>
     </Box>
@@ -436,7 +447,10 @@ function Footer({
         <Separator
           size="4"
           mt={flushTop ? "0" : "5"}
-          style={{ marginBottom: "20px" }}
+          style={{
+            marginBottom: "20px",
+            backgroundColor: "var(--modal-divider-color, var(--accent-a6))",
+          }}
         />
       </Inset>
       <Flex

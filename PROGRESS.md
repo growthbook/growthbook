@@ -185,14 +185,25 @@ motion, and neutral styling.
 - **Page transition settled** as the first version: fade out, then fade in
   with a 6px rise (owner, 2026-10-09).
 - **New behaviour on shared components is opt-in** (`ExperimentsListTable`,
-  `ExperimentSearchFilters`, `useSearch`), so other pages don't change.
+  `ExperimentSearchFilters`, `FilterDropdown`, `Modal`, `ColumnSettings`,
+  `useSearch`), so other pages don't change.
+- **Filters as chips** (2026-10-10). `@/ui/Badge` chips, grey whether or not
+  applied; the label names what's applied ("Health: Unhealthy, +1"). Menus
+  stay open with checkboxes. New filters go first; the overflow folds the
+  last into "+N more" (click for a popover) 56px before the table controls.
+- **Search and filters apart on screen** (2026-10-10). The search field shows
+  only free text; filter terms stay with the chips. Still one search string
+  underneath (URL, shared links), rather than separate filter state, which
+  would touch every list page.
 
 ### Known bugs and rough edges
 
-- **Table width.** Users can drag columns wide enough to push the table past
-  the page edge; the 400px per-column cap only limits it.
-- **Filters.** Filters added with Add Filter reset when you leave the page,
-  and can't be removed from the bar.
+- **Table width.** When columns are wider than the page, the table scrolls
+  sideways inside its outline; its header doesn't stick to the window while
+  it does.
+- **Filters.** Filters added with Add Filter reset when you leave the page.
+  Status and Health can fold into "+N more", where the overflow's remove
+  button can't take them off the bar.
 - **Lint.** The legacy errors in `ExperimentHeader.tsx` (Modal import,
   `size="legacy"`) and `TabbedPage/index.tsx` (Modal import) were already on
   `origin/main`. They are not regressions.

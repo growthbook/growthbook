@@ -1424,11 +1424,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Segments/FactSegmentForm.tsx": {
     "no-restricted-syntax": {
       "count": 5

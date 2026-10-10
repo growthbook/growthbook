@@ -191,6 +191,8 @@ export interface SearchReturn<T> {
   filteredItems: T[];
   clear: () => void;
   syntaxFilters: SyntaxFilter[];
+  /** The search's free text, without its `field:value` filter terms. */
+  searchTerm: string;
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -570,6 +572,7 @@ export function useSearch<T extends { id: string }>({
     filteredItems: filtered,
     clear,
     syntaxFilters,
+    searchTerm,
     searchInputProps: {
       value,
       onChange,

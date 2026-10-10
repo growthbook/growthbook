@@ -45,6 +45,7 @@ import ExperimentsListTable, {
   experimentsListColumnDefs,
 } from "@/components/Experiment/ExperimentsListTable";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
+import { filterToString } from "@/components/Search/SearchFilters";
 import { useTableColumns } from "@/hooks/useTableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
@@ -154,6 +155,7 @@ const ExperimentsPage = (): React.ReactElement => {
     isFiltered,
     SortableTableColumnHeader,
     syntaxFilters,
+    searchTerm,
     setSearchValue,
   } = useExperimentSearch({
     allExperiments,
@@ -164,15 +166,28 @@ const ExperimentsPage = (): React.ReactElement => {
     sortIcons: "arrow",
   });
 
+  // The search field and the filters, apart on screen (set in review): the
+  // field shows and edits only the search's free text; the filters' terms
+  // (`health:unhealthy`, ...) stay with the chips. Underneath they're still
+  // one search string (in the URL too), so links and the shared search code
+  // are unchanged: the field's text and the filters' terms are joined when
+  // either changes. A filter term typed into the field (e.g.
+  // `status:running`) becomes its chip.
+  const filterTerms = syntaxFilters.map(filterToString).join(" ");
+  const withFilters = (text: string) =>
+    [text.trim(), filterTerms].filter(Boolean).join(" ");
+
   // What's typed in the search field, applied on blur or Enter rather than
-  // on every keystroke (set in review). Follows the applied search when it
-  // changes elsewhere (the filter dropdowns, a tag click, clearing).
-  const [searchDraft, setSearchDraft] = useState(searchInputProps.value);
+  // on every keystroke (set in review). Follows the applied free text when
+  // it changes elsewhere (a tag click, clearing).
+  const [searchDraft, setSearchDraft] = useState(searchTerm);
   useEffect(() => {
-    setSearchDraft(searchInputProps.value);
-  }, [searchInputProps.value]);
+    setSearchDraft(searchTerm);
+  }, [searchTerm]);
   const applySearch = () => {
-    if (searchDraft !== searchInputProps.value) setSearchValue(searchDraft);
+    if (searchDraft.trim() !== searchTerm) {
+      setSearchValue(withFilters(searchDraft));
+    }
   };
 
   // A newly applied search plays the tab change's table entrance too (set
@@ -651,8 +666,7 @@ const ExperimentsPage = (): React.ReactElement => {
           }
         }
         /* The table controls' button group (set in review): two standard
-          outline icon buttons, the design system's lg size (40px, trying
-          it; tried 24px, 28px and the default 32px), styled as the page's outline buttons
+          outline icon buttons, the design system's lg size (40px; tried 24px, 28px and md, 32px), with 18px icons, styled as the page's outline buttons
           (.outlineButton: a --slate-6 outline darkening to --slate-9 on
           hover), icons in --slate-12, joined: no gap, only the outer
           corners rounded, and the outlines overlapping by 1px so the middle
@@ -1076,7 +1090,8 @@ const ExperimentsPage = (): React.ReactElement => {
                               aria-label="Clear search"
                               onClick={() => {
                                 setSearchDraft("");
-                                setSearchValue("");
+                                // Clears the text only; the filters stay.
+                                setSearchValue(withFilters(""));
                                 searchFieldRef.current?.focus();
                               }}
                             >
@@ -1100,6 +1115,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       // Status and Health always; the rest via "Add
                       // Filter" (set in review).
                       defaultFilters={["status", "health"]}
+                      chips
                     />
                     {/* Table controls, at the row's right end (set in
                       review): row density, then column settings, as two

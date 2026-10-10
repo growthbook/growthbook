@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
+import { PiXBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ import {
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Badge from "@/ui/Badge";
+import Checkbox from "@/ui/Checkbox";
 
 const USE_SEARCH_BOX = true;
 
@@ -104,7 +107,43 @@ export const FilterHeading: FC<{
 export const FilterItem: FC<{
   item: string | JSX.Element;
   exists: boolean;
-}> = ({ item, exists }) => {
+  // A checkbox, as the column menu's (@/ui/Checkbox; set in review, the
+  // experiments list's chip menus), in place of the check mark. Shown only:
+  // the menu item takes the click, so it isn't toggled twice. Optional and
+  // additive.
+  checkbox?: boolean;
+}> = ({ item, exists, checkbox = false }) => {
+  if (checkbox) {
+    return (
+      // A flex box, centring it in the row: the checkbox's label is inline
+      // text, whose line spacing would otherwise lift it off centre. The
+      // box centred on its label too (align).
+      <Box
+        style={{
+          pointerEvents: "none",
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <Checkbox
+          align="center"
+          size="sm"
+          labelSize="sm"
+          weight="regular"
+          label={
+            typeof item === "string" ? (
+              <OverflowText>{item}</OverflowText>
+            ) : (
+              item
+            )
+          }
+          value={exists}
+          setValue={() => {}}
+        />
+      </Box>
+    );
+  }
   return (
     <Box className="position-relative">
       {exists ? (
@@ -124,6 +163,40 @@ export const FilterItem: FC<{
   );
 };
 
+// A filter chip's remove button (set in review; the experiments list): an
+// 18px round button with a 12px ×, at the chip's right end, over the room
+// the chip leaves for it. Its parent must be position: relative.
+export const ChipRemoveButton: FC<{
+  label: string;
+  onClick: () => void;
+}> = ({ label, onClick }) => (
+  <button
+    type="button"
+    data-chip-remove
+    aria-label={label}
+    onClick={onClick}
+    style={{
+      position: "absolute",
+      right: 3,
+      top: "50%",
+      transform: "translateY(-50%)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: 18,
+      height: 18,
+      padding: 0,
+      border: "none",
+      borderRadius: "var(--radius-full)",
+      background: "none",
+      color: "var(--gray-11)",
+      cursor: "pointer",
+    }}
+  >
+    <PiXBold size={12} aria-hidden />
+  </button>
+);
+
 export const FilterDropdown: FC<{
   filter: string;
   items: SearchFiltersItem[];
@@ -134,6 +207,22 @@ export const FilterDropdown: FC<{
   operator?: string;
   heading?: string;
   menuPlacement?: "start" | "center" | "end";
+  // The trigger as a chip (@/ui/Badge, set in review; the experiments
+  // list) in place of the ghost heading: grey, with its name, and what's
+  // applied while it's in use (see chipLabel). Optional
+  // and additive.
+  chip?: boolean;
+  // With chip: a remove button at the chip's end (set in review), for the
+  // filters that can come off the bar. Beside the menu's trigger, not in it
+  // (a button can't hold another).
+  onRemove?: () => void;
+  // A class on the open menu, for hosts that restyle it. Optional and
+  // additive.
+  menuClassName?: string;
+  // With chip: only the chip's badge, with no menu (and its remove button
+  // with onRemove), e.g. in the overflow chip's popover. Optional and
+  // additive.
+  labelOnly?: boolean;
 }> = ({
   filter,
   items,
@@ -144,6 +233,10 @@ export const FilterDropdown: FC<{
   operator = "",
   heading,
   menuPlacement = "start",
+  chip = false,
+  onRemove,
+  menuClassName,
+  labelOnly = false,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const filterLabel = heading ?? filter;
@@ -175,24 +268,127 @@ export const FilterDropdown: FC<{
     return () => clearTimeout(focusTimer);
   }, [filter, open, showSearchFilter]);
 
-  return (
+  // chip: the label names what's applied (set in review), e.g. "Health:
+  // Unhealthy", or "Health: Unhealthy, +1" with more than one; just the
+  // filter's name with none. An option's name is used when it's text, its
+  // search value otherwise (e.g. a tag's chip). The chip's look doesn't
+  // change.
+  const applied = chip
+    ? items.filter((i) =>
+        doesFilterExistInSearch({
+          syntaxFilters,
+          field: i?.filter ?? filter,
+          value: i.searchValue,
+          operator: i?.operator ?? operator,
+        }),
+      )
+    : [];
+  // The name (and colon) in --slate-12, as Add Filter's text (set in
+  // review); what's applied stays in the badge's grey. All at 400 (set in
+  // review; the name was the badge's 500).
+  const chipLabel = applied.length ? (
+    <span style={{ fontWeight: 400 }}>
+      <span style={{ color: "var(--slate-12)" }}>{filterLabel}:</span>{" "}
+      <span>
+        {typeof applied[0].name === "string"
+          ? applied[0].name
+          : applied[0].searchValue}
+        {applied.length > 1 ? `, +${applied.length - 1}` : ""}
+      </span>
+    </span>
+  ) : (
+    <span style={{ color: "var(--slate-12)", fontWeight: 400 }}>
+      {filterLabel}
+    </span>
+  );
+
+  const removable = chip && !!onRemove;
+
+  if (chip && labelOnly) {
+    // With onRemove, its remove button too (set in review; e.g. to take
+    // filters off one by one in the overflow chip's popover).
+    const badge = (
+      <Badge
+        variant="soft"
+        color="gray"
+        radius="full"
+        size="md"
+        label={chipLabel}
+        // The pointer, as on the bar's chips (set in review).
+        style={{
+          cursor: "pointer",
+          ...(removable ? { paddingRight: 26 } : {}),
+        }}
+      />
+    );
+    // Always in the chip wrapper, so it hovers as a chip on the bar does.
+    return (
+      <span
+        data-chip-wrap
+        style={{ position: "relative", display: "inline-flex" }}
+      >
+        {badge}
+        {removable ? (
+          <ChipRemoveButton
+            label={`Remove ${filterLabel} filter`}
+            onClick={onRemove}
+          />
+        ) : null}
+      </span>
+    );
+  }
+
+  const menu = (
     <DropdownMenu
-      trigger={FilterHeading({
-        heading: filterLabel,
-        open: open === filter,
-      })}
+      trigger={
+        chip ? (
+          // No caret (set in review). With a remove button, room for it at
+          // the end. In a plain button: the menu's trigger takes on its
+          // child, and a Badge alone can't be focused or styled on hover.
+          <button
+            type="button"
+            data-filter-chip
+            style={{
+              display: "inline-flex",
+              padding: 0,
+              border: "none",
+              borderRadius: "var(--radius-full)",
+              background: "none",
+              cursor: "pointer",
+            }}
+          >
+            <Badge
+              variant="soft"
+              color="gray"
+              radius="full"
+              size="md"
+              style={removable ? { paddingRight: 26 } : undefined}
+              label={chipLabel}
+            />
+          </button>
+        ) : (
+          FilterHeading({
+            heading: filterLabel,
+            open: open === filter,
+          })
+        )
+      }
       variant="soft"
+      contentClassName={menuClassName}
       open={open === filter}
       menuPlacement={menuPlacement}
       onOpenChange={(o) => {
         setOpen(o ? filter : "");
       }}
     >
-      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
+      {/* With chip, just the filter's name, e.g. "Status" (set in
+        review). */}
+      <DropdownMenuLabel>
+        {chip ? filterLabel : `Filter by ${filterLabel}`}
+      </DropdownMenuLabel>
       {showSearchFilter && (
         <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
-            size="legacy"
             ref={inputRef}
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
@@ -214,7 +410,10 @@ export const FilterDropdown: FC<{
             key={i.id}
             disabled={i.disabled}
             style={{ maxWidth: "250px" }}
-            onClick={() => {
+            onClick={(event) => {
+              // With chip, the menu stays open after a pick, so several
+              // values can be toggled in one go (set in review).
+              if (chip) event.preventDefault();
               const f: SyntaxFilter = {
                 field: i?.filter ?? filter,
                 values: [i.searchValue],
@@ -225,6 +424,7 @@ export const FilterDropdown: FC<{
             }}
           >
             <FilterItem
+              checkbox={chip}
               item={i.name}
               exists={doesFilterExistInSearch({
                 syntaxFilters,
@@ -237,6 +437,25 @@ export const FilterDropdown: FC<{
         </Fragment>
       ))}
     </DropdownMenu>
+  );
+
+  if (!chip) return menu;
+  // A chip is always in this wrapper, with or without its remove button, so
+  // the button appearing (e.g. on a default filter's first value) doesn't
+  // remount the menu, which would close and reopen it.
+  return (
+    <span
+      data-chip-wrap
+      style={{ position: "relative", display: "inline-flex" }}
+    >
+      {menu}
+      {removable ? (
+        <ChipRemoveButton
+          label={`Remove ${filterLabel} filter`}
+          onClick={onRemove}
+        />
+      ) : null}
+    </span>
   );
 };
 
@@ -372,12 +591,29 @@ export const useSearchFiltersBase = ({
     ],
   );
 
+  // Takes every term for a field, or several fields, out of the search at
+  // once (e.g. when a filter chip, or the overflow chip, is removed).
+  const removeFieldFromSearch = useCallback(
+    (field: string | string[]) => {
+      const fields = Array.isArray(field) ? field : [field];
+      const newValue = syntaxFilters
+        .filter((f) => fields.includes(f.field))
+        .reduce(
+          (value, f) => value.replace(filterTokenRegex(f), ""),
+          searchInputProps.value,
+        );
+      setSearchValue(newValue.replace(/\s+/g, " ").trim());
+    },
+    [syntaxFilters, searchInputProps.value, setSearchValue],
+  );
+
   return {
     dropdownFilterOpen,
     setDropdownFilterOpen,
     project,
     projects,
     updateQuery,
+    removeFieldFromSearch,
     doesFilterExist: useCallback(
       (field: string, value: string, operator?: string, negated?: boolean) =>
         doesFilterExistInSearch({

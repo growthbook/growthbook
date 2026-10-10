@@ -109,3 +109,9 @@
 .attachButton :global(.rt-Text) {
   font-weight: var(--font-weight-regular);
 }
+
+// The footer's Cancel (ghost) button: its label at 400, as the Attach .md
+// button's (set in review), in place of @/ui/Button's 500.
+.ghostButton :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
+}

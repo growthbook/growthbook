@@ -1,0 +1,98 @@
+// Add Filter (set in review): a ghost button's label at 400, as the Create
+// Experiment modal's Cancel, in place of @/ui/Button's 500.
+.ghostButton :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
+}
+
+// chips (set in review; the experiments list): each filter's chip (a soft
+// @/ui/Badge) gets an outline on hover and while its menu is open. The menu's trigger is a plain
+// button around the chip ([data-filter-chip], SearchFilters.tsx).
+.chips :global([data-filter-chip]) :global(.rt-Badge) {
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+}
+
+// Hovering anywhere on the chip, its remove button included (set in
+// review), via the wrapper round both ([data-chip-wrap]).
+.chips :global([data-chip-wrap]:hover) :global(.rt-Badge),
+.chips :global([data-filter-chip][data-state="open"]) :global(.rt-Badge) {
+  // Only an outline, as the search field's on hover: --slate-9; the fill
+  // stays (set in review; tried deepening it to --accent-a4 and -a5).
+  box-shadow: inset 0 0 0 1px var(--slate-9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chips :global([data-filter-chip]) :global(.rt-Badge) {
+    transition: none;
+  }
+}
+
+// chips: Add Filter's menu and each filter's menu, as the column menu
+// (ColumnSettingsButton on the experiments list; set in review): 12px
+// padding (the column menu has 16px); a heading at 12px/500 in --gray-12 ("Columns" there, "Filter by"
+// and each filter's name here); rows 32px tall with 8px inside, 12px regular
+// text in --gray-12, and a --slate-3 fill with 6px corners on hover or
+// keyboard focus, in place of the soft menu's violet. The shadow is
+// .menuShadow (ExperimentsListTable.module.scss). Radix's menu rules use
+// :where(), so these outrank them; the class is doubled for the padding
+// variables, which Radix sets on the same element.
+.menu.menu {
+  // 12px all round (set in review; tried 16px, the column menu's).
+  --base-menu-content-padding: var(--space-3);
+  --base-menu-item-height: 32px;
+  --base-menu-item-padding-left: var(--space-2);
+  --base-menu-item-padding-right: var(--space-2);
+
+  :global(.rt-BaseMenuLabel) {
+    height: auto;
+    margin-bottom: var(--space-2);
+  }
+
+  // 12px (set in review; tried the column menu's 14px).
+  :global(.rt-BaseMenuLabel .rt-Text) {
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    color: var(--gray-12);
+  }
+
+  :global(.rt-BaseMenuItem) {
+    border-radius: var(--radius-3);
+    font-size: var(--font-size-1);
+    color: var(--gray-12);
+  }
+
+  :global(.rt-BaseMenuItem[data-highlighted]) {
+    background-color: var(--slate-3);
+    color: var(--gray-12);
+  }
+}
+
+// A chip's keyboard focus: the app's focus ring round the pill.
+.chips :global([data-filter-chip]:focus-visible) {
+  outline: 2px solid var(--focus-8);
+  outline-offset: 1px;
+}
+
+// A removable chip's remove button (SearchFilters.tsx): its × darkens a step
+// on hover, --gray-11 to --gray-12, with no fill (set in review; a fill was
+// tried). The button sets its colour inline, hence !important.
+.chips :global([data-chip-remove]) {
+  transition: color 150ms ease;
+}
+
+.chips :global([data-chip-remove]:hover) {
+  color: var(--gray-12) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chips :global([data-chip-remove]) {
+    transition: none;
+  }
+}
+
+// chips: the menus' unchecked checkboxes outlined a shade darker, --gray-a8
+// (set in review), in place of Radix's --gray-a7. Radix draws the outline
+// as the box's ::before inset shadow, under :where(), so this outranks it.
+.menu :global(.rt-BaseCheckboxRoot[data-state="unchecked"])::before {
+  box-shadow: inset 0 0 0 1px var(--gray-a8);
+}

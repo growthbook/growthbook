@@ -14,6 +14,14 @@
   white-space: normal;
 }
 
+// The empty state's cell keeps the comfortable rows' 12px above and below
+// with compact rows too (set in review), so the density button doesn't
+// resize the empty state. !important over the page's compact-rows rule.
+.emptyCell {
+  padding-top: var(--space-3) !important;
+  padding-bottom: var(--space-3) !important;
+}
+
 // components/EmptyState carries the global `.box` class (border, panel fill,
 // margin), which would read as a card on the page; strip it to the copy.
 .emptyPlaceholder :global(.box) {

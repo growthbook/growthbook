@@ -1043,7 +1043,10 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 // The table stays, headers and outline, holding its height;
                 // one row across it carries the message (set in review).
                 <TableRow data-no-hover>
-                  <TableCell colSpan={renderedColumns.length}>
+                  <TableCell
+                    colSpan={renderedColumns.length}
+                    className={styles.emptyCell}
+                  >
                     <div className={styles.emptyPlaceholder}>
                       <EmptyState
                         // A circled X (set in review; a plain X was tried), for "none", the same whether a search or
