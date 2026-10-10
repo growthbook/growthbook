@@ -12,7 +12,7 @@ export const postExperimentComment = createApiRequestHandler(
 
   if (!person?.email) {
     throw new Error(
-      "Commenting needs a person to credit. Use a personal access token, or name the member with X-GrowthBook-Requested-By.",
+      "Commenting needs a person to credit. Use a personal access token, or an organization API key that assumes the role of a member it names with X-GrowthBook-Requested-By.",
     );
   }
 
