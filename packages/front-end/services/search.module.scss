@@ -1,0 +1,50 @@
+// useSearch's sortIcons: "arrow" (set in review, on the experiments list):
+// one arrow on the sorted column, pointing down when sorting descending and
+// turning up for ascending; on other sortable columns, the arrow fades in,
+// in the header's text colour, only while the header is hovered (or the sort
+// link is keyboard-focused).
+.sortArrow {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  // Fades in on hover (set in review), and out again.
+  transition: opacity 200ms ease;
+
+  // The column header's text colour in every link state (set in review):
+  // the doubled class outranks the global link rules (Bootstrap's
+  // a:hover would otherwise recolour it and underline it on hover).
+  &.sortArrow,
+  &.sortArrow:hover,
+  &.sortArrow:focus,
+  &.sortArrow:visited {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    opacity: 1;
+  }
+
+  svg {
+    transition: transform 150ms ease;
+  }
+}
+
+:global(.rt-TableColumnHeaderCell):hover .sortArrow {
+  opacity: 1;
+}
+
+.sortArrow.active {
+  opacity: 1;
+}
+
+.sortArrow.active[data-dir="asc"] svg {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sortArrow,
+  .sortArrow svg {
+    transition: none;
+  }
+}

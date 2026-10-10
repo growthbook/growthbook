@@ -523,6 +523,7 @@ export function useExperimentSearch({
   watchedExperimentIds,
   tempRolloutExperimentIds,
   controlledSearchValue,
+  sortIcons,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -537,6 +538,8 @@ export function useExperimentSearch({
   // dashboard block's saved filter) instead of a user-typed input. Bypasses the
   // URL `q` param so it doesn't leak into or clobber the page's search state.
   controlledSearchValue?: string;
+  // The column headers' sort icons (see useSearch).
+  sortIcons?: "classic" | "arrow";
 }) {
   const {
     getExperimentMetricById,
@@ -605,6 +608,7 @@ export function useExperimentSearch({
     defaultSortDir,
     updateSearchQueryOnChange: controlledSearchValue === undefined,
     controlledSearchValue,
+    sortIcons,
     // 0 is falsy and would otherwise fall through to undefined in the sort
     // comparator, leaving healthy rows unordered against the rest.
     defaultMappings: { healthSortOrder: 0 },

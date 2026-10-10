@@ -10,11 +10,14 @@ import {
   useRef,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { PiArrowDownBold } from "react-icons/pi";
+import clsx from "clsx";
 import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
 import { TableColumnHeader } from "@/ui/Table";
+import styles from "./search.module.scss";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -174,6 +177,11 @@ export interface SearchProps<T extends { id: string }> {
   // filtered-results memo recompute when that data arrives instead of going
   // stale. Must be a fixed-length array across renders.
   searchTermFilterDeps?: unknown[];
+  // SortableTableColumnHeader's icons. "classic" (the default): the up/down
+  // sort icons on every column. "arrow": one arrow on the sorted column
+  // (down, turning up for ascending), and on the others a faint arrow only
+  // while the header is hovered (see search.module.scss).
+  sortIcons?: "classic" | "arrow";
 }
 
 export interface SearchReturn<T> {
@@ -225,6 +233,7 @@ export function useSearch<T extends { id: string }>({
   controlledSearchValue,
   pageSize,
   searchTermFilterDeps = [],
+  sortIcons = "classic",
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
   const persistedSort = useLocalStorage(
@@ -511,27 +520,40 @@ export function useSearch<T extends { id: string }>({
             }}
           >
             {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
-              {showSortDirection ? (
-                sort.dir < 0 ? (
-                  <FaSortDown />
+            {sortIcons === "arrow" ? (
+              <a
+                href="#"
+                className={clsx(
+                  styles.sortArrow,
+                  showSortDirection && styles.active,
+                )}
+                data-dir={sort.dir < 0 ? "desc" : "asc"}
+              >
+                <PiArrowDownBold size={12} />
+              </a>
+            ) : (
+              <a
+                href="#"
+                className={showSortDirection ? "activesort" : "inactivesort"}
+              >
+                {showSortDirection ? (
+                  sort.dir < 0 ? (
+                    <FaSortDown />
+                  ) : (
+                    <FaSortUp />
+                  )
                 ) : (
-                  <FaSortUp />
-                )
-              ) : (
-                <FaSort />
-              )}
-            </a>
+                  <FaSort />
+                )}
+              </a>
+            )}
           </span>
           {endAdornment}
         </TableColumnHeader>
       );
     };
     return Header;
-  }, [sort.dir, sort.field, isRelevanceSortActive]);
+  }, [sort.dir, sort.field, isRelevanceSortActive, sortIcons]);
 
   const clear = useCallback(() => {
     setValue("");

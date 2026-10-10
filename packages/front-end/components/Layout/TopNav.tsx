@@ -55,11 +55,13 @@ const TopNav: FC<{
   showNotices?: boolean;
   showLogo?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
-  // PROTOTYPE: on the experiment page, the bar's shadow only shows once the
-  // page has scrolled, when content passes under the bar; at the top there's
-  // no line between the bar and the page header (set in review).
+  // PROTOTYPE: on the experiment page and the experiments list, the bar's
+  // shadow only shows once the page has scrolled, when content passes under
+  // the bar; at the top there's no line between the bar and the page header
+  // (set in review).
   const { pathname } = useRouter();
-  const shadowOnScrollOnly = pathname === "/experiment/[eid]";
+  const shadowOnScrollOnly =
+    pathname === "/experiment/[eid]" || pathname === "/experiments";
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     if (!shadowOnScrollOnly) return;

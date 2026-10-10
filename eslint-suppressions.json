@@ -1977,11 +1977,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/experiments/index.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/experiments/template/[tid].tsx": {
     "no-restricted-imports": {
       "count": 1
