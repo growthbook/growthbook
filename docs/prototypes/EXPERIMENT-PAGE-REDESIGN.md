@@ -1,5 +1,7 @@
 # Experiment page redesign — decision record
 
+> **Superseded (2026-10-09):** this describes the old design-prototypes branch (`prototype/experiment-page-redesign`), not `prototype/experiment-page-redesign-main`. For this branch's current state and decisions, see [`PROGRESS.md`](../../PROGRESS.md) at the repo root.
+
 Branch: `prototype/experiment-page-redesign` · demo-grade prototype.
 
 This file describes **what is on this branch**. An earlier version of it
