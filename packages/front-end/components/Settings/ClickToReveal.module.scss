@@ -25,7 +25,17 @@
   background-color: var(--color-panel-solid);
 }
 
+// Shown only while the key is hovered or focused, so it never covers it.
 .hide {
   right: -4px;
   bottom: -6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+
+  .revealed:hover &,
+  .revealed:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
