@@ -23,7 +23,11 @@ import {
   isInReviewCycle,
 } from "shared/enterprise";
 import { serveFootprint } from "shared/permissions";
-import type { RevisionStatus } from "shared/validators";
+import {
+  eventUserLabel,
+  revisionActor,
+  type RevisionStatus,
+} from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
   isArchiveTransition,
@@ -279,6 +283,7 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const nameFor = (id: string) => users.get(id)?.name;
   const allEnvironments = useEnvironments();
   const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
@@ -571,8 +576,7 @@ function ReviewAndPublishRevision<T>({
   // header's "<name> requested review to merge …" line. Attribute it to the
   // latest "review-requested" activity entry (the dedicated submit-for-review
   // action); older revisions predating that action fall back to the legacy
-  // "reopened" stopgap, then to the author. Resolved through the same
-  // members/getUserDisplay path the reviewers section uses. ──
+  // "reopened" stopgap, then to the author, and named from the stored actor. ──
   const reviewRequesterId = useMemo<string | undefined>(() => {
     const sorted = [...revision.activityLog].sort(
       (a, b) =>
@@ -589,11 +593,10 @@ function ReviewAndPublishRevision<T>({
       revision.status === "approved" ||
       revision.status === "changes-requested");
   const reviewRequesterName = reviewRequested
-    ? (() => {
-        const id = reviewRequesterId ?? revision.authorId;
-        const u = users.get(id);
-        return u?.name || u?.email || getUserDisplay(id) || "";
-      })()
+    ? eventUserLabel(
+        revisionActor(revision, reviewRequesterId ?? revision.authorId),
+        { nameFor },
+      )
     : "";
 
   const isBlockedContributor =
@@ -1026,15 +1029,7 @@ function ReviewAndPublishRevision<T>({
           editorMeta={
             <>
               <EventUser
-                user={{
-                  type: "dashboard",
-                  id: revision.authorId,
-                  name:
-                    users.get(revision.authorId)?.name ||
-                    getUserDisplay(revision.authorId) ||
-                    "",
-                  email: users.get(revision.authorId)?.email || "",
-                }}
+                user={revisionActor(revision, revision.authorId)}
                 display="avatar-name"
                 size="sm"
                 wrap={true}
@@ -1161,17 +1156,9 @@ function ReviewAndPublishRevision<T>({
             Contributors
           </Text>
           <Flex direction="column" gap="2">
-            {contributorIds.map((id) => {
-              const u = users.get(id);
-              return (
-                <PersonRow
-                  key={id}
-                  id={id}
-                  name={u?.name || ""}
-                  email={u?.email || ""}
-                />
-              );
-            })}
+            {contributorIds.map((id) => (
+              <PersonRow key={id} user={revisionActor(revision, id)} />
+            ))}
           </Flex>
         </Box>
       )}
@@ -1183,23 +1170,15 @@ function ReviewAndPublishRevision<T>({
           </Text>
           <Flex direction="column" gap="2">
             {reviewers.map(({ id, status, timestamp, stale }) => {
-              const u = users.get(id);
-              // The generic revision's reviews[] carries only userId (no baked
-              // event-user name/email like features). For reviewers absent from
-              // the members map (API key / SCIM-removed users) fall back to
-              // getUserDisplay so PersonRow shows the id rather than "Unknown".
-              const name = u?.name || getUserDisplay(id) || "";
-              const email = u?.email || "";
+              const reviewer = revisionActor(revision, id);
               return (
                 <PersonRow
                   key={id}
-                  id={id}
-                  name={name}
-                  email={email}
+                  user={reviewer}
                   trailing={
                     <ReviewerVerdictIcon
                       status={status}
-                      name={name || email}
+                      name={eventUserLabel(reviewer, { nameFor })}
                       timestamp={timestamp}
                       stale={stale}
                       uncoveredReason={

@@ -1,8 +1,10 @@
 import {
   eventUserCredit,
   eventUserPerson,
-  eventUserPersonId,
   eventUserIdentity,
+  eventUserLabel,
+  eventUserPersonId,
+  revisionActor,
   RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
@@ -271,6 +273,18 @@ export default function ReviewAndPublish({
       : `/feature/${feature.id}/0/log`,
     { shouldRun: () => !!revision },
   );
+  // Who's behind an identity on this draft, from its stored actors.
+  const actorFor = (id: string) =>
+    revisionActor(
+      {
+        createdBy: revision?.createdBy ?? undefined,
+        publishedBy: revision?.publishedBy ?? undefined,
+        reviews: revision?.reviews,
+        activityLog: logData?.log,
+      },
+      id,
+    );
+  const nameFor = (id: string) => users.get(id)?.name;
   const { reviewers, approvedAt } = useMemo<{
     reviewers: {
       id: string;
@@ -417,7 +431,7 @@ export default function ReviewAndPublish({
     );
     for (const entry of sorted) {
       if (entry.action !== "Review Requested") continue;
-      const uid = eventUserPersonId(entry.user ?? null);
+      const uid = eventUserIdentity(entry.user ?? null);
       if (uid) return uid;
     }
     return undefined;
@@ -1453,9 +1467,9 @@ export default function ReviewAndPublish({
     revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
     !apiKeyCreator && !systemCreator ? (draftAuthorId ?? undefined) : undefined;
-  const keyCreatorPersonId = apiKeyCreator ? draftAuthorId : null;
+  const keyCreatorId = apiKeyCreator ? eventUserIdentity(apiKeyCreator) : null;
   const contribIds = (revision.contributors ?? []).filter(
-    (id) => id !== keyCreatorPersonId && id !== systemCreator?.id,
+    (id) => id !== keyCreatorId && id !== systemCreator?.id,
   );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
@@ -1604,17 +1618,9 @@ export default function ReviewAndPublish({
                 Contributors
               </Text>
               <Flex direction="column" gap="2">
-                {contributorIds.map((id) => {
-                  const u = users.get(id);
-                  return (
-                    <PersonRow
-                      key={id}
-                      id={id}
-                      name={u?.name || ""}
-                      email={u?.email || ""}
-                    />
-                  );
-                })}
+                {contributorIds.map((id) => (
+                  <PersonRow key={id} user={actorFor(id)} />
+                ))}
               </Flex>
             </Box>
           )}
@@ -1625,20 +1631,16 @@ export default function ReviewAndPublish({
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale }) => {
+                  const reviewer = actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
@@ -2493,8 +2495,9 @@ export default function ReviewAndPublish({
   // The revision author is only a fallback while the log loads, since the
   // requester is often a different person than the author.
   const requesterId = reviewRequesterId || draftAuthorId || undefined;
-  const requester = requesterId ? users.get(requesterId) : undefined;
-  const requesterName = requester?.name || requester?.email || "";
+  const requesterName = requesterId
+    ? eventUserLabel(actorFor(requesterId), { nameFor })
+    : "";
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
@@ -2677,17 +2680,9 @@ export default function ReviewAndPublish({
               Contributors
             </Text>
             <Flex direction="column" gap="2">
-              {contributorIds.map((id) => {
-                const u = users.get(id);
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={u?.name || ""}
-                    email={u?.email || ""}
-                  />
-                );
-              })}
+              {contributorIds.map((id) => (
+                <PersonRow key={id} user={actorFor(id)} />
+              ))}
             </Flex>
           </Box>
         )}
@@ -2705,20 +2700,16 @@ export default function ReviewAndPublish({
                   </Text>
                 )}
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale }) => {
+                  const reviewer = actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={

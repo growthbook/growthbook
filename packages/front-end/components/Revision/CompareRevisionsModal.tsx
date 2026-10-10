@@ -23,7 +23,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { EventUser, eventUserLabel } from "shared/validators";
+import { EventUser, eventUserLabel, revisionActor } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -1504,7 +1504,7 @@ export default function CompareRevisionsModal<
                           <Text size="sm" color="text-low">
                             {datetime(minRev.dateUpdated)}
                             {minRev.authorId
-                              ? ` · ${getUserDisplay(minRev.authorId) || minRev.authorId}`
+                              ? ` · ${actorLabel({ userId: minRev.authorId, user: revisionActor(minRev, minRev.authorId) })}`
                               : ""}
                           </Text>
                         ) : null}

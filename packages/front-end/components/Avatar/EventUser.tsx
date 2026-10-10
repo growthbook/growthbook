@@ -1,6 +1,7 @@
 import { eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
+import { FaRobot } from "react-icons/fa";
 import Badge from "@/ui/Badge";
 import type { Size } from "@/ui/Avatar";
 import { useUser } from "@/services/UserContext";
@@ -101,21 +102,26 @@ export default function EventUser({
     return <span>System</span>;
   }
 
-  const requestedBy = user.type === "api_key" ? user.requestedBy : undefined;
-  // A key acting as itself still shows who asked.
-  const person = requestedBy ?? eventUserPerson(user);
-  let name = person?.name ?? ("name" in user ? user.name : "") ?? "";
-  let email = person?.email ?? "";
-  const isApi = user.type === "api_key" && !requestedBy;
+  // Whoever acted gets the avatar and the name, and the other party goes in the
+  // badge. A key acting as itself shows as the key, even when it names who
+  // asked; a key that assumed a member's role shows as that member.
+  const person = eventUserPerson(user);
+  const keyActed = user.type === "api_key" && !person;
+  const keyName =
+    user.type === "api_key" && !user.id ? (user.name || "").trim() : "";
+  const requester = user.type === "api_key" ? user.requestedBy : undefined;
+  const requesterName = requester
+    ? (requester.id && users.get(requester.id)?.name) ||
+      requester.name ||
+      requester.email
+    : "";
 
-  // Try to override name/email from latest user context values based on id
-  const personId = person?.id;
-  if (personId) {
-    const latestUser = users.get(personId);
-    if (latestUser) {
-      name = latestUser.name;
-      email = latestUser.email;
-    }
+  let name = keyActed ? keyName || "API key" : person?.name || "";
+  let email = keyActed ? "" : person?.email || "";
+  const latestUser = !keyActed && person?.id ? users.get(person.id) : null;
+  if (latestUser) {
+    name = latestUser.name;
+    email = latestUser.email;
   }
 
   // Treat a blank/whitespace-only name as absent so it never renders as an
@@ -123,41 +129,37 @@ export default function EventUser({
   name = (name || "").trim();
   email = (email || "").trim();
 
-  if (display === "avatar") {
-    return (
-      <UserAvatar
-        email={email}
-        name={name}
-        isApi={isApi}
-        size={size}
-        variant="soft"
-      />
-    );
-  }
+  const avatar = (
+    <UserAvatar
+      email={email}
+      name={name}
+      icon={keyActed ? <FaRobot /> : undefined}
+      size={size}
+      variant="soft"
+    />
+  );
+  if (display === "avatar") return avatar;
 
-  // Only badge named actors; a nameless key already reads as "API Key" (see
-  // getUserLabel), so the badge would just double the "API" signal.
-  const apiBadge = requestedBy ? (
-    <Badge
-      variant="outline"
-      label={`via ${user.name || "API key"}`}
-      size="xs"
-      ml="1"
-      title={
-        user.type === "api_key" && user.assumedRole
-          ? "Requested through this API key, with only the permissions both the key and this member hold"
-          : "Requested through this API key, using the key's own permissions"
-      }
-    />
-  ) : isApi && (name || email) ? (
-    <Badge
-      variant="outline"
-      label="API"
-      size="xs"
-      ml="1"
-      title={email ? "via personal access token" : "via API key"}
-    />
-  ) : null;
+  const badge = (label: string, title: string) => (
+    <Badge variant="outline" label={label} size="xs" ml="1" title={title} />
+  );
+  const apiBadge = keyActed
+    ? requester
+      ? badge(
+          `for ${requesterName}`,
+          `${requesterName} asked. The key acted with its own permissions.`,
+        )
+      : keyName
+        ? badge("API", "via API key")
+        : null
+    : user.type === "api_key"
+      ? requester
+        ? badge(
+            `via ${keyName || "API key"}`,
+            "Requested through this API key, with only the permissions both the key and this member hold",
+          )
+        : badge("API", "via personal access token")
+      : null;
 
   const freshUser = { ...user, name, email } as EventUserType;
 
@@ -169,13 +171,7 @@ export default function EventUser({
         wrap={wrap ? "wrap" : "nowrap"}
         display="inline-flex"
       >
-        <UserAvatar
-          email={email}
-          name={name || ""}
-          isApi={isApi}
-          size={size}
-          variant="soft"
-        />
+        {avatar}
         {getUserLabel(freshUser, display === "avatar-name-email")}
         {apiBadge}
       </Flex>

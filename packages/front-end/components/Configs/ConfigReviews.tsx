@@ -3,10 +3,16 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  EventUser as EventUserType,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
+import EventUser from "@/components/Avatar/EventUser";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import {
@@ -55,6 +61,7 @@ type ReviewRow = {
   configName: string;
   configId: string;
   authorId: string;
+  author: EventUserType;
   authorDisplay: string;
   status: RevisionStatus;
   dateCreated: Date;
@@ -75,6 +82,7 @@ function revisionToRow(revision: Revision): ReviewRow {
     configName,
     configId: revision.target.id,
     authorId: revision.authorId,
+    author: revisionActor(revision, revision.authorId),
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
@@ -109,18 +117,25 @@ const ConfigReviews: FC = () => {
     [revisions],
   );
 
-  const authors = useMemo(() => {
-    const authorSet = new Set(rows.map((r) => r.authorId));
-    return Array.from(authorSet).filter(Boolean);
-  }, [rows]);
-
   const reviewItems = useAddComputedFields(
     rows,
     (item) => ({
       ...item,
-      authorDisplay: getUserDisplay(item.authorId) || "",
+      authorDisplay: eventUserLabel(item.author, {
+        nameFor: (id) => getUserDisplay(id, false),
+      }),
     }),
     [getUserDisplay],
+  );
+
+  const authors = useMemo(
+    () =>
+      new Map(
+        reviewItems
+          .filter((r) => r.authorId)
+          .map((r) => [r.authorId, r.authorDisplay] as const),
+      ),
+    [reviewItems],
   );
 
   const {
@@ -256,10 +271,10 @@ const ConfigReviews: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={authors.map((a) => ({
-              name: getUserDisplay(a) || a,
-              id: a,
-              searchValue: getUserDisplay(a) || a,
+            items={Array.from(authors, ([id, label]) => ({
+              name: getUserDisplay(id, false) || label,
+              id,
+              searchValue: getUserDisplay(id, false) || label,
             }))}
             updateQuery={updateQuery}
           />
@@ -338,7 +353,9 @@ const ConfigReviews: FC = () => {
                   <TableCell>
                     <OverflowText maxWidth={400}>{row.title}</OverflowText>
                   </TableCell>
-                  <TableCell>{row.authorDisplay}</TableCell>
+                  <TableCell>
+                    <EventUser user={row.author} display="name" />
+                  </TableCell>
                   <TableCell title={datetime(row.dateUpdated)}>
                     {date(row.dateUpdated)}
                   </TableCell>

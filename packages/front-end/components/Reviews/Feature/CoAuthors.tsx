@@ -3,7 +3,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { eventUserPersonId } from "shared/validators";
+import { eventUserIdentity, revisionActor } from "shared/validators";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
@@ -26,20 +26,35 @@ interface Props extends MarginProps {
 }
 
 export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
-  const createdById = eventUserPersonId(rev.createdBy ?? null);
+  const createdById = eventUserIdentity(rev.createdBy ?? null);
 
-  // contributors is now string[] (user IDs). For older revisions that lack
-  // the field, fall back to deriving from content-bearing log entries.
+  // Contributors are identities (members, or keys that acted as themselves).
+  // Older revisions without the field derive them from content-bearing logs.
   const storedIds = (rev.contributors ?? []).filter(Boolean);
 
   const coAuthorIds =
     storedIds.length === 0 && logs
       ? logs
           .filter((l) => !NON_CONTENT_ACTIONS.has(l.action))
-          .map((l) => eventUserPersonId(l.user ?? null))
+          .map((l) => eventUserIdentity(l.user ?? null))
           .filter((id): id is string => !!id && id !== createdById)
           .filter((id, i, arr) => arr.indexOf(id) === i)
       : storedIds.filter((id) => id !== createdById);
 
-  return <CoAuthorsList coAuthorIds={coAuthorIds} {...marginProps} />;
+  return (
+    <CoAuthorsList
+      coAuthorIds={coAuthorIds}
+      actorFor={(id) =>
+        revisionActor(
+          {
+            createdBy: rev.createdBy ?? undefined,
+            reviews: rev.reviews,
+            activityLog: logs,
+          },
+          id,
+        )
+      }
+      {...marginProps}
+    />
+  );
 }
