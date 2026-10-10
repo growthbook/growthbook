@@ -184,7 +184,6 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
   );
 }
 
-// Removes everything an import run created, with a confirmation step
 function DeleteRunButton({
   run,
   onDone,

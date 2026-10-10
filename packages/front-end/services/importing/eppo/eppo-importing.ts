@@ -1415,7 +1415,6 @@ export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "flags", label: "Feature Flags" },
 ];
 
-// Auto Run artifact kinds for the categories a run records
 export const ARTIFACT_KINDS: Record<EppoCategory, AutoRunArtifact["kind"]> = {
   environments: "environment",
   tags: "tag",
