@@ -174,9 +174,92 @@ function App({
     );
   };
 
+  // Page transitions (set in review): moving to another page (e.g. the
+  // experiments list to an experiment) cross-fades the main content area
+  // with the View Transitions API: the old page fades out quickly and the
+  // new one fades in with a slight rise (tried a cross-fade with a focus pull,
+  // and a shared-title morph, in review); the top bar and sidebar stay put
+  // (styles below). Only a change of page: not a hash change (tabs) or a
+  // query change on the same page, and not shallow routing. The content
+  // area takes its view-transition-name only for the transition, so it
+  // isn't a stacking context the rest of the time. Browsers without the
+  // API navigate as before; none for reduced motion.
+  useEffect(() => {
+    if (
+      typeof document.startViewTransition !== "function" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    let finish: (() => void) | null = null;
+    const onStart = (url: string, { shallow }: { shallow: boolean }) => {
+      if (shallow) return;
+      const next = new URL(url, window.location.origin).pathname;
+      if (next === window.location.pathname) return;
+      finish?.();
+      const navigated = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      document.documentElement.classList.add("page-transition");
+      const transition = document.startViewTransition(() => navigated);
+      transition.finished.finally(() => {
+        document.documentElement.classList.remove("page-transition");
+      });
+    };
+    const onDone = () => {
+      finish?.();
+      finish = null;
+    };
+    router.events.on("routeChangeStart", onStart);
+    router.events.on("routeChangeComplete", onDone);
+    router.events.on("routeChangeError", onDone);
+    return () => {
+      router.events.off("routeChangeStart", onStart);
+      router.events.off("routeChangeComplete", onDone);
+      router.events.off("routeChangeError", onDone);
+      onDone();
+    };
+  }, [router]);
+
   return (
     <>
       <style jsx global>{`
+        /* Page transitions (see the effect above): only the main content
+          area animates; the rest of the page holds still. */
+        html.page-transition main.main {
+          view-transition-name: page-main;
+        }
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+          animation: none;
+        }
+        ::view-transition-old(page-main) {
+          animation: page-out 120ms ease-out both;
+        }
+        ::view-transition-new(page-main) {
+          animation: page-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes page-out {
+          to {
+            opacity: 0;
+          }
+        }
+        @keyframes page-in {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          ::view-transition-old(page-main),
+          ::view-transition-new(page-main) {
+            animation: none;
+          }
+        }
         html {
           font-family: var(--default-font-family);
           --default-font-family: ${inter.style.fontFamily};

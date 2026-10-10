@@ -7,7 +7,9 @@ import {
   useState,
 } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import clsx from "clsx";
 import { radixSize, Size as SharedSize } from "@/ui/sizes";
+import styles from "./Button.module.scss";
 
 // "inherit" drops the forced accent color so the button inherits the
 // surrounding Radix accent context (e.g. a Callout's status color).
@@ -59,6 +61,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       stopPropagation,
       preventDefault = true,
       type = "button",
+      className,
       children,
       ...otherProps
     },
@@ -66,11 +69,14 @@ const Button = forwardRef<HTMLButtonElement, Props>(
   ) => {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
+    // Primary: violet and solid, the defaults.
+    const isPrimary = color === "violet" && variant === "solid";
 
     return (
       <RadixButton
         ref={ref}
         {...otherProps}
+        className={clsx(isPrimary && styles.primary, className) || undefined}
         onClick={
           onClick
             ? async (e) => {

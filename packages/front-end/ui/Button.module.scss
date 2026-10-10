@@ -1,0 +1,187 @@
+// Primary buttons (violet, solid): a restrained hover and press (set in
+// review). Applied by Button.tsx to every primary button.
+//
+// - Rest: a slight shadow.
+// - Hover: lifts 1px; the shadow deepens and softens, in light grey.
+//   The fill deepens a touch, and small, soft bubbles drift up through it
+//   (below).
+// - Press: settles back down and shrinks to 98%, the shadow pulls in and
+//   lightens; 80ms, quicker than the 200ms hover. It eases back on release.
+// - Nothing inside the button moves.
+// - Disabled and loading (Radix marks both data-disabled): no hover or press.
+// - Reduced motion: no lift, press scale or bubbles; colour and shadow
+//   change instantly.
+//
+// The class is doubled to outrank Radix's button rules, which have the same
+// specificity and may load later.
+
+// Starts quickly, settles gently; no overshoot.
+$ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+.primary.primary {
+  position: relative;
+  // Clips the bubbles to the rounded corners. The button's own shadow and
+  // focus outline are drawn outside it, unaffected.
+  overflow: hidden;
+  // Its own stacking context, so the bubbles sit between the background and
+  // the contents.
+  isolation: isolate;
+  box-shadow:
+    0 1px 2px var(--black-a3),
+    0 2px 6px var(--black-a2);
+  transition-property: transform, box-shadow, background-color;
+  transition-duration: 200ms;
+  transition-timing-function: $ease-out;
+
+  // The icon and label above the bubbles. Named, not `> *`: while loading,
+  // Radix centres its spinner with position: absolute on a direct child,
+  // which this mustn't override.
+  > svg,
+  > :global(.rt-Text) {
+    position: relative;
+    z-index: 1;
+  }
+
+  // Bubbles (set in review, in place of a flowing gradient): while hovered,
+  // small, soft, translucent bubbles drift up through the button, like
+  // bubbles rising in a beaker. Two layers for depth: smaller, quicker ones
+  // (::after) and a few larger, slower ones behind (::before). Each layer is
+  // a tile of bubbles repeated across the button, moved up by whole tiles,
+  // so the loop is seamless. Accessibility:
+  // - The hover fill is violet-9 with 8% black (not Radix's --violet-10,
+  //   which is 4.4:1 in dark mode): 6.13:1 with the white text and icon.
+  // - Bubbles are soft orbs of at most 9% white, no bright rims, so the text
+  //   keeps at least 5:1 even over one (WCAG AA is 4.5:1).
+  // - Slow, low contrast, no flashing; they move only while hovered, so
+  //   nothing moves on its own.
+  // - Leaving pauses them where they are and fades them out over 400ms: no
+  //   snap.
+  // - None for reduced motion (below).
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+    opacity: 0;
+    transition: opacity 400ms $ease-out;
+  }
+
+  // Smaller, quicker bubbles: three tiles of different sizes, so the
+  // pattern doesn't read as a grid. Slower and sparser than first tried
+  // (set in review: 8s, was 6s; tiles 48x48, 56x72 and 64x72, were 40x48,
+  // 56x72 and 34x36: about 43% fewer small bubbles).
+  &::after {
+    background-image:
+      radial-gradient(
+        circle at 10px 34px,
+        rgba(255, 255, 255, 0.09) 2px,
+        transparent 3px
+      ),
+      radial-gradient(
+        circle at 36px 14px,
+        rgba(255, 255, 255, 0.08) 1.5px,
+        transparent 2.5px
+      ),
+      radial-gradient(
+        circle at 24px 22px,
+        rgba(255, 255, 255, 0.07) 1px,
+        transparent 2px
+      );
+    background-size:
+      48px 48px,
+      56px 72px,
+      64px 72px;
+    background-position:
+      0 0,
+      0 0,
+      0 0;
+    animation: primary-bubbles-small 8s linear infinite paused;
+  }
+
+  // Larger, slower bubbles, a little fainter, behind (12s, was 9s; tile
+  // 96x96, was 76x96).
+  &::before {
+    background-image: radial-gradient(
+      circle at 50px 60px,
+      rgba(255, 255, 255, 0.06) 3.5px,
+      transparent 4.5px
+    );
+    background-size: 96px 96px;
+    background-position: 0 0;
+    animation: primary-bubbles-large 12s linear infinite paused;
+  }
+
+  &:hover:not([data-disabled])::before,
+  &:hover:not([data-disabled])::after {
+    opacity: 1;
+    animation-play-state: running;
+  }
+
+  // Deeper and softer than at rest, in the same translucent black, so it
+  // reads as light grey (black, not violet, set in review).
+  &:hover:not([data-disabled]) {
+    // A touch deeper than violet-9, in light and dark mode alike (see the
+    // bubbles' notes above).
+    background-color: color-mix(in srgb, var(--violet-9), black 8%);
+    transform: translateY(-1px);
+    box-shadow:
+      0 2px 4px var(--black-a2),
+      0 6px 16px -4px var(--black-a3);
+  }
+
+  // The press (set in review): settles down to 98%, and the shadow pulls in
+  // close and lightens, as if pushed into the page; on release it eases back
+  // over the 200ms. No colour ring (tried; it read as too much).
+  &:active:not([data-disabled]) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 0.5px 1px var(--black-a2);
+    transition-duration: 80ms;
+  }
+
+  &[data-disabled] {
+    box-shadow: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+
+    &:hover:not([data-disabled]),
+    &:active:not([data-disabled]) {
+      transform: none;
+    }
+  }
+}
+
+// Up by whole tiles each loop, so it's seamless: 144px is a multiple of
+// every small tile's height (48, 72, 72), and 96px is the large tile's.
+@keyframes primary-bubbles-small {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 -144px,
+      0 -144px,
+      0 -144px;
+  }
+}
+
+@keyframes primary-bubbles-large {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 -96px;
+  }
+}
