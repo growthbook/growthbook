@@ -27,6 +27,7 @@ from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
+    ProportionStatistic,
     SampleMeanStatistic,
 )
 from gbstats.models.results import (
@@ -441,6 +442,72 @@ class TestProcessSingleMetricAnalysisIsolation(TestCase):
         self.assertEqual(result.analyses[0].dimensions, [])
         self.assertIsNone(result.analyses[0].error)
         self.assertEqual(result.analyses[1].dimensions, kept_dimensions)
+
+
+class TestCreateBanditStatisticsBinomial(TestCase):
+    """Binomial bandit rows carry the period-weighted variance in main_sum_squares."""
+
+    # One folded row per variation, as the bandit SQL produces it. The
+    # main_sum_squares values are not sum (what iid binomial data would give)
+    # because the period weighting inflates the variance of the mean.
+    ROWS = pd.DataFrame(
+        [
+            {
+                "dimension": "All",
+                "variation": "zero",
+                "main_sum": 30.0,
+                "main_sum_squares": 45.0,
+                "users": 300,
+                "count": 300,
+            },
+            {
+                "dimension": "All",
+                "variation": "one",
+                "main_sum": 36.0,
+                "main_sum_squares": 60.0,
+                "users": 300,
+                "count": 300,
+            },
+        ]
+    )
+    # Binomial is coerced to count upstream, so the metric that actually reaches
+    # create_bandit_statistics is a count metric.
+    METRIC = COUNT_METRIC
+
+    def _stats(self, rows):
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        return create_bandit_statistics(df[0].data.iloc[0], self.METRIC, 2)
+
+    def test_uses_period_weighted_variance_from_row(self):
+        stats = self._stats(self.ROWS)
+        for stat, row in zip(stats, self.ROWS.itertuples()):
+            assert isinstance(stat, SampleMeanStatistic)
+            self.assertEqual(stat.n, row.users)
+            self.assertEqual(stat.sum, row.main_sum)
+            self.assertEqual(stat.sum_squares, row.main_sum_squares)
+            iid_variance = ProportionStatistic(n=stat.n, sum=stat.sum).variance
+            self.assertGreater(stat.variance, iid_variance)
+
+    def test_keeps_folded_sum_squares_below_the_sum(self):
+        # Two equally weighted periods at 10% and 90% conversion: the period
+        # weighting removes the between-period spread, so the folded
+        # main_sum_squares (102.09) is below the sum (150) and must be kept.
+        rows = self.ROWS.copy()
+        rows.loc[0, ["main_sum", "main_sum_squares"]] = [150.0, 102.09]
+        stat = self._stats(rows)[0]
+        assert isinstance(stat, SampleMeanStatistic)
+        self.assertEqual(stat.sum_squares, 102.09)
+        self.assertLess(
+            stat.variance,
+            SampleMeanStatistic(n=300, sum=150.0, sum_squares=150.0).variance,
+        )
+
+    def test_rejects_binomial_metric(self):
+        # A binomial metric should have been coerced to count upstream.
+        binomial_metric = dataclasses.replace(COUNT_METRIC, main_metric_type="binomial")
+        df = get_metric_dfs(self.ROWS, {"zero": 0, "one": 1}, ["zero", "one"])
+        with self.assertRaises(ValueError):
+            create_bandit_statistics(df[0].data.iloc[0], binomial_metric, 2)
 
 
 class TestBanditMinVariationWeightFloor(TestCase):
