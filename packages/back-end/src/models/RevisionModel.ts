@@ -468,7 +468,11 @@ export class RevisionModel extends BaseClass {
       const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
-          user: this.context.auditUser,
+          // A backfilled baseline is authored by the entity's owner, not by
+          // whoever's edit created it.
+          ...(doc.authorId === this.context.actingUserId && {
+            user: this.context.auditUser,
+          }),
           userId: doc.authorId,
           action: "created",
           description,
