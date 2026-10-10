@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, ReactNode } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 
 const EmptyState: FC<{
@@ -7,10 +7,14 @@ const EmptyState: FC<{
   leftButton: React.ReactNode | null;
   rightButton: React.ReactNode | null;
   image?: string;
-}> = ({ title, description, leftButton, rightButton, image }) => {
+  // Shown above the title, 12px clear of it. Optional; none by default.
+  icon?: ReactNode;
+}> = ({ title, description, leftButton, rightButton, image, icon }) => {
   return (
     <Box p="60px" pb="70px" className={`box text-center`}>
       <Flex direction="column" align="center" gap="8px">
+        {/* 4px more below it than the column's 8px gap, so 12px. */}
+        {icon ? <Flex style={{ marginBottom: 4 }}>{icon}</Flex> : null}
         <Text
           size="6"
           style={{ fontWeight: 500, color: "var(--color-text-high)" }}

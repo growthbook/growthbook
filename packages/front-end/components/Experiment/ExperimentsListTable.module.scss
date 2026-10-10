@@ -1,0 +1,273 @@
+// emptyState="placeholder" (set in review; the experiments list), after the
+// Diagnostics prototype's stream table (components/Diagnostics/
+// StreamTable.module.scss there): with no rows, a centred EmptyState in one
+// row across the table, which keeps its headers and outline (set in review),
+// at a fixed 320px (set in review; keeping the rows' last height was tried
+// and dropped), rather than a page of rows (20 rows here would be over
+// 1,000px). The message may wrap, though the list's cells otherwise stay on
+// one line.
+.emptyPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  white-space: normal;
+}
+
+// components/EmptyState carries the global `.box` class (border, panel fill,
+// margin), which would read as a card on the page; strip it to the copy.
+.emptyPlaceholder :global(.box) {
+  border: none;
+  background-color: transparent;
+  margin-bottom: 0;
+  // 8px higher in the area (set in review), on top of the 5px EmptyState's
+  // uneven padding (60px above, 70px below) already lifts it: about 13px
+  // above centre. A transform, so the table's height doesn't change.
+  transform: translateY(-8px);
+}
+
+// EmptyState hard-codes Text size 6 (24px) for the title and size 3 (16px)
+// for the description and takes no className, so they're dialled back here:
+// 16px and 13px, on a 1.3 line height, so the two lines sit about 12px apart
+// (its Flex gap is 8px; the rest was leading). Radix's size rules use
+// :where(), so a plain class pair outranks them.
+.emptyPlaceholder :global(.rt-Text.rt-r-size-6) {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.emptyPlaceholder :global(.rt-Text.rt-r-size-3) {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+// Both lines in --gray-12, the colour of text typed in the search field
+// (set in review), in place of EmptyState's --color-text-high and
+// --color-text-mid. EmptyState sets those inline, so this needs !important.
+.emptyPlaceholder :global(.rt-Text) {
+  color: var(--gray-12) !important;
+}
+
+// attachedFooter (set in review; the experiments list): the pagination as
+// the table's footer. The table's outline carries on around it: the table's
+// bottom corners go square and its bottom edge becomes a --gray-a4 divider,
+// between the lines between rows (--gray-a3) and the outline (--slate-a5),
+// matching the line under the header so the two frame the rows (set in
+// review; tried --gray-a5, too dark), and the footer
+// draws the rest of the outline
+// (--slate-a5) with the rounded corners. Doubled to outrank the list table's
+// own border rule (Table.module.scss).
+.withFooter.withFooter :global([data-table-list] .rt-TableRootTable) {
+  border-bottom: 1px solid var(--gray-a4);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+// The footer: 52px, a comfortable data row's height, in both densities: it
+// doesn't shrink with compact rows (set in review; it had followed
+// --experiments-row-height). Rows per page on the left, the page buttons on
+// the right (set in review), centred in it, inside the table's 20px side
+// insets, so it lines up with the first and last columns. Pagination's
+// classes are hashed, so its parts are reached by element and attribute,
+// within its <nav> (the rows-per-page select's trigger is a button too).
+.footer.footer {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--slate-a5);
+  border-top: none;
+  border-radius: 0 0 var(--radius-4) var(--radius-4);
+  background-color: var(--color-panel-solid);
+}
+
+// Ghost page buttons (set in review), in place of Pagination's outlined
+// ones: no border or fill at rest, a soft fill on hover and press. The
+// numbers in --gray-11 (set in review; tried --gray-12, the table's values'
+// colour), the current page's in --gray-12 on a --slate-3 chip (below).
+.footer.footer.footer nav button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--gray-11);
+}
+
+.footer.footer.footer nav button:enabled:hover:not([aria-current]) {
+  border-color: transparent;
+  background: var(--gray-a3);
+}
+
+.footer.footer.footer nav button:enabled:active:not([aria-current]) {
+  border-color: transparent;
+  background: var(--gray-a4);
+}
+
+// The current page: a --slate-3 chip (set in review; tried --slate-2, and
+// Pagination's violet), its number at 500.
+.footer.footer.footer nav button[aria-current="page"] {
+  border-color: transparent;
+  background: var(--slate-3);
+  color: var(--gray-12);
+}
+
+.footer.footer.footer nav button[aria-current="page"] :global(.rt-Text) {
+  font-weight: var(--font-weight-medium);
+}
+
+// The numbers at 400 (set in review), in place of the 500 @/ui/Button gives
+// its labels, and in their button's colour, so the current page's number
+// matches the others (set in review).
+.footer.footer.footer nav button :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
+  color: inherit;
+}
+
+// Disabled arrows stay greyed out, over the --gray-12 above.
+.footer.footer.footer nav button:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-disabled);
+}
+
+// One size down (set in review): the page buttons at 24px (--space-5, the
+// design system's sm) in place of Pagination's 32px. Pagination sets each
+// page slot's minimum width inline (32px, wider for long page numbers), so
+// that needs !important here; 24px still fits three digits at 12px. The
+// arrows go square (below).
+.footer.footer.footer nav button {
+  height: var(--space-5);
+}
+
+.footer.footer.footer nav li {
+  min-width: var(--space-5) !important;
+}
+
+// The "…" between page numbers has its own 32px height there; down with
+// the buttons, or the footer keeps its old height.
+.footer.footer.footer nav li[aria-hidden="true"] {
+  height: var(--space-5);
+}
+
+// The previous and next arrows square, 24px by 24px like the page numbers
+// (set in review; their side padding had made them about 31px wide), the
+// chevron centred with even space all round.
+.footer.footer.footer nav li:first-child button,
+.footer.footer.footer nav li:last-child button {
+  width: var(--space-5);
+  padding: 0;
+  justify-content: center;
+}
+
+// 8px between each arrow and the page numbers (set in review; was
+// Pagination's 4px gap): 4px more on the arrows' inner sides. The page
+// numbers stay 4px apart.
+.footer.footer.footer nav li:first-child {
+  margin-right: var(--space-1);
+}
+
+.footer.footer.footer nav li:last-child {
+  margin-left: var(--space-1);
+}
+
+// Pagination's own 16px above it is for a standalone row; none in here.
+.footer.footer nav {
+  padding-top: 0;
+}
+
+// The rows-per-page select, as the page's search field (set in review): its
+// outline eases to --slate-9 over 150ms on hover, and while it's focused or
+// open shows a firmer --slate-11 outline instead of the violet focus ring.
+// Instant for reduced motion.
+.footer :global(.rt-SelectTrigger.rt-variant-surface) {
+  transition: box-shadow 150ms ease;
+}
+
+.footer
+  :global(.rt-SelectTrigger.rt-variant-surface):hover:not(
+    [data-state="open"]
+  ):not(:focus-visible) {
+  box-shadow: inset 0 0 0 1px var(--slate-9);
+}
+
+.footer :global(.rt-SelectTrigger.rt-variant-surface):focus-visible,
+.footer :global(.rt-SelectTrigger.rt-variant-surface)[data-state="open"] {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--slate-11);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer :global(.rt-SelectTrigger.rt-variant-surface) {
+    transition: none;
+  }
+}
+
+// The rows-per-page menu's hovered (and keyboard-highlighted) option: a
+// --slate-3 fill (set in review; tried --slate-2, which at 1.05:1 against
+// the menu was barely visible), in place of the soft menu's light violet
+// (--accent-a4). Radix's rule uses :where(), so this outranks it.
+.rowsPerPageMenu :global(.rt-SelectItem[data-highlighted]) {
+  background-color: var(--slate-3);
+}
+
+// The list's menus, the column menu (pages/experiments/index.tsx) and the
+// rows-per-page menu: the Setup page's soft menu shadow, plus a faint
+// shadow all round, so their top edge stands out from the page a little too
+// (set in review; the soft shadow falls below, and the top almost blended
+// into the background).
+.menuShadow.menuShadow {
+  box-shadow:
+    0 0 3px var(--black-a2),
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+}
+
+// scrollOnOverflow (set in review; the experiments list): while the columns
+// are wider than the page, the table scrolls sideways in this box rather
+// than spilling off the page. A scroll box also catches vertical stickiness,
+// so the header, which otherwise sticks to the page, stays in place
+// meanwhile; left sticky, it would drop to its page offset inside the box.
+.scrollX {
+  overflow-x: auto;
+}
+
+.scrollX :global([data-table-list][data-sticky-header="true"] .rt-TableHeader) {
+  position: static;
+}
+
+// The outline stays put while the table scrolls sideways (set in review):
+// the scroll box draws it, round its rounded corners (which clip the
+// content), and the table and its header row drop theirs. With the attached
+// footer, the box has no bottom edge or bottom corners, and the table keeps
+// its bottom edge, the --gray-a4 divider above the footer (.withFooter).
+// !important, over Table.module.scss's outline, the page's header line and
+// the .withFooter rule.
+.scrollX {
+  border: 1px solid var(--slate-a5);
+  border-radius: var(--radius-4);
+}
+
+.scrollX :global([data-table-list] .rt-TableRootTable) {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+// The header's cells keep only the line under them; the box draws the top
+// edge they otherwise draw.
+.scrollX :global([data-table-list] .rt-TableHeader) {
+  box-shadow: none !important;
+}
+
+.scrollX :global([data-table-list] .rt-TableColumnHeaderCell) {
+  box-shadow: inset 0 -1px 0 0 var(--gray-a4) !important;
+}
+
+.withFooter .scrollX {
+  border-bottom: none;
+  border-radius: var(--radius-4) var(--radius-4) 0 0;
+}
+
+.withFooter .scrollX :global([data-table-list] .rt-TableRootTable) {
+  border-bottom: 1px solid var(--gray-a4) !important;
+}

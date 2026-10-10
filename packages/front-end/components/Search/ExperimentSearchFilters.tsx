@@ -240,6 +240,9 @@ const ExperimentSearchFilters: FC<
               variant="ghost"
               color="gray"
               icon={<PiPlusBold size={12} />}
+              // 6px corners on its hover fill, --radius-3, as the page's
+              // Import and Create (set in review, trying it).
+              style={{ borderRadius: "var(--radius-3)" }}
             >
               Add Filter
             </Button>

@@ -125,6 +125,10 @@ type RootProps = TrackingEventModalProps & {
   size?: Size;
   dismissible?: boolean;
   hasDescription?: boolean;
+  // The space at the dialog's sides, in place of 40px: its left padding,
+  // and the header's, body's and footer's right padding (where the body's
+  // scrollbar sits). Optional and additive.
+  paddingX?: string;
   children: ReactNode;
 };
 
@@ -137,6 +141,7 @@ function Root({
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
+  paddingX = "40px",
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
@@ -235,7 +240,8 @@ function Root({
             flexDirection: "column",
             overflow: "hidden",
             paddingTop: size === "fill" ? "0" : "32px",
-            paddingLeft: size === "fill" ? "0" : "40px",
+            paddingLeft: size === "fill" ? "0" : paddingX,
+            "--modal-padding-x": paddingX,
             paddingRight: "0",
             paddingBottom: size === "fill" ? "0" : "20px",
             ...(size === "fill"
@@ -244,7 +250,7 @@ function Root({
                   height: "calc(100vh - 32px)",
                 }
               : {}),
-            "--inset-padding-left": "40px",
+            "--inset-padding-left": paddingX,
             // "full" centred in the window. Radix pads its dialogs 32px above
             // but max(32px, 6vh) below, which lifts a window-filling dialog
             // by half the difference; this moves it back down by that much.
@@ -271,17 +277,70 @@ function Root({
 // <Title /> <SomeAction /> just works
 // ---------------------------------------------------------------------------
 
-function Header({ children }: { children: ReactNode }) {
-  return (
-    <Flex flexShrink="0" justify="between" align="center" gap="3" pr="7">
+function Header({
+  children,
+  divider = false,
+}: {
+  children: ReactNode;
+  // A full-width divider under the header, as the footer's above it, with
+  // 28px above and below the header's row (set in review; tried 24px): it's
+  // pulled up 4px into the modal's 32px top padding, and the divider sits
+  // 28px under it, with the body's 24px below that. With Title's
+  // pageHeading, which trims the title to its letters, that's 28px from the
+  // top of the capitals and from the baseline. Optional and additive.
+  divider?: boolean;
+}) {
+  const row = (
+    <Flex
+      flexShrink="0"
+      justify="between"
+      align="center"
+      gap="3"
+      style={{ paddingRight: "var(--modal-padding-x, 40px)" }}
+    >
       {children}
     </Flex>
   );
+  if (!divider) return row;
+  return (
+    <Box flexShrink="0" style={{ marginTop: "-4px" }}>
+      {row}
+      <Box ml="-3">
+        <Inset side="x">
+          <Separator size="4" style={{ marginTop: "28px" }} />
+        </Inset>
+      </Box>
+    </Box>
+  );
 }
 
-function Title({ children }: { children: ReactNode }) {
+function Title({
+  children,
+  pageHeading = false,
+}: {
+  children: ReactNode;
+  /** Styled near a page's heading (@/ui/Heading), two sizes down: 16px
+   * (set in review; tried 18px, as by default, and the heading's 20px), at
+   * 600 (set in review; tried the heading's 500) in place of
+   * Radix's bold, 700, which has no 600 step, in the page text's colour
+   * (--text-color-main, which page headings inherit) in place of
+   * --color-text-high. Trimmed to the text (cap height to baseline), so
+   * the spacing around it is measured from the letters rather than the
+   * line's leading (see Header's divider). Off by default. */
+  pageHeading?: boolean;
+}) {
   return (
-    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
+    <Dialog.Title
+      size={pageHeading ? "4" : "5"}
+      trim={pageHeading ? "both" : undefined}
+      mb="0"
+      style={{
+        ...(pageHeading ? { fontWeight: 600 } : {}),
+        color: pageHeading
+          ? "var(--text-color-main)"
+          : "var(--color-text-high)",
+      }}
+    >
       {children}
     </Dialog.Title>
   );
@@ -289,7 +348,11 @@ function Title({ children }: { children: ReactNode }) {
 
 function Description({ children }: { children: ReactNode }) {
   return (
-    <Box flexShrink="0" pr="7" mt="1">
+    <Box
+      flexShrink="0"
+      mt="1"
+      style={{ paddingRight: "var(--modal-padding-x, 40px)" }}
+    >
       <Dialog.Description size="3" style={{ color: "var(--color-text-mid)" }}>
         {children}
       </Dialog.Description>
@@ -307,24 +370,42 @@ function Description({ children }: { children: ReactNode }) {
 function Body({
   children,
   flushBottom = false,
+  scrollToEdges = false,
 }: {
   children: ReactNode;
   // No space below the body, so its content runs right up to the footer
   // (used with Footer's flushTop). Optional and additive.
   flushBottom?: boolean;
+  // The scrolling area reaches the header's divider and the footer's (use
+  // with Header's divider and Footer's flushTop), so content scrolls right
+  // up to the lines rather than vanishing into a blank band; the space
+  // above and below the content moves inside the scroll: 28px above (set
+  // in review; tried 32px; 24px without it; off the space scale, so raw)
+  // and 40px below, as without it. Optional and additive.
+  scrollToEdges?: boolean;
 }) {
   const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea
       type="auto"
-      mt="5"
-      mb={flushBottom ? "0" : "3"}
+      mt={scrollToEdges ? "0" : "5"}
+      mb={flushBottom || scrollToEdges ? "0" : "3"}
       ml="-1"
       ref={bodyRef}
       scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
-      <Box pr="7" pl="1" pb="1" className={styles.body}>
+      <Box
+        pl="1"
+        pb="1"
+        className={styles.body}
+        style={{
+          paddingRight: "var(--modal-padding-x, 40px)",
+          ...(scrollToEdges
+            ? { paddingTop: "28px", paddingBottom: "var(--space-7)" }
+            : {}),
+        }}
+      >
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>
@@ -358,7 +439,11 @@ function Footer({
           style={{ marginBottom: "20px" }}
         />
       </Inset>
-      <Flex gap="3" justify={justify} pr="7">
+      <Flex
+        gap="3"
+        justify={justify}
+        style={{ paddingRight: "var(--modal-padding-x, 40px)" }}
+      >
         {children}
       </Flex>
     </Box>

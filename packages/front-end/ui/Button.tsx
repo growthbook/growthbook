@@ -76,7 +76,14 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       <RadixButton
         ref={ref}
         {...otherProps}
-        className={clsx(isPrimary && styles.primary, className) || undefined}
+        className={
+          clsx(
+            isPrimary && styles.primary,
+            // Outline and ghost: the primary buttons' press only.
+            (variant === "outline" || variant === "ghost") && styles.pressable,
+            className,
+          ) || undefined
+        }
         onClick={
           onClick
             ? async (e) => {

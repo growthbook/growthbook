@@ -26,6 +26,9 @@ $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   // Its own stacking context, so the bubbles sit between the background and
   // the contents.
   isolation: isolate;
+  // 6px corners, --radius-3 (set in review, trying it; tried 3px, 5px, 8px
+  // and 10px; Radix gives the default size 4px, --radius-2), at every size.
+  border-radius: var(--radius-3);
   box-shadow:
     0 1px 2px var(--black-a3),
     0 2px 6px var(--black-a2);
@@ -183,5 +186,29 @@ $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   }
   to {
     background-position: 0 -96px;
+  }
+}
+
+// Outline (secondary) and ghost buttons: the primary buttons' press, on its
+// own (set in review): settles to 98% over 80ms, eases back over 200ms. No
+// lift, shadow or bubbles. The outline and background transitions some of
+// these buttons already set (e.g. the redesigned header's .outlineButton,
+// 150ms) are repeated here, so this rule, which outranks them, doesn't drop
+// them. No press while disabled or loading, and none for reduced motion.
+.pressable.pressable.pressable {
+  transition:
+    transform 200ms $ease-out,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+
+  &:active:not([data-disabled]) {
+    transform: scale(0.98);
+    transition-duration: 80ms, 150ms, 150ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not([data-disabled]) {
+      transform: none;
+    }
   }
 }

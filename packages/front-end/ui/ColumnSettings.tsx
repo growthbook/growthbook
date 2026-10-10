@@ -16,10 +16,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Flex } from "@radix-ui/themes";
-import { PiDotsSixVertical } from "react-icons/pi";
+import { PiDotsSixVertical, PiDotsSixVerticalBold } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import styles from "./ColumnSettings.module.scss";
 
 export interface ManagedColumn {
   id: string;
@@ -33,9 +34,11 @@ export interface ManagedColumn {
 function SortableColumnRow({
   column,
   onToggle,
+  plainRows,
 }: {
   column: ManagedColumn;
   onToggle: (visible: boolean) => void;
+  plainRows?: boolean;
 }) {
   const {
     attributes,
@@ -53,11 +56,25 @@ function SortableColumnRow({
       gap="2"
       py="2"
       px="2"
+      className={plainRows ? styles.plainRow : undefined}
+      data-dragging={isDragging || undefined}
+      // plainRows: a click anywhere on the row's background checks or
+      // unchecks it too (set in review). Clicks on the checkbox and its label
+      // already do, and the handle is for dragging, so those are left alone.
+      onClick={
+        plainRows && !column.alwaysVisible
+          ? (e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("label, button, [data-drag-handle]")) return;
+              onToggle(!column.visible);
+            }
+          : undefined
+      }
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.9 : 1,
-        border: "1px solid var(--gray-a5)",
+        border: plainRows ? undefined : "1px solid var(--gray-a5)",
         borderRadius: "var(--radius-3)",
         backgroundColor: "var(--color-panel-solid)",
         boxShadow: isDragging ? "var(--shadow-4)" : undefined,
@@ -67,9 +84,14 @@ function SortableColumnRow({
         {...attributes}
         {...listeners}
         aria-label={`Drag to reorder ${column.label}`}
-        style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
+        data-drag-handle
+        style={{
+          cursor: "grab",
+          display: "flex",
+          color: plainRows ? "var(--gray-10)" : "var(--gray-8)",
+        }}
       >
-        <PiDotsSixVertical />
+        {plainRows ? <PiDotsSixVerticalBold /> : <PiDotsSixVertical />}
       </span>
       <Checkbox
         size="sm"
@@ -89,6 +111,9 @@ export interface ColumnSettingsProps {
   onChange: (columns: { id: string; visible: boolean }[]) => void;
   onReset?: () => void;
   canReset?: boolean;
+  /** Rows without outlines, shown by a fill on hover, and a darker, bold drag
+   * handle (set in review; the experiments list). Off by default. */
+  plainRows?: boolean;
 }
 
 export default function ColumnSettings({
@@ -96,6 +121,7 @@ export default function ColumnSettings({
   onChange,
   onReset,
   canReset,
+  plainRows = false,
 }: ColumnSettingsProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -133,11 +159,13 @@ export default function ColumnSettings({
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {/* Only the list scrolls, so the reset link stays reachable. pr is
-              for the scrollbar, which would otherwise sit on the row borders. */}
+              for the scrollbar, which would otherwise sit on the row borders;
+              plainRows have no borders, so their hover fill keeps the same
+              16px from both sides of the popover (set in review). */}
           <Flex
             direction="column"
-            gap="2"
-            pr="1"
+            gap={plainRows ? "0" : "2"}
+            pr={plainRows ? "0" : "1"}
             style={{ maxHeight: "min(50vh, 360px)", overflowY: "auto" }}
           >
             {columns.map((c) => (
@@ -145,6 +173,7 @@ export default function ColumnSettings({
                 key={c.id}
                 column={c}
                 onToggle={(v) => toggle(c.id, v)}
+                plainRows={plainRows}
               />
             ))}
           </Flex>

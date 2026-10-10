@@ -47,6 +47,15 @@
     box-shadow: inset 0 0 0 1px var(--slate-9);
   }
 
+  // The selected card: the hover's --slate-9 outline, at 1.25px (set in
+  // review; tried the hover's 1px, and 1.5px), in place of Radix's 2px
+  // violet one. Not
+  // while it's keyboard-focused, which keeps Radix's focus ring.
+  :global(.rt-RadioCardsItem[data-state="checked"]):not(:focus-visible)::after {
+    outline: none;
+    box-shadow: inset 0 0 0 1.25px var(--slate-9);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     :global(.rt-RadioCardsItem)::after {
       transition: none;
@@ -60,4 +69,43 @@
 .infoIcon {
   display: inline-flex;
   color: var(--slate-10);
+}
+
+// 6px corners, --radius-3, on every field (set in review, trying it; 4px,
+// --radius-2, before), as the experiments list's search field and buttons:
+// the legacy text inputs and text areas (.form-control), the react-select
+// dropdowns, Radix text fields, text areas and selects, and the Experiment
+// Type trigger. The react-select rules use !important
+// (styles/components/react-select.scss), and so must these; Radix rounds
+// parts of its text fields from a variable, set too.
+.fields {
+  :global(.form-control),
+  :global(.gb-select__control),
+  :global(.gb-multi-select__control),
+  :global(.rt-TextFieldRoot),
+  :global(.rt-TextAreaRoot),
+  :global(.rt-SelectTrigger),
+  :global(.rt-BaseButton.rt-variant-outline) {
+    border-radius: var(--radius-3) !important;
+    --text-field-border-radius: var(--radius-3);
+  }
+}
+
+// Experiment Type's label (DeliveryTypeSelect draws its own) in --slate-12,
+// as FormLabel's (set in review; tried --slate-11).
+.fields :global(.form-group > label.mb-1 > .rt-Text) {
+  color: var(--slate-12);
+}
+
+// The notices above the fields (callouts): hidden while none renders, so
+// the empty box's 16px bottom margin doesn't push the first field down (set
+// in review). The body's 28px is then the space above whatever comes first.
+.notices:empty {
+  display: none;
+}
+
+// The Attach .md button's label at 400 (set in review), in place of the 500
+// @/ui/Button gives its labels.
+.attachButton :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
 }

@@ -1,0 +1,24 @@
+// plainRows (set in review; the experiments list): no outline on each row,
+// only a --slate-3 fill on hover, as the rows-per-page menu's options. The
+// panel fill comes back while a row is dragged, so it reads as lifted.
+// Inline styles set the fill, so these need !important.
+.plainRow {
+  // The whole row toggles its checkbox (ColumnSettings.tsx).
+  cursor: pointer;
+  background-color: transparent !important;
+  transition: background-color 150ms ease;
+}
+
+.plainRow:hover {
+  background-color: var(--slate-3) !important;
+}
+
+.plainRow[data-dragging] {
+  background-color: var(--color-panel-solid) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plainRow {
+    transition: none;
+  }
+}

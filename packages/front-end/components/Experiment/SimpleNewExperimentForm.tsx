@@ -14,12 +14,13 @@ import {
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiInfo,
-  PiPaperclip,
+  PiPaperclipBold,
   PiPencilSimple,
   PiSparkle,
   PiX,
 } from "react-icons/pi";
 import Modal from "@/ui/Modal";
+import headerStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -150,11 +151,17 @@ function SubmitButton({
 // own at weight 600; this sets the size and weight on the text inside, and
 // LABEL_CLASS (Bootstrap's mb-1) sets the 4px in place of Bootstrap's 8px
 // label margin.
+//
+// In --slate-12 (set in review; tried --slate-11, the experiments list's
+// column headers' colour, which are also 12px at 500). Off the text tokens,
+// so set on a wrapper the text inherits from.
 function FormLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text size="sm" weight="medium">
-      {children}
-    </Text>
+    <span style={{ color: "var(--slate-12)" }}>
+      <Text size="sm" weight="medium">
+        {children}
+      </Text>
+    </span>
   );
 }
 const LABEL_CLASS = "mb-1";
@@ -172,9 +179,10 @@ const CARD_SUBTITLE_PULL = -4;
 // inherits it.
 const CARD_SUBTITLE_COLOR = "var(--slate-11)";
 
-// The small rounded icon tile at the left of each setup choice card: the
-// accent's soft fill (--violet-a3) and text (--violet-11). Composed: there's
-// no icon-tile component in @/ui/.
+// The small rounded icon tile at the left of each setup choice card: a grey
+// fill (--slate-3; tried --slate-2) and a darker grey icon (--slate-11)
+// (set in review; was the accent's --violet-a3 and --violet-11). Composed: there's no icon-tile
+// component in @/ui/.
 function ChoiceIcon({ children }: { children: React.ReactNode }) {
   return (
     <Flex
@@ -186,8 +194,8 @@ function ChoiceIcon({ children }: { children: React.ReactNode }) {
         width: 32,
         height: 32,
         borderRadius: "var(--radius-3)",
-        backgroundColor: "var(--violet-a3)",
-        color: "var(--violet-11)",
+        backgroundColor: "var(--slate-3)",
+        color: "var(--slate-11)",
       }}
     >
       {children}
@@ -990,6 +998,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         if (!nextOpen) onClose?.();
       }}
       size="lg"
+      // 32px at the sides, --space-6 (set in review, trying it; 40px by
+      // default).
+      paddingX="var(--space-6)"
       dismissible={false}
       hasDescription={false}
       trackingEventModalType="simple-new-experiment-create"
@@ -1001,17 +1012,26 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           onClose?.();
         }}
       >
-        <Modal.Header>
-          <Modal.Title>Create Experiment</Modal.Title>
+        {/* A divider under the header, as the footer's (set in review). */}
+        <Modal.Header divider>
+          {/* After the experiments list's "Experiments" heading: its
+            colour, two sizes down (16px; tried 18px and its 20px), at 600 (set in
+            review; tried its 500). */}
+          <Modal.Title pageHeading>Create Experiment</Modal.Title>
           {onSwitchToLegacy && showSwitchToOldExpCreate ? (
-            <Box>
+            // No height of its own, centred on the title's line, so it
+            // doesn't make the header taller than the trimmed title (set
+            // in review; see Modal.Header's divider).
+            <Box style={{ height: 0, display: "flex", alignItems: "center" }}>
               <Link onClick={onSwitchToLegacy} color="gray">
                 Switch to old experience
               </Link>
             </Box>
           ) : null}
         </Modal.Header>
-        <Modal.Body>
+        {/* Scrolls right up to the header's and footer's dividers (set in
+          review), with no blank band at either. */}
+        <Modal.Body scrollToEdges>
           {/* Every field gets the Setup page's hover outline (set in
             review; see SimpleNewExperimentForm.module.scss). */}
           <Box
@@ -1023,7 +1043,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                 : undefined
             }
           >
-            <Flex direction="column" gap="4" mb="4">
+            {/* The notices; hidden while none shows, so their 16px below
+              doesn't push the first field down (set in review). */}
+            <Flex direction="column" gap="4" mb="4" className={styles.notices}>
               {showSwitchToOldExpCreate && (
                 <Callout
                   status="info"
@@ -1174,7 +1196,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                         (Text's color prop only takes those), so it's set on
                         a wrapper that Text inherits from. */}
                       <Box style={{ color: "var(--slate-11)" }}>
-                        <Text as="div">
+                        {/* 12px, the label's size (set in review). */}
+                        <Text as="div" size="sm">
                           Paste a description or attach a spec. AI fills in what
                           your spec covers, you confirm the rest.
                         </Text>
@@ -1209,11 +1232,21 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                     button's place. */}
                   {!aiFiles.length ? (
                     <Box>
+                      {/* As the experiments list's Import button (set in
+                        review): grey outline that darkens on hover
+                        (.outlineButton), --slate-12 text, a bold icon and
+                        6px corners; its label at 400 (.attachButton). */}
                       <Button
                         ref={attachButtonRef}
                         variant="outline"
+                        color="gray"
                         size="md"
-                        icon={<PiPaperclip />}
+                        className={`${headerStyles.outlineButton} ${styles.attachButton}`}
+                        style={{
+                          color: "var(--slate-12)",
+                          borderRadius: "var(--radius-3)",
+                        }}
+                        icon={<PiPaperclipBold />}
                         onClick={() => fileInputRef.current?.click()}
                       >
                         Attach .md
@@ -1442,10 +1475,16 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             )}
           </Box>
         </Modal.Body>
-        <Modal.Footer justify="end">
+        <Modal.Footer justify="end" flushTop>
           <Flex gap="3" align="center">
             <Modal.Close>
-              <Button variant="ghost" onClick={() => onClose?.()}>
+              <Button
+                variant="ghost"
+                onClick={() => onClose?.()}
+                // 6px corners on its hover fill, --radius-3, as Create's
+                // (set in review, trying it).
+                style={{ borderRadius: "var(--radius-3)" }}
+              >
                 Cancel
               </Button>
             </Modal.Close>

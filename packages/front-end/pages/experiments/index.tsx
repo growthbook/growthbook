@@ -9,10 +9,10 @@ import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiDownloadSimpleBold,
-  PiArrowsInLineVerticalBold,
-  PiArrowsOutLineVerticalBold,
+  PiArrowsInLineVertical,
+  PiArrowsOutLineVertical,
   PiMagnifyingGlassBold,
-  PiTextColumnsBold,
+  PiTextColumns,
   PiXBold,
   PiPlusBold,
 } from "react-icons/pi";
@@ -40,6 +40,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import UiTooltip from "@/ui/Tooltip";
 import headerStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
+import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import ExperimentsListTable, {
   experimentsListColumnDefs,
 } from "@/components/Experiment/ExperimentsListTable";
@@ -163,6 +164,29 @@ const ExperimentsPage = (): React.ReactElement => {
     sortIcons: "arrow",
   });
 
+  // What's typed in the search field, applied on blur or Enter rather than
+  // on every keystroke (set in review). Follows the applied search when it
+  // changes elsewhere (the filter dropdowns, a tag click, clearing).
+  const [searchDraft, setSearchDraft] = useState(searchInputProps.value);
+  useEffect(() => {
+    setSearchDraft(searchInputProps.value);
+  }, [searchInputProps.value]);
+  const applySearch = () => {
+    if (searchDraft !== searchInputProps.value) setSearchValue(searchDraft);
+  };
+
+  // A newly applied search plays the tab change's table entrance too (set
+  // in review): applying on blur or Enter, clearing, or a filter or tag
+  // changing the search. A search has no direction, so "forward". Not while
+  // the page is still initializing. Same render-time pattern as the tab.
+  const [prevAppliedSearch, setPrevAppliedSearch] = useState(
+    searchInputProps.value,
+  );
+  if (searchInputProps.value !== prevAppliedSearch) {
+    setPrevAppliedSearch(searchInputProps.value);
+    if (didInitializeTab) setListTabDirection("forward");
+  }
+
   // The table's columns, held here so the toolbar's column settings and
   // both tables share them (set in review): order, visibility and widths,
   // saved in this browser. Built with the same options the tables get.
@@ -172,6 +196,7 @@ const ExperimentsPage = (): React.ReactElement => {
         statusFirst: true,
         hiddenColumns: ["owner", "date", "result"],
         showWatchColumn: false,
+        showTypeColumn: true,
       }),
     [],
   );
@@ -229,8 +254,11 @@ const ExperimentsPage = (): React.ReactElement => {
   const addExperimentButtons = (
     <>
       <UiTooltip
-        content="Connect a data source to import existing experiments."
+        content="Connect a data source to import existing experiments"
         enabled={canAddExperiment && !hasNonDemoDatasource}
+        // A brief pause before it shows (set in review), so passing over
+        // the disabled button doesn't flash it.
+        delayDuration={400}
       >
         {/* A span, so the tooltip still shows on the disabled button. */}
         <span>
@@ -240,7 +268,12 @@ const ExperimentsPage = (): React.ReactElement => {
             // The custom outline and text colour only while enabled: they'd
             // override Radix's disabled look (greyed text, lighter outline).
             className={importDisabled ? undefined : headerStyles.outlineButton}
-            style={importDisabled ? undefined : { color: "var(--slate-12)" }}
+            // 6px corners, --radius-3, matching Create's (set in review,
+            // trying it).
+            style={{
+              borderRadius: "var(--radius-3)",
+              ...(importDisabled ? {} : { color: "var(--slate-12)" }),
+            }}
             icon={<PiDownloadSimpleBold />}
             onClick={() => setOpenImportExperimentModal(true)}
             disabled={importDisabled}
@@ -288,10 +321,25 @@ const ExperimentsPage = (): React.ReactElement => {
           outline. Instant for reduced motion. */
         .contents.experiments .rt-TextFieldRoot.rt-variant-surface {
           transition: box-shadow 150ms ease;
+          /* 6px corners, --radius-3, as the toolbar's buttons (set in
+            review; tried 8px and 12px; 4px before, from
+            global-radix-overrides.scss's .gb-text-field--md, which this
+            outranks). Radix's variable too, for the parts it rounds. */
+          border-radius: var(--radius-3);
+          --text-field-border-radius: var(--radius-3);
         }
         .contents.experiments
           .rt-TextFieldRoot.rt-variant-surface:hover:not(:focus-within) {
           box-shadow: inset 0 0 0 var(--text-field-border-width) var(--slate-9);
+        }
+        /* Focused: no violet ring, a firmer 1px --slate-11 outline, as the
+          experiment page's fields (set in review; SetupPage/_hoverOutline.scss).
+          Distinct from hover and about 3.9:1 against the resting border, so
+          focus stays visible (WCAG AA). */
+        .contents.experiments
+          .rt-TextFieldRoot.rt-variant-surface:focus-within {
+          outline: none;
+          box-shadow: inset 0 0 0 var(--text-field-border-width) var(--slate-11);
         }
         @media (prefers-reduced-motion: reduce) {
           .contents.experiments .rt-TextFieldRoot.rt-variant-surface {
@@ -318,17 +366,17 @@ const ExperimentsPage = (): React.ReactElement => {
           padding-left: var(--space-2);
           padding-right: var(--space-2);
         }
-        /* The clear button's "×" likewise 8px from the field's right edge
-          (set in review), mirroring the search icon. The ghost icon button
-          takes only the icon's own width (its 4px padding is offset by
-          negative margins), so without Radix's 1px pull over the border the
-          slot's 8px puts the "×" 8px in. */
+        /* The clear button's "×" 12px from the field's right edge (set in
+          review; tried 8px, mirroring the search icon), and 8px after the
+          text. The ghost icon button takes only the icon's own width (its
+          4px padding is offset by negative margins), so without Radix's 1px
+          pull over the border the slot's padding is the whole gap. */
         .contents.experiments
           .rt-TextFieldRoot
           .rt-TextFieldSlot[data-side="right"] {
           margin-right: 0;
           padding-left: var(--space-2);
-          padding-right: var(--space-2);
+          padding-right: var(--space-3);
         }
         /* The table's column header row (set in review): no drop shadow at
           rest, only its top edge line, part of the table's outline; once it
@@ -507,13 +555,32 @@ const ExperimentsPage = (): React.ReactElement => {
           font-size: 13px;
         }
         /* The experiment names, the first column's values, at 500 (set in
-          review), over global.scss's .experiments .testname at 400. Not the
-          tracking key under a name. */
+          review; 400 was tried), over global.scss's .experiments .testname
+          at 400. At 13px, as the other columns' values (set in review,
+          trying it; was 14px). Not the tracking key under a name. */
         .contents.experiments
           [data-table-list][data-table-list]
           .rt-TableBody
           .testname {
           font-weight: var(--font-weight-medium);
+          font-size: 13px;
+        }
+        /* Hovering a row's name link underlines only the name, not the
+          tracking key under it (set in review). An underline on the link
+          would carry on to everything in it, so the link drops it and the
+          name takes it. */
+        .contents.experiments
+          [data-table-list][data-table-list]
+          .rt-TableBody
+          a:has(.testname):hover {
+          text-decoration: none;
+        }
+        .contents.experiments
+          [data-table-list][data-table-list]
+          .rt-TableBody
+          a:hover
+          .testname {
+          text-decoration: underline;
         }
         /* Each column header tints on hover (set in review), fading in and
           out, so it's clear which column a click sorts or a drag resizes:
@@ -541,9 +608,11 @@ const ExperimentsPage = (): React.ReactElement => {
         }
         /* The column resize handles (set in review): no line at rest; over
           a header cell's edge the cursor changes to col-resize and a solid
-          1px line in --slate-8 fades in to mark the edge, between the
-          cell's top and bottom lines, and fades out on leaving. Solid, not a translucent token
-          (set in review). Shown too while dragging, and while a handle has
+          1px line in --slate-11 (set in review; tried --slate-8 and the
+          darker --slate-12) fades in to
+          mark the edge, between the cell's top and bottom lines, and fades
+          out on leaving. Solid, not a translucent token (set in review).
+          Shown too while dragging, and while a handle has
           keyboard focus (the handle draws no outline). In place of the
           shared handle's short 2px accent mark. Instant for reduced
           motion. */
@@ -559,7 +628,7 @@ const ExperimentsPage = (): React.ReactElement => {
           height: auto;
           width: 1px;
           border-radius: 0;
-          background-color: var(--slate-8);
+          background-color: var(--slate-11);
           opacity: 0;
           transition: opacity 150ms ease;
         }
@@ -581,45 +650,56 @@ const ExperimentsPage = (): React.ReactElement => {
             transition: none;
           }
         }
-        /* The table controls' button group (set in review): two square
-          24px icon buttons, the design system's smallest (size 1; tried 32px
-          and 28px), with 12px bold icons, in one outline, a 1px divider between, the same
-          --slate-6 outline as the page's outline buttons, darkening to
-          --slate-9 on hover over 150ms. Each button tints on hover.
-          Instant for reduced motion. */
-        .experiments-table-controls {
-          height: 24px;
-          border-radius: var(--radius-2);
-          box-shadow: inset 0 0 0 1px var(--slate-6);
-          overflow: hidden;
-          transition: box-shadow 150ms ease;
-        }
-        .experiments-table-controls:hover {
-          box-shadow: inset 0 0 0 1px var(--slate-9);
-        }
-        /* Square at the size's own height (size 1: 24px). Ghost icon
-          buttons otherwise size by padding and negative margins, not by
-          their height. */
+        /* The table controls' button group (set in review): two standard
+          outline icon buttons, the design system's lg size (40px, trying
+          it; tried 24px, 28px and the default 32px), styled as the page's outline buttons
+          (.outlineButton: a --slate-6 outline darkening to --slate-9 on
+          hover), icons in --slate-12, joined: no gap, only the outer
+          corners rounded, and the outlines overlapping by 1px so the middle
+          reads as one shared divider. A hovered or focused button sits on
+          top, so its darker outline shows all round. No fill while compact
+          rows are on (set in review); its icon shows the state. */
         .experiments-table-controls .rt-IconButton {
-          width: var(--base-button-height);
-          height: var(--base-button-height);
-          padding: 0;
-          margin: 0;
-          color: var(--slate-11);
-        }
-        .experiments-table-controls .rt-IconButton[aria-pressed="true"] {
+          position: relative;
           color: var(--slate-12);
-          background-color: var(--slate-a3);
         }
-        .experiments-table-controls-divider {
-          align-self: stretch;
-          width: 1px;
-          background-color: var(--slate-6);
+        .experiments-table-controls .rt-IconButton:hover,
+        .experiments-table-controls .rt-IconButton:focus-visible {
+          z-index: 1;
+        }
+        /* The buttons' press, as @/ui/Button's (set in review; these are
+          Radix IconButtons, so they don't get it from there): settles to 98%
+          over 80ms, eases back over 200ms. The outline and background
+          transitions of .outlineButton (150ms) are repeated, as this rule
+          outranks it. Instant for reduced motion. */
+        .experiments-table-controls .rt-IconButton.rt-IconButton {
+          transition:
+            transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 150ms ease,
+            background-color 150ms ease;
+        }
+        .experiments-table-controls
+          .rt-IconButton.rt-IconButton:active:not([data-disabled]) {
+          transform: scale(0.98);
+          transition-duration: 80ms, 150ms, 150ms;
         }
         @media (prefers-reduced-motion: reduce) {
-          .experiments-table-controls {
-            transition: none;
+          .experiments-table-controls
+            .rt-IconButton.rt-IconButton:active:not([data-disabled]) {
+            transform: none;
           }
+        }
+        .experiments-table-controls > .rt-IconButton:first-child,
+        .experiments-table-controls > :first-child .rt-IconButton {
+          border-top-right-radius: 0;
+          border-bottom-right-radius: 0;
+        }
+        .experiments-table-controls > .rt-IconButton:last-child,
+        .experiments-table-controls > :last-child .rt-IconButton,
+        .experiments-table-controls > :last-child.rt-IconButton {
+          margin-left: -1px;
+          border-top-left-radius: 0;
+          border-bottom-left-radius: 0;
         }
         /* Compact rows (set in review; the density button): 36px (tried
           40px), 8px above and below the 20px line, in place of 52px and the
@@ -629,7 +709,7 @@ const ExperimentsPage = (): React.ReactElement => {
           [data-table-list][data-table-list]
           .rt-TableBody
           .rt-TableCell {
-          height: 36px;
+          height: var(--experiments-row-height);
           padding-top: var(--space-2);
           padding-bottom: var(--space-2);
           --experiments-name-padding-y: var(--space-2);
@@ -697,7 +777,15 @@ const ExperimentsPage = (): React.ReactElement => {
           [data-table-list][data-table-list]
           .rt-TableBody
           .rt-TableCell {
-          height: 52px;
+          height: var(--experiments-row-height);
+        }
+        /* The data rows' height, in one place (set in review): 52px, or
+          36px with compact rows. (The table's footer stays 52px in both.) */
+        .contents.experiments {
+          --experiments-row-height: 52px;
+        }
+        .contents.experiments[data-compact-rows="true"] {
+          --experiments-row-height: 36px;
         }
         /* Column headers at 12px (set in review; were the table's 14px). The
           values stay 14px. Through .rt-TableHeader, so it outranks the list
@@ -726,12 +814,14 @@ const ExperimentsPage = (): React.ReactElement => {
           padding-top: 10px;
           padding-bottom: 10px;
           /* The top line is the table's top edge, part of its outline
-            (--slate-a5); the line under the header matches the lines between
-            rows, --gray-a3 (set in review; tried --gray-a4, a step darker,
-            and a grey fill instead of a line). */
+            (--slate-a5); the line under the header darker than the lines
+            between rows (--gray-a3) and lighter than the outline
+            (--slate-a5): --gray-a4, as is the line above the pagination
+            footer, so the two frame the rows (set in review; tried --gray-a5,
+            too dark, matching the rows, and a grey fill). */
           box-shadow:
             inset 0 1px 0 0 var(--slate-a5),
-            inset 0 -1px 0 0 var(--gray-a3);
+            inset 0 -1px 0 0 var(--gray-a4);
         }
         /* The label and its sort icon centred on one line, 4px apart, so
           the icon lines up with the 12px text rather than its baseline. */
@@ -919,21 +1009,24 @@ const ExperimentsPage = (): React.ReactElement => {
                               >
                                 {tabValue.slice(0, 1).toUpperCase()}
                                 {tabValue.slice(1)}
-                                {tabValue !== "archived" && (
-                                  // Just the number, no badge (set in
-                                  // review): 8px after the label, 12px, in
-                                  // --gray-11 (tried --gray-10: 3.8:1, below
-                                  // WCAG AA for text this size).
-                                  <span
-                                    style={{
-                                      marginLeft: "var(--space-2)",
-                                      fontSize: "var(--font-size-1)",
-                                      color: "var(--gray-11)",
-                                    }}
-                                  >
-                                    {tabCounts[tabValue] || 0}
-                                  </span>
-                                )}
+                                {/* Hidden when the tab has none (set in
+                                  review). */}
+                                {tabValue !== "archived" &&
+                                  (tabCounts[tabValue] || 0) > 0 && (
+                                    // Just the number, no badge (set in
+                                    // review): 8px after the label, 12px, in
+                                    // --gray-11 (tried --gray-10: 3.8:1, below
+                                    // WCAG AA for text this size).
+                                    <span
+                                      style={{
+                                        marginLeft: "var(--space-2)",
+                                        fontSize: "var(--font-size-1)",
+                                        color: "var(--gray-11)",
+                                      }}
+                                    >
+                                      {tabCounts[tabValue] || 0}
+                                    </span>
+                                  )}
                               </TabsTrigger>
                             );
                           },
@@ -962,14 +1055,19 @@ const ExperimentsPage = (): React.ReactElement => {
                             style={{ color: "var(--slate-9)" }}
                           />
                         }
-                        {...searchInputProps}
+                        value={searchDraft}
+                        onChange={(e) => setSearchDraft(e.target.value)}
+                        onBlur={applySearch}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") applySearch();
+                        }}
                         ref={searchFieldRef}
                         // A clear button while there's a search (set in
                         // review): empties it and returns the cursor to the
                         // field. FALLBACK: Radix IconButton; @/ui/ has no
                         // icon button.
                         append={
-                          searchInputProps.value ? (
+                          searchDraft ? (
                             <IconButton
                               variant="ghost"
                               color="gray"
@@ -977,6 +1075,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               radius="full"
                               aria-label="Clear search"
                               onClick={() => {
+                                setSearchDraft("");
                                 setSearchValue("");
                                 searchFieldRef.current?.focus();
                               }}
@@ -1003,9 +1102,10 @@ const ExperimentsPage = (): React.ReactElement => {
                       defaultFilters={["status", "health"]}
                     />
                     {/* Table controls, at the row's right end (set in
-                      review): row density, then column settings, as one
-                      outlined button group. FALLBACK: Radix IconButton;
-                      @/ui/ has no icon button or button group. */}
+                      review): row density, then column settings, as two
+                      standard outline icon buttons joined into a group.
+                      FALLBACK: Radix IconButton; @/ui/ has no icon button
+                      or button group. */}
                     <Flex
                       ml="auto"
                       align="center"
@@ -1013,62 +1113,82 @@ const ExperimentsPage = (): React.ReactElement => {
                       role="group"
                       aria-label="Table display"
                     >
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="none"
-                        size="1"
-                        highContrast
-                        aria-pressed={compactRows}
-                        aria-label="Compact rows"
-                        title={
+                      {/* Each side's tooltip (set in review): @/ui/Tooltip,
+                        after the same brief pause as Import's. */}
+                      <UiTooltip
+                        content={
                           compactRows ? "Comfortable rows" : "Compact rows"
                         }
-                        onClick={() => setCompactRows(!compactRows)}
+                        delayDuration={400}
                       >
-                        {compactRows ? (
-                          <PiArrowsOutLineVerticalBold size={12} />
-                        ) : (
-                          <PiArrowsInLineVerticalBold size={12} />
-                        )}
-                      </IconButton>
-                      <span
-                        className="experiments-table-controls-divider"
-                        aria-hidden
-                      />
-                      <ColumnSettingsButton
-                        columns={listColumns.columns
-                          // Experiment can't be hidden or moved.
-                          .filter((c) => !c.locked)
-                          .map((c) => ({
-                            id: c.id,
-                            label: c.label,
-                            visible: c.visible,
-                            alwaysVisible: c.hideable === false,
-                          }))}
-                        hiddenCount={listColumns.hiddenCount}
-                        canReset={listColumns.isCustomized}
-                        onReset={listColumns.reset}
-                        onChange={listColumns.applySettings}
-                        note="The Experiment column is always shown."
-                        trigger={
-                          <IconButton
-                            variant="ghost"
-                            color="gray"
-                            radius="none"
-                            size="1"
-                            highContrast
-                            aria-label={
-                              listColumns.hiddenCount > 0
-                                ? `Columns, ${listColumns.hiddenCount} hidden`
-                                : "Columns"
+                        <IconButton
+                          variant="outline"
+                          color="gray"
+                          size="3"
+                          className={headerStyles.outlineButton}
+                          aria-pressed={compactRows}
+                          aria-label="Compact rows"
+                          onClick={() => setCompactRows(!compactRows)}
+                        >
+                          {compactRows ? (
+                            <PiArrowsOutLineVertical size={18} />
+                          ) : (
+                            <PiArrowsInLineVertical size={18} />
+                          )}
+                        </IconButton>
+                      </UiTooltip>
+                      {/* On a wrapper: the button is the column settings
+                        popover's own trigger. */}
+                      <UiTooltip
+                        content="Show/Hide Columns"
+                        delayDuration={400}
+                      >
+                        <span style={{ display: "inline-flex" }}>
+                          <ColumnSettingsButton
+                            columns={listColumns.columns
+                              // Experiment can't be hidden or moved.
+                              .filter((c) => !c.locked)
+                              .map((c) => ({
+                                id: c.id,
+                                label: c.label,
+                                visible: c.visible,
+                                alwaysVisible: c.hideable === false,
+                              }))}
+                            hiddenCount={listColumns.hiddenCount}
+                            canReset={listColumns.isCustomized}
+                            onReset={listColumns.reset}
+                            onChange={listColumns.applySettings}
+                            // A "Columns" heading in place of the helper
+                            // copy, the shown columns first in the table's
+                            // order, rows with a hover fill and no outline,
+                            // and the rows-per-page menu's shadow (set in
+                            // review).
+                            title="Columns"
+                            visibleFirst
+                            plainRows
+                            contentClassName={listTableStyles.menuShadow}
+                            contentPadding="var(--space-4)"
+                            // Narrower (set in review): 216px across, padding included,
+                            // was 292px (a third narrower, 196px, was tried).
+                            width={184}
+                            trigger={
+                              <IconButton
+                                variant="outline"
+                                color="gray"
+                                size="3"
+                                className={headerStyles.outlineButton}
+                                aria-label={
+                                  listColumns.hiddenCount > 0
+                                    ? `Columns, ${listColumns.hiddenCount} hidden`
+                                    : "Columns"
+                                }
+                              >
+                                <PiTextColumns size={18} />
+                              </IconButton>
                             }
-                            title="Show or hide columns"
-                          >
-                            <PiTextColumnsBold size={12} />
-                          </IconButton>
-                        }
-                      />
+                          />
+                        </span>
+                      </UiTooltip>
                     </Flex>
                   </Flex>
                   <TabsContent value="all">
@@ -1080,6 +1200,16 @@ const ExperimentsPage = (): React.ReactElement => {
                       statusFirst
                       resizableColumnsKey="experiments-page"
                       tableColumns={listColumns}
+                      emptyState="placeholder"
+                      attachedFooter
+                      animatePages
+                      typeColumn
+                      healthDotSize={6}
+                      healthDotGap="2"
+                      nameHeader="Experiment Name"
+                      animateColumns
+                      stableColumns
+                      scrollOnOverflow
                       tab="all"
                       SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
@@ -1101,6 +1231,16 @@ const ExperimentsPage = (): React.ReactElement => {
                           statusFirst
                           resizableColumnsKey="experiments-page"
                           tableColumns={listColumns}
+                          emptyState="placeholder"
+                          attachedFooter
+                          animatePages
+                          typeColumn
+                          healthDotSize={6}
+                          healthDotGap="2"
+                          nameHeader="Experiment Name"
+                          animateColumns
+                          stableColumns
+                          scrollOnOverflow
                           tab={tab}
                           SortableTableColumnHeader={SortableTableColumnHeader}
                           filtered={filtered.filter((e) => e.tab === tab)}

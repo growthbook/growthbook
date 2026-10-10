@@ -37,17 +37,21 @@ export default function ExperimentStatusIndicator({
   );
 }
 
+// size: optional, in px (8 by default); the experiments list's Health column
+// uses 6 (set in review).
 export function ExperimentDot({
   color,
+  size = 8,
 }: {
   color: StatusIndicatorData["color"] | "yellow" | "lime";
+  size?: number;
 }) {
   return (
     <div
       style={{
-        width: 8,
-        height: 8,
-        borderRadius: 8,
+        width: size,
+        height: size,
+        borderRadius: size,
         backgroundColor: `var(--${color}-9)`,
       }}
     ></div>
@@ -56,8 +60,14 @@ export function ExperimentDot({
 
 export function ExperimentStatusDetailsWithDot({
   statusIndicatorData,
+  dotSize,
+  dotGap = "1",
 }: {
   statusIndicatorData: StatusIndicatorData;
+  dotSize?: number;
+  // The space between the dot and its label: 4px by default; the
+  // experiments list's Health column uses "2", 8px (set in review).
+  dotGap?: "1" | "2";
 }) {
   const { color, status, detailedStatus, needsAttention, tooltip } =
     statusIndicatorData;
@@ -66,8 +76,8 @@ export function ExperimentStatusDetailsWithDot({
 
   const contents =
     needsAttention || status === "Stopped" ? (
-      <Flex gap="1" align="center">
-        <ExperimentDot color={color} />
+      <Flex gap={dotGap} align="center">
+        <ExperimentDot color={color} size={dotSize} />
         {detailedStatus}
       </Flex>
     ) : (

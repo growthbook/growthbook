@@ -172,6 +172,12 @@ motion, and neutral styling.
 - **The search icon is `--slate-9`.** `--slate-8` was rejected: below 3:1.
 - **Header button labels are 400; primary (solid and soft) buttons stay
   500** (`ExperimentHeader.module.scss` `.headerActions`).
+- **Table controls: a joined outline button group at 40px** (2026-10-10;
+  trying the `lg` size; tried 24px and 32px). Density and column settings
+  are standard outline icon buttons (Radix `IconButton` with the header's
+  `.outlineButton`, since `@/ui/` has no icon button or button group), with
+  regular-weight 18px icons and a tooltip on each, joined with only the
+  outer corners rounded (6px) and a shared 1px divider.
 - **One prototype, one branch.** The experiments list work and the
   experiment details work both live on
   `prototype/experiment-page-redesign-main`. There's no separate branch for
@@ -187,13 +193,6 @@ motion, and neutral styling.
   the page edge; the 400px per-column cap only limits it.
 - **Filters.** Filters added with Add Filter reset when you leave the page,
   and can't be removed from the bar.
-- **Table controls at 24px: deferred, not decided.** The density and column
-  buttons (`size="1"`, Radix `IconButton`, since `@/ui/` has no icon button or
-  button group) are below the design system's default `md` size (32px) and
-  read tight. They stay only until table density is revisited. Revisit when
-  any of these happens: the table toolbar gains another control; `@/ui/`
-  adds an icon button or button group; or the list's row heights or density
-  options change.
 - **Lint.** The legacy errors in `ExperimentHeader.tsx` (Modal import,
   `size="legacy"`) and `TabbedPage/index.tsx` (Modal import) were already on
   `origin/main`. They are not regressions.
