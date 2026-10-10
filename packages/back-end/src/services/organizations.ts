@@ -77,6 +77,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import { isExpired } from "shared/api-key-expiration";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
@@ -1894,7 +1895,9 @@ export async function getContextForApiKeyIdInOrg(
       : await getContextForAgendaJobByOrgObject(
           org,
         ).models.apiKeys.dangerousGetById(apiKeyId);
-  if (!key || key.disabled || !key.role) return null;
+  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+    return null;
+  }
   const user = key.userId ? await getUserById(key.userId) : null;
   if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
     return null;

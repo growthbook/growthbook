@@ -114,6 +114,7 @@ describe("getContextForApiKeyIdInOrg", () => {
   it.each([
     ["a missing key", null],
     ["a disabled key", { disabled: true }],
+    ["an expired key", { expiresAt: new Date(Date.now() - 60_000) }],
     ["an unscoped user-bound key", { userId: "u_1", role: "user" }],
     [
       "a scoped key whose user has left the org",
