@@ -89,12 +89,37 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
 
 export type OAuthGrantInterface = z.infer<typeof oauthGrantValidator>;
 
+// Schemes that run or render content in the browser instead of handing off to an app.
+const UNSAFE_REDIRECT_SCHEMES = [
+  "javascript:",
+  "data:",
+  "vbscript:",
+  "file:",
+  "blob:",
+  "about:",
+];
+
+export function isSafeOAuthRedirectUri(uri: string): boolean {
+  try {
+    return !UNSAFE_REDIRECT_SCHEMES.includes(new URL(uri).protocol);
+  } catch {
+    return false;
+  }
+}
+
 /** RFC 7591 registration request body (public MCP clients).
  * Not `.strict()` — clients (e.g. Cursor) send optional metadata like logo_uri.
  * Unknown keys are stripped; only fields we care about are kept.
  */
 export const oauthDcrRequestValidator = z.object({
-  redirect_uris: z.array(z.string().url()).min(1),
+  redirect_uris: z
+    .array(
+      z
+        .string()
+        .url()
+        .refine(isSafeOAuthRedirectUri, "Unsupported redirect URI scheme"),
+    )
+    .min(1),
   token_endpoint_auth_method: z.literal("none").optional(),
   grant_types: z.array(z.string()).optional(),
   response_types: z.array(z.string()).optional(),
