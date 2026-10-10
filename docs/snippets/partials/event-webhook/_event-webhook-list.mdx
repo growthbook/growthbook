@@ -11682,7 +11682,7 @@ Triggered when a config is created
                 id: string;
                 version: number;
             } | undefined;
-            /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+            /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
             lockedBy?: string | undefined;
             /** When the config was locked (when `locked`). */
             dateLocked?: string | undefined;
@@ -11798,7 +11798,7 @@ Triggered when a config is updated
                 id: string;
                 version: number;
             } | undefined;
-            /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+            /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
             lockedBy?: string | undefined;
             /** When the config was locked (when `locked`). */
             dateLocked?: string | undefined;
@@ -11867,7 +11867,7 @@ Triggered when a config is updated
                 id: string;
                 version: number;
             } | undefined;
-            /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+            /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
             lockedBy?: string | undefined;
             /** When the config was locked (when `locked`). */
             dateLocked?: string | undefined;
@@ -11988,7 +11988,7 @@ Triggered when a config is deleted
                 id: string;
                 version: number;
             } | undefined;
-            /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+            /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
             lockedBy?: string | undefined;
             /** When the config was locked (when `locked`). */
             dateLocked?: string | undefined;
@@ -12230,7 +12230,7 @@ Triggered when a new draft revision is created for a config
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -12299,7 +12299,7 @@ Triggered when a new draft revision is created for a config
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -12546,7 +12546,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -12615,7 +12615,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -12863,7 +12863,7 @@ Triggered when a draft revision is submitted for review
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -12932,7 +12932,7 @@ Triggered when a draft revision is submitted for review
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13179,7 +13179,7 @@ Triggered when a draft revision is approved by a reviewer
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13248,7 +13248,7 @@ Triggered when a draft revision is approved by a reviewer
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13504,7 +13504,7 @@ Triggered when a reviewer requests changes on a draft revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13573,7 +13573,7 @@ Triggered when a reviewer requests changes on a draft revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13829,7 +13829,7 @@ Triggered when a comment is added to a draft revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -13898,7 +13898,7 @@ Triggered when a comment is added to a draft revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14154,7 +14154,7 @@ Triggered when a draft revision is discarded
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14223,7 +14223,7 @@ Triggered when a draft revision is discarded
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14470,7 +14470,7 @@ Triggered when a draft revision is rebased onto the latest live state
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14539,7 +14539,7 @@ Triggered when a draft revision is rebased onto the latest live state
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14786,7 +14786,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -14855,7 +14855,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15103,7 +15103,7 @@ Triggered when a config is reverted to a previous published revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15172,7 +15172,7 @@ Triggered when a config is reverted to a previous published revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15421,7 +15421,7 @@ Triggered when a discarded revision is reopened
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15490,7 +15490,7 @@ Triggered when a discarded revision is reopened
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15737,7 +15737,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -15806,7 +15806,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16053,7 +16053,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16122,7 +16122,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16369,7 +16369,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16438,7 +16438,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16685,7 +16685,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;
@@ -16754,7 +16754,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     id: string;
                     version: number;
                 } | undefined;
-                /** The user ID of the person who locked the config (when `locked`): a personal access token's owner, or the member an organization API key named with `X-GrowthBook-Requested-By`. */
+                /** Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself. */
                 lockedBy?: string | undefined;
                 /** When the config was locked (when `locked`). */
                 dateLocked?: string | undefined;

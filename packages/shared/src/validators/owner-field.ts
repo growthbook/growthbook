@@ -31,16 +31,16 @@ export const ownerInputField = z
   );
 
 const OWNER_PERSON_DEFAULT =
-  "the person making the request: a personal access token's owner, or the member an organization API key names with `X-GrowthBook-Requested-By`";
+  "the person making the request: a personal access token's owner, or the member whose role an organization API key assumes with `X-GrowthBook-Requested-By`";
 
 /**
  * Optional owner input for create endpoints. When omitted, the owner defaults to
- * the person behind the request, or stays empty for a key that names no one.
+ * the person behind the request, or stays empty for a key acting as itself.
  */
 export const optionalOwnerInputField = ownerInputField
   .optional()
   .describe(
-    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key that names no one leaves it empty.`,
+    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key acting as itself leaves it empty.`,
   );
 
 /**
@@ -49,5 +49,5 @@ export const optionalOwnerInputField = ownerInputField
  */
 export const requiredUnlessPersonOwnerInputField =
   optionalOwnerInputField.describe(
-    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key that names no one must send it, or the request fails with a 400.`,
+    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key acting as itself must send it, or the request fails with a 400.`,
   );
