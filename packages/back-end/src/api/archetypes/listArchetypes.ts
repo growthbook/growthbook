@@ -16,7 +16,7 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
 
     const archetypes = await getAllArchetypes(
       req.context.org.id,
-      req.context.actingUserId,
+      req.context.userId,
     );
     const filteredArchetypes = archetypes.filter((archetype) =>
       req.context.permissions.canReadMultiProjectResource(archetype.projects),
