@@ -61,19 +61,22 @@ export class WatchModel extends BaseClass {
     ).map((watcher) => watcher.userId);
   }
 
+  // One atomic write, so concurrent creates for a member can't collide on the
+  // unique key or drop each other's additions.
   public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
-    const existing = await this.getWatchedByUser(userId);
-    if (existing) {
-      const itemSet = new Set(existing[type]);
-      itemSet.add(item);
-      await this._updateOne(existing, { [type]: [...itemSet] });
-    } else {
-      await this._createOne({
-        userId,
-        experiments: type === "experiments" ? [item] : [],
-        features: type === "features" ? [item] : [],
-      });
-    }
+    const now = new Date();
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, userId },
+      {
+        $addToSet: { [type]: item },
+        $set: { dateUpdated: now },
+        $setOnInsert: {
+          dateCreated: now,
+          [type === "experiments" ? "features" : "experiments"]: [],
+        },
+      },
+      { upsert: true },
+    );
   }
 
   public async deleteWatchedByEntity({

@@ -19,7 +19,7 @@ export const getConfigRevisionLatest = createApiRequestHandler(
   const revision = await req.context.models.revisions.getLatestOpenByTarget(
     "config",
     config.id,
-    { authorId: mine ? req.context.userId : undefined },
+    { authorId: mine ? req.context.actingUserId : undefined },
   );
   if (!revision) {
     throw new NotFoundError(

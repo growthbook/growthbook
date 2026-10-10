@@ -5,19 +5,12 @@
 // generator can emit them.
 
 import { z } from "zod";
+import { eventReviewer } from "./event-user";
 import { apiConfigRevisionValidator } from "./config-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
-
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
 
 const webhookProposedChanges = z.array(
   z.object({ op: z.string(), path: z.string() }).passthrough(),
@@ -101,7 +94,7 @@ export type ConfigRevisionUpdatedPayload = z.infer<
 >;
 
 export const configRevisionApprovedPayload = configRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string().nullable() })
+  .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
   .strict();
 export type ConfigRevisionApprovedPayload = z.infer<
   typeof configRevisionApprovedPayload
@@ -109,14 +102,14 @@ export type ConfigRevisionApprovedPayload = z.infer<
 
 export const configRevisionChangesRequestedPayload =
   configRevisionWebhookPayload
-    .extend({ reviewer, reviewComment: z.string().nullable() })
+    .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
     .strict();
 export type ConfigRevisionChangesRequestedPayload = z.infer<
   typeof configRevisionChangesRequestedPayload
 >;
 
 export const configRevisionCommentedPayload = configRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string() })
+  .extend({ reviewer: eventReviewer, reviewComment: z.string() })
   .strict();
 export type ConfigRevisionCommentedPayload = z.infer<
   typeof configRevisionCommentedPayload

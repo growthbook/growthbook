@@ -102,13 +102,13 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   );
 
   const gates: PublishGate[] = [
-    ...collectRevisionGovernanceGates({
+    ...(await collectRevisionGovernanceGates({
       context: req.context,
       adapter,
       targetType: "saved-group",
       entity: savedGroup as unknown as Record<string, unknown>,
       revision,
-    }),
+    })),
     ...(await collectSavedGroupArchiveDependentsGate(
       req.context,
       savedGroup,

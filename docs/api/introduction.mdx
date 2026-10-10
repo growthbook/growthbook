@@ -43,6 +43,25 @@ curl https://api.growthbook.io/api/v1/features \
 
 If a key has an expiration date, every response includes it in the `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before the key stops working. Requests made with an expired key fail with a `401` that says where to create a replacement.
 
+## Naming who asked
+
+Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks show that member next to the key.
+
+Each key's settings under `Settings -> API Keys`:
+
+- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it, each with a 400.
+- **Permissions**, when a member is named:
+  - **Assume member's role** (the default): the request acts as that member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
+  - **Use key's role**: the key acts as itself, with its own permissions, and the name is only recorded in history. Drafts, verdicts and ownership are the key's, as when no member is named.
+
+A key that names no one, or uses its own role, acts as itself: it can draft and review with its own permissions, and its verdicts are judged on its role. A key belongs to no team, so its approval never satisfies a rule that requires approval from a team. No one can rule on a draft they created, and a key acting as itself is a different reviewer from the same key assuming a member's role. Because the header isn't verified, whoever holds the key can act as any member. A value that does not match a member of the organization is rejected with a 400. A create request that omits `owner` defaults it to the member whose role the key assumes. Scheduled and auto-publishes run later with the permissions of the request that armed them, and don't run if that member has left the organization. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
+
+```bash
+curl https://api.growthbook.io/api/v1/features \
+-H "Authorization: Bearer secret_abc123DEF456" \
+-H "X-GrowthBook-Requested-By: alice@example.com"
+```
+
 ## Errors
 
 The API may return the following error status codes:
@@ -52,10 +71,23 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with `?ignoreWarnings=true` to proceed anyway.
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a `gates` array that explains every blocker:
+
+- `type`, `severity`, and `messages` identify the problem.
+- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, or `skipHooks` for Custom Hook rejections. A value of `null` means there is no request-body override.
+- `requiresPermission` identifies any additional permission needed to use the override.
+- `resolution` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in `resolution`.
+
+When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.

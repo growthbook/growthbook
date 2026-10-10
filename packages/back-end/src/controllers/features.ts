@@ -68,6 +68,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
+  eventUserIdentity,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -92,10 +93,7 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "shared/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -1533,14 +1531,15 @@ export async function postFeatureReviewOrComment(
       context.permissions.throwPermissionError();
     }
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
 
-  if (createdByUser?.id === context.userId && review !== "Comment") {
+  if (
+    eventUserIdentity(revision.createdBy) === context.actorId &&
+    review !== "Comment"
+  ) {
     throw Error("cannot submit a review for yourself");
   }
 
@@ -1602,12 +1601,6 @@ export async function postFeatureReviewOrComment(
   });
   const finalRevision = updatedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1615,7 +1608,6 @@ export async function postFeatureReviewOrComment(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (review === "Approved") {
@@ -1681,8 +1673,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
+  if (eventUserIdentity(revision.createdBy) === context.actorId) {
     throw Error("Cannot approve a draft you created");
   }
 
@@ -1923,12 +1914,6 @@ export async function postFeatureApproveAndPublish(
   });
   const finalApproved = approvedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1936,7 +1921,6 @@ export async function postFeatureApproveAndPublish(
     finalApproved,
     "Approved",
     comment,
-    reviewer,
   );
 
   if (armedApproval) {
@@ -6260,10 +6244,7 @@ export async function postFeatureArchive(
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          targetDraft.createdBy && "id" in targetDraft.createdBy
-            ? targetDraft.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(targetDraft.createdBy) ?? undefined,
         contributors: targetDraft.contributors,
       },
       userId: context.userId,

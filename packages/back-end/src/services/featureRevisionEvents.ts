@@ -4,7 +4,10 @@ import {
   NotificationEventPayloadSchemaType,
   ResourceEvents,
 } from "shared/types/events/base-types";
-import { FeatureRevisionUpdatedPayload } from "shared/validators";
+import {
+  eventUserCredit,
+  FeatureRevisionUpdatedPayload,
+} from "shared/validators";
 import { resolveTargetingProjectIds } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -130,8 +133,8 @@ export async function dispatchRevisionReviewEvent(
   finalRevision: FeatureRevisionInterface,
   review: "Approved" | "Requested Changes" | "Comment",
   comment: string | undefined,
-  reviewer: { id?: string; name?: string; email?: string },
 ): Promise<void> {
+  const reviewer = eventUserCredit(ctx.auditUser);
   switch (review) {
     case "Approved":
       await ctx.auditLog({

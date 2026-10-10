@@ -17,6 +17,8 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
   RampScheduleStepApprovalRequiredPayload,
+  eventUserLabel,
+  eventUserPerson,
 } from "shared/validators";
 import {
   DiffResult,
@@ -468,18 +470,10 @@ export const getEventUserFormatted = (
   if (!user) return "an unknown user";
 
   if (user.type === "system") return "an automated process";
-
-  const name = ("name" in user && user.name) || undefined;
-  const email = ("email" in user && user.email) || undefined;
-  const isApi = user.type === "api_key";
-
-  if (!name && !email && isApi) {
+  if (user.type === "api_key" && !user.name && !eventUserPerson(user)) {
     return `an API request with key ending in ...${user.apiKey.slice(-4)}`;
   }
-
-  const label =
-    name && email ? `${name} (${email})` : (name ?? email ?? "unknown");
-  return isApi ? `${label} (via API)` : `${label}`;
+  return eventUserLabel(user, { withEmail: true }) || "unknown";
 };
 
 const buildSlackMessageForFeatureCreatedEvent = (

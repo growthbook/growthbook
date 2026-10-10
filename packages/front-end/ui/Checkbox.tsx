@@ -109,6 +109,8 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         body={disabledMessage}
         popperStyle={{ wordBreak: "normal" }}
         tipMinWidth="140px"
+        // Without this the label sits on a text line and the row grows 3px.
+        style={{ display: "inline-flex" }}
       >
         {labelEl}
       </Tooltip>

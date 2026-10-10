@@ -1,7 +1,6 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
 import {
+  eventUserToApiEventUser,
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
@@ -13,6 +12,8 @@ import {
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
+import mongoose from "mongoose";
+import { UpdateProps } from "shared/types/base-model";
 import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,
@@ -311,6 +312,9 @@ export function rampScheduleToApiInterface(
         ? {
             ...doc.stepApproval,
             approvedAt: doc.stepApproval.approvedAt.toISOString(),
+            approvedByUser: eventUserToApiEventUser(
+              doc.stepApproval.approvedByUser ?? undefined,
+            ),
           }
         : undefined,
     awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),

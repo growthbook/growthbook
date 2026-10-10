@@ -92,6 +92,7 @@ router.get(
   "/keys/personal-access-tokens",
   organizationsController.getPersonalAccessTokens,
 );
+router.get("/keys/approver-roles", organizationsController.getApproverKeyRoles);
 router.post(
   "/keys",
   validateRequestMiddleware({

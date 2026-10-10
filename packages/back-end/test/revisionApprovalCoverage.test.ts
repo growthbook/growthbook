@@ -104,24 +104,25 @@ const revision = (
 const approvedByReviewer = [{ userId: "u_rev", decision: "approve" }];
 
 describe("standing approvals on a generic revision", () => {
-  it("counts an approval that covers the changed environment", () => {
+  it("counts an approval that covers the changed environment", async () => {
     const r = revision({ dev: "5", production: "2" }, approvedByReviewer);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(true);
   });
 
   // The bypass this closes: approved while dev-only, then production changed too.
-  it("discounts it once the change grows past the approver", () => {
+  it("discounts it once the change grows past the approver", async () => {
     const r = revision({ dev: "5", production: "6" }, approvedByReviewer);
-    const result = revisionApprovalsCoverChange(context(["dev"]), r);
+    const result = await revisionApprovalsCoverChange(context(["dev"]), r);
 
     expect(result.hasCoveringApproval).toBe(false);
     expect(result.uncoveredApprovers).toEqual(["u_rev"]);
   });
 
-  it("requires unrestricted authority for an unbound change", () => {
+  it("requires unrestricted authority for an unbound change", async () => {
     // A base value carries no environment binding.
     const r = {
       ...revision({ dev: "1", production: "2" }, approvedByReviewer),
@@ -131,48 +132,54 @@ describe("standing approvals on a generic revision", () => {
     ];
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
     expect(
-      revisionApprovalsCoverChange(context(null), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(null), r))
+        .hasCoveringApproval,
     ).toBe(true);
   });
 
-  it("ignores a stale verdict", () => {
+  it("ignores a stale verdict", async () => {
     const r = revision({ dev: "5", production: "2" }, [
       { userId: "u_rev", decision: "approve", stale: true },
     ]);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
   });
 
-  it("ignores a change-request verdict", () => {
+  it("ignores a change-request verdict", async () => {
     const r = revision({ dev: "5", production: "2" }, [
       { userId: "u_rev", decision: "requestChanges" },
     ]);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
   });
 });
 
 describe("a multi-project entity needs authority in every project", () => {
-  it("counts the approval when it covers the entity's only project", () => {
+  it("counts the approval when it covers the entity's only project", async () => {
     expect(
-      revisionApprovalsCoverChange(
-        savedGroupContext("prj_a"),
-        savedGroupRevision(["prj_a"]),
+      (
+        await revisionApprovalsCoverChange(
+          savedGroupContext("prj_a"),
+          savedGroupRevision(["prj_a"]),
+        )
       ).hasCoveringApproval,
     ).toBe(true);
   });
 
   // The bug this closes: reading snapshot.projects[0] credited an approver who
   // covered only the first of several projects.
-  it("discounts it when a second project is uncovered", () => {
-    const result = revisionApprovalsCoverChange(
+  it("discounts it when a second project is uncovered", async () => {
+    const result = await revisionApprovalsCoverChange(
       savedGroupContext("prj_a"),
       savedGroupRevision(["prj_a", "prj_b"]),
     );

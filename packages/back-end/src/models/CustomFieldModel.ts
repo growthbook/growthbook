@@ -204,7 +204,7 @@ export class CustomFieldModel extends BaseClass {
       active: true,
       ...customField,
       projects: (customField.projects ?? []).filter((p) => p !== ""),
-      creator: this.context.userId,
+      creator: this.context.actingUserId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };

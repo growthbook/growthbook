@@ -1,3 +1,8 @@
+import {
+  eventUserCredit,
+  eventUserPersonId,
+  eventUserIdentity,
+} from "shared/validators";
 import { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -367,8 +372,7 @@ export function RevisionLogRow({
   // edited (retract via Undo Review to remove the verdict). Owners can still
   // revise the comment text on a retracted verdict, e.g. to clarify why they
   // pulled back.
-  const logUserId =
-    log.user && "id" in log.user ? (log.user as { id: string }).id : null;
+  const logUserId = eventUserPersonId(log.user ?? null);
   const logId = log.id ?? null;
   const isOwned = logId !== null && logUserId !== null && logUserId === userId;
   const canEdit =
@@ -653,8 +657,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid =
-          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid) continue;
         for (let j = i + 1; j < sorted.length; j++) {
           const next = sorted[j];
@@ -665,12 +668,9 @@ export default function RevisionTimeline({
             break;
           }
           if (next.action === "Recall Review") {
-            const recallerName =
-              (next.user && "name" in next.user && next.user.name) ||
-              (next.user && "email" in next.user && next.user.email) ||
-              null;
-            const isSelfRecall =
-              next.user && "id" in next.user && next.user.id === userId;
+            const recaller = eventUserCredit(next.user ?? null);
+            const recallerName = recaller.name || recaller.email || null;
+            const isSelfRecall = !!recaller.id && recaller.id === userId;
             const label = isSelfRecall
               ? "Discarded by you"
               : recallerName
@@ -679,8 +679,7 @@ export default function RevisionTimeline({
             retractions.set(entry, { kind: "recall", label });
             break;
           }
-          const nextUid =
-            next.user && "id" in next.user ? next.user.id : undefined;
+          const nextUid = eventUserIdentity(next.user ?? null);
           if (nextUid !== uid) continue;
           if (next.action === "Undo Review") {
             retractions.set(entry, { kind: "self", label: "Retracted" });
@@ -702,8 +701,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid =
-          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid || uid !== userId) continue;
         if (retractions.has(entry)) continue;
         activeVerdict = entry;

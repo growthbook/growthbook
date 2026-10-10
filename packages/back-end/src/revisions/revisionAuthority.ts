@@ -38,10 +38,25 @@ export function mayBeRevisionAuthor(
 // `target` in its guard fields — otherwise the authority answer is computed from a
 // snapshot the write does not pin, and a concurrent rebase changes it underneath.
 // The guard-completeness check in `casLoop` enforces this.
+// An author's rights over their own revision stand in for `action` authority.
+// An org key assuming the author's role must hold that authority itself.
+export function hasAuthorRights(
+  context: Context,
+  revision: Revision,
+  action: "draft" | "review",
+): boolean {
+  return (
+    isRevisionAuthor(revision.authorId, context.actorId) &&
+    context.authorRightsAllow((keyContext) =>
+      canRevisionOwnedAction(keyContext, revision, action),
+    )
+  );
+}
+
 export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
   return {
     check: (existing) => {
-      if (isRevisionAuthor(existing.authorId, context.userId)) return;
+      if (hasAuthorRights(context, existing, "draft")) return;
       if (!canRevisionOwnedAction(context, existing, "draft")) {
         context.permissions.throwPermissionError();
       }
@@ -103,6 +118,26 @@ export function reviewAuthorityOnRow(context: Context): CasAuthority<Revision> {
   };
 }
 
+// Withdrawing your own verdict needs no review permission, as on Feature Flags;
+// `undoReview` refuses a caller with no verdict to withdraw.
+export function retractAuthorityOnRow(
+  context: Context,
+): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      const ownVerdict =
+        !!context.actorId &&
+        existing.reviews.some((r) => r.userId === context.actorId) &&
+        context.authorRightsAllow((keyContext) =>
+          canRevisionOwnedAction(keyContext, existing, "review"),
+        );
+      if (!ownVerdict && !canRevisionOwnedAction(context, existing, "review")) {
+        context.permissions.throwPermissionError();
+      }
+    },
+  };
+}
+
 // Discarding another user's work requires draft authority, not a narrow landing atom.
 export async function canDiscardRevision(
   context: Context,
@@ -110,8 +145,7 @@ export async function canDiscardRevision(
 ): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
   });
 }
 
@@ -135,8 +169,7 @@ export async function canAdvanceRevision(
 
   return canAdvanceDraftWithNarrowAtom({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
     holdsAnyLandingAtom: hasRevert || hasDelete,
     matchesNarrowAtom: async () => {
       if (

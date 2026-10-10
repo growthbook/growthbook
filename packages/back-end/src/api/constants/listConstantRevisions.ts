@@ -38,7 +38,7 @@ export const listConstantRevisions = createApiRequestHandler(
     ({ limit, offset } = validatePagination(req.query));
   }
 
-  const authorId = mine ? req.context.userId : req.query.author;
+  const authorId = mine ? req.context.actingUserId : req.query.author;
   const status = buildRevisionStatusFilter(req.query.status);
 
   // The `key` filter is the constant's key; resolve it to the internal id the

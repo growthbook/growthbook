@@ -18,7 +18,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -622,9 +622,8 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 // the REST API, and reviewer-scoped queries — don't have to replay the log.
 export const revisionReviewSchema = z
   .object({
-    // Stable reviewer identifier used for upserts/queries: the user id for
-    // dashboard users; the key id (or apiKey identifier) for API keys.
-    // See `reviewerKeyForEventUser`.
+    // Stable reviewer identifier used for upserts/queries: the person behind
+    // the verdict, or a key id on legacy verdicts. See `eventUserIdentity`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.
@@ -648,17 +647,6 @@ export const revisionReviewSchema = z
   .strict();
 
 export type RevisionReview = z.infer<typeof revisionReviewSchema>;
-
-// Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users).
-export function reviewerKeyForEventUser(
-  user: z.infer<typeof eventUser>,
-): string | null {
-  if (!user) return null;
-  if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") return user.id || user.apiKey || null;
-  return null;
-}
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
@@ -711,17 +699,16 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // User IDs who have made edits to this draft. Populated incrementally via
+    // Identities (user or API key IDs) that have edited this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
     /** Review-cycle identity; absent legacy values are treated as cycle 0. */
     reviewCycle: z.number().optional(),
     autoPublishOnApproval: z.boolean().optional(),
-    // User ID of whoever most recently armed `autoPublishOnApproval` — the
-    // auto-publish executes with this user's authority. Absent when armed by
-    // an actor without a user ID (e.g. an API key), in which case the
-    // publish falls back to `createdBy`.
+    // Who most recently armed `autoPublishOnApproval`, and whose authority the
+    // auto-publish runs with: a user ID, an API key ID, or `<keyId>:<memberId>`
+    // for a key that assumed a member's role.
     autoPublishEnabledBy: z.string().optional(),
     // Defers an armed revision's auto-publish until on/after this date (and, if
     // required, approved). null/absent = publish as soon as approved.
@@ -1259,24 +1246,6 @@ export const apiRevisionMetadata = z
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
 
-// ---- EventUser ----
-// API-safe projection of the internal EventUser union (see event-user.ts).
-// Deliberately excludes the api_key actor's `apiKey` field.
-export const apiEventUserValidator = namedSchema(
-  "EventUser",
-  z
-    .object({
-      type: z.enum(["dashboard", "api_key", "system"]),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      email: z.string().optional(),
-    })
-    .strict()
-    .describe("The user (or automated actor) responsible for an action"),
-);
-
-export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
-
 // ---- FeatureRevisionV1 (schemas/FeatureRevisionV1.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
@@ -1669,7 +1638,7 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()

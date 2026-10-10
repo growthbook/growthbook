@@ -1,3 +1,4 @@
+import { eventUserCredit } from "shared/validators";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import {
   ResourceEvents,
@@ -105,14 +106,7 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        // Resolve the reviewer's name/email (best-effort) so Slack/webhook
-        // payloads aren't just an opaque id.
-        const [user] = await context.getUsersByIds([action.userId]);
-        const reviewer = {
-          id: action.userId,
-          ...(user?.name ? { name: user.name } : {}),
-          ...(user?.email ? { email: user.email } : {}),
-        };
+        const reviewer = eventUserCredit(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
             ...apiRevision,

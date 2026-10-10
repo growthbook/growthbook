@@ -136,7 +136,7 @@ export function makeGenericBulkAdapter(
     }) {
       const raw = revision.raw as Revision;
       // Collect governance in caller context, then perform authoritative landing checks.
-      const gates: PublishGate[] = collectRevisionGovernanceGates({
+      const gates: PublishGate[] = await collectRevisionGovernanceGates({
         context: callerContext,
         adapter,
         targetType,
@@ -285,7 +285,7 @@ export function makeGenericBulkAdapter(
       try {
         const merged = await context.models.revisions.merge(
           revision.id,
-          context.userId,
+          context.actingUserId,
           {
             bypass: isApprovalBypass,
             comment,
@@ -308,7 +308,7 @@ export function makeGenericBulkAdapter(
       // Reopen only this claim, preserving any concurrent re-publish.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         revision.id,
-        context.userId,
+        context.actingUserId,
         revision.raw as Revision,
         revision.claimStamp ?? null,
       );

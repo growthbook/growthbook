@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
@@ -13,10 +14,9 @@ import {
 } from "./shared";
 import {
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
-  apiEventUserValidator,
   apiFeatureBaseRuleValidator,
   apiFeatureForceRuleValidator,
   apiFeatureRolloutRuleValidator,
@@ -219,8 +219,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
       defaultValue: z
         .string()
         .describe(
@@ -307,9 +307,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       autoPublishEnabledBy: z
         .string()
         .describe(
-          "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+          "User or API key the deferred publish will run as. Its authority is re-checked when the publish fires. An organization API key that assumed the role of a member it named with `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and runs with that member as its requester.",
         )
         .optional(),
+      autoPublishEnabledByUser: apiEventUser
+        .optional()
+        .describe("Who armed the deferred publish, with an API key's name"),
       scheduledPublishAttempts: z
         .number()
         .int()
@@ -331,9 +334,9 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                  "Who reviewed: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it reviewed as itself",
                 ),
-              user: apiEventUserValidator.optional(),
+              user: apiEventUser.optional(),
               status: z.enum([
                 "approved",
                 "changes-requested",
@@ -373,8 +376,8 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
     })
     .strict(),
 );
@@ -681,7 +684,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -1021,7 +1024,7 @@ export const getFeatureRevisionsV2Validator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

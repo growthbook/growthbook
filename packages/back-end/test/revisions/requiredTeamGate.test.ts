@@ -67,6 +67,16 @@ describe("revisionRequiredApproverTeams", () => {
     expect(result.satisfied).toBe(true);
   });
 
+  it("never counts a key reviewing as itself toward a team", () => {
+    const result = revisionRequiredApproverTeams(
+      makeContext([{ id: "u1", teams: ["team_fin"] }]),
+      buildRevision([{ userId: "key_ci", decision: "approve" }]),
+      noneUncovered,
+    );
+
+    expect(result.satisfied).toBe(false);
+  });
+
   // A stale approval is not a standing one, so it cannot satisfy the team.
   it("ignores a stale approval", () => {
     const result = revisionRequiredApproverTeams(

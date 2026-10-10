@@ -1,4 +1,7 @@
-import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
+import {
+  eventUserIdentity,
+  postFeatureRevisionSubmitReviewValidator,
+} from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
@@ -89,19 +92,10 @@ export async function submitRevisionReview(
     }
   }
 
-  // Identityless principals may be the author and cannot submit a verdict.
-  const creatorId =
-    revision.createdBy != null && "id" in revision.createdBy
-      ? revision.createdBy.id
-      : "";
-  if (action !== "comment" && !req.context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
-  }
+  const creatorId = eventUserIdentity(revision.createdBy) ?? "";
   if (
     action !== "comment" &&
-    mayBeRevisionAuthor(creatorId, req.context.userId)
+    mayBeRevisionAuthor(creatorId, req.context.actorId)
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
@@ -115,7 +109,7 @@ export async function submitRevisionReview(
   // Rechecked inside the verdict CAS against the row it writes.
   if (action === "approve" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === req.context.userId,
+      (id) => id === req.context.actorId,
     );
     if (isSelfApproval) {
       throw new BadRequestError(
@@ -163,12 +157,6 @@ export async function submitRevisionReview(
   });
   const finalRevision = updated ?? revision;
 
-  const auditUser = req.context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     req.context,
     feature,
@@ -176,7 +164,6 @@ export async function submitRevisionReview(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (action === "approve" && !req.body.skipAutoPublish) {

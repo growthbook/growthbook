@@ -81,7 +81,6 @@ export type RevisionLifecycleAction =
   | {
       type: "reviewed";
       decision: ReviewDecision;
-      userId: string;
       comment?: string;
     }
   | { type: "rebased" }

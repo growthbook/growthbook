@@ -40,14 +40,9 @@ export async function resolveOwnerToUserId(
 }
 
 /**
- * Resolves the owner for a create request, falling back to the authenticated
- * user when no owner is provided in the request body.
- *
- * The `owner` field is optional on create endpoints, but the created resource
- * must always have an owner. When the body omits it we fall back to
- * `context.userId`, which is only populated for Personal Access Tokens (PATs).
- * Regular organization API keys have no associated user, so in that case the
- * caller must provide an explicit owner — otherwise we throw.
+ * Resolves the owner for a create request, falling back to the person behind
+ * it: a personal access token's owner, or the member whose role an org key
+ * assumes. A key acting as itself must send an owner, or this throws.
  */
 export async function resolveOwnerForCreate(
   ownerInput: string | undefined,
@@ -56,9 +51,9 @@ export async function resolveOwnerForCreate(
 ): Promise<string> {
   const resolved = await resolveOwnerToUserId(ownerInput, context, { strict });
   if (resolved) return resolved;
-  if (context.userId) return context.userId;
+  if (context.actingUserId) return context.actingUserId;
   throw new Error(
-    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a Personal Access Token (PAT).",
+    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a personal access token (PAT), or with an organization API key that assumes the role of a member it names with `X-GrowthBook-Requested-By`.",
   );
 }
 

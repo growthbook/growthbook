@@ -68,6 +68,22 @@ describe("getContextForApiKeyIdInOrg", () => {
     ).toBe(false);
   });
 
+  it("fires a key armed for a member with only what both of them hold", async () => {
+    await keys().insertOne(key({}));
+    await seedUser();
+    const readerOrg = {
+      ...memberOrg,
+      members: [{ ...memberOrg.members[0], role: "readonly" }],
+    } as unknown as OrganizationInterface;
+    const run = async (armer: string) =>
+      (
+        await getContextForApiKeyIdInOrg(readerOrg, armer)
+      )?.permissions.canRunExperiment({ project: "" }, ["dev"]);
+    // Canary: the key alone could run it, so `false` below isn't vacuous.
+    expect(await run("key_ci")).toBe(true);
+    expect(await run("key_ci:u_1")).toBe(false);
+  });
+
   it("runs a scoped PAT as its user under the key's cap, never as a super admin", async () => {
     await seedUser({ superAdmin: true });
     await keys().insertOne(
@@ -98,6 +114,7 @@ describe("getContextForApiKeyIdInOrg", () => {
   it.each([
     ["a missing key", null],
     ["a disabled key", { disabled: true }],
+    ["an expired key", { expiresAt: new Date(Date.now() - 60_000) }],
     ["an unscoped user-bound key", { userId: "u_1", role: "user" }],
     [
       "a scoped key whose user has left the org",

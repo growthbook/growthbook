@@ -1,7 +1,10 @@
 import { format } from "date-fns";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiHourglassHighFill } from "react-icons/pi";
+import { eventUserPerson } from "shared/validators";
+import { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Avatar from "@/ui/Avatar";
@@ -16,36 +19,45 @@ import {
 // Shared between the feature Review & Publish tab and the generic
 // (RevisionModel-backed) review surfaces.
 export function PersonRow({
-  id,
-  name,
-  email,
+  user,
   trailing,
 }: {
-  id: string;
-  name: string;
-  email: string;
+  user: EventUserType;
   trailing?: React.ReactNode;
 }) {
+  const { users } = useUser();
+  // Whoever acted is the top line; the key, or the member a key named, goes
+  // below it.
+  const person = eventUserPerson(user);
+  const keyName = user?.type === "api_key" && !user.id ? user.name || "" : "";
+  const requester = user?.type === "api_key" ? user.requestedBy : undefined;
+  const latest = person?.id ? users.get(person.id) : undefined;
   // Treat a blank/whitespace-only name as absent so the top line never renders
-  // empty (some user records carry " "); the email then becomes the sole line.
-  const trimmedName = (name || "").trim();
-  const displayName = trimmedName || email || "Unknown";
+  // empty (some user records carry " ").
+  const name = (latest?.name || person?.name || "").trim();
+  const email = (latest?.email || person?.email || "").trim();
+  const primary = person
+    ? name || email || "Unknown"
+    : keyName || (user?.type === "api_key" ? "API key" : "Unknown");
+  const secondary = person
+    ? requester
+      ? `via ${keyName || "API key"}`
+      : name && email
+    : requester
+      ? `for ${(requester.id && users.get(requester.id)?.name) || requester.name || requester.email}`
+      : keyName && "API key";
   return (
     <Flex align="start" gap="2">
       <Box flexShrink="0" mt="1">
-        <EventUser
-          user={{ type: "dashboard", id, name, email }}
-          display="avatar"
-          size="sm"
-        />
+        <EventUser user={user} display="avatar" size="sm" />
       </Box>
       <Box flexGrow="1" style={{ minWidth: 0, lineHeight: 1.3 }}>
         <Text size="sm" color="text-high" as="div" overflowWrap="anywhere">
-          {displayName}
+          {primary}
         </Text>
-        {trimmedName && email && (
+        {secondary && (
           <Text size="sm" color="text-low" as="div" overflowWrap="anywhere">
-            {email}
+            {secondary}
           </Text>
         )}
       </Box>

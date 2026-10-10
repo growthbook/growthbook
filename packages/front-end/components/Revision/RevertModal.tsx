@@ -7,6 +7,7 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
+import { eventUserLabel, revisionActor } from "shared/validators";
 import {
   archiveFootprintForControl,
   canLandArchiveToggle,
@@ -242,7 +243,9 @@ export default function RevertModal<T extends RevertableEntity>({
     title: r.title,
     meta: (
       <Text size="sm" color="text-low" whiteSpace="nowrap">
-        {getUserDisplay(r.authorId)}
+        {eventUserLabel(revisionActor(r, r.authorId), {
+          nameFor: (id) => getUserDisplay(id, false),
+        })}
         {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
       </Text>
     ),

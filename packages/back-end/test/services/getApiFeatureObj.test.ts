@@ -1091,12 +1091,12 @@ describe("getApiFeatureObj: revision author summary", () => {
     };
     const structuredPublishedBy = {
       type: "api_key",
+      apiKey: "key_abc123",
       id: "u2",
       name: "CI Bot",
     };
     expect(apiV2.revision.createdBy).toEqual(structuredCreatedBy);
     expect(apiV2.revision.publishedBy).toEqual(structuredPublishedBy);
-    expect(apiV2.revision.publishedBy).not.toHaveProperty("apiKey");
     expect(apiV2.revisions?.[0]?.createdBy).toEqual(structuredCreatedBy);
     expect(apiV2.revisions?.[0]?.publishedBy).toEqual(structuredPublishedBy);
   });

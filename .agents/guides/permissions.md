@@ -231,8 +231,9 @@ context.permissions.canRunExperiment(experiment, environments);
 // A scheduled experiment status change is checked twice: arming checks
 // runExperiments across the reach and publishFeatures on each pending draft
 // (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer
-// (`context.armer`: a user, an org API key, or a scoped PAT recorded as its
-// key so the cap travels with the work; `scheduledBy` / `scheduledByApiKey`,
+// (`context.armer`: a user, an org API key with the member it named as
+// `<keyId>:<memberId>`, or a scoped PAT recorded as its key, so the cap travels
+// with the work; `scheduledBy` / `scheduledByApiKey`,
 // getScheduledStatusContext), so the draft publish is judged as it is then.
 // Never the job's own authority; only a stop staged before armers were
 // recorded still runs as the owner.
@@ -241,6 +242,16 @@ context.permissions.canRunExperiment(experiment, environments);
 context.permissions.throwPermissionError();
 context.permissions.throwPermissionError("Custom error message");
 ```
+
+### The Acting User vs the Credential
+
+An org API key can name a member with `X-GrowthBook-Requested-By`. A key is its own identity until it assumes that member's role, then it is that member. A key set to keep its own role stays itself; the name is only logged.
+
+- `context.actingPerson` (and `actingUserId`, `actingUserName`) is the signed-in user, a personal token's owner, or the member whose role an org key assumes. Use it for owners, `mine` and anything that needs a person; `context.userId` stays empty for org keys.
+- `context.actorId` is who the request acts as: the person, else the key's own ID. Use it for authorship, contributors, review verdicts and author rights (acting on your own draft without draft permission, editing your own comments, retracting your own verdict).
+- An org key assuming a member's role gets only what both the key's role and the member allow (`getKeyPermissionsForRequest`), and uses the member's author rights only where its own role allows the action (`context.authorRightsAllow`). Approver coverage reads a key's own role (`getApproverRoles`); keys have no teams.
+- Personal resources (a member's tokens, AI conversations, Slack links, private dashboards) stay on `userId`. Deferred work runs as `context.armer`.
+- Read who is behind a stored actor through the helpers in `shared/src/validators/event-user.ts`, never its raw fields: `eventUserPersonId` / `eventUserPerson` for the person, `eventUserLabel` for one line of text, `eventUserCredit` for "the person, or the key's name", and `eventUserIdentity` for who acted. A draft an org key made for a member has no `createdBy.id`. In the app, render actors with the `EventUser` component.
 
 ### In Models
 

@@ -24,7 +24,7 @@ import {
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ArmAcknowledgments,
   hasArmAcknowledgments,
@@ -317,6 +317,7 @@ export class RevisionModel extends BaseClass {
       status: "pending-review",
       resetEntry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "reopened",
         description:
@@ -368,25 +369,37 @@ export class RevisionModel extends BaseClass {
   ): boolean {
     if (existing.status === "merged") return false;
 
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return true;
-
-    return canTouchRevision(
-      existing.target.type,
-      this.context,
-      existing.target.snapshot as Record<string, unknown>,
-    );
+    const canTouch = (context: Context) =>
+      canTouchRevision(
+        existing.target.type,
+        context,
+        existing.target.snapshot as Record<string, unknown>,
+      );
+    if (
+      isRevisionAuthor(existing.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canTouch)
+    ) {
+      return true;
+    }
+    return canTouch(this.context);
   }
 
   /**
    * Author can delete their own revision. Otherwise, delegate to the adapter.
    */
   protected canDelete(doc: Revision): boolean {
-    if (isRevisionAuthor(doc.authorId, this.context.userId)) return true;
-
-    return getAdapter(doc.target.type).canDelete(
-      this.context,
-      doc.target.snapshot as Record<string, unknown>,
-    );
+    const canDelete = (context: Context) =>
+      getAdapter(doc.target.type).canDelete(
+        context,
+        doc.target.snapshot as Record<string, unknown>,
+      );
+    if (
+      isRevisionAuthor(doc.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canDelete)
+    ) {
+      return true;
+    }
+    return canDelete(this.context);
   }
 
   protected migrate(legacyDoc: unknown): Revision {
@@ -466,6 +479,11 @@ export class RevisionModel extends BaseClass {
       const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
+          // A backfilled baseline is authored by the entity's owner, not by
+          // whoever's edit created it.
+          ...(doc.authorId === this.context.actorId && {
+            user: this.context.auditUser,
+          }),
           userId: doc.authorId,
           action: "created",
           description,
@@ -1033,6 +1051,7 @@ export class RevisionModel extends BaseClass {
               ...this.cleanActivityLog(existing.activityLog),
               {
                 id: uniqid("act_"),
+                user: this.context.auditUser,
                 userId,
                 // Timeline label and review-cycle start marker.
                 action: "review-requested",
@@ -1141,6 +1160,7 @@ export class RevisionModel extends BaseClass {
     // Build these once so CAS retries re-base the same entry, not a duplicate.
     const review: Revision["reviews"][number] = {
       id: uniqid("rev_"),
+      user: this.context.auditUser,
       userId,
       decision,
       ...(comment ? { comment } : {}),
@@ -1148,6 +1168,7 @@ export class RevisionModel extends BaseClass {
     };
     const activityEntry: ActivityLogEntry = {
       id: uniqid("act_"),
+      user: this.context.auditUser,
       userId,
       action: actionMap[decision],
       ...(comment ? { description: comment } : {}),
@@ -1303,6 +1324,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "recalled",
               description: "Recalled review request — returned to draft",
@@ -1383,6 +1405,7 @@ export class RevisionModel extends BaseClass {
         const retractedVerdict = retracted[retracted.length - 1];
         const activityEntry: ActivityLogEntry = {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "review-retracted",
           description: JSON.stringify({
@@ -1391,6 +1414,7 @@ export class RevisionModel extends BaseClass {
             ...(retractedVerdict?.comment
               ? { comment: retractedVerdict.comment }
               : {}),
+            ...(retractedVerdict?.user ? { user: retractedVerdict.user } : {}),
           }),
           dateCreated: new Date(),
         };
@@ -1414,6 +1438,9 @@ export class RevisionModel extends BaseClass {
           ],
         } as UpdateProps<Revision>;
       },
+      // `authority` decides, rechecked above on every attempt: a reviewer may
+      // withdraw their own verdict without the update backstop's authority.
+      { dangerouslyBypassCanUpdate: true },
     );
     if (!updated) throw new Error("Revision not found");
     return updated;
@@ -1426,14 +1453,19 @@ export class RevisionModel extends BaseClass {
   // same document the write is conditioned on — a concurrent rebase that moves
   // the target's project can't slip between the check and the write.
   private assertCanWriteCommentOn(existing: Revision): void {
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return;
-    if (
-      !canCommentOnRevision(
+    const canComment = (context: Context) =>
+      canCommentOnRevision(
         existing.target.type,
-        this.context,
+        context,
         existing.target.snapshot as Record<string, unknown>,
-      )
+      );
+    if (
+      isRevisionAuthor(existing.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canComment)
     ) {
+      return;
+    }
+    if (!canComment(this.context)) {
       this.context.permissions.throwPermissionError();
     }
   }
@@ -1575,6 +1607,7 @@ export class RevisionModel extends BaseClass {
         } as Revision["target"],
         entry: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "updated",
           description: "Updated proposed changes",
@@ -1690,6 +1723,7 @@ export class RevisionModel extends BaseClass {
       } as Revision["target"],
       entry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "updated" as const,
         description: "Rebased revision on current live state",
@@ -1789,6 +1823,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "merged",
               description,
@@ -1849,6 +1884,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "discarded",
               description: reason || "Discarded revision",
@@ -1930,6 +1966,7 @@ export class RevisionModel extends BaseClass {
       $push: {
         activityLog: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "reopened" as const,
           description: "Reopened revision — publish failed to apply",
@@ -1989,6 +2026,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "reopened",
               description: "Reopened revision",
@@ -2060,7 +2098,8 @@ export class RevisionModel extends BaseClass {
           $push: {
             activityLog: {
               id: uniqid("act_"),
-              userId: enabledBy ?? existing.authorId,
+              user: this.context.auditUser,
+              userId: this.context.actorId,
               action: "scheduled-publish-canceled",
               description: "Cancelled scheduled publish",
               dateCreated: now,
@@ -2083,7 +2122,8 @@ export class RevisionModel extends BaseClass {
 
     const armEntry: ActivityLogEntry = {
       id: uniqid("act_"),
-      userId: enabledBy ?? existing.authorId,
+      user: this.context.auditUser,
+      userId: this.context.actorId,
       action: existing.scheduledPublishAt
         ? "scheduled-publish-updated"
         : "scheduled-publish",
@@ -2443,7 +2483,7 @@ export class RevisionModel extends BaseClass {
         comment: target.comment,
         revertedFrom: target.revertedFrom,
         status: "draft",
-        authorId: this.context.userId,
+        authorId: this.context.actorId,
         reviews: [],
         activityLog: [],
         // CreateProps strips fields generated by BaseModel (id, version,
@@ -2522,7 +2562,7 @@ export class RevisionModel extends BaseClass {
     const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
       params.snapshot,
     );
-    const userId = this.context.userId;
+    const userId = this.context.actorId;
     const now = new Date();
 
     return this.createWithVersionRetry(() =>
@@ -2546,6 +2586,7 @@ export class RevisionModel extends BaseClass {
         activityLog: [
           {
             id: uniqid("act_"),
+            user: this.context.auditUser,
             userId,
             action: "merged",
             description: params.bypass

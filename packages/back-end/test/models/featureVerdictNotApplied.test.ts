@@ -30,7 +30,10 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     org: { id: ORG_ID, settings: {} },
     userId: "u_reviewer",
     models: {
-      featureRevisionLogs: { create: async () => undefined },
+      featureRevisionLogs: {
+        create: async () => undefined,
+        dangerousCreateBypassPermission: async () => undefined,
+      },
     },
   } as never;
 

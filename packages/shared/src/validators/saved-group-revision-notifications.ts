@@ -7,21 +7,12 @@
 // emitted payload (a full ApiSavedGroupRevision) still validates.
 
 import { z } from "zod";
+import { eventReviewer } from "./event-user";
 import { apiSavedGroupRevisionValidator } from "./saved-group-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
-
-// Reviewer identity, shared by approve/request-changes/comment events.
-// Mirrors the `reviewer` shape used by feature revision notifications.
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
 
 // Doc-friendly replacements for the JSON-Patch–typed fields. `.passthrough()`
 // keeps them as supersets so the real (strictly-typed) values still validate.
@@ -117,7 +108,7 @@ export type SavedGroupRevisionUpdatedPayload = z.infer<
 export const savedGroupRevisionApprovedPayload =
   savedGroupRevisionWebhookPayload
     .extend({
-      reviewer,
+      reviewer: eventReviewer,
       reviewComment: z.string().nullable(),
     })
     .strict();
@@ -128,7 +119,7 @@ export type SavedGroupRevisionApprovedPayload = z.infer<
 export const savedGroupRevisionChangesRequestedPayload =
   savedGroupRevisionWebhookPayload
     .extend({
-      reviewer,
+      reviewer: eventReviewer,
       reviewComment: z.string().nullable(),
     })
     .strict();
@@ -139,7 +130,7 @@ export type SavedGroupRevisionChangesRequestedPayload = z.infer<
 export const savedGroupRevisionCommentedPayload =
   savedGroupRevisionWebhookPayload
     .extend({
-      reviewer,
+      reviewer: eventReviewer,
       reviewComment: z.string(),
     })
     .strict();

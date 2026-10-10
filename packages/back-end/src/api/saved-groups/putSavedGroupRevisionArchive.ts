@@ -1,7 +1,7 @@
 import { putSavedGroupRevisionArchiveValidator } from "shared/validators";
 import {
   canStageArchiveDraft,
-  canWriteArchiveIntoDraft,
+  canRequestArchiveIntoDraft,
 } from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -77,12 +77,10 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
     // reach into one it does not own.
     if (
       !created &&
-      !canWriteArchiveIntoDraft({
-        permissions: req.context.permissions,
+      !canRequestArchiveIntoDraft(req.context, {
         model: "saved-group",
         entity: savedGroup,
         revision,
-        userId: req.context.userId,
       })
     ) {
       req.context.permissions.throwPermissionError();

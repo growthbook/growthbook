@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
@@ -9,8 +9,12 @@ import {
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
 import type { RevisionModel } from "shared/permissions";
-import type { OrganizationInterface } from "shared/types/organization";
+import type {
+  MemberRoleWithProjects,
+  OrganizationInterface,
+} from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
+import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -78,6 +82,23 @@ export function useApprovalCoverage({
   const { users, teams, organization } = useUser();
   const { getProjectById } = useDefinitions();
 
+  // A key that approved as itself isn't a member; its role comes from the
+  // server, so the panel judges it the way publishing does.
+  const keyApproverIds = reviewers
+    .filter((r) => r.status === "approved" && !users.has(r.id))
+    .map((r) => r.id);
+  const { data: keyRoleData } = useApi<{
+    roles: Record<string, MemberRoleWithProjects | null>;
+  }>(
+    `/keys/approver-roles?ids=${keyApproverIds.map(encodeURIComponent).join(",")}`,
+    { shouldRun: () => keyApproverIds.length > 0 },
+  );
+  const roleFor = useCallback(
+    (id: string): MemberRoleWithProjects | null =>
+      users.get(id) ?? keyRoleData?.roles[id] ?? null,
+    [users, keyRoleData],
+  );
+
   const coverage = useMemo(
     () =>
       assessGoverningApprovalCoverage({
@@ -89,7 +110,7 @@ export function useApprovalCoverage({
         footprint,
         approvers: reviewers
           .filter((r) => r.status === "approved")
-          .map((r) => ({ id: r.id, roleInfo: users.get(r.id) ?? null })),
+          .map((r) => ({ id: r.id, roleInfo: roleFor(r.id) })),
       }),
     [
       reviewers,
@@ -99,7 +120,7 @@ export function useApprovalCoverage({
       projects,
       approverProjects,
       footprint,
-      users,
+      roleFor,
     ],
   );
   const uncoveredApprovers = useMemo(
@@ -128,7 +149,7 @@ export function useApprovalCoverage({
     return (approverId: string): string[] => {
       const hit = cache.get(approverId);
       if (hit) return hit;
-      const roleInfo = users.get(approverId);
+      const roleInfo = roleFor(approverId);
       if (!roleInfo) return [];
       const perms = getRolePermissions(
         roleInfo,
@@ -146,13 +167,17 @@ export function useApprovalCoverage({
       cache.set(approverId, held);
       return held;
     };
-  }, [users, organization, teams, envIds, model, projects]);
+  }, [roleFor, organization, teams, envIds, model, projects]);
 
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {
-      const roleInfo = users.get(approverId);
-      const who = roleInfo?.name || roleInfo?.email || "this reviewer";
-      if (!roleInfo) return `${who} is no longer a member of this organization`;
+      const member = users.get(approverId);
+      const who = member?.name || member?.email || "this reviewer";
+      if (!roleFor(approverId)) {
+        return member || !keyRoleData
+          ? `${who} is no longer a member of this organization`
+          : "this API key is disabled, expired or removed";
+      }
       if (footprint.scope !== "environments") {
         return `needs review access with no environment limit`;
       }
@@ -165,7 +190,7 @@ export function useApprovalCoverage({
     return new Map(
       [...uncoveredApprovers].map((id) => [id, reason(id)] as const),
     );
-  }, [uncoveredApprovers, users, footprint, heldEnvsFor]);
+  }, [uncoveredApprovers, users, roleFor, keyRoleData, footprint, heldEnvsFor]);
 
   const uncoveredFootprintEnvs = useMemo(() => {
     if (footprint.scope !== "environments") return [];

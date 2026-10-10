@@ -1,27 +1,37 @@
 import React, { FC, useState } from "react";
-import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
-import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
+import { Flex } from "@radix-ui/themes";
+import { PiIdentificationCard } from "react-icons/pi";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   apiKeyToggleRequiresAdmin,
-  getRoleDisplayName,
-  roleHasAccessToEnv,
+  requesterHeaderPolicy,
 } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
+import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
-import { useEnvironments } from "@/services/features";
 import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
-import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
-import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const ADMIN_LOCKED_REASON =
   "An administrator disabled this token. Ask them to re-enable it, or delete it and create a new one.";
@@ -54,8 +64,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
 }) => {
   const { organization, userId, users, settings } = useUser();
   const canManageTokens = usePermissionsUtil().canDeleteApiKey();
-  const { projects } = useDefinitions();
-  const environments = useEnvironments();
+  const { getProjectById } = useDefinitions();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
@@ -80,7 +89,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const visibleKeys = showExpired
     ? keys
     : keys.filter((k) => getExpirationStatus(k.expiresAt) !== "expired");
-  const { items: sortedKeys, SortableTH } = useSearch({
+  const { items: sortedKeys, SortableTableColumnHeader } = useSearch({
     items: visibleKeys.map((key, i) => ({
       id: key.id || key.key,
       // 1-based: useSearch treats a falsy sort value as missing.
@@ -95,6 +104,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     defaultSortField: "order",
     searchFields: [],
   });
+
   return (
     <>
       {expiredCount > 0 && (
@@ -106,208 +116,179 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           onChange={setShowExpired}
         />
       )}
-      <div style={{ overflowX: "auto" }}>
-        <table
-          className="table mb-3 appbox gbtable"
-          style={{ width: "auto", minWidth: "100%" }}
-        >
-          <thead>
-            <tr>
-              <th style={{ minWidth: 150 }}>Description</th>
-              <th>Key</th>
-              <th>Global Role</th>
-              <th>Project Roles</th>
-              {/* Relative spans like "in about 2 months" otherwise wrap and
-                double every row's height. */}
-              <th style={{ whiteSpace: "nowrap" }}>Last Used</th>
-              <SortableTH
-                field="expiresAtSort"
-                style={{ whiteSpace: "nowrap" }}
+      <Table variant="surface" layout="fixed" mb="3">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader width="15%">Description</TableColumnHeader>
+            <TableColumnHeader width="270px">Key</TableColumnHeader>
+            <TableColumnHeader width="16%">Role</TableColumnHeader>
+            <TableColumnHeader width="16%">Project Roles</TableColumnHeader>
+            <TableColumnHeader width="150px">Last Used</TableColumnHeader>
+            <SortableTableColumnHeader
+              field="expiresAtSort"
+              style={{ width: 180 }}
+            >
+              Expires
+            </SortableTableColumnHeader>
+            {canDeleteKeys && <TableColumnHeader width="40px" />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!visibleKeys.length && (
+            <TableRow>
+              <TableCell
+                colSpan={canDeleteKeys ? 7 : 6}
+                style={{ textAlign: "center" }}
               >
-                Expires
-              </SortableTH>
-              {environments.map((env) => (
-                <th key={env.id}>{env.id}</th>
-              ))}
-              {canDeleteKeys && <th style={{ width: 30 }}></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {!visibleKeys.length && (
-              <tr>
-                <td
-                  colSpan={6 + environments.length + (canDeleteKeys ? 1 : 0)}
-                  style={{ textAlign: "center" }}
-                >
-                  <Text color="text-low">All of these keys have expired.</Text>
-                </td>
-              </tr>
-            )}
-            {sortedKeys.map(({ key }) => (
-              <tr key={key.id}>
-                <td style={dimStyle(key)}>
-                  {key.description}
-                  {key.disabled && (
-                    <Tooltip
-                      content={
-                        isAdminLocked(key)
-                          ? ADMIN_LOCKED_REASON
-                          : disabledByTitle(key)
-                      }
-                      enabled={
-                        isAdminLocked(key) || (!key.userId && !!key.disabledBy)
-                      }
-                    >
-                      <span>
-                        <Badge
-                          ml="2"
-                          color="red"
-                          variant="soft"
-                          label={
-                            isDisabledByAdmin(key)
-                              ? "Disabled by admin"
-                              : "Disabled"
-                          }
-                        />
-                      </span>
-                    </Tooltip>
-                  )}
-                </td>
-                <td style={{ minWidth: 270, ...dimStyle(key) }}>
-                  {canCreateKeys ? (
-                    <ClickToReveal
-                      valueWhenHidden="secret_abcdefghijklmnop123"
-                      getValue={onReveal(key.id)}
-                    />
-                  ) : (
-                    <em>hidden</em>
-                  )}
-                </td>
-                <td style={dimStyle(key)}>
-                  {key.role ? getRoleDisplayName(key.role, organization) : "-"}
-                </td>
-                <td style={dimStyle(key)}>
-                  {key.projectRoles?.map((pr) => {
-                    const p = projects.find((p) => p.id === pr.project);
-                    if (p?.name) {
-                      return (
-                        <div key={`project-tags-${p.id}`}>
-                          <ProjectBadges
-                            resourceType="member"
-                            projectIds={[p.id]}
-                          />{" "}
-                          — {getRoleDisplayName(pr.role, organization)}
-                          {pr.limitAccessByEnvironment &&
-                            pr.environments.length > 0 && (
-                              <Tooltip
-                                content={`Limited to: ${pr.environments.join(", ")}`}
-                              >
-                                <span>
-                                  <FaFilter
-                                    className="text-muted ml-1"
-                                    size={10}
-                                  />
-                                </span>
-                              </Tooltip>
-                            )}
-                        </div>
-                      );
+                <Text color="text-low">All of these keys have expired.</Text>
+              </TableCell>
+            </TableRow>
+          )}
+          {sortedKeys.map(({ key }) => (
+            <TableRow key={key.id}>
+              <TableCell style={dimStyle(key)}>
+                {key.description}
+                {key.disabled && (
+                  <Tooltip
+                    content={
+                      isAdminLocked(key)
+                        ? ADMIN_LOCKED_REASON
+                        : disabledByTitle(key)
                     }
-                    return null;
-                  })}
-                </td>
-                <td style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
-                  {key.lastUsed ? (
-                    <Tooltip
-                      content={
-                        key.disabled
-                          ? `${datetime(key.lastUsed)}. This is the last time a request was attempted, successful or not.`
-                          : datetime(key.lastUsed)
-                      }
-                    >
-                      <span>{ago(key.lastUsed)}</span>
-                    </Tooltip>
-                  ) : key.lastUsed === null ? (
-                    <Text color="text-low">Never</Text>
-                  ) : (
-                    <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
-                      <Text color="text-low">Unknown</Text>
-                    </Tooltip>
-                  )}
-                </td>
-                <td style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
-                  <ExpiresCell
-                    expiresAt={key.expiresAt}
-                    maxLifetimeDays={
-                      key.userId
-                        ? settings?.maxPatLifetimeDays
-                        : settings?.maxApiKeyLifetimeDays
+                    enabled={
+                      isAdminLocked(key) || (!key.userId && !!key.disabledBy)
                     }
-                  />
-                </td>
-                {environments.map((env) => {
-                  const access = !key.role
-                    ? "N/A"
-                    : roleHasAccessToEnv(
-                        key as ApiKeyWithRole,
-                        env.id,
-                        organization,
-                      );
-                  return (
-                    <td key={env.id} style={dimStyle(key)}>
-                      {access === "N/A" ? (
-                        <span className="text-muted">N/A</span>
-                      ) : access === "yes" ? (
-                        <FaCheck className="text-success" />
-                      ) : (
-                        <FaTimes className="text-danger" />
-                      )}
-                    </td>
-                  );
-                })}
-                {canDeleteKeys && (
-                  <td>
-                    <ApiKeyRowMenu
-                      apiKey={key}
-                      canDeleteKeys={canDeleteKeys}
-                      onDelete={onDelete}
-                      onEdit={onEdit}
-                      onToggleClick={
-                        onToggleDisabled ? setPendingToggle : undefined
-                      }
-                      toggleLockedReason={
-                        isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined
-                      }
-                      onShowAuditLog={onShowAuditLog}
-                      onCopy={onCopy}
-                    />
-                  </td>
+                  >
+                    <span>
+                      <Badge
+                        ml="2"
+                        color="red"
+                        variant="soft"
+                        label={
+                          isDisabledByAdmin(key)
+                            ? "Disabled by admin"
+                            : "Disabled"
+                        }
+                      />
+                    </span>
+                  </Tooltip>
                 )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {pendingToggle && onToggleDisabled && (
-          <ConfirmDialog
-            title={
-              !pendingToggle.disabled ? "Disable API key?" : "Enable API key?"
-            }
-            content={
-              !pendingToggle.disabled
-                ? `Any request using this key will be rejected until it is re-enabled.`
-                : `This key will immediately start accepting requests again.`
-            }
-            yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
-            color={!pendingToggle.disabled ? "red" : "violet"}
-            onConfirm={async () => {
-              const target = pendingToggle;
-              await onToggleDisabled(target.id, !target.disabled)();
-              setPendingToggle(null);
-            }}
-            onCancel={() => setPendingToggle(null)}
-          />
-        )}
-      </div>
+                {requesterHeaderPolicy(key) === "required" && (
+                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
+                    <Flex
+                      align="center"
+                      gap="1"
+                      mt="1"
+                      width="fit-content"
+                      style={{ color: "var(--brown-10)" }}
+                    >
+                      <PiIdentificationCard size={18} />
+                      <Text size="sm">Requester required</Text>
+                    </Flex>
+                  </Tooltip>
+                )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                {canCreateKeys ? (
+                  <ClickToReveal
+                    valueWhenHidden="secret_abcdefghijklmnop123"
+                    getValue={onReveal(key.id)}
+                  />
+                ) : (
+                  <em>hidden</em>
+                )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                {key.role ? (
+                  <CollapsedRuleRows
+                    rows={ruleRows({ ...key, role: key.role }, organization)}
+                  />
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                <CollapsedRuleRows
+                  rows={projectRuleRows(
+                    key.projectRoles ?? [],
+                    getProjectById,
+                    organization,
+                  )}
+                />
+              </TableCell>
+              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+                {key.lastUsed ? (
+                  <Tooltip
+                    content={
+                      key.disabled
+                        ? `${datetime(key.lastUsed)}. This is the last time a request was attempted, successful or not.`
+                        : datetime(key.lastUsed)
+                    }
+                  >
+                    <span>{ago(key.lastUsed)}</span>
+                  </Tooltip>
+                ) : key.lastUsed === null ? (
+                  <Text color="text-low">Never</Text>
+                ) : (
+                  <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
+                    <span>
+                      <Text color="text-low">Unknown</Text>
+                    </span>
+                  </Tooltip>
+                )}
+              </TableCell>
+              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+                <ExpiresCell
+                  expiresAt={key.expiresAt}
+                  maxLifetimeDays={
+                    key.userId
+                      ? settings?.maxPatLifetimeDays
+                      : settings?.maxApiKeyLifetimeDays
+                  }
+                />
+              </TableCell>
+              {canDeleteKeys && (
+                <TableCell>
+                  <ApiKeyRowMenu
+                    apiKey={key}
+                    canDeleteKeys={canDeleteKeys}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    onToggleClick={
+                      onToggleDisabled ? setPendingToggle : undefined
+                    }
+                    toggleLockedReason={
+                      isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined
+                    }
+                    onShowAuditLog={onShowAuditLog}
+                    onCopy={onCopy}
+                  />
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {pendingToggle && onToggleDisabled && (
+        <ConfirmDialog
+          title={
+            !pendingToggle.disabled ? "Disable API key?" : "Enable API key?"
+          }
+          content={
+            !pendingToggle.disabled
+              ? `Any request using this key will be rejected until it is re-enabled.`
+              : `This key will immediately start accepting requests again.`
+          }
+          yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
+          color={!pendingToggle.disabled ? "red" : "violet"}
+          onConfirm={async () => {
+            const target = pendingToggle;
+            await onToggleDisabled(target.id, !target.disabled)();
+            setPendingToggle(null);
+          }}
+          onCancel={() => setPendingToggle(null)}
+        />
+      )}
     </>
   );
 };
