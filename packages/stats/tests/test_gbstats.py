@@ -470,7 +470,9 @@ class TestCreateBanditStatisticsBinomial(TestCase):
             },
         ]
     )
-    METRIC = dataclasses.replace(COUNT_METRIC, main_metric_type="binomial")
+    # Binomial is coerced to count upstream, so the metric that actually reaches
+    # create_bandit_statistics is a count metric.
+    METRIC = COUNT_METRIC
 
     def _stats(self, rows):
         df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
@@ -479,11 +481,11 @@ class TestCreateBanditStatisticsBinomial(TestCase):
     def test_uses_period_weighted_variance_from_row(self):
         stats = self._stats(self.ROWS)
         for stat, row in zip(stats, self.ROWS.itertuples()):
-            self.assertIsInstance(stat, SampleMeanStatistic)
+            assert isinstance(stat, SampleMeanStatistic)
             self.assertEqual(stat.n, row.users)
             self.assertEqual(stat.sum, row.main_sum)
             self.assertEqual(stat.sum_squares, row.main_sum_squares)
-            iid_variance = ProportionStatistic(n=row.users, sum=row.main_sum).variance
+            iid_variance = ProportionStatistic(n=stat.n, sum=stat.sum).variance
             self.assertGreater(stat.variance, iid_variance)
 
     def test_keeps_folded_sum_squares_below_the_sum(self):
@@ -493,22 +495,19 @@ class TestCreateBanditStatisticsBinomial(TestCase):
         rows = self.ROWS.copy()
         rows.loc[0, ["main_sum", "main_sum_squares"]] = [150.0, 102.09]
         stat = self._stats(rows)[0]
+        assert isinstance(stat, SampleMeanStatistic)
         self.assertEqual(stat.sum_squares, 102.09)
         self.assertLess(
             stat.variance,
             SampleMeanStatistic(n=300, sum=150.0, sum_squares=150.0).variance,
         )
 
-    def test_falls_back_to_binomial_variance_without_sum_squares(self):
-        rows = self.ROWS.drop(columns=["main_sum_squares"])
-        stats = self._stats(rows)
-        for stat, row in zip(stats, self.ROWS.itertuples()):
-            self.assertIsInstance(stat, SampleMeanStatistic)
-            self.assertEqual(stat.sum_squares, row.main_sum)
-            iid_variance = SampleMeanStatistic(
-                n=row.users, sum=row.main_sum, sum_squares=row.main_sum
-            ).variance
-            self.assertEqual(stat.variance, iid_variance)
+    def test_rejects_binomial_metric(self):
+        # A binomial metric should have been coerced to count upstream.
+        binomial_metric = dataclasses.replace(COUNT_METRIC, main_metric_type="binomial")
+        df = get_metric_dfs(self.ROWS, {"zero": 0, "one": 1}, ["zero", "one"])
+        with self.assertRaises(ValueError):
+            create_bandit_statistics(df[0].data.iloc[0], binomial_metric, 2)
 
 
 class TestBanditMinVariationWeightFloor(TestCase):
