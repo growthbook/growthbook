@@ -176,6 +176,7 @@ describe("features", () => {
       off: true,
       ruleId: "",
       source: "defaultValue",
+      reason: "defaultValue",
     });
     growthbook.destroy();
   });
@@ -195,6 +196,57 @@ describe("features", () => {
       },
     });
     expect(growthbook.evalFeature("feature").ruleId).toEqual("foo");
+    growthbook.destroy();
+  });
+
+  it.each([
+    {
+      name: "targeting mismatch",
+      rule: {
+        condition: { plan: "pro" },
+        variations: ["control", "treatment"],
+      },
+      reason: "targetingMismatch",
+    },
+    {
+      name: "coverage exclusion",
+      rule: {
+        coverage: 0,
+        variations: ["control", "treatment"],
+      },
+      reason: "coverageExcluded",
+    },
+  ])(
+    "explains a $name when an experiment rule falls through",
+    ({ rule, reason }) => {
+      const growthbook = new GrowthBook({
+        attributes: { id: "subject-1", plan: "free" },
+        features: {
+          feature: {
+            defaultValue: "fallback",
+            rules: [rule],
+          },
+        },
+      });
+      const result = growthbook.evalFeature("feature");
+
+      expect(result).toMatchObject({
+        value: "fallback",
+        source: "defaultValue",
+        reason,
+        ruleId: "",
+      });
+      expect(result.experimentResult).toBeUndefined();
+      growthbook.destroy();
+    },
+  );
+
+  it("always returns a reason", () => {
+    const growthbook = new GrowthBook({
+      features: { feature: { defaultValue: true } },
+    });
+
+    expect(growthbook.evalFeature("feature").reason).toEqual("defaultValue");
     growthbook.destroy();
   });
 
