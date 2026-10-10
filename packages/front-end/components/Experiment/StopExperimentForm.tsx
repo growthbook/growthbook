@@ -345,7 +345,7 @@ const StopExperimentForm: FC<{
                 of traffic is directed at this experiment.
                 <br />
                 Upon rollout, <strong>100%</strong> of traffic will be directed
-                towards the releeased variation.
+                towards the released variation.
               </Callout>
             ) : null}
 

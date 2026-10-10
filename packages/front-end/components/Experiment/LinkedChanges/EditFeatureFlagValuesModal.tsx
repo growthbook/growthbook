@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -26,6 +23,7 @@ import {
   getFeatureBaseConfigKey,
   getConfigSubtree,
   ensureConfigBacking,
+  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -33,6 +31,7 @@ import { PiArrowsClockwise, PiPlusCircleFill } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorDropdown, {
   DraftMode,
@@ -74,7 +73,6 @@ export interface Props {
 
 type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
-  revisions: FeatureRevisionInterface[];
 };
 
 type VariationRow = {
@@ -155,16 +153,26 @@ export default function EditFeatureFlagValuesModal({
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
-  const revisionList = data?.revisionList ?? [];
+  const revisionList = useMemo(() => data?.revisionList ?? [], [data]);
 
   // Mirror the back-end eligibility check in validateExperimentFeatureUpdates:
   // a draft is selectable only if it contains an experiment-ref rule for this
   // experiment. Otherwise submit fails with an opaque server-side error.
   // Defensively union in linkedFeatureInfo.draftRevisionVersion so the
   // default-selected draft is never hidden by a stale/empty revisions list.
+  const openDraftVersions = useMemo(
+    () =>
+      revisionList
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
+        .map((r) => r.version),
+    [revisionList],
+  );
+  const openDrafts = useFeatureRevisions(feature.id, openDraftVersions);
   const eligibleDraftVersions = useMemo(() => {
     const set = new Set<number>();
-    for (const r of data?.revisions ?? []) {
+    for (const version of openDraftVersions) {
+      const r = openDrafts.get(version);
+      if (!r) continue;
       const hasRefRule = naiveFlattenV1Rules(r.rules).some(
         (rule) =>
           rule.type === "experiment-ref" &&
@@ -176,7 +184,12 @@ export default function EditFeatureFlagValuesModal({
       set.add(linkedFeatureInfo.draftRevisionVersion);
     }
     return set;
-  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
+  }, [
+    openDraftVersions,
+    openDrafts,
+    experiment.id,
+    linkedFeatureInfo.draftRevisionVersion,
+  ]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 

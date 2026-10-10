@@ -2,7 +2,6 @@
 title: Custom Hooks
 description: Run custom validation when a feature is published. Available on self-hosted GrowthBook only.
 sidebarTitle: Custom Hooks
-slug: /features/custom-hooks
 ---
 
 With self-hosted GrowthBook Enterprise, you can extend GrowthBook's validation logic with Custom Hooks.
@@ -61,7 +60,9 @@ A hook may execute **multiple times for a single save**. GrowthBook runs hooks e
 
 ### Debugging
 
-If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected. Hook errors are prefixed with `Custom hook:`, which distinguishes them from schema-conformance errors (prefixed with the offending field, e.g. `value: …`) and from validation-rule failures (which surface the rule's own message).
+To reject a change, throw an error you create (`new Error(...)`, `new TypeError(...)`, a custom subclass) or a string. Its message is shown to the person editing the Feature Flag, Config, or Experiment exactly as written, with no prefix, so write it for them.
+
+If the hook itself fails (an error raised by the JavaScript engine, such as reading a property of `undefined`, a failed `fetch`, or a timeout), users see a generic message asking them to retry or contact their admins instead. The hook's name, stack trace, and console output are available under **Show details** so they can share them with you. Console output from a rejecting hook is also shown there, never in the main message.
 
 When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 
@@ -87,10 +88,12 @@ if (feature.tags.length === 0) {
 Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
 A warning or thrown error can include links in Markdown syntax, such as a link
-to your internal guidelines. In the app, only `http://` and `https://` links are
-shown as links, and they open in a new tab. A REST API client receives the raw
-text. Links are also rendered in any user-entered text your hook adds to the
-message, such as an experiment name.
+to your internal guidelines. In the app, `http://` and `https://` links and
+paths that start with `/` are shown as links, and they open in a new tab. A
+path such as `/experiment/${experiment.id}` opens that page on your own
+GrowthBook instance. A REST API client receives the raw text. Links are also
+rendered in any user-entered text your hook adds to the message, such as an
+experiment name.
 
 ```js
 if (!feature.description) {

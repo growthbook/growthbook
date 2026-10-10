@@ -1,4 +1,9 @@
-import { ManagedBy } from "shared/validators";
+import {
+  ManagedBy,
+  SavedGroupFormat,
+  SdkPayloadSize,
+  SdkPayloadSizeLevel,
+} from "shared/validators";
 
 // GrowthBook Proxy
 export interface ProxyConnection {
@@ -67,6 +72,8 @@ import { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
 
+export type { SavedGroupFormat };
+
 export interface SDKConnectionInterface {
   id: string;
   organization: string;
@@ -109,8 +116,23 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  /**
+   * How Saved Groups are written into this connection's payload. Absent on
+   * connections created before the setting existed; `toInterface` derives it
+   * from `savedGroupReferencesEnabled` for those.
+   */
+  savedGroupFormat?: SavedGroupFormat;
+  /**
+   * @deprecated Superseded by `savedGroupFormat`. Still written and still
+   * accepted by the API so existing integrations keep working.
+   */
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
+
+  // Size of the last payload built for this connection
+  payloadSize?: SdkPayloadSize;
+  // The level last announced by event and email, so only changes notify
+  notifiedPayloadSizeLevel?: SdkPayloadSizeLevel;
 }
 
 export interface ProxyTestResult {

@@ -11,6 +11,8 @@ import {
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MergeResultChanges,
+  rebasedRevisionChanges,
+  REBASED_REVISION_FIELDS,
 } from "shared/util";
 import {
   FeatureInterface,
@@ -571,23 +573,43 @@ async function syncLinkagesAfterDraftWrite(
   }
 }
 
+const MINIMAL_REVISIONS_LIMIT = 200;
+
 export async function getMinimalRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
 ): Promise<MinimalFeatureRevisionInterface[]> {
-  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
+  const fields =
+    "version baseVersion datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval";
+  const recent: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
   })
-    .select(
-      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval",
-    )
+    .select(fields)
     .sort({ version: -1 })
-    .limit(200);
+    .limit(MINIMAL_REVISIONS_LIMIT);
+  // Open drafts older than that window are listed too: the flag page counts
+  // and offers drafts from this list rather than loading them all in full.
+  const oldest = recent[recent.length - 1]?.version;
+  const olderOpenDrafts: FeatureRevisionDocument[] =
+    recent.length === MINIMAL_REVISIONS_LIMIT && oldest !== undefined
+      ? await FeatureRevisionModel.find({
+          organization,
+          featureId,
+          status: { $in: ACTIVE_DRAFT_STATUSES },
+          version: { $lt: oldest },
+        })
+          .select(fields)
+          .sort({ version: -1 })
+      : [];
+  const docs = [...recent, ...olderOpenDrafts];
 
   return docs.map((m) => ({
     version: m.version,
+    ...(typeof m.baseVersion === "number"
+      ? { baseVersion: m.baseVersion }
+      : {}),
     datePublished: m.datePublished,
     dateUpdated: m.dateUpdated,
     createdBy: m.createdBy,
@@ -619,57 +641,62 @@ export async function getMinimalRevisions(
   }));
 }
 
+/**
+ * Full revisions for the flag page: the given versions (live, the one the page
+ * opens on, a requested one) and the bases those need for a merge or diff.
+ * Everything else is only in getMinimalRevisions, and the page loads it when
+ * needed: shipping every open draft in full made this response grow with
+ * drafts × value size.
+ */
 export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
+  versions: number[],
 ): Promise<FeatureRevisionInterface[]> {
-  // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
-  const [recentDocs, activeDraftDocs] = await Promise.all([
-    // Top-5 most recent: covers the revision history UI without fetching everything.
-    FeatureRevisionModel.find({ organization, featureId })
-      .select("-log")
-      .sort({ version: -1 })
-      .limit(5),
-    // All active drafts: a draft created from an old revision may fall outside the top-5 window.
-    FeatureRevisionModel.find({
+  const docs: FeatureRevisionDocument[] = [];
+  const findMissing = async (wanted: number[]) => {
+    const missing = [...new Set(wanted)].filter(
+      (v) => v > 0 && !docs.some((d) => d.version === v),
+    );
+    if (!missing.length) return;
+    docs.push(
+      ...(await FeatureRevisionModel.find({
+        organization,
+        featureId,
+        version: { $in: missing },
+      }).select("-log")),
+    );
+  };
+
+  await findMissing(versions);
+  await findMissing(
+    docs
+      .map((d) => d.baseVersion)
+      .filter((v): v is number => typeof v === "number"),
+  );
+
+  return docs.map((m) => toInterface(m, context, feature));
+}
+
+// Just the rules of the feature's open drafts, minus the given versions, so the
+// flag page can link every draft's experiments without loading them in full.
+export async function getOpenDraftRules(
+  organization: string,
+  featureId: string,
+  excludeVersions: number[],
+): Promise<unknown[]> {
+  const docs = await FeatureRevisionModel.find(
+    {
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("-log"),
-  ]);
-
-  const seen = new Set<number>();
-  const merged: FeatureRevisionDocument[] = [];
-  for (const doc of [...recentDocs, ...activeDraftDocs]) {
-    if (!seen.has(doc.version)) {
-      seen.add(doc.version);
-      merged.push(doc);
-    }
-  }
-
-  // Base versions of active drafts: needed for autoMerge / conflict detection.
-  // If the base falls outside the top-5 window, mergeResult would be null and publish CTAs break.
-  const missingBaseVersions = activeDraftDocs
-    .map((d) => d.baseVersion)
-    .filter((v): v is number => typeof v === "number" && !seen.has(v));
-
-  if (missingBaseVersions.length > 0) {
-    const baseDocs = await FeatureRevisionModel.find({
-      organization,
-      featureId,
-      version: { $in: missingBaseVersions },
-    }).select("-log");
-    for (const doc of baseDocs) {
-      if (!seen.has(doc.version)) {
-        seen.add(doc.version);
-        merged.push(doc);
-      }
-    }
-  }
-
-  return merged.map((m) => toInterface(m, context, feature));
+      version: { $nin: excludeVersions },
+    },
+    { rules: 1, _id: 0 },
+  ).lean();
+  return docs.map((d) => d.rules);
 }
 
 export async function hasDraft(
@@ -881,14 +908,20 @@ export async function getRevisionsByStatus(
   {
     sparse = false,
     featuresByFeatureId,
+    featureIds,
   }: {
     sparse?: boolean;
     featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
+    featureIds?: string[];
   } = {},
 ) {
   const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
   const revisions = await FeatureRevisionModel.find(
-    { organization: context.org.id, status: { $in: statuses } },
+    {
+      organization: context.org.id,
+      status: { $in: statuses },
+      ...(featureIds ? { featureId: { $in: featureIds } } : {}),
+    },
     projection,
   );
 
@@ -1650,15 +1683,60 @@ export async function updateRevision(
   return updatedRevision;
 }
 
+// The merge a publish lands, so the published record can hold it.
+export type PublishRebase = {
+  result: MergeResultChanges;
+  environmentIds: string[];
+};
+
+// What the publish lands, written on the record the way a manual rebase writes
+// it: the merge over live, project scopes scrubbed. A current draft keeps its
+// base version and lands its own content.
+function landedRecord(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  rebase: PublishRebase,
+) {
+  return rebasedRevisionChanges({
+    feature,
+    revision,
+    liveVersion: feature.version,
+    result: rebase.result,
+    environmentIds: rebase.environmentIds,
+    pruneRampActions: false,
+  });
+}
+
+// The live record as hooks see it, so they judge what this publish changes.
+export function liveRevisionBeforePublish(
+  revision: FeatureRevisionInterface,
+  feature: FeatureInterface,
+): FeatureRevisionInterface {
+  return {
+    ...revision,
+    ...liveRevisionFromFeature(
+      {
+        version: feature.version,
+        defaultValue: feature.defaultValue,
+        rules: feature.rules ?? [],
+      },
+      feature,
+    ),
+  };
+}
+
 // Pure computation of the changes markRevisionAsPublished() will validate and persist
 export function computeRevisionPublishChanges(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
-  comment?: string,
+  comment: string | undefined,
+  rebase: PublishRebase,
 ): Partial<FeatureRevisionInterface> {
+  const landed = landedRecord(feature, revision, rebase).changes;
   return {
-    ...getFeatureRevisionValueUpdatesForPublish(feature, revision),
+    ...landed,
+    ...getFeatureRevisionValueUpdatesForPublish(feature, landed),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1675,6 +1753,7 @@ export async function markRevisionAsPublished(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  rebase: PublishRebase,
   comment?: string,
 ): Promise<Date | null> {
   // "re-publish" only applies to a revision that was already live; publishing
@@ -1686,6 +1765,7 @@ export async function markRevisionAsPublished(
     revision,
     user,
     comment,
+    rebase,
   );
 
   await runValidateFeatureRevisionHooks({
@@ -1695,7 +1775,7 @@ export async function markRevisionAsPublished(
       ...revision,
       ...changes,
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
 
   // Guarded, like the bulk claim: unguarded, two concurrent publishes of the
@@ -1713,6 +1793,7 @@ export async function markRevisionAsPublished(
     );
   }
 
+  await logRebaseAtPublish(context, feature, revision, user, rebase);
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
   // Note: no comment in the payload — publish events are plain lifecycle
   // markers. Any publish-time comment only feeds the revision description
@@ -1733,6 +1814,30 @@ export async function markRevisionAsPublished(
   await dispatchRevisionPublishedHook(context, revision);
 
   return claimStamp;
+}
+
+// The rebase a publish performed on a draft behind live, logged ahead of the
+// publish entry the way a manual rebase is.
+async function logRebaseAtPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  rebase: PublishRebase,
+): Promise<void> {
+  if (revision.baseVersion === feature.version) return;
+  try {
+    await context.models.featureRevisionLogs.create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "rebase",
+      subject: `on top of revision #${feature.version} at publish`,
+      user,
+      value: landedRecord(feature, revision, rebase).logValue,
+    });
+  } catch (e) {
+    logger.error(e, "Error creating revisionlog");
+  }
 }
 
 // The guarded publish transition, shared by every path that claims one: single
@@ -1802,11 +1907,12 @@ export async function claimFeatureRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
+  rebase: PublishRebase,
   comment?: string,
 ): Promise<{ claimed: boolean; claimStamp: Date | null }> {
   return applyRevisionPublishClaim(
     revision,
-    computeRevisionPublishChanges(feature, revision, user, comment),
+    computeRevisionPublishChanges(feature, revision, user, comment, rebase),
     expected,
   );
 }
@@ -1833,10 +1939,18 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
     // datePublished, making this rollback a no-op instead of reverting it.
     ...(claimStamp ? { datePublished: claimStamp } : {}),
   };
+  // A behind-live claim rebased the record; put every rebased field back,
+  // dropping the ones the draft never carried.
+  const rebased: Record<string, unknown> = {};
+  const unset: Record<string, 1> = {};
+  for (const field of REBASED_REVISION_FIELDS) {
+    if (original[field] === undefined) unset[field] = 1;
+    else rebased[field] = original[field];
+  }
   const update = (withLockOthers: boolean) => ({
+    ...(Object.keys(unset).length ? { $unset: unset } : {}),
     $set: {
-      defaultValue: original.defaultValue,
-      rules: original.rules,
+      ...rebased,
       status: original.status,
       publishedBy: original.publishedBy ?? null,
       datePublished: original.datePublished ?? null,
@@ -1888,10 +2002,13 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
  */
 export async function emitFeatureRevisionPublishedSideEffects(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  rebase: PublishRebase,
 ): Promise<void> {
   const action = revision.status === "published" ? "re-publish" : "publish";
+  await logRebaseAtPublish(context, feature, revision, user, rebase);
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1939,10 +2056,9 @@ export async function markRevisionAsReviewRequested(
     );
   }
 
-  // The auto-publish later runs with the arming user's authority, so record
-  // who that was. Actors without a user ID (e.g. API keys) can still arm —
-  // the publish then falls back to `createdBy`.
-  const enabledBy = armed && user && "id" in user ? user.id : null;
+  // The auto-publish later runs with the armer's authority, so record who that
+  // was: a user as themselves, an API key as itself, never the author.
+  const enabledBy = armed ? context.armerId : null;
 
   const unset: Record<string, 1> = {};
   if (enabledBy === null) unset.autoPublishEnabledBy = 1;

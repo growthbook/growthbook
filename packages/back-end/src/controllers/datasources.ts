@@ -1,6 +1,7 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import * as bq from "@google-cloud/bigquery";
+import omit from "lodash/omit";
+import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
@@ -18,6 +19,7 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testDataSourceConnectionBodySchema,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
@@ -48,6 +50,7 @@ import {
   runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
+  testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
   getEventForwarderForDatasource,
@@ -101,6 +104,8 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -111,6 +116,7 @@ import { dangerousRecreateClickhouseTables } from "back-end/src/services/license
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -358,6 +364,76 @@ export async function postManagedWarehouse(
     id: "managed_warehouse",
     datasource: await getDataSourceWithParams(context, integration),
   });
+}
+
+// Tests credentials without saving anything. Connection failures come back as a
+// 400 with the driver's message, the same as a failed save.
+export async function postTestDataSourceConnection(
+  req: AuthRequest,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, projects, datasourceId } = parsed.data;
+  const params = parsed.data.params as Partial<DataSourceParams>;
+
+  let datasource: DataSourceInterface;
+  if (datasourceId) {
+    const existing = await getDataSourceById(context, datasourceId);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Cannot find data source" });
+    }
+    if (!context.permissions.canUpdateDataSourceParams(existing)) {
+      context.permissions.throwPermissionError();
+    }
+    const integration = getSourceIntegrationObject(context, existing);
+    if (existing.type !== type) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot change the type of an existing data source.",
+      });
+    }
+
+    // The browser never receives saved secrets, so blank fields keep them.
+    mergeParams(integration, params);
+    datasource = { ...existing, params: encryptParams(integration.params) };
+  } else {
+    if (!context.permissions.canCreateDataSource({ projects, type })) {
+      context.permissions.throwPermissionError();
+    }
+    datasource = {
+      id: "",
+      name: "",
+      description: "",
+      organization: context.org.id,
+      dateCreated: null,
+      dateUpdated: null,
+      type,
+      params: encryptParams(params as DataSourceParams),
+      projects,
+      settings: {},
+    } as DataSourceInterface;
+  }
+
+  try {
+    await testUnsavedDataSourceConnection(context, datasource);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Unable to connect to the data source",
+    });
+  }
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function putDataSource(
@@ -1248,9 +1324,10 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  // Only for dimension metadata; identifiers are edited with the whole query.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...updates,
+    ...omit(updates, ["userIdType", "userIdTypes"]),
   };
 
   try {
@@ -1700,29 +1777,48 @@ export async function cancelDimensionSlices(
   });
 }
 
+const bigQueryDatasetRequestSchema = z.object({
+  projectId: z.string().optional(),
+  apiEndpoint: z.string().optional(),
+  client_email: z.string().optional(),
+  private_key: z.string().optional(),
+  datasourceId: z.string().optional(),
+  projects: z.array(z.string()).optional(),
+});
+
 export async function fetchBigQueryDatasets(
-  req: AuthRequest<{
-    projectId: string;
-    client_email: string;
-    private_key: string;
-    datasourceId?: string;
-  }>,
+  req: AuthRequest<unknown>,
   res: Response,
 ) {
-  const { projectId, client_email, private_key, datasourceId } = req.body;
-  const submittedParams: Partial<BigQueryConnectionParams> = {
+  const parsed = bigQueryDatasetRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(
+      `Invalid BigQuery connection parameter format: ${errorStringFromZodResult(parsed)}`,
+    );
+  }
+  const {
     projectId,
-    clientEmail: client_email,
-    privateKey: private_key,
+    apiEndpoint,
+    client_email,
+    private_key,
+    datasourceId,
+    projects: proposedProjects,
+  } = parsed.data;
+  const context = getContextFromReq(req);
+  const submittedParams: Partial<BigQueryConnectionParams> = {
+    ...(projectId !== undefined ? { projectId } : {}),
+    ...(apiEndpoint !== undefined ? { apiEndpoint } : {}),
+    ...(client_email !== undefined ? { clientEmail: client_email } : {}),
+    ...(private_key !== undefined ? { privateKey: private_key } : {}),
   };
 
-  let connectionParams = submittedParams;
+  let connectionParams: Partial<BigQueryConnectionParams>;
   if (datasourceId) {
-    const context = getContextFromReq(req);
     const datasource = await getDataSourceById(context, datasourceId);
     if (!datasource || datasource.type !== "bigquery") {
       throw new Error("Cannot find BigQuery data source");
     }
+    // Authorize against the stored projects before reusing saved credentials.
     if (
       !context.permissions.canUpdateDataSourceSettings(datasource) ||
       !context.permissions.canUpdateDataSourceParams(datasource)
@@ -1733,26 +1829,27 @@ export async function fetchBigQueryDatasets(
     const integration = getSourceIntegrationObject(context, datasource);
     mergeParams(integration, submittedParams);
     connectionParams = integration.params;
+  } else {
+    if (
+      !context.permissions.canCreateDataSource({
+        type: "bigquery",
+        projects: proposedProjects,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    connectionParams = submittedParams;
   }
 
-  try {
-    const client = new bq.BigQuery({
-      projectId: connectionParams.projectId,
-      credentials: {
-        client_email: connectionParams.clientEmail,
-        private_key: connectionParams.privateKey,
-      },
-    });
-
-    const [datasets] = await client.getDatasets();
-
-    res.status(200).json({
-      status: 200,
-      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
-    });
-  } catch (e) {
-    throw new Error(e.message);
-  }
+  const client = createBigQueryClient({
+    ...connectionParams,
+    authType: "json",
+  });
+  const [datasets] = await client.getDatasets();
+  res.status(200).json({
+    status: 200,
+    datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+  });
 }
 
 export async function postRecreateManagedWarehouse(

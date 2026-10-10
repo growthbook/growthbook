@@ -16,7 +16,9 @@ export function getDimensionSlicesQuery(
 ): string {
   const { exposureQuery } = params;
 
-  const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
+  const { baseIdType } = getBaseIdTypeAndJoins([
+    [exposureQuery.identifierType],
+  ]);
 
   const startDate = subDays(new Date(), params.lookbackDays);
   const timestampColumn = "e.timestamp";

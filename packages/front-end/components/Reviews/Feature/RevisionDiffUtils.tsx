@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import {
@@ -31,6 +37,9 @@ import {
   HoldoutInterface,
   RevisionRampDetachAction,
 } from "shared/validators";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
+import { DiffLineRef } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -78,6 +87,7 @@ import {
   DiffCommentRef,
   DiffRefSnapshot,
   DIFF_FORMAT_EVENT,
+  DIFF_SECTION_EXPAND_EVENT,
   buildDiffSnapshotEntries,
   captureDiffRefSnapshot,
   diffRefId,
@@ -362,7 +372,7 @@ export function CopyAsButton({
   entityNoun = "feature",
   diffs,
   raw,
-  formattedRef,
+  formattedChanges,
 }: {
   entityName: string;
   // Noun for the copy wording ("Changes to <noun> …") + the copy formats'
@@ -372,31 +382,52 @@ export function CopyAsButton({
   // Whole before/after object of the primary entity, when available. Powers the
   // "Full JSON" and "LLM" formats.
   raw?: { before: unknown; after: unknown; title?: string };
-  // Ref to the rendered "Formatted changes" block. "Formatted changes" copies
-  // its `innerText` so the clipboard matches the on-screen detail exactly;
-  // falls back to a badge summary when unavailable.
-  formattedRef?: React.RefObject<HTMLDivElement | null>;
+  // The "Formatted changes" render. It is drawn offscreen once the menu has
+  // opened and copied as its `innerText`, so the clipboard matches the
+  // on-screen detail; without it the copy falls back to a badge summary.
+  formattedChanges?: React.ReactNode;
 }) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 2000,
   });
+  const formattedRef = useRef<HTMLDivElement>(null);
+  const textFor = useCallback(
+    (format: CopyDiffFormat): string => {
+      if (format === "formatted") {
+        const root = formattedRef.current;
+        const rendered = root ? formattedNodeToText(root) : "";
+        if (rendered)
+          return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
+      }
+      return formatDiffForCopy(format, {
+        entityName,
+        entityType: entityNoun,
+        diffs,
+        raw,
+      });
+    },
+    [entityName, entityNoun, diffs, raw],
+  );
+  // "Formatted changes" draws its text in full only when picked. The copy
+  // starts inside the click and gets its text once that render commits.
+  const [formattedRequested, setFormattedRequested] = useState(false);
+  const resolveFormatted = useRef<((text: string) => void) | null>(null);
+  const copyFormatted = () => {
+    performCopy(
+      new Promise<string>((resolve) => {
+        resolveFormatted.current = resolve;
+      }),
+    );
+    setFormattedRequested(true);
+  };
+  useEffect(() => {
+    if (!formattedRequested) return;
+    resolveFormatted.current?.(textFor("formatted"));
+    resolveFormatted.current = null;
+    setFormattedRequested(false);
+  }, [formattedRequested, textFor]);
 
   if (!copySupported) return null;
-
-  const textFor = (format: CopyDiffFormat): string => {
-    if (format === "formatted") {
-      const root = formattedRef?.current;
-      const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered)
-        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
-    }
-    return formatDiffForCopy(format, {
-      entityName,
-      entityType: entityNoun,
-      diffs,
-      raw,
-    });
-  };
 
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
     formatted: <PiListBullets size={22} />,
@@ -406,69 +437,92 @@ export function CopyAsButton({
   };
 
   return (
-    <DropdownMenu
-      menuPlacement="end"
-      // Wide enough that the label + description sit on single lines.
-      menuWidth={340}
-      // Soft variant keeps a light highlight on hover so the icon + subtext stay
-      // legible (the solid variant paints a dark accent bg that swallows them).
-      variant="soft"
-      color="violet"
-      trigger={
-        <Button variant="outline" size="md">
-          <Flex align="center" gap="1">
-            {copySuccess ? <PiCheckBold /> : <PiCopy />}
-            {/* Fixed width so swapping "Copy as" ↔ "Copied!" doesn't shift the
+    <>
+      <DropdownMenu
+        menuPlacement="end"
+        // Wide enough that the label + description sit on single lines.
+        menuWidth={340}
+        // Soft variant keeps a light highlight on hover so the icon + subtext stay
+        // legible (the solid variant paints a dark accent bg that swallows them).
+        variant="soft"
+        color="violet"
+        trigger={
+          <Button variant="outline" size="md">
+            <Flex align="center" gap="1">
+              {copySuccess ? <PiCheckBold /> : <PiCopy />}
+              {/* Fixed width so swapping "Copy as" ↔ "Copied!" doesn't shift the
                 surrounding layout. */}
-            <Box
-              style={{ width: 56, textAlign: "center", whiteSpace: "nowrap" }}
-            >
-              {copySuccess ? "Copied!" : "Copy as"}
-            </Box>
-            <PiCaretDown />
-          </Flex>
-        </Button>
-      }
-    >
-      {COPY_DIFF_FORMATS.map((f) => (
-        <DropdownMenuItem
-          key={f.value}
-          style={{ padding: 0, height: "auto" }}
-          onClick={() => performCopy(textFor(f.value as CopyDiffFormat))}
-        >
-          {/* `currentColor` everywhere so the icon and subtext track the item's
+              <Box
+                style={{ width: 56, textAlign: "center", whiteSpace: "nowrap" }}
+              >
+                {copySuccess ? "Copied!" : "Copy as"}
+              </Box>
+              <PiCaretDown />
+            </Flex>
+          </Button>
+        }
+      >
+        {COPY_DIFF_FORMATS.map((f) => (
+          <DropdownMenuItem
+            key={f.value}
+            style={{ padding: 0, height: "auto" }}
+            onClick={() =>
+              f.value === "formatted" && formattedChanges
+                ? copyFormatted()
+                : performCopy(textFor(f.value as CopyDiffFormat))
+            }
+          >
+            {/* `currentColor` everywhere so the icon and subtext track the item's
               text color, which Radix swaps to the high-contrast accent on hover.
               The subtext is just a dimmed version of that same color. */}
-          <Flex align="center" gap="3" p="2" pr="4">
-            {/* Fixed-width icon slot so every row's text starts at the same
+            <Flex align="center" gap="3" p="2" pr="4">
+              {/* Fixed-width icon slot so every row's text starts at the same
                 x-position regardless of the individual glyph's box. */}
-            <Flex
-              align="center"
-              justify="center"
-              flexShrink="0"
-              ml="1"
-              style={{ width: 24, color: "currentColor", lineHeight: 1 }}
-            >
-              {formatIcons[f.value as CopyDiffFormat]}
-            </Flex>
-            <Flex direction="column" gap="0">
-              <Text weight="medium">{f.label}</Text>
-              <Box
-                as="span"
-                style={{
-                  fontSize: "var(--font-size-1)",
-                  color: "currentColor",
-                  opacity: 0.7,
-                  whiteSpace: "nowrap",
-                }}
+              <Flex
+                align="center"
+                justify="center"
+                flexShrink="0"
+                ml="1"
+                style={{ width: 24, color: "currentColor", lineHeight: 1 }}
               >
-                {f.description}
-              </Box>
+                {formatIcons[f.value as CopyDiffFormat]}
+              </Flex>
+              <Flex direction="column" gap="0">
+                <Text weight="medium">{f.label}</Text>
+                <Box
+                  as="span"
+                  style={{
+                    fontSize: "var(--font-size-1)",
+                    color: "currentColor",
+                    opacity: 0.7,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {f.description}
+                </Box>
+              </Flex>
             </Flex>
-          </Flex>
-        </DropdownMenuItem>
-      ))}
-    </DropdownMenu>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+      {formattedChanges && formattedRequested && (
+        <Box
+          ref={formattedRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: -99999,
+            top: 0,
+            width: 800,
+            pointerEvents: "none",
+          }}
+        >
+          <RenderInFullContext.Provider value={true}>
+            {formattedChanges}
+          </RenderInFullContext.Provider>
+        </Box>
+      )}
+    </>
   );
 }
 
@@ -501,14 +555,15 @@ export type DiffCommentsProps = {
 // onLineNumberClick) toggle the same popover.
 function DiffCommentCell({
   refObj,
-  snapshot,
+  getSnapshot,
   anchored,
   comments,
   open,
   onOpenChange,
 }: {
   refObj: DiffCommentRef;
-  snapshot: DiffRefSnapshot;
+  // Read only when the composer opens; one is rendered per gutter cell
+  getSnapshot: () => DiffRefSnapshot;
   anchored: AnchoredComment | undefined;
   comments: DiffCommentsProps;
   open: boolean;
@@ -539,19 +594,21 @@ function DiffCommentCell({
       side="right"
       align="start"
       content={
-        <Box style={{ width: 560 }}>
-          <CommentComposer
-            placeholder="Comment on this line…"
-            initialValue={`${formatDiffRef(refObj, snapshot)}\n\n`}
-            autofocus
-            autofocusAtEnd
-            onCancel={() => onOpenChange(false)}
-            onSubmit={async (text) => {
-              await comments.onSubmitNew?.(text);
-              onOpenChange(false);
-            }}
-          />
-        </Box>
+        open && (
+          <Box style={{ width: 560 }}>
+            <CommentComposer
+              placeholder="Comment on this line…"
+              initialValue={`${formatDiffRef(refObj, getSnapshot())}\n\n`}
+              autofocus
+              autofocusAtEnd
+              onCancel={() => onOpenChange(false)}
+              onSubmit={async (text) => {
+                await comments.onSubmitNew?.(text);
+                onOpenChange(false);
+              }}
+            />
+          </Box>
+        )
       }
       trigger={
         <button
@@ -583,10 +640,9 @@ export function CompactInlineDiff({
 }) {
   if (a === b) return null;
   return (
-    <ReactDiffViewer
+    <LazyDiffViewer
       oldValue={a}
       newValue={b}
-      compareMethod={DiffMethod.LINES}
       leftTitle={leftTitle}
       rightTitle={rightTitle}
       styles={COMPACT_DIFF_STYLES}
@@ -625,6 +681,24 @@ export function ExpandableDiff({
 
   const commentsEnabled = !!anchorKey && !!comments;
 
+  // A timeline reference to a line in this section opens it past the size
+  // gate, and brings that line into view when only some rows are rendered
+  const [expandedFor, setExpandedFor] = useState<[string, string] | null>(null);
+  const [revealLine, setRevealLine] = useState<DiffLineRef | null>(null);
+  useEffect(() => {
+    if (!anchorKey) return;
+    const onExpand = (e: Event) => {
+      const ref = (e as CustomEvent<DiffCommentRef>).detail;
+      if (ref.sectionKey !== anchorKey) return;
+      setExpandedFor([a, b]);
+      setOpen(true);
+      setRevealLine({ side: ref.side, line: ref.line });
+    };
+    window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+    return () =>
+      window.removeEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+  }, [anchorKey, a, b]);
+
   // Line diff of the section, computed once; per-line snapshots (the
   // before/after window embedded in a composed comment's diff-ref block) are
   // cheap slices of this.
@@ -633,82 +707,128 @@ export function ExpandableDiff({
     [a, b, commentsEnabled],
   );
 
-  if (a === b) return null;
-
   // Style overrides for ReactDiffViewer. When comments are enabled we add a
   // small right-padding to the line-number gutters so the digits don't
   // crowd the icon column that follows (the renderGutter cell). Width on
   // the host cell itself goes through SCSS — see .gb-diff-comment-cell.
-  const baseStyles = (styles as Record<string, Record<string, unknown>>) ?? {
-    contentText: { wordBreak: "break-all" },
-  };
-  const diffStyles = commentsEnabled
-    ? {
-        ...baseStyles,
-        gutter: { ...(baseStyles.gutter ?? {}), paddingRight: 8 },
-        emptyGutter: { ...(baseStyles.emptyGutter ?? {}), paddingRight: 8 },
-      }
-    : baseStyles;
+  const diffStyles = useMemo(() => {
+    const baseStyles = (styles as Record<string, Record<string, unknown>>) ?? {
+      contentText: { wordBreak: "break-all" },
+    };
+    return commentsEnabled
+      ? {
+          ...baseStyles,
+          gutter: { ...(baseStyles.gutter ?? {}), paddingRight: 8 },
+          emptyGutter: { ...(baseStyles.emptyGutter ?? {}), paddingRight: 8 },
+        }
+      : baseStyles;
+  }, [styles, commentsEnabled]);
 
   // A spot is interactive when it either has an existing comment or the
   // viewer can start a new one. The host cell is zero-width (the icon
   // overlays the adjacent line-number gutter) so the table layout is
   // identical with or without comments enabled. The data-diff-ref attribute
   // is the scroll target for timeline diff-ref widgets (scrollToDiffRef).
-  const renderGutter = commentsEnabled
-    ? (data: { lineNumber: number; prefix: string }) => {
-        const line = data.lineNumber;
-        const side = data.prefix === "L" ? ("L" as const) : ("R" as const);
-        const refObj: DiffCommentRef = {
-          sectionKey: anchorKey,
-          side,
-          line,
-        };
-        const refId = line ? diffRefId(refObj) : null;
-        const anchored = refId ? comments.anchors.get(refId) : undefined;
-        const interactive = !!refId && (!!anchored || !!comments.onSubmitNew);
-        return (
-          <td
-            className="gb-diff-comment-cell"
-            data-diff-ref={refId ?? undefined}
-          >
-            {interactive ? (
-              <DiffCommentCell
-                refObj={refObj}
-                snapshot={captureDiffRefSnapshot(snapshotEntries, side, line)}
-                anchored={anchored}
-                comments={comments}
-                open={openAnchorId === refId}
-                onOpenChange={(o) => setOpenAnchorId(o ? refId : null)}
-              />
-            ) : null}
-          </td>
-        );
-      }
-    : undefined;
+  const commentCell = useMemo(
+    () =>
+      commentsEnabled
+        ? (side: "L" | "R", line: number) => {
+            const refObj: DiffCommentRef = {
+              sectionKey: anchorKey,
+              side,
+              line,
+            };
+            const refId = line ? diffRefId(refObj) : null;
+            const anchored = refId ? comments.anchors.get(refId) : undefined;
+            const interactive =
+              !!refId && (!!anchored || !!comments.onSubmitNew);
+            return {
+              refId,
+              content: interactive ? (
+                <DiffCommentCell
+                  refObj={refObj}
+                  getSnapshot={() =>
+                    captureDiffRefSnapshot(snapshotEntries, side, line)
+                  }
+                  anchored={anchored}
+                  comments={comments}
+                  open={openAnchorId === refId}
+                  onOpenChange={(o) => setOpenAnchorId(o ? refId : null)}
+                />
+              ) : null,
+            };
+          }
+        : undefined,
+    [commentsEnabled, anchorKey, comments, openAnchorId, snapshotEntries],
+  );
+  const renderGutter = useMemo(
+    () =>
+      commentCell
+        ? (data: { lineNumber: number; prefix: string }) => {
+            const { refId, content } = commentCell(
+              data.prefix === "L" ? "L" : "R",
+              data.lineNumber,
+            );
+            return (
+              <td
+                className="gb-diff-comment-cell"
+                data-diff-ref={refId ?? undefined}
+              >
+                {content}
+              </td>
+            );
+          }
+        : undefined,
+    [commentCell],
+  );
+  // The same cell for long sections, which render only the rows in view
+  const renderLineCell = useMemo(
+    () =>
+      commentCell
+        ? (side: "L" | "R", line: number) => {
+            const { refId, content } = commentCell(side, line);
+            return (
+              <div
+                data-diff-ref={refId ?? undefined}
+                style={{ position: "absolute", inset: 0 }}
+              >
+                {content}
+              </div>
+            );
+          }
+        : undefined,
+    [commentCell],
+  );
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Whole-gutter clicks: the library wires onLineNumberClick onto the entire
   // line-number <td>, so clicking anywhere in the gutter acts like clicking
   // the overlay icon — jump to an existing comment, or toggle the composer.
-  const onLineNumberClick = commentsEnabled
-    ? (lineId: string) => {
-        const m = /^([LR])-(\d+)$/.exec(lineId);
-        if (!m) return;
-        const refObj: DiffCommentRef = {
-          sectionKey: anchorKey,
-          side: m[1] as "L" | "R",
-          line: parseInt(m[2], 10),
-        };
-        const refId = diffRefId(refObj);
-        const anchored = comments.anchors.get(refId);
-        if (anchored) {
-          if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
-          return;
-        }
-        if (!comments.onSubmitNew) return;
-        setOpenAnchorId((prev) => (prev === refId ? null : refId));
-      }
-    : undefined;
+  const onLineNumberClick = useMemo(
+    () =>
+      commentsEnabled
+        ? (lineId: string) => {
+            const m = /^([LR])-(\d+)$/.exec(lineId);
+            if (!m) return;
+            const refObj: DiffCommentRef = {
+              sectionKey: anchorKey,
+              side: m[1] as "L" | "R",
+              line: parseInt(m[2], 10),
+            };
+            const refId = diffRefId(refObj);
+            const anchored = comments.anchors.get(refId);
+            if (anchored) {
+              if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
+              return;
+            }
+            if (!comments.onSubmitNew) return;
+            setOpenAnchorId((prev) => (prev === refId ? null : refId));
+          }
+        : undefined,
+    [commentsEnabled, anchorKey, comments],
+  );
+
+  if (a === b) return null;
 
   return (
     <Box
@@ -736,16 +856,23 @@ export function ExpandableDiff({
         </Box>
       </Flex>
       {open && (
-        <Box p="3" className="">
-          <ReactDiffViewer
+        <Box
+          ref={scrollRef}
+          p="3"
+          style={{ maxHeight: "70vh", overflowY: "auto" }}
+        >
+          <LazyDiffViewer
             oldValue={a}
             newValue={b}
-            compareMethod={DiffMethod.LINES}
+            alwaysShow={expandedFor?.[0] === a && expandedFor?.[1] === b}
             styles={diffStyles}
             leftTitle={leftTitle}
             rightTitle={rightTitle}
             renderGutter={renderGutter}
-            onLineNumberClick={onLineNumberClick}
+            onLineClick={onLineNumberClick}
+            scrollRef={scrollRef}
+            renderLineCell={renderLineCell}
+            revealLine={revealLine}
           />
         </Box>
       )}
@@ -874,7 +1001,7 @@ export function ExpandableConflict({
                   Use External Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.live}
                 compareMethod={DiffMethod.LINES}
@@ -936,7 +1063,7 @@ export function ExpandableConflict({
                   Use My Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.revision}
                 compareMethod={DiffMethod.LINES}
@@ -1640,10 +1767,6 @@ export function DiffContent({
   const diffsWithChanges = diffs.filter((d) => d.a !== d.b);
   const diffFallbackBadges = badgesFromDiffs(diffsWithChanges);
 
-  // Always-mounted, offscreen copy of the formatted render so "Copy as →
-  // Formatted changes" can read its innerText regardless of the active view.
-  const formattedRef = useRef<HTMLDivElement>(null);
-
   return (
     <>
       {commentVersions && (
@@ -1719,7 +1842,9 @@ export function DiffContent({
                       entityName={feature.id}
                       diffs={diffsWithChanges}
                       raw={raw}
-                      formattedRef={formattedRef}
+                      formattedChanges={
+                        <FormattedChanges diffs={diffsWithChanges} />
+                      }
                     />
                   </Box>
                 )}
@@ -1733,24 +1858,6 @@ export function DiffContent({
                 the live version, so the result may differ from the diff shown
                 here.
               </Callout>
-            )}
-
-            {/* Offscreen render used purely as the source for "Copy as →
-              Formatted changes" innerText; kept mounted in every view. */}
-            {showCopyAs && (
-              <Box
-                ref={formattedRef}
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  left: -99999,
-                  top: 0,
-                  width: 800,
-                  pointerEvents: "none",
-                }}
-              >
-                <FormattedChanges diffs={diffsWithChanges} />
-              </Box>
             )}
 
             {(() => {

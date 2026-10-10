@@ -65,13 +65,17 @@ function getMaxWidth(size: Size) {
 
 type ModalContextValue = {
   error: string | null;
-  setError: (error: string | null) => void;
+  errorDetails: string | null;
+  setError: (error: string | null, details?: string | null) => void;
   scrollBodyToTop: () => void;
   bodyRef: React.RefObject<HTMLDivElement>;
   sendTrackingEvent: (
     eventName: string,
     additionalProps?: Record<string, unknown>,
   ) => void;
+  // True while a ModalForm submit is in flight. Root uses it to block dismiss.
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
 };
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -82,6 +86,10 @@ export function useModalContext(): ModalContextValue {
     throw new Error("Modal primitives must be rendered inside <Modal.Root>.");
   }
   return ctx;
+}
+
+export function useOptionalModalContext(): ModalContextValue | null {
+  return useContext(ModalContext);
 }
 
 // ---------------------------------------------------------------------------
@@ -119,9 +127,19 @@ function Root({
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const setError = useCallback(
+    (message: string | null, details: string | null = null) => {
+      setErrorMessage(message);
+      setErrorDetails(details);
+    },
+    [],
+  );
 
   const scrollBodyToTop = useCallback(() => {
     setTimeout(() => {
@@ -161,18 +179,29 @@ function Root({
       sendTrackingEvent("modal-open");
     } else if (!open && prevOpen) {
       setError(null);
+      setLoading(false);
     }
-  }, [open, sendTrackingEvent]);
+  }, [open, sendTrackingEvent, setError]);
 
   const ctx = useMemo<ModalContextValue>(
     () => ({
       error,
+      errorDetails,
       setError,
       scrollBodyToTop,
       bodyRef,
       sendTrackingEvent,
+      loading,
+      setLoading,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent],
+    [
+      error,
+      errorDetails,
+      setError,
+      scrollBodyToTop,
+      sendTrackingEvent,
+      loading,
+    ],
   );
 
   const ariaDescribedBy = hasDescription
@@ -188,10 +217,11 @@ function Root({
         maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
-          if (!dismissible) e.preventDefault();
+          // A submit in flight keeps the dialog up even when it is otherwise dismissible.
+          if (!dismissible || loading) e.preventDefault();
         }}
         onPointerDownOutside={(e) => {
-          if (!dismissible) e.preventDefault();
+          if (!dismissible || loading) e.preventDefault();
         }}
         style={
           {
@@ -260,7 +290,7 @@ function Description({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 function Body({ children }: { children: ReactNode }) {
-  const { bodyRef, error } = useModalContext();
+  const { bodyRef, error, errorDetails } = useModalContext();
   return (
     <ScrollArea
       type="auto"
@@ -272,7 +302,7 @@ function Body({ children }: { children: ReactNode }) {
       className={styles.bodyScrollArea}
     >
       <Box pr="7" pl="1" pb="1" className={styles.body}>
-        {error && <ErrorDisplay error={error} mb="5" />}
+        {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
       </Box>
     </ScrollArea>

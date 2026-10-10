@@ -453,7 +453,7 @@ You can specify attributes about the current user and request. These are used fo
 1.  Feature targeting (e.g. paid users get one value, free users get another)
 2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
 
-The following are some comonly used attributes, but use whatever makes sense for your application.
+The following are some commonly used attributes, but use whatever makes sense for your application.
 
 ```ts
 new GrowthBook({

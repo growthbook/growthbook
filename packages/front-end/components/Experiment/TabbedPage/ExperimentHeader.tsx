@@ -7,7 +7,11 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  experimentHasLiveLinkedChanges,
+  getHoldoutStage,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -213,9 +217,13 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -260,9 +268,9 @@ export default function ExperimentHeader({
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
 
-  const isUsingHealthUnsupportDatasource =
+  const isUsingHealthUnsupportedDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportDatasource;
+  const disableHealthTab = isUsingHealthUnsupportedDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
@@ -743,7 +751,7 @@ export default function ExperimentHeader({
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(experiment)}
+          initialValue={convertExperimentToTemplate(experiment, exposureQuery)}
           isNewTemplate
           source="experiment"
         />
@@ -890,7 +898,7 @@ export default function ExperimentHeader({
                         linkedFeatures,
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}

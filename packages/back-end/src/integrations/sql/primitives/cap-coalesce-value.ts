@@ -1,10 +1,12 @@
 import {
   getAggregateFilters,
   isCappableMetricType,
+  getLowerCappingSettings,
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ColumnRef } from "shared/types/fact-table";
 import { SqlDialect } from "shared/types/sql";
+import { getCappingTailState } from "shared/validators";
 
 export function capCoalesceValue(
   dialect: SqlDialect,
@@ -13,6 +15,7 @@ export function capCoalesceValue(
     metric,
     capTablePrefix = "c",
     capValueCol = "value_cap",
+    lowerCapValueCol = "value_cap_lower",
     columnRef,
     preserveType = false,
   }: {
@@ -20,34 +23,47 @@ export function capCoalesceValue(
     metric: ExperimentMetricInterface;
     capTablePrefix?: string;
     capValueCol?: string;
+    lowerCapValueCol?: string;
     columnRef?: ColumnRef | null;
     // Skip the float cast on uncapped values, for callers that persist the
     // result into a typed (possibly integer) column.
     preserveType?: boolean;
   },
 ): string {
+  const cs = metric?.cappingSettings;
+  // Lower tail is an independent settings object (own type + value), enabling
+  // mixed configurations (e.g. percentile upper + absolute lower).
+  const lowerCs = getLowerCappingSettings(metric);
+  const tails = getCappingTailState(cs, lowerCs);
+  const cappable = isCappableMetricType(metric);
+  const upperThreshold = cs?.value;
+  const lowerThreshold = lowerCs?.value;
+  const hasUpperAbs = tails.upperAbsoluteCapped && cappable;
+  const hasUpperPct = tails.upperPercentileCapped && cappable;
+  const hasLowerAbs = tails.lowerAbsoluteCapped && cappable;
+  const hasLowerPct = tails.lowerPercentileCapped && cappable;
   // Assumes cappable metrics do not have aggregate filters
   // which is true for now
-  if (
-    metric?.cappingSettings.type === "absolute" &&
-    metric.cappingSettings.value &&
-    isCappableMetricType(metric)
-  ) {
-    return `LEAST(
-        ${dialect.castToFloat(`COALESCE(${valueCol}, 0)`)},
-        ${metric.cappingSettings.value}
-      )`;
-  }
-  if (
-    metric?.cappingSettings.type === "percentile" &&
-    metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
-    isCappableMetricType(metric)
-  ) {
-    return `LEAST(
-        ${dialect.castToFloat(`COALESCE(${valueCol}, 0)`)},
-        ${capTablePrefix}.${capValueCol}
-      )`;
+  if (hasUpperAbs || hasUpperPct || hasLowerAbs || hasLowerPct) {
+    let expression = dialect.castToFloat(`COALESCE(${valueCol}, 0)`);
+    // Absolute caps are applied OUTERMOST (percentile inner, absolute outer).
+    // When one tail is absolute and the other percentile and their thresholds
+    // cross (only possible for mixed types; same-type pairs are validated at
+    // save time), this ordering collapses every value to the absolute bound —
+    // the user's explicit number wins over the data-dependent percentile.
+    if (hasUpperPct) {
+      expression = `LEAST(${expression}, ${capTablePrefix}.${capValueCol})`;
+    }
+    if (hasLowerPct) {
+      expression = `GREATEST(${expression}, ${capTablePrefix}.${lowerCapValueCol})`;
+    }
+    if (hasUpperAbs) {
+      expression = `LEAST(${expression}, ${upperThreshold})`;
+    }
+    if (hasLowerAbs) {
+      expression = `GREATEST(${expression}, ${lowerThreshold})`;
+    }
+    return expression;
   }
 
   const filters = getAggregateFilters({

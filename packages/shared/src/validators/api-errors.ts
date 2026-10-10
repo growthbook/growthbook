@@ -24,6 +24,16 @@ const pendingDraftFailureSchema = z.object({
   ]),
 });
 
+// `rejected`: the hook threw on purpose, so `message` is for end users; else it crashed or never ran.
+export const customHookErrorSchema = z.object({
+  hookName: z.string(),
+  rejected: z.boolean(),
+  message: z.string(),
+  stack: z.string().optional(),
+  log: z.string().optional(),
+});
+export type CustomHookErrorDetail = z.infer<typeof customHookErrorSchema>;
+
 export const apiErrorRegistry = {
   conflict: {
     status: 409,
@@ -67,6 +77,21 @@ export const apiErrorRegistry = {
     detailsSchema: z.object({
       overallResultsAsOf: z.string(),
     }),
+  },
+  invalid_tracking_key: {
+    status: 400,
+    description:
+      "The experiment tracking key doesn't match the organization's required format",
+    detailsSchema: z.object({
+      pattern: z.string(),
+      example: z.string(),
+    }),
+  },
+  custom_hook_error: {
+    status: 400,
+    description:
+      "A custom validation hook rejected the change or failed to run",
+    detailsSchema: z.object({ hooks: z.array(customHookErrorSchema) }),
   },
 } satisfies Record<
   string,

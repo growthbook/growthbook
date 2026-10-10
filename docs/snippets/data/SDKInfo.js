@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -83,7 +86,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -112,6 +115,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -280,7 +286,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -301,6 +307,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
@@ -394,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.1.1",
+    version: "3.2.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -409,6 +418,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v3.2.0",
       },
       {
         contextualBandits: "≥ v3.1.0",
@@ -453,7 +465,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.5.1",
+    version: "0.6.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -473,6 +485,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.6.0",
       },
       {
         contextualBandits: "≥ v0.5.0",
@@ -517,7 +532,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.2",
+    version: "0.3.0",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -537,6 +552,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
         savedGroupReferences: "≥ v0.2.0",
@@ -800,7 +818,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.3",
+    version: "1.2.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -856,7 +874,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.7.0",
+    version: "1.8.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -877,6 +895,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v1.8.0",
       },
       {
         contextualBandits: "≥ v1.7.0",
