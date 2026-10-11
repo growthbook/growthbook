@@ -216,6 +216,7 @@ describe("cancelExperimentSnapshot", () => {
         },
       },
       models: { incrementalRefresh: { releaseLock } },
+      logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
     } as unknown as ReqContext;
     context.models.experimentSnapshotAnalysisChunks =
       new ExperimentSnapshotAnalysisChunkModel(context);
@@ -401,6 +402,16 @@ describe("cancelExperimentSnapshot", () => {
     ]);
     expect(cancelQuery.mock.calls).toEqual([["job_live", undefined]]);
     expect(await reportSnapshotId(reportId)).toBe("snp_prev");
+    expect(context.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "experiment_updated",
+        snapshotId: snapshot.id,
+        snapshotStatus: "deleted",
+        concludedBy: "cancel",
+        reason: null,
+      }),
+      "Experiment update completed",
+    );
   });
 
   it("keeps a running snapshot pinned by report.snapshot as a cancelled error when the report has no successful snapshot", async () => {
@@ -427,6 +438,16 @@ describe("cancelExperimentSnapshot", () => {
       pointer(running, "failed"),
     ]);
     expect(await reportSnapshotId(reportId)).toBe("snp_pinned");
+    expect(context.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "experiment_updated",
+        snapshotId: snapshot.id,
+        snapshotType: "report",
+        snapshotStatus: "error",
+        concludedBy: "cancel",
+      }),
+      "Experiment update completed",
+    );
     expect(releaseLock).toHaveBeenCalledWith("exp_1", snapshot.id);
     expect(cancelQuery.mock.calls).toEqual([["job_live", undefined]]);
   });

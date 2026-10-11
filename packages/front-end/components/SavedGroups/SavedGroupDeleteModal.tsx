@@ -26,11 +26,13 @@ export default function SavedGroupDeleteModal({
 
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
+  const referencingBandits = references?.contextualBandits ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
 
   const hasReferences =
     !isEmpty(referencingFeatures) ||
     !isEmpty(referencingExperiments) ||
+    !isEmpty(referencingBandits) ||
     !isEmpty(referencingSavedGroups);
 
   const canDelete = !loading && !hasReferences;
@@ -68,6 +70,7 @@ export default function SavedGroupDeleteModal({
               references to it. Check the following item
               {referencingFeatures.length +
                 referencingExperiments.length +
+                referencingBandits.length +
                 referencingSavedGroups.length >
                 1 && "s"}{" "}
               below:
@@ -76,6 +79,7 @@ export default function SavedGroupDeleteModal({
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
+            contextualBandits={referencingBandits}
             savedGroups={referencingSavedGroups}
           />
         </>

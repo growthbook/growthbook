@@ -58,6 +58,13 @@ import {
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
+import {
+  addCompletionUsage,
+  addUsd,
+  completionUsageFromSdk,
+  estimateAICompletionUsd,
+  estimateAIStepsUsd,
+} from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const usesOwnAIKey = (
@@ -446,8 +453,7 @@ export const simpleCompletion = async ({
   };
 
   let numTokensUsed: number | undefined;
-  let inputTokensUsed: number | undefined;
-  let outputTokensUsed: number | undefined;
+  let sdkUsage: Parameters<typeof completionUsageFromSdk>[0];
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
@@ -459,15 +465,16 @@ export const simpleCompletion = async ({
     });
     numTokensUsed = objectResponse.usage?.totalTokens;
     result = JSON.stringify(objectResponse.output);
-    inputTokensUsed = objectResponse.usage?.inputTokens;
-    outputTokensUsed = objectResponse.usage?.outputTokens;
+    sdkUsage = objectResponse.usage;
   } else {
     const textResponse = await generateText(generateOptions);
     numTokensUsed = textResponse.usage?.totalTokens;
     result = textResponse.text;
-    inputTokensUsed = textResponse.usage?.inputTokens;
-    outputTokensUsed = textResponse.usage?.outputTokens;
+    sdkUsage = textResponse.usage;
   }
+
+  const usage = completionUsageFromSdk(sdkUsage);
+  const spendUsd = estimateAICompletionUsd(model, usage);
 
   if (IS_CLOUD) {
     if (!ownKey) {
@@ -481,8 +488,8 @@ export const simpleCompletion = async ({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: inputTokensUsed,
-      numCompletionTokensUsed: outputTokensUsed,
+      numPromptTokensUsed: usage.inputTokens,
+      numCompletionTokensUsed: usage.outputTokens,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
@@ -494,8 +501,11 @@ export const simpleCompletion = async ({
     type,
     model,
     provider: getProviderFromModel(model),
-    numPromptTokensUsed: inputTokensUsed,
-    numCompletionTokensUsed: outputTokensUsed,
+    numPromptTokensUsed: usage.inputTokens,
+    numCompletionTokensUsed: usage.outputTokens,
+    numCacheReadTokens: usage.cacheReadTokens,
+    numCacheWriteTokens: usage.cacheWriteTokens,
+    spendUsd,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });
@@ -545,24 +555,28 @@ export const streamingChatCompletion = async ({
     : undefined;
 
   const recordUsage = async ({
-    inputTokens,
-    outputTokens,
+    usage,
     totalTokens,
+    spendUsd,
     outcome,
   }: {
-    inputTokens?: number;
-    outputTokens?: number;
+    usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
+    spendUsd?: number;
     outcome: AIUsageOutcome;
   }) => {
+    const buckets = usage ?? {};
     trackAIUsage({
       organizationId: context.org.id,
       userId: context.userId,
       type,
       model,
       provider: getProviderFromModel(model),
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome,
@@ -584,17 +598,17 @@ export const streamingChatCompletion = async ({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
   };
 
   type TerminalUsage = {
-    inputTokens?: number;
-    outputTokens?: number;
+    usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
+    spendUsd?: number;
     outcome: AIUsageOutcome;
   };
   let terminalUsage: TerminalUsage | undefined;
@@ -639,27 +653,36 @@ export const streamingChatCompletion = async ({
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
-    onFinish: ({ totalUsage }) => {
+    onFinish: ({ totalUsage, steps }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
       if (terminalUsage?.outcome !== "aborted") {
         terminalUsage = {
-          inputTokens: totalUsage.inputTokens,
-          outputTokens: totalUsage.outputTokens,
+          usage: completionUsageFromSdk(totalUsage),
           totalTokens: totalUsage.totalTokens,
+          spendUsd: estimateAIStepsUsd(model, steps),
           outcome: streamErrored ? "error" : "success",
         };
       }
     },
     onAbort: ({ steps }) => {
+      // Only finished steps report usage. The step cut off by the abort is
+      // still billed by the provider but isn't counted, so aborted spend is a
+      // lower bound.
       const usage = steps.reduce(
-        (acc, step) => ({
-          inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
-          outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
-          totalTokens: acc.totalTokens + (step.usage?.totalTokens ?? 0),
-        }),
-        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        (acc, step) =>
+          addCompletionUsage(acc, completionUsageFromSdk(step.usage)),
+        completionUsageFromSdk(undefined),
       );
-      terminalUsage = { ...usage, outcome: "aborted" };
+      const totalTokens = steps.reduce(
+        (sum, step) => sum + (step.usage?.totalTokens ?? 0),
+        0,
+      );
+      terminalUsage = {
+        usage,
+        totalTokens,
+        spendUsd: estimateAIStepsUsd(model, steps),
+        outcome: "aborted",
+      };
     },
     onError: ({ error }) => {
       logger.error(error, "streamingChatCompletion: stream error");
@@ -853,6 +876,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // Outcome fields only: a result's payload can be another experiment's content.
   let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
+  // Every step of the current attempt. Generation errors only carry the last
+  // step's usage (or none), so failed attempts are priced from this instead.
+  let attemptSteps: Array<{ usage?: LanguageModelUsage }> = [];
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
   const brief = (v: unknown, n: number) => {
     try {
@@ -871,6 +897,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     toolsCalled = [];
     toolTrace = [];
     lastFinishReason = undefined;
+    attemptSteps = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -898,6 +925,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         : {}),
       onStepFinish: (step) => {
         stepsUsed++;
+        attemptSteps.push({ usage: step.usage });
         lastFinishReason = step.finishReason;
         for (const call of step.toolCalls ?? [])
           toolsCalled.push(call.toolName);
@@ -994,6 +1022,17 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
   let retriedTokens = 0;
+  // Undefined once any attempt can't be priced.
+  let retriedSpendUsd: number | undefined = 0;
+  const recordFailedAttempt = (
+    e: NoObjectGeneratedError | NoOutputGeneratedError,
+  ) => {
+    retriedTokens += failureTokens(e);
+    retriedSpendUsd = addUsd(
+      retriedSpendUsd,
+      estimateAIStepsUsd(model, attemptSteps),
+    );
+  };
   const recordFailedAttempts = async () => {
     if (IS_CLOUD && !ownKey && retriedTokens > 0) {
       await updateTokenUsage({
@@ -1008,6 +1047,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model,
       provider: getProviderFromModel(model),
       numRetriedTokensUsed: retriedTokens,
+      spendUsd: retriedSpendUsd,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome: "error",
@@ -1019,7 +1059,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     response = await generateOnce();
   } catch (err) {
     if (!isGenerationFailure(err)) throw err;
-    retriedTokens += failureTokens(err);
+    recordFailedAttempt(err);
     // Don't stack retries when the caller is already a retry path.
     if (!retryOnNoObject) {
       await recordFailedAttempts();
@@ -1037,7 +1077,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         await recordFailedAttempts();
         throw retryErr;
       }
-      retriedTokens += failureTokens(retryErr);
+      recordFailedAttempt(retryErr);
       const retryDiag = noOutputDiag(retryErr);
       logger.warn(
         { type, model, ...retryDiag },
@@ -1063,15 +1103,24 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
+  const usage = completionUsageFromSdk(response.usage);
+  const spendUsd = addUsd(
+    estimateAIStepsUsd(model, attemptSteps),
+    retriedSpendUsd,
+  );
+
   trackAIUsage({
     organizationId: context.org.id,
     userId: context.userId,
     type,
     model,
     provider: getProviderFromModel(model),
-    numPromptTokensUsed: response.usage?.inputTokens,
-    numCompletionTokensUsed: response.usage?.outputTokens,
+    numPromptTokensUsed: usage.inputTokens,
+    numCompletionTokensUsed: usage.outputTokens,
     numRetriedTokensUsed: retriedTokens,
+    numCacheReadTokens: usage.cacheReadTokens,
+    numCacheWriteTokens: usage.cacheWriteTokens,
+    spendUsd,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });

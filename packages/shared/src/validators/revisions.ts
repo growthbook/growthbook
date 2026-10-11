@@ -199,8 +199,8 @@ export const revisionValidator = z.object({
   /** Review-cycle identity; absent legacy values are treated as cycle 0. */
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
-  // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  // Nullable: an explicit null means "nobody" — the generic arming paths store
+  // Who armed `autoPublishOnApproval`, a user or an org API key; the deferred
+  // publish runs as them. Nullable: an explicit null means "nobody" — the arming paths store
   // it literally, the disarm fragment clears via `$unset`, and both read the
   // same. A leftover publisher lets a later deferred publish run as them.
   autoPublishEnabledBy: z.string().nullable().optional(),

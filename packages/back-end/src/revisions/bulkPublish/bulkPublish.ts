@@ -217,6 +217,7 @@ export async function planBulkPublish(
   // introduced violations retain a live baseline.
   const overlayContext = getContextForAgendaJobByOrgObject(context.org);
   overlayContext.scanContextOverride = overlayContext;
+  overlayContext.warningReaderContext = context;
   const applyOverlaysExcluding = (excluded: Loaded) => {
     const others = loaded.filter((l) => l !== excluded);
     for (const type of bulkPublishTargetTypes) {
@@ -431,6 +432,7 @@ export async function commitBulkPublish(
           entityPreImage: item.entityPreImage,
           isApprovalBypass: item.isApprovalBypass,
           comment: plan.flags.comment,
+          desiredState: item.desiredState,
         });
       } catch (e) {
         logger.error(

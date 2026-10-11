@@ -1,7 +1,8 @@
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
-import { buildEventForwarderFeatureUsageQuery } from "shared/util";
+import {
+  buildEventForwarderFeatureUsageQuery,
+  EventForwarderDatasourceParams,
+} from "shared/util";
 import uniqid from "uniqid";
 import {
   getDataSourceById,
@@ -15,7 +16,7 @@ import { ReqContext } from "back-end/types/request";
 export async function ensureEventForwarderFeatureUsageQuery(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  datasourceParams?: EventForwarderDatasourceParams,
 ): Promise<string[]> {
   const datasource = await getDataSourceById(
     context,
@@ -34,9 +35,8 @@ export async function ensureEventForwarderFeatureUsageQuery(
 
   const connectionParams =
     datasourceParams ??
-    (getSourceIntegrationObject(context, datasource).params as
-      | BigQueryConnectionParams
-      | SnowflakeConnectionParams);
+    (getSourceIntegrationObject(context, datasource)
+      .params as EventForwarderDatasourceParams);
 
   const sqlParams = buildFeatureUsageQueryParams(
     eventForwarderConfig,

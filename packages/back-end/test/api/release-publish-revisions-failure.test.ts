@@ -297,6 +297,83 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     }
   });
 
+  it("reopens a behind-live draft with its own base after a failed release, so the retry keeps the newer live changes", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+    const rule = (id: string) => ({
+      id,
+      type: "force",
+      description: "",
+      value: "true",
+      enabled: true,
+      allEnvironments: true,
+    });
+    const ruleIds = (doc: { rules?: { id: string }[] } | null) =>
+      (doc?.rules ?? []).map((r) => r.id).sort();
+    const revisionDoc = (
+      version: number,
+      baseVersion: number,
+      status: string,
+      rules: object[],
+    ) => ({
+      organization: ORG_ID,
+      featureId: "behind-live",
+      version,
+      baseVersion,
+      status,
+      defaultValue: "false",
+      rules,
+      dateCreated: now,
+      dateUpdated: now,
+      ...(status === "published" ? { datePublished: now } : {}),
+    });
+    // Live is v2 (bob's rule); the draft v3 was based on v1 (alice's rule).
+    await mongoose.connection.collection("features").insertOne({
+      id: "behind-live",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "boolean",
+      defaultValue: "false",
+      version: 2,
+      rules: [rule("fr_bob")],
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection
+      .collection("featurerevisions")
+      .insertMany([
+        revisionDoc(1, 0, "published", []),
+        revisionDoc(2, 1, "published", [rule("fr_bob")]),
+        revisionDoc(3, 1, "draft", [rule("fr_alice")]),
+      ]);
+    const publish = () =>
+      request(app)
+        .post("/api/v1/releases/publish-revisions")
+        .send({
+          revisions: [{ entityType: "feature", id: "behind-live", version: 3 }],
+        })
+        .set("Authorization", "Bearer foo");
+
+    mockFailFeatureApply = true;
+    expect((await publish()).status).toBe(500);
+    const reopened = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: "behind-live", version: 3 });
+    expect(reopened).toMatchObject({ status: "draft", baseVersion: 1 });
+    expect(ruleIds(reopened)).toEqual(["fr_alice"]);
+    expect(reopened?.environmentsEnabled).toBeUndefined();
+    expect(reopened?.metadata).toBeUndefined();
+
+    mockFailFeatureApply = false;
+    expect((await publish()).status).toBe(200);
+    const feature = await mongoose.connection
+      .collection("features")
+      .findOne({ organization: ORG_ID, id: "behind-live" });
+    expect(feature?.version).toBe(3);
+    expect(ruleIds(feature)).toEqual(["fr_alice", "fr_bob"]);
+  });
+
   it("keeps a restore-failed item published and skips its publishFailed event", async () => {
     setReqContext(makeContext());
     const now = new Date();

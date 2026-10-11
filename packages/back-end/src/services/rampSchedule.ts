@@ -37,9 +37,12 @@ import {
   detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
+  toMonitoringSelection,
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
+  isSameAssignmentQuerySelection,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -64,6 +67,10 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  assertValidAssignmentQuerySelectionChange,
+  getExposureQueriesForDatasource,
+} from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -1361,6 +1368,7 @@ export const featureEntityHandler: EntityHandler = {
       context: ctx,
       feature,
       user,
+      baseVersion: feature.version,
       environments: ctx.environments,
       changes: { rules: updatedRules },
       publish: false,
@@ -1536,18 +1544,67 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-function monitoringConfigRequiresSafeRolloutResync(
+/**
+ * Every monitoring writer (REST, internal, revision publish) saves through the
+ * ramp models, whose customValidation calls this.
+ */
+export async function assertValidMonitoringConfigChange(
+  ctx: ReqContext | ApiReqContext,
+  previous: RampMonitoringConfig | null | undefined,
+  next: RampMonitoringConfig | null | undefined,
+): Promise<void> {
+  if (!next) return;
+  await assertValidAssignmentQuerySelectionChange(
+    ctx,
+    previous ? toMonitoringSelection(previous) : null,
+    toMonitoringSelection(next),
+  );
+}
+
+/** The monitoring data source is nested, so BaseModel wouldn't cache it. */
+export function withMonitoringDatasourceKey<K extends { datasource?: string }>(
+  keys: K,
+  mc: Pick<RampMonitoringConfig, "datasourceId"> | null | undefined,
+): K {
+  return mc?.datasourceId ? { ...keys, datasource: mc.datasourceId } : keys;
+}
+
+async function monitoringSelectionChanged(
+  ctx: ReqContext | ApiReqContext,
+  current: RampMonitoringConfig,
+  next: RampMonitoringConfig,
+): Promise<boolean> {
+  const previous = toMonitoringSelection(current);
+  const selection = toMonitoringSelection(next);
+  // Only a changed identifier on the same query needs the queries to compare.
+  if (isSameAssignmentQuerySelection(previous, selection, [])) return false;
+  if (
+    previous.datasource !== selection.datasource ||
+    previous.exposureQueryId !== selection.exposureQueryId
+  ) {
+    return true;
+  }
+  return !isSameAssignmentQuerySelection(
+    previous,
+    selection,
+    await getExposureQueriesForDatasource(ctx, next.datasourceId),
+  );
+}
+
+async function monitoringConfigRequiresSafeRolloutResync(
+  ctx: ReqContext | ApiReqContext,
   current: RampScheduleInterface["monitoringConfig"],
   next: RampScheduleInterface["monitoringConfig"],
-): boolean {
+): Promise<boolean> {
   if (!current || !next) return current !== next;
-  return (
-    current.datasourceId !== next.datasourceId ||
-    current.exposureQueryId !== next.exposureQueryId ||
+  if (
     current.updateScheduleMinutes !== next.updateScheduleMinutes ||
     !sameStringArray(current.guardrailMetricIds, next.guardrailMetricIds) ||
     !sameStringArray(current.signalMetricIds, next.signalMetricIds)
-  );
+  ) {
+    return true;
+  }
+  return monitoringSelectionChanged(ctx, current, next);
 }
 
 export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
@@ -1557,10 +1614,11 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
 ): Promise<void> {
   if (
     !schedule.safeRolloutId ||
-    !monitoringConfigRequiresSafeRolloutResync(
+    !(await monitoringConfigRequiresSafeRolloutResync(
+      ctx,
       schedule.monitoringConfig,
       nextMonitoringConfig,
-    )
+    ))
   ) {
     return;
   }
@@ -1570,7 +1628,7 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
   );
   if (safeRollout?.startedAt) {
     throw new Error(
-      "Cannot change SafeRollout-backed monitoring data source, exposure query, metrics, or update cadence after monitoring has started.",
+      "Cannot change SafeRollout-backed monitoring data source, exposure query, identifier type, metrics, or update cadence after monitoring has started.",
     );
   }
 }
@@ -1795,10 +1853,20 @@ export async function ensureSafeRolloutForMonitoredRamp(
 
   const trackingKey = `ramp_${schedule.id}`;
 
+  /**
+   * Stored explicitly, so a legacy monitoring config doesn't make it implicit.
+   */
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    (await getExposureQueriesForDatasource(ctx, mc.datasourceId)).find(
+      (q) => q.id === mc.exposureQueryId,
+    ),
+    mc.exposureQueryIdentifierType,
+  );
   const sr = await ctx.models.safeRollout.create({
     featureId: schedule.entityId,
     datasourceId: mc.datasourceId,
     exposureQueryId: mc.exposureQueryId,
+    exposureQueryIdentifierType,
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
@@ -3748,12 +3816,9 @@ export async function updateRampMonitoringConfig(
   // drift between the schedule config and what the SafeRollout actually queries.
   if (schedule.safeRolloutId && schedule.monitoringConfig) {
     const existing = schedule.monitoringConfig;
-    if (
-      newConfig.datasourceId !== existing.datasourceId ||
-      newConfig.exposureQueryId !== existing.exposureQueryId
-    ) {
+    if (await monitoringSelectionChanged(ctx, existing, newConfig)) {
       throw new Error(
-        "Cannot change datasourceId or exposureQueryId while a SafeRollout is active. " +
+        "Cannot change datasourceId, exposureQuery, or its identifier type while a SafeRollout is active. " +
           "Stop the schedule and create a new one to change the data source.",
       );
     }

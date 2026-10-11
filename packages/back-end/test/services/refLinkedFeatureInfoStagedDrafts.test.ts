@@ -147,6 +147,33 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
     expect(info.stagedDrafts?.[0].hasUnrelatedDraftChanges).toBe(true);
   });
 
+  it.each([
+    ["the publisher may publish", { canPublishFeature: () => true }, false],
+    ["the publisher may not", { canPublishFeature: () => false }, true],
+    ["nobody can be resolved", null, true],
+  ])(
+    "flags a draft the start cannot publish when %s",
+    async (_c, perms, expected) => {
+      getFeaturesByIdsMock.mockResolvedValue([
+        { ...makeFeature(), rules: [] } as unknown as FeatureInterface,
+      ]);
+      getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({
+        feature: [makeRevision(5, [cbRule(liveVariations)])],
+      });
+      const [info] = await getRefLinkedFeatureInfo({
+        context,
+        linkedFeatureIds: ["feature"],
+        refIsDraft: true,
+        matchRule,
+        publisher: perms
+          ? ({ ...context, permissions: perms } as unknown as ReqContext)
+          : null,
+      });
+      expect(info.state).toBe("draft");
+      expect(info.cannotPublish).toBe(expected);
+    },
+  );
+
   it("leaves stagedDrafts unset when no draft changes the rule", async () => {
     getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({
       feature: [makeRevision(5, [cbRule(liveVariations)])],

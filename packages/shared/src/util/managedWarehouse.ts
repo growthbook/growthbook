@@ -744,6 +744,7 @@ WHERE
       id: identifier,
       name: identifier,
       userIdType: identifier,
+      userIdTypes: [identifier],
       dimensions,
       query,
     }),

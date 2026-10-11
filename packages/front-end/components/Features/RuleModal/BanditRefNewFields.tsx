@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { CustomField } from "shared/types/custom-fields";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -37,7 +38,14 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+} from "@/services/datasources";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import {
   formatAttributeOptionLabel,
   toAttributeOption,
@@ -51,6 +59,7 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 
 export default function BanditRefNewFields({
   step,
@@ -80,9 +89,13 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  customFields,
+  customFieldValues,
+  setCustomFields,
   envScope,
   projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -110,9 +123,17 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   envScope?: EnvScopeProps;
   projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
 
@@ -128,15 +149,31 @@ export default function BanditRefNewFields({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch("exposureQueryId");
-
-  useEffect(() => {
-    if (!exposureQueries?.length) return;
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries[0]?.id ?? "");
-    }
-  }, [exposureQueries, exposureQueryId, form]);
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const { setValue } = form;
+  const setExposureQueryId = useCallback(
+    (value: string) => setValue("exposureQueryId", value),
+    [setValue],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      setValue("exposureQueryIdentifierType", value),
+    [setValue],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource,
+      assignmentQueryCopySource ?? null,
+    ),
+    autoRepair: !!datasource?.properties?.exposureQueries,
+  });
 
   const attributeSchema = useAttributeSchema(
     false,
@@ -190,6 +227,14 @@ export default function BanditRefNewFields({
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
+
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -326,43 +371,18 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {datasource?.properties?.exposureQueries && exposureQueries ? (
-              <SelectField
+            {datasource?.properties?.exposureQueries ? (
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
                 size="legacy"
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                options={exposureQueries.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
               />
             ) : null}
           </div>
@@ -403,6 +423,7 @@ export default function BanditRefNewFields({
             experimentType="multi-armed-bandit"
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}

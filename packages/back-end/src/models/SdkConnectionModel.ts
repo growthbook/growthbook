@@ -7,6 +7,8 @@ import {
   ManagedBy,
   ApiSdkConnection,
   savedGroupFormatValidator,
+  SdkPayloadSize,
+  SdkPayloadSizeLevel,
 } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -33,6 +35,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import {
@@ -100,6 +103,13 @@ const sdkConnectionSchema = new mongoose.Schema({
     lastError: Date,
     consecutiveFailures: Number,
   },
+  payloadSize: {
+    bytes: Number,
+    limitBytes: Number,
+    measuredAt: Date,
+    breakdown: {},
+  },
+  notifiedPayloadSizeLevel: String,
 });
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
@@ -143,7 +153,10 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
     conn.savedGroupFormat = savedGroupFormatFromConnection(conn);
   }
 
-  return omit(conn, ["__v", "_id"]);
+  const result = omit(conn, ["__v", "_id"]);
+  // Measured against the payload cache, so meaningless without one
+  if (getSDKPayloadCacheLocation() !== "mongo") delete result.payloadSize;
+  return result;
 }
 
 export async function findSDKConnectionById(
@@ -169,11 +182,18 @@ export async function findSDKConnectionsByOrganization(
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
   });
+  return readableConnections(context, docs);
+}
 
-  const connections = docs.map(toInterface);
-  return connections.filter((conn) =>
-    context.permissions.canReadMultiProjectResource(conn.projects),
-  );
+function readableConnections(
+  context: ReqContext | ApiReqContext,
+  docs: SDKConnectionDocument[],
+): SDKConnectionInterface[] {
+  return docs
+    .map(toInterface)
+    .filter((conn) =>
+      context.permissions.canReadMultiProjectResource(conn.projects),
+    );
 }
 
 // Not filtered by the caller's project read access: used as a referential
@@ -212,8 +232,21 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
+// Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
+  return doc ? toInterface(doc) : null;
+}
+
+// Org-scoped only; does not check project-read (unlike findSDKConnectionById).
+export async function findSDKConnectionByKeyForOrg(
+  context: ReqContext | ApiReqContext,
+  key: string,
+) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    key,
+  });
   return doc ? toInterface(doc) : null;
 }
 
@@ -526,6 +559,46 @@ export async function markSDKConnectionUsed(key: string) {
       },
     },
   );
+}
+
+export async function findSDKConnectionsWithPayloadOver(
+  context: ReqContext | ApiReqContext,
+  minBytes: number,
+): Promise<SDKConnectionInterface[]> {
+  const docs = await SDKConnectionModel.find({
+    organization: context.org.id,
+    "payloadSize.bytes": { $gte: minBytes },
+  });
+  return readableConnections(context, docs);
+}
+
+export async function setSDKConnectionPayloadSize(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+  payloadSize: SdkPayloadSize,
+) {
+  await SDKConnectionModel.updateOne(
+    { organization: context.org.id, id: connection.id },
+    { $set: { payloadSize } },
+  );
+}
+
+// Moves the notified level from what this connection was read with, so only
+// one of several concurrent payload refreshes announces a change
+export async function claimSDKConnectionNotifiedPayloadSizeLevel(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+  level: SdkPayloadSizeLevel,
+): Promise<boolean> {
+  const result = await SDKConnectionModel.updateOne(
+    {
+      organization: context.org.id,
+      id: connection.id,
+      notifiedPayloadSizeLevel: connection.notifiedPayloadSizeLevel ?? null,
+    },
+    { $set: { notifiedPayloadSizeLevel: level } },
+  );
+  return result.modifiedCount === 1;
 }
 
 export async function setProxyError(

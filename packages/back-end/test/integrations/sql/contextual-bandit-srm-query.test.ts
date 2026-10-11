@@ -5,7 +5,7 @@ import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queri
 const defaultExposureQuery = {
   query:
     "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM cb_assignments",
-  userIdType: "user_id",
+  identifierType: "user_id",
 };
 
 function makeSettings(
@@ -49,6 +49,7 @@ describe("getContextualBanditSrmQuery", () => {
     const c = compact(sql);
 
     expect(c).toContain("__rawExperiment");
+    expect(c).toContain("e.user_idASuid");
     expect(c).toContain("e.experiment_id='exp_1'");
     expect(c).toContain("e.timestamp>=");
 
@@ -140,7 +141,7 @@ describe("getContextualBanditSrmQuery", () => {
         {
           exposureQuery: {
             query: "SELECT * FROM my_cb_assignments",
-            userIdType: "anonymous_id",
+            identifierType: "anonymous_id",
           },
         },
       ),

@@ -1,8 +1,8 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { SDKAttributeSchema } from "shared/types/organization";
 import {
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import type {
@@ -15,6 +15,7 @@ import {
   buildEventForwarderEventsFactTableSql,
   EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+  EventForwarderDatasourceParams,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
   getEventForwarderSinkTypeForDatasource,
@@ -32,6 +33,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderTablePrefix,
+  getDatabricksEventForwarderTablePrefix,
   getSnowflakeEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/config";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -112,7 +114,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
   eventForwarderConfig: EventForwarderConfigInterface,
   datasource: DataSourceInterface,
   attributeSchema: SDKAttributeSchema | undefined,
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  datasourceParams?: EventForwarderDatasourceParams,
 ): string | null {
   const userIdTypes = datasource.settings?.userIdTypes ?? [];
 
@@ -158,7 +160,21 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         userIdTypes,
       });
     }
-    case "databricks":
+    case "databricks": {
+      const decrypted =
+        decryptEventForwarderConfigModel<DatabricksEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return buildEventForwarderEventsFactTableSql({
+        sinkType: "databricks",
+        catalog: decrypted.catalog.trim(),
+        schema: decrypted.schema.trim(),
+        tablePrefix: getDatabricksEventForwarderTablePrefix(decrypted),
+        attributeSchema,
+        datasourceProjects: datasource.projects,
+        userIdTypes,
+      });
+    }
     default:
       return null;
   }
@@ -302,7 +318,7 @@ export function mergeEventForwarderFactTableColumnFromDesired(
 export async function ensureEventForwarderEventsFactTable(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  datasourceParams?: EventForwarderDatasourceParams,
 ): Promise<string | undefined> {
   const datasource = await getDataSourceById(
     context,
@@ -380,8 +396,7 @@ export async function deleteEventForwarderEventsFactTableForDatasource(
   context: ReqContext,
   datasource: DataSourceInterface,
 ): Promise<void> {
-  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
-  if (sinkType !== "bigquery" && sinkType !== "snowflake") {
+  if (!getEventForwarderSinkTypeForDatasource(datasource)) {
     return;
   }
 

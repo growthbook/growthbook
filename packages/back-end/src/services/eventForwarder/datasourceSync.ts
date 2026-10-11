@@ -1,11 +1,10 @@
 import {
+  EventForwarderDatasourceParams,
   getEventForwarderHashAttributes,
   reconcileEventForwarderManagedExposureQueries,
   resolveEventForwarderManagedUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import {
@@ -47,7 +46,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     );
 
   const connectionParams = getSourceIntegrationObject(context, datasource)
-    .params as BigQueryConnectionParams | SnowflakeConnectionParams;
+    .params as EventForwarderDatasourceParams;
   const sqlParams = buildExposureQueryParams(config, connectionParams);
   let updatedExposure = existingExposure;
 

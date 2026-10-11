@@ -170,7 +170,7 @@ export default function LinkedChanges({
             setUrlRedirectModal && (
               <Flex justify="between" px="1">
                 <Text color="text-high" size="lg" weight="semibold">
-                  Add Feature, URL Redirect or Visual Editor
+                  Add Feature, URL Redirect or AI Visual Editor
                 </Text>
                 <AddLinkedChangeButton
                   experiment={experiment}

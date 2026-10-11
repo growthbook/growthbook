@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
-import { ConditionInterface } from "@growthbook/growthbook";
+import {
+  ConditionInterface,
+  ParentConditionInterface,
+} from "@growthbook/growthbook";
 import {
   ExperimentDependencyIndex,
   NamespaceValue,
@@ -49,9 +52,11 @@ import {
   VariationWeightPair,
 } from "shared/validators";
 import {
+  describeSavedGroupError,
   getJSONValue,
   getPayloadAllowedKeys,
   getSavedGroupPayloadStrategy,
+  SAVED_GROUP_ERROR_UNKNOWN,
   resolveConstantRefs,
   ConstantValueMap,
   SavedGroupPayloadStrategy,
@@ -237,6 +242,16 @@ export function buildPayloadMetadata<
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
+// With no payload cache this runs on every SDK fetch, so each problem is
+// logged once per process. The flag health check names where it is used.
+const loggedSavedGroupProblems = new Set<string>();
+function warnSavedGroupProblemOnce(problem: string) {
+  if (loggedSavedGroupProblems.has(problem)) return;
+  if (loggedSavedGroupProblems.size >= 1000) loggedSavedGroupProblems.clear();
+  loggedSavedGroupProblems.add(problem);
+  logger.warn(`SDK payload targeting cannot be resolved: ${problem}`);
+}
+
 /**
  * Merges a rule's `condition` and its `savedGroups` targeting into the one
  * condition an SDK evaluates. Returns undefined if the rule targets nothing.
@@ -277,6 +292,12 @@ export function mergeConditionAndSavedGroups({
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
+      // A group that no longer exists is served as empty. An "all" entry that
+      // names one, or an "any" entry left with no usable group, then matches
+      // nobody, so it fails closed. A "none" entry drops it: excluding an
+      // empty group excludes nobody, and failing closed there would block
+      // every user over a configuration mistake. The health check reports both.
+      const missing = ids.filter((id) => !groupMap.has(id));
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
         if (!group) return false;
@@ -292,6 +313,14 @@ export function mergeConditionAndSavedGroups({
         }
         return true;
       });
+      if (
+        missing.length &&
+        match !== "none" &&
+        (match === "all" || !groupIds.length)
+      ) {
+        conditions.push({ [SAVED_GROUP_ERROR_UNKNOWN]: missing[0] });
+        return;
+      }
       if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
@@ -343,6 +372,10 @@ export function mergeConditionAndSavedGroups({
   // Rewrite any `$savedGroups` operators the stored conditions still hold
   conditions.forEach((cond) => {
     recursiveWalk(cond, savedGroupStrategy.createSavedGroupsOperatorHandler());
+  });
+  conditions.forEach((cond) => {
+    const problem = describeSavedGroupError(cond);
+    if (problem) warnSavedGroupProblemOnce(problem);
   });
 
   // Exactly one condition, return it
@@ -730,8 +763,10 @@ export function buildPrerequisiteProjectReach(
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
 
+  // A parent with no project ("") is carried too: project-scoped connections
+  // only match the "" key when treatEmptyProjectAsGlobal is on.
   const link = (from: string, to: string) => {
-    if (!from || !to || from === to) return;
+    if (!to || from === to) return;
     const set = reach.get(from) ?? new Set<string>();
     set.add(to);
     reach.set(from, set);
@@ -901,6 +936,23 @@ export function applyNamespaceToPayload(
   // Legacy format: use tuple on the rule itself for backward compatibility.
   const [start, end] = ranges[0] ?? [0, 0];
   rule.namespace = [namespace.name, start, end];
+}
+
+// Prerequisites become parentConditions, saved groups resolved the way the
+// rule's own condition is; one that no longer parses is dropped.
+function prerequisiteParentConditions(
+  prerequisites: { id: string; condition: string }[],
+  savedGroupStrategy: SavedGroupPayloadStrategy,
+): ParentConditionInterface[] {
+  return prerequisites
+    .map((p) => {
+      const condition = mergeConditionAndSavedGroups({
+        savedGroupStrategy,
+        condition: p.condition,
+      });
+      return condition ? { id: p.id, condition } : null;
+    })
+    .filter(isDefined);
 }
 
 export function getFeatureDefinition({
@@ -1134,6 +1186,9 @@ export function getFeatureDefinition({
         const phase = exp?.phases?.slice(-1)?.[0];
         return !!phase?.prerequisites?.length;
       }
+      if (r.type === "contextual-bandit-ref") {
+        return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
+      }
       return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
     });
     if (hasTopLevelPrereqs || hasRuleLevelGates) {
@@ -1241,16 +1296,10 @@ export function getFeatureDefinition({
           }
 
           if (phase?.prerequisites?.length) {
-            rule.parentConditions = phase.prerequisites
-              .map((prerequisite) => {
-                const condition = mergeConditionAndSavedGroups({
-                  savedGroupStrategy,
-                  condition: prerequisite.condition,
-                });
-                if (!condition) return null;
-                return { id: prerequisite.id, condition };
-              })
-              .filter(isDefined);
+            rule.parentConditions = prerequisiteParentConditions(
+              phase.prerequisites,
+              savedGroupStrategy,
+            );
           }
 
           rule.coverage = phase.coverage;
@@ -1366,12 +1415,21 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = mergeConditionAndSavedGroups({
+          if (!hasPrerequisites && cb.prerequisites?.length) return null;
+
+          const cbCondition = mergeConditionAndSavedGroups({
             savedGroupStrategy,
             condition: cb.condition,
+            savedGroups: cb.savedGroups,
           });
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
+          if (cbCondition) {
+            rule.condition = cbCondition;
+          }
+          if (cb.prerequisites?.length) {
+            rule.parentConditions = prerequisiteParentConditions(
+              cb.prerequisites,
+              savedGroupStrategy,
+            );
           }
 
           rule.coverage = cb.coverage;
@@ -1435,6 +1493,8 @@ export function getFeatureDefinition({
 
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);
+          if (rule.parentConditions)
+            savedGroupStrategy.finalizeCondition(rule.parentConditions);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1476,19 +1536,10 @@ export function getFeatureDefinition({
           rule.condition = condition;
         }
 
-        const prerequisites = (r?.prerequisites ?? [])
-          ?.map((p) => {
-            const condition = mergeConditionAndSavedGroups({
-              savedGroupStrategy,
-              condition: p.condition,
-            });
-            if (!condition) return null;
-            return {
-              id: p.id,
-              condition,
-            };
-          })
-          .filter(isDefined);
+        const prerequisites = prerequisiteParentConditions(
+          r?.prerequisites ?? [],
+          savedGroupStrategy,
+        );
         if (!hasPrerequisites && prerequisites?.length) return null;
         if (prerequisites?.length) {
           rule.parentConditions = prerequisites;
