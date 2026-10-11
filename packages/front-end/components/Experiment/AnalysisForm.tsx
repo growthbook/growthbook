@@ -115,6 +115,8 @@ const AnalysisForm: FC<{
   // the data source section edits or clears, and only those that differ
   // from `experiment` (which the caller can seed with its draft).
   onApply?: (changes: AnalysisFormDataSourceChanges) => void;
+  // ModalStandard's redesigned chrome (set in review, for the rail).
+  redesigned?: boolean;
 }> = ({
   experiment,
   envs,
@@ -130,6 +132,7 @@ const AnalysisForm: FC<{
   hideStatsSettings = false,
   alwaysEditDataSource = false,
   onApply,
+  redesigned = false,
 }) => {
   const {
     segments,
@@ -494,6 +497,7 @@ const AnalysisForm: FC<{
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={header}
+      redesigned={redesigned}
       open={true}
       close={cancel}
       size="lg"

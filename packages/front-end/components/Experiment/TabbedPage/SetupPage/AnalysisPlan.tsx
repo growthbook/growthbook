@@ -550,6 +550,8 @@ export default function AnalysisPlan({
                         }
                         // The same width as Ends' mode select.
                         style={{ width: ENDS_MODE_PX }}
+                        // --slate-3 hover in the menu (set in review; see .menu).
+                        contentClassName={planStyles.menu}
                       >
                         <SelectItem value="manual">Manually</SelectItem>
                         <SelectItem value="date">On Date</SelectItem>
@@ -591,6 +593,8 @@ export default function AnalysisPlan({
                           update({ endMode: v as SetupDraft["endMode"] })
                         }
                         style={{ width: ENDS_MODE_PX }}
+                        // --slate-3 hover in the menu (set in review; see .menu).
+                        contentClassName={planStyles.menu}
                       >
                         <SelectItem value="after">After</SelectItem>
                         <SelectItem value="stopped">Manually</SelectItem>
@@ -615,6 +619,8 @@ export default function AnalysisPlan({
                               update({ endUnit: v as SetupDraft["endUnit"] })
                             }
                             style={{ width: ENDS_UNIT_PX }}
+                            // --slate-3 hover in the menu (set in review; see .menu).
+                            contentClassName={planStyles.menu}
                           >
                             <SelectItem value="days">Days</SelectItem>
                             <SelectItem value="weeks">Weeks</SelectItem>
@@ -730,6 +736,7 @@ export default function AnalysisPlan({
                       // name.
                       valueLabel={selectedCriteria.name}
                       contentClassName={clsx(
+                        planStyles.menu,
                         planStyles.describedMenu,
                         criteriaTwoLine && planStyles.describedMenuTwoLine,
                       )}
@@ -779,6 +786,8 @@ export default function AnalysisPlan({
                         update({ atEnd: v as SetupDraft["atEnd"] })
                       }
                       style={{ width: CONTROLS_PX }}
+                      // --slate-3 hover in the menu (set in review; see .menu).
+                      contentClassName={planStyles.menu}
                     >
                       <SelectItem value="notify">
                         {AT_END_LABELS.notify}
@@ -813,6 +822,8 @@ export default function AnalysisPlan({
                                 ? NO_WINNER_PX
                                 : CONTROLS_PX,
                           }}
+                          // --slate-3 hover in the menu (set in review; see .menu).
+                          contentClassName={planStyles.menu}
                         >
                           <SelectItem value="keep-running">
                             {NO_WINNER_LABELS["keep-running"]}
@@ -834,6 +845,8 @@ export default function AnalysisPlan({
                               width:
                                 CONTROLS_PX - CONTROL_GAP_PX - NO_WINNER_PX,
                             }}
+                            // --slate-3 hover in the menu (set in review; see .menu).
+                            contentClassName={planStyles.menu}
                           >
                             {variations.map((v) => (
                               <SelectItem key={v.id} value={v.id}>

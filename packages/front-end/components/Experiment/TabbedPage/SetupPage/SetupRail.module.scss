@@ -259,3 +259,28 @@ $rail-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     transform: translateY(0);
   }
 }
+
+// The Holdout value's link in --gray-12, as the experiments list's names
+// (their first column's values) and the Analysis Plan's View Rules link, in
+// place of the link's violet (set in review); still underlined on hover, as
+// a link. Doubled to outrank @/ui/Link's hover colour.
+.neutralLink.neutralLink,
+.neutralLink.neutralLink:hover {
+  color: var(--gray-12);
+}
+
+// The Comments tab fills the rail's panel (set in review), so its empty
+// state can centre in the space under the composer: the panel lays its
+// tabs out as a column (.railPanel, below), and the active Comments tab
+// grows to fill it, scrolling with it if its thread is taller. An inactive
+// tab stays hidden (global-radix-overrides.scss).
+.railPanel.railPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.commentsPanel[data-state="active"] {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}

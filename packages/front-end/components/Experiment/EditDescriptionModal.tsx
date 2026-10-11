@@ -24,6 +24,8 @@ interface Props {
   // Just a text area, as the Setup page's Hypothesis field has (set in
   // review, for the rail): no markdown note or editor toolbar.
   plain?: boolean;
+  // ModalStandard's redesigned chrome (set in review, for the rail).
+  redesigned?: boolean;
 }
 
 function getExperimentTypeName(experimentType: ExperimentType) {
@@ -53,6 +55,7 @@ export default function EditDescriptionModal({
   mutate,
   onApply,
   plain = false,
+  redesigned = false,
 }: Props) {
   const { apiCall } = useAuth();
   const form = useForm<{ description: string }>({
@@ -66,6 +69,7 @@ export default function EditDescriptionModal({
       trackingEventModalSource={source}
       trackingEventModalType="edit-experiment-description-modal"
       header="Edit Description"
+      redesigned={redesigned}
       subheader={
         plain ? undefined : (
           <>

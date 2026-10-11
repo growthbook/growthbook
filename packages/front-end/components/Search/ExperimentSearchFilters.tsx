@@ -32,6 +32,8 @@ import styles from "./ExperimentSearchFilters.module.scss";
 // The overflow chip's key for measuring, and the widths assumed before a
 // chip has been measured.
 const OVERFLOW_KEY = "__overflow";
+// Add Filter's key, for the motion only (it isn't a chip that folds away).
+const ADD_FILTER_KEY = "__add-filter";
 const OVERFLOW_FALLBACK_WIDTH = 96;
 const CHIP_FALLBACK_WIDTH = 100;
 // The chips' motion: starts quickly, settles gently, no overshoot.
@@ -452,8 +454,11 @@ const ExperimentSearchFilters: FC<
       style={chips ? { flex: "1 1 0", minWidth: 0 } : undefined}
     >
       {addable.length > 0 ? (
+        // data-chip-key: slides with the chips when the row's pieces move
+        // (set in review), e.g. as the table's head sticks.
         <span
           ref={addFilterRef}
+          data-chip-key={ADD_FILTER_KEY}
           style={{ display: "inline-flex", flexShrink: 0 }}
         >
           <DropdownMenu

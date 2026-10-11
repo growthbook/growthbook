@@ -49,16 +49,16 @@
   }
 }
 
-// The description line: styled like the legacy select's descriptions (the
-// metric pickers' "— description", Bootstrap's .text-muted): the muted text
-// colour.
+// The description line, in --slate-11 (set in review; was the muted text
+// colour, Bootstrap's .text-muted, 4.1:1 on the menu's --slate-3 hover,
+// below WCAG AA): 5.2:1 on the hover, more on white.
 // At most two lines, ending in "…" beyond that, at 12px (both set in review).
 .optionDescription {
   display: -webkit-box;
   overflow: hidden;
   font-size: var(--font-size-1);
   line-height: var(--line-height-1);
-  color: var(--text-color-muted);
+  color: var(--slate-11);
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -71,9 +71,12 @@
   min-height: calc(2 * var(--line-height-1));
 }
 
-// "No description", a step lighter than a description (set in review).
+// "No description": a description's --slate-11, set apart in italics (set
+// in review). It was a step lighter, --slate-9, which fell below WCAG AA
+// (2.9:1 on the hover); any lighter shade would too.
 .optionDescriptionEmpty {
-  color: var(--slate-9);
+  color: var(--slate-11);
+  font-style: italic;
 }
 
 // The Advanced row: a plain full-width button, so clicking anywhere on the
@@ -119,6 +122,54 @@
 // (see _hoverOutline.scss; set in review).
 .plan {
   @include hover-outline-fields;
+
+  // The metric pickers' menus (set in review): each metric's name in
+  // --gray-12, the redesigned text fields' value colour, in place of
+  // MetricName's --color-text-high. MetricName sets it inline on the name,
+  // hence the attribute match and !important. The menus render here (not
+  // in a portal), so this reaches them.
+  :global(:is(.gb-select__option, .gb-multi-select__option))
+    span[style*="--color-text-high"] {
+    color: var(--gray-12) !important;
+  }
+
+  // The react-select menus' hovered (and keyboard-highlighted) option: a
+  // --slate-3 fill (set in review), as the experiments list's menus, in
+  // place of the accent's --accent-a4 (react-select.scss, !important).
+  :global(
+    :is(.gb-select__option--is-focused, .gb-multi-select__option--is-focused)
+  ) {
+    background-color: var(--slate-3) !important;
+  }
+}
+
+// The plan's Select menus (contentClassName; they open in a portal, outside
+// .plan): the hovered or keyboard-highlighted option takes a --slate-3 fill
+// and keeps its text colour (set in review), as the experiments list's
+// menus, in place of Radix's accent highlight. Radix's rule uses :where(),
+// so this outranks it.
+.menu :global(.rt-SelectItem[data-highlighted]) {
+  background-color: var(--slate-3);
+  color: var(--gray-12);
+}
+
+// The selected option's check: Phosphor's (PiCheckBold, as the experiments
+// list's filter menus; set in review), in place of Radix's own. Radix draws
+// its icon inside the indicator, so it's hidden, and Phosphor's outline is
+// drawn as a mask filled with the text colour, 12px.
+.menu :global(.rt-SelectItemIndicator) svg {
+  display: none;
+}
+
+.menu :global(.rt-SelectItemIndicator)::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 // Advanced's settings cards (SettingsCard in AnalysisPlan.tsx; set in

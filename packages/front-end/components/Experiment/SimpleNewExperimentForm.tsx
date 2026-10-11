@@ -1002,6 +1002,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       // 32px at the sides, --space-6 (set in review, trying it; 40px by
       // default).
       paddingX="var(--space-6)"
+      // A soft fade-in as it opens (set in review).
+      fadeIn
       // The header's and footer's dividers one shade lighter, --gray-a5
       // (set in review; Radix's --gray-a6 by default).
       dividerColor="var(--gray-a5)"
@@ -1047,7 +1049,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                 // hover area.
                 size="1"
                 aria-label="Close"
-                onClick={() => onClose?.()}
+                // Closing is Modal.Close\'s alone, through Modal.Root, so the fade-out
+                // plays before the modal unmounts.
               >
                 {/* Bold, in --slate-10, a shade lighter (set in review;
                   tried --slate-11). */}
@@ -1506,6 +1509,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           <Flex gap="3" align="center">
             <Modal.Close>
               <Button
+                // Modal.Close closes through this click; @/ui/Button's
+                // default preventDefault would cancel it.
+                preventDefault={false}
                 variant="ghost"
                 // Its text as the Attach .md button's (set in review):
                 // --slate-12 at 400 (.ghostButton), in place of the violet
@@ -1514,7 +1520,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
                 // --radius-3, as Create's.
                 color="gray"
                 className={styles.ghostButton}
-                onClick={() => onClose?.()}
+                // Closing is Modal.Close\'s alone, through Modal.Root, so the fade-out
+                // plays before the modal unmounts.
                 style={{
                   borderRadius: "var(--radius-3)",
                   color: "var(--slate-12)",

@@ -89,6 +89,9 @@ type ModalContextValue = {
   // True while a ModalForm submit is in flight. Root uses it to block dismiss.
   loading: boolean;
   setLoading: (loading: boolean) => void;
+  // Closes the modal through Root, so a fadeIn modal plays its fade-out
+  // before it's closed (and, usually, unmounted by its host).
+  requestClose: () => void;
 };
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -132,6 +135,9 @@ type RootProps = TrackingEventModalProps & {
   // The header's and footer's dividers' colour, in place of Radix's
   // separator grey (--gray-a6). Optional and additive.
   dividerColor?: string;
+  // A slower, softer entrance (set in review; the redesigned experiment
+  // pages' modals): see .fadeIn in Modal.module.scss. Optional and additive.
+  fadeIn?: boolean;
   children: ReactNode;
 };
 
@@ -146,6 +152,7 @@ function Root({
   allowlistedTrackingEventProps = {},
   paddingX = "40px",
   dividerColor,
+  fadeIn = false,
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
@@ -196,6 +203,27 @@ function Root({
     }
   }, [open, sendTrackingEvent]);
 
+  // fadeIn: closing plays the fade-out first (Modal.module.scss), then tells
+  // the host. Hosts unmount a closed modal straight away, which would cut the
+  // animation off, so the dialog closes itself here and the host hears
+  // about it once the fade has run. Instant for reduced motion.
+  const [closing, setClosing] = useState(false);
+  const requestClose = useCallback(() => {
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!fadeIn || reducedMotion) {
+      onOpenChange(false);
+      return;
+    }
+    setClosing(true);
+    window.setTimeout(() => onOpenChange(false), 320);
+  }, [fadeIn, onOpenChange]);
+  // Reopened by its host: ready to close again.
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
+
   const ctx = useMemo<ModalContextValue>(
     () => ({
       error,
@@ -205,8 +233,9 @@ function Root({
       sendTrackingEvent,
       loading,
       setLoading,
+      requestClose,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent, loading],
+    [error, scrollBodyToTop, sendTrackingEvent, loading, requestClose],
   );
 
   const ariaDescribedBy = hasDescription
@@ -214,9 +243,15 @@ function Root({
     : { "aria-describedby": undefined };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root
+      open={open && !closing}
+      onOpenChange={(nextOpen) =>
+        nextOpen ? onOpenChange(true) : requestClose()
+      }
+    >
       <Dialog.Content
         ref={contentRef}
+        className={fadeIn ? styles.fadeIn : undefined}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight={
@@ -405,6 +440,12 @@ function Body({
       ref={bodyRef}
       scrollbars="vertical"
       className={styles.bodyScrollArea}
+      // With scrollToEdges, as wide as the space it's pulled 4px left into
+      // (set in review): at width: 100% it stopped 4px short on the right,
+      // so its content sat 4px further from the right edge than the left.
+      style={
+        scrollToEdges ? { width: "calc(100% + var(--space-1))" } : undefined
+      }
     >
       <Box
         pl="1"

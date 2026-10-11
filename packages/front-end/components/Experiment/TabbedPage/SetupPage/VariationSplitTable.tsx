@@ -35,10 +35,20 @@ const HEADER_CELL_STYLE = {
   color: "var(--gray-12)",
 };
 
+// listStyle (set in review; the Edit Split % modal): the header labels as
+// the experiments list's column headers, 12px at 500 in --slate-11, and the
+// variation names at 500 in the modal title's colour, --text-color-main
+// (tried --color-text-high).
+const LIST_HEADER_CELL_STYLE = {
+  ...HEADER_CELL_STYLE,
+  color: "var(--slate-11)",
+};
+
 export default function VariationSplitTable({
   variations,
   splitHeaderAction,
   renderSplit,
+  listStyle = false,
 }: {
   // In the page's order.
   variations: { id: string; name: string }[];
@@ -50,19 +60,24 @@ export default function VariationSplitTable({
     variation: { id: string; name: string },
     i: number,
   ) => ReactNode;
+  // See LIST_HEADER_CELL_STYLE. Optional and additive.
+  listStyle?: boolean;
 }) {
+  const headerCellStyle = listStyle
+    ? LIST_HEADER_CELL_STYLE
+    : HEADER_CELL_STYLE;
   return (
     <Table variant="ghost">
       <TableHeader>
         <TableRow>
           {/* Labels sized as the Stats Engine label (set in review): 12px at
             weight 500. */}
-          <TableColumnHeader style={HEADER_CELL_STYLE}>
+          <TableColumnHeader style={headerCellStyle}>
             <Text as="div" size="sm" weight="medium">
               Variation
             </Text>
           </TableColumnHeader>
-          <TableColumnHeader style={HEADER_CELL_STYLE}>
+          <TableColumnHeader style={headerCellStyle}>
             {/* Starts where the values do (set in review): a box the split
               column's width at the right edge, inset by a field's 8px text
               padding (Radix size 2). An action sits 8px to the label's right
@@ -95,8 +110,17 @@ export default function VariationSplitTable({
             <TableCell>
               <Flex align="center" gap="2" minWidth="0">
                 <VariationNumber number={i} />
-                <Text weight="semibold" truncate>
-                  <span id={`split-label-${v.id}`}>{v.name}</span>
+                <Text weight={listStyle ? "medium" : "semibold"} truncate>
+                  <span
+                    id={`split-label-${v.id}`}
+                    style={
+                      listStyle
+                        ? { color: "var(--text-color-main)" }
+                        : undefined
+                    }
+                  >
+                    {v.name}
+                  </span>
                 </Text>
               </Flex>
             </TableCell>

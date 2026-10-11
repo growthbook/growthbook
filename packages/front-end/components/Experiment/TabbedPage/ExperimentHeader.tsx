@@ -16,7 +16,6 @@ import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiCalendarDotsFill,
   PiClockFill,
@@ -25,6 +24,7 @@ import {
   PiEye,
   PiLink,
   PiPencilSimpleFill,
+  PiDotsThreeVerticalBold,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -81,6 +81,8 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
+import buttonStyles from "@/ui/Button.module.scss";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -993,6 +995,9 @@ export default function ExperimentHeader({
           linkedFeatures={linkedFeatures}
           visualChangesets={visualChangesets}
           urlRedirects={urlRedirects}
+          // The Create Experiment modal's chrome on a redesigned
+          // experiment (set in review).
+          redesigned={setupLayout}
         />
       )}
       {showScheduleModal && !isHoldout ? (
@@ -1268,37 +1273,23 @@ export default function ExperimentHeader({
                   // 12px between Test and Start, set in review.
                   <Flex align="center" gap="3">
                     {/* Test, left of the primary action, per the design's
-                      header cluster (draft states). A dropdown: the design
-                      doesn't specify its contents yet, so it holds a
-                      disabled placeholder. Standard experiments only. */}
+                      header cluster (draft states). A plain button (set in
+                      review; was a dropdown with a disabled "coming soon"
+                      placeholder). PROTOTYPE: it does nothing yet; what
+                      testing opens isn't designed. Standard experiments
+                      only. */}
                     {!isBandit && !isHoldout ? (
-                      <DropdownMenu
-                        trigger={
-                          // No leading icon, --slate-12 text, and the same
-                          // --slate-6 inset outline as the kebab (set in
-                          // review).
-                          <Button
-                            variant="outline"
-                            color="gray"
-                            // The caret as DropdownMenu's built-in text
-                            // trigger adds it (a right-hand PiCaretDown), on
-                            // a custom button so the styling below applies.
-                            icon={<PiCaretDown />}
-                            iconPosition="right"
-                            // The --slate-6 outline, darkening on hover (see
-                            // .outlineButton).
-                            className={headerStyles.outlineButton}
-                            style={{ color: "var(--slate-12)" }}
-                          >
-                            Test
-                          </Button>
-                        }
-                        menuPlacement="end"
+                      <Button
+                        variant="outline"
+                        color="gray"
+                        // No icon, --slate-12 text, and the same --slate-6
+                        // inset outline as the kebab, darkening on hover
+                        // (.outlineButton; set in review).
+                        className={headerStyles.outlineButton}
+                        style={{ color: "var(--slate-12)" }}
                       >
-                        <DropdownMenuItem disabled>
-                          Testing options coming soon
-                        </DropdownMenuItem>
-                      </DropdownMenu>
+                        Test
+                      </Button>
                     ) : null}
                     {deliveryStartBlocker ? (
                       // The design's disabled-start popover: what to finish
@@ -1400,10 +1391,14 @@ export default function ExperimentHeader({
                   // version, set in review. The outline is Radix's own inset
                   // box-shadow, redrawn here with the new colour.
                   // The outline itself, darkening on hover, is .outlineButton.
+                  // And the buttons' press, as the Test button's (set in
+                  // review): settles to 98% (Button.module.scss's
+                  // .pressable; a Radix IconButton doesn't get it from
+                  // @/ui/Button).
                   className={
                     isBandit || isHoldout
-                      ? undefined
-                      : headerStyles.outlineButton
+                      ? buttonStyles.pressable
+                      : `${headerStyles.outlineButton} ${buttonStyles.pressable}`
                   }
                   style={
                     isBandit || isHoldout
@@ -1419,7 +1414,10 @@ export default function ExperimentHeader({
                   // The divider's gap spaces it on the redesigned page.
                   ml={isBandit || isHoldout ? "2" : "0"}
                 >
-                  <BsThreeDotsVertical size={18} />
+                  {/* Phosphor's (set in review; was Bootstrap Icons'
+                    BsThreeDotsVertical), bold so its dots keep their
+                    weight at 18px. */}
+                  <PiDotsThreeVerticalBold size={18} />
                 </IconButton>
               }
               open={dropdownOpen}
@@ -1427,6 +1425,10 @@ export default function ExperimentHeader({
                 setDropdownOpen(!!o);
               }}
               menuPlacement="end"
+              // The experiments list's column menu's surface (set in
+              // review): its soft shadow, faint all round, in place of
+              // Radix's heavier menu shadow. The fill is the same white.
+              contentClassName={listTableStyles.menuShadow}
             >
               {/* Title Case on these menu items (Edit Name, Edit Phase, Remove
                 from Holdout, View Watchers, Audit History, Save as Template)

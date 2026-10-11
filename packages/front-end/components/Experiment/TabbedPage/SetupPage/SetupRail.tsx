@@ -385,6 +385,9 @@ function Details({
           close={() => setEditing(null)}
           // A plain text area, like Hypothesis (set in review).
           plain
+          // The Create Experiment modal's header, footer, 32px sides and
+          // soft fade in and out (set in review).
+          redesigned
           onApply={
             onDraftChange
               ? (description) => onDraftChange({ description })
@@ -510,7 +513,13 @@ function Details({
           header's menu. */}
         <Field label="Holdout">
           {holdout ? (
-            <Link href={`/holdout/${holdout.id}`} size="sm">
+            // In --gray-12, as the experiments list's names (set in
+            // review), in place of the link's violet.
+            <Link
+              href={`/holdout/${holdout.id}`}
+              size="sm"
+              className={styles.neutralLink}
+            >
               {holdout.name}
             </Link>
           ) : undefined}
@@ -768,6 +777,12 @@ export default function SetupRail({
         style={{
           width: RAIL_WIDTH_PX,
           maxHeight: railMaxHeight ?? `calc(100vh - ${RAIL_STICKY_TOP})`,
+          // On the Comments tab, the full height (set in review), so its
+          // empty state centres between the composer's divider and the
+          // bottom of the window; elsewhere only as tall as its contents.
+          ...(tab === "comments"
+            ? { height: railMaxHeight ?? `calc(100vh - ${RAIL_STICKY_TOP})` }
+            : {}),
           display: "flex",
           flexDirection: "column",
           // 8px between the tab divider above the rail and the rail's own
@@ -781,6 +796,9 @@ export default function SetupRail({
           // dates and stats settings are edited elsewhere on this page, so
           // they're turned off.
           <AnalysisForm
+            // The Create Experiment modal's header, footer, 32px sides and
+            // soft fade in and out (set in review).
+            redesigned
             cancel={() => setEditingData(false)}
             experiment={experiment}
             mutate={mutate}
@@ -916,7 +934,9 @@ export default function SetupRail({
                 onDraftChange={draft?.update}
               />
             </TabsContent>
-            <TabsContent value="comments">
+            {/* Fills the rail's panel, so the comments' empty state can
+              centre in it (set in review). */}
+            <TabsContent value="comments" className={styles.commentsPanel}>
               <RailComments experiment={experiment} />
             </TabsContent>
           </Box>

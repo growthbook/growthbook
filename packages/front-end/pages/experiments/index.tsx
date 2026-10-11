@@ -1,6 +1,7 @@
 import React, {
   CSSProperties,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -19,6 +20,7 @@ import {
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Heading from "@/ui/Heading";
 import TextField from "@/ui/TextField";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -200,6 +202,29 @@ const ExperimentsPage = (): React.ReactElement => {
   useEffect(() => {
     setSearchDraft(searchTerm);
   }, [searchTerm]);
+  // The search field slides to its new place when the toolbar's pieces
+  // move (set in review), e.g. as the table's head sticks and the view's
+  // name appears before it, as the filter chips do: where it was is read
+  // before each update (below, before the page renders) and compared with
+  // where it lands (FLIP). Instant for reduced motion.
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const searchLeftBefore = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = searchBoxRef.current;
+    const before = searchLeftBefore.current;
+    if (!el || before === null || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    el.getAnimations().forEach((a) => a.cancel());
+    const dx = before - el.getBoundingClientRect().left;
+    if (Math.abs(dx) < 0.5) return;
+    el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], {
+      duration: 240,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    });
+  });
+
   const applySearch = () => {
     if (searchDraft.trim() !== searchTerm) {
       setSearchValue(withFilters(searchDraft));
@@ -363,10 +388,35 @@ const ExperimentsPage = (): React.ReactElement => {
   // right from it, 12px after, and the table controls at the row's right
   // end. Drawn inside the table's outline, as its top section
   // (ExperimentsListTable's toolbar), so the table and its controls read as
-  // one container rather than floating apart.
-  const tableToolbar = (
-    <Flex gap="3" align="center" wrap="wrap">
-      <Box flexBasis="300px" flexShrink="0">
+  // one container rather than floating apart. On one line: it's the
+  // card's sticky head, a fixed height.
+  //
+  // While the head is stuck under the app bar (set in review): the active
+  // view's name leads, since the tabs have scrolled away; search, the
+  // filter chips and the table controls stay as they are (collapsing search
+  // to an icon was tried). The pieces keep their places in the row either
+  // way, so the filters keep their state.
+  const tabLabels: Record<ExperimentListTab, string> = {
+    all: "All",
+    "needs-decision": "Needs Decision",
+    unhealthy: "Unhealthy",
+    "ending-soon": "Ending Soon",
+  };
+  const renderTableToolbar = (stuck: boolean) => (
+    <Flex gap="3" align="center" style={{ flex: 1, minWidth: 0 }}>
+      {stuck ? (
+        // The view's name: 14px at 500 in --slate-12, as a heading would
+        // be, and kept whole.
+        <span
+          className="experiments-view-name"
+          style={{ color: "var(--slate-12)", flexShrink: 0 }}
+        >
+          <Text size="md" weight="medium" whiteSpace="nowrap">
+            {tabLabels[activeTab]}
+          </Text>
+        </span>
+      ) : null}
+      <Box ref={searchBoxRef} flexBasis="300px" flexShrink="0">
         {/* @/ui/TextField, as the experiment details page's
           fields (set in review; was the legacy Field), with a
           search icon before the placeholder. */}
@@ -519,6 +569,11 @@ const ExperimentsPage = (): React.ReactElement => {
     </Flex>
   );
 
+  // Where the search field is now, before this render moves it (see
+  // searchBoxRef).
+  searchLeftBefore.current =
+    searchBoxRef.current?.getBoundingClientRect().left ?? null;
+
   return (
     <>
       {/* Page-wide overrides, as on the redesigned experiment details page
@@ -540,6 +595,50 @@ const ExperimentsPage = (): React.ReactElement => {
           [data-topbar][data-topbar] {
             padding-left: var(--space-6);
           }
+        }
+        /* No shadow under the top bar here, even once scrolled (set in
+          review), as on the experiment details page's Setup tab: the
+          table's head sticks right under it with its own shadow, so the
+          bar's only showed as a faint line above it. */
+        [data-topbar][data-topbar] {
+          box-shadow: none !important;
+        }
+        /* The view's name in the stuck table head fades in as it appears
+          (set in review), while the rest of the row slides along. Instant
+          for reduced motion. */
+        .experiments-view-name {
+          animation: experiments-fade-in 200ms ease-out both;
+        }
+        @keyframes experiments-fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .experiments-view-name {
+            animation: none;
+          }
+        }
+        /* The breadcrumb's current page in --slate-11 at 500, as on the
+          experiment details page (set in review; tried --text-color-main,
+          the "Experiments" heading's colour), in place of @/ui/Breadcrumbs'
+          --color-text-high at semibold. It sets the colour inline, hence
+          !important. */
+        [data-topbar][data-topbar]
+          nav[aria-label="Breadcrumb"]
+          [aria-current="page"],
+        [data-topbar][data-topbar]
+          nav[aria-label="Breadcrumb"]
+          [aria-current="page"]
+          .rt-Text {
+          color: var(--slate-11) !important;
+          font-weight: var(--font-weight-medium) !important;
+          /* 13px, as the experiment details page's breadcrumb (set in
+            review; was 14px). */
+          font-size: 13px !important;
         }
         /* The search field's hover, as the experiment details page's fields
           (set in review; see SetupPage/_hoverOutline.scss): its outline
@@ -616,10 +715,10 @@ const ExperimentsPage = (): React.ReactElement => {
           box-shadow: inset 0 1px 0 0 var(--slate-a5);
           transition: box-shadow 150ms ease;
           /* No background of its own (set in review; tried --slate-2 grey,
-            without the divider): the page's colour, --color-panel-solid,
-            also as the table's row colour, which its cells take. Not
-            transparent: the header sticks while scrolling, and rows would
-            show through. */
+            with and without the divider): the page's colour,
+            --color-panel-solid, also as the table's row colour, which its
+            cells take. Not transparent: the header sticks while scrolling,
+            and rows would show through. */
           --table-row-background-color: var(--color-panel-solid);
           background-color: var(--color-panel-solid);
         }
@@ -1301,7 +1400,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         animateColumns
                         stableColumns
                         scrollOnOverflow
-                        toolbar={tableToolbar}
+                        toolbar={renderTableToolbar}
                         tab="all"
                         SortableTableColumnHeader={SortableTableColumnHeader}
                         filtered={tileExperiments[tab]}

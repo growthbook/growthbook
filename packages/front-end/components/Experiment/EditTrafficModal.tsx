@@ -219,6 +219,11 @@ function EditTrafficForm({
       open={true}
       close={close}
       header="Edit Traffic & Variations"
+      // The Create Experiment modal's header, footer, 32px sides and soft
+      // fade in and out (set in review), from the redesigned Setup page
+      // only (it passes a draft); the bandit pages and the old experiment
+      // page keep the standard modal.
+      redesigned={!!draft}
       submit={submit}
       cta={draft ? "Apply" : undefined}
       // Apply only once coverage differs from the draft's (set in review),
@@ -230,7 +235,10 @@ function EditTrafficForm({
       }
       size="lg"
     >
-      <div className="pt-2">
+      {/* Redesigned: no extra space above, the body's 28px is the gap under
+        the header's divider, as in the Create Experiment modal (set in
+        review; this added 8px). */}
+      <div className={draft ? undefined : "pt-2"}>
         <FeatureVariationsInput
           label={null}
           valueAsId={isBandit}
@@ -290,6 +298,10 @@ function EditTrafficForm({
               header, number dots, alignment). Percentages as that modal
               shows them: one decimal place, adding up to exactly 100. */}
             <VariationSplitTable
+              // As the Edit Split % modal's table (set in review): the
+              // headers as the experiments list's column headers, and the
+              // names at 500 in the modal title's colour.
+              listStyle
               variations={(form.watch("variations") ?? []).map((v) => ({
                 id: v.id,
                 name: v.name,

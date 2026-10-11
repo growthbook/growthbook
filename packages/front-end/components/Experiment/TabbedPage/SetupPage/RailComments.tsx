@@ -1,5 +1,6 @@
+import { PiChatsCircle } from "react-icons/pi";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DiscussionInterface } from "shared/types/discussion";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -37,7 +38,8 @@ export default function RailComments({
   const [comment, setComment] = useState("");
 
   return (
-    <Box>
+    // A column filling the tab, so the empty state can take the rest.
+    <Flex direction="column" style={{ flex: 1 }}>
       {/* The composer first, then the thread (set in review). Not sticky:
         at the top of the tab it's already in view. */}
       {canComment ? (
@@ -56,6 +58,9 @@ export default function RailComments({
           <PlainCommentBox
             value={comment}
             onChange={setComment}
+            // Focused, the hover's outline and no violet ring (set in
+            // review).
+            focusAsHover
             cta="Comment"
             onDiscard={() => setComment("")}
             onSubmit={async () => {
@@ -72,18 +77,55 @@ export default function RailComments({
           <RailDivider my="20px" />
         </Box>
       ) : null}
-      {/* Our own empty line once loaded with no comments (set in review):
-        12px, not italic, and not DiscussionThread's "No comments." wording.
-        Otherwise the thread, which also handles loading and errors. */}
+      {/* Our own empty state once loaded with no comments (set in review):
+        centred in the space under the composer, with an icon, a short
+        title and a nudge to start, in place of DiscussionThread's "No
+        comments." Otherwise the thread, which also handles loading and
+        errors. */}
       {data && !(data.discussion?.comments ?? []).length ? (
-        // A block, not an inline span, so it lines up with the other tabs'
-        // text. --slate-10, the same as the To Do items' secondary line; off
-        // the text tokens, so set on the wrapper and inherited.
-        <Box style={{ color: "var(--slate-10)" }}>
-          <Text as="div" size="sm">
-            No comments yet
-          </Text>
-        </Box>
+        <Flex
+          direction="column"
+          align="center"
+          justify="center"
+          gap="2"
+          py="6"
+          style={{
+            flex: 1,
+            textAlign: "center",
+            // Centred between the composer's divider and the panel's
+            // bottom edge (set in review): the area reaches up over the
+            // divider's 20px margin and down over the panel's 16px bottom
+            // padding, so neither offsets it. Only without a composer is
+            // there no divider above to reach to.
+            ...(canComment ? { marginTop: -20 } : {}),
+            marginBottom: -16,
+            // 24px above centre (set in review; tried 16px): the icon on
+            // top makes the group look low when centred exactly. A
+            // transform, so nothing else moves.
+            transform: "translateY(-24px)",
+          }}
+        >
+          {/* 24px in --slate-10, as the experiments list's empty state's
+            icon (about 3.8:1, above the 3:1 asked of icons). */}
+          <PiChatsCircle
+            size={24}
+            aria-hidden
+            style={{ color: "var(--slate-10)" }}
+          />
+          <Box style={{ color: "var(--slate-12)" }}>
+            <Text as="div" align="center" size="md" weight="medium">
+              It&apos;s quiet in here
+            </Text>
+          </Box>
+          {/* --slate-11, off the text tokens, so set on the wrapper. */}
+          <Box style={{ color: "var(--slate-11)", maxWidth: 240 }}>
+            <Text as="div" align="center" size="sm">
+              {canComment
+                ? "Share a thought, ask a question or give the team a heads-up"
+                : "No one has said anything about this experiment yet."}
+            </Text>
+          </Box>
+        </Flex>
       ) : (
         <DiscussionThread
           type="experiment"
@@ -96,6 +138,6 @@ export default function RailComments({
           compact
         />
       )}
-    </Box>
+    </Flex>
   );
 }

@@ -19,3 +19,90 @@
     height: 0;
   }
 }
+
+// fadeIn (Modal.Root; set in review): a slower, softer entrance than
+// Radix's 200ms pop (which scales up from 97%): the modal fades in over
+// 320ms while drifting up 8px, and the backdrop fades in with it, both
+// easing out; closing plays it in reverse, fading out over 320ms while
+// drifting down 8px (set in review; Radix's is a quick 100ms). None for
+// reduced motion.
+$fade-in-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+// Opening fills backwards only: held at its first frame until it starts,
+// then let go when it ends. Held after it ended ("both"), the animated
+// transform kept the modal a containing block for fixed-position children,
+// so a react-select menu (menuPosition: fixed) was placed against the
+// modal, out of view, rather than the window (fixed in review).
+.fadeIn.fadeIn[data-state="open"] {
+  animation: modal-fade-in 320ms $fade-in-ease backwards;
+}
+
+:global(.rt-BaseDialogOverlay[data-state="open"]):has(.fadeIn)::before {
+  animation: modal-backdrop-fade-in 320ms $fade-in-ease both;
+}
+
+// Closing. Radix keeps the overlay, which holds the modal, for 160ms after
+// it closes (a no-op animation it waits on); held for the full 320ms here,
+// or the modal would vanish halfway through its fade.
+.fadeIn.fadeIn[data-state="closed"] {
+  animation: modal-fade-out 320ms $fade-in-ease both;
+}
+
+:global(.rt-BaseDialogOverlay[data-state="closed"]):has(.fadeIn) {
+  animation-duration: 320ms;
+}
+
+:global(.rt-BaseDialogOverlay[data-state="closed"]):has(.fadeIn)::before {
+  animation: modal-backdrop-fade-out 320ms $fade-in-ease both;
+}
+
+@keyframes modal-fade-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes modal-backdrop-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes modal-backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fadeIn.fadeIn[data-state],
+  :global(.rt-BaseDialogOverlay[data-state]):has(.fadeIn)::before {
+    animation: none;
+  }
+
+  :global(.rt-BaseDialogOverlay[data-state="closed"]):has(.fadeIn) {
+    animation-duration: 0s;
+  }
+}

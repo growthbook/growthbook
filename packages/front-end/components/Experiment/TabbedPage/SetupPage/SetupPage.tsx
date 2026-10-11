@@ -40,6 +40,7 @@ import ChangeExperimentTypeModal from "@/components/Experiment/TabbedPage/Change
 import { getLinkedChangesSummary } from "@/components/Experiment/TabbedPage/linkedChangesSummary";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import GreyContainer from "./GreyContainer";
 import HypothesisField from "./HypothesisField";
 import EditValuesEnvironmentsModal from "./EditValuesEnvironmentsModal";
@@ -1037,7 +1038,20 @@ export default function SetupPage({
             </Callout>
           ) : null}
           <Flex justify="end" align="center" gap="3">
-            <Button variant="ghost" onClick={discard} disabled={saving}>
+            {/* The redesigned ghost button, as the modals' Cancel (set in
+              review): grey, --slate-12 text at 400 (.ghostButton), 6px
+              corners on its hover fill. Disabled, Radix's greyed look. */}
+            <Button
+              variant="ghost"
+              color="gray"
+              className={modalStandardStyles.ghostButton}
+              style={{
+                borderRadius: "var(--radius-3)",
+                ...(saving ? {} : { color: "var(--slate-12)" }),
+              }}
+              onClick={discard}
+              disabled={saving}
+            >
               Discard Changes
             </Button>
             <Button onClick={save} loading={saving} disabled={!dirty}>

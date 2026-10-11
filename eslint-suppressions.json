@@ -698,11 +698,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/NamespaceSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Features/PrerequisiteFeatureSelector.tsx": {
     "no-restricted-syntax": {
       "count": 1

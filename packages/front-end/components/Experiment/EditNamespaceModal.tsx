@@ -60,6 +60,11 @@ export default function EditNamespaceModal({
         open={true}
         close={close}
         header="Edit Namespace"
+        // The Create Experiment modal's header, footer, 32px sides and soft
+        // fade in and out (set in review), from the redesigned Setup page
+        // only (it passes a draft); the old experiment page keeps the
+        // standard modal.
+        redesigned={!!draft}
         subheader="Run mutually exclusive experiments within a shared namespace."
         cta={draft ? "Apply" : undefined}
         // Apply only once the namespace differs from where it started.
@@ -76,7 +81,9 @@ export default function EditNamespaceModal({
         }
         size="lg"
       >
-        <div className="pt-2">
+        {/* Redesigned: no extra space above (the body's 28px is the gap under
+          the header's divider; set in review). */}
+        <div className={draft ? undefined : "pt-2"}>
           <NamespaceSelector
             form={form}
             featureId={experiment.trackingKey}

@@ -21,6 +21,7 @@ export default function PlainCommentBox({
   discardLabel = "Discard",
   autoFocus = false,
   discardAlwaysEnabled = false,
+  focusAsHover = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -34,6 +35,9 @@ export default function PlainCommentBox({
   // Discard normally needs something to discard. When editing, it cancels
   // the edit, so it's always available.
   discardAlwaysEnabled?: boolean;
+  // While focused, the hover's --slate-9 outline and no violet ring (set in
+  // review; the Setup rail's comments). Optional and additive.
+  focusAsHover?: boolean;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +61,11 @@ export default function PlainCommentBox({
         <TextArea
           // The Setup page's hover outline, like the Hypothesis field (set in
           // review).
-          className={clsx(styles.textArea, styles.hoverOutline)}
+          className={clsx(
+            styles.textArea,
+            styles.hoverOutline,
+            focusAsHover && styles.focusAsHover,
+          )}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {

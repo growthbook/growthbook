@@ -2,17 +2,6 @@
 
 // A variation's own modal (VariationEditModal.tsx; set in review).
 
-// The variation under the title: its dot and index, 14px, as the JSON
-// value modal shows its variation.
-.which {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: -2px;
-  font-size: var(--font-size-2);
-  line-height: var(--line-height-2);
-}
-
 // The images: five to a row, in equal columns 12px apart (set in review).
 .imageGrid {
   display: grid;
@@ -159,4 +148,10 @@
 // The Name field: the Setup page's field hover (see _hoverOutline.scss).
 .hoverFields {
   @include hover-outline-fields;
+}
+
+// The Name field's dot (VariationEditModal.tsx): 12px from the field's left
+// edge (set in review), in place of Radix's 8px slot padding.
+.nameField :global(.rt-TextFieldSlot:not([data-side="right"])) {
+  padding-left: var(--space-3);
 }

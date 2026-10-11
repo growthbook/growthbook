@@ -3,10 +3,17 @@
 
 // Wide enough for a two-condition rule on two lines; the toast's soft
 // shadow, as the goal metric popover. Doubled to outrank Popover's rule.
-// The View Rules link: a bare button, no browser padding.
+// The View Rules link: a bare button, no browser padding. In --gray-12, as
+// the experiments list's names (its first column's values), in place of the
+// link's violet (set in review); still underlined on hover, as a link.
 .trigger.trigger {
   padding: 0;
   line-height: var(--line-height-1);
+  color: var(--gray-12);
+}
+
+.trigger.trigger:hover {
+  color: var(--gray-12);
 }
 
 .popover.popover {

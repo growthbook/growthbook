@@ -19,6 +19,7 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import screenshotUploadStyles from "@/components/EditExperiment/ScreenshotUpload.module.scss";
+import buttonStyles from "@/ui/Button.module.scss";
 import styles from "./SetupFunnel.module.scss";
 
 // The pieces of the Setup page's Implementation block, per the design
@@ -314,7 +315,13 @@ export function NamespaceAnnotation({
     return (
       <button
         type="button"
-        className={clsx(styles.annotationButton, styles.namespaceAdd)}
+        // And the buttons' press, as the ghost buttons' (set in review):
+        // settles to 98% (Button.module.scss's .pressable).
+        className={clsx(
+          styles.annotationButton,
+          styles.namespaceAdd,
+          buttonStyles.pressable,
+        )}
         onClick={onEdit}
         aria-label="Add namespace"
       >

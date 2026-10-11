@@ -37,6 +37,8 @@ export default function EditValuesEnvironmentsModal({
       open
       close={close}
       header="Edit Environments"
+      // The Create Experiment modal's header and footer (set in review).
+      redesigned
       trackingEventModalType=""
       cta="Apply"
       ctaEnabled={!noneSelected && changed}

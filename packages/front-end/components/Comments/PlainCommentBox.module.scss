@@ -29,3 +29,21 @@
     transition: none;
   }
 }
+
+// Focused (set in review; the Hypothesis field): no violet ring, a firmer
+// 1px --slate-11 outline, as the experiments list's search field and the
+// Setup page's other fields (SetupPage/_hoverOutline.scss). Distinct from
+// the hover (--slate-9) and about 3.9:1 against the resting border, so
+// focus stays visible (WCAG AA). Opt-in, so the rail's comment box keeps
+// its own.
+.focusOutline:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--text-area-border-width) var(--slate-11);
+}
+
+// Focused (set in review; the Setup rail's comments): the hover's --slate-9
+// outline, and no violet ring. Opt-in (PlainCommentBox's focusAsHover).
+.focusAsHover:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--text-area-border-width) var(--slate-9);
+}

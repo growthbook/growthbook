@@ -23,6 +23,9 @@ export default function EditOwnerModal({
       open
       close={close}
       header="Edit Owner"
+      // The Create Experiment modal's header, footer, 32px sides and soft
+      // fade in and out (set in review).
+      redesigned
       cta="Apply"
       ctaEnabled={owner !== (experiment.owner || "")}
       trackingEventModalType="edit-experiment-owner"

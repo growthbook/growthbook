@@ -79,8 +79,12 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         className={
           clsx(
             isPrimary && styles.primary,
-            // Outline and ghost: the primary buttons' press only.
-            (variant === "outline" || variant === "ghost") && styles.pressable,
+            // Outline, ghost and soft: the primary buttons' press only
+            // (soft set in review, e.g. Start before setup's done).
+            (variant === "outline" ||
+              variant === "ghost" ||
+              variant === "soft") &&
+              styles.pressable,
             className,
           ) || undefined
         }

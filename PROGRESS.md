@@ -196,6 +196,22 @@ motion, and neutral styling.
   days (`services/experimentListTiles.ts`). There's no Archived view now.
   Tiles with counts, trends and sparklines were tried and set aside; their
   files (`ExperimentListTile`, `Sparkline`) are kept, unused.
+- **Sticky card head on the list** (2026-10-11). The toolbar and the column
+  header row stick under the app bar together (the toolbar at the app bar's
+  offset, the header row under it at the toolbar's fixed whole-pixel height,
+  57px or 49px compressed), so the card keeps its border and rounded top.
+  While stuck: the view's name leads, a shadow shows under the head; the
+  app bar's own shadow is off on this page.
+- **Redesigned modal chrome** (2026-10-11). One look for the redesigned
+  pages' modals, from the Create Experiment modal: a divider under a
+  page-heading title (16px, 600, trimmed, 28px around it), a close button,
+  lighter dividers, a body that scrolls to both dividers, a grey Cancel,
+  32px sides, and a 320ms fade in and out. `ModalStandard`'s `redesigned`
+  prop (Edit Targeting, Environments, Namespace, Traffic, the rail's
+  modals); the hand-built ones (Create, Edit Split %, Edit Variation,
+  Start) set the same `Modal` options. The fade holds a closing modal until
+  it ends (`Modal.Root`'s `requestClose`); the open animation fills
+  backwards only, or react-select's fixed menus break inside it.
 - **One prototype, one branch.** The experiments list work and the
   experiment details work both live on
   `prototype/experiment-page-redesign-main`. There's no separate branch for

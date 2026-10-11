@@ -7,15 +7,17 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { hasAttributeCondition } from "shared/experiments";
 import { format } from "date-fns-tz";
-import { ReactNode, useState } from "react";
-import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Box, Flex, IconButton, type AvatarProps } from "@radix-ui/themes";
 import {
   PiInfoFill,
   PiArrowSquareOut,
   PiWarningFill,
   PiWarningOctagonFill,
+  PiXBold,
 } from "react-icons/pi";
 import Modal, { useModalContext } from "@/ui/Modal";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -62,6 +64,12 @@ export interface Props {
   // the pending_draft_publish_failed error) — rendered as actionable links
   // below the generic error message.
   pendingDraftFailures?: PendingDraftFailure[];
+  // The redesigned experiment page's modal chrome (set in review), as the
+  // Create Experiment modal's: a divider under the header, the title as a
+  // page heading, a close button at its right, the subheader as the body's
+  // first line, lighter dividers, a body that scrolls up to both dividers,
+  // a grey Cancel, 32px sides, and the soft fade in and out. Optional.
+  redesigned?: boolean;
 }
 
 // Short, action-oriented label per failure reason. "needs-rebase" is the
@@ -184,20 +192,39 @@ function SecondaryActionButton({
   label,
   action,
   close,
+  redesigned = false,
 }: {
   label: string;
   action: () => Promise<void>;
   close: () => void;
+  redesigned?: boolean;
 }) {
-  const { setError } = useModalContext();
+  const { setError, requestClose } = useModalContext();
   return (
     <Button
       variant="ghost"
       type="button"
       setError={setError}
+      // Redesigned: the grey ghost style, as Cancel (set in review):
+      // --slate-12 at 400 (.ghostButton), 6px corners on its hover fill.
+      {...(redesigned
+        ? {
+            color: "gray" as const,
+            className: modalStandardStyles.ghostButton,
+            style: {
+              borderRadius: "var(--radius-3)",
+              color: "var(--slate-12)",
+            },
+          }
+        : {})}
       onClick={async () => {
         await action();
-        close();
+        // Redesigned: through Modal.Root, so the fade-out plays first.
+        if (redesigned) {
+          requestClose();
+        } else {
+          close();
+        }
       }}
     >
       {label}
@@ -218,6 +245,7 @@ export default function StartExperimentModal({
   urlRedirects = [],
   incompleteChecklistItems = [],
   pendingDraftFailures = [],
+  redesigned = false,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
@@ -260,6 +288,9 @@ export default function StartExperimentModal({
   const shouldGroupBlockers = hardBlockerItems.length > 0;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  // Modal.Root's close, which plays the fade-out first, for the form's
+  // submit (defined out here, outside the modal's context).
+  const requestCloseRef = useRef<(() => void) | null>(null);
 
   const { hasCommercialFeature } = useUser();
   const { namespaces } = useOrgSettings();
@@ -345,19 +376,61 @@ export default function StartExperimentModal({
       trackingEventModalSource={
         checklistIncomplete ? "incomplete-checklist" : "complete-checklist"
       }
-      hasDescription={!!subHeader}
+      hasDescription={!!subHeader && !redesigned}
+      {...(redesigned
+        ? {
+            dividerColor: "var(--gray-a5)",
+            paddingX: "var(--space-6)",
+            fadeIn: true,
+          }
+        : {})}
     >
+      <RequestCloseBridge requestCloseRef={requestCloseRef} />
       <ModalForm
         onSubmit={async () => {
           await primaryAction();
-          close();
+          // Redesigned: through Modal.Root, so the fade-out plays first.
+          if (redesigned && requestCloseRef.current) {
+            requestCloseRef.current();
+          } else {
+            close();
+          }
         }}
       >
-        <Modal.Header>
-          <Modal.Title>{header}</Modal.Title>
+        <Modal.Header divider={redesigned}>
+          <Modal.Title pageHeading={redesigned}>{header}</Modal.Title>
+          {redesigned ? (
+            // A close button at the header's right, with no height of its
+            // own, so the trimmed title sets the header's height. FALLBACK:
+            // Radix IconButton; @/ui/ has no icon button.
+            <Flex align="center" style={{ height: 0, marginLeft: "auto" }}>
+              <Modal.Close>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  color="gray"
+                  size="1"
+                  aria-label="Close"
+                >
+                  <PiXBold size={16} style={{ color: "var(--slate-10)" }} />
+                </IconButton>
+              </Modal.Close>
+            </Flex>
+          ) : null}
         </Modal.Header>
-        {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
-        <Modal.Body>
+        {subHeader && !redesigned ? (
+          <Modal.Description>{subHeader}</Modal.Description>
+        ) : null}
+        <Modal.Body scrollToEdges={redesigned}>
+          {subHeader && redesigned ? (
+            // Redesigned: the subheader leads the body, in --slate-11, 16px
+            // above the content.
+            <Box mb="4" style={{ color: "var(--slate-11)" }}>
+              <Text as="div" size="md">
+                {subHeader}
+              </Text>
+            </Box>
+          ) : null}
           {pendingDraftFailures.length > 0 && (
             <Box
               mb="3"
@@ -704,9 +777,25 @@ export default function StartExperimentModal({
             </Box>
           ) : null}
         </Modal.Body>
-        <Modal.Footer justify="between">
+        <Modal.Footer justify="between" flushTop={redesigned}>
           <Modal.Close>
-            <Button variant="ghost" onClick={close}>
+            <Button
+              variant="ghost"
+              // Redesigned: the grey Cancel (--slate-12 at 400, 6px corners),
+              // closing through Modal.Close alone so the fade-out plays;
+              // @/ui/Button's default preventDefault would cancel that click.
+              {...(redesigned
+                ? {
+                    color: "gray" as const,
+                    preventDefault: false,
+                    className: modalStandardStyles.ghostButton,
+                    style: {
+                      borderRadius: "var(--radius-3)",
+                      color: "var(--slate-12)",
+                    },
+                  }
+                : { onClick: close })}
+            >
               Cancel
             </Button>
           </Modal.Close>
@@ -716,6 +805,7 @@ export default function StartExperimentModal({
                 label={secondaryLabel}
                 action={secondaryAction}
                 close={close}
+                redesigned={redesigned}
               />
             )}
             <SubmitButton cta={primaryCta} disabled={primaryDisabled} />
@@ -724,4 +814,18 @@ export default function StartExperimentModal({
       </ModalForm>
     </Modal.Root>
   );
+}
+
+// Hands Modal.Root's close (which fades out first) to the code around the
+// modal, which sits outside its context.
+function RequestCloseBridge({
+  requestCloseRef,
+}: {
+  requestCloseRef: React.MutableRefObject<(() => void) | null>;
+}) {
+  const { requestClose } = useModalContext();
+  useEffect(() => {
+    requestCloseRef.current = requestClose;
+  }, [requestClose, requestCloseRef]);
+  return null;
 }

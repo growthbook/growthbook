@@ -35,6 +35,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import UITooltip from "@/ui/Tooltip";
 import Table, {
+  DEFAULT_STICKY_TOP_OFFSET_PX,
   TableHeader,
   TableBody,
   TableRow,
@@ -131,7 +132,9 @@ interface ExperimentsListTableProps {
   scrollOnOverflow?: boolean;
   // A toolbar (search, filters, table controls) drawn inside the table's
   // outline, as its top section (set in review; the experiments list).
-  toolbar?: ReactNode;
+  // Or a function of whether the card's head is stuck under the app bar,
+  // so the toolbar can compress itself while it is.
+  toolbar?: ReactNode | ((stuck: boolean) => ReactNode);
   // Whether the tracking key shows under a name (when it differs from the
   // name). By default, while any search or filter is on (isFiltered); the
   // experiments list shows it only for typed search text (set in review),
@@ -967,10 +970,11 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     ? filtered.length > 0
     : filtered.length > NUM_PER_PAGE;
 
-  // animatePages: which way the last page change went, and the wrapper to
-  // find the table body in (TableBody takes no ref). Only the rows move;
-  // the headers, outline and footer stay put. Instant for reduced motion.
-  const pageDirection = useRef<1 | -1 | null>(null);
+  // animatePages: which way the last page change went (or "rows", for a
+  // new rows-per-page), and the wrapper to find the table body in
+  // (TableBody takes no ref). Only the rows move; the headers, outline and
+  // footer stay put. Instant for reduced motion.
+  const pageDirection = useRef<1 | -1 | "rows" | null>(null);
   const changePage = (page: number) => {
     pageDirection.current = page > currentPage ? 1 : -1;
     setCurrentPage(page);
@@ -994,6 +998,41 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     return () => observer.disconnect();
   }, [scrollOnOverflow]);
 
+  // toolbar: the card's head, the toolbar and the column header row, sticks
+  // under the app bar as one unit while the rows scroll (set in review), so
+  // the card keeps its border and rounded top instead of the header row
+  // sticking on its own as a bare slab. The toolbar sticks at the app bar's
+  // offset and the header row right under it, at the toolbar's height:
+  // fixed whole pixels (57px, 49px while stuck), so the two edges meet
+  // exactly at any pixel ratio. headStuck: whether it's stuck now, for the
+  // compressed toolbar and the shadow under the head.
+  const headRef = useRef<HTMLDivElement>(null);
+  const [headStuck, setHeadStuck] = useState(false);
+  const hasToolbar = !!toolbar;
+  useEffect(() => {
+    const head = headRef.current;
+    if (!hasToolbar || !head) return;
+    // Stuck, and compressed, once the rows' box (not sticky) has risen to
+    // where the header row would sit under the compressed toolbar. Until
+    // then the header row sits under the full toolbar, so at the switch
+    // both edges move together and there's never a gap between them.
+    const check = () => {
+      const box = scrollRef.current;
+      if (!box) return;
+      const stuck =
+        box.getBoundingClientRect().top <=
+        DEFAULT_STICKY_TOP_OFFSET_PX + 49 + 0.5;
+      setHeadStuck((prev) => (prev === stuck ? prev : stuck));
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [hasToolbar]);
+
   useLayoutEffect(() => {
     const direction = pageDirection.current;
     pageDirection.current = null;
@@ -1004,14 +1043,22 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     const body =
       wrapperRef.current?.querySelector<HTMLElement>(".rt-TableBody");
     if (!body || typeof body.animate !== "function") return;
+    // A page drifts in 8px from its side; a new rows-per-page, which
+    // returns to the first page, fades in rising 4px (set in review).
     body.animate(
       [
-        { opacity: 0, transform: `translateX(${direction * 8}px)` },
+        {
+          opacity: 0,
+          transform:
+            direction === "rows"
+              ? "translateY(4px)"
+              : `translateX(${direction * 8}px)`,
+        },
         { opacity: 1, transform: "none" },
       ],
       { duration: 260, easing: SORT_EASE_OUT },
     );
-  }, [currentPage, animatePages]);
+  }, [currentPage, rowsPerPage, animatePages]);
 
   return (
     <div
@@ -1020,8 +1067,23 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
         attachedFooter && hasFooter && styles.withFooter,
         toolbar && styles.withToolbar,
       )}
+      data-head-stuck={toolbar && headStuck ? "true" : undefined}
+      data-overflow={tableOverflows ? "true" : undefined}
+      style={
+        toolbar
+          ? ({
+              "--head-top": `${DEFAULT_STICKY_TOP_OFFSET_PX}px`,
+            } as React.CSSProperties)
+          : undefined
+      }
     >
-      {toolbar ? <div className={styles.toolbar}>{toolbar}</div> : null}
+      {toolbar ? (
+        <div ref={headRef} className={styles.head}>
+          <div className={styles.toolbar}>
+            {typeof toolbar === "function" ? toolbar(headStuck) : toolbar}
+          </div>
+        </div>
+      ) : null}
       <div
         ref={scrollRef}
         className={tableOverflows ? styles.scrollX : undefined}
@@ -1143,6 +1205,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 )}
                 value={String(rowsPerPage)}
                 setValue={(v) => {
+                  pageDirection.current = "rows";
                   setRowsPerPage(Number(v));
                   setCurrentPage(1);
                 }}

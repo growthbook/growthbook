@@ -1,3 +1,5 @@
+@import "./hoverOutline";
+
 // The Edit Split % modal (SplitEditModal.tsx; set in review).
 
 // A field the normalisation changed (not one the user typed in): a brief
@@ -22,4 +24,12 @@
   .flash :global(.rt-TextFieldRoot) {
     animation: none;
   }
+}
+
+// The split fields (set in review): the Setup page's field hover, an
+// outline easing to --slate-9, and its focus, a firmer 1px --slate-11
+// outline in place of the violet ring, as the experiments list's search
+// field (see _hoverOutline.scss).
+.fields {
+  @include hover-outline-fields;
 }

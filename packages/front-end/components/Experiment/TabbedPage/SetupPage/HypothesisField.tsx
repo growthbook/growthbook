@@ -115,7 +115,13 @@ export default function HypothesisField({
       ) : null}
       <Box style={{ position: "relative" }}>
         <TextArea
-          className={clsx(styles.textArea, styles.hoverOutline)}
+          // Focused: the list's search field's --slate-11 outline, in
+          // place of the violet ring (set in review).
+          className={clsx(
+            styles.textArea,
+            styles.hoverOutline,
+            styles.focusOutline,
+          )}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="What do you expect to happen, and why?"

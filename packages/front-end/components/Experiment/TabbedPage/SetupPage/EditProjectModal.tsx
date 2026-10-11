@@ -54,6 +54,9 @@ export default function EditProjectModal({
       open
       close={close}
       header="Edit Project"
+      // The Create Experiment modal's header, footer, 32px sides and soft
+      // fade in and out (set in review).
+      redesigned
       cta="Apply"
       ctaEnabled={project !== startProject}
       trackingEventModalType="edit-experiment-project"

@@ -37,6 +37,9 @@ export default function EditTagsModal({
       open
       close={close}
       header="Edit Tags"
+      // The Create Experiment modal's header, footer, 32px sides and soft
+      // fade in and out (set in review).
+      redesigned
       cta="Apply"
       ctaEnabled={changed}
       trackingEventModalType="edit-experiment-tags"

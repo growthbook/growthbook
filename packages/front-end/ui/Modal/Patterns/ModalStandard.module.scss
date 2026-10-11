@@ -1,0 +1,5 @@
+// redesigned (ModalStandard): the Cancel button's label at 400, as the
+// Create Experiment modal's (set in review), in place of @/ui/Button's 500.
+.ghostButton :global(.rt-Text) {
+  font-weight: var(--font-weight-regular);
+}

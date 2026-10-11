@@ -189,8 +189,8 @@ $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
-// Outline (secondary) and ghost buttons: the primary buttons' press, on its
-// own (set in review): settles to 98% over 80ms, eases back over 200ms. No
+// Outline (secondary), ghost and soft buttons: the primary buttons' press,
+// on its own (set in review; soft, e.g. Start before setup's done, later): settles to 98% over 80ms, eases back over 200ms. No
 // lift, shadow or bubbles. The outline and background transitions some of
 // these buttons already set (e.g. the redesigned header's .outlineButton,
 // 150ms) are repeated here, so this rule, which outranks them, doesn't drop

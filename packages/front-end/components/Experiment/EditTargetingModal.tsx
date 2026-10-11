@@ -163,6 +163,8 @@ export default function EditTargetingModal({
         open={true}
         close={close}
         header="Edit Targeting"
+        // The Create Experiment modal's header and footer (set in review).
+        redesigned
         cta={draft ? "Apply" : undefined}
         // Apply only once something differs from where the modal started.
         ctaEnabled={
@@ -181,7 +183,10 @@ export default function EditTargetingModal({
         }}
         size="lg"
       >
-        <div className="pt-2">
+        {/* No extra space above: the redesigned body's 28px is the gap
+          under the header's divider, as in the Create Experiment modal (set
+          in review; this added 8px). */}
+        <div>
           {experiment.hashVersion === 1 && (
             <SDKCapabilityWarning
               capability="bucketingV2"

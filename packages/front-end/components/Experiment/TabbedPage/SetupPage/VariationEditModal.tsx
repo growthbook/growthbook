@@ -6,7 +6,8 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Modal from "@/ui/Modal";
+import Modal, { useModalContext } from "@/ui/Modal";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import ModalForm from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -111,6 +112,10 @@ export default function VariationEditModal({
     prevCount.current = screenshots.length;
   }, [screenshots.length]);
 
+  // Modal.Root's close, which plays the fade-out first, for the form's
+  // submit and Delete (defined out here, outside the modal's context).
+  const requestCloseRef = useRef<(() => void) | null>(null);
+
   return (
     <Modal.Root
       open
@@ -119,9 +124,17 @@ export default function VariationEditModal({
       }}
       // Large (800px), set in review.
       size="lg"
-      hasDescription
+      // No description: which variation it is shows as its dot in the Name
+      // field.
+      hasDescription={false}
       trackingEventModalType=""
+      // The Create Experiment modal's chrome (set in review): lighter
+      // dividers, 32px sides, and the soft fade in and out.
+      dividerColor="var(--gray-a5)"
+      paddingX="var(--space-6)"
+      fadeIn
     >
+      <RequestCloseBridge requestCloseRef={requestCloseRef} />
       <ModalForm
         onSubmit={async () => {
           // An empty name shows on the field itself (TextField's error
@@ -131,31 +144,48 @@ export default function VariationEditModal({
             return;
           }
           onApply({ name: name.trim(), description });
-          close();
+          // Through Modal.Root, so the fade-out plays first.
+          (requestCloseRef.current ?? close)();
         }}
       >
-        <Modal.Header>
-          <Modal.Title>Edit Variation</Modal.Title>
+        {/* As the Create Experiment modal's header (set in review): a
+          divider under it, the title as a page heading, and a close button
+          at its right, with no height of its own, so the trimmed title sets
+          the header's height. Which variation it is shows as its dot in the
+          Name field (set in review; it was in the header, and before that a
+          description). FALLBACK: Radix IconButton; @/ui/ has no icon
+          button. */}
+        <Modal.Header divider>
+          <Modal.Title pageHeading>Edit Variation</Modal.Title>
+          <Flex align="center" style={{ height: 0, marginLeft: "auto" }}>
+            <Modal.Close>
+              <IconButton
+                type="button"
+                variant="ghost"
+                color="gray"
+                size="1"
+                aria-label="Close"
+              >
+                <PiXBold size={16} style={{ color: "var(--slate-10)" }} />
+              </IconButton>
+            </Modal.Close>
+          </Flex>
         </Modal.Header>
-        {/* Which variation: its dot and index, as on its card. */}
-        <Modal.Description>
-          <span className={styles.which}>
-            <ValueDot index={index} />
-            {`Variation ${index}`}
-          </span>
-        </Modal.Description>
-        {/* The body runs right up to the footer, so content scrolls on
-          beneath it with no gap above it (as the JSON value modal; set in
-          review): flushBottom here, flushTop on the footer, and the
-          breathing room at the end of the content instead. */}
-        <Modal.Body flushBottom>
+        {/* The body scrolls right up to the header's and footer's dividers
+          (scrollToEdges, as the Create Experiment modal; set in review),
+          with 28px above the content and 40px below it, inside the
+          scroll. */}
+        <Modal.Body scrollToEdges>
           <Flex direction="column" gap="5">
             <Box>
               <FieldLabel>Name</FieldLabel>
               {/* The Setup page's field hover: the outline to --slate-9
                 (.hoverFields; set in review). */}
               <TextField
-                containerClassName={styles.hoverFields}
+                containerClassName={clsx(styles.hoverFields, styles.nameField)}
+                // The variation's dot at the field's left, as on its card (set
+                // in review): which variation this is. Just a marker.
+                prepend={<ValueDot index={index} />}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -172,9 +202,12 @@ export default function VariationEditModal({
                 shared ones): 12px padding all round, a --slate-9
                 placeholder, and the hover outline (set in review). */}
               <TextArea
+                // Focused, the hover's --slate-9 outline and no violet ring
+                // (set in review), as the rail's comment box.
                 className={clsx(
                   commentStyles.textArea,
                   commentStyles.hoverOutline,
+                  commentStyles.focusAsHover,
                 )}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -277,9 +310,6 @@ export default function VariationEditModal({
               )}
             </Box>
           </Flex>
-          {/* 48px after the content, so scrolled to the end the last row
-            stops well short of the footer (set in review). */}
-          <Box style={{ height: 48 }} aria-hidden />
         </Modal.Body>
         <Modal.Footer justify="between" flushTop>
           <Tooltip
@@ -293,7 +323,8 @@ export default function VariationEditModal({
                 disabled={!canDelete}
                 onClick={() => {
                   onDelete();
-                  close();
+                  // Through Modal.Root, so the fade-out plays first.
+                  (requestCloseRef.current ?? close)();
                 }}
               >
                 Delete Variation
@@ -301,13 +332,43 @@ export default function VariationEditModal({
             </span>
           </Tooltip>
           <Flex gap="3">
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
+            {/* As the Create Experiment modal's Cancel (set in review):
+              grey, --slate-12 text at 400, 6px corners on its hover fill.
+              It closes through Modal.Close, so the fade-out plays;
+              @/ui/Button's default preventDefault would cancel that
+              click. */}
+            <Modal.Close>
+              <Button
+                variant="ghost"
+                color="gray"
+                preventDefault={false}
+                className={modalStandardStyles.ghostButton}
+                style={{
+                  borderRadius: "var(--radius-3)",
+                  color: "var(--slate-12)",
+                }}
+              >
+                Cancel
+              </Button>
+            </Modal.Close>
             <ApplyButton />
           </Flex>
         </Modal.Footer>
       </ModalForm>
     </Modal.Root>
   );
+}
+
+// Hands Modal.Root's close (which fades out first) to the code around the
+// modal, which sits outside its context.
+function RequestCloseBridge({
+  requestCloseRef,
+}: {
+  requestCloseRef: React.MutableRefObject<(() => void) | null>;
+}) {
+  const { requestClose } = useModalContext();
+  useEffect(() => {
+    requestCloseRef.current = requestClose;
+  }, [requestClose, requestCloseRef]);
+  return null;
 }
