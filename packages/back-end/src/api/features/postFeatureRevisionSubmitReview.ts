@@ -1,4 +1,9 @@
-import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
+import {
+  EventUser,
+  eventUserIdentity,
+  FeatureRevisionInterface,
+  postFeatureRevisionSubmitReviewValidator,
+} from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
@@ -6,12 +11,12 @@ import {
   getFeatureReviewFootprint,
   toApiRevision,
 } from "back-end/src/services/features";
-import type { ApiRequestLocals } from "back-end/types/api";
+import type { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { isOwnFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
+import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -24,6 +29,35 @@ export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   "request-changes": "Requested Changes",
   comment: "Comment",
 };
+
+// Log entries a reviewer writes without working on the draft.
+const REVIEW_LOG_ACTIONS = new Set([
+  "Comment",
+  "Approved",
+  "Requested Changes",
+  "Undo Review",
+]);
+
+// Who may not rule on a feature draft: its creator, and an org key acting as
+// itself on a draft the key created or edited in either mode.
+async function isOwnFeatureDraft(
+  context: ApiReqContext,
+  draft: Pick<FeatureRevisionInterface, "createdBy" | "featureId" | "version">,
+): Promise<boolean> {
+  const creatorId = eventUserIdentity(draft.createdBy) ?? "";
+  if (mayBeRevisionAuthor(creatorId, context.actorId)) return true;
+  const key = context.keyActingAsItself;
+  if (!key) return false;
+  const byKey = (user: EventUser | undefined) =>
+    user?.type === "api_key" && user.apiKey === key;
+  if (byKey(draft.createdBy)) return true;
+  const log =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: draft.featureId,
+      version: draft.version,
+    });
+  return log.some((e) => !REVIEW_LOG_ACTIONS.has(e.action) && byKey(e.user));
+}
 
 export async function submitRevisionReview(
   req: Pick<ApiRequestLocals, "context" | "organization"> & {
