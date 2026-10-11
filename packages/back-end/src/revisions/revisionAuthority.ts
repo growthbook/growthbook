@@ -14,6 +14,7 @@ import {
   canRevisionOwnedAction,
 } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // Identityless API keys cannot claim authorship of authorless revisions.
 export function isRevisionAuthor(
@@ -128,6 +129,12 @@ export function reviewAuthorityOnRow(context: Context): CasAuthority<Revision> {
     check: (existing) => {
       if (!canRevisionOwnedAction(context, existing, "review")) {
         context.permissions.throwPermissionError();
+      }
+      // On the row: a key's edit can land between the caller's read and here.
+      if (isOwnRevision(context, existing)) {
+        throw new BadRequestError(
+          "Cannot submit a review on a draft you created",
+        );
       }
     },
   };

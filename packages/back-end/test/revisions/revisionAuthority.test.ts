@@ -8,6 +8,7 @@ import {
   isOwnRevision,
   isRevisionAuthor,
   mayBeRevisionAuthor,
+  reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 import {
   assertCanPublishRevision,
@@ -508,6 +509,38 @@ describe("isOwnRevision", () => {
     ],
   ])("%s", (_label, context, rev, expected) => {
     expect(isOwnRevision(context, rev)).toBe(expected);
+  });
+});
+
+describe("reviewAuthorityOnRow", () => {
+  // The caller's own-work check reads before it writes; a key's edit can land
+  // in between, so the write asks again of the row it lands on.
+  it("refuses a key whose edit reached the row it reviews", () => {
+    const context = {
+      ...makeContext({ granted: ["review"], userId: "" }),
+      actorId: "key_1",
+      keyActingAsItself: "key_1",
+    } as unknown as Context;
+    const edited = makeRevision({
+      activityLog: [
+        {
+          action: "updated",
+          userId: "u_dana",
+          user: {
+            type: "api_key",
+            apiKey: "key_1",
+            requestedBy: { id: "u_dana", name: "", email: "" },
+            assumedRole: true,
+          },
+        },
+      ],
+    });
+    expect(() => reviewAuthorityOnRow(context).check(edited)).toThrow(
+      "Cannot submit a review on a draft you created",
+    );
+    expect(() =>
+      reviewAuthorityOnRow(context).check(makeRevision()),
+    ).not.toThrow();
   });
 });
 

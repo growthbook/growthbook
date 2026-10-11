@@ -583,15 +583,15 @@ function ReviewAndPublishRevision<T>({
   // latest "review-requested" activity entry (the dedicated submit-for-review
   // action); older revisions predating that action fall back to the legacy
   // "reopened" stopgap, then to the author, and named from the stored actor. ──
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  const reviewRequest = useMemo(() => {
     const sorted = [...revision.activityLog].sort(
       (a, b) =>
         new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
     );
-    const requested = sorted.find((e) => e.action === "review-requested");
-    if (requested) return requested.userId;
-    const reopened = sorted.find((e) => e.action === "reopened");
-    return reopened?.userId;
+    return (
+      sorted.find((e) => e.action === "review-requested") ??
+      sorted.find((e) => e.action === "reopened")
+    );
   }, [revision.activityLog]);
   const reviewRequested =
     requiresApproval &&
@@ -600,7 +600,8 @@ function ReviewAndPublishRevision<T>({
       revision.status === "changes-requested");
   const reviewRequesterName = reviewRequested
     ? eventUserLabel(
-        revisionActor(revision, reviewRequesterId ?? revision.authorId),
+        reviewRequest?.user ??
+          revisionActor(revision, reviewRequest?.userId ?? revision.authorId),
         { nameFor },
       )
     : "";
@@ -1175,8 +1176,8 @@ function ReviewAndPublishRevision<T>({
             Reviewers
           </Text>
           <Flex direction="column" gap="2">
-            {reviewers.map(({ id, status, timestamp, stale }) => {
-              const reviewer = revisionActor(revision, id);
+            {reviewers.map(({ id, status, timestamp, stale, user }) => {
+              const reviewer = user ?? revisionActor(revision, id);
               return (
                 <PersonRow
                   key={id}

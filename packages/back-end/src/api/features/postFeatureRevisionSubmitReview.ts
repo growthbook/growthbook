@@ -30,12 +30,21 @@ export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   comment: "Comment",
 };
 
-// Log entries a reviewer writes without working on the draft.
-const REVIEW_LOG_ACTIONS = new Set([
+// Log entries that don't change a draft's content. Anything else, including
+// actions added later, counts as working on it.
+const NON_EDIT_LOG_ACTIONS = new Set([
   "Comment",
+  "edit comment",
+  "edit title",
   "Approved",
   "Requested Changes",
   "Undo Review",
+  "Review Requested",
+  "Recall Review",
+  "schedule publish",
+  "cancel scheduled publish",
+  "discard",
+  "reopen",
 ]);
 
 // Who may not rule on a feature draft: its creator, and an org key acting as
@@ -56,7 +65,7 @@ async function isOwnFeatureDraft(
       featureId: draft.featureId,
       version: draft.version,
     });
-  return log.some((e) => !REVIEW_LOG_ACTIONS.has(e.action) && byKey(e.user));
+  return log.some((e) => !NON_EDIT_LOG_ACTIONS.has(e.action) && byKey(e.user));
 }
 
 export async function submitRevisionReview(

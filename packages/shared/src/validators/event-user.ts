@@ -163,9 +163,10 @@ export function assumingKeyOf(user: EventUser | undefined): string | null {
     : null;
 }
 
-// The stored actor behind an identity on a revision: its creator, publisher, a
-// verdict or an activity entry. Falls back to a member reference for entries
-// that predate stored actors.
+// The stored actor behind an identity on a revision, for where no single
+// action is in question: its creator, its earliest activity, a review, then
+// the publisher. Falls back to a member reference for entries that predate
+// stored actors. Callers showing one action use that action's own actor.
 export function revisionActor(
   revision: {
     createdBy?: EventUser;
@@ -177,9 +178,9 @@ export function revisionActor(
 ): EventUser {
   const actors = [
     revision.createdBy,
-    revision.publishedBy,
-    ...(revision.reviews ?? []).map((r) => r.user),
     ...(revision.activityLog ?? []).map((e) => e.user),
+    ...(revision.reviews ?? []).map((r) => r.user),
+    revision.publishedBy,
   ];
   return (
     actors.find((actor) => !!actor && eventUserIdentity(actor) === id) ?? {

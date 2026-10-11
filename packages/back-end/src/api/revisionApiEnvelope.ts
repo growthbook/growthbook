@@ -49,6 +49,18 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
   }));
 }
 
+// Who resolved the revision: the actor on the entry that merged or discarded
+// it, which may differ from how the same person acted earlier.
+function resolutionActor(revision: Revision) {
+  const resolution = revision.resolution;
+  const entry = [...revision.activityLog]
+    .reverse()
+    .find(
+      (e) => e.action === resolution?.action && e.userId === resolution.userId,
+    );
+  return entry?.user ?? revisionActor(revision, resolution?.userId ?? "");
+}
+
 export function revisionEnvelopeToApi(revision: Revision) {
   return {
     id: revision.id,
@@ -74,9 +86,7 @@ export function revisionEnvelopeToApi(revision: Revision) {
             action: revision.resolution.action,
             userId: revision.resolution.userId,
             ...(revision.resolution.userId && {
-              user: eventUserToApiEventUser(
-                revisionActor(revision, revision.resolution.userId),
-              ),
+              user: eventUserToApiEventUser(resolutionActor(revision)),
             }),
             dateCreated: toIsoString(revision.resolution.dateCreated),
           },

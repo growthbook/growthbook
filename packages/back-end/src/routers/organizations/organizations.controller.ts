@@ -69,7 +69,6 @@ import {
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { BadRequestError } from "back-end/src/util/errors";
-import { SECRET_API_KEY_ID } from "back-end/src/util/api-key.util";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -1864,30 +1863,21 @@ export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
 // The current role of each key that approved as itself, so the review panel
 // judges a key's approval the way publishing does. Members' roles are already
 // on the client.
-// The roles of org keys that approved, for keys the caller can read.
+// The roles of org keys that approved, for the review panel. Like members'
+// roles, they're visible to every member.
 export async function getApproverKeyRoles(
   req: AuthRequest<null, null, { ids?: unknown }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const requested = z
+  const ids = z
     .string()
     .catch("")
     .parse(req.query.ids)
     .split(",")
     .filter((id) => id && !context.org.members.some((m) => m.id === id))
     .slice(0, 100);
-  const readable = await Promise.all(
-    requested.map(async (id) =>
-      id === SECRET_API_KEY_ID || (await context.models.apiKeys.getById(id))
-        ? id
-        : null,
-    ),
-  );
-  const roles = await getApproverRoles(
-    context,
-    readable.filter((id): id is string => id !== null),
-  );
+  const roles = await getApproverRoles(context, ids);
   res.status(200).json({ status: 200, roles: Object.fromEntries(roles) });
 }
 

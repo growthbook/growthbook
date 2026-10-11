@@ -411,10 +411,10 @@ export default function ReviewAndPublish({
     return finish(Array.from(byUser, ([id, v]) => ({ id, ...v })));
   }, [logData, revision]);
 
-  // User ID of whoever most recently submitted a "Review Requested" entry.
-  // Drives the header attribution and (together with author/contributor
-  // status) gates "Return to draft".
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  // Whoever most recently submitted a "Review Requested" entry. Drives the
+  // header attribution and (together with author/contributor status) gates
+  // "Return to draft".
+  const reviewRequest = useMemo(() => {
     const log = logData?.log;
     if (!log) return undefined;
     const sorted = [...log].sort((a, b) =>
@@ -425,10 +425,11 @@ export default function ReviewAndPublish({
     for (const entry of sorted) {
       if (entry.action !== "Review Requested") continue;
       const uid = eventUserIdentity(entry.user ?? null);
-      if (uid) return uid;
+      if (uid && entry.user) return { id: uid, user: entry.user };
     }
     return undefined;
   }, [logData]);
+  const reviewRequesterId = reviewRequest?.id;
   // --- Read-only review (selected version is not an active draft) ----------
   const [revertOpen, setRevertOpen] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -1624,8 +1625,8 @@ export default function ReviewAndPublish({
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale }) => {
-                  const reviewer = actorFor(id);
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}
@@ -2489,7 +2490,12 @@ export default function ReviewAndPublish({
   // requester is often a different person than the author.
   const requesterId = reviewRequesterId || draftAuthorId || undefined;
   const requesterName = requesterId
-    ? eventUserLabel(actorFor(requesterId), { nameFor })
+    ? eventUserLabel(
+        reviewRequest && reviewRequest.id === requesterId
+          ? reviewRequest.user
+          : actorFor(requesterId),
+        { nameFor },
+      )
     : "";
   const headerTitle =
     revision.title?.trim() ||
@@ -2693,8 +2699,8 @@ export default function ReviewAndPublish({
                   </Text>
                 )}
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale }) => {
-                  const reviewer = actorFor(id);
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}

@@ -898,6 +898,29 @@ describe("attribution across callers", () => {
       });
     });
 
+    it("can still rule on a flag draft it only asked to be reviewed", async () => {
+      await as("a personal token").post("/api/v2/features", {
+        id: "checkout-flow",
+        valueType: "boolean",
+        defaultValue: "false",
+      });
+      const draft = await as("a personal token").put(
+        "/api/v2/features/checkout-flow/revisions/new/metadata",
+        { description: "Updated" },
+      );
+      const path = `/api/v2/features/checkout-flow/revisions/${draft.body.revision.version}`;
+      const key = as("a key naming no one");
+      expect((await key.post(`${path}/request-review`)).status).toBe(200);
+      expect(
+        (
+          await key.post(`${path}/submit-review`, {
+            action: "approve",
+            skipAutoPublish: true,
+          })
+        ).status,
+      ).toBe(200);
+    });
+
     it("records a key that names a member as itself as the reviewer", async () => {
       const { path, revisionId } = await draftSavedGroup();
       const res = await as("a key naming the member as itself", bob).post(
@@ -1166,6 +1189,29 @@ describe("attribution across callers", () => {
         expect(appended.status).toBe(200);
       },
     );
+
+    it("credits a publish to the request that made it, not an earlier one by the same person", async () => {
+      await as("a personal token").post("/api/v1/constants", {
+        key: "timeout",
+        name: "Timeout",
+        type: "json",
+        value: '{"t":1}',
+      });
+      const draft = await as("a personal token").put(
+        "/api/v1/constants-revisions/timeout/new/value",
+        { value: '{"t":2}' },
+      );
+      const path = `/api/v1/constants-revisions/timeout/${draft.body.revision.version}`;
+      expect(
+        (await as("a key naming the member").post(`${path}/publish`)).status,
+      ).toBe(200);
+      const res = await as("a personal token").get(path);
+      expect(res.body.revision.resolution.user).toMatchObject({
+        apiKey: KEY.id,
+        requestedBy: { id: dana.id },
+        assumedRole: true,
+      });
+    });
 
     it("records a key acting as itself as the publisher of a bulk publish", async () => {
       const key = as("a key naming no one");
