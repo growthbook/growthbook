@@ -1,6 +1,7 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import { quoteIdentifier } from "shared/sql";
 import {
   DEFAULT_GUARDRAIL_ALPHA,
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -596,13 +597,30 @@ export function sqlReferencesColumn(
   return found;
 }
 
+// Names no warehouse accepts unquoted: a leading digit, or any character
+// besides letters, digits, `_`, `$` and `.`. Everything else stays bare, since
+// quoting makes a name case-sensitive in Postgres, Snowflake and Redshift and
+// would change SQL that works today. `.` stays bare for struct field access.
+const NEEDS_QUOTING = /^\p{N}|[^\p{L}\p{N}_$.]/u;
+
+function quoteColumnIfNeeded(
+  column: string,
+  identifierQuote: SqlIdentifierQuote,
+): string {
+  return NEEDS_QUOTING.test(column)
+    ? quoteIdentifier(column, identifierQuote)
+    : column;
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
   // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
-  alias: string = "",
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  alias: string,
+  // Required: `"` is a string literal on BigQuery, MySQL and Databricks, so a
+  // wrong default would turn a syntax error into a silently wrong comparison
+  identifierQuote: SqlIdentifierQuote,
 ): string {
   // Virtual (computed) columns inline their stored SQL expression wherever they
   // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
@@ -629,15 +647,17 @@ export function getColumnExpression(
       const field = col.jsonFields?.[path];
       const isNumeric = field?.datatype === "number";
 
+      const jsonCol = quoteColumnIfNeeded(parts[0], identifierQuote);
       return jsonExtract(
-        alias ? `${alias}.${parts[0]}` : parts[0],
+        alias ? `${alias}.${jsonCol}` : jsonCol,
         path,
         isNumeric,
       );
     }
   }
 
-  return alias ? `${alias}.${column}` : column;
+  const name = quoteColumnIfNeeded(column, identifierQuote);
+  return alias ? `${alias}.${name}` : name;
 }
 
 export function getColumnRefWhereClause({
@@ -650,7 +670,7 @@ export function getColumnRefWhereClause({
   castToTimestamp,
   showSourceComment = false,
   sliceInfo,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  identifierQuote,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -661,7 +681,7 @@ export function getColumnRefWhereClause({
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
-  identifierQuote?: SqlIdentifierQuote;
+  identifierQuote: SqlIdentifierQuote;
 }): string[] {
   const where = new Set<string>();
 
@@ -855,7 +875,7 @@ export function getRowFilterSQL({
   evalBoolean,
   castToTimestamp,
   showSourceComment = false,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  identifierQuote,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -869,7 +889,7 @@ export function getRowFilterSQL({
   // than lexicographic.
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
-  identifierQuote?: SqlIdentifierQuote;
+  identifierQuote: SqlIdentifierQuote;
 }): string | null {
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
