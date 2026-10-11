@@ -7,7 +7,7 @@ import {
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { revisionActor } from "shared/validators";
+import { revisionActor, revisionActors } from "shared/validators";
 import {
   assumesRequesterRole,
   requesterHeaderPolicy,
@@ -237,15 +237,9 @@ export function armerActor(
 ): EventUser {
   if (!isArmingApiKeyId(armerId)) return revisionActor(revision, armerId);
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armerId);
-  const actors = [
-    revision.createdBy,
-    revision.publishedBy,
-    ...(revision.reviews ?? []).map((r) => r.user),
-    ...(revision.activityLog ?? []).map((e) => e.user),
-  ];
-  const found = actors.find(
+  const found = revisionActors(revision).find(
     (a) =>
-      a?.type === "api_key" &&
+      a.type === "api_key" &&
       a.apiKey === apiKeyId &&
       (requesterId
         ? !!a.assumedRole && a.requestedBy?.id === requesterId

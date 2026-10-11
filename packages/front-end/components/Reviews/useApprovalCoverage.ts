@@ -89,9 +89,8 @@ export function useApprovalCoverage({
   const { users, teams, organization } = useUser();
   const { getProjectById } = useDefinitions();
 
-  // Keys' roles come from the server, both for a key that approved as itself
-  // and behind an approval given while assuming a member, so the panel judges
-  // them the way publishing does.
+  // Keys' roles come from the server, so the panel judges key approvals the
+  // way publishing does.
   const approvals = useMemo(
     () =>
       reviewers

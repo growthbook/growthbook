@@ -1,4 +1,4 @@
-import { eventUserPerson } from "shared/validators";
+import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
 import { FaRobot } from "react-icons/fa";
@@ -107,8 +107,7 @@ export default function EventUser({
   // asked; a key that assumed a member's role shows as that member.
   const person = eventUserPerson(user);
   const keyActed = user.type === "api_key" && !person;
-  const keyName =
-    user.type === "api_key" && !user.id ? (user.name || "").trim() : "";
+  const keyName = eventUserKeyName(user);
   const requester = user.type === "api_key" ? user.requestedBy : undefined;
   const requesterName = requester
     ? (requester.id && users.get(requester.id)?.name) ||

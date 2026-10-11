@@ -49,8 +49,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
   }));
 }
 
-// Who resolved the revision: the actor on the entry that merged or discarded
-// it, which may differ from how the same person acted earlier.
+// Who resolved the revision: the actor on the entry that merged or discarded it.
 function resolutionActor(revision: Revision) {
   const resolution = revision.resolution;
   const entry = [...revision.activityLog]

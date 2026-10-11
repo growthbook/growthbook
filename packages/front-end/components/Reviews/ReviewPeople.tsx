@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiHourglassHighFill } from "react-icons/pi";
-import { eventUserPerson } from "shared/validators";
+import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
 import { useUser } from "@/services/UserContext";
@@ -29,7 +29,7 @@ export function PersonRow({
   // Whoever acted is the top line; the key, or the member a key named, goes
   // below it.
   const person = eventUserPerson(user);
-  const keyName = user?.type === "api_key" && !user.id ? user.name || "" : "";
+  const keyName = eventUserKeyName(user);
   const requester = user?.type === "api_key" ? user.requestedBy : undefined;
   const latest = person?.id ? users.get(person.id) : undefined;
   // Treat a blank/whitespace-only name as absent so the top line never renders

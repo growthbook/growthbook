@@ -156,6 +156,12 @@ export function eventUserIdentity(user: EventUser): string | null {
   return null;
 }
 
+// The name of the org key an event user came through; empty for a personal
+// access token, which acts as its user.
+export function eventUserKeyName(user: EventUser | undefined): string {
+  return user?.type === "api_key" && !user.id ? (user.name || "").trim() : "";
+}
+
 // The org key an event user came through while assuming a member's role.
 export function assumingKeyOf(user: EventUser | undefined): string | null {
   return user?.type === "api_key" && user.assumedRole && user.requestedBy
@@ -163,27 +169,34 @@ export function assumingKeyOf(user: EventUser | undefined): string | null {
     : null;
 }
 
-// The stored actor behind an identity on a revision, for where no single
-// action is in question: its creator, its earliest activity, a review, then
-// the publisher. Falls back to a member reference for entries that predate
-// stored actors. Callers showing one action use that action's own actor.
-export function revisionActor(
-  revision: {
-    createdBy?: EventUser;
-    publishedBy?: EventUser;
-    reviews?: { user?: EventUser }[];
-    activityLog?: { user?: EventUser }[];
-  },
-  id: string,
-): EventUser {
-  const actors = [
+type ActorSources = {
+  createdBy?: EventUser;
+  publishedBy?: EventUser;
+  reviews?: { user?: EventUser }[];
+  activityLog?: { user?: EventUser }[];
+};
+
+// A revision's stored actors: its creator, its activity in order, its
+// reviews, then its publisher.
+export function revisionActors(
+  revision: ActorSources,
+): NonNullable<EventUser>[] {
+  return [
     revision.createdBy,
     ...(revision.activityLog ?? []).map((e) => e.user),
     ...(revision.reviews ?? []).map((r) => r.user),
     revision.publishedBy,
-  ];
+  ].filter((actor): actor is NonNullable<EventUser> => !!actor);
+}
+
+// The stored actor behind an identity on a revision, falling back to a member
+// reference for entries that predate stored actors. To show one action, use
+// that action's own actor.
+export function revisionActor(revision: ActorSources, id: string): EventUser {
   return (
-    actors.find((actor) => !!actor && eventUserIdentity(actor) === id) ?? {
+    revisionActors(revision).find(
+      (actor) => eventUserIdentity(actor) === id,
+    ) ?? {
       type: "dashboard",
       id,
       name: "",
@@ -217,7 +230,7 @@ export function eventUserLabel(
       ? `${name} (${person.email})`
       : name || person?.email || person?.id || "";
   if (user.type === "dashboard") return personText;
-  const keyName = user.id ? "" : user.name || "";
+  const keyName = eventUserKeyName(user);
   if (user.requestedBy) {
     return user.assumedRole
       ? `${personText} via ${keyName || "API key"}`

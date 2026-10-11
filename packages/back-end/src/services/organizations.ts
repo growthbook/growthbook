@@ -1955,8 +1955,7 @@ export async function getContextForApiKeyIdInOrg(
   });
 }
 
-// An org API key by id, including the self-hosted env-var key, which has no
-// document; the middleware synthesizes one.
+// An org API key by id, including the self-hosted env-var key.
 export async function getOrgApiKey(
   org: OrganizationInterface,
   apiKeyId: string,

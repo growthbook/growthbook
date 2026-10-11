@@ -133,9 +133,11 @@ export {
   eventUserPerson,
   eventUserPersonId,
   eventUserIdentity,
+  eventUserKeyName,
   eventUserCredit,
   eventUserToApiEventUser,
   revisionActor,
+  revisionActors,
 } from "./event-user";
 export type {
   ApiEventUser,
