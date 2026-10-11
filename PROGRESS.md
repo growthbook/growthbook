@@ -172,12 +172,16 @@ motion, and neutral styling.
 - **The search icon is `--slate-9`.** `--slate-8` was rejected: below 3:1.
 - **Header button labels are 400; primary (solid and soft) buttons stay
   500** (`ExperimentHeader.module.scss` `.headerActions`).
-- **Table controls: a joined outline button group at 40px** (2026-10-10;
-  trying the `lg` size; tried 24px and 32px). Density and column settings
-  are standard outline icon buttons (Radix `IconButton` with the header's
-  `.outlineButton`, since `@/ui/` has no icon button or button group), with
-  regular-weight 18px icons and a tooltip on each, joined with only the
-  outer corners rounded (6px) and a shared 1px divider.
+- **Table controls: two separate ghost icon buttons at 32px** (2026-10-10;
+  tried a joined outline group, and 24px and 40px). Density and column
+  settings are Radix `IconButton`s (`@/ui/` has no icon button), `md`, no
+  gap, 6px corners, with regular-weight 16px icons (8px padding; 20px read
+  heavy beside Add Filter's 14px funnel) and a tooltip on each.
+- **Toolbar inside the table's outline** (2026-10-10). Search, filters and
+  table controls are the table's top section (`ExperimentsListTable`'s
+  `toolbar`), with a `--gray-a4` divider above the column headers, so the
+  table and its controls read as one container. Tab and search changes
+  animate only the rows. Table side insets are 16px.
 - **One prototype, one branch.** The experiments list work and the
   experiment details work both live on
   `prototype/experiment-page-redesign-main`. There's no separate branch for

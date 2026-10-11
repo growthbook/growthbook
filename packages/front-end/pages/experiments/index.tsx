@@ -307,6 +307,165 @@ const ExperimentsPage = (): React.ReactElement => {
     </>
   );
 
+  // The table's toolbar (set in review): search, then the filters flowing
+  // right from it, 12px after, and the table controls at the row's right
+  // end. Drawn inside the table's outline, as its top section
+  // (ExperimentsListTable's toolbar), so the table and its controls read as
+  // one container rather than floating apart.
+  const tableToolbar = (
+    <Flex gap="3" align="center" wrap="wrap">
+      <Box flexBasis="300px" flexShrink="0">
+        {/* @/ui/TextField, as the experiment details page's
+          fields (set in review; was the legacy Field), with a
+          search icon before the placeholder. */}
+        <TextField
+          placeholder="Search"
+          type="search"
+          prepend={
+            <PiMagnifyingGlassBold
+              size={14}
+              // --slate-9 (set in review; tried --slate-10,
+              // and --slate-8, which was below 3:1): 3.3:1 on
+              // white, 3.43:1 in dark mode, above the 3:1 WCAG
+              // asks of icons.
+              style={{ color: "var(--slate-9)" }}
+            />
+          }
+          value={searchDraft}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          onBlur={applySearch}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") applySearch();
+          }}
+          ref={searchFieldRef}
+          // A clear button while there's a search (set in
+          // review): empties it and returns the cursor to the
+          // field. FALLBACK: Radix IconButton; @/ui/ has no
+          // icon button.
+          append={
+            searchDraft ? (
+              <IconButton
+                variant="ghost"
+                color="gray"
+                size="1"
+                radius="full"
+                aria-label="Clear search"
+                onClick={() => {
+                  setSearchDraft("");
+                  // Clears the text only; the filters stay.
+                  setSearchValue(withFilters(""));
+                  searchFieldRef.current?.focus();
+                }}
+              >
+                <PiXBold
+                  size={12}
+                  // --slate-11 (set in review; tried --slate-9
+                  // and --slate-12).
+                  style={{ color: "var(--slate-11)" }}
+                />
+              </IconButton>
+            ) : undefined
+          }
+        />
+      </Box>
+      <ExperimentSearchFilters
+        searchInputProps={searchInputProps}
+        syntaxFilters={syntaxFilters}
+        setSearchValue={setSearchValue}
+        experiments={allExperiments}
+        includeTempRollouts
+        // Status and Health always; the rest via "Add
+        // Filter" (set in review).
+        defaultFilters={["status", "health"]}
+        chips
+      />
+      {/* Table controls, at the row's right end (set in
+        review): row density, then column settings, as two separate
+        ghost icon buttons, side by side with no gap (tried 4px and 8px;
+        were a joined outline group).
+        FALLBACK: Radix IconButton; @/ui/ has no icon button. */}
+      <Flex
+        ml="auto"
+        align="center"
+        className="experiments-table-controls"
+        role="group"
+        aria-label="Table display"
+      >
+        {/* Each side's tooltip (set in review): @/ui/Tooltip,
+          after the same brief pause as Import's. */}
+        <UiTooltip
+          content={compactRows ? "Comfortable rows" : "Compact rows"}
+          delayDuration={400}
+        >
+          <IconButton
+            variant="ghost"
+            color="gray"
+            size="2"
+            aria-pressed={compactRows}
+            aria-label="Compact rows"
+            onClick={() => setCompactRows(!compactRows)}
+          >
+            {compactRows ? (
+              <PiArrowsOutLineVertical size={16} />
+            ) : (
+              <PiArrowsInLineVertical size={16} />
+            )}
+          </IconButton>
+        </UiTooltip>
+        {/* On a wrapper: the button is the column settings
+          popover's own trigger. */}
+        <UiTooltip content="Show/Hide Columns" delayDuration={400}>
+          <span style={{ display: "inline-flex" }}>
+            <ColumnSettingsButton
+              columns={listColumns.columns
+                // Experiment can't be hidden or moved.
+                .filter((c) => !c.locked)
+                .map((c) => ({
+                  id: c.id,
+                  label: c.label,
+                  visible: c.visible,
+                  alwaysVisible: c.hideable === false,
+                }))}
+              hiddenCount={listColumns.hiddenCount}
+              canReset={listColumns.isCustomized}
+              onReset={listColumns.reset}
+              onChange={listColumns.applySettings}
+              // A "Columns" heading in place of the helper
+              // copy, the shown columns first in the table's
+              // order, rows with a hover fill and no outline,
+              // and the rows-per-page menu's shadow (set in
+              // review).
+              title="Columns"
+              visibleFirst
+              plainRows
+              contentClassName={listTableStyles.menuShadow}
+              // 12px all round, as the filter menus (set in
+              // review; was 16px).
+              contentPadding="var(--space-3)"
+              // Narrower (set in review): 216px across, padding included,
+              // was 292px (a third narrower, 196px, was tried).
+              width={184}
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  size="2"
+                  aria-label={
+                    listColumns.hiddenCount > 0
+                      ? `Columns, ${listColumns.hiddenCount} hidden`
+                      : "Columns"
+                  }
+                >
+                  <PiTextColumns size={16} />
+                </IconButton>
+              }
+            />
+          </span>
+        </UiTooltip>
+      </Flex>
+    </Flex>
+  );
+
   return (
     <>
       {/* Page-wide overrides, as on the redesigned experiment details page
@@ -504,10 +663,9 @@ const ExperimentsPage = (): React.ReactElement => {
             transition: none;
           }
         }
-        /* 20px between the table's left and right edges and its first and
-          last columns, in the header and every row (set in review; tried
-          24px, were 12px). OFF THE SPACE SCALE (--space-4 is 16px,
-          --space-5 24px), so raw, as the Setup rail's 20px padding. The
+        /* 16px, --space-4, between the table's left and right edges and its
+          first and last columns, in the header and every row (set in
+          review; tried 20px, 24px and none, were 12px). The
           Experiment column, first here, has no cell padding (its
           link fills the cell), so its link takes the inset through
           --experiments-name-padding-left (ExperimentsListTable.tsx). */
@@ -515,14 +673,14 @@ const ExperimentsPage = (): React.ReactElement => {
           [data-table-list][data-table-list]
           :is(.rt-TableHeader, .rt-TableBody)
           :is(.rt-TableColumnHeaderCell, .rt-TableCell):first-child {
-          padding-left: 20px;
-          --experiments-name-padding-left: 20px;
+          padding-left: var(--space-4);
+          --experiments-name-padding-left: var(--space-4);
         }
         .contents.experiments
           [data-table-list][data-table-list]
           :is(.rt-TableHeader, .rt-TableBody)
           :is(.rt-TableColumnHeaderCell, .rt-TableCell):last-child {
-          padding-right: 20px;
+          padding-right: var(--space-4);
         }
         /* One line per cell (set in review): nothing wraps; what doesn't
           fit its column ends in "…" (text) or is cut off at the column's
@@ -665,17 +823,29 @@ const ExperimentsPage = (): React.ReactElement => {
             transition: none;
           }
         }
-        /* The table controls' button group (set in review): two standard
-          outline icon buttons, the design system's lg size (40px; tried 24px, 28px and md, 32px), with 18px icons, styled as the page's outline buttons
-          (.outlineButton: a --slate-6 outline darkening to --slate-9 on
-          hover), icons in --slate-12, joined: no gap, only the outer
-          corners rounded, and the outlines overlapping by 1px so the middle
-          reads as one shared divider. A hovered or focused button sits on
-          top, so its darker outline shows all round. No fill while compact
-          rows are on (set in review); its icon shows the state. */
+        /* The table controls (set in review): two separate ghost icon
+          buttons, side by side with no gap (tried 4px and 8px; were a
+          joined outline group), each the design
+          system's md size, 32px square (set in review; tried sm, 24px, and
+          lg, 40px), with 6px corners as Import's and Create's, and 16px
+          icons in --slate-12, 8px from the button's edges (set in review;
+          tried 20px with Radix's 6px, whose lines read heavy beside Add
+          Filter's 14px funnel). The ghost's soft grey fill shows on hover.
+          Radix sizes ghost icon buttons to their icon and pulls them out by
+          their padding; not here, so they keep their 32px. No fill while
+          compact rows are on (set in review); its icon shows the state. */
         .experiments-table-controls .rt-IconButton {
           position: relative;
           color: var(--slate-12);
+        }
+        .experiments-table-controls .rt-IconButton.rt-IconButton {
+          /* Radix's ghost buttons size their content box; the 40px here
+            includes the padding. */
+          box-sizing: border-box;
+          width: 32px;
+          height: 32px;
+          margin: 0;
+          border-radius: var(--radius-3);
         }
         .experiments-table-controls .rt-IconButton:hover,
         .experiments-table-controls .rt-IconButton:focus-visible {
@@ -684,8 +854,8 @@ const ExperimentsPage = (): React.ReactElement => {
         /* The buttons' press, as @/ui/Button's (set in review; these are
           Radix IconButtons, so they don't get it from there): settles to 98%
           over 80ms, eases back over 200ms. The outline and background
-          transitions of .outlineButton (150ms) are repeated, as this rule
-          outranks it. Instant for reduced motion. */
+          and background transitions (150ms) are kept. Instant for reduced
+          motion. */
         .experiments-table-controls .rt-IconButton.rt-IconButton {
           transition:
             transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -703,18 +873,6 @@ const ExperimentsPage = (): React.ReactElement => {
             transform: none;
           }
         }
-        .experiments-table-controls > .rt-IconButton:first-child,
-        .experiments-table-controls > :first-child .rt-IconButton {
-          border-top-right-radius: 0;
-          border-bottom-right-radius: 0;
-        }
-        .experiments-table-controls > .rt-IconButton:last-child,
-        .experiments-table-controls > :last-child .rt-IconButton,
-        .experiments-table-controls > :last-child.rt-IconButton {
-          margin-left: -1px;
-          border-top-left-radius: 0;
-          border-bottom-left-radius: 0;
-        }
         /* Compact rows (set in review; the density button): 36px (tried
           40px), 8px above and below the 20px line, in place of 52px and the
           table's 12px. The name link's padding follows, so it still fills
@@ -729,20 +887,22 @@ const ExperimentsPage = (): React.ReactElement => {
           --experiments-name-padding-y: var(--space-2);
         }
         /* Switching tabs (set in review), as the experiment details page's
-          tabs: the new tab's table fades in while drifting 8px from the side
-          it's coming from, in the tab bar's order. Radix mounts only the
-          active tab's content, so only the arrival is animated. Only after a
-          switch (data-tab-direction, cleared when it ends); the sideways
-          overflow is clipped while it moves (clip, not hidden, so the
-          header still sticks). Instant for reduced motion. */
+          tabs: the new tab's rows fade in while drifting 8px from the side
+          they're coming from, in the tab bar's order. Only the rows (or the
+          empty state): the toolbar, column headers, outline and footer stay
+          put (set in review; the whole table, toolbar included, moved). Radix
+          mounts only the active tab's content, so only the arrival is
+          animated. Only after a switch or a new search (data-tab-direction,
+          cleared when it ends). Instant for reduced motion. */
         .contents.experiments[data-tab-direction]
-          .rt-TabsContent[data-state="active"] {
+          .rt-TabsContent[data-state="active"]
+          .rt-TableBody {
           animation: experiments-tab-in 260ms cubic-bezier(0.22, 1, 0.36, 1)
             both;
-          overflow-x: clip;
         }
         .contents.experiments[data-tab-direction="back"]
-          .rt-TabsContent[data-state="active"] {
+          .rt-TabsContent[data-state="active"]
+          .rt-TableBody {
           animation-name: experiments-tab-in-back;
         }
         @keyframes experiments-tab-in {
@@ -766,12 +926,10 @@ const ExperimentsPage = (): React.ReactElement => {
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          /* No animation, so no animationend to clear the marker: no clip
-            either. */
           .contents.experiments[data-tab-direction]
-            .rt-TabsContent[data-state="active"] {
+            .rt-TabsContent[data-state="active"]
+            .rt-TableBody {
             animation: none;
-            overflow-x: visible;
           }
         }
         /* The column headers likewise. */
@@ -862,10 +1020,12 @@ const ExperimentsPage = (): React.ReactElement => {
         data-compact-rows={compactRows ? "true" : undefined}
         data-tab-direction={listTabDirection ?? undefined}
         onAnimationEnd={(e) => {
-          // Only the tables' own entrance; animations inside bubble too.
+          // Only the rows' entrance; other animations inside bubble too.
           if (
             e.target instanceof HTMLElement &&
-            e.target.classList.contains("rt-TabsContent")
+            e.target.classList.contains("rt-TableBody") &&
+            (e.animationName === "experiments-tab-in" ||
+              e.animationName === "experiments-tab-in-back")
           ) {
             setListTabDirection(null);
           }
@@ -983,7 +1143,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     only, lined up with the title and table, not edge to edge
                     as on the details page (set in review). 4px below the
                     title row (set in review; there was no gap). */}
-                  <Box mt="1" mb="3" position="relative">
+                  {/* 16px under the tab bar, above the table's container
+                    (set in review; tried 12px and 24px). */}
+                  <Box mt="1" mb="4" position="relative">
                     <Box
                       aria-hidden
                       style={{
@@ -1048,165 +1210,6 @@ const ExperimentsPage = (): React.ReactElement => {
                       </Flex>
                     </TabsList>
                   </Box>
-                  {/* Search, then the filters flowing right from it, 12px
-                    after (set in review); the row's right side is kept free
-                    for table controls. */}
-                  <Flex gap="3" align="center" mb="4" wrap="wrap">
-                    <Box flexBasis="300px" flexShrink="0">
-                      {/* @/ui/TextField, as the experiment details page's
-                        fields (set in review; was the legacy Field), with a
-                        search icon before the placeholder. */}
-                      <TextField
-                        placeholder="Search"
-                        type="search"
-                        prepend={
-                          <PiMagnifyingGlassBold
-                            size={14}
-                            // --slate-9 (set in review; tried --slate-10,
-                            // and --slate-8, which was below 3:1): 3.3:1 on
-                            // white, 3.43:1 in dark mode, above the 3:1 WCAG
-                            // asks of icons.
-                            style={{ color: "var(--slate-9)" }}
-                          />
-                        }
-                        value={searchDraft}
-                        onChange={(e) => setSearchDraft(e.target.value)}
-                        onBlur={applySearch}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") applySearch();
-                        }}
-                        ref={searchFieldRef}
-                        // A clear button while there's a search (set in
-                        // review): empties it and returns the cursor to the
-                        // field. FALLBACK: Radix IconButton; @/ui/ has no
-                        // icon button.
-                        append={
-                          searchDraft ? (
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              size="1"
-                              radius="full"
-                              aria-label="Clear search"
-                              onClick={() => {
-                                setSearchDraft("");
-                                // Clears the text only; the filters stay.
-                                setSearchValue(withFilters(""));
-                                searchFieldRef.current?.focus();
-                              }}
-                            >
-                              <PiXBold
-                                size={12}
-                                // --slate-11 (set in review; tried --slate-9
-                                // and --slate-12).
-                                style={{ color: "var(--slate-11)" }}
-                              />
-                            </IconButton>
-                          ) : undefined
-                        }
-                      />
-                    </Box>
-                    <ExperimentSearchFilters
-                      searchInputProps={searchInputProps}
-                      syntaxFilters={syntaxFilters}
-                      setSearchValue={setSearchValue}
-                      experiments={allExperiments}
-                      includeTempRollouts
-                      // Status and Health always; the rest via "Add
-                      // Filter" (set in review).
-                      defaultFilters={["status", "health"]}
-                      chips
-                    />
-                    {/* Table controls, at the row's right end (set in
-                      review): row density, then column settings, as two
-                      standard outline icon buttons joined into a group.
-                      FALLBACK: Radix IconButton; @/ui/ has no icon button
-                      or button group. */}
-                    <Flex
-                      ml="auto"
-                      align="center"
-                      className="experiments-table-controls"
-                      role="group"
-                      aria-label="Table display"
-                    >
-                      {/* Each side's tooltip (set in review): @/ui/Tooltip,
-                        after the same brief pause as Import's. */}
-                      <UiTooltip
-                        content={
-                          compactRows ? "Comfortable rows" : "Compact rows"
-                        }
-                        delayDuration={400}
-                      >
-                        <IconButton
-                          variant="outline"
-                          color="gray"
-                          size="3"
-                          className={headerStyles.outlineButton}
-                          aria-pressed={compactRows}
-                          aria-label="Compact rows"
-                          onClick={() => setCompactRows(!compactRows)}
-                        >
-                          {compactRows ? (
-                            <PiArrowsOutLineVertical size={18} />
-                          ) : (
-                            <PiArrowsInLineVertical size={18} />
-                          )}
-                        </IconButton>
-                      </UiTooltip>
-                      {/* On a wrapper: the button is the column settings
-                        popover's own trigger. */}
-                      <UiTooltip
-                        content="Show/Hide Columns"
-                        delayDuration={400}
-                      >
-                        <span style={{ display: "inline-flex" }}>
-                          <ColumnSettingsButton
-                            columns={listColumns.columns
-                              // Experiment can't be hidden or moved.
-                              .filter((c) => !c.locked)
-                              .map((c) => ({
-                                id: c.id,
-                                label: c.label,
-                                visible: c.visible,
-                                alwaysVisible: c.hideable === false,
-                              }))}
-                            hiddenCount={listColumns.hiddenCount}
-                            canReset={listColumns.isCustomized}
-                            onReset={listColumns.reset}
-                            onChange={listColumns.applySettings}
-                            // A "Columns" heading in place of the helper
-                            // copy, the shown columns first in the table's
-                            // order, rows with a hover fill and no outline,
-                            // and the rows-per-page menu's shadow (set in
-                            // review).
-                            title="Columns"
-                            visibleFirst
-                            plainRows
-                            contentClassName={listTableStyles.menuShadow}
-                            contentPadding="var(--space-4)"
-                            // Narrower (set in review): 216px across, padding included,
-                            // was 292px (a third narrower, 196px, was tried).
-                            width={184}
-                            trigger={
-                              <IconButton
-                                variant="outline"
-                                color="gray"
-                                size="3"
-                                className={headerStyles.outlineButton}
-                                aria-label={
-                                  listColumns.hiddenCount > 0
-                                    ? `Columns, ${listColumns.hiddenCount} hidden`
-                                    : "Columns"
-                                }
-                              >
-                                <PiTextColumns size={18} />
-                              </IconButton>
-                            }
-                          />
-                        </span>
-                      </UiTooltip>
-                    </Flex>
-                  </Flex>
                   <TabsContent value="all">
                     <ExperimentsListTable
                       showWatchColumn={false}
@@ -1226,6 +1229,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       animateColumns
                       stableColumns
                       scrollOnOverflow
+                      toolbar={tableToolbar}
                       tab="all"
                       SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
@@ -1257,6 +1261,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           animateColumns
                           stableColumns
                           scrollOnOverflow
+                          toolbar={tableToolbar}
                           tab={tab}
                           SortableTableColumnHeader={SortableTableColumnHeader}
                           filtered={filtered.filter((e) => e.tab === tab)}

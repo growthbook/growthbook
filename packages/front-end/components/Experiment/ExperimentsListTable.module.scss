@@ -74,7 +74,7 @@
 // The footer: 52px, a comfortable data row's height, in both densities: it
 // doesn't shrink with compact rows (set in review; it had followed
 // --experiments-row-height). Rows per page on the left, the page buttons on
-// the right (set in review), centred in it, inside the table's 20px side
+// the right (set in review), centred in it, inside the table's 16px side
 // insets, so it lines up with the first and last columns. Pagination's
 // classes are hashed, so its parts are reached by element and attribute,
 // within its <nav> (the rows-per-page select's trigger is a button too).
@@ -85,7 +85,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   height: 52px;
-  padding: 0 20px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--slate-a5);
   border-top: none;
   border-radius: 0 0 var(--radius-4) var(--radius-4);
@@ -278,4 +278,63 @@
 
 .withFooter .scrollX :global([data-table-list] .rt-TableRootTable) {
   border-bottom: 1px solid var(--gray-a4) !important;
+}
+
+// toolbar (set in review; the experiments list): the search, filters and
+// table controls inside the table's outline, as its top section, so the
+// table and its controls read as one container. The outline (--slate-a5)
+// runs round the toolbar's top and sides, with the rounded top corners;
+// 12px above and below its row, and the table's 16px side insets, so it
+// lines up with the first and last columns. The header row's top edge
+// becomes a divider (--gray-a4, as the line under the header) between the
+// toolbar and the column headers, and the table's top corners go square.
+.toolbar {
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--slate-a5);
+  border-bottom: none;
+  border-radius: var(--radius-4) var(--radius-4) 0 0;
+  background-color: var(--color-panel-solid);
+}
+
+.withToolbar.withToolbar {
+  // Square top corners on the table, its header row and the header's
+  // first and last cells (Table.module.scss rounds all three), so the
+  // outline's sides run straight down from the toolbar's.
+  :global([data-table-list] .rt-TableRootTable),
+  :global([data-table-list] .rt-TableHeader) {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+
+  :global([data-table-list] .rt-TableHeader) {
+    box-shadow: inset 0 1px 0 0 var(--gray-a4) !important;
+  }
+
+  :global([data-table-list] .rt-TableColumnHeaderCell) {
+    box-shadow:
+      inset 0 1px 0 0 var(--gray-a4),
+      inset 0 -1px 0 0 var(--gray-a4) !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+
+  // Stuck under the top bar, the header keeps its soft shadow.
+  :global([data-table-list][data-sticky-active="true"] .rt-TableHeader) {
+    box-shadow:
+      inset 0 1px 0 0 var(--gray-a4),
+      0 2px 4px -2px var(--black-a2) !important;
+  }
+
+  // Scrolling sideways (.scrollX draws the outline then): its top edge is
+  // the divider, with square corners.
+  .scrollX {
+    border-top-color: var(--gray-a4);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  .scrollX :global([data-table-list] .rt-TableColumnHeaderCell) {
+    box-shadow: inset 0 -1px 0 0 var(--gray-a4) !important;
+  }
 }

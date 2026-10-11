@@ -121,8 +121,29 @@ export default function ColumnSettingsButton({
           <ColumnSettings
             columns={listed}
             onChange={(next) => {
-              if (visibleFirst) setOrder(next.map((c) => c.id));
-              onChange(next);
+              if (!visibleFirst) {
+                onChange(next);
+                return;
+              }
+              // visibleFirst lists columns in its own order, so a checkbox
+              // only changes visibility, in the table's own order (set in
+              // review): emitting the list's order would also reorder the
+              // table, and leave it "customized" (Reset showing) after a
+              // column is turned off and on again. A drag reorders, in the
+              // list's order.
+              const reordered = next.some((c, i) => c.id !== listed[i]?.id);
+              if (reordered) {
+                setOrder(next.map((c) => c.id));
+                onChange(next);
+                return;
+              }
+              const visibleById = new Map(next.map((c) => [c.id, c.visible]));
+              onChange(
+                columns.map((c) => ({
+                  id: c.id,
+                  visible: visibleById.get(c.id) ?? c.visible,
+                })),
+              );
             }}
             plainRows={plainRows}
             // With a heading, the reset link is on its line instead.

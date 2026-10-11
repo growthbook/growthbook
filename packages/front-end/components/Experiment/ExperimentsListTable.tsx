@@ -129,6 +129,9 @@ interface ExperimentsListTableProps {
   // Scrolls sideways when the columns are wider than the page, rather than
   // spilling off it (set in review). See scrollOnOverflow below.
   scrollOnOverflow?: boolean;
+  // A toolbar (search, filters, table controls) drawn inside the table's
+  // outline, as its top section (set in review; the experiments list).
+  toolbar?: ReactNode;
 }
 
 // With resizableColumnsKey: each column's starting width in px, and the
@@ -364,6 +367,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   animateColumns = false,
   stableColumns = false,
   scrollOnOverflow = false,
+  toolbar,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   // Rows per page: 20, or with attachedFooter, the footer's selector (set in
@@ -990,8 +994,12 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   return (
     <div
       ref={wrapperRef}
-      className={attachedFooter && hasFooter ? styles.withFooter : undefined}
+      className={clsx(
+        attachedFooter && hasFooter && styles.withFooter,
+        toolbar && styles.withToolbar,
+      )}
     >
+      {toolbar ? <div className={styles.toolbar}>{toolbar}</div> : null}
       <div
         ref={scrollRef}
         className={tableOverflows ? styles.scrollX : undefined}
