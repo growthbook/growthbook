@@ -140,6 +140,7 @@ export interface SourceIntegrationInterface<
     sql: string,
     timestampCols: string[] | undefined,
     queryType: QueryType,
+    factTableId: string | null,
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,

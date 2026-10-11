@@ -4590,6 +4590,9 @@ paths:
                     type: string
                   additionalProperties: {}
                 jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
                   type: object
                   properties:
                     schemaType:
@@ -4678,14 +4681,12 @@ paths:
                         - type
                         - fields
                       additionalProperties: false
-                    date: {}
                     enabled:
                       type: boolean
                   required:
                     - schemaType
                     - schema
                     - simple
-                    - date
                     - enabled
                   additionalProperties: false
                 ignoreWarnings:
@@ -10856,6 +10857,9 @@ paths:
                     type: string
                   additionalProperties: {}
                 jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
                   type: object
                   properties:
                     schemaType:
@@ -10944,14 +10948,12 @@ paths:
                         - type
                         - fields
                       additionalProperties: false
-                    date: {}
                     enabled:
                       type: boolean
                   required:
                     - schemaType
                     - schema
                     - simple
-                    - date
                     - enabled
                   additionalProperties: false
                 ignoreWarnings:
@@ -20043,6 +20045,15 @@ paths:
               properties:
                 name:
                   type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
                 description:
                   type: string
                   maxLength: 10000
@@ -20148,6 +20159,13 @@ paths:
               properties:
                 name:
                   description: Project name.
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 description:
                   description: Project description.
@@ -68780,6 +68798,14 @@ components:
             to their Targeting Projects. Defaults to true. Turning it off blocks
             new targeting (and All Projects); existing targeting is kept.
           type: boolean
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         settings:
           type: object
           properties:
@@ -68795,6 +68821,7 @@ components:
         - name
         - dateCreated
         - dateUpdated
+        - owner
       additionalProperties: false
     Environment:
       type: object
@@ -81961,6 +81988,32 @@ components:
       required:
         - pattern
         - example
+      additionalProperties: false
+    ApiErrorCustomHookErrorDetails:
+      type: object
+      properties:
+        hooks:
+          type: array
+          items:
+            type: object
+            properties:
+              hookName:
+                type: string
+              rejected:
+                type: boolean
+              message:
+                type: string
+              stack:
+                type: string
+              log:
+                type: string
+            required:
+              - hookName
+              - rejected
+              - message
+            additionalProperties: false
+      required:
+        - hooks
       additionalProperties: false
     bypassedGates:
       type: object

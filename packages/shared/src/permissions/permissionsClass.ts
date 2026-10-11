@@ -33,6 +33,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
@@ -596,6 +597,48 @@ export class Permissions {
   ): boolean => {
     return this.checkEnvFilterPermission(
       { projects: cb.project ? [cb.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canCreateInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateInterleaving = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  // Starting/stopping changes what the generated pseudo flag serves, so it
+  // needs the same environment-scoped permission as running an experiment.
+  public canRunInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
       environments,
       "runExperiments",
     );

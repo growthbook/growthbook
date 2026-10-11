@@ -18,6 +18,7 @@ import {
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
+  validatePrerequisiteCondition,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -48,6 +49,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
+import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {
   assertValidChangedRuleExperimentIds,
   assertValidChangedRuleProjectIds,
@@ -732,14 +734,6 @@ export const validateCustomFields = async (
   });
 };
 
-// Reference checks read ids and conditions, never the ID lists.
-async function getSavedGroupsForValidation(
-  context: ReqContext | ApiReqContext,
-): Promise<GroupMap> {
-  const groups = await context.models.savedGroups.getAllWithoutValues();
-  return new Map(groups.map((group) => [group.id, group]));
-}
-
 // Verify the saved-group references in a rule exist. Call on the final rule —
 // saved groups are loaded once. Prerequisite parents are checked separately
 // by assertValidPrerequisiteParents.
@@ -749,7 +743,7 @@ export async function validateRuleReferences(
 ): Promise<void> {
   validateRuleReferencesWithGroups(
     rule,
-    await getSavedGroupsForValidation(context),
+    await getSavedGroupsForValidation(context, [rule]),
   );
 }
 
@@ -758,14 +752,15 @@ export async function validateRuleReferences(
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
   context: ReqContext | ApiReqContext,
+  conditionLabel: string = "rule condition",
 ): Promise<void> {
   if (!rules.length) return;
-  const groupMap = await getSavedGroupsForValidation(context);
+  const groupMap = await getSavedGroupsForValidation(context, rules);
   const savedGroupIds = new Set(groupMap.keys());
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
     assertPrerequisiteGroupIds(rule.prerequisites ?? [], savedGroupIds);
-    validateRuleReferencesWithGroups(rule, groupMap);
+    validateRuleReferencesWithGroups(rule, groupMap, conditionLabel);
   }
 }
 
@@ -812,10 +807,11 @@ export async function validateChangedRuleReferences<
 type PhaseTargeting = {
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
+  prerequisites?: FeaturePrerequisite[] | null;
 };
 
-// Experiment phases carry a rule's condition and saved groups and reach the
-// payload the same way, so they get the rule reference checks. Only the last
+// Experiment phases carry a rule's condition, saved groups and prerequisites
+// and reach the payload the same way, so they get the rule reference checks. Only the last
 // phase is served: it is exempt only for what the last stored phase already
 // holds, while an earlier (historical) phase is exempt for what any stored
 // phase holds, so reordering history never re-validates it.
@@ -836,21 +832,36 @@ export async function validateChangedPhaseReferences(
       const groupsChanged =
         savedGroups.length > 0 &&
         !baseline(i).some((s) => isEqual(s.savedGroups ?? [], savedGroups));
-      if (!conditionChanged && !groupsChanged) return [];
+      const prerequisites = (phase.prerequisites ?? []).filter(
+        (p) =>
+          !baseline(i).some((s) =>
+            (s.prerequisites ?? []).some(
+              (q) =>
+                q.id === p.id &&
+                (q.condition || "{}") === (p.condition || "{}"),
+            ),
+          ),
+      );
+      if (!conditionChanged && !groupsChanged && !prerequisites.length) {
+        return [];
+      }
       return [
         {
           condition: conditionChanged ? condition : undefined,
           savedGroups: groupsChanged ? savedGroups : [],
+          prerequisites,
         },
       ];
     }),
     context,
+    "targeting condition",
   );
 }
 
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   groupMap: GroupMap,
+  conditionLabel: string = "rule condition",
 ): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
@@ -864,14 +875,14 @@ function validateRuleReferencesWithGroups(
   if (rule.condition && rule.condition !== "{}") {
     const condRes = validateCondition(rule.condition, groupMap);
     if (!condRes.success) {
-      throw new BadRequestError(`Invalid rule condition: ${condRes.error}`);
+      throw new BadRequestError(`Invalid ${conditionLabel}: ${condRes.error}`);
     }
     const inGroupError = findInvalidInGroupId(
       JSON.parse(rule.condition),
       savedGroupIds,
     );
     if (inGroupError)
-      throw new BadRequestError(`Invalid rule condition: ${inGroupError}`);
+      throw new BadRequestError(`Invalid ${conditionLabel}: ${inGroupError}`);
   }
 }
 
@@ -883,7 +894,9 @@ export async function validatePrerequisiteReferences(
 ): Promise<void> {
   assertPrerequisiteGroupIds(
     prerequisites,
-    new Set((await getSavedGroupsForValidation(context)).keys()),
+    new Set(
+      (await getSavedGroupsForValidation(context, [{ prerequisites }])).keys(),
+    ),
   );
 }
 
@@ -984,7 +997,7 @@ export function validatePrerequisiteConditions(
 ): void {
   for (const prereq of prerequisites) {
     if (prereq.condition) {
-      const res = validateCondition(prereq.condition);
+      const res = validatePrerequisiteCondition(prereq.condition);
       if (!res.success) {
         throw new BadRequestError(
           `Invalid condition on prerequisite "${prereq.id}": ${res.error}`,
@@ -1022,10 +1035,15 @@ function checkPrerequisiteConditionKeys(
           if (err) return err;
         }
       }
-    } else if (key !== "value" && !key.startsWith("$")) {
+    } else if (
+      key !== "value" &&
+      !key.startsWith("value.") &&
+      !key.startsWith("$")
+    ) {
       return (
         `field "${key}" will never match — prerequisite conditions are ` +
-        `evaluated against {"value": <flag_value>}. Use "value" as the field key.`
+        `evaluated against {"value": <flag_value>}. Use "value" (or a ` +
+        `"value.<path>" into a JSON flag) as the field key.`
       );
     }
   }

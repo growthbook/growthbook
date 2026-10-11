@@ -3115,8 +3115,54 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toContain("Invalid prerequisite condition");
+      expect(res.body.message).toContain(
+        'Invalid condition on prerequisite "feature_123"',
+      );
       expect(updateExperiment).not.toHaveBeenCalled();
+    });
+
+    it("checks $savedGroups in phase targeting against the Saved Groups it names", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+      updateReqContext({
+        models: {
+          savedGroups: {
+            getAllWithoutValues: jest.fn(async (ids: string[]) =>
+              ids.includes("grp_vip")
+                ? [{ id: "grp_vip", type: "condition", condition: "{}" }]
+                : [],
+            ),
+          },
+        },
+      });
+      const updatePhase = (phase: object) =>
+        request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [
+              {
+                name: "Main",
+                dateStarted: "2026-02-01T00:00:00.000Z",
+                ...phase,
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+      expect(
+        (await updatePhase({ condition: '{"$savedGroups":["grp_vip"]}' }))
+          .status,
+      ).toBe(200);
+
+      const missing = await updatePhase({
+        condition: '{"$savedGroups":["grp_gone"]}',
+      });
+      expect(missing.status).toBe(400);
+      expect(missing.body.message).toBe(
+        'Invalid targeting condition: Saved Group "grp_gone" does not exist',
+      );
     });
 
     it("syncs only the latest phase when updating top-level variations without phases", async () => {

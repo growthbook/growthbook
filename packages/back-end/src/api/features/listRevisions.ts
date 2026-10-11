@@ -8,7 +8,7 @@ import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getAllFeatures, getFeature } from "back-end/src/models/FeatureModel";
+import { getAllFeatureIds, getFeature } from "back-end/src/models/FeatureModel";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -97,12 +97,11 @@ export async function loadRevisionsPage(
       if (readableProjects.length === 0) {
         return emptyListResponse(limit, offset);
       }
-      const scopedFeatures = await getAllFeatures(context, {
+      featureIds = await getAllFeatureIds(context, {
         projects: readableProjects,
         projectsAreReadAllowlist: true,
         includeArchived,
       });
-      featureIds = scopedFeatures.map((f) => f.id);
       if (featureIds.length === 0) {
         return emptyListResponse(limit, offset);
       }

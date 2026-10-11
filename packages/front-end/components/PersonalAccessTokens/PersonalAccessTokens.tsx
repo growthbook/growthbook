@@ -9,6 +9,7 @@ import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
@@ -29,24 +30,49 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   onCreate,
 }) => {
   const [open, setOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
+  const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
   const { settings } = useUser();
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
+  const permissionsUtils = usePermissionsUtil();
+  // Each settings page has its own gate, so link only where the member can go.
+  const canManageApiKeys =
+    permissionsUtils.canCreateApiKey() || permissionsUtils.canDeleteApiKey();
+  const canManageTokens =
+    canManageApiKeys || permissionsUtils.canManageOrgSettings();
 
   return (
     <div>
-      {open && (
+      {(open || copyFrom) && (
         <ApiKeysModal
-          close={() => setOpen(false)}
+          close={() => {
+            setOpen(false);
+            setCopyFrom(null);
+          }}
           onCreate={onCreate}
           personalAccessToken
+          copyFrom={copyFrom ?? undefined}
+          onDeleteCopySource={copyFrom ? onDelete(copyFrom.id) : undefined}
+        />
+      )}
+
+      {editingKey && (
+        <ApiKeysModal
+          close={() => setEditingKey(null)}
+          onCreate={() => {
+            setEditingKey(null);
+            onCreate();
+          }}
+          personalAccessToken
+          existingKey={editingKey}
         />
       )}
 
       <div className="mb-4">
         <h1>Personal Access Tokens</h1>
         <p className="text-gray">
-          Personal Access Tokens have full read and write access to your
-          account. Because of this, they must be kept secure and{" "}
+          Personal Access Tokens can do everything you can, unless you limit
+          their permissions. Because of this, they must be kept secure and{" "}
           <strong>must not be exposed to others</strong>.
         </p>
         {accessTokens.length > 0 && (
@@ -57,6 +83,8 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             canDeleteKeys
             onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
+            onEdit={(key) => setEditingKey(key)}
+            onCopy={tokensDisabled ? undefined : setCopyFrom}
           />
         )}
         {tokensDisabled ? (
@@ -78,12 +106,23 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         )}
       </div>
 
-      <div className="mb-5">
-        <Callout status="info">
-          Administrators can also create userless keys for an organization on
-          the <Link href="/settings/keys">API Keys</Link> page.
-        </Callout>
-      </div>
+      {canManageTokens && (
+        <div className="mb-5">
+          <Callout status="info">
+            {canManageApiKeys ? (
+              <>
+                Administrators can create userless keys for an organization on
+                the <Link href="/settings/keys">API Keys</Link> page, and review
+                or disable
+              </>
+            ) : (
+              <>Administrators can review or disable</>
+            )}{" "}
+            members&apos; tokens under{" "}
+            <Link href="/settings/personal-access-tokens">Manage PATs</Link>.
+          </Callout>
+        </div>
+      )}
     </div>
   );
 };

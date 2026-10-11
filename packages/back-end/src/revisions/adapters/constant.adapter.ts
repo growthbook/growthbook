@@ -36,11 +36,12 @@ import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,
   constantRevisionAffectsServedValue,
-  describeConstantConflictKeys,
+  describeExperimentGuardConflicts,
   evaluateConstantExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
 import {
   captureConfigLockAcknowledgment,
+  describeLockedConfigs,
   evaluateConfigLockConflicts,
 } from "back-end/src/services/configLockGuard";
 import {
@@ -440,16 +441,17 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       }
     }
 
-    const experimentConflicts = [
-      ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
-    ].sort();
-    if (experimentConflicts.length) {
+    const experimentConflicts = await evaluateConstantExperimentGuardConflicts(
+      context,
+      entity,
+    );
+    if (experimentConflicts.size) {
       if (override) {
         logger.info(
           {
             constantKey: entity.key,
             userId: context.userId,
-            conflictKeys: experimentConflicts,
+            conflictKeys: [...experimentConflicts.keys()].sort(),
           },
           "Constant experiment guard overridden on a direct publish",
         );
@@ -457,11 +459,10 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       gates.push({
         type: "experiment-guard",
         severity: "warning",
-        messages: [
-          `Publishing this Constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
+        messages: await describeExperimentGuardConflicts(
+          context,
+          experimentConflicts,
+        ),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
@@ -490,11 +491,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       gates.push({
         type: "dependent-config-locked",
         severity: "warning",
-        messages: [
-          `Publishing this Constant changes the resolved value of locked Config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
+        messages: await describeLockedConfigs(context, lockConflicts),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,

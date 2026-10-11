@@ -66,6 +66,7 @@ export const docSections = {
   "customHooks#validateexperiment": "/features/custom-hooks#validateexperiment",
   customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
+  warehouses: "/warehouses",
   athena: "/warehouses/athena",
   mixpanel: "/guide/mixpanel",
   bigquery: "/guide/bigquery",

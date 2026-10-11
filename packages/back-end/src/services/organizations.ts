@@ -1875,8 +1875,9 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
-// An org API key as a principal, built the way the request middleware builds
-// it. Null when the key is gone, disabled or user-bound (stamped as its user).
+// An API key as a principal, built the way the request middleware builds it.
+// Null when the key is gone or disabled. Unscoped PATs are stamped as their
+// user and never arrive here; a scoped one runs as its user under its cap.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   apiKeyId: string,
@@ -1884,17 +1885,33 @@ export async function getContextForApiKeyIdInOrg(
   const key =
     apiKeyId === SECRET_API_KEY_ID
       ? secretApiKeyDoc(org)
-      : await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
-          apiKeyId,
-        );
-  if (!key || key.disabled || key.userId || !key.role) return null;
+      : await getContextForAgendaJobByOrgObject(
+          org,
+        ).models.apiKeys.dangerousGetById(apiKeyId);
+  if (!key || key.disabled || !key.role) return null;
+  const user = key.userId ? await getUserById(key.userId) : null;
+  if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
+    return null;
+  }
+  // Super-admin authority bypasses roles, so a scoped token never carries it.
+  const superAdmin = !!user?.superAdmin && !key.scoped;
+  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+    return null;
+  }
   return new ReqContextClass({
     org,
-    auditUser: {
-      type: "api_key",
-      apiKey: apiKeyId,
-      name: key.description || "",
-    },
+    auditUser: user
+      ? {
+          type: "api_key",
+          apiKey: apiKeyId,
+          id: user.id,
+          name: user.name || "",
+          email: user.email,
+        }
+      : { type: "api_key", apiKey: apiKeyId, name: key.description || "" },
+    user: user
+      ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
+      : undefined,
     role: key.role,
     apiKey: apiKeyId,
     apiKeyData: key,

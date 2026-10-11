@@ -230,8 +230,9 @@ context.permissions.canRunExperiment(experiment, environments);
 // the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
 // A scheduled experiment status change is checked twice: arming checks
 // runExperiments across the reach and publishFeatures on each pending draft
-// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer, a
-// user or an org API key (`scheduledBy` / `scheduledByApiKey`,
+// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer
+// (`context.armer`: a user, an org API key, or a scoped PAT recorded as its
+// key so the cap travels with the work; `scheduledBy` / `scheduledByApiKey`,
 // getScheduledStatusContext), so the draft publish is judged as it is then.
 // Never the job's own authority; only a stop staged before armers were
 // recorded still runs as the owner.
