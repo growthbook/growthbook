@@ -448,7 +448,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     setWebhook({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       slack: { channelId: "C123", teamId: "T123" },
-      notificationSettings: { type: "image", cardFormat: "detailed" },
+      notificationSettings: { type: "image", cardFormat: "light" },
     });
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
       teamId: "T123",
@@ -459,23 +459,33 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout test - Experiment stopped",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout test",
-      eventLabel: "Experiment stopped",
+      ownerEmail: "owner@example.com",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
     jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue(null);
 
     await runAgendaJob();
 
-    expect(renderNotificationCard).toHaveBeenCalledWith({}, "detailed");
+    expect(renderNotificationCard).toHaveBeenCalledWith(
+      {},
+      "light",
+      expect.any(Object),
+    );
     expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
+    // The file is shared on upload; its message is the small context footer,
+    // with the plain caption as the fallback if Slack rejects the blocks.
+    const footer =
+      "<http://app/experiment/exp-1|Checkout test> | Owner: owner@example.com";
     expect(uploadSlackImageFile).toHaveBeenCalledWith({
       token: "xoxb-token",
       png: Buffer.from("png"),
       filename: "notification-card.png",
       title: "Checkout test - Experiment stopped",
       channelId: "C123",
-      initialComment:
-        "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
+      blocks: [
+        { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
+      ],
+      initialComment: footer,
     });
     expect(postSlackMessageResult).not.toHaveBeenCalled();
     expect(updateEventWebHookStatus).toHaveBeenCalledWith(
@@ -485,9 +495,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     );
     expect(createEventWebHookLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: {
-          text: "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
-        },
+        payload: expect.objectContaining({ text: footer }),
       }),
     );
   });
@@ -506,7 +514,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout test - Health issue",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout test",
-      eventLabel: "Health issue",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
     jest.mocked(postSlackMessageResult).mockResolvedValue({
@@ -544,7 +551,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout <v2> & test - Health issue",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout <v2> & test",
-      eventLabel: "Health issue <!channel>",
+      ownerEmail: "owner <!channel>@example.com",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
 
@@ -554,7 +561,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       expect.objectContaining({
         title: "Checkout <v2> & test - Health issue",
         initialComment:
-          "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> - Health issue &lt;!channel&gt;",
+          "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> | Owner: owner &lt;!channel&gt;@example.com",
       }),
     );
     expect(postSlackMessageResult).not.toHaveBeenCalled();

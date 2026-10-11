@@ -408,6 +408,7 @@ export function PreLaunchChecklistDrawer() {
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutateExperiment}
+          envs={envs}
         />
       ) : null}
       <Box className="dark-theme prelaunch-checklist-drawer">

@@ -19,7 +19,7 @@ import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 
-const breadcumbLinks = [
+const breadcrumbLinks = [
   ...navlinks,
   {
     name: "Power Calculator",
@@ -44,6 +44,10 @@ const otherPageTitles = [
   {
     path: /^account\/personal-access-tokens/,
     title: "Personal Access Tokens",
+  },
+  {
+    path: /^account\/slack/,
+    title: "My Slack Links",
   },
   {
     path: /^getstarted/,
@@ -104,7 +108,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  breadcumbLinks.forEach((o) => {
+  breadcrumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {

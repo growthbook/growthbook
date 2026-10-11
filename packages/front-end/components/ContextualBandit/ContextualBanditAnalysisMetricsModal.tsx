@@ -1,3 +1,4 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
@@ -7,7 +8,7 @@ import {
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { Box } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -53,7 +54,7 @@ export default function ContextualBanditAnalysisMetricsModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const { datasources, getDatasourceById, getExperimentMetricById } =
     useDefinitions();
   const { organization } = useUser();
@@ -205,9 +206,9 @@ export default function ContextualBanditAnalysisMetricsModal({
             !!data.banditConversionWindowValue &&
             !!data.banditConversionWindowUnit;
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
+          await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+            params: { id: cb.id },
+            body: {
               datasource: data.datasource || undefined,
               contextualBanditQueryId: data.exposureQueryId || undefined,
               contextualAttributes,
@@ -222,7 +223,7 @@ export default function ContextualBanditAnalysisMetricsModal({
               conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
-            }),
+            },
           });
           mutate();
         })}

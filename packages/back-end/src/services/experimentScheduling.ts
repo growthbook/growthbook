@@ -1,6 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { expandMetricGroups } from "shared/experiments";
+import { expandMetricGroups, withScheduledBy } from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -592,7 +592,7 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: stagedStop,
+    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context.armer),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });

@@ -32,7 +32,7 @@ export const getSdkPayload = createApiRequestHandler({
     throw new Error("Missing API key in request");
   }
 
-  const params = await getPayloadParamsFromApiKey(key, req);
+  const params = await getPayloadParamsFromApiKey(key, req, req.context.org.id);
 
   const defs = await getFeatureDefinitionsWithCache({
     context: req.context,

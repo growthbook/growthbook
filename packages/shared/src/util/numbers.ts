@@ -77,6 +77,24 @@ export function parseEnvInt(
 }
 
 /**
+ * Relative change as a signed percent with one decimal and no trailing zero:
+ * 0.061 -> "+6.1%", -0.08 -> "-8%".
+ */
+export function formatPercentChange(fraction: number): string {
+  const pct = Math.round(fraction * 1000) / 10;
+  return `${pct > 0 ? "+" : ""}${pct}%`;
+}
+
+const integerFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+/** Whole number with thousands separators: 6213 -> "6,213". */
+export function formatInteger(value: number): string {
+  return integerFormatter.format(value);
+}
+
+/**
  * Formats a p-value for display, collapsing anything below the smallest
  * representable value at `digits` precision to `<0.001`-style text.
  */

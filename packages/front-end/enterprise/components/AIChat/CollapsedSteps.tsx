@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretRight, PiCheckCircle } from "react-icons/pi";
+import { PiCaretRight } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { ToolStatusIcon } from "./AIChatPrimitives";
 import styles from "./AIChatPrimitives.module.scss";
@@ -17,6 +17,11 @@ export interface CollapsedStepItem {
 interface CollapsedStepsProps {
   count: number;
   items: CollapsedStepItem[];
+  active?: {
+    key: string;
+    label: string;
+    status: "done" | "error" | "running";
+  } | null;
   defaultExpanded?: boolean;
   onToggle?: (expanded: boolean) => void;
 }
@@ -24,49 +29,54 @@ interface CollapsedStepsProps {
 export default function CollapsedSteps({
   count,
   items,
+  active = null,
   defaultExpanded = false,
   onToggle,
 }: CollapsedStepsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  if (count === 0) return null;
+  if (count === 0 && !active) return null;
 
   return (
-    <Box>
-      <button
-        className={styles.collapsedToggle}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "0 0 4px 0",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--gray-a11)",
-        }}
-        onClick={() => {
-          setExpanded((v) => {
-            onToggle?.(!v);
-            return !v;
-          });
-        }}
-      >
-        <span
+    <Box className={styles.agentActivity}>
+      {count > 0 && (
+        <button
+          type="button"
+          className={styles.collapsedToggle}
+          aria-expanded={expanded}
           style={{
-            display: "inline-flex",
-            flexShrink: 0,
-            transition: "transform 150ms ease",
-            transform: expanded ? "rotate(90deg)" : undefined,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: 0,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--gray-a11)",
+          }}
+          onClick={() => {
+            setExpanded((v) => {
+              onToggle?.(!v);
+              return !v;
+            });
           }}
         >
-          <PiCaretRight size={10} />
-        </span>
-        <PiCheckCircle size={12} color="var(--green-9)" />
-        <Text size="sm" color="text-low">
-          Completed {count} {count === 1 ? "step" : "steps"}
-        </Text>
-      </button>
+          <span
+            className={styles.activityCaret}
+            style={{
+              transform: expanded ? "rotate(90deg)" : undefined,
+            }}
+          >
+            <PiCaretRight size={10} />
+          </span>
+          <Text size="sm" color="text-low">
+            {count} {count === 1 ? "step" : "steps"} completed
+          </Text>
+          <span className={styles.activityViewLabel}>
+            {expanded ? "Hide" : "View"}
+          </span>
+        </button>
+      )}
 
       {expanded && (
         <Box style={{ padding: "4px 0 4px 4px" }}>
@@ -127,6 +137,25 @@ export default function CollapsedSteps({
             </Flex>
           ))}
         </Box>
+      )}
+
+      {active && (
+        <Flex
+          align="center"
+          gap="2"
+          className={styles.activeStatus}
+          aria-live="polite"
+        >
+          <ToolStatusIcon status={active.status} />
+          <span
+            key={`${active.key}-${active.label}`}
+            className={styles.statusText}
+          >
+            <Text size="sm" color="text-low">
+              {active.label}
+            </Text>
+          </span>
+        </Flex>
       )}
     </Box>
   );

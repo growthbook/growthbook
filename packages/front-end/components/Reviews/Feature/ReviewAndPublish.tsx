@@ -37,6 +37,7 @@ import {
   isPureFeatureArchive,
   isPureFeatureRevert,
   MergeStrategy,
+  getRevertRampDetachActions,
 } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -80,6 +81,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -102,6 +104,9 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import { getErrorDetails } from "@/services/apiCallError";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -439,22 +444,31 @@ export default function ReviewAndPublish({
   const readonlyBaseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion,
   );
-  const readonlyBeforeInput = readonlyBaseRevision
-    ? toDiffInput(readonlyBaseRevision)
-    : liveBaseInput;
-  const readonlyAfterInput = revision ? toDiffInput(revision) : liveBaseInput;
+  // Stable inputs keep useFeatureRevisionDiff's memo, and the diff viewers
+  // below it, from recomputing on every render
+  const readonlyBeforeInput = useMemo(
+    () =>
+      readonlyBaseRevision ? toDiffInput(readonlyBaseRevision) : liveBaseInput,
+    [readonlyBaseRevision, toDiffInput, liveBaseInput],
+  );
+  const readonlyAfterInput = useMemo(
+    () => (revision ? toDiffInput(revision) : liveBaseInput),
+    [revision, toDiffInput, liveBaseInput],
+  );
   const readonlyDiffs = useFeatureRevisionDiff({
     current: readonlyBeforeInput,
     draft: readonlyAfterInput,
   });
-  // The previously-published revision to roll back to when viewing the live one.
-  const previousPublishedRevision = useMemo(() => {
-    const live = revisions.find((r) => r.version === feature.version);
+  // The previously-published revision to roll back to when viewing the live
+  // one, and the one this draft reverts to. Found in the full list, then
+  // loaded, since neither is necessarily among the revisions the page has.
+  const previousPublishedVersion = useMemo(() => {
+    const live = revisionList.find((r) => r.version === feature.version);
     const livePublishedAt = live?.datePublished
       ? new Date(live.datePublished).getTime()
       : Infinity;
     return (
-      revisions
+      revisionList
         .filter(
           (r) =>
             r.status === "published" &&
@@ -466,9 +480,15 @@ export default function ReviewAndPublish({
           const bt = b.datePublished ? new Date(b.datePublished).getTime() : 0;
           const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
           return bt - at;
-        })[0] ?? null
+        })[0]?.version ?? null
     );
-  }, [revisions, feature.version]);
+  }, [revisionList, feature.version]);
+  const pastRevisions = useFeatureRevisions(feature.id, [
+    previousPublishedVersion,
+    revision?.revertedFromVersion,
+  ]);
+  const previousPublishedRevision =
+    pastRevisions.get(previousPublishedVersion) ?? null;
 
   const [strategies, setStrategies] = useState<Record<string, MergeStrategy>>(
     {},
@@ -495,6 +515,13 @@ export default function ReviewAndPublish({
   const [experimentsStep, setExperimentsStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+    null,
+  );
+  const failSubmit = (e: unknown, fallback: string) => {
+    setSubmitError((e as Error).message || fallback);
+    setSubmitErrorDetails(getErrorDetails(e));
+  };
   const [secondaryLoading, setSecondaryLoading] = useState<
     "recall" | "undo" | null
   >(null);
@@ -761,6 +788,29 @@ export default function ReviewAndPublish({
     governingRules,
   });
 
+  // An open revert draft also removes the ramps its target predates; they show
+  // and count as changes like the draft's own ramp removals.
+  const revertDraftTargetVersion =
+    revision &&
+    revision.status !== "published" &&
+    revision.status !== "discarded"
+      ? revision.revertedFrom
+      : undefined;
+  const revertDraftTarget = useFeatureRevisions(feature.id, [
+    revertDraftTargetVersion,
+  ]).get(revertDraftTargetVersion);
+  const revertDraftDetaches = useMemo(
+    () =>
+      revertDraftTarget
+        ? getRevertRampDetachActions(
+            feature.id,
+            revertDraftTarget,
+            rampSchedules ?? [],
+          )
+        : [],
+    [feature.id, revertDraftTarget, rampSchedules],
+  );
+
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
@@ -777,9 +827,12 @@ export default function ReviewAndPublish({
       holdoutsMap,
       // Ramp actions ride the revision, not the merge result, so pass them
       // explicitly — the endpoint counts their reach either way.
-      rampActions: revision?.rampActions,
+      rampActions: [...(revision?.rampActions ?? []), ...revertDraftDetaches],
+      rampSchedules,
     });
   }, [
+    revertDraftDetaches,
+    rampSchedules,
     mergeResult,
     envIds,
     feature,
@@ -816,7 +869,7 @@ export default function ReviewAndPublish({
   // scheduled publish that locks publishing of other drafts. Blocks publishing
   // THIS revision (the scheduled sibling is excluded so it can still publish).
   const lockingScheduledSibling = findPublishLockingScheduledRevision(
-    revisions,
+    revisionList,
     revision?.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
@@ -864,14 +917,9 @@ export default function ReviewAndPublish({
     (!!userId && (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
+  const revertedFrom = pastRevisions.get(revision?.revertedFromVersion);
   const revertTargetRevision =
-    revision?.revertedFromVersion !== undefined
-      ? revisions.find(
-          (r) =>
-            r.version === revision.revertedFromVersion &&
-            r.status === "published",
-        )
-      : undefined;
+    revertedFrom?.status === "published" ? revertedFrom : undefined;
   const draftStagesRevert =
     !!revision &&
     !!revertTargetRevision &&
@@ -1085,13 +1133,13 @@ export default function ReviewAndPublish({
   const revisionsSinceApproval = useMemo<number | null>(() => {
     const approvedBase = revision?.approvedBaseVersion ?? null;
     if (approvedBase === null) return null;
-    return revisions.filter(
+    return revisionList.filter(
       (r) =>
         r.status === "published" &&
         r.version > approvedBase &&
         r.version <= feature.version,
     ).length;
-  }, [revisions, revision, feature.version]);
+  }, [revisionList, revision, feature.version]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -1161,7 +1209,7 @@ export default function ReviewAndPublish({
     [],
   );
 
-  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const currentRevisionData = liveBaseInput;
   // Three modes, picked by what's available:
   //  - merge success: diff against the merged result (what publish would do).
   //    `draftDiffInput` is intentionally sparse — only fields the merge
@@ -1170,11 +1218,15 @@ export default function ReviewAndPublish({
   //    to the raw draft revision so reviewers can still see what's at stake
   //    (draft vs live, with conflicting items marked by the conflict modal).
   //  - no revision: shouldn't happen at this point, but keep a no-op shape.
-  const draftDiffInput: FeatureRevisionDiffInput = mergeResult?.success
-    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-    : revision
-      ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
-      : currentRevisionData;
+  const draftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      mergeResult?.success
+        ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+        : revision
+          ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
+          : currentRevisionData,
+    [mergeResult, revision, currentRevisionData],
+  );
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: draftDiffInput,
@@ -1182,10 +1234,16 @@ export default function ReviewAndPublish({
   // Preview diffs for the conflict modal's "Review Changes" step: what the
   // draft will contain once the chosen resolutions are applied and the
   // rebase runs.
-  const resolvedDraftDiffInput: FeatureRevisionDiffInput =
-    resolvedMergeResult?.success
-      ? mergeResultToDiffInput(resolvedMergeResult.result, currentRevisionData)
-      : draftDiffInput;
+  const resolvedDraftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      resolvedMergeResult?.success
+        ? mergeResultToDiffInput(
+            resolvedMergeResult.result,
+            currentRevisionData,
+          )
+        : draftDiffInput,
+    [resolvedMergeResult, draftDiffInput, currentRevisionData],
+  );
   const resolvedResultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: resolvedDraftDiffInput,
@@ -1198,9 +1256,15 @@ export default function ReviewAndPublish({
   const rampDiffs = useMemo(
     () =>
       revision
-        ? buildRampDiffs({ feature, revision, rampSchedules, holdoutsMap })
+        ? buildRampDiffs({
+            feature,
+            revision,
+            rampSchedules,
+            holdoutsMap,
+            revertDetaches: revertDraftDetaches,
+          })
         : [],
-    [feature, revision, rampSchedules, holdoutsMap],
+    [feature, revision, rampSchedules, holdoutsMap, revertDraftDetaches],
   );
 
   const onUpdateFromLive = async () => {
@@ -1218,7 +1282,7 @@ export default function ReviewAndPublish({
       await mutate();
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Failed to update from live");
+      failSubmit(e, "Failed to update from live");
     } finally {
       setRebasing(false);
     }
@@ -1671,7 +1735,7 @@ export default function ReviewAndPublish({
             feature={feature}
             revision={revertTarget}
             revisionList={revisionList}
-            allRevisions={revisions}
+            rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}
             setVersion={setVersion}
@@ -1913,7 +1977,7 @@ export default function ReviewAndPublish({
       }
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Something went wrong");
+      failSubmit(e, "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -3013,7 +3077,7 @@ export default function ReviewAndPublish({
                       )}
                       {scheduleError && (
                         <Callout status="error" mt="2">
-                          {scheduleError}
+                          <MarkdownLinks text={scheduleError} />
                         </Callout>
                       )}
                       {/* Unchecking "Automatically publish" cancels the schedule;
@@ -3273,13 +3337,15 @@ export default function ReviewAndPublish({
                   {(submitError || secondaryError) && (
                     <Flex direction="column" gap="2" mt="3">
                       {submitError && (
-                        <Callout status="error" size="sm">
-                          {submitError}
-                        </Callout>
+                        <ErrorDisplay
+                          error={submitError}
+                          details={submitErrorDetails}
+                          maxLines={12}
+                        />
                       )}
                       {secondaryError && (
                         <Callout status="error" size="sm">
-                          {secondaryError}
+                          <MarkdownLinks text={secondaryError} />
                         </Callout>
                       )}
                     </Flex>

@@ -927,7 +927,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        # Test that meric mean is unadjusted
+        # Test that metric mean is unadjusted
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].dimension, "All")
         self.assertEqual(round_(result[0].variations[0].cr), 0.099966678)

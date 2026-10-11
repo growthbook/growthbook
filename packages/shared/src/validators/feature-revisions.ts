@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -13,7 +14,7 @@ import {
 import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
-  JSONSchemaDef,
+  apiJSONSchemaDefInput,
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
@@ -413,7 +414,7 @@ const safeRolloutCreateInput = z
     safeRolloutFields: z
       .object({
         datasourceId: z.string(),
-        exposureQueryId: z.string(),
+        ...apiAssignmentQueryInputFields("exposureQuery"),
         guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({
@@ -585,7 +586,12 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
     ignoreWarnings: ignoreWarningsBodyField,
   }),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    warnings: z
+      .array(z.string())
+      .optional()
+      .describe("Non-fatal advisories about how the request was interpreted."),
+  }),
 };
 
 export const deleteFeatureRevisionRuleRampScheduleValidator = {
@@ -712,7 +718,7 @@ export const putFeatureRevisionMetadataValidator = {
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),

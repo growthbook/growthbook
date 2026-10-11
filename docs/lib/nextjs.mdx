@@ -2,7 +2,6 @@
 title: Next.js SDK (Vercel Flags)
 description: Use the GrowthBook Next.js adapter for Vercel Flags to evaluate feature flags and experiments in App Router and hybrid backends.
 sidebarTitle: Next.js
-slug: nextjs
 toc_max_heading_level: 5
 ---
 
@@ -207,7 +206,7 @@ The adapter can load your SDK payload from Vercel&apos;s Edge Config to lower th
 
 If Edge Config is not set, the adapter will fetch configuration from GrowthBook's API.
 
-### Configuring a SDK Webhook
+### Configuring an SDK Webhook {#configuring-a-sdk-webhook}
 
 1. To automatically populate the Edge Config whenever your feature definitions change, create a [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for the Next.js integration.ts
 
@@ -230,7 +229,7 @@ Under the hood, the webhook is being configured with the following properties. I
 <Note>
 **Vercel Edge Config limitations**
 
-Vercel's Edge Config is subject to storage size limitations. If your SDK payload is excessively large, you may not be able to populate the your Edge Config. See [Vercel Edge Config limits](https://vercel.com/docs/edge-config/edge-config-limits).
+Vercel's Edge Config is subject to storage size limitations. If your SDK payload is excessively large, you may not be able to populate your Edge Config. See [Vercel Edge Config limits](https://vercel.com/docs/edge-config/edge-config-limits).
 
 </Note>
 

@@ -9,7 +9,7 @@ import {
 } from "shared/types/fact-table";
 import { CreateProps } from "shared/types/base-model";
 import {
-  canInlineFilterColumn,
+  getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import {
@@ -39,19 +39,15 @@ export function getInitialInlineFilters(
   existingRowFilters?: RowFilter[],
 ): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
-  factTable.columns
-    .filter(
-      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
-    )
-    .forEach((c) => {
-      if (!rowFilters.some((rf) => rf.column === c.column)) {
-        rowFilters.push({
-          column: c.column,
-          operator: "=",
-          values: [""],
-        });
-      }
-    });
+  getInlineFilterPromptColumns(factTable, rowFilters).forEach((column) => {
+    if (!rowFilters.some((rf) => rf.column === column)) {
+      rowFilters.push({
+        column,
+        operator: "=",
+        values: [""],
+      });
+    }
+  });
   return rowFilters;
 }
 
@@ -121,6 +117,7 @@ export function getDefaultFactMetricProps({
       type: "",
       value: 0,
     },
+    lowerCappingSettings: existing?.lowerCappingSettings ?? null,
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
     // Funnel steps are tracked in modal state, not react-hook-form.

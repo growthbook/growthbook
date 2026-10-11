@@ -1,5 +1,7 @@
 import {
   autoMerge,
+  AutoMergeResult,
+  reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
@@ -26,8 +28,12 @@ import type { ReqContext } from "back-end/types/request";
 import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
+  scrubDeadProjectScopes,
 } from "back-end/src/models/FeatureModel";
-import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
+import {
+  computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
   getLiveAndBaseRevisionsForFeature,
@@ -47,6 +53,15 @@ import {
 import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
+import {
+  resolveRevertRampStopsForRevision,
+  revertRampStopGate,
+} from "back-end/src/revisions/revertRampGuard";
+import {
+  assertFeatureSavedGroupScope,
+  collectSavedGroupScopeGate,
+} from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   PublishGate,
   hookResultsToGates,
@@ -330,13 +345,20 @@ export async function planFeatureRevisionMerge({
       )
     ).length > 0;
 
+  // A revert whose only effect is removing ramps its target predates still
+  // changes something, like a draft that only activates a ramp.
+  const detachesRevertRamps =
+    (await resolveRevertRampStopsForRevision(context, feature, revision))
+      .detaches.length > 0;
+
   return {
     environmentIds,
-    mergeResult: merged.result,
+    mergeResult: await scrubDeadProjectScopes(context, merged.result),
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp,
+      hasLinkedPendingRamp ||
+      detachesRevertRamps,
     hasLinkedPendingRamp,
     requiresReview,
     uncoveredApprovers,
@@ -351,8 +373,8 @@ export async function planFeatureRevisionMerge({
 }
 
 // The interactive publish handler's gate set: stale-base, approval-required,
-// holdout transition, and (when `includeValidationGates`) publish-time value
-// validation, custom hooks, and archive-dependents. Throws on a config-backed
+// holdout transition, Saved Group Project scope, and (when
+// `includeValidationGates`) value validation, custom hooks, and archive-dependents. Throws on a config-backed
 // default carrying its own override patch — a structural payload error no
 // override clears (the bulk adapter catches it and reports it as a no-override
 // gate).
@@ -473,10 +495,24 @@ export async function collectFeaturePublishGates({
     })),
   );
 
-  if (!includeValidationGates) return gates;
-
-  const scheduleGate = pendingScheduleGate(revision);
-  if (scheduleGate) gates.push(scheduleGate);
+  // Above the validation-gate cutoff: values that cannot be the feature's type
+  // are refused outright on every path. The proposed feature computed below
+  // normalizes JSON values and would throw on them, and the schema-family
+  // checks would report the same value again as a schema failure.
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    plan.mergeResult,
+    feature,
+  );
+  if (typeErrors.length) {
+    gates.push(
+      makeBlockingGate({
+        type: "invalid-feature-value",
+        messages: typeErrors,
+      }),
+    );
+    return gates;
+  }
 
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(
@@ -485,6 +521,22 @@ export async function collectFeaturePublishGates({
       revision,
       plan.mergeResult,
     );
+
+  gates.push(
+    ...(await collectSavedGroupScopeGate(() =>
+      assertFeatureSavedGroupScope(context, proposedFeature, [
+        feature,
+        featureForSavedGroupValidation(feature, revision),
+      ]),
+    )),
+  );
+
+  if (!includeValidationGates) return gates;
+
+  const scheduleGate = pendingScheduleGate(revision);
+  if (scheduleGate) gates.push(scheduleGate);
+  const rampStopGate = await revertRampStopGate(context, feature, revision);
+  if (rampStopGate) gates.push(rampStopGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing
@@ -498,10 +550,14 @@ export async function collectFeaturePublishGates({
   // override chosen by the org's blockPublishOnSchemaError setting: block ->
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
-    ...collectFeatureValueErrorsForPublish(feature, {
-      defaultValue: plan.mergeResult.defaultValue,
-      rules: plan.mergeResult.rules,
-    }),
+    ...collectFeatureValueErrorsForPublish(
+      feature,
+      {
+        defaultValue: plan.mergeResult.defaultValue,
+        rules: plan.mergeResult.rules,
+      },
+      feature,
+    ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
@@ -538,12 +594,14 @@ export async function collectFeaturePublishGates({
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(
+        feature,
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
+        { result: plan.mergeResult, environmentIds: plan.environmentIds },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
   const hookHardErrors = [
     ...featureHookResults.hardErrors,
@@ -591,4 +649,42 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// The merge an unattended publish lands, under the governance the publish button
+// applies. `rebaseRequired` is the mergeable-but-blocked case; conflicts are the
+// caller's to report.
+export function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
 }

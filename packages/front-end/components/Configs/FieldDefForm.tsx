@@ -12,6 +12,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
 import CodeTextArea, {
@@ -632,7 +633,7 @@ export default function FieldDefForm({
       )}
       {err && (
         <Callout status="error" mt="2" size="sm">
-          {err}
+          <MarkdownLinks text={err} />
         </Callout>
       )}
     </Box>

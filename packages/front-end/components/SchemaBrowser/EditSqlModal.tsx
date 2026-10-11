@@ -21,7 +21,11 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  formatSql,
+  canFormatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import {
   Panel,
   PanelGroup,
@@ -190,8 +194,10 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
-  const handleFormatClick = () => {
-    const result = formatSql(form.watch("sql"), datasource?.type);
+  const handleFormat = () => {
+    const sql = form.watch("sql");
+    if (!sql || !canFormat) return;
+    const result = formatSql(sql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
     } else if (result.formattedSql) {
@@ -298,14 +304,18 @@ export default function EditSqlModal({
                           />
                         </Tooltip>
                         {canFormat ? (
-                          <RadixButton
-                            size="md"
-                            variant="ghost"
-                            onClick={handleFormatClick}
-                            disabled={!form.watch("sql")}
+                          <Tooltip
+                            body={`Format SQL (${getFormatSqlShortcutLabel()})`}
                           >
-                            Format
-                          </RadixButton>
+                            <RadixButton
+                              size="md"
+                              variant="ghost"
+                              onClick={handleFormat}
+                              disabled={!form.watch("sql")}
+                            >
+                              Format
+                            </RadixButton>
+                          </Tooltip>
                         ) : null}
                         <Tooltip
                           body="You do not have permission to run test queries"
@@ -445,6 +455,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
+                      onFormatShortcut={handleFormat}
                       completions={autoCompletions}
                     />
                   </Box>

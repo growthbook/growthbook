@@ -2,7 +2,9 @@ import type {
   RampScheduleInterface,
   SafeRolloutInterface,
 } from "shared/validators";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import {
+  assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   restartSchedule,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -21,6 +23,11 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -391,5 +398,59 @@ describe("restartSchedule SafeRollout floor reset", () => {
         Object.prototype.hasOwnProperty.call(updates, "analysisStartedAt"),
     );
     expect(floorCall).toBeUndefined();
+  });
+});
+
+describe("assertCanUpdateLinkedSafeRolloutMonitoringConfig identifier type", () => {
+  const startedSafeRollout = {
+    id: "sr_1",
+    startedAt: new Date("2026-01-01T00:00:00Z"),
+  } as SafeRolloutInterface;
+
+  beforeEach(() => {
+    jest.mocked(getExposureQueriesForDatasource).mockResolvedValue([
+      {
+        id: "exposure_1",
+        name: "Assignments",
+        userIdType: "anonymous_id",
+        userIdTypes: ["anonymous_id", "user_id"],
+        query: "",
+        dimensions: [],
+      },
+    ]);
+  });
+
+  it("blocks an identifier change once the SafeRollout has started", async () => {
+    const { ctx } = makeContext(startedSafeRollout);
+    const schedule = makeSchedule();
+    await expect(
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        ctx as Parameters<
+          typeof assertCanUpdateLinkedSafeRolloutMonitoringConfig
+        >[0],
+        schedule,
+        {
+          ...schedule.monitoringConfig!,
+          exposureQueryIdentifierType: "user_id",
+        },
+      ),
+    ).rejects.toThrow("identifier type");
+  });
+
+  it("treats a legacy config pinned to its query's first identifier as unchanged", async () => {
+    const { ctx } = makeContext(startedSafeRollout);
+    const schedule = makeSchedule();
+    await expect(
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        ctx as Parameters<
+          typeof assertCanUpdateLinkedSafeRolloutMonitoringConfig
+        >[0],
+        schedule,
+        {
+          ...schedule.monitoringConfig!,
+          exposureQueryIdentifierType: "anonymous_id",
+        },
+      ),
+    ).resolves.toBeUndefined();
   });
 });

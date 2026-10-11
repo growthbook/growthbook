@@ -443,11 +443,15 @@ describe("updateVisualChange", () => {
         upsertedCount: 0,
         upsertedId: null,
       });
+    (getCollection as jest.Mock).mockReturnValue({
+      findOne: jest.fn().mockResolvedValue(null),
+    });
 
     await updateVisualChange({
+      // @ts-expect-error partial context
+      context: { org: { id: "org_123" } },
       changesetId: visualChangeset.id,
       visualChangeId: "vch_123",
-      organization: "org_123",
       payload: {
         id: "vch_other",
         css: "body { color: blue; }",

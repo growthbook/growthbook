@@ -109,6 +109,10 @@ export default {
     plan: "enterprise",
     displayName: "Incremental Refresh",
   },
+  interleaving: {
+    plan: "enterprise",
+    displayName: "Interleaving",
+  },
   "json-validation": {
     plan: "enterprise",
     displayName: "JSON Validation",
@@ -303,6 +307,6 @@ export default {
   },
   "visual-editor": {
     plan: "pro",
-    displayName: "Visual Editor",
+    displayName: "AI Visual Editor",
   },
 };

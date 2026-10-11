@@ -55,7 +55,7 @@ We're here to help - and to make GrowthBook even better!
 
 We ❤️ all contributions, big and small!
 
-Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
+Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to set up your local development environment.
 
 If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=readme-contributing) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
 

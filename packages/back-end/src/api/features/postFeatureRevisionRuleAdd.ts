@@ -16,6 +16,7 @@ import type {
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -55,7 +56,9 @@ import {
   validateRuleReferences,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedFeature,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -164,11 +167,22 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     rampSchedule: inlineRampSchedule,
   });
   const ruleInput = req.body.rule;
+  const ruleId = uuidv4();
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      environments: [environment],
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      await stagedFeature(req.context, feature, req.params.version),
+      {
+        id: ruleId,
+        type: ruleInput.type,
+        hashAttribute:
+          ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
+        environments: [environment],
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -237,7 +251,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       });
     }
 
-    const rule = buildRuleFromInput(ruleInput, uuidv4());
+    const rule = buildRuleFromInput(ruleInput, ruleId);
 
     // Seed a new rollout off its own rule id so stacked rollouts hash
     // independently (same chokepoint the v2 add endpoint uses).
@@ -271,8 +285,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
       const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        null,
+        "requireUnambiguous",
       );
 
       const defaultRampSteps = [
@@ -302,7 +318,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.

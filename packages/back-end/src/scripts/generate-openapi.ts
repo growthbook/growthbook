@@ -7,6 +7,8 @@ import {
   apiErrorRegistry,
   ApiErrorCode,
 } from "shared/validators";
+import type { ApiEndpointSpec } from "shared/api-spec";
+import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 import { getBuild } from "back-end/src/util/build";
 
@@ -65,7 +67,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   features: {
     display: "Feature Flags (legacy)",
     description:
-      "Control your feature flags programatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
+      "Control your feature flags programmatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
   },
   "feature-revisions": {
     display: "Feature Revisions (legacy)",
@@ -75,7 +77,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "features-v2": {
     display: "Feature Flags",
     description:
-      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+      "Control your feature flags programmatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
   },
   "feature-revisions-v2": {
     display: "Feature Revisions",
@@ -461,7 +463,39 @@ type Path = {
 
 type CodeSample = { lang: string; source: string };
 
+// The front-end calls shared/api-endpoints by path, so an endpoint with no
+// mounted route type-checks everywhere and only fails as a 404 at runtime.
+function assertSharedEndpointsMounted() {
+  const endpoints: Pick<
+    ApiEndpointSpec<unknown, unknown, unknown, unknown>,
+    "method" | "path" | "operationId" | "version"
+  >[] = Object.values(endpointModules).flatMap((m) => Object.values(m));
+  const unmounted = endpoints.filter(
+    (endpoint) =>
+      allRoutes.filter(
+        (route) =>
+          route.operationId === endpoint.operationId &&
+          route.method === endpoint.method &&
+          route.path === endpoint.path &&
+          (route.version ?? "v1") === (endpoint.version ?? "v1"),
+      ).length !== 1,
+  );
+  if (unmounted.length > 0) {
+    throw new Error(
+      "These shared/api-endpoints endpoints are not mounted exactly once by the back-end:\n" +
+        unmounted
+          .map(
+            ({ method, path, operationId }) =>
+              `  ${method.toUpperCase()} ${path} (${operationId})`,
+          )
+          .join("\n"),
+    );
+  }
+}
+
 async function run() {
+  assertSharedEndpointsMounted();
+
   // TODO: add security, etc.
   const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {

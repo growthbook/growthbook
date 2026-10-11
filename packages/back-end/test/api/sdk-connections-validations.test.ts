@@ -191,7 +191,7 @@ describe("sdk-connections validations", () => {
           "latest_version",
         );
       }).toThrow(
-        "You need to ugrade to version latest_version to support remoteEval",
+        "You need to upgrade to version latest_version to support remoteEval",
       );
     });
 
@@ -233,7 +233,7 @@ describe("sdk-connections validations", () => {
       }).not.toThrow();
     });
 
-    it("Allows premium overriden features", () => {
+    it("Allows premium overridden features", () => {
       expect(() => {
         validatePremiumFeatures(context, { proxyEnabled: true });
       }).not.toThrow();

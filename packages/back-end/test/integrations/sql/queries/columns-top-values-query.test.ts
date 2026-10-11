@@ -1,15 +1,17 @@
 import type { SqlDialect } from "shared/types/sql";
 import type { ColumnInterface } from "shared/types/fact-table";
+import {
+  bigQueryDialect,
+  snowflakeDialect,
+  databricksDialect,
+  prestoDialect,
+  athenaDialect,
+  clickHouseDialect,
+  postgresDialect,
+  redshiftDialect,
+  mysqlDialect,
+} from "shared/dialects";
 import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { athenaDialect } from "back-end/src/integrations/dialects/athena";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
 
 function makeColumn(column: string): ColumnInterface {
   return {

@@ -1,6 +1,7 @@
 import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
+  contextualBanditValidator,
   MAX_CONTEXTUAL_BANDIT_LEAVES,
 } from "../src/validators/contextual-bandit";
 
@@ -13,6 +14,32 @@ const baseCreate = {
   contextualBanditQueryId: "cbq_1",
   contextualAttributes: ["country"],
 };
+
+describe("stored contextual bandit variation keys", () => {
+  const variation = { id: "var_control", name: "Control", screenshots: [] };
+
+  it.each([undefined, null, "", " ", "\t\n"])(
+    "rejects a missing or blank key: %j",
+    (key) => {
+      expect(
+        contextualBanditValidator.shape.variations.safeParse([
+          { ...variation, key },
+        ]).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each(["0", "1", "A0", "a'b", " control "])(
+    "preserves a non-empty key: %j",
+    (key) => {
+      expect(
+        contextualBanditValidator.shape.variations.parse([
+          { ...variation, key },
+        ])[0].key,
+      ).toBe(key);
+    },
+  );
+});
 
 describe("maxLeaves request-boundary cap", () => {
   it("accepts maxLeaves up to the cap on create", () => {

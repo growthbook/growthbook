@@ -31,6 +31,7 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -678,7 +679,7 @@ export default function ConfigInvariantsEditor({
 
       {listError && (
         <Callout status="error" mb="3">
-          {listError}
+          <MarkdownLinks text={listError} />
         </Callout>
       )}
 

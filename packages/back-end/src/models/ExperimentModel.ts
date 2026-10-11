@@ -1,4 +1,4 @@
-import { each, isEqual, pick, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -21,19 +21,23 @@ import {
   Changeset,
   ExperimentInterface,
   ExperimentType,
+  ExperimentNotification,
   LegacyExperimentInterface,
   Variation,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidBucketVersions,
   assertValidExperimentPhases,
   assertValidReleasedVariationId,
   determineNextDate,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
+import { getOwnerEmail } from "back-end/src/services/owner";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
@@ -70,6 +74,11 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  notifyExperimentCreated,
+  notifyExperimentStatusTransition,
+  notifyExperimentBanditWeightsTransition,
+} from "back-end/src/services/experimentNotifications";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -133,6 +142,7 @@ const experimentSchema = new mongoose.Schema({
   datasource: String,
   userIdType: String,
   exposureQueryId: String,
+  exposureQueryIdentifierType: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
@@ -223,6 +233,8 @@ const experimentSchema = new mongoose.Schema({
     type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+    scheduledBy: String,
+    scheduledByApiKey: String,
   },
   results: String,
   analysis: String,
@@ -414,6 +426,8 @@ experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
 );
+// The lifecycle reminders scan runs across organizations by status.
+experimentSchema.index({ status: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -663,14 +677,32 @@ export async function getExistingExperimentIds(
 
 export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    prerequisiteIds,
+    ids,
+  }: {
+    includeArchived?: boolean;
+    // Only experiments whose phases name one of these as a prerequisite
+    prerequisiteIds?: string[];
+    // Only these experiments
+    ids?: string[];
+  } = {},
 ): Promise<ExperimentInterface[]> {
+  if (prerequisiteIds && !prerequisiteIds.length) return [];
+  if (ids && !ids.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+  if (prerequisiteIds) {
+    query["phases.prerequisites.id"] = { $in: prerequisiteIds };
+  }
+  if (ids) {
+    query.id = { $in: ids };
   }
 
   const docs = await getCollection(COLLECTION)
@@ -820,6 +852,7 @@ export async function createExperiment({
   validateMetricOverrides(data.metricOverrides);
   assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
+  assertValidBucketVersions(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -877,6 +910,26 @@ export function hasActualChanges(
   return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
 }
 
+export async function setExperimentNotificationState({
+  context,
+  experiment,
+  type,
+  triggered,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  type: ExperimentNotification;
+  triggered: boolean;
+}) {
+  // Independent alerts must not overwrite each other's delivery state.
+  await ExperimentModel.updateOne(
+    { id: experiment.id, organization: context.org.id },
+    triggered
+      ? { $addToSet: { pastNotifications: type } }
+      : { $pull: { pastNotifications: type } },
+  );
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -911,7 +964,24 @@ export async function updateExperiment({
     assertValidExperimentPhases(allChanges.phases, experiment.phases);
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
+  assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
 
+  const remindersToReset = getExperimentReminderResets(experiment, {
+    ...experiment,
+    ...allChanges,
+  });
+  if (remindersToReset.length && allChanges.pastNotifications) {
+    allChanges.pastNotifications = allChanges.pastNotifications.filter(
+      (type) => !remindersToReset.includes(type),
+    );
+  }
+  /**
+   * $set skips an undefined value, so clearing the stored identifier (an
+   * implicit selection) needs an $unset or the old one would stay.
+   */
+  const unsetIdentifierType =
+    "exposureQueryIdentifierType" in allChanges &&
+    allChanges.exposureQueryIdentifierType === undefined;
   const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -919,14 +989,34 @@ export async function updateExperiment({
       ...(guard ?? {}),
     },
     {
-      $set: allChanges,
+      $set: unsetIdentifierType
+        ? omit(allChanges, "exposureQueryIdentifierType")
+        : allChanges,
+      ...(unsetIdentifierType
+        ? { $unset: { exposureQueryIdentifierType: "" } }
+        : {}),
+      ...(remindersToReset.length && allChanges.pastNotifications === undefined
+        ? { $pull: { pastNotifications: { $in: remindersToReset } } }
+        : {}),
     },
   );
   if (guard && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
-  const updated = { ...experiment, ...allChanges };
+  const updated = {
+    ...experiment,
+    ...allChanges,
+    ...(remindersToReset.length
+      ? {
+          pastNotifications: (
+            allChanges.pastNotifications ??
+            experiment.pastNotifications ??
+            []
+          ).filter((type) => !remindersToReset.includes(type)),
+        }
+      : {}),
+  };
 
   await onExperimentUpdate({
     context,
@@ -988,6 +1078,7 @@ export async function getExperimentsToUpdate(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -1022,6 +1113,7 @@ export async function getExperimentsToUpdateLegacy(
         $ne: "",
       },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
@@ -1043,6 +1135,33 @@ export async function getExperimentsToUpdateLegacy(
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+// Lifecycle reminders must include experiments without automatic result
+// refreshes. Reminder markers are cleared by updateExperiment when the status
+// or schedule changes (see experimentReminderState), so only running
+// experiments need a look. Unordered: the caller groups by organization.
+export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGenerator<
+  Pick<ExperimentInterface, "id" | "organization">
+> {
+  const cursor = getCollection(COLLECTION)
+    .find({
+      status: "running",
+      archived: { $ne: true },
+      // Holdouts have their own lifecycle notifications.
+      type: { $ne: "holdout" },
+    })
+    .project<Pick<ExperimentInterface, "id" | "organization">>({
+      id: 1,
+      organization: 1,
+      _id: 0,
+    })
+    .batchSize(100);
+  try {
+    for await (const experiment of cursor) yield experiment;
+  } finally {
+    await cursor.close();
+  }
 }
 
 export async function getExperimentsWithScheduledStatusUpdate(): Promise<
@@ -1332,6 +1451,20 @@ const findExperiment = async ({
 
 // region Events
 
+// The event payload: the API shape plus the owner's email when it resolves,
+// so deliveries can name the owner without reading the experiment back.
+const toExperimentEventPayload = async (
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) => {
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
+  const ownerEmail = await getOwnerEmail(apiExperiment.owner, context);
+  return ownerEmail ? { ...apiExperiment, ownerEmail } : apiExperiment;
+};
+
 /**
  * @param context
  * @param experiment
@@ -1343,10 +1476,7 @@ export const logExperimentCreated = async (
 ) => {
   if (experiment.type === "holdout") return;
 
-  const apiExperiment = await toExperimentApiInterface(
-    context,
-    experiment as ExperimentInterfaceExcludingHoldouts,
-  );
+  const apiExperiment = await toExperimentEventPayload(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -1385,17 +1515,9 @@ export const logExperimentUpdated = async ({
 }) => {
   if (current.type === "holdout") return;
 
-  const previousApiExperimentPromise = toExperimentApiInterface(
-    context,
-    previous as ExperimentInterfaceExcludingHoldouts,
-  );
-  const currentApiExperimentPromise = toExperimentApiInterface(
-    context,
-    current as ExperimentInterfaceExcludingHoldouts,
-  );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
-    previousApiExperimentPromise,
-    currentApiExperimentPromise,
+    toExperimentEventPayload(context, previous),
+    toExperimentEventPayload(context, current),
   ]);
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -1929,10 +2051,7 @@ export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(
-    context,
-    experiment as ExperimentInterfaceExcludingHoldouts,
-  );
+  const apiExperiment = await toExperimentEventPayload(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -2150,7 +2269,7 @@ export async function generateExperimentKeywords(
       exp.description || ""
     }\nanalysisSummary: ${
       exp.analysisSummary
-    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma separated.`,
     type: "generate-experiment-keywords",
     isDefaultPrompt: true,
     temperature: 0.1,
@@ -2202,35 +2321,35 @@ export function getPayloadKeys(
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
+  const keys: SDKPayloadKey[] = [];
+
   // Visual editor and URL redirect experiments always affect all environments
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
-    const keys: SDKPayloadKey[] = [];
-
     environments.forEach((e) => {
       // Always update the "no-project" payload
       keys.push({ environment: e, project: "" });
       // If the experiment is in a project, update that payload as well
       if (project) keys.push({ environment: e, project });
     });
-
-    return keys;
   }
 
-  // Feature flag experiments only affect the environments where the experiment rule is active
+  // Linked features serve the experiment, in their own projects, wherever
+  // its rule is active
   if (linkedFeatures && linkedFeatures.length > 0) {
-    return getAffectedSDKPayloadKeys(
-      linkedFeatures,
-      environments,
-      (rule) =>
-        rule.type === "experiment-ref" &&
-        rule.experimentId === experiment.id &&
-        rule.enabled !== false,
-      allProjectIds,
+    keys.push(
+      ...getAffectedSDKPayloadKeys(
+        linkedFeatures,
+        environments,
+        (rule) =>
+          rule.type === "experiment-ref" &&
+          rule.experimentId === experiment.id &&
+          rule.enabled !== false,
+        allProjectIds,
+      ),
     );
   }
 
-  // Otherwise, if no linked changes, there are no affected payload keys
-  return [];
+  return uniqBy(keys, (key) => `${key.environment}<>${key.project}`);
 }
 
 const getExperimentChanges = (
@@ -2290,6 +2409,12 @@ const onExperimentCreate = async ({
 }) => {
   await logExperimentCreated(context, experiment);
 
+  // Off the request path: the alert reads snapshots and metrics and writes an
+  // event, none of which the caller waits on.
+  notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify experiment creation"),
+  );
+
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
       experiment,
@@ -2313,6 +2438,25 @@ const onExperimentUpdate = async ({
     current: newExperiment,
     previous: oldExperiment,
   });
+
+  // Alerts run off the request path, after the SDK payload refresh below is
+  // queued: a stop or start must reach SDKs before Slack hears about it.
+  const notifyAlerts = () => {
+    notifyExperimentStatusTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment status transition"),
+    );
+    notifyExperimentBanditWeightsTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify bandit allocation change"),
+    );
+  };
 
   if (
     !bypassWebhooks &&
@@ -2353,6 +2497,8 @@ const onExperimentUpdate = async ({
       },
     });
   }
+
+  notifyAlerts();
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

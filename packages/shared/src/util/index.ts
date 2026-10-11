@@ -26,12 +26,15 @@ import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
+  getTargetingProjectIds,
   StagedTargetingScope,
   TargetingScopedEntity,
 } from "./features";
 
 export * from "./strings";
 export * from "./units-query-settings";
+export * from "./exposure-queries";
+export * from "./ramp-monitoring";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./featureHealth";
@@ -46,12 +49,14 @@ export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
+export * from "./revertRampDetach";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./interleaving";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -64,10 +69,16 @@ export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,
   linkedFeatures,
+  pendingDrafts,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
   orgEnvironments: Environment[];
   linkedFeatures?: FeatureInterface[];
+  // Drafts the experiment publishes when it starts; their rules reach too.
+  pendingDrafts?: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[];
 }): string[] {
   if (!orgEnvironments.length) {
     return [];
@@ -81,41 +92,54 @@ export function getAffectedEnvsForExperiment({
   )
     return ["__ALL__"];
 
-  if (linkedFeatures?.length) {
-    const envs = new Set<string>();
-    const orgEnvIds = orgEnvironments.map((e) => e.id);
-    linkedFeatures.forEach((linkedFeature) => {
-      const matches = getMatchingRules(
-        linkedFeature,
-        (rule) =>
-          (rule.type === "experiment-ref" &&
-            rule.enabled &&
-            rule.experimentId === experiment.id) ||
-          false,
-        orgEnvIds,
-        undefined,
-        // the boolean below skips environments if they are disabled on the feature
-        true,
-      );
-
-      // if we find any matching rules get the environments that are affected
-      if (matches.length) {
-        matches.forEach((match) => {
-          const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId,
-          );
-
-          if (env) {
-            if (featureHasEnvironment(linkedFeature, env)) {
-              envs.add(match.environmentId);
-            }
-          }
-        });
+  const envs = new Set<string>();
+  const orgEnvIds = orgEnvironments.map((e) => e.id);
+  const collect = (
+    linkedFeature: FeatureInterface,
+    revision?: FeatureRevisionInterface,
+  ) => {
+    // A draft can also switch environments on; judge it as it will land.
+    const feature = revision?.environmentsEnabled
+      ? {
+          ...linkedFeature,
+          environmentSettings: Object.fromEntries(
+            orgEnvIds.map((env) => [
+              env,
+              {
+                ...linkedFeature.environmentSettings?.[env],
+                enabled:
+                  revision.environmentsEnabled?.[env] ??
+                  linkedFeature.environmentSettings?.[env]?.enabled ??
+                  false,
+              },
+            ]),
+          ),
+        }
+      : linkedFeature;
+    const matches = getMatchingRules(
+      feature,
+      (rule) =>
+        (rule.type === "experiment-ref" &&
+          rule.enabled &&
+          rule.experimentId === experiment.id) ||
+        false,
+      orgEnvIds,
+      revision,
+      // the boolean below skips environments if they are disabled on the feature
+      true,
+    );
+    for (const match of matches) {
+      const env = orgEnvironments.find((e) => e.id === match.environmentId);
+      if (env && featureHasEnvironment(feature, env)) {
+        envs.add(match.environmentId);
       }
-    });
-    return Array.from(envs);
-  }
-  return [];
+    }
+  };
+  (linkedFeatures ?? []).forEach((feature) => collect(feature));
+  (pendingDrafts ?? []).forEach(({ feature, revision }) =>
+    collect(feature, revision),
+  );
+  return Array.from(envs);
 }
 
 export function getSnapshotAnalysis(
@@ -441,6 +465,21 @@ export function ruleProjectScope(rule: {
   return Array.isArray(rule.projects) ? rule.projects : [];
 }
 
+// Effective delivery Projects for a rule. Unlike attribute discovery, an
+// empty primary Project remains its own delivery scope, represented by "".
+export function getRuleTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const projects = getTargetingProjectIds(entity);
+  const ruleProjects = ruleProjectScope(rule);
+  return ruleProjects === null
+    ? projects
+    : projects === null
+      ? ruleProjects
+      : ruleProjects.filter((p) => projects.includes(p));
+}
+
 // Attribute scope for one rule: the feature's scope narrowed to the projects
 // the rule itself targets. A rule scoped outside the delivery set (or to no
 // project) reaches nowhere and so narrows nothing.
@@ -509,6 +548,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }
@@ -612,12 +652,34 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
+  // Array indices are never operators, so only items that hold keys are
+  // walked; an inlined ID list costs no handler calls.
+  if (Array.isArray(object)) {
+    for (const item of object) {
+      if (item !== null && typeof item === "object") {
+        recursiveWalk(item, onNode);
+      }
+    }
+    return;
+  }
+  // The value each key held when it was walked. A handler may re-home values
+  // under a key this pass has not seen, or replace one it has, e.g. rewriting
+  // `$savedGroups` moves its siblings into a new `$and`; both get walked.
+  const walked = new Map<string, unknown>();
+  let pending = Object.keys(object);
+  while (pending.length) {
+    for (const key of pending) {
+      // An earlier handler in this pass may have moved it
+      if (!(key in object)) continue;
+      onNode([key, object[key]], object);
+      walked.set(key, object[key]);
+      // Recompute the reference for the recursive call as the key may have changed
+      recursiveWalk(object[key], onNode);
+    }
+    pending = Object.keys(object).filter(
+      (key) => !walked.has(key) || !Object.is(walked.get(key), object[key]),
+    );
+  }
 };
 
 export function truncateString(s: string, numChars: number) {
@@ -715,6 +777,33 @@ export function ratioVarianceFromSums({
   );
 }
 
+// Targeting names a saved group in its condition, its saved-group list, or a
+// prerequisite's condition; all three reach the SDK payload. Conditions hold
+// the id as a JSON string, so match it quoted and not as a bare substring.
+export function targetingReferencesSavedGroup(
+  targeting: {
+    condition?: string | null;
+    savedGroups?: { ids: string[] }[] | null;
+    prerequisites?: { condition?: string | null }[] | null;
+  },
+  savedGroupId: string,
+): boolean {
+  const quoted = `"${savedGroupId}"`;
+  return (
+    !!targeting.condition?.includes(quoted) ||
+    !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
+    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
+  );
+}
+
+// A stopped bandit's rule leaves the payload for good; until then its
+// targeting is served on its linked features, archived or not.
+export function contextualBanditTargetingServes(cb: {
+  status: string;
+}): boolean {
+  return cb.status !== "stopped";
+}
+
 export function featuresReferencingSavedGroups({
   savedGroups,
   features,
@@ -729,14 +818,17 @@ export function featuresReferencingSavedGroups({
     savedGroups.forEach((savedGroup) => {
       const matches = getMatchingRules(
         feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+        (rule) => targetingReferencesSavedGroup(rule, savedGroup.id),
         environments.map((e) => e.id),
       );
 
-      if (matches.length > 0) {
+      if (
+        matches.length > 0 ||
+        targetingReferencesSavedGroup(
+          { prerequisites: feature.prerequisites },
+          savedGroup.id,
+        )
+      ) {
         referenceMap[savedGroup.id] ||= [];
         referenceMap[savedGroup.id].push(feature);
       }
@@ -758,11 +850,8 @@ export function experimentsReferencingSavedGroups({
   > = {};
   savedGroups.forEach((savedGroup) => {
     experiments.forEach((experiment) => {
-      const matchingPhases = experiment.phases.filter(
-        (phase) =>
-          phase.condition?.includes(savedGroup.id) ||
-          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+      const matchingPhases = experiment.phases.filter((phase) =>
+        targetingReferencesSavedGroup(phase, savedGroup.id),
       );
 
       if (matchingPhases.length > 0) {

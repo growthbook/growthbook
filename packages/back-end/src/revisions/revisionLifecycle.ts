@@ -184,7 +184,7 @@ export async function scheduleRevisionPublish({
     !!bypassApproval && adapter.canBypassApproval(context, entity);
 
   const enabledBy =
-    context.userId ||
+    context.armerId ||
     revision.autoPublishEnabledBy ||
     revision.authorId ||
     null;

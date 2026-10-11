@@ -9,6 +9,16 @@ export interface FeatureRevisionsContextValue {
   baseFeature: FeatureInterface;
   /** The revision version currently selected / being viewed on the feature page. */
   currentVersion: number;
+  /**
+   * Loads full revisions into `revisions`, the page's one cache. `force`
+   * reloads ones already there.
+   */
+  loadRevisions: (
+    versions: number[],
+    options?: { force?: boolean },
+  ) => Promise<void>;
+  /** Versions the last load didn't return (gone, or the request failed). */
+  unavailableVersions: Set<number>;
 }
 
 export const FeatureRevisionsContext =

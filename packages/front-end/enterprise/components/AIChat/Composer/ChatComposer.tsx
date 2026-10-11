@@ -444,19 +444,13 @@ function ChatComposer(
     clearDictationError();
   }, [value, clearDictationError]);
 
-  // Compact only: there the mic and send are the same 30px button, so it's a swap.
-  const micIsPrimary = isCompact && !canSend && !isLocalStream;
   const dictateButton = (
-    <DictationButton
-      dictation={dictation}
-      disabled={loading || disabled}
-      primary={micIsPrimary}
-    />
+    <DictationButton dictation={dictation} disabled={loading || disabled} />
   );
   const buttons = (
     <>
       {dictateButton}
-      {!(micIsPrimary && dictation.available) && sendButton}
+      {sendButton}
     </>
   );
 

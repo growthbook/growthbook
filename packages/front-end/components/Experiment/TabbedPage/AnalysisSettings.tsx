@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -17,6 +18,8 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import { isIdentifierUndeclared } from "@/services/datasources";
+import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -57,6 +60,10 @@ export default function AnalysisSettings({
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
+  );
+  const identifierType = resolveAnalysisIdentifierType(
+    assignmentQuery,
+    experiment.exposureQueryIdentifierType,
   );
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
@@ -186,7 +193,25 @@ export default function AnalysisSettings({
               <div>
                 <Text color="text-mid">
                   {assignmentQuery ? assignmentQuery.name : "--"}
-                </Text>
+                </Text>{" "}
+                <AssignmentQueryDriftIcon
+                  selection={{
+                    identifierUndeclared: isIdentifierUndeclared(
+                      assignmentQuery,
+                      identifierType,
+                    ),
+                    identifierType,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="col-4 mb-4">
+              <Text color="text-high" weight="semibold">
+                Identifier Type
+              </Text>
+              <div>
+                <Text color="text-mid">{identifierType || "--"}</Text>
               </div>
             </div>
 

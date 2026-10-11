@@ -39,6 +39,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
+import AgentSkillsSettings from "./AgentSkillsSettings";
 
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
@@ -399,6 +400,9 @@ export default function AISettings({
                     </Text>
                   </Flex>
                 </Flex>
+              )}
+              {form.watch("aiEnabled") && aiAgreedTo && (
+                <AgentSkillsSettings canEdit={canEdit} />
               )}
 
               <AIProviderKeys

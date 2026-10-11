@@ -46,7 +46,7 @@ export default function ConfirmActionCard({
   onDecide: (decision: "confirm" | "cancel") => void;
 }) {
   return (
-    <AssistantBubble>
+    <AssistantBubble variant="artifact">
       <Flex direction="column" gap="2">
         <Text size="sm" weight="medium">
           Apply this change?

@@ -1,8 +1,6 @@
 import * as cheerio from "cheerio";
-import type {
-  DomDigest,
-  PageStructureNode,
-} from "back-end/src/api/visual-editor-ai/domDigest";
+import type { DomDigest } from "back-end/src/api/visual-editor-ai/domDigest";
+import type { PageStructureNode } from "back-end/src/api/visual-editor-ai/pageStructure";
 import {
   fetchPageHtml,
   parseFetchableEditorUrl,

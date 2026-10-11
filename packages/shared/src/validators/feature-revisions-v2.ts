@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -19,7 +20,7 @@ import {
 } from "./feature-revisions";
 import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
+import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -61,8 +62,10 @@ const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
     .describe(
       "The rule state to roll back to (the rollback/jump-to-start anchor). " +
         'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
-        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
-        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
         "the anchor from the rule's current coverage (and returns a warning if " +
         "that isn't 0%); on update of a live schedule, omitting it leaves the " +
         "existing anchor unchanged.",
@@ -267,7 +270,7 @@ const safeRolloutCreateInputV2 = namedSchema(
       safeRolloutFields: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           maxDuration: z
             .object({
@@ -1002,7 +1005,7 @@ export const putFeatureRevisionMetadataV2Validator = {
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),

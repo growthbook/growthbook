@@ -214,9 +214,15 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         )}
         <td
           key={`${variation.id}__${i}__4`}
-          style={{ width: !hideSplit ? 180 : 60 }}
+          style={{ width: !hideSplit ? 180 : "auto" }}
         >
-          <div className="row align-items-center">
+          <div
+            className={
+              hideSplit
+                ? "d-flex align-items-center justify-content-end flex-nowrap"
+                : "row align-items-center flex-nowrap"
+            }
+          >
             {!hideSplit && (
               <>
                 {customSplit ? (
@@ -258,14 +264,27 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {variations.length > 1 &&
               setVariations &&
               !onlySafeToEditVariationMetadata && (
-                <div {...handle} title="Drag and drop to re-order rules">
-                  <FaArrowsAlt style={{ position: "relative", top: 4 }} />
+                <div
+                  {...handle}
+                  title="Drag and drop to re-order rules"
+                  className="mr-2"
+                  style={{
+                    cursor: "grab",
+                    lineHeight: 0,
+                    position: "relative",
+                    top: hideSplit ? 0 : 4,
+                  }}
+                >
+                  <FaArrowsAlt />
                 </div>
               )}
             {setVariations && !onlySafeToEditVariationMetadata && (
               <div
-                className="col-auto"
-                style={{ position: "relative", top: 4 }}
+                style={{
+                  lineHeight: 0,
+                  position: "relative",
+                  top: hideSplit ? 0 : 4,
+                }}
               >
                 <DropdownMenu
                   trigger={
@@ -327,7 +346,6 @@ export function SortableFeatureVariationRow(props: SortableProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    border: "1px solid red !important",
   };
 
   return (

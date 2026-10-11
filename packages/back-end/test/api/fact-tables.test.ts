@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import {
   ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import {
   authorizeAndPersistFactTableUpdate,
   needsColumnRefresh,
@@ -127,7 +130,6 @@ describe("columnsNeedDetection", () => {
 });
 
 describe("authorizeAndPersistFactTableUpdate", () => {
-  let mongod: MongoMemoryServer;
   const organization = {
     id: "org_fact_table_update",
     settings: {},
@@ -164,13 +166,11 @@ describe("authorizeAndPersistFactTableUpdate", () => {
   } as unknown as ReqContext;
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   it("does not persist columns when the parent update is denied", async () => {

@@ -308,6 +308,14 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteApiKey(),
       },
       {
+        name: "Manage PATs",
+        href: "/settings/personal-access-tokens",
+        path: /^settings\/personal-access-tokens/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings() ||
+          permissionsUtils.canDeleteApiKey(),
+      },
+      {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
@@ -324,12 +332,8 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        // Default ON so self-hosted and airgapped installs without a features
-        // payload still see the link; the remote flags only turn it off.
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          ((gb?.getFeatureValue("slack-workspace-ui", true) ?? true) ||
-            (gb?.getFeatureValue("slack-integration", true) ?? true)),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageIntegrations(),
       },
       {
         name: "Import your data",

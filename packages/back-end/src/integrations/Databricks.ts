@@ -1,11 +1,9 @@
 import { databricksCreateTableOptions } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import SqlIntegration from "./SqlIntegration";
-import { databricksDialect } from "./dialects/databricks";
 
 export default class Databricks extends SqlIntegration {
   params!: DatabricksConnectionParams;
@@ -17,9 +15,6 @@ export default class Databricks extends SqlIntegration {
     // Legacy rows predate authType and are always PAT
     params.authType = params.authType ?? "pat";
     this.params = params;
-  }
-  getSqlDialect(): SqlDialect {
-    return databricksDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;

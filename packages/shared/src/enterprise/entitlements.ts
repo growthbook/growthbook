@@ -1,4 +1,5 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
+import { getValidDate } from "../dates";
 import {
   AccountPlan,
   CommercialFeature,
@@ -32,12 +33,23 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
   return null;
 }
 
+// Preserve pre-rollout Pro entitlements without changing Free limits.
+export const PAID_PLAN_LIMITS_START_DATE = new Date("2026-09-12T00:00:00.000Z");
+
+// Unknown signup dates keep grandfathered access.
+function signedUpBeforePaidPlanLimits(
+  dateCreated?: Date | string | null,
+): boolean {
+  return getValidDate(dateCreated, new Date(0)) < PAID_PLAN_LIMITS_START_DATE;
+}
+
 type LimitsInput = {
   effectivePlan: AccountPlan;
   // Stamped at org creation. Its absence means the org is grandfathered.
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
   planLimits?: OrgLimits;
+  orgDateCreated?: Date | string | null;
 };
 
 function planAllows(
@@ -47,13 +59,12 @@ function planAllows(
   return accountFeatures[effectivePlan].has(feature);
 }
 
-// Free plans read the org's own snapshot; paid plans read the license's, then
-// their tier's.
 function resolve({
   effectivePlan,
   orgLimits,
   licenseLimits,
   planLimits,
+  orgDateCreated,
 }: LimitsInput): OrgLimits | null {
   if (effectivePlan === "oss" || effectivePlan === "starter") {
     return orgLimits ?? null;
@@ -62,6 +73,10 @@ function resolve({
   if (licenseLimits) return licenseLimits;
 
   if (!orgLimits) return null;
+
+  // These orgs were stamped when Pro still included unlimited projects and
+  // custom environments. Keep those entitlements when they use a paid plan.
+  if (signedUpBeforePaidPlanLimits(orgDateCreated)) return null;
 
   const tier = planTierFor(effectivePlan);
   if (!tier) return null;

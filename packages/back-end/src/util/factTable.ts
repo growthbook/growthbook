@@ -32,6 +32,10 @@ export function stripIncompatibleFields(
     next.alwaysInlineFilter = false;
   }
 
+  if (!next.alwaysInlineFilter && next.conditionalInlineFilters) {
+    next.conditionalInlineFilters = undefined;
+  }
+
   if (
     next.isAutoSliceColumn &&
     next.datatype !== "string" &&

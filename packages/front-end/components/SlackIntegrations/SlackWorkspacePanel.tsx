@@ -5,6 +5,7 @@ import { FaSlack } from "react-icons/fa";
 import { PiCaretDown, PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,6 +14,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
   DropdownMenu,
@@ -37,6 +39,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId,
   needsReconnect,
   connecting,
+  updatingAssistant,
+  onAssistantChange,
   onReconnect,
   onDisconnect,
   onAddChannel,
@@ -49,6 +53,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId?: string;
   needsReconnect: boolean;
   connecting: boolean;
+  updatingAssistant: boolean;
+  onAssistantChange: (enabled: boolean) => Promise<void>;
   onReconnect: () => Promise<void>;
   onDisconnect: () => void;
   onAddChannel: () => void;
@@ -56,6 +62,7 @@ export default function SlackWorkspacePanel({
   onSaved: (channel?: SlackOAuthIntegrationInterface) => Promise<void>;
   onDirtyChange: (teamId: string, dirty: boolean) => void;
 }) {
+  const { aiEnabled } = useAISettings();
   const { projects } = useDefinitions();
   const { apiCall } = useAuth();
   const [localChannelId, setLocalChannelId] = useState<string | null>(
@@ -198,6 +205,20 @@ export default function SlackWorkspacePanel({
                 Disconnect
               </DropdownMenuItem>
             </DropdownMenu>
+          </Flex>
+          <Flex direction="column" gap="3" mt="4">
+            <Switch
+              size="sm"
+              label="AI assistant"
+              description={
+                aiEnabled
+                  ? "Answer direct messages and mentions in connected channels"
+                  : "Enable AI for your organization in Settings → General to use the assistant."
+              }
+              value={aiEnabled && (workspace.assistantEnabled ?? true)}
+              disabled={!aiEnabled || updatingAssistant}
+              onChange={onAssistantChange}
+            />
           </Flex>
         </Box>
         <div className={channels.length > 0 ? styles.content : undefined}>

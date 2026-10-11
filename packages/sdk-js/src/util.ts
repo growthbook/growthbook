@@ -222,7 +222,7 @@ export function getBucketRanges(
     weights = equal;
   }
 
-  // Covert weights to ranges
+  // Convert weights to ranges
   let cumulative = 0;
   return weights.map((w) => {
     const start = cumulative;

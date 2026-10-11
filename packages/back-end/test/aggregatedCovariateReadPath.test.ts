@@ -333,6 +333,7 @@ describe("covariate insert SQL builders", () => {
     // @ts-expect-error -- context not needed for these unit tests; the exposure
     // list satisfies getExposureQuery without a real datasource.
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });
@@ -341,7 +342,7 @@ describe("covariate insert SQL builders", () => {
     settings,
     exposureQuery: {
       query: exposureQuery.query,
-      userIdType: exposureQuery.userIdType,
+      identifierType: exposureQuery.userIdType,
     },
     activationMetric: null,
     factTableMap,

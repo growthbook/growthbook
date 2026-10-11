@@ -16,6 +16,7 @@ export type EnvScopeProps = {
   setSelectedEnvironments: (v: string[]) => void;
   disabledEnvironmentIds?: string[];
   label?: string;
+  disabled?: boolean;
 } & MarginProps;
 
 export default function RuleEnvironmentScopeField({
@@ -25,6 +26,7 @@ export default function RuleEnvironmentScopeField({
   selectedEnvironments,
   setSelectedEnvironments,
   disabledEnvironmentIds = [],
+  disabled = false,
   label = "Rule Environments",
   ...marginProps
 }: EnvScopeProps) {
@@ -80,6 +82,7 @@ export default function RuleEnvironmentScopeField({
           setAllEnvironments(v === "all");
         }}
         gap="0"
+        disabled={disabled}
         options={[
           { value: "all", label: "All Environments" },
           { value: "specific", label: "Specific Environments" },
@@ -90,6 +93,7 @@ export default function RuleEnvironmentScopeField({
         <Box pl="5">
           <MultiSelectField
             legacyHeight
+            disabled={disabled}
             value={selectedEnvironments}
             onChange={(vals) => setSelectedEnvironments(vals)}
             options={options}

@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
 import {
   SqlDialect,
@@ -54,6 +55,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -187,18 +189,32 @@ export function getIntegrationSqlDialect(
     : null;
 }
 
-// Wraps a SQL identifier (column, alias) in the dialect's quote character,
-// escaping any embedded quotes by doubling them (ANSI SQL convention).
-export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
-  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
-}
-
 export async function testDataSourceConnection(
   context: ReqContext,
   datasource: DataSourceInterface,
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+// MSSQL caches connection pools by Data Source id. An unsaved test uses a
+// throwaway id so it does not replace a saved Data Source's pool, then closes
+// that pool. Other engines open a connection for the test and drop it.
+export async function testUnsavedDataSourceConnection(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+) {
+  if (datasource.type !== "mssql") {
+    await testDataSourceConnection(context, datasource);
+    return;
+  }
+
+  const id = uniqid("ds_connection_test_");
+  try {
+    await testDataSourceConnection(context, { ...datasource, id });
+  } finally {
+    await closeMssqlPool(id);
+  }
 }
 
 export async function runFreeFormQuery(
@@ -470,7 +486,7 @@ export async function testQueryValidity(
     "experiment_id",
     "variation_id",
     "timestamp",
-    query.userIdType,
+    ...query.userIdTypes,
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);

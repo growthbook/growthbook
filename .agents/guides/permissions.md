@@ -224,6 +224,18 @@ context.permissions.canTargetFeatureProjects(addedProjects);
 // Environment-scoped permissions
 context.permissions.canPublishFeature(feature, environments);
 context.permissions.canRunExperiment(experiment, environments);
+// For an experiment, resolve `environments` with getExperimentAffectedEnvs
+// (services/experiments): live linked rules, changesets, AND the drafts a start
+// will publish. A draft experiment is live nowhere, so live-only reach skipped
+// the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
+// A scheduled experiment status change is checked twice: arming checks
+// runExperiments across the reach and publishFeatures on each pending draft
+// (assertCanPublishPendingFeatureDrafts), and the fire runs as the armer
+// (`context.armer`: a user, an org API key, or a scoped PAT recorded as its
+// key so the cap travels with the work; `scheduledBy` / `scheduledByApiKey`,
+// getScheduledStatusContext), so the draft publish is judged as it is then.
+// Never the job's own authority; only a stop staged before armers were
+// recorded still runs as the owner.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();
