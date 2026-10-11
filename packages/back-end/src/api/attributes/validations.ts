@@ -18,7 +18,7 @@ export const validatePayload = async (
     customFields?: Record<string, string>;
   },
 ) => {
-  if (property === "") throw Error("Attribute property cannot empty!");
+  if (property === "") throw Error("Attribute property cannot be empty!");
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();

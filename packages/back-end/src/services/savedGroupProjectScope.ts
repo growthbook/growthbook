@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
@@ -127,7 +127,7 @@ export async function assertSavedGroupProjectScope(
     );
   };
 
-  const features = await getAllFeaturesWithoutEditorFields(scan, {
+  const features = await getAllFeaturesForGraph(scan, {
     includeArchived: true,
   });
   const byId = Object.fromEntries(features.map((f) => [f.id, f]));

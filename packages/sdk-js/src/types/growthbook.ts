@@ -142,6 +142,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  contextualBanditRef?: string;
 };
 
 export type ExperimentOverride = {
@@ -229,6 +230,12 @@ export type FeatureUsageSubCallback = (
 export type CustomEventSubCallback = (
   eventName: string,
   properties: Readonly<Record<string, unknown>>,
+) => void;
+
+export type ExperimentViewedSubCallback = (
+  experiment: Readonly<Experiment<unknown>>,
+  result: Readonly<Result<unknown>>,
+  user: TrackingUserContext,
 ) => void;
 
 export type Plugin = (
@@ -399,6 +406,7 @@ export type UserContext = {
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
   featureUsageSubs?: Set<FeatureUsageSubCallback>;
+  experimentViewedSubs?: Set<ExperimentViewedSubCallback>;
 };
 
 export type StackContext = {
@@ -502,9 +510,7 @@ export type GrowthBookPayload = FeatureApiResponse;
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
   fetch: any;
-
   SubtleCrypto: any;
-
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };

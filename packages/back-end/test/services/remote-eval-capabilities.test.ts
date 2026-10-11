@@ -1,9 +1,8 @@
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
-// getConnectionSDKCapabilities reads the real SDK version data, and no SDK
-// declares savedGroupReferencesV2 yet. Force it to so the filter has something
-// to strip; without this the test would pass for the wrong reason.
+// Force savedGroupReferencesV2 on so the filter has something to strip,
+// independent of the real SDK version data.
 jest.mock("shared/sdk-versioning", () => ({
   ...jest.requireActual("shared/sdk-versioning"),
   getConnectionSDKCapabilities: jest

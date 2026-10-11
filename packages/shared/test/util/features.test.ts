@@ -27,6 +27,7 @@ import {
   RevisionFields,
   MergeConflict,
   validateCondition,
+  validatePrerequisiteCondition,
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
@@ -1959,7 +1960,7 @@ describe("inferSimpleSchemaFromValue", () => {
       fields: [],
     });
   });
-  it("Inferes a primitive array", () => {
+  it("Infers a primitive array", () => {
     expect(
       inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"])),
     ).toEqual({
@@ -2600,7 +2601,67 @@ describe("validateCondition", () => {
     ).toEqual({
       success: false,
       empty: false,
-      error: "Condition includes invalid or cyclic saved group reference",
+      error: 'Saved Group "a" does not exist',
+    });
+  });
+  describe("names the Saved Group a condition cannot use", () => {
+    const group = (id: string, condition: object) =>
+      [
+        id,
+        { id, type: "condition", condition: JSON.stringify(condition) },
+      ] as const;
+    const chain = Array.from({ length: 12 }, (_, i) =>
+      group(`g${i}`, { $savedGroups: [`g${i + 1}`] }),
+    );
+    it.each([
+      [
+        "a nested group that is missing",
+        [group("a", { $savedGroups: ["b"] })],
+        'Saved Group "b" does not exist',
+      ],
+      [
+        "a cycle",
+        [
+          group("a", { $savedGroups: ["b"] }),
+          group("b", { $savedGroups: ["a"] }),
+        ],
+        'Saved Group "a" is nested inside itself',
+      ],
+      [
+        "a list group without an attribute key",
+        [["a", { id: "a", type: "list" }] as const],
+        'Saved Group "a" has no attribute key or an invalid condition',
+      ],
+      [
+        "a chain past the depth limit",
+        chain,
+        "Saved Groups are nested more than 10 levels deep",
+      ],
+    ])("%s", (_, groups, error) => {
+      expect(
+        validateCondition(
+          JSON.stringify({ $savedGroups: [groups[0][0]] }),
+          new Map(groups),
+        ),
+      ).toEqual({ success: false, empty: false, error });
+    });
+    it("points to Saved Group targeting when there are no groups to check against", () => {
+      expect(validateCondition('{"$savedGroups":["a"]}').error).toBe(
+        "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",
+      );
+    });
+    it("skipping cycle checks still reports an unusable group", () => {
+      const cyclic = new Map([group("a", { $savedGroups: ["a"] })]);
+      expect(
+        validateCondition('{"$savedGroups":["a"]}', cyclic, true).success,
+      ).toBe(true);
+      expect(
+        validateCondition(
+          '{"$savedGroups":["a"]}',
+          new Map([["a", { id: "a", type: "list" }]]),
+          true,
+        ).error,
+      ).toBe('Saved Group "a" has no attribute key or an invalid condition');
     });
   });
   it("returns success when condition has known nested saved group id", () => {
@@ -2627,6 +2688,24 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("validatePrerequisiteCondition", () => {
+  it("rejects $savedGroups, which never sees attributes", () => {
+    expect(
+      validatePrerequisiteCondition(
+        '{"$or":[{"value":true},{"$savedGroups":["grp_vip"]}]}',
+      ).error,
+    ).toMatch(/^\$savedGroups cannot be used in prerequisite conditions/);
+  });
+  it("otherwise validates like any condition", () => {
+    expect(
+      validatePrerequisiteCondition('{"value":{"$inGroup":"grp_vip"}}'),
+    ).toEqual({ success: true, empty: false });
+    expect(validatePrerequisiteCondition("{value: true}").suggestedValue).toBe(
+      '{"value":true}',
+    );
   });
 });
 
@@ -2856,7 +2935,7 @@ describe("getRequireRegisteredAttributesSettings", () => {
   });
 });
 
-describe("check enviroments match", () => {
+describe("check environments match", () => {
   it("should find a environment match", () => {
     const environments = ["prod", "staging"];
     const reviewSetting = {

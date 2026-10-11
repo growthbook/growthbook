@@ -1693,16 +1693,6 @@ function StandardFactMetricModal({
             };
             values.lowerCappingSettings = null;
           }
-          if (values.metricType === "ratio") {
-            if (values.cappingSettings.type === "absolute")
-              values.cappingSettings = {
-                type: "",
-                value: 0,
-                ignoreZeros: false,
-              };
-            if (values.lowerCappingSettings?.type === "absolute")
-              values.lowerCappingSettings = null;
-          }
 
           if (values.metricType === "funnel") {
             const fs = funnelSettings;

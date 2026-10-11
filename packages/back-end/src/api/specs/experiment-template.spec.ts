@@ -7,7 +7,7 @@ import {
   apiBulkImportExperimentTemplatesBody,
   apiBulkImportExperimentTemplatesResponse,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const bulkImportExperimentTemplatesEndpoint = {
   pathFragment: "/bulk-import",

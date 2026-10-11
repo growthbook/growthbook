@@ -5,7 +5,7 @@
 | **[feature.created](#feature-created)**                                                                       | Triggered when a feature is created                                                                                                                                                                                                                                                                                           |
 | **[feature.updated](#feature-updated)**                                                                       | Triggered when a feature is updated                                                                                                                                                                                                                                                                                           |
 | **[feature.deleted](#feature-deleted)**                                                                       | Triggered when a feature is deleted                                                                                                                                                                                                                                                                                           |
-| **[feature.saferollout.ship](#feature-saferollout-ship)**                                                     | Triggered when a safe rollout is completed and safe to rollout to 100%.                                                                                                                                                                                                                                                       |
+| **[feature.saferollout.ship](#feature-saferollout-ship)**                                                     | Triggered when a safe rollout is completed and safe to roll out to 100%.                                                                                                                                                                                                                                                      |
 | **[feature.saferollout.rollback](#feature-saferollout-rollback)**                                             | Triggered when a safe rollout has a failing guardrail and should be reverted.                                                                                                                                                                                                                                                 |
 | **[feature.saferollout.unhealthy](#feature-saferollout-unhealthy)**                                           | Triggered when a safe rollout is failing a health check and may not be working as expected.                                                                                                                                                                                                                                   |
 | **[feature.rampSchedule.created](#feature-rampschedule-created)**                                             | Triggered when a ramp schedule is created for a feature                                                                                                                                                                                                                                                                       |
@@ -55,6 +55,7 @@
 | **[holdout.created](#holdout-created)**                                                                       | Triggered when a holdout is created.                                                                                                                                                                                                                                                                                          |
 | **[holdout.status.changed](#holdout-status-changed)**                                                         | Triggered when a holdout moves between its lifecycle stages, such as running or analysis.                                                                                                                                                                                                                                     |
 | **[holdout.config.newLinkage](#holdout-config-newlinkage)**                                                   | Triggered when feature flags or experiments are linked to a holdout.                                                                                                                                                                                                                                                          |
+| **[sdkConnection.payloadSize.warning](#sdkconnection-payloadsize-warning)**                                   | Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.                                                       |
 | **[savedGroup.created](#savedgroup-created)**                                                                 | Triggered when a saved group is created                                                                                                                                                                                                                                                                                       |
 | **[savedGroup.updated](#savedgroup-updated)**                                                                 | Triggered when a saved group is updated                                                                                                                                                                                                                                                                                       |
 | **[savedGroup.deleted](#savedgroup-deleted)**                                                                 | Triggered when a saved group is deleted                                                                                                                                                                                                                                                                                       |
@@ -110,6 +111,8 @@
 | **[config.revision.publishScheduleChanged](#config-revision-publishschedulechanged)**                         | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.                                                                                                                                                                                                                  |
 | **[config.revision.publishFailed](#config-revision-publishfailed)**                                           | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.                                                                                                                      |
 | **[user.login](#user-login)**                                                                                 | Triggered when a user logs in                                                                                                                                                                                                                                                                                                 |
+| **[apiKey.expiring](#apikey-expiring)**                                                                       | Triggered once when a secret API key is within a week of expiring                                                                                                                                                                                                                                                             |
+| **[apiKey.expired](#apikey-expired)**                                                                         | Triggered once when a secret API key passes its expiration date                                                                                                                                                                                                                                                               |
 
 ### feature.created
 
@@ -355,7 +358,7 @@ Triggered when a feature is deleted
 
 ### feature.saferollout.ship
 
-Triggered when a safe rollout is completed and safe to rollout to 100%.
+Triggered when a safe rollout is completed and safe to roll out to 100%.
 
 <Accordion title="Payload">
 
@@ -2245,6 +2248,14 @@ Triggered when an experiment is created
             }[];
             settings: {
                 datasourceId: string;
+                /** The assignment query, grouping its ID with the identifier type analyzed on. */
+                assignmentQuery: {
+                    /** The ID of one of the data source's assignment queries. */
+                    id: string;
+                    /** The identifier type analyzed on. Null when none can be resolved: no assignment query is selected, or a record saved before identifier types were stored points at a query that no longer exists. */
+                    identifierType: string | null;
+                };
+                /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
                 experimentId: string;
                 segmentId: string;
@@ -2516,6 +2527,14 @@ Triggered when an experiment is updated
             }[];
             settings: {
                 datasourceId: string;
+                /** The assignment query, grouping its ID with the identifier type analyzed on. */
+                assignmentQuery: {
+                    /** The ID of one of the data source's assignment queries. */
+                    id: string;
+                    /** The identifier type analyzed on. Null when none can be resolved: no assignment query is selected, or a record saved before identifier types were stored points at a query that no longer exists. */
+                    identifierType: string | null;
+                };
+                /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
                 experimentId: string;
                 segmentId: string;
@@ -2748,6 +2767,14 @@ Triggered when an experiment is updated
             }[] | undefined;
             settings?: {
                 datasourceId: string;
+                /** The assignment query, grouping its ID with the identifier type analyzed on. */
+                assignmentQuery: {
+                    /** The ID of one of the data source's assignment queries. */
+                    id: string;
+                    /** The identifier type analyzed on. Null when none can be resolved: no assignment query is selected, or a record saved before identifier types were stored points at a query that no longer exists. */
+                    identifierType: string | null;
+                };
+                /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
                 experimentId: string;
                 segmentId: string;
@@ -3024,6 +3051,14 @@ Triggered when an experiment is deleted
             }[];
             settings: {
                 datasourceId: string;
+                /** The assignment query, grouping its ID with the identifier type analyzed on. */
+                assignmentQuery: {
+                    /** The ID of one of the data source's assignment queries. */
+                    id: string;
+                    /** The identifier type analyzed on. Null when none can be resolved: no assignment query is selected, or a record saved before identifier types were stored points at a query that no longer exists. */
+                    identifierType: string | null;
+                };
+                /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
                 experimentId: string;
                 segmentId: string;
@@ -3989,6 +4024,59 @@ Triggered when feature flags or experiments are linked to a holdout.
             ownerEmail?: string | undefined;
             featureIds: string[];
             experimentIds: string[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### sdkConnection.payloadSize.warning
+
+Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "sdkConnection.payloadSize.warning";
+    object: "sdkConnection";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            connectionId: string;
+            connectionName: string;
+            environment: string;
+            projects: string[];
+            level: "warning" | "danger" | "over-limit";
+            bytes: number;
+            limitBytes: number;
+            message: string;
+            recommendations: {
+                type: string;
+                message: string;
+            }[];
         };
     };
     user: {
@@ -11922,6 +12010,94 @@ Triggered when a user logs in
             userAgent: string;
             os: string;
             device: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### apiKey.expiring
+
+Triggered once when a secret API key is within a week of expiring
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "apiKey.expiring";
+    object: "apiKey";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            description?: string | undefined;
+            expiresAt: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### apiKey.expired
+
+Triggered once when a secret API key passes its expiration date
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "apiKey.expired";
+    object: "apiKey";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            description?: string | undefined;
+            expiresAt: string;
         };
     };
     user: {

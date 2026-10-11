@@ -506,7 +506,7 @@ Use your pricing configuration to calculate `estimatedCostUsd`; do not hard-code
 
 This is the critical implementation. Evaluation happens after authorization and input validation, but before the provider call. The automatic experiment exposure therefore corresponds to an activated workflow, not a page view or a request that was rejected early.
 
-First add a deadline wrapper. Aborting requests cooperative cancellation; racing against a rejecting timer also bounds the caller's wait when an adapter ignores the signal. The elapsed-time check rejects a result that arrives after the deadline even if the timer callback was delayed.
+First add a deadline wrapper. Aborting requests relies on cooperative cancellation; racing against a rejecting timer also bounds the caller's wait when an adapter ignores the signal. The elapsed-time check rejects a result that arrives after the deadline even if the timer callback was delayed.
 
 ```ts title="src/llm/provider-deadline.ts"
 import { performance } from "node:perf_hooks";

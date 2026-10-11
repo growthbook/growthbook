@@ -148,6 +148,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
       </Box>
       <RampScheduleSection
         ruleRampSchedule={undefined}
+        hasSavedMonitoring={!!template?.monitoringConfig}
         state={rampState}
         setState={setRampState}
         embedded

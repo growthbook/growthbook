@@ -1,14 +1,16 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
+import { EventForwarderDatasourceParams } from "shared/util";
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
   getBigQueryEventForwarderTablePrefix,
+  getDatabricksEventForwarderTablePrefix,
   getSnowflakeEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/config";
 
@@ -24,11 +26,17 @@ export type SinkQueryConnectionParams =
       database: string;
       schema: string;
       tablePrefix: string;
+    }
+  | {
+      sinkType: "databricks";
+      catalog: string;
+      schema: string;
+      tablePrefix: string;
     };
 
 export function buildSinkQueryConnectionParams(
   eventForwarderConfig: EventForwarderConfigInterface,
-  connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  connectionParams?: EventForwarderDatasourceParams,
 ): SinkQueryConnectionParams | null {
   switch (eventForwarderConfig.sinkType) {
     case "bigquery": {
@@ -67,7 +75,19 @@ export function buildSinkQueryConnectionParams(
         tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
       };
     }
-    case "databricks":
+    case "databricks": {
+      const decrypted =
+        decryptEventForwarderConfigModel<DatabricksEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      return {
+        sinkType: "databricks",
+        catalog: decrypted.catalog.trim(),
+        schema: decrypted.schema.trim(),
+        tablePrefix: getDatabricksEventForwarderTablePrefix(decrypted),
+      };
+    }
     default:
       return null;
   }
@@ -75,14 +95,14 @@ export function buildSinkQueryConnectionParams(
 
 export function buildExposureQueryParams(
   eventForwarderConfig: EventForwarderConfigInterface,
-  connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  connectionParams?: EventForwarderDatasourceParams,
 ) {
   return buildSinkQueryConnectionParams(eventForwarderConfig, connectionParams);
 }
 
 export function buildFeatureUsageQueryParams(
   eventForwarderConfig: EventForwarderConfigInterface,
-  connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  connectionParams?: EventForwarderDatasourceParams,
 ) {
   return buildSinkQueryConnectionParams(eventForwarderConfig, connectionParams);
 }

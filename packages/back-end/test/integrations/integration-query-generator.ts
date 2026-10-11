@@ -299,7 +299,7 @@ const baseFactMetric: Omit<
 
   inverse: false,
 
-  // defaults that can be overriden in fact-metrics.json
+  // defaults that can be overridden in fact-metrics.json
   denominator: null,
 
   quantileSettings: null,

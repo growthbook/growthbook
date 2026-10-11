@@ -299,6 +299,13 @@ describe("chat composer serialization", () => {
       expect(skillDisplayName("dashboard-create")).toBe("Dashboard create");
     });
 
+    it("keeps Feature Flag in Title Case, as a named resource", () => {
+      expect(skillDisplayName("feature-flags")).toBe("Feature Flags");
+      expect(skillDisplayName("create-feature-flag")).toBe(
+        "Create Feature Flag",
+      );
+    });
+
     it("leaves a single-word id alone apart from the initial capital", () => {
       expect(skillDisplayName("dashboards")).toBe("Dashboards");
     });
@@ -325,6 +332,7 @@ describe("chat composer serialization", () => {
         title: "Feature flags",
         description: "Read and modify flags",
         group: "feature-flags",
+        enabled: true,
       },
       {
         id: "flag-targeting",
@@ -333,6 +341,7 @@ describe("chat composer serialization", () => {
         title: "Flag targeting",
         description: "Targeting rules",
         group: "feature-flags",
+        enabled: true,
       },
       {
         id: "experiments",
@@ -341,6 +350,7 @@ describe("chat composer serialization", () => {
         title: "Experiments",
         description: "Targeting an audience",
         group: "experiments",
+        enabled: true,
       },
     ];
 

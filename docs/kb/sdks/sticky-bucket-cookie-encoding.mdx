@@ -2,7 +2,6 @@
 title: Sticky Bucket Cookies and WAF False Positives
 description: Why the browser sticky bucket cookie is only partially percent-encoded, how that can trigger a WAF SQL injection rule, and how to fix it.
 sidebarTitle: Sticky Bucket Cookies and WAFs
-slug: sticky-bucket-cookie-encoding
 ---
 
 `BrowserCookieStickyBucketService` writes cookies that are only partially percent-encoded. `{`, `}` and `:` stay literal in the cookie value, and `|` stays literal in the cookie name.

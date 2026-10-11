@@ -1967,7 +1967,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     },
   };
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2002,7 +2002,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ]);
   });
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2036,7 +2036,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics.length).toEqual(1);
   });
 
-  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2060,7 +2060,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics.length).toEqual(0);
   });
 
-  it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {
+  it("User with global noaccess role shouldn't be able to see metrics if the metrics are exclusively in projects they don't have a specific role that grants them read access for", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2084,7 +2084,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics).toEqual([]);
   });
 
-  it("User with global noaccess role should be able to see metrics if the user as readData permission for atleast one of the metrics projects", async () => {
+  it("User with global noaccess role should be able to see metrics if the user as readData permission for at least one of the metrics projects", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -5364,7 +5364,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
       false,
     );
   });
-  // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in atleast 1 project in order to be able to upload images
+  // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in at least 1 project in order to be able to upload images
   it("canAddComment returns true for user with global noaccess role and 1 project level experimenter role", () => {
     const permissions = new Permissions({
       global: {
@@ -5736,7 +5736,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(true);
   });
 
-  it("User with anaylst role able to reviewFeatureDrafts", async () => {
+  it("User with analyst role able to reviewFeatureDrafts", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("analyst", testOrg),
@@ -5751,7 +5751,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(false);
   });
 
-  it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+  it("User with global readonly role, but experimenter role on project 'abc123', should be able to review features in project 'abc123'", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("readonly", testOrg),
@@ -5775,7 +5775,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(true);
   });
 
-  it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+  it("User with global experimenter role, but readonly role on project 'abc123', should be able to review features in project 'abc123'", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("experimenter", testOrg),
@@ -6384,7 +6384,7 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(false);
   });
 
-  it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
+  it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for at least 1 project", () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("collaborator", testOrg),
@@ -6468,7 +6468,7 @@ describe("PermissionsUtilClass.canEditFeatureDrafts", () => {
     expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(true);
   });
 
-  it("User with anaylst role is not able to manage feature drafts", async () => {
+  it("User with analyst role is not able to manage feature drafts", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("analyst", testOrg),

@@ -120,13 +120,13 @@ export default function ExperimentGraph({
           (pid) => !pid.includes("_demo-datasource-project"),
         );
         // pretty sure the results won't have any holes in it, but just in case, this zeros out the values, which will be updated later.
-        const projectsZerodRow = {};
+        const projectsZeroedRow = {};
         allProjects.forEach((p) => {
-          projectsZerodRow[projectMap.get(p) || p] = 0;
+          projectsZeroedRow[projectMap.get(p) || p] = 0;
         });
         const dateRows = {};
         allDates.forEach((d) => {
-          dateRows[d] = { date: d, ...projectsZerodRow };
+          dateRows[d] = { date: d, ...projectsZeroedRow };
         });
         // now loop and append the actual values
         allProjects.forEach((p) => {
@@ -185,9 +185,9 @@ export default function ExperimentGraph({
   const downloadCSV = useCallback(
     (type) => {
       try {
-        const formatedData = parseDataForCSV(type);
+        const formattedData = parseDataForCSV(type);
         const json2csvParser = new Parser();
-        const csv = json2csvParser.parse(formatedData);
+        const csv = json2csvParser.parse(formattedData);
 
         const blob = new Blob([csv], { type: "text/csv" });
         const downloadUrl = window.URL.createObjectURL(blob);

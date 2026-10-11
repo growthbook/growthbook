@@ -5,6 +5,10 @@ import {
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
 import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
+import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
@@ -271,6 +275,7 @@ export const experimentAnalysisSettings = z
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
+    exposureQueryIdentifierType: z.string().optional(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
@@ -456,9 +461,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
-  // User who staged it; the job runs the change on their authority, as the
-  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  // Who armed it, a user or an org API key; the job fires and audits as them.
   scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -724,7 +729,7 @@ export const apiExperimentAnalysisSettingsValidator = namedSchema(
   z
     .object({
       datasourceId: z.string(),
-      assignmentQueryId: z.string(),
+      ...apiAssignmentQueryResponseFields("assignmentQuery"),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1157,7 +1162,7 @@ const apiBulkResultMetric = z.object({
 // Snapshot-authoritative analysis settings.
 const apiBulkResultSettings = z.object({
   datasourceId: z.string(),
-  assignmentQueryId: z.string(),
+  ...apiAssignmentQueryResponseFields("assignmentQuery"),
   experimentId: z.string(),
   segmentId: z.string(),
   queryFilter: z.string(),
@@ -1424,12 +1429,10 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
-    assignmentQueryId: z
-      .string()
-      .describe(
-        "The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
-      )
-      .optional(),
+    ...apiAssignmentQueryInputFields(
+      "assignmentQuery",
+      "Can only be set if a templateId is not provided.",
+    ),
     trackingKey: z.string(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1564,7 +1567,7 @@ const updateExperimentBody = z
         "Can only be set if existing experiment does not have a datasource",
       )
       .optional(),
-    assignmentQueryId: z.string().optional(),
+    ...apiAssignmentQueryInputFields("assignmentQuery"),
     trackingKey: z.string().optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
@@ -1780,7 +1783,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2295,7 +2298,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

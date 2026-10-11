@@ -71,7 +71,7 @@ describe("backend", () => {
       );
     });
 
-    it("throws error if value colun is in sql but is not set.", () => {
+    it("throws error if value column is in sql but is not set.", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ snakecase valueColumn }} as value`, {
           startDate,

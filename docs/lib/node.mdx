@@ -1,7 +1,6 @@
 ---
 title: Node.js SDK
 description: Install the GrowthBook Node.js SDK to evaluate feature flags and run A/B tests in server-side JavaScript. Requires Node 18 or above.
-slug: node
 toc_max_heading_level: 5
 ---
 
@@ -94,6 +93,36 @@ GrowthBook comes with a number of built-in plugins that add additional functiona
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
 
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb.exp:<experimentKey>=<variationKey>` so you can attach it to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read the tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup and the plugin options in the [JavaScript SDK docs](/lib/js#tracing).
+
+Pass the plugin in the `GrowthBookClient` options. The shared client has no assignments of its own, so the plugin runs for each `createScopedInstance()` call and every scoped instance keeps its own tag set. Read the tags off the scoped instance with `getTracingTags()`.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [tracingPlugin()],
+});
+await gbClient.init();
+
+app.post("/chat", async (req, res) => {
+  const scoped = gbClient.createScopedInstance({
+    attributes: { user_id: req.user.id },
+  });
+
+  // Evaluate flags first so the tags exist before the trace starts
+  const promptLabel = scoped.getFeatureValue("support-prompt", "production");
+  const tags = getTracingTags(scoped); // e.g. ["gb.exp:support-prompt=prod-b"]
+
+  // Hand `tags` (and req.user.id as the user id) to your tracing SDK
+});
+```
+
 ### DevTools for back-end
 
 The [GrowthBook DevTools Browser Extension](/tools/chrome-extension) now supports debugging back-end environments. This includes sending overrides (attribute, feature, and experiment) from the browser extension to the back end, and also displaying back-end logged events (feature evaluations, experiment exposure events).
@@ -175,6 +204,21 @@ The return value of init has 3 properties:
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
 - **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+
+```ts
+const res = await gbClient.init({ timeout: 2000 });
+if (!res.success) {
+  await gbClient.setPayload(fallbackPayload);
+}
+```
+
+Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+
 ### Custom Integration
 
 If you prefer to handle the network and caching logic yourself, you can pass in a full JSON "payload" directly into the SDK. For example, you might store features in Postgres or Redis.
@@ -216,7 +260,7 @@ const gbClient = new GrowthBookClient().initSync({
 
 By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
 
-For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+For long-running Node.js processes, there are 2 main approaches to keeping feature definitions up-to-date.
 
 1. Streaming
 2. Polling
@@ -448,7 +492,7 @@ This will use the `trackingCallback` configured on your front-end GrowthBook ins
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
 
 - `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `maxAge: {ms}` into the constructor's `cookieAttributes`.
 
@@ -461,7 +505,7 @@ Implementing most StickyBucketService implementations is straightforward and wor
 ```js
 const { ExpressCookieStickyBucketService } = require("@growthbook/growthbook");
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const stickyBucketService = new ExpressCookieStickyBucketService({
       req,
       res
@@ -605,7 +649,7 @@ const userContext = {
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 Like with the `trackingCallback`, this can be defined on either the GrowthBookClient instance or as part of the user context. When defined on the GrowthBookClient instance, a 3rd argument with the user context will be sent so you can identify which user evaluated a feature.
 
@@ -731,7 +775,7 @@ gbClient.runInlineExperiment({
 
   // Experiment meta info
   name: "Results per Page",
-  phase: "full-traffic"
+  phase: "full-traffic",
 
   // Variation meta info
   meta: [
@@ -757,7 +801,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 // Will include 60% of users - ones with a hash between 0 and 0.6
 gbClient.runInlineExperiment({
   key: "experiment-1",
-  variation: [0, 1],
+  variations: [0, 1],
   filters: [
     {
       seed: "pricing",
@@ -770,7 +814,7 @@ gbClient.runInlineExperiment({
 // Will include the other 40% of users - ones with a hash between 0.6 and 1
 gbClient.runInlineExperiment({
   key: "experiment-2",
-  variation: [0, 1],
+  variations: [0, 1],
   filters: [
     {
       seed: "pricing",
@@ -825,7 +869,7 @@ The following condition would evaluate to `true` and the user would be included 
 ```js
 gbClient.runInlineExperiment({
   key: "my-experiment",
-  variation: [0, 1],
+  variations: [0, 1],
   condition: {
     "browser.vendor": "firefox",
     "country": {
@@ -972,7 +1016,8 @@ For middleware implementations or API routes, pass the `request` object to `devt
 
 ```js
 import { NextResponse } from 'next/server';
-import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
+import { GrowthBook } from "@growthbook/growthbook";
+import { devtoolsNextjsPlugin, getDebugEvent } from "@growthbook/growthbook/plugins";
 
 export function middleware(request) {
   const response = NextResponse.next();
@@ -990,7 +1035,7 @@ export function middleware(request) {
 
   response.headers.set(
     "x-gbdebug-events",
-    JSON.stringify(getDebugEvent(req.growthbook, "nextjs_middleware"))
+    JSON.stringify(getDebugEvent(growthbook, "nextjs_middleware"))
   );
   return response;
 }
@@ -998,13 +1043,13 @@ export function middleware(request) {
 
 For passing the debug events back to DevTools, this middleware example assumes the receiving end has access to headers. This may not always be the case (e.g. redirects); you may need to rely on cookies or an encoded URL parameter.
 
-For API routes or middleware redirects, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
+For API routes or middleware redirects, you are responsible for parsing the `x-gbdebug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
 
 ```js
 const response = await fetch(apiUrl);
 const event = response.headers.get("x-gbdebug-events");
 if (event) {
-  window._gbdebugEvents?.push(event);
+  window._gbdebugEvents?.push(JSON.parse(event));
 }
 ```
 
@@ -1033,14 +1078,14 @@ app.use((req, res, next) => {
     [ devtoolsExpressPlugin({ request: req }) ]
   );
 
-  res.set("x-gbdebug-events", getDebugEvent(req.growthbook, "express"));
+  res.set("x-gbdebug-events", JSON.stringify(getDebugEvent(req.growthbook, "express")));
 
   // etc...
   next();
 });
 ```
 
-Similar to the Next.js middleware example above, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
+Similar to the Next.js middleware example above, you are responsible for parsing the `x-gbdebug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
 
 ### Node.js (platform agnostic)
 

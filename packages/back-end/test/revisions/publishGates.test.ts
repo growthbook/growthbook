@@ -560,6 +560,18 @@ describe("PublishBlockedError", () => {
     expect(err.message).toContain("[experiment-guard]");
   });
 
+  it("lists every message of a multi-message gate in the error message", () => {
+    const err = new PublishBlockedError([
+      {
+        ...experimentGuardGate,
+        messages: ["First conflict.", "Second conflict."],
+      },
+    ]);
+    expect(err.message).toContain(
+      "[experiment-guard] First conflict. Second conflict.",
+    );
+  });
+
   it("shows no retry hint for a gate without an override flag", () => {
     const err = new PublishBlockedError([approvalGate]);
     expect(err.message).toContain("[approval-required]");

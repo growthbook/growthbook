@@ -2,7 +2,6 @@
 title: A/B Testing with Rudderstack and Next.js
 description: Send Next.js experiment exposure through RudderStack and analyze the warehouse export in GrowthBook.
 sidebarTitle: Rudderstack + Next.js
-slug: rudderstack-and-nextjs-with-growthbook
 ---
 
 This document is a guide on how to add GrowthBook feature flags and A/B testing to your existing Next.js application using Rudderstack for event tracking.
@@ -106,7 +105,7 @@ In your `_app.js`, add the Rudderstack integration we just created
 import rudder from "./rudder";
 ```
 
-This will allow you add `rudder.track()` in your app anywhere you import rudder.js while sharing the same Rudderstack object.
+This will allow you to add `rudder.track()` in your app anywhere you import rudder.js while sharing the same Rudderstack object.
 
 ## 4. Integrate the GrowthBook React SDK into our Next.js app
 
@@ -184,7 +183,7 @@ export default function MyApp({ Component, pageProps }) {
 }
 ```
 
-This code adds the `id` with in GrowthBook to the Rudderstack anonymous_id. If you want to load user_id as well as anonymous_id you'll have to add this id to the setAttribute, and also call the `rudder.identify()` with the user_id info.
+This code adds the `id` within GrowthBook to the Rudderstack anonymous_id. If you want to load user_id as well as anonymous_id you'll have to add this id to the setAttribute, and also call the `rudder.identify()` with the user_id info.
 
 Finally, wrap your Next.js project in the GrowthBookProvider component, so we can use the GrowthBook methods throughout the codebase without doing addition instantiation.
 

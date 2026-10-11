@@ -232,7 +232,7 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("coverrage from overrides", () => {
+  it("coverage from overrides", () => {
     const growthbook = new GrowthBook({
       attributes: {
         id: "1",
@@ -255,7 +255,7 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("coverrage from overrides", () => {
+  it("coverage from overrides", () => {
     const growthbook = new GrowthBook({
       attributes: {
         id: "1",
