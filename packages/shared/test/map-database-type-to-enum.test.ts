@@ -3,6 +3,7 @@ import { mapDatabaseTypeToEnum } from "shared/enterprise";
 describe("mapDatabaseTypeToEnum", () => {
   it.each([
     ["INT64", "number"],
+    ["NUMBER", "number"],
     ["TIMESTAMP", "date"],
     ["BOOL", "boolean"],
     ["character varying", "string"],

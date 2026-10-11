@@ -36,6 +36,7 @@ import { validateSQL } from "@/services/datasources";
 import { getColumnMappingError } from "@/services/factTables";
 import {
   getSchemaBrowserTables,
+  getUnlistedTable,
   SchemaBrowserTable,
 } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
@@ -58,9 +59,6 @@ import {
 } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
-import BuildInformationSchemaCard from "@/components/SchemaBrowser/BuildInformationSchemaCard";
-import PendingInformationSchemaCard from "@/components/SchemaBrowser/PendingInformationSchemaCard";
-import RetryInformationSchemaCard from "@/components/SchemaBrowser/RetryInformationSchemaCard";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -86,18 +84,19 @@ function TablePicker({
   datasource,
   selectedTable,
   onSelectTable,
-  onSwitchToSql,
 }: {
   datasource: DataSourceInterfaceWithParams;
   selectedTable: SchemaBrowserTable | null;
   onSelectTable: (table: SchemaBrowserTable) => void;
-  onSwitchToSql: () => void;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
+  // A refresh is marked PENDING before the request returns, but a new schema
+  // has no record to watch until its background job creates one
+  const [creating, setCreating] = useState(false);
   const {
     data,
     error: fetchError,
@@ -106,24 +105,29 @@ function TablePicker({
     informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource.id}/schema`, {
     shouldRun: () => !managedWarehousePending,
+    refreshInterval: (latest) =>
+      latest?.informationSchema?.status === "PENDING" ||
+      (creating && !latest?.informationSchema)
+        ? 2000
+        : 0,
   });
   const informationSchema = data?.informationSchema;
+  const building =
+    (creating && !informationSchema) || informationSchema?.status === "PENDING";
 
   const [error, setError] = useState<string | null>(null);
-  // Builds run in the background, so treat it as building until the schema changes
-  const snapshot = `${informationSchema?.status}:${informationSchema?.dateUpdated}:${informationSchema?.error?.message}`;
-  const [queuedFrom, setQueuedFrom] = useState<string | null>(null);
-  const building =
-    queuedFrom === snapshot || informationSchema?.status === "PENDING";
+  const schemaError =
+    error || fetchError?.message || informationSchema?.error?.message || null;
 
-  const buildSchema = async (method: "PUT" | "POST") => {
+  const buildSchema = async () => {
     setError(null);
     try {
       await apiCall(`/datasource/${datasource.id}/schema`, {
-        method,
+        method: informationSchema ? "PUT" : "POST",
         body: JSON.stringify({ informationSchemaId: informationSchema?.id }),
       });
-      setQueuedFrom(snapshot);
+      if (!informationSchema) setCreating(true);
+      await mutate();
     } catch (e) {
       setError(e.message);
     }
@@ -149,135 +153,115 @@ function TablePicker({
   );
 
   let content: React.ReactNode;
-  // Callouts need more room under the label than the select does
-  let ready = false;
   if (managedWarehousePending) {
     content = <ManagedWarehouseNoEventsCallout size="sm" />;
-  } else if (fetchError) {
-    content = (
-      <Callout status="error" size="sm">
-        {fetchError.message}
-      </Callout>
-    );
-  } else if (!data) {
+  } else if (!data && !fetchError) {
     content = <LoadingSpinner />;
-  } else if (building) {
-    content = (
-      <PendingInformationSchemaCard
-        size="sm"
-        mutate={mutate}
-        timeoutMessage={
-          <>
-            This is taking a while. Check back in a minute or{" "}
-            <Link onClick={onSwitchToSql}>Switch to SQL mode</Link>
-          </>
-        }
-      />
-    );
-  } else if (!informationSchema) {
-    content = (
-      <BuildInformationSchemaCard
-        size="sm"
-        error={error}
-        canRunQueries={canRunQueries}
-        refreshOrCreateInfoSchema={buildSchema}
-      />
-    );
-  } else if (informationSchema.error) {
-    content = (
-      <RetryInformationSchemaCard
-        size="sm"
-        error={error}
-        canRunQueries={canRunQueries}
-        informationSchema={informationSchema}
-        refreshOrCreateInfoSchema={buildSchema}
-      />
-    );
   } else {
-    ready = true;
     content = (
-      <>
-        <SelectField
-          value={selectedTable?.id ?? ""}
-          onChange={(id) => {
-            const entry = tablesById.get(id);
-            if (entry) onSelectTable(entry.table);
-          }}
-          options={groups.map((g) => ({
-            label: g.label,
-            options: g.tables.map((t) => ({
-              value: t.id,
-              label: t.shards
-                ? `${t.tableName} (${t.shards} tables)`
-                : t.tableName,
-            })),
-          }))}
-          formatOptionLabel={({ value, label }, { context }) => {
-            const entry = tablesById.get(value);
-            return (
-              <Flex
-                justify="between"
-                align="center"
-                gap="3"
-                py={context === "value" ? "1" : undefined}
-              >
-                <Flex direction="column" minWidth="0">
-                  <Text as="div" size="md" truncate>
-                    {label}
-                  </Text>
-                  <Text as="div" size="sm" color="text-low" truncate>
-                    {entry?.group}
-                  </Text>
-                </Flex>
-                <Text size="sm" color="text-low" whiteSpace="nowrap">
-                  {entry?.table.numOfColumns} columns
+      <SelectField
+        value={selectedTable?.id || selectedTable?.path || ""}
+        onChange={(value) => {
+          const entry = tablesById.get(value);
+          if (entry) onSelectTable(entry.table);
+          else if (value.trim()) onSelectTable(getUnlistedTable(value.trim()));
+        }}
+        createable
+        // Commits typed tables on blur or Enter, not per keystroke, and stays
+        // the same input if tables finish loading mid-edit
+        keepCreatableWhenEmpty
+        formatCreateLabel={(input) => `Use table "${input}"`}
+        options={groups.map((g) => ({
+          label: g.label,
+          options: g.tables.map((t) => ({
+            value: t.id,
+            label: t.shards
+              ? `${t.tableName} (${t.shards} tables)`
+              : t.tableName,
+          })),
+        }))}
+        formatOptionLabel={({ value, label }, { context }) => {
+          const entry = tablesById.get(value);
+          if (!entry) return label;
+          return (
+            <Flex
+              justify="between"
+              align="center"
+              gap="3"
+              py={context === "value" ? "1" : undefined}
+            >
+              <Flex direction="column" minWidth="0">
+                <Text as="div" size="md" truncate>
+                  {label}
+                </Text>
+                <Text as="div" size="sm" color="text-low" truncate>
+                  {entry.group}
                 </Text>
               </Flex>
-            );
-          }}
-          placeholder="Search tables..."
-          size="small"
-          autoFocus
-        />
-        {error ? (
-          <Callout status="error" size="sm" mt="2">
-            {error}
-          </Callout>
-        ) : null}
-      </>
+              <Text size="sm" color="text-low" whiteSpace="nowrap">
+                {entry.table.numOfColumns} columns
+              </Text>
+            </Flex>
+          );
+        }}
+        placeholder={
+          tablesById.size
+            ? "Search tables..."
+            : "Enter a table, like analytics.events"
+        }
+        size="small"
+        autoFocus
+      />
     );
   }
 
   return (
     <Box>
-      <Flex align="center" justify="between" mb={ready ? "1" : "2"}>
+      <Flex align="center" justify="between" mb="1">
         <Text weight="semibold">Source Table</Text>
-        {informationSchema && !building ? (
+        {managedWarehousePending ? null : (
           <Flex align="center" gap="2">
-            <Text size="sm" color="text-low">
-              Updated {ago(informationSchema.dateUpdated)}
-            </Text>
+            {informationSchema && tablesById.size && !building ? (
+              <Text size="sm" color="text-low">
+                Updated {ago(informationSchema.dateUpdated)}
+              </Text>
+            ) : null}
             <Tooltip
               style={{ display: "flex" }}
               body={
-                canRunQueries
-                  ? "Refresh tables"
-                  : "You don't have permission to load tables for this Data Source."
+                <>
+                  {schemaError ? (
+                    <Text as="div" mb="1">
+                      {schemaError}
+                    </Text>
+                  ) : null}
+                  {building
+                    ? "Loading tables. This can take a minute."
+                    : !canRunQueries
+                      ? "You don't have permission to load tables for this Data Source."
+                      : schemaError
+                        ? "Click to retry."
+                        : informationSchema
+                          ? "Refresh tables"
+                          : "Load tables"}
+                </>
               }
             >
               <IconButton
                 type="button"
                 variant="ghost"
                 size="1"
+                color={schemaError ? "red" : undefined}
                 aria-label="Refresh tables"
-                disabled={!canRunQueries}
-                onClick={() => buildSchema("PUT")}
+                loading={building}
+                disabled={!canRunQueries || !data}
+                onClick={buildSchema}
               >
                 <PiArrowClockwise />
               </IconButton>
             </Tooltip>
           </Flex>
-        ) : null}
+        )}
       </Flex>
       {content}
     </Box>
@@ -306,6 +290,8 @@ export default function NewFactTableSqlStep({
   selectedTable,
   onSelectTable,
   tableColumnsError,
+  loadingColumns,
+  retryColumns,
   columnError,
   rowFilters,
   setRowFilters,
@@ -326,6 +312,8 @@ export default function NewFactTableSqlStep({
   selectedTable: SchemaBrowserTable | null;
   onSelectTable: (table: SchemaBrowserTable) => void;
   tableColumnsError: string | null;
+  loadingColumns: boolean;
+  retryColumns: () => void;
   columnError: string | null;
   rowFilters: RowFilter[];
   setRowFilters: (rowFilters: RowFilter[]) => void;
@@ -572,10 +560,22 @@ export default function NewFactTableSqlStep({
           datasource={datasource}
           selectedTable={selectedTable}
           onSelectTable={onSelectTable}
-          onSwitchToSql={() => setMode("sql")}
         />
         {tableColumnsError ? (
-          <Callout status="error" size="sm">
+          <Callout
+            status="error"
+            size="sm"
+            action={
+              <Button
+                size="sm"
+                variant="ghost"
+                color="inherit"
+                onClick={retryColumns}
+              >
+                Retry
+              </Button>
+            }
+          >
             {tableColumnsError}
           </Callout>
         ) : null}
@@ -590,16 +590,25 @@ export default function NewFactTableSqlStep({
                 dateInputWidth={260}
               />
             ) : null}
-            <RowFilterActions
-              disabled={!columnSource}
-              onAdd={(filter) => setRowFilters([...rowFilters, filter])}
-              onViewSampleRows={
-                canRunQueries ? () => setSampleRowsOpen(true) : undefined
-              }
-              canViewSampleRows={
-                !!columnSource && rowFilters.every(isRowFilterComplete)
-              }
-            />
+            {loadingColumns ? (
+              <Flex align="center" gap="2">
+                <LoadingSpinner />
+                <Text size="sm" color="text-low">
+                  Loading columns...
+                </Text>
+              </Flex>
+            ) : (
+              <RowFilterActions
+                disabled={!columnSource}
+                onAdd={(filter) => setRowFilters([...rowFilters, filter])}
+                onViewSampleRows={
+                  canRunQueries ? () => setSampleRowsOpen(true) : undefined
+                }
+                canViewSampleRows={
+                  !!columnSource && rowFilters.every(isRowFilterComplete)
+                }
+              />
+            )}
             {rowFilterError ? (
               <Callout status="error" size="sm">
                 {rowFilterError}
@@ -609,7 +618,9 @@ export default function NewFactTableSqlStep({
         ) : null}
         {sampleRowsOpen && selectedTable ? (
           <RowFilterSampleRowsModal
-            title={`${selectedTable.schemaName}.${selectedTable.tableName}`}
+            title={[selectedTable.schemaName, selectedTable.tableName]
+              .filter(Boolean)
+              .join(".")}
             columnSource={columnSource}
             testRowFilters={testRowFilters}
             rowFilters={rowFilters}

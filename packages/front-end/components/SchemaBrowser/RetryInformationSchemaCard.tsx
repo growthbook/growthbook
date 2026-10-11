@@ -11,13 +11,11 @@ export default function RetryInformationSchemaCard({
   refreshOrCreateInfoSchema,
   canRunQueries,
   error,
-  size = "md",
 }: {
   informationSchema: InformationSchemaInterface;
   canRunQueries: boolean;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
-  size?: "sm" | "md";
 }) {
   const combinedError = error || informationSchema?.error?.message || "";
 
@@ -25,14 +23,13 @@ export default function RetryInformationSchemaCard({
     <div>
       {isManagedWarehouseNoEventsGuidanceMessage(combinedError) ? (
         <Flex direction="column" gap="2">
-          <ManagedWarehouseNoEventsCallout size={size} />
+          <ManagedWarehouseNoEventsCallout />
           <Tooltip
             body="You don't have permission to load tables for this Data Source."
             shouldDisplay={!canRunQueries}
           >
             <Button
               variant="ghost"
-              size={size}
               disabled={!canRunQueries}
               onClick={() => refreshOrCreateInfoSchema("PUT")}
             >
@@ -43,7 +40,6 @@ export default function RetryInformationSchemaCard({
       ) : (
         <Callout
           status="warning"
-          size={size}
           action={
             <Tooltip
               body="You don't have permission to load tables for this Data Source."
@@ -51,7 +47,6 @@ export default function RetryInformationSchemaCard({
             >
               <Button
                 color="inherit"
-                size={size}
                 disabled={!canRunQueries}
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >

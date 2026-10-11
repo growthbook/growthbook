@@ -3,7 +3,10 @@ import { queueCreateInformationSchema } from "back-end/src/jobs/createInformatio
 import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformationSchema";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
+import {
+  getInformationSchemaByDatasourceId,
+  updateInformationSchemaById,
+} from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
@@ -211,6 +214,13 @@ export async function putInformationSchema(
   if (!context.permissions.canRunSchemaQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
+
+  // Before responding, so a client polling for this refresh can't mistake the
+  // previous result for its own
+  await updateInformationSchemaById(org.id, informationSchemaId, {
+    status: "PENDING",
+    error: null,
+  });
 
   await queueUpdateInformationSchema(
     datasource.id,

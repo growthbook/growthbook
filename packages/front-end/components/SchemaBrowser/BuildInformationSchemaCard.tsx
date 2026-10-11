@@ -6,18 +6,15 @@ export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
   canRunQueries,
   error,
-  size = "md",
 }: {
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   canRunQueries: boolean;
   error: string | null;
-  size?: "sm" | "md";
 }) {
   return (
     <div>
       <Callout
         status="info"
-        size={size}
         action={
           <Tooltip
             body="You don't have permission to load tables for this Data Source."
@@ -25,7 +22,6 @@ export default function BuildInformationSchemaCard({
           >
             <Button
               color="inherit"
-              size={size}
               disabled={!canRunQueries}
               onClick={() => refreshOrCreateInfoSchema("POST")}
             >
@@ -36,11 +32,7 @@ export default function BuildInformationSchemaCard({
       >
         No tables loaded yet.
       </Callout>
-      {error && (
-        <Callout status="error" size={size}>
-          {error}
-        </Callout>
-      )}
+      {error && <Callout status="error">{error}</Callout>}
     </div>
   );
 }

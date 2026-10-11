@@ -8,7 +8,10 @@ import {
   getPickerTableName,
   getPickerTableSql,
 } from "@/services/factTables";
-import { getSchemaBrowserTables } from "@/services/schemaBrowserTables";
+import {
+  getSchemaBrowserTables,
+  getUnlistedTable,
+} from "@/services/schemaBrowserTables";
 
 const cols = (
   ...datatypes: DetectedFactTableColumn["datatype"][]
@@ -99,6 +102,21 @@ describe("getSchemaBrowserTables", () => {
       ["orders", undefined],
       ["backup_20240101", undefined],
     ]);
+  });
+});
+
+describe("getUnlistedTable", () => {
+  it("names a typed path by its last two parts", () => {
+    expect(getUnlistedTable("`proj.marts.orders`")).toMatchObject({
+      id: "",
+      path: "`proj.marts.orders`",
+      schemaName: "marts",
+      tableName: "orders",
+    });
+    expect(getUnlistedTable("orders")).toMatchObject({
+      schemaName: "",
+      tableName: "orders",
+    });
   });
 });
 

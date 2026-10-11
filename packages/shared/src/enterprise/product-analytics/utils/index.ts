@@ -51,6 +51,8 @@ export function mapDatabaseTypeToEnum(
 
   if (
     lowerType.includes("int") ||
+    // Snowflake and Oracle report every fixed-point column as NUMBER
+    lowerType.includes("number") ||
     lowerType.includes("numeric") ||
     lowerType.includes("decimal") ||
     lowerType.includes("float") ||

@@ -28,7 +28,10 @@ import {
   FactTableType,
   RowFilter,
 } from "shared/types/fact-table";
-import { InformationSchemaTablesInterface } from "shared/types/integrations";
+import {
+  Column,
+  InformationSchemaTablesInterface,
+} from "shared/types/integrations";
 import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { buildRowFilterWhereClause } from "shared/experiments";
@@ -452,8 +455,14 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     ? preferredMode
     : "sql";
 
+  const [unlistedColumns, setUnlistedColumns] = useState<{
+    columns?: Column[];
+    error?: string;
+  } | null>(null);
+
   const selectTable = (table: SchemaBrowserTable) => {
-    if (table.id === selectedTable?.id) return;
+    // Unlisted tables share an empty id
+    if (table.path === selectedTable?.path) return;
     if (
       !name ||
       (selectedTable && name === getPickerTableName(selectedTable))
@@ -461,6 +470,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       setName(getPickerTableName(table));
     }
     setSelectedTable(table);
+    setUnlistedColumns(null);
     setRowFilters([]);
     setRemovedColumns([]);
     // Otherwise the previous table's mappings carry over
@@ -546,12 +556,74 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     [detected, datasource, inlineFilterColumn],
   );
 
-  const { data: tableData, error: tableDataError } = useApi<{
+  const {
+    data: tableData,
+    error: tableDataError,
+    isValidating: validatingTableData,
+    mutate: mutateTableData,
+  } = useApi<{
     table: InformationSchemaTablesInterface;
   }>(`/datasource/${datasourceId}/schema/table/${selectedTable?.id}`, {
-    shouldRun: () => !!selectedTable,
+    shouldRun: () => !!selectedTable?.id,
   });
-  const tableColumns = tableData?.table.columns ?? null;
+
+  // A table the information schema doesn't list gets its columns from a
+  // LIMIT 0 query instead
+  const unlistedPath =
+    selectedTable && !selectedTable.id ? selectedTable.path : null;
+  const [unlistedAttempt, setUnlistedAttempt] = useState(0);
+  useEffect(() => {
+    if (!unlistedPath) return;
+    let cancelled = false;
+    apiCall<{ error?: string; columns?: DetectedFactTableColumn[] }>(
+      "/query/test",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          query: `SELECT * FROM ${unlistedPath}`,
+          datasourceId,
+          limit: 0,
+          detectColumns: true,
+        }),
+      },
+    )
+      .then((res) => ({
+        error: res.error,
+        // Detected types are already enum values, which map to themselves
+        columns: res.columns?.map((c) => ({
+          columnName: c.column,
+          dataType: c.datatype,
+        })),
+      }))
+      .catch((e) => ({ error: e.message, columns: undefined }))
+      .then((result) => {
+        if (!cancelled) setUnlistedColumns(result);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unlistedPath, datasourceId, apiCall, unlistedAttempt]);
+
+  const tableColumns = unlistedPath
+    ? (unlistedColumns?.columns ?? null)
+    : (tableData?.table.columns ?? null);
+  // Hidden while SWR retries, so the retry shows as loading
+  const tableColumnsError = unlistedPath
+    ? (unlistedColumns?.error ?? null)
+    : validatingTableData
+      ? null
+      : (tableDataError?.message ?? null);
+  // Either way it's a warehouse query, which can take a few seconds
+  const loadingColumns =
+    mode === "table" && !!selectedTable && !tableColumns && !tableColumnsError;
+  const retryColumns = () => {
+    if (unlistedPath) {
+      setUnlistedColumns(null);
+      setUnlistedAttempt((n) => n + 1);
+    } else {
+      mutateTableData();
+    }
+  };
 
   const columnTypes = useMemo(
     () =>
@@ -831,6 +903,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       close={close}
       cta="Create Fact Table"
       size={step === 0 && mode === "sql" ? "max" : "md"}
+      disabledMessage={loadingColumns ? "Loading columns..." : undefined}
       ctaEnabled={
         step > 0 ||
         (!columnError &&
@@ -871,7 +944,9 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             columnError={columnError}
             selectedTable={selectedTable}
             onSelectTable={selectTable}
-            tableColumnsError={tableDataError?.message ?? null}
+            tableColumnsError={tableColumnsError}
+            loadingColumns={loadingColumns}
+            retryColumns={retryColumns}
             rowFilters={rowFilters}
             setRowFilters={setRowFilters}
             columnSource={columnSource}

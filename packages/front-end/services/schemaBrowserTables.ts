@@ -54,3 +54,22 @@ export function getSchemaBrowserTables(
     ];
   });
 }
+
+// A table typed by hand because the information schema doesn't list it. The
+// empty id marks it as unlisted.
+export function getUnlistedTable(path: string): SchemaBrowserTable {
+  const [tableName, schemaName = ""] = path
+    .replace(/[`"[\]]/g, "")
+    .split(".")
+    .reverse();
+  const now = new Date();
+  return {
+    id: "",
+    path,
+    tableName,
+    schemaName,
+    numOfColumns: 0,
+    dateCreated: now,
+    dateUpdated: now,
+  };
+}
