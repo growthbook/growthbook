@@ -9,6 +9,7 @@ import {
   encodeArmingApiKeyId,
   decodeArmingApiKeyId,
   apiKeyEventUser,
+  armerActor,
 } from "back-end/src/util/api-key.util";
 
 describe("api key utils", () => {
@@ -294,5 +295,58 @@ describe("apiKeyEventUser", () => {
         requester: null,
       }),
     ).toEqual({ type: "api_key", apiKey: "key_pat", ...dana });
+  });
+});
+
+describe("armerActor", () => {
+  const member = { id: "u_dana", name: "Dana", email: "dana@example.com" };
+  const assumed = {
+    type: "api_key" as const,
+    apiKey: "key_1",
+    name: "Bot",
+    requestedBy: member,
+    assumedRole: true,
+  };
+  const itself = {
+    type: "api_key" as const,
+    apiKey: "key_1",
+    name: "Bot",
+    requestedBy: member,
+  };
+  const token = { type: "api_key" as const, apiKey: "key_pat", ...member };
+
+  it.each([
+    [
+      "the key assuming the member it armed for",
+      { activityLog: [{ user: itself }, { user: assumed }] },
+      "key_1:u_dana",
+      assumed,
+    ],
+    [
+      "the key acting as itself",
+      { activityLog: [{ user: assumed }, { user: itself }] },
+      "key_1",
+      itself,
+    ],
+    ["a scoped token as its owner", { createdBy: token }, "key_pat", token],
+    [
+      "a key that left no actor by its ID",
+      {},
+      "key_1:u_dana",
+      {
+        type: "api_key",
+        apiKey: "key_1",
+        requestedBy: { id: "u_dana", name: "", email: "" },
+        assumedRole: true,
+      },
+    ],
+    [
+      "a member",
+      { createdBy: { type: "dashboard" as const, ...member } },
+      "u_dana",
+      { type: "dashboard", ...member },
+    ],
+  ])("finds %s", (_label, revision, armerId, expected) => {
+    expect(armerActor(revision, armerId)).toEqual(expected);
   });
 });

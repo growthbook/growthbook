@@ -5,6 +5,7 @@ import {
   canAdvanceRevision,
   canDiscardRevision,
   canRebaseRevision,
+  isOwnRevision,
   isRevisionAuthor,
   mayBeRevisionAuthor,
 } from "back-end/src/revisions/revisionAuthority";
@@ -445,6 +446,68 @@ describe("mayBeRevisionAuthor", () => {
   it("does not grant authorship to an identityless caller", () => {
     expect(isRevisionAuthor("", "")).toBe(false);
     expect(isRevisionAuthor(undefined, undefined)).toBe(false);
+  });
+});
+
+// A key acting as itself never rules on a draft its credential worked on, in
+// either mode; a key assuming a member is that member.
+describe("isOwnRevision", () => {
+  const caller = (actorId: string, keyActingAsItself: string | null = null) =>
+    ({ actorId, keyActingAsItself }) as unknown as Context;
+  const key = (apiKey: string, assumedRole = false) => ({
+    type: "api_key",
+    apiKey,
+    ...(assumedRole && {
+      requestedBy: { id: "u_dana", name: "", email: "" },
+      assumedRole,
+    }),
+  });
+  const revision = (authorId: string, activityLog: object[] = []) =>
+    ({ authorId, activityLog }) as unknown as Revision;
+  const entry = (action: string, user?: object) => ({
+    action,
+    userId: "",
+    ...(user && { user }),
+  });
+  const keyItself = caller("key_1", "key_1");
+
+  it.each([
+    ["a member on their own draft", caller("u_dana"), revision("u_dana"), true],
+    ["a member on another's draft", caller("u_bob"), revision("u_dana"), false],
+    ["a key on a draft it made", keyItself, revision("key_1"), true],
+    [
+      "a key on a draft it edited while assuming a member",
+      keyItself,
+      revision("u_dana", [entry("updated", key("key_1", true))]),
+      true,
+    ],
+    [
+      "a key on a draft another key edited",
+      keyItself,
+      revision("u_dana", [entry("updated", key("key_2"))]),
+      false,
+    ],
+    [
+      "a key on a draft it only commented on",
+      keyItself,
+      revision("u_dana", [entry("commented", key("key_1"))]),
+      false,
+    ],
+    ["a key on an authorless draft", keyItself, revision(""), true],
+    [
+      "a key on a draft with an edit recorded without its author",
+      keyItself,
+      revision("u_dana", [entry("updated")]),
+      true,
+    ],
+    [
+      "a key assuming a member on a draft it edited for another",
+      caller("u_bob"),
+      revision("u_dana", [entry("updated", key("key_1", true))]),
+      false,
+    ],
+  ])("%s", (_label, context, rev, expected) => {
+    expect(isOwnRevision(context, rev)).toBe(expected);
   });
 });
 

@@ -19,10 +19,11 @@ import {
 import { setupApp } from "./api.setup";
 
 /**
- * The person behind a request is a personal token's owner, or the member an
- * org key names with X-GrowthBook-Requested-By; a key that names no one is
- * credited under its own name. Checked across callers, revisioned entities,
- * their lifecycles and schedules, and through the real auth middleware.
+ * The person behind a request is a personal token's owner, or the member whose
+ * role an org key assumes with X-GrowthBook-Requested-By; a key that names no
+ * one, or uses its own role, is credited as itself. Checked across callers,
+ * revisioned entities, their lifecycles and schedules, and through the real
+ * auth middleware.
  */
 
 const ORG_ID = "org_attribution";
@@ -66,16 +67,23 @@ type Person = typeof dana;
 const ACTORS = [
   "a personal token",
   "a key naming the member",
+  "a key naming the member as itself",
   "a key naming no one",
 ] as const;
 type Actor = (typeof ACTORS)[number];
 
-// What each caller should be credited with, for Dana: the person, and the
-// identity drafts and verdicts record, which is the key itself when it names
-// no one.
+// What each caller should be credited with, for Dana: the person, the
+// identity drafts and verdicts record (the key itself unless it assumes her
+// role), and the member a key records as having asked.
 const EXPECT: Record<
   Actor,
-  { personId: string; actorId: string; armer: string; hasPerson: boolean }
+  {
+    personId: string;
+    actorId: string;
+    armer: string;
+    hasPerson: boolean;
+    requestedBy?: string;
+  }
 > = {
   "a personal token": {
     personId: dana.id,
@@ -88,6 +96,14 @@ const EXPECT: Record<
     actorId: dana.id,
     armer: `${KEY.id}:${dana.id}`,
     hasPerson: true,
+    requestedBy: dana.id,
+  },
+  "a key naming the member as itself": {
+    personId: "",
+    actorId: KEY.id,
+    armer: KEY.id,
+    hasPerson: false,
+    requestedBy: dana.id,
   },
   "a key naming no one": {
     personId: "",
@@ -100,8 +116,13 @@ const EXPECT: Record<
 function contextFor(
   actor: Actor,
   person: Person = dana,
-  key: ApiKeyWithRole = KEY,
+  baseKey: ApiKeyWithRole = KEY,
 ) {
+  const key: ApiKeyWithRole =
+    actor === "a key naming the member as itself"
+      ? { ...baseKey, requesterPermissions: "key" }
+      : baseKey;
+  const requester = actor.startsWith("a key naming the member") ? person : null;
   const base = {
     org,
     teams: [],
@@ -124,12 +145,12 @@ function contextFor(
             apiKeyId: key.id,
             key,
             owner: null,
-            requester: actor === "a key naming the member" ? person : null,
+            requester,
           }),
           // As the auth middleware computes it.
           userPermissions: getKeyPermissionsForRequest({
             apiKey: key,
-            requesterId: actor === "a key naming the member" ? person.id : null,
+            requesterId: requester?.id ?? null,
             org,
             teams: [],
             restrictedProjects: [],
@@ -352,7 +373,7 @@ describe("attribution across callers", () => {
         event: `${cfg.event}.revision.published`,
       });
       expect(publishedEvent?.data?.user?.requestedBy?.id).toBe(
-        actor === "a key naming the member" ? dana.id : undefined,
+        EXPECT[actor].requestedBy,
       );
     });
 
@@ -435,8 +456,20 @@ describe("attribution across callers", () => {
       expect(res.status).toBe(400);
     });
 
+    it("finds a draft a key made as itself by the key's ID", async () => {
+      const id = await createFlag("a key naming no one");
+      const version = await draft("a key naming no one", id);
+      const res = await as("a personal token").get(
+        `/api/v2/features/${id}/revisions?author=${KEY.id}`,
+      );
+      expect(res.status).toBe(200);
+      expect(
+        res.body.revisions.map((r: { version: number }) => r.version),
+      ).toContain(version);
+    });
+
     it.each(ACTORS)("credits %s through a reviewed draft", async (actor) => {
-      const { personId, hasPerson } = EXPECT[actor];
+      const { personId, hasPerson, requestedBy } = EXPECT[actor];
       const id = await createFlag(actor);
       const flag = await collection("features").findOne({ id });
       expect(flag?.owner).toBe(dana.id);
@@ -448,7 +481,7 @@ describe("attribution across callers", () => {
       const created = await stored(id, version);
       expect(
         created?.createdBy?.requestedBy?.id ?? created?.createdBy?.id ?? "",
-      ).toBe(personId);
+      ).toBe(requestedBy ?? personId);
       expect((created?.contributors ?? []).includes(dana.id)).toBe(hasPerson);
 
       const mine = await as(actor).get(
@@ -502,7 +535,7 @@ describe("attribution across callers", () => {
       );
       expect(
         commentEntry?.user?.requestedBy?.id ?? commentEntry?.user?.id ?? "",
-      ).toBe(personId);
+      ).toBe(requestedBy ?? personId);
 
       expect(
         (await as("a key naming the member", bob).post(`${path}/undo-review`))
@@ -638,6 +671,42 @@ describe("attribution across callers", () => {
       );
     });
 
+    it.each([
+      ["stops assuming members", { requesterPermissions: "key" }],
+      ["rejects the header", { requesterHeader: "rejected" }],
+    ])(
+      "drops a constant publish a key armed for them once the key %s",
+      async (_, change) => {
+        const { id, version } = await draftConstant();
+        const schedule = await as("a key naming the member", bob).post(
+          `/api/v1/constants-revisions/timeout/${version}/schedule-publish`,
+          {
+            scheduledPublishAt: new Date(Date.now() + 3_600_000).toISOString(),
+          },
+        );
+        expect(schedule.status).toBe(200);
+        await collection("apikeys").updateOne({ id: KEY.id }, { $set: change });
+        await collection("revisions").updateOne(
+          { id },
+          { $set: { scheduledPublishAt: new Date(Date.now() - 1000) } },
+        );
+
+        const job = getContextForAgendaJobByOrgObject(org);
+        const revision = await job.models.revisions.getById(id);
+        const target = await getAdapter(revision!.target.type)
+          .getModel(job)!
+          .getById(revision!.target.id);
+        await maybePublishScheduledRevision(
+          job,
+          revision!,
+          target as Record<string, unknown>,
+        );
+        expect(
+          (await collection("revisions").findOne({ id }))?.status,
+        ).not.toBe("merged");
+      },
+    );
+
     it("can't approve a flag through a key that names them", async () => {
       const path = `/api/v2/features/checkout-flow/revisions/${await draftFlag()}`;
       expect(
@@ -690,22 +759,24 @@ describe("attribution across callers", () => {
 
   describe("a key reviewing as itself", () => {
     const READONLY_KEY = { ...KEY, id: "key_readonly", role: "readonly" };
-    const draftSavedGroup = async () => {
-      const created = await as("a personal token").post(
-        "/api/v1/saved-groups",
-        { name: "Testers", values: ["u1"], attributeKey: "userId" },
-      );
+    const OTHER_KEY = { ...KEY, id: "key_other", key: "secret_other" };
+    const draftSavedGroup = async (author: Actor = "a personal token") => {
+      const created = await as(author).post("/api/v1/saved-groups", {
+        name: "Testers",
+        values: ["u1"],
+        attributeKey: "userId",
+      });
       expect(created.status).toBe(200);
       const id = created.body.savedGroup.id;
-      const draft = await as("a personal token").put(
+      const draft = await as(author).put(
         `/api/v1/saved-groups-revisions/${id}/new/values`,
         { values: ["u2"] },
       );
       expect(draft.status).toBe(200);
       const path = `/api/v1/saved-groups-revisions/${id}/${draft.body.revision.version}`;
-      expect(
-        (await as("a personal token").post(`${path}/request-review`)).status,
-      ).toBe(200);
+      expect((await as(author).post(`${path}/request-review`)).status).toBe(
+        200,
+      );
       return { path, revisionId: draft.body.revision.id as string };
     };
     const withRequiredApproval = async (work: () => Promise<void>) => {
@@ -741,15 +812,101 @@ describe("attribution across callers", () => {
       });
     });
 
+    it.each(["approve", "request-changes"] as const)(
+      "can't %s a draft it made while assuming a member",
+      async (decision) => {
+        const { path } = await draftSavedGroup("a key naming the member");
+        const rule = (key: ApiKeyWithRole) =>
+          as("a key naming no one", dana, key).post(`${path}/submit-review`, {
+            decision,
+            skipAutoPublish: true,
+          });
+        expect((await rule(KEY)).status).toBe(400);
+        expect((await rule(OTHER_KEY)).status).toBe(200);
+      },
+    );
+
+    it("can't rule on a draft with no recorded author, which any key may have made", async () => {
+      const { path, revisionId } = await draftSavedGroup();
+      await collection("revisions").updateOne(
+        { id: revisionId },
+        { $set: { authorId: "" } },
+      );
+      const approve = (actor: Actor, person: Person = dana) =>
+        as(actor, person).post(`${path}/submit-review`, {
+          decision: "approve",
+          skipAutoPublish: true,
+        });
+      expect((await approve("a key naming no one")).status).toBe(400);
+      expect((await approve("a personal token", bob)).status).toBe(200);
+    });
+
+    it("can't rule on a flag draft it made while assuming a member", async () => {
+      const assuming = as("a key naming the member");
+      await assuming.post("/api/v2/features", {
+        id: "checkout-flow",
+        valueType: "boolean",
+        defaultValue: "false",
+      });
+      const draft = await assuming.put(
+        "/api/v2/features/checkout-flow/revisions/new/metadata",
+        { description: "Updated" },
+      );
+      const path = `/api/v2/features/checkout-flow/revisions/${draft.body.revision.version}`;
+      expect(
+        (await as("a key naming the member").post(`${path}/request-review`))
+          .status,
+      ).toBe(200);
+      const approve = (key: ApiKeyWithRole) =>
+        as("a key naming no one", dana, key).post(`${path}/submit-review`, {
+          action: "approve",
+          skipAutoPublish: true,
+        });
+      expect((await approve(KEY)).status).toBe(400);
+      expect((await approve(OTHER_KEY)).status).toBe(200);
+    });
+
+    it("stops counting an approval given while assuming a member once the key is disabled", async () => {
+      await withRequiredApproval(async () => {
+        const { path } = await draftSavedGroup();
+        expect(
+          (
+            await as("a key naming the member", bob).post(
+              `${path}/submit-review`,
+              { decision: "approve", skipAutoPublish: true },
+            )
+          ).status,
+        ).toBe(200);
+        // An engineer can't bypass approval, so only Bob's approval counts.
+        const publish = async () => {
+          let status = 0;
+          await withRole(dana, "engineer", async () => {
+            status = (await as("a personal token").post(`${path}/publish`))
+              .status;
+          });
+          return status;
+        };
+        const setDisabled = (disabled: boolean) =>
+          collection("apikeys").updateOne(
+            { id: KEY.id },
+            { $set: { disabled } },
+          );
+        await setDisabled(true);
+        expect(await publish()).not.toBe(200);
+        await setDisabled(false);
+        expect(await publish()).toBe(200);
+      });
+    });
+
     it("records a key that names a member as itself as the reviewer", async () => {
       const { path, revisionId } = await draftSavedGroup();
-      const res = await as("a key naming the member", bob, {
-        ...KEY,
-        requesterPermissions: "key",
-      }).post(`${path}/submit-review`, {
-        decision: "approve",
-        skipAutoPublish: true,
-      });
+      const res = await as("a key naming the member as itself", bob).post(
+        `${path}/submit-review`,
+        {
+          decision: "approve",
+          skipAutoPublish: true,
+        },
+      );
       expect(res.status).toBe(200);
       const verdict = (
         await collection("revisions").findOne({ id: revisionId })
@@ -1009,6 +1166,36 @@ describe("attribution across callers", () => {
         expect(appended.status).toBe(200);
       },
     );
+
+    it("records a key acting as itself as the publisher of a bulk publish", async () => {
+      const key = as("a key naming no one");
+      await key.post("/api/v1/constants", {
+        key: "timeout",
+        name: "Timeout",
+        type: "json",
+        value: '{"t":1}',
+      });
+      const draft = await key.put(
+        "/api/v1/constants-revisions/timeout/new/value",
+        {
+          value: '{"t":2}',
+        },
+      );
+      const res = await key.post("/api/v1/releases/publish-revisions", {
+        revisions: [
+          {
+            entityType: "constant",
+            key: "timeout",
+            version: draft.body.revision.version,
+          },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(
+        (await collection("revisions").findOne({ id: draft.body.revision.id }))
+          ?.resolution?.userId,
+      ).toBe(KEY.id);
+    });
 
     it("finds actions a key took for a member among their recent activity", async () => {
       await insertAudit({
