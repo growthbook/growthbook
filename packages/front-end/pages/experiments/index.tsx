@@ -45,17 +45,29 @@ import ExperimentsListTable, {
   experimentsListColumnDefs,
 } from "@/components/Experiment/ExperimentsListTable";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
+import {
+  ATTENTION_TILES_FIXTURE,
+  AttentionTileFigures,
+  USE_ATTENTION_TILES_FIXTURE,
+} from "@/components/Experiment/ExperimentListTiles.fixture";
+import {
+  isEndingSoon,
+  isUnhealthy,
+  needsDecision,
+  tileTrend,
+} from "@/services/experimentListTiles";
 import { filterToString } from "@/components/Search/SearchFilters";
 import { useTableColumns } from "@/hooks/useTableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
+// The attention tiles (set in review; in place of the All, Running,
+// Drafts, Stopped and Archived tabs), in order. All is the default.
 const EXPERIMENT_LIST_TABS = [
   "all",
-  "running",
-  "drafts",
-  "stopped",
-  "archived",
+  "needs-decision",
+  "unhealthy",
+  "ending-soon",
 ] as const;
 type ExperimentListTab = (typeof EXPERIMENT_LIST_TABS)[number];
 const isExperimentListTab = (value: string): value is ExperimentListTab => {
@@ -86,8 +98,13 @@ const ExperimentsPage = (): React.ReactElement => {
     "all",
   );
   const [didInitializeTab, setDidInitializeTab] = useState(false);
+  // A tab stored before the tiles (e.g. "running") falls back to All.
   const activeTab: ExperimentListTab =
-    !hasInitialValidHash && !didInitializeTab ? storedTab : tab;
+    !hasInitialValidHash && !didInitializeTab
+      ? isExperimentListTab(storedTab)
+        ? storedTab
+        : "all"
+      : tab;
 
   // Which way the last tab switch went, in the tab bar's order, so the new
   // tab's table drifts in from that side (set in review; see the
@@ -136,9 +153,8 @@ const ExperimentsPage = (): React.ReactElement => {
     experiments: allExperiments,
     error,
     loading,
-    hasArchived,
     tempRolloutExperimentIds,
-  } = useExperiments(project, activeTab === "archived", "standard", {
+  } = useExperiments(project, false, "standard", {
     includeTempRollouts: true,
   });
   const { watchedExperiments } = useWatching();
@@ -212,6 +228,7 @@ const ExperimentsPage = (): React.ReactElement => {
         hiddenColumns: ["owner", "date", "result"],
         showWatchColumn: false,
         showTypeColumn: true,
+        hiddenLast: true,
       }),
     [],
   );
@@ -226,19 +243,54 @@ const ExperimentsPage = (): React.ReactElement => {
     false,
   );
 
-  const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    items.forEach((item) => {
-      counts[item.tab] = (counts[item.tab] || 0) + 1;
-    });
-    return counts;
+  // The tiles' experiments and figures (set in review): All's count, and
+  // for Needs Decision, Unhealthy and Ending Soon their count and a trend
+  // estimated from when their experiments were last updated (see
+  // services/experimentListTiles). From the same search results as the
+  // table. Selecting a tile shows its experiments in the table.
+  const tileExperiments = useMemo(() => {
+    const now = new Date();
+    return {
+      all: items,
+      "needs-decision": items.filter((e) => needsDecision(e)),
+      unhealthy: items.filter((e) => isUnhealthy(e)),
+      "ending-soon": items.filter((e) => isEndingSoon(e, now)),
+    } satisfies Record<ExperimentListTab, typeof items>;
   }, [items]);
-
-  const filtered = useMemo(() => {
-    return activeTab !== "all"
-      ? items.filter((item) => item.tab === activeTab)
-      : items;
-  }, [activeTab, items]);
+  const tileTrends = useMemo(
+    () => ({
+      "needs-decision": tileTrend(
+        tileExperiments["needs-decision"].map((e) => e.dateUpdated),
+      ),
+      unhealthy: tileTrend(tileExperiments.unhealthy.map((e) => e.dateUpdated)),
+      "ending-soon": tileTrend(
+        tileExperiments["ending-soon"].map((e) => e.dateUpdated),
+      ),
+    }),
+    [tileExperiments],
+  );
+  // What the tiles show: the org's figures, or the demo fixture while
+  // USE_ATTENTION_TILES_FIXTURE is on (set in review; see
+  // ExperimentListTiles.fixture). The table always lists the real
+  // experiments.
+  const tileFigures: Record<ExperimentListTab, AttentionTileFigures> =
+    USE_ATTENTION_TILES_FIXTURE
+      ? ATTENTION_TILES_FIXTURE
+      : {
+          all: { count: tileExperiments.all.length },
+          "needs-decision": {
+            count: tileExperiments["needs-decision"].length,
+            ...tileTrends["needs-decision"],
+          },
+          unhealthy: {
+            count: tileExperiments.unhealthy.length,
+            ...tileTrends.unhealthy,
+          },
+          "ending-soon": {
+            count: tileExperiments["ending-soon"].length,
+            ...tileTrends["ending-soon"],
+          },
+        };
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -430,13 +482,14 @@ const ExperimentsPage = (): React.ReactElement => {
               canReset={listColumns.isCustomized}
               onReset={listColumns.reset}
               onChange={listColumns.applySettings}
-              // A "Columns" heading in place of the helper
-              // copy, the shown columns first in the table's
-              // order, rows with a hover fill and no outline,
-              // and the rows-per-page menu's shadow (set in
-              // review).
+              // A "Columns" heading in place of the helper copy,
+              // rows with a hover fill and no outline, and the
+              // rows-per-page menu's shadow (set in review). The
+              // columns in the table's own order, which only a drag
+              // changes (set in review; they were re-sorted, shown
+              // first, on each open): the defaults put the shown
+              // ones first (hiddenLast, above).
               title="Columns"
-              visibleFirst
               plainRows
               contentClassName={listTableStyles.menuShadow}
               // 12px all round, as the filter menus (set in
@@ -694,6 +747,26 @@ const ExperimentsPage = (): React.ReactElement => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        /* The column headers likewise (set in review): a label that doesn't
+          fit its column, as more columns narrow them all, is cut off rather
+          than wrapping onto a second line and making the header row taller.
+          Plain labels (e.g. Type) end in "…". The resize handle sits inside
+          the cell, so the clipping spares it. */
+        .contents.experiments
+          [data-table-list][data-table-list]
+          .rt-TableColumnHeaderCell {
+          white-space: nowrap;
+          overflow: hidden;
+          overflow-wrap: normal;
+          text-overflow: ellipsis;
+        }
+        .contents.experiments
+          [data-table-list][data-table-list]
+          .rt-TableColumnHeaderCell
+          > .cursor-pointer {
+          max-width: 100%;
+          min-width: 0;
         }
         /* Rows of items inside a cell (tags, the name and its icons) stay on
           one line too, and their text can shrink to its "…". */
@@ -1136,15 +1209,16 @@ const ExperimentsPage = (): React.ReactElement => {
                     }
                   }}
                 >
-                  {/* The experiment details page's tab bar (set in review):
-                    size md, inactive tabs in regular weight and the page's
-                    text colour, 4px around each tab's hover highlight, and
-                    12px between tabs. Its divider spans the content width
-                    only, lined up with the title and table, not edge to edge
-                    as on the details page (set in review). 4px below the
-                    title row (set in review; there was no gap). */}
-                  {/* 16px under the tab bar, above the table's container
-                    (set in review; tried 12px and 24px). */}
+                  {/* The experiment details page's tab bar (set in review;
+                    back from the tiles): size md, inactive tabs in regular
+                    weight and the page's text colour, 4px around each tab's
+                    hover highlight, and 12px between tabs. Its divider spans
+                    the content width only, lined up with the title and
+                    table. The attention tabs: All, Needs Decision, Unhealthy
+                    and Ending Soon (Title Case, set in review), each with its
+                    count after it (All's too, set in review), hidden at
+                    zero. 4px below the title row, 16px above the table's
+                    container. */}
                   <Box mt="1" mb="4" position="relative">
                     <Box
                       aria-hidden
@@ -1169,110 +1243,78 @@ const ExperimentsPage = (): React.ReactElement => {
                       }
                     >
                       <Flex align="center" gap="3">
-                        <TabsTrigger value="all" style={tabWeight("all")}>
-                          All
-                        </TabsTrigger>
-                        {["running", "drafts", "stopped", "archived"].map(
-                          (tabValue, i) => {
-                            if (tabValue === "archived" && !hasArchived)
-                              return null;
-
-                            return (
-                              <TabsTrigger
-                                value={tabValue}
-                                key={tabValue + i}
-                                style={tabWeight(tabValue)}
-                              >
-                                {tabValue.slice(0, 1).toUpperCase()}
-                                {tabValue.slice(1)}
-                                {/* Hidden when the tab has none (set in
-                                  review). */}
-                                {tabValue !== "archived" &&
-                                  (tabCounts[tabValue] || 0) > 0 && (
-                                    // Just the number, no badge (set in
-                                    // review): 8px after the label, 12px, in
-                                    // --gray-11 (tried --gray-10: 3.8:1, below
-                                    // WCAG AA for text this size).
-                                    <span
-                                      style={{
-                                        marginLeft: "var(--space-2)",
-                                        fontSize: "var(--font-size-1)",
-                                        color: "var(--gray-11)",
-                                      }}
-                                    >
-                                      {tabCounts[tabValue] || 0}
-                                    </span>
-                                  )}
-                              </TabsTrigger>
-                            );
-                          },
-                        )}
+                        {(
+                          [
+                            ["all", "All"],
+                            ["needs-decision", "Needs Decision"],
+                            ["unhealthy", "Unhealthy"],
+                            ["ending-soon", "Ending Soon"],
+                          ] as const
+                        ).map(([tabValue, label]) => {
+                          const count = tileFigures[tabValue].count;
+                          return (
+                            <TabsTrigger
+                              value={tabValue}
+                              key={tabValue}
+                              style={tabWeight(tabValue)}
+                            >
+                              {label}
+                              {/* Just the number, no badge: 8px after the
+                                label, 12px, in --gray-11 (--gray-10 is 3.8:1,
+                                below WCAG AA for text this size). */}
+                              {count > 0 ? (
+                                <span
+                                  style={{
+                                    marginLeft: "var(--space-2)",
+                                    fontSize: "var(--font-size-1)",
+                                    color: "var(--gray-11)",
+                                  }}
+                                >
+                                  {count}
+                                </span>
+                              ) : null}
+                            </TabsTrigger>
+                          );
+                        })}
                       </Flex>
                     </TabsList>
                   </Box>
-                  <TabsContent value="all">
-                    <ExperimentsListTable
-                      showWatchColumn={false}
-                      animateSort
-                      fixedColumns
-                      hiddenColumns={["owner", "date", "result"]}
-                      statusFirst
-                      resizableColumnsKey="experiments-page"
-                      tableColumns={listColumns}
-                      emptyState="placeholder"
-                      attachedFooter
-                      animatePages
-                      typeColumn
-                      healthDotSize={6}
-                      healthDotGap="2"
-                      nameHeader="Experiment Name"
-                      animateColumns
-                      stableColumns
-                      scrollOnOverflow
-                      toolbar={tableToolbar}
-                      tab="all"
-                      SortableTableColumnHeader={SortableTableColumnHeader}
-                      filtered={filtered}
-                      isFiltered={isFiltered}
-                      project={project}
-                      searchValue={searchInputProps.value}
-                      setSearchValue={setSearchValue}
-                    />
-                  </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map((tab) => {
-                    if (tab === "archived" && !hasArchived) return null;
-                    return (
-                      <TabsContent value={tab} key={tab}>
-                        <ExperimentsListTable
-                          showWatchColumn={false}
-                          animateSort
-                          fixedColumns
-                          hiddenColumns={["owner", "date", "result"]}
-                          statusFirst
-                          resizableColumnsKey="experiments-page"
-                          tableColumns={listColumns}
-                          emptyState="placeholder"
-                          attachedFooter
-                          animatePages
-                          typeColumn
-                          healthDotSize={6}
-                          healthDotGap="2"
-                          nameHeader="Experiment Name"
-                          animateColumns
-                          stableColumns
-                          scrollOnOverflow
-                          toolbar={tableToolbar}
-                          tab={tab}
-                          SortableTableColumnHeader={SortableTableColumnHeader}
-                          filtered={filtered.filter((e) => e.tab === tab)}
-                          isFiltered={isFiltered}
-                          project={project}
-                          searchValue={searchInputProps.value}
-                          setSearchValue={setSearchValue}
-                        />
-                      </TabsContent>
-                    );
-                  })}
+                  {/* One table per tile, each showing that tile's
+                    experiments. */}
+                  {EXPERIMENT_LIST_TABS.map((tab) => (
+                    <TabsContent value={tab} key={tab}>
+                      <ExperimentsListTable
+                        showWatchColumn={false}
+                        animateSort
+                        fixedColumns
+                        hiddenColumns={["owner", "date", "result"]}
+                        statusFirst
+                        resizableColumnsKey="experiments-page"
+                        tableColumns={listColumns}
+                        emptyState="placeholder"
+                        attachedFooter
+                        animatePages
+                        typeColumn
+                        healthDotSize={6}
+                        healthDotGap="2"
+                        nameHeader="Experiment Name"
+                        animateColumns
+                        stableColumns
+                        scrollOnOverflow
+                        toolbar={tableToolbar}
+                        tab="all"
+                        SortableTableColumnHeader={SortableTableColumnHeader}
+                        filtered={tileExperiments[tab]}
+                        isFiltered={isFiltered}
+                        // The tracking key under names only for typed search
+                        // text, not filters alone (set in review).
+                        showTrackingKey={searchTerm.length > 0}
+                        project={project}
+                        searchValue={searchInputProps.value}
+                        setSearchValue={setSearchValue}
+                      />
+                    </TabsContent>
+                  ))}
                 </Tabs>
               </>
             )

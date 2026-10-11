@@ -1,0 +1,81 @@
+// The experiments list's tiles (set in review; in place of its tab bar):
+// each tab as a card with its count, its 30-day change and a sparkline.
+// They're still the tabs underneath (@/ui/Tabs' triggers, restyled here),
+// so the keyboard and screen readers work as before.
+//
+// Like the Create Experiment modal's setup cards: a --slate-a5 outline (as
+// the table's) at rest, --slate-9 on hover, and for the selected one the
+// modal's selected card, a 1.25px --slate-9 outline. 8px corners, as the
+// table's. Radix's tab rules use :where(), so these outrank them; the
+// class is doubled over @/ui/Tabs' own.
+
+.tiles.tiles {
+  display: flex;
+  gap: var(--space-3);
+  height: auto;
+  overflow: visible;
+  box-shadow: none;
+  white-space: normal;
+}
+
+.tile.tile {
+  flex: 1 1 0;
+  min-width: 0;
+  // A quarter narrower (set in review; was 280px).
+  max-width: 210px;
+  height: auto;
+  padding: 0;
+  justify-content: stretch;
+  align-items: stretch;
+  text-align: left;
+  color: var(--gray-12);
+  border-radius: var(--radius-4);
+  background-color: var(--color-panel-solid);
+  box-shadow: inset 0 0 0 1px var(--slate-a5);
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+
+  // Radix's underline for the active tab.
+  &::before {
+    display: none;
+  }
+
+  &:hover:not([data-state="active"]) {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  &[data-state="active"] {
+    box-shadow: inset 0 0 0 1.25px var(--slate-9);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+
+  // The tab's label box, here the tile's content: no hover fill, focus
+  // ring or bold label of its own. Radix floats it (position: absolute)
+  // over a hidden twin that gives the tab its size (and keeps its width
+  // steady as the label turns bold); here it's in the flow and sizes the
+  // tile itself, and the twin isn't needed.
+  :global(.rt-BaseTabListTriggerInner) {
+    position: static;
+    display: block;
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border-radius: inherit;
+    background: none !important;
+    font-weight: inherit;
+    outline: none;
+  }
+
+  :global(.rt-BaseTabListTriggerInnerHidden) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile.tile {
+    transition: none;
+  }
+}

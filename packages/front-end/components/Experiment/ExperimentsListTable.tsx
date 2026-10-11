@@ -132,6 +132,11 @@ interface ExperimentsListTableProps {
   // A toolbar (search, filters, table controls) drawn inside the table's
   // outline, as its top section (set in review; the experiments list).
   toolbar?: ReactNode;
+  // Whether the tracking key shows under a name (when it differs from the
+  // name). By default, while any search or filter is on (isFiltered); the
+  // experiments list shows it only for typed search text (set in review),
+  // since only a typed search can match on the key.
+  showTrackingKey?: boolean;
 }
 
 // With resizableColumnsKey: each column's starting width in px, and the
@@ -163,35 +168,49 @@ export function experimentsListColumnDefs({
   hiddenColumns = [],
   showWatchColumn = true,
   showTypeColumn = false,
+  hiddenLast = false,
 }: {
   statusFirst?: boolean;
   hiddenColumns?: ("owner" | "date" | "result")[];
   showWatchColumn?: boolean;
   showTypeColumn?: boolean;
+  // The columns that start hidden come after those that start shown, in
+  // the default order (set in review; the experiments list), so the column
+  // menu, which lists the table's order, has the shown ones first, and a
+  // column turned on joins the table's end. Optional and additive.
+  hiddenLast?: boolean;
 }): TableColumnDef<ComputedExperimentInterface>[] {
-  return (statusFirst ? STATUS_FIRST_ORDER : COLUMN_ORDER)
+  const startsHidden = (id: ColumnKey) =>
+    id === "type" ||
+    ((id === "owner" || id === "date" || id === "result") &&
+      hiddenColumns.includes(id));
+  const ids = (statusFirst ? STATUS_FIRST_ORDER : COLUMN_ORDER)
     .filter((id) => id !== "watch" || showWatchColumn)
-    .filter((id) => id !== "type" || showTypeColumn)
-    .map((id) => ({
-      id,
-      label: COLUMN_LABELS[id],
-      render: () => null,
-      ...(id === "name"
-        ? { locked: true, minWidth: RESIZABLE_NAME_MIN_WIDTH }
-        : {
-            defaultWidth: RESIZABLE_COLUMN_WIDTHS[id],
-            minWidth: id === "watch" ? 40 : RESIZABLE_MIN_WIDTH,
-            maxWidth: RESIZABLE_MAX_WIDTH,
-            resizable: id !== "watch",
-            hideable: id !== "watch",
-            defaultHidden:
-              // Type starts hidden (set in review); the column settings
-              // turn it on.
-              id === "type" ||
-              ((id === "owner" || id === "date" || id === "result") &&
-                hiddenColumns.includes(id)),
-          }),
-    }));
+    .filter((id) => id !== "type" || showTypeColumn);
+  return (
+    hiddenLast
+      ? [
+          ...ids.filter((id) => !startsHidden(id)),
+          ...ids.filter((id) => startsHidden(id)),
+        ]
+      : ids
+  ).map((id) => ({
+    id,
+    label: COLUMN_LABELS[id],
+    render: () => null,
+    ...(id === "name"
+      ? { locked: true, minWidth: RESIZABLE_NAME_MIN_WIDTH }
+      : {
+          defaultWidth: RESIZABLE_COLUMN_WIDTHS[id],
+          minWidth: id === "watch" ? 40 : RESIZABLE_MIN_WIDTH,
+          maxWidth: RESIZABLE_MAX_WIDTH,
+          resizable: id !== "watch",
+          hideable: id !== "watch",
+          // Type starts hidden (set in review); the column settings
+          // turn it on.
+          defaultHidden: startsHidden(id),
+        }),
+  }));
 }
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
@@ -368,6 +387,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   stableColumns = false,
   scrollOnOverflow = false,
   toolbar,
+  showTrackingKey,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   // Rows per page: 20, or with attachedFooter, the footer's selector (set in
@@ -635,18 +655,20 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                     </>
                   ) : null}
                 </div>
-                {isFiltered && e.trackingKey && e.trackingKey !== e.name && (
-                  <span
-                    className="testid"
-                    title="Experiment Id"
-                    style={{
-                      fontSize: "var(--font-size-1)",
-                      color: "var(--gray-10)",
-                    }}
-                  >
-                    {e.trackingKey}
-                  </span>
-                )}
+                {(showTrackingKey ?? isFiltered) &&
+                  e.trackingKey &&
+                  e.trackingKey !== e.name && (
+                    <span
+                      className="testid"
+                      title="Experiment Id"
+                      style={{
+                        fontSize: "var(--font-size-1)",
+                        color: "var(--gray-10)",
+                      }}
+                    >
+                      {e.trackingKey}
+                    </span>
+                  )}
               </div>
             </Link>
           </TableCell>

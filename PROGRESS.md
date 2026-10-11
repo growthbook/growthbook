@@ -113,6 +113,12 @@ motion, and neutral styling.
 
 ### Half-built or faked (looks real, isn't)
 
+- **The experiments list's tab counts are demo data.** While
+  `USE_ATTENTION_TILES_FIXTURE` is on
+  (`components/Experiment/ExperimentListTiles.fixture.ts`), All, Needs
+  Decision, Unhealthy and Ending Soon show fixed counts (130, 9, 3, 6). The
+  table still lists real experiments, so the rows don't match. Flip the flag
+  off for the real counts. It's a plain constant, on in every build.
 - **Ends, At End and "If no clear winner" are never saved.** They're
   `STUBBED_FIELDS` in `setupDraft.ts`, local to the page, and reset on
   reload.
@@ -182,6 +188,14 @@ motion, and neutral styling.
   `toolbar`), with a `--gray-a4` divider above the column headers, so the
   table and its controls read as one container. Tab and search changes
   animate only the rows. Table side insets are 16px.
+- **Attention tabs** (2026-10-11). The list's tabs are All, Needs Decision,
+  Unhealthy and Ending Soon (was All, Running, Drafts, Stopped, Archived),
+  each with its count. Needs Decision is "Ship now", "Roll back now",
+  "Ready for review" or "Awaiting decision"; Unhealthy is the unhealthy
+  health state; Ending Soon is running with a stop scheduled in the next 7
+  days (`services/experimentListTiles.ts`). There's no Archived view now.
+  Tiles with counts, trends and sparklines were tried and set aside; their
+  files (`ExperimentListTile`, `Sparkline`) are kept, unused.
 - **One prototype, one branch.** The experiments list work and the
   experiment details work both live on
   `prototype/experiment-page-redesign-main`. There's no separate branch for

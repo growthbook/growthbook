@@ -2,6 +2,7 @@ import {
   ChangeEvent,
   FC,
   Fragment,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -219,6 +220,9 @@ export const FilterDropdown: FC<{
   // A class on the open menu, for hosts that restyle it. Optional and
   // additive.
   menuClassName?: string;
+  // With chip: an icon before its name (set in review; e.g. Status and
+  // Health on the experiments list). Optional and additive.
+  chipIcon?: ReactNode;
   // With chip: only the chip's badge, with no menu (and its remove button
   // with onRemove), e.g. in the overflow chip's popover. Optional and
   // additive.
@@ -237,6 +241,7 @@ export const FilterDropdown: FC<{
   onRemove,
   menuClassName,
   labelOnly = false,
+  chipIcon,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const filterLabel = heading ?? filter;
@@ -286,7 +291,9 @@ export const FilterDropdown: FC<{
   // The name (and colon) in --slate-12, as Add Filter's text (set in
   // review); what's applied stays in the badge's grey. All at 400 (set in
   // review; the name was the badge's 500).
-  const chipLabel = applied.length ? (
+  // With chipIcon, the icon leads, 4px before the name, in --slate-12, as
+  // Add Filter's icon (set in review; was --slate-11).
+  const chipText = applied.length ? (
     <span style={{ fontWeight: 400 }}>
       <span style={{ color: "var(--slate-12)" }}>{filterLabel}:</span>{" "}
       <span>
@@ -300,6 +307,19 @@ export const FilterDropdown: FC<{
     <span style={{ color: "var(--slate-12)", fontWeight: 400 }}>
       {filterLabel}
     </span>
+  );
+  const chipLabel = chipIcon ? (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span
+        aria-hidden
+        style={{ display: "inline-flex", color: "var(--slate-12)" }}
+      >
+        {chipIcon}
+      </span>
+      {chipText}
+    </span>
+  ) : (
+    chipText
   );
 
   const removable = chip && !!onRemove;

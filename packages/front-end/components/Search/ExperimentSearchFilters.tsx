@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { PiFunnelSimple } from "react-icons/pi";
+import { PiCircleDashed, PiFunnelSimple, PiHeartbeat } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
@@ -183,6 +183,7 @@ const ExperimentSearchFilters: FC<
               <FilterDropdown
                 chip={chips}
                 menuClassName={menuClassName}
+                chipIcon={<PiCircleDashed size={14} />}
                 filter="status"
                 heading="Status"
                 syntaxFilters={syntaxFilters}
@@ -242,6 +243,7 @@ const ExperimentSearchFilters: FC<
         <FilterDropdown
           chip={chips}
           menuClassName={menuClassName}
+          chipIcon={<PiHeartbeat size={14} />}
           filter="health"
           heading="Health"
           syntaxFilters={syntaxFilters}

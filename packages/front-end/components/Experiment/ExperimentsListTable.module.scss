@@ -240,8 +240,12 @@
   overflow-x: auto;
 }
 
+// !important, and no offset either (set in review): left sticky, it
+// dropped by its 56px page offset inside the box, covering the first row
+// and looking like a taller header row.
 .scrollX :global([data-table-list][data-sticky-header="true"] .rt-TableHeader) {
-  position: static;
+  position: static !important;
+  top: 0 !important;
 }
 
 // The outline stays put while the table scrolls sideways (set in review):
