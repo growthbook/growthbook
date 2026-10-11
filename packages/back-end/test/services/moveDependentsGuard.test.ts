@@ -1,5 +1,5 @@
 import type { ReqContext } from "back-end/types/request";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
@@ -10,7 +10,7 @@ import {
 } from "back-end/src/services/moveDependentsGuard";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
+  getAllFeaturesForGraph: jest.fn(),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllExperimentsForStaleGraph: jest.fn(),
@@ -141,7 +141,7 @@ describe("assertFeatureMoveDependentsGuard", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    jest.mocked(getAllFeaturesForGraph).mockResolvedValue([
       {
         id: "dep",
         ...inB,
@@ -181,6 +181,6 @@ describe("assertFeatureMoveDependentsGuard", () => {
         conn(["B"], { includeReferencedPrerequisites: true }),
       ] as never);
     await assertFeatureMoveDependentsGuard(context, parent, inA);
-    expect(getAllFeaturesWithoutEditorFields).not.toHaveBeenCalled();
+    expect(getAllFeaturesForGraph).not.toHaveBeenCalled();
   });
 });

@@ -236,7 +236,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
-        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIdsWithValues: jest.fn().mockResolvedValue([]),
+        },
         constants: { getAll: jest.fn().mockResolvedValue([]) },
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
@@ -284,7 +287,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
-        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIdsWithValues: jest.fn().mockResolvedValue([]),
+        },
         constants: { getAll: jest.fn().mockResolvedValue([]) },
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
@@ -302,6 +308,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       models: ReturnType<typeof payloadBuildModels>,
     ) {
       expect(models.savedGroups.getAll).not.toHaveBeenCalled();
+      expect(models.savedGroups.getByIdsWithValues).not.toHaveBeenCalled();
       expect(
         models.safeRollout.getAllPayloadSafeRollouts,
       ).not.toHaveBeenCalled();
@@ -406,7 +413,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           expect(
             FeatureModel.getAllFeaturesWithoutEditorFields,
           ).not.toHaveBeenCalled();
-          expect(mockModels.savedGroups.getAll).toHaveBeenCalledTimes(1);
+          // The build loads only the groups the payload references; these
+          // features reference none.
+          expect(mockModels.savedGroups.getAll).not.toHaveBeenCalled();
           // Holdouts only for environments that have an affected connection
           expect(
             mockModels.holdout.getAllPayloadHoldouts,
@@ -692,7 +701,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
-        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIdsWithValues: jest.fn().mockResolvedValue([]),
+        },
         constants: { getAll: jest.fn().mockResolvedValue([]) },
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
@@ -810,7 +822,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
-        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIdsWithValues: jest.fn().mockResolvedValue([]),
+        },
         constants: { getAll: jest.fn().mockResolvedValue([]) },
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
@@ -871,7 +886,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
-        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIdsWithValues: jest.fn().mockResolvedValue([]),
+        },
         constants: { getAll: jest.fn().mockResolvedValue([]) },
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {

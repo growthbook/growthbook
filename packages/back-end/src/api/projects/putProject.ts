@@ -1,4 +1,5 @@
 import { putProjectValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const putProject = createApiRequestHandler(putProjectValidator)(async (
@@ -15,6 +16,9 @@ export const putProject = createApiRequestHandler(putProjectValidator)(async (
   );
 
   return {
-    project: req.context.models.projects.toApiInterface(newProject),
+    project: await resolveOwnerEmail(
+      req.context.models.projects.toApiInterface(newProject),
+      req.context,
+    ),
   };
 });

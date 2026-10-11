@@ -14,7 +14,7 @@ import {
 import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
-  JSONSchemaDef,
+  apiJSONSchemaDefInput,
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
@@ -718,7 +718,7 @@ export const putFeatureRevisionMetadataValidator = {
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
