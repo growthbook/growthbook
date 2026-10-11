@@ -56,6 +56,44 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
   });
 });
 
+describe("cancellableFetch truncation", () => {
+  beforeEach(() => {
+    mockedFetch.mockReset();
+  });
+
+  // Streams two chunks over a 5-byte cap, so the second read trips the abort.
+  function oversizedResponse() {
+    return {
+      status: 200,
+      body: (async function* () {
+        yield Buffer.from("abcdef");
+        yield Buffer.from("ghijkl");
+      })(),
+    };
+  }
+
+  it("resolves with the partial body by default", async () => {
+    mockedFetch.mockResolvedValueOnce(oversizedResponse());
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/big",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 5 },
+    );
+    expect(stringBody).toBe("abcdef");
+  });
+
+  it("throws instead when throwOnTruncate is set", async () => {
+    mockedFetch.mockResolvedValueOnce(oversizedResponse());
+    await expect(
+      cancellableFetch(
+        "https://example.com/big",
+        {},
+        { maxTimeMs: 1000, maxContentSize: 5, throwOnTruncate: true },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("getAuthProxyForUrl", () => {
   it.each([
     "https://acme.okta.com/oauth2/v1/keys",
