@@ -2,6 +2,15 @@
 // page's Hypothesis field): 12px all around (--space-3), set in review. Radix
 // TextArea puts its padding on the inner textarea (.rt-TextAreaInput), where
 // size 2 defaults to 5px / 7px, so it's overridden there.
+// The field's fill under its whole height (fixed in review): Radix paints a
+// text area's background in its content box only, so the bottom padding
+// that makes room for the field's buttons (Check Hypothesis, Discard and
+// Comment) showed the page's colour as a band; in dark mode, where the
+// field's --color-surface differs from the page, it read as a strip.
+.textArea.textArea {
+  background-clip: padding-box;
+}
+
 .textArea :global(.rt-TextAreaInput) {
   padding: var(--space-3);
 }

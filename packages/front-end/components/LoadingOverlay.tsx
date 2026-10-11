@@ -17,7 +17,9 @@ export default function LoadingOverlay({
     relativePositionOverlayText: relativePosition,
   });
   return (
-    <div className={overlayClasses}>
+    // data-loading-overlay: lets the page transition wait for a new page
+    // to finish loading before revealing it (_app.tsx).
+    <div className={overlayClasses} data-loading-overlay="">
       <div className={overlayTextClasses}>
         <LoadingSpinner /> {text}
       </div>

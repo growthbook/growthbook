@@ -1774,20 +1774,29 @@ export default function ExperimentHeader({
             headerStyles.decisionBanner,
           )}
           pt="1"
-          pb="1"
-          style={SETUP_LAYOUT_STYLE}
+          // 2px to the tab bar below (set in review; tried none): 4px, of
+          // which the tab bar's pull-up (its 2px tuck and the 1px pin
+          // sentinel above it, -3px, +1px) takes back 2px.
+          style={{ ...SETUP_LAYOUT_STYLE, paddingBottom: 4 }}
         >
           {runningExperimentDecisionBanner}
         </Box>
       ) : null}
       {/* Main's "scheduled end passed" banner, placed as the decision
-        banner is on the redesigned page. */}
+        banner is on the redesigned page, and collapsing the same way when it
+        renders nothing (fixed in review: its empty 4px + 4px padding opened
+        a gap between a running experiment's header and its tabs). */}
       {scheduledEndPassedBanner && setupLayout ? (
         <Box
-          className="container-fluid pagecontents"
+          className={clsx(
+            "container-fluid pagecontents",
+            headerStyles.decisionBanner,
+          )}
           pt="1"
-          pb="1"
-          style={SETUP_LAYOUT_STYLE}
+          // 2px to the tab bar below (set in review; tried none): 4px, of
+          // which the tab bar's pull-up (its 2px tuck and the 1px pin
+          // sentinel above it, -3px, +1px) takes back 2px.
+          style={{ ...SETUP_LAYOUT_STYLE, paddingBottom: 4 }}
         >
           {scheduledEndPassedBanner}
         </Box>
@@ -1830,15 +1839,18 @@ export default function ExperimentHeader({
                     // any scroll it already sits where it pins: tucked 2px
                     // under the title row, as when sticky (set in review).
                     marginTop: -(1 + TABS_TUCK_PX),
-                    boxShadow: [
-                      "0 -24px 0 0 var(--color-background)",
-                      ...(headerPinned
-                        ? [
-                            "0 1px 2px rgba(0, 0, 0, 0.1)",
-                            "0 4px 4px rgba(0, 0, 0, 0.025)",
-                          ]
-                        : []),
-                    ].join(", "),
+                    // The strip only while pinned (fixed in review): at rest
+                    // it painted over whatever sat just above the tab bar,
+                    // e.g. a running experiment's decision callout, hiding
+                    // its bottom edge. Pinned, that's scrolled away and the
+                    // strip is under the title row, where it's needed.
+                    boxShadow: headerPinned
+                      ? [
+                          "0 -24px 0 0 var(--color-background)",
+                          "0 1px 2px rgba(0, 0, 0, 0.1)",
+                          "0 4px 4px rgba(0, 0, 0, 0.025)",
+                        ].join(", ")
+                      : undefined,
                   }
                 : undefined
             }

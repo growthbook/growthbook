@@ -138,6 +138,9 @@ type RootProps = TrackingEventModalProps & {
   // A slower, softer entrance (set in review; the redesigned experiment
   // pages' modals): see .fadeIn in Modal.module.scss. Optional and additive.
   fadeIn?: boolean;
+  // A class on the dialog itself, for hosts that style it (e.g. to name it
+  // for a page transition). Optional and additive.
+  contentClassName?: string;
   children: ReactNode;
 };
 
@@ -153,6 +156,7 @@ function Root({
   paddingX = "40px",
   dividerColor,
   fadeIn = false,
+  contentClassName,
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
@@ -251,7 +255,11 @@ function Root({
     >
       <Dialog.Content
         ref={contentRef}
-        className={fadeIn ? styles.fadeIn : undefined}
+        className={
+          [fadeIn ? styles.fadeIn : "", contentClassName ?? ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight={

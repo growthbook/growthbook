@@ -16,6 +16,8 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import styles from "@/components/Comments/PlainCommentBox.module.scss";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
+import headerStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
 
 // The Setup page's Hypothesis field: a plain text area with "Check
 // Hypothesis" inside it, bottom right, like the rail's comment box (set in
@@ -90,8 +92,21 @@ export default function HypothesisField({
   const checkButton = (
     <Button
       size="sm"
-      // Ghost, set in review.
-      variant="ghost"
+      // Outline (set in review; was ghost), as the page's secondary
+      // buttons: the --slate-6 outline darkening on hover (.outlineButton),
+      // --slate-12 text at 400 (.ghostButton's weight), 6px corners.
+      // Disabled, Radix's greyed look.
+      variant="outline"
+      color="gray"
+      className={
+        hasAISuggestions
+          ? `${headerStyles.outlineButton} ${modalStandardStyles.ghostButton}`
+          : modalStandardStyles.ghostButton
+      }
+      style={{
+        borderRadius: "var(--radius-3)",
+        ...(hasAISuggestions ? { color: "var(--slate-12)" } : {}),
+      }}
       icon={<BsStars />}
       onClick={check}
       loading={checking}
@@ -128,15 +143,23 @@ export default function HypothesisField({
           aria-label="Hypothesis"
           // Fixed height, not resizable; room at the bottom for the button so
           // text never runs under it. Matches the comment box.
-          style={{ height: 136, resize: "none", paddingBottom: 36 }}
+          // The button's strip 40px (set in review; was 36px), so the
+          // button sits 8px from the field's bottom, as from its right; the
+          // field's height unchanged, the text area 4px shorter.
+          style={{ height: 136, resize: "none", paddingBottom: 40 }}
         />
         {/* Hidden until there's something to check (set in review). */}
         {value.trim() ? (
+          // Centred in the strip under the text (the field's 40px of
+          // bottom padding; set in review), at its right.
           <Box
             style={{
               position: "absolute",
               right: "var(--space-2)",
-              bottom: "var(--space-2)",
+              bottom: 0,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
             }}
           >
             {hasAISuggestions ? (

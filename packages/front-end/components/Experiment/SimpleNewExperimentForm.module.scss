@@ -115,3 +115,21 @@
 .ghostButton :global(.rt-Text) {
   font-weight: var(--font-weight-regular);
 }
+
+// Creating the experiment (set in review): the move to its page is the
+// app's page transition (_app.tsx, the View Transitions API), and the modal,
+// still open, takes part in it under its own name, so it fades out with the
+// list behind it rather than vanishing: a little smaller and lower, over
+// 220ms, its backdrop fading with it, while the new page rises in (the
+// animations are in _app.tsx's page transition styles: global, as view
+// transition pseudo-elements must be). Named only during the transition
+// (html.page-leaving, the old page's side). None for reduced motion (the app makes no
+// transition then).
+:global(html.page-leaving) .createTransition {
+  view-transition-name: create-experiment-modal;
+}
+
+:global(html.page-leaving)
+  :global(.rt-BaseDialogOverlay):has(.createTransition) {
+  view-transition-name: create-experiment-backdrop;
+}

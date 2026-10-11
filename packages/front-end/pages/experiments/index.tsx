@@ -1316,21 +1316,17 @@ const ExperimentsPage = (): React.ReactElement => {
                     table. The attention tabs: All, Needs Decision, Unhealthy
                     and Ending Soon (Title Case, set in review), each with its
                     count after it (All's too, set in review), hidden at
-                    zero. 4px below the title row, 16px above the table's
-                    container. */}
-                  <Box mt="1" mb="4" position="relative">
-                    <Box
-                      aria-hidden
-                      style={{
-                        position: "absolute",
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: 1,
-                        backgroundColor: "var(--gray-a5)",
-                        pointerEvents: "none",
-                      }}
-                    />
+                    zero. 4px below the title row, 20px above the table's
+                    container (set in review; tried 16px). 20px is OFF THE
+                    SPACE SCALE (16, 24), so raw. */}
+                  {/* Trying a new list pattern (set in review): the tabs sit
+                    on the table's card, its top edge their line, rather than
+                    having a divider of their own 20px above it. Inset 12px
+                    (tried 16px, in line with the search field), clear of the
+                    card's rounded corner; the active tab's underline rests
+                    on the card's edge. */}
+                  {/* 4px under the title row (tried none, set in review). */}
+                  <Box mt="1" style={{ paddingLeft: "var(--space-3)" }}>
                     <TabsList
                       size="md"
                       className={headerStyles.setupTabs}

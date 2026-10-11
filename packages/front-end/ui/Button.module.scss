@@ -26,9 +26,6 @@ $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   // Its own stacking context, so the bubbles sit between the background and
   // the contents.
   isolation: isolate;
-  // 6px corners, --radius-3 (set in review, trying it; tried 3px, 5px, 8px
-  // and 10px; Radix gives the default size 4px, --radius-2), at every size.
-  border-radius: var(--radius-3);
   box-shadow:
     0 1px 2px var(--black-a3),
     0 2px 6px var(--black-a2);
@@ -161,6 +158,15 @@ $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
       transform: none;
     }
   }
+}
+
+// Primary buttons' 6px corners, --radius-3 (set in review; tried 3px, 5px,
+// 8px and 10px; Radix gives the default size 4px, --radius-2), at every
+// size. Not inside a split button (@/ui/SplitButton), whose halves square
+// their inner corners (global-radix-overrides.scss); this rule, as
+// specific and loaded later, had rounded them (fixed in review).
+.primary.primary:not(:global(.rt-SplitButton) *) {
+  border-radius: var(--radius-3);
 }
 
 // Up by whole tiles each loop, so it's seamless: 144px is a multiple of

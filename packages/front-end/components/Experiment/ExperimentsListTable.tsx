@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import clsx from "clsx";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { RxDesktop } from "react-icons/rx";
 import { Flex } from "@radix-ui/themes";
 import { BsFlag } from "react-icons/bs";
@@ -53,6 +54,10 @@ import {
   TEMP_ROLLOUT_HEALTH,
 } from "@/services/health";
 import styles from "./ExperimentsListTable.module.scss";
+import {
+  fakeSlowNavigation,
+  fakeSlowNavigationEnabled,
+} from "./slowNavigationDemo";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -400,6 +405,13 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const visible = filtered.slice(start, end);
+  // PROTOTYPE DEMO (slowNavigationDemo.ts): the last experiment on the last
+  // page opens after a fake delay, to review the route progress bar.
+  const router = useRouter();
+  const fakeSlowId =
+    fakeSlowNavigationEnabled() && end >= filtered.length
+      ? visible[visible.length - 1]?.id
+      : undefined;
   const rowRef = useSortAnimation(
     animateSort,
     filtered,
@@ -590,6 +602,16 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
           <TableCell style={{ padding: "var(--space-0)" }}>
             <Link
               href={`${hrefBase}/${e.id}`}
+              onClick={
+                e.id === fakeSlowId
+                  ? (event) => {
+                      event.preventDefault();
+                      fakeSlowNavigation(() =>
+                        router.push(`${hrefBase}/${e.id}`),
+                      );
+                    }
+                  : undefined
+              }
               style={{
                 display: "block",
                 // Top and bottom through a variable too, so a compact

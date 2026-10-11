@@ -113,6 +113,11 @@ motion, and neutral styling.
 
 ### Half-built or faked (looks real, isn't)
 
+- **A fake slow page load.** In dev builds, opening the last experiment on
+  the list's last page waits 1.5s first, to show the route progress bar and
+  veil (`components/Experiment/slowNavigationDemo.ts`,
+  `FAKE_SLOW_LAST_EXPERIMENT`). Real slowness in the dev prototype (React's
+  dev build rendering the page) freezes the screen and can't show them.
 - **The experiments list's tab counts are demo data.** While
   `USE_ATTENTION_TILES_FIXTURE` is on
   (`components/Experiment/ExperimentListTiles.fixture.ts`), All, Needs
@@ -212,6 +217,17 @@ motion, and neutral styling.
   Start) set the same `Modal` options. The fade holds a closing modal until
   it ends (`Modal.Root`'s `requestClose`); the open animation fills
   backwards only, or react-select's fixed menus break inside it.
+- **Page transitions** (2026-10-11). The old page fades out as a screenshot
+  while the new page's content rises in (the content area is named for the
+  new page only; named on both, it moved from the old scroll position and
+  read as a scroll). The transition starts just before the new page renders
+  (`beforeHistoryChange`), holds it up to 300ms while it loads, and smooth
+  scrolling is off during page changes. A thin progress bar and a white
+  veil show slow loads. Creating an experiment fades its modal out into the
+  new page; the toast follows once the page is in.
+- **List tabs on the card** (2026-10-11, trying it). The list's tabs sit on
+  the table card, its top edge their line (no divider of their own), inset
+  12px.
 - **One prototype, one branch.** The experiments list work and the
   experiment details work both live on
   `prototype/experiment-page-redesign-main`. There's no separate branch for

@@ -983,11 +983,26 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     // _app, above every page, so this one carries over to the experiment
     // page. Set up with AI says the same thing whether the model or the
     // fixture filled the draft.
-    toast(
-      settingUpWithAI ? "Experiment created and set up" : "Experiment created",
+    // Into the new experiment with the page transition (set in review): the
+    // modal stays up, so the transition can fade it out (see
+    // .createTransition), rather than closing first and vanishing.
+    navigatingRef.current = true;
+    const message = settingUpWithAI
+      ? "Experiment created and set up"
+      : "Experiment created";
+    // The toast once the new page is in and its 240ms fade has run (set in
+    // review): raised before, it slid in under the page transition, which
+    // shows snapshots of the page, so its slide-in went unseen. 260ms after
+    // the page change completes; straight away if it fails.
+    router.push(`/experiment/${res.experiment.id}`).then(
+      () => window.setTimeout(() => toast(message), 260),
+      () => toast(message),
     );
-    router.push(`/experiment/${res.experiment.id}`);
   });
+
+  // Set once the new experiment is saved and the page is moving to it, so
+  // the modal stays up for the page transition (see onSubmit).
+  const navigatingRef = useRef(false);
 
   // Composed from @/ui/Modal's parts the way ModalStandard builds its modal
   // (same header, body, footer, form, Cancel, and not dismissible), so the
@@ -1004,6 +1019,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       paddingX="var(--space-6)"
       // A soft fade-in as it opens (set in review).
       fadeIn
+      // Named for the page transition into the new experiment.
+      contentClassName={styles.createTransition}
       // The header's and footer's dividers one shade lighter, --gray-a5
       // (set in review; Radix's --gray-a6 by default).
       dividerColor="var(--gray-a5)"
@@ -1015,7 +1032,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       <ModalForm
         onSubmit={async () => {
           await onSubmit();
-          onClose?.();
+          // Not when it's moving on to the new experiment: the page change
+          // takes the modal away, fading it out (navigatingRef).
+          if (!navigatingRef.current) onClose?.();
         }}
       >
         {/* A divider under the header, as the footer's (set in review). */}
