@@ -32,6 +32,21 @@ export function mayBeRevisionAuthor(
   return !userId && !authorId;
 }
 
+// Who may not rule on a revision: its author, and an org key acting as itself
+// on a draft the key created or edited in either mode. Work recorded without
+// an author predates key identities, so any key may have done it.
+export function isOwnRevision(context: Context, revision: Revision): boolean {
+  if (mayBeRevisionAuthor(revision.authorId, context.actorId)) return true;
+  const key = context.keyActingAsItself;
+  if (!key) return false;
+  if (!revision.authorId) return true;
+  return (revision.activityLog ?? []).some(
+    (e) =>
+      (e.action === "created" || e.action === "updated") &&
+      (e.user ? e.user.type === "api_key" && e.user.apiKey === key : !e.userId),
+  );
+}
+
 // Recheck authority against every row read by a CAS retry.
 //
 // Both of these judge on `target.snapshot`, so ANY CAS using them must include

@@ -126,6 +126,7 @@ import {
 export { eventUser } from "./event-user";
 export {
   apiEventUser,
+  assumingKeyOf,
   auditUserToEventUser,
   eventReviewer,
   eventUserLabel,

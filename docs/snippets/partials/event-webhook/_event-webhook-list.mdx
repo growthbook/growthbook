@@ -4791,7 +4791,7 @@ Triggered when a new draft revision is created for a saved group
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -4823,7 +4823,7 @@ Triggered when a new draft revision is created for a saved group
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -4853,7 +4853,7 @@ Triggered when a new draft revision is created for a saved group
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -4885,7 +4885,7 @@ Triggered when a new draft revision is created for a saved group
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5009,7 +5009,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5041,7 +5041,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5071,7 +5071,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5103,7 +5103,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5228,7 +5228,7 @@ Triggered when a draft revision is submitted for review
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5260,7 +5260,7 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5290,7 +5290,7 @@ Triggered when a draft revision is submitted for review
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5322,7 +5322,7 @@ Triggered when a draft revision is submitted for review
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5446,7 +5446,7 @@ Triggered when a draft revision is approved by a reviewer
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5478,7 +5478,7 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5508,7 +5508,7 @@ Triggered when a draft revision is approved by a reviewer
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5540,7 +5540,7 @@ Triggered when a draft revision is approved by a reviewer
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5673,7 +5673,7 @@ Triggered when a reviewer requests changes on a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5705,7 +5705,7 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5735,7 +5735,7 @@ Triggered when a reviewer requests changes on a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5767,7 +5767,7 @@ Triggered when a reviewer requests changes on a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5900,7 +5900,7 @@ Triggered when a comment is added to a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5932,7 +5932,7 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -5962,7 +5962,7 @@ Triggered when a comment is added to a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -5994,7 +5994,7 @@ Triggered when a comment is added to a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6127,7 +6127,7 @@ Triggered when a draft revision is discarded
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6159,7 +6159,7 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6189,7 +6189,7 @@ Triggered when a draft revision is discarded
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6221,7 +6221,7 @@ Triggered when a draft revision is discarded
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6345,7 +6345,7 @@ Triggered when a draft revision is rebased onto the latest live state
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6377,7 +6377,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6407,7 +6407,7 @@ Triggered when a draft revision is rebased onto the latest live state
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6439,7 +6439,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6563,7 +6563,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6595,7 +6595,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6625,7 +6625,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6657,7 +6657,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6782,7 +6782,7 @@ Triggered when a saved group is reverted to a previous published revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6814,7 +6814,7 @@ Triggered when a saved group is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -6844,7 +6844,7 @@ Triggered when a saved group is reverted to a previous published revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -6876,7 +6876,7 @@ Triggered when a saved group is reverted to a previous published revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7002,7 +7002,7 @@ Triggered when a discarded revision is reopened
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7034,7 +7034,7 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7064,7 +7064,7 @@ Triggered when a discarded revision is reopened
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7096,7 +7096,7 @@ Triggered when a discarded revision is reopened
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7220,7 +7220,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7252,7 +7252,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7282,7 +7282,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7314,7 +7314,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7438,7 +7438,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7470,7 +7470,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7500,7 +7500,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7532,7 +7532,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7656,7 +7656,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7688,7 +7688,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7718,7 +7718,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7750,7 +7750,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7874,7 +7874,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7906,7 +7906,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -7936,7 +7936,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -7968,7 +7968,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8322,7 +8322,7 @@ Triggered when a new draft revision is created for a constant
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8354,7 +8354,7 @@ Triggered when a new draft revision is created for a constant
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8384,7 +8384,7 @@ Triggered when a new draft revision is created for a constant
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8416,7 +8416,7 @@ Triggered when a new draft revision is created for a constant
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8540,7 +8540,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8572,7 +8572,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8602,7 +8602,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8634,7 +8634,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8759,7 +8759,7 @@ Triggered when a draft revision is submitted for review
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8791,7 +8791,7 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8821,7 +8821,7 @@ Triggered when a draft revision is submitted for review
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -8853,7 +8853,7 @@ Triggered when a draft revision is submitted for review
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -8977,7 +8977,7 @@ Triggered when a draft revision is approved by a reviewer
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9009,7 +9009,7 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9039,7 +9039,7 @@ Triggered when a draft revision is approved by a reviewer
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9071,7 +9071,7 @@ Triggered when a draft revision is approved by a reviewer
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9204,7 +9204,7 @@ Triggered when a reviewer requests changes on a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9236,7 +9236,7 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9266,7 +9266,7 @@ Triggered when a reviewer requests changes on a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9298,7 +9298,7 @@ Triggered when a reviewer requests changes on a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9431,7 +9431,7 @@ Triggered when a comment is added to a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9463,7 +9463,7 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9493,7 +9493,7 @@ Triggered when a comment is added to a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9525,7 +9525,7 @@ Triggered when a comment is added to a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9658,7 +9658,7 @@ Triggered when a draft revision is discarded
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9690,7 +9690,7 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9720,7 +9720,7 @@ Triggered when a draft revision is discarded
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9752,7 +9752,7 @@ Triggered when a draft revision is discarded
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9876,7 +9876,7 @@ Triggered when a draft revision is rebased onto the latest live state
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9908,7 +9908,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -9938,7 +9938,7 @@ Triggered when a draft revision is rebased onto the latest live state
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -9970,7 +9970,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10094,7 +10094,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10126,7 +10126,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10156,7 +10156,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10188,7 +10188,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10313,7 +10313,7 @@ Triggered when a constant is reverted to a previous published revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10345,7 +10345,7 @@ Triggered when a constant is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10375,7 +10375,7 @@ Triggered when a constant is reverted to a previous published revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10407,7 +10407,7 @@ Triggered when a constant is reverted to a previous published revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10533,7 +10533,7 @@ Triggered when a discarded revision is reopened
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10565,7 +10565,7 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10595,7 +10595,7 @@ Triggered when a discarded revision is reopened
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10627,7 +10627,7 @@ Triggered when a discarded revision is reopened
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10751,7 +10751,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10783,7 +10783,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10813,7 +10813,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -10845,7 +10845,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -10969,7 +10969,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11001,7 +11001,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -11031,7 +11031,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11063,7 +11063,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -11187,7 +11187,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11219,7 +11219,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -11249,7 +11249,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11281,7 +11281,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -11405,7 +11405,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11437,7 +11437,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -11467,7 +11467,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -11499,7 +11499,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12049,7 +12049,7 @@ Triggered when a new draft revision is created for a config
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12081,7 +12081,7 @@ Triggered when a new draft revision is created for a config
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12111,7 +12111,7 @@ Triggered when a new draft revision is created for a config
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12143,7 +12143,7 @@ Triggered when a new draft revision is created for a config
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12365,7 +12365,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12397,7 +12397,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12427,7 +12427,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12459,7 +12459,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12682,7 +12682,7 @@ Triggered when a draft revision is submitted for review
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12714,7 +12714,7 @@ Triggered when a draft revision is submitted for review
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12744,7 +12744,7 @@ Triggered when a draft revision is submitted for review
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -12776,7 +12776,7 @@ Triggered when a draft revision is submitted for review
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -12998,7 +12998,7 @@ Triggered when a draft revision is approved by a reviewer
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13030,7 +13030,7 @@ Triggered when a draft revision is approved by a reviewer
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13060,7 +13060,7 @@ Triggered when a draft revision is approved by a reviewer
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13092,7 +13092,7 @@ Triggered when a draft revision is approved by a reviewer
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13323,7 +13323,7 @@ Triggered when a reviewer requests changes on a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13355,7 +13355,7 @@ Triggered when a reviewer requests changes on a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13385,7 +13385,7 @@ Triggered when a reviewer requests changes on a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13417,7 +13417,7 @@ Triggered when a reviewer requests changes on a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13648,7 +13648,7 @@ Triggered when a comment is added to a draft revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13680,7 +13680,7 @@ Triggered when a comment is added to a draft revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13710,7 +13710,7 @@ Triggered when a comment is added to a draft revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -13742,7 +13742,7 @@ Triggered when a comment is added to a draft revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -13973,7 +13973,7 @@ Triggered when a draft revision is discarded
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14005,7 +14005,7 @@ Triggered when a draft revision is discarded
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14035,7 +14035,7 @@ Triggered when a draft revision is discarded
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14067,7 +14067,7 @@ Triggered when a draft revision is discarded
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14289,7 +14289,7 @@ Triggered when a draft revision is rebased onto the latest live state
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14321,7 +14321,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14351,7 +14351,7 @@ Triggered when a draft revision is rebased onto the latest live state
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14383,7 +14383,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14605,7 +14605,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14637,7 +14637,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14667,7 +14667,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14699,7 +14699,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14922,7 +14922,7 @@ Triggered when a config is reverted to a previous published revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -14954,7 +14954,7 @@ Triggered when a config is reverted to a previous published revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -14984,7 +14984,7 @@ Triggered when a config is reverted to a previous published revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15016,7 +15016,7 @@ Triggered when a config is reverted to a previous published revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15240,7 +15240,7 @@ Triggered when a discarded revision is reopened
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15272,7 +15272,7 @@ Triggered when a discarded revision is reopened
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15302,7 +15302,7 @@ Triggered when a discarded revision is reopened
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15334,7 +15334,7 @@ Triggered when a discarded revision is reopened
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15556,7 +15556,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15588,7 +15588,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15618,7 +15618,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15650,7 +15650,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15872,7 +15872,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15904,7 +15904,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -15934,7 +15934,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -15966,7 +15966,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -16188,7 +16188,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -16220,7 +16220,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -16250,7 +16250,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -16282,7 +16282,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -16504,7 +16504,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
             /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
             authorId: string;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             author?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -16536,7 +16536,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 comment?: string | undefined;
                 stale?: boolean | undefined;
                 dateCreated: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";
@@ -16566,7 +16566,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             }[];
             autoPublishOnApproval?: boolean | undefined;
             autoPublishEnabledBy?: string | undefined;
-            /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+            /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
             autoPublishEnabledByUser?: {
                 /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                 type: "dashboard" | "api_key" | "system";
@@ -16598,7 +16598,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: "merged" | "discarded";
                 /** Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself */
                 userId: string;
-                /** Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id` */
+                /** Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked */
                 user?: {
                     /** `dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself */
                     type: "dashboard" | "api_key" | "system";

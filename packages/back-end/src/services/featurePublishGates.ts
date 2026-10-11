@@ -16,6 +16,8 @@ import {
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
@@ -197,15 +199,12 @@ export async function assessRevisionApproval({
     }),
     liveRampScheduleEnvs,
   });
-  const approverIds = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id);
-  const roles = await getApproverRoles(context, approverIds);
-  const approvers = approverIds.map((id) => ({
-    id,
-    roleInfo: roles.get(id) ?? null,
-  }));
+  const approvals = (revision.reviews ?? []).filter(
+    (r): r is typeof r & { userId: string } =>
+      r.status === "approved" && !!r.userId,
+  );
+  const roles = await getApproverRoles(context, approvalRoleIds(approvals));
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
   const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,

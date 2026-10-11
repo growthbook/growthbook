@@ -15,6 +15,8 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
+  assumesRequesterRole,
+  requesterHeaderPolicy,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -128,7 +130,9 @@ import { PaymentRequiredError } from "back-end/src/util/errors";
 import {
   apiKeyEventUser,
   decodeArmingApiKeyId,
+  isArmingApiKeyId,
   migrateApiKey,
+  SECRET_API_KEY_ID,
 } from "back-end/src/util/api-key.util";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -1889,13 +1893,15 @@ export async function getContextForApiKeyIdInOrg(
   armingId: string,
 ): Promise<ApiReqContext | null> {
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
-  const key =
-    apiKeyId === SECRET_API_KEY_ID
-      ? secretApiKeyDoc(org)
-      : await getContextForAgendaJobByOrgObject(
-          org,
-        ).models.apiKeys.dangerousGetById(apiKeyId);
+  const key = await getOrgApiKey(org, apiKeyId);
   if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+    return null;
+  }
+  // Armed while assuming a member, it replays only while the key still would.
+  if (
+    requesterId &&
+    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
+  ) {
     return null;
   }
   const user = key.userId ? await getUserById(key.userId) : null;
@@ -1949,8 +1955,19 @@ export async function getContextForApiKeyIdInOrg(
   });
 }
 
-// The self-hosted env-var key has no document; the middleware synthesizes one.
-const SECRET_API_KEY_ID = "SECRET_API_KEY";
+// An org API key by id, including the self-hosted env-var key, which has no
+// document; the middleware synthesizes one.
+export async function getOrgApiKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiKeyInterface | null> {
+  return apiKeyId === SECRET_API_KEY_ID
+    ? secretApiKeyDoc(org)
+    : await getContextForAgendaJobByOrgObject(
+        org,
+      ).models.apiKeys.dangerousGetById(apiKeyId);
+}
+
 function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
   if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
   return migrateApiKey({
@@ -1961,13 +1978,6 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
     role: SECRET_API_KEY_ROLE,
     dateCreated: new Date(),
   });
-}
-
-// An org API key id that can be recorded as an armer and resolved later.
-export function isArmingApiKeyId(id: string | undefined): id is string {
-  if (!id) return false;
-  const { apiKeyId } = decodeArmingApiKeyId(id);
-  return apiKeyId.startsWith("key_") || apiKeyId === SECRET_API_KEY_ID;
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the

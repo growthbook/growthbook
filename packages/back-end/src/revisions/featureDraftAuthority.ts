@@ -16,7 +16,11 @@ import {
 } from "shared/permissions";
 import type { TargetingScoped } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { eventUserIdentity, FeatureRevisionInterface } from "shared/validators";
+import {
+  EventUser,
+  eventUserIdentity,
+  FeatureRevisionInterface,
+} from "shared/validators";
 import {
   assertCanLandRevision,
   canAdvanceDraftWithNarrowAtom,
@@ -27,6 +31,7 @@ import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 
 // Who may move a feature draft along, and who may land it.
 //
@@ -71,6 +76,35 @@ export function authoredFeatureDraft(
   if (!userId) return false;
   if (eventUserIdentity(draft.createdBy) === userId) return true;
   return (draft.contributors ?? []).includes(userId);
+}
+
+// Log entries a reviewer writes without working on the draft.
+const REVIEW_LOG_ACTIONS = new Set([
+  "Comment",
+  "Approved",
+  "Requested Changes",
+  "Undo Review",
+]);
+
+// Who may not rule on a feature draft: its creator, and an org key acting as
+// itself on a draft the key created or edited in either mode.
+export async function isOwnFeatureDraft(
+  context: ReqContext | ApiReqContext,
+  draft: Pick<FeatureRevisionInterface, "createdBy" | "featureId" | "version">,
+): Promise<boolean> {
+  const creatorId = eventUserIdentity(draft.createdBy) ?? "";
+  if (mayBeRevisionAuthor(creatorId, context.actorId)) return true;
+  const key = context.keyActingAsItself;
+  if (!key) return false;
+  const byKey = (user: EventUser | undefined) =>
+    user?.type === "api_key" && user.apiKey === key;
+  if (byKey(draft.createdBy)) return true;
+  const log =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: draft.featureId,
+      version: draft.version,
+    });
+  return log.some((e) => !REVIEW_LOG_ACTIONS.has(e.action) && byKey(e.user));
 }
 
 // Authorship stands in for draft authority. An org key assuming the author's

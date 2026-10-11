@@ -23,8 +23,8 @@ export type ReviewDecision = (typeof reviewDecision)[number];
 
 export const reviewValidator = z.object({
   id: z.string(),
-  // The person the verdict counts for (coverage, self-approval). `user` is
-  // the full actor behind it, including an API key and who it acted for.
+  // Who the verdict counts for (coverage, self-approval): a member, or a key
+  // that reviewed as itself. `user` is the full actor behind it.
   userId: actorIdField,
   user: eventUser.optional(),
   decision: z.enum(reviewDecision),

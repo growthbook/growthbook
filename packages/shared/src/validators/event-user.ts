@@ -89,7 +89,7 @@ export const apiEventUser = namedSchema(
     })
     .strict()
     .describe(
-      "Who performed an action. The person behind it is `requestedBy` when an organization API key named a member, otherwise `id`",
+      "Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked",
     ),
 );
 
@@ -154,6 +154,13 @@ export function eventUserIdentity(user: EventUser): string | null {
     return eventUserPersonId(user) || user.apiKey || null;
   }
   return null;
+}
+
+// The org key an event user came through while assuming a member's role.
+export function assumingKeyOf(user: EventUser | undefined): string | null {
+  return user?.type === "api_key" && user.assumedRole && user.requestedBy
+    ? user.apiKey
+    : null;
 }
 
 // The stored actor behind an identity on a revision: its creator, publisher, a

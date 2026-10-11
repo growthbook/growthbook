@@ -1,6 +1,5 @@
 import {
-  eventUserCredit,
-  eventUserPerson,
+  EventUser as EventUserType,
   eventUserIdentity,
   eventUserLabel,
   eventUserPersonId,
@@ -294,10 +293,7 @@ export default function ReviewAndPublish({
       // possible when the org doesn't reset reviews on change — otherwise
       // the verdict would have been cleared server-side).
       stale: boolean;
-      // Display fallbacks from the baked review's event user, for reviewers
-      // not present in the members map (e.g. API keys).
-      name?: string;
-      email?: string;
+      user?: EventUserType;
     }[];
     // Timestamp of the most recent *surviving* approval (retractions and
     // recalls invalidate earlier verdicts). Used to quantify how stale an
@@ -336,8 +332,7 @@ export default function ReviewAndPublish({
         timestamp: string;
         // The model already demoted this verdict to a "-stale" variant.
         forceStale?: boolean;
-        name?: string;
-        email?: string;
+        user?: EventUserType;
       }[],
     ) => {
       const approvedTimestamps = entries
@@ -372,8 +367,7 @@ export default function ReviewAndPublish({
             r.status === "approved-stale" ||
             r.status === "changes-requested-stale",
           timestamp: new Date(r.timestamp).toISOString(),
-          name: eventUserCredit(r.user).name || undefined,
-          email: eventUserPerson(r.user)?.email || undefined,
+          user: r.user,
         })),
       );
     }
@@ -385,7 +379,11 @@ export default function ReviewAndPublish({
     // their approval would still appear listed with the stale verdict.
     const byUser = new Map<
       string,
-      { status: "approved" | "changes-requested"; timestamp: string }
+      {
+        status: "approved" | "changes-requested";
+        timestamp: string;
+        user?: EventUserType;
+      }
     >();
     for (const entry of sorted) {
       if (entry.action === "Review Requested") {
@@ -401,21 +399,16 @@ export default function ReviewAndPublish({
       const uid = eventUserIdentity(entry.user ?? null);
       if (!uid) continue;
       const timestamp = entry.timestamp as unknown as string;
+      const user = entry.user ?? undefined;
       if (entry.action === "Approved") {
-        byUser.set(uid, { status: "approved", timestamp });
+        byUser.set(uid, { status: "approved", timestamp, user });
       } else if (entry.action === "Requested Changes") {
-        byUser.set(uid, { status: "changes-requested", timestamp });
+        byUser.set(uid, { status: "changes-requested", timestamp, user });
       } else if (entry.action === "Undo Review") {
         byUser.delete(uid);
       }
     }
-    return finish(
-      Array.from(byUser, ([id, v]) => ({
-        id,
-        status: v.status,
-        timestamp: v.timestamp,
-      })),
-    );
+    return finish(Array.from(byUser, ([id, v]) => ({ id, ...v })));
   }, [logData, revision]);
 
   // User ID of whoever most recently submitted a "Review Requested" entry.

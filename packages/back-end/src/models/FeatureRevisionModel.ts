@@ -454,8 +454,9 @@ export function revisionToInterfaceWithFeature(
   return toInterface(doc, context, feature);
 }
 
-// Matches who created a revision, directly or as the member an org key named
-// with X-GrowthBook-Requested-By, and for `involvedUserId` anyone who contributed.
+// Matches who created a revision: a member directly or through an org key that
+// assumed their role, or for `author` an org key acting as itself; and for
+// `involvedUserId` anyone who contributed.
 function revisionPersonFilter({
   author,
   involvedUserId,
@@ -468,7 +469,18 @@ function revisionPersonFilter({
     { "createdBy.requestedBy.id": id, "createdBy.assumedRole": true },
   ];
   const clauses: Record<string, unknown>[] = [];
-  if (author) clauses.push({ $or: createdBy(author) });
+  if (author) {
+    clauses.push({
+      $or: [
+        ...createdBy(author),
+        {
+          "createdBy.apiKey": author,
+          "createdBy.id": { $in: [null, ""] },
+          "createdBy.assumedRole": { $ne: true },
+        },
+      ],
+    });
+  }
   if (involvedUserId) {
     clauses.push({
       $or: [

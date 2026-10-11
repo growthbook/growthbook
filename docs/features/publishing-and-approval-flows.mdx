@@ -143,6 +143,13 @@ reviewers. A user with **Bypass draft approvals** can publish without any of
 these, and so can API keys when **REST API always bypasses approval
 requirements** is on.
 
+Organization API keys with **Review** access can approve too. A key acting as
+itself is judged on its own role, never satisfies a required approver team, and
+can't approve a draft it created or edited. A key that assumes a member's role
+approves as that member, and its approval counts only where both the key and
+the member could approve. See
+[Naming who asked](/api/introduction#naming-who-asked).
+
 <Frame>
   <img src="/static/images/features/approval-flows/publish-with-admin-bypass.png" alt="Publishing approved changes with admin bypass option" width="600" />
 </Frame>

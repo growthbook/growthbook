@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -68,6 +69,7 @@ import {
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { BadRequestError } from "back-end/src/util/errors";
+import { SECRET_API_KEY_ID } from "back-end/src/util/api-key.util";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -1862,16 +1864,30 @@ export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
 // The current role of each key that approved as itself, so the review panel
 // judges a key's approval the way publishing does. Members' roles are already
 // on the client.
+// The roles of org keys that approved, for keys the caller can read.
 export async function getApproverKeyRoles(
-  req: AuthRequest<null, null, { ids?: string }>,
+  req: AuthRequest<null, null, { ids?: unknown }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const ids = (req.query.ids ?? "")
+  const requested = z
+    .string()
+    .catch("")
+    .parse(req.query.ids)
     .split(",")
     .filter((id) => id && !context.org.members.some((m) => m.id === id))
     .slice(0, 100);
-  const roles = await getApproverRoles(context, ids);
+  const readable = await Promise.all(
+    requested.map(async (id) =>
+      id === SECRET_API_KEY_ID || (await context.models.apiKeys.getById(id))
+        ? id
+        : null,
+    ),
+  );
+  const roles = await getApproverRoles(
+    context,
+    readable.filter((id): id is string => id !== null),
+  );
   res.status(200).json({ status: 200, roles: Object.fromEntries(roles) });
 }
 

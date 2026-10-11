@@ -13,8 +13,8 @@ export function isDraftStatus(status: string): boolean {
 }
 
 /**
- * `mine=true` filters by the calling user, so it needs a caller who IS a user.
- * An org API key has none unless the request names one with X-GrowthBook-Requested-By.
+ * `mine=true` filters by the calling member, so it needs a request that acts
+ * as one.
  */
 export function assertUserScopedKeyForMine(
   context: ApiReqContext,
@@ -22,7 +22,7 @@ export function assertUserScopedKeyForMine(
 ): void {
   if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key or an X-GrowthBook-Requested-By header (the caller must be identifiable as a user).",
+      "`mine=true` needs a member to filter by. Use a personal access token, or an organization API key that assumes the role of a member it names with X-GrowthBook-Requested-By.",
     );
   }
 }

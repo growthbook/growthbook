@@ -1,7 +1,4 @@
-import {
-  eventUserIdentity,
-  postFeatureRevisionSubmitReviewValidator,
-} from "shared/validators";
+import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
@@ -14,7 +11,7 @@ import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisi
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
+import { isOwnFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -92,10 +89,9 @@ export async function submitRevisionReview(
     }
   }
 
-  const creatorId = eventUserIdentity(revision.createdBy) ?? "";
   if (
     action !== "comment" &&
-    mayBeRevisionAuthor(creatorId, req.context.actorId)
+    (await isOwnFeatureDraft(req.context, revision))
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }

@@ -17,6 +17,8 @@ import {
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessApprovalCoverage,
   assessRequiredApproverTeams,
 } from "shared/permissions";
@@ -27,7 +29,7 @@ import {
   canAdvanceRevision,
   canDiscardRevision,
   canRebaseRevision,
-  mayBeRevisionAuthor,
+  isOwnRevision,
   liveMatchesRevisionBase,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
@@ -578,7 +580,7 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  if (mayBeRevisionAuthor(revision.authorId, context.actorId)) {
+  if (isOwnRevision(context, revision)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -664,10 +666,10 @@ export async function revisionApprovalsCoverChange(
     : snapshot.project
       ? [snapshot.project]
       : [];
-  const approverIds = (revision.reviews ?? [])
-    .filter((r) => r.decision === "approve" && !r.stale)
-    .map((r) => r.userId);
-  const roles = await getApproverRoles(context, approverIds);
+  const approvals = (revision.reviews ?? []).filter(
+    (r) => r.decision === "approve" && !r.stale,
+  );
+  const roles = await getApproverRoles(context, approvalRoleIds(approvals));
   return assessApprovalCoverage({
     org: context.org,
     teams: context.teams ?? [],
@@ -676,10 +678,7 @@ export async function revisionApprovalsCoverChange(
     footprint: environments.length
       ? { scope: "environments", environments }
       : { scope: "unbound" },
-    approvers: approverIds.map((id) => ({
-      id,
-      roleInfo: roles.get(id) ?? null,
-    })),
+    approvers: approvalApprovers(approvals, (id) => roles.get(id) ?? null),
   });
 }
 
@@ -1494,7 +1493,7 @@ export async function submitRevisionReview({
   }
 
   // The author may comment on their own draft, but not rule on it.
-  if (mayBeRevisionAuthor(revision.authorId, context.actorId) && !isComment) {
+  if (isOwnRevision(context, revision) && !isComment) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 

@@ -60,7 +60,7 @@ export default function EventUser({
   size = "md",
   wrap = false,
 }: Props) {
-  const { users } = useUser();
+  const { users, getOwnerDisplay } = useUser();
 
   if (user === null || user === undefined) {
     if (display === "avatar") {
@@ -122,6 +122,9 @@ export default function EventUser({
   if (latestUser) {
     name = latestUser.name;
     email = latestUser.email;
+  } else if (!name && person?.id) {
+    // A former member, or a legacy owner stored as a name or email.
+    name = getOwnerDisplay(person.id);
   }
 
   // Treat a blank/whitespace-only name as absent so it never renders as an

@@ -445,6 +445,11 @@ export class ReqContextClass {
     return this.userId || eventUserIdentity(this.auditUser) || "";
   }
 
+  // The org key behind a request that acts as the key itself.
+  public get keyActingAsItself(): string | null {
+    return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
+  }
+
   // An org key assuming a member's role may use that member's author rights
   // only where its own role allows the action too, so it never does more than
   // the key alone could. `check` runs against the key's own permissions.

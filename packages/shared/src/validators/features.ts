@@ -622,8 +622,9 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 // the REST API, and reviewer-scoped queries — don't have to replay the log.
 export const revisionReviewSchema = z
   .object({
-    // Stable reviewer identifier used for upserts/queries: the person behind
-    // the verdict, or a key id on legacy verdicts. See `eventUserIdentity`.
+    // Stable reviewer identifier used for upserts/queries: the member behind
+    // the verdict, or the key's id when a key reviewed as itself. See
+    // `eventUserIdentity`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.

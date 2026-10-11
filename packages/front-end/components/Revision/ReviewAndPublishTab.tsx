@@ -494,7 +494,11 @@ function ReviewAndPublishRevision<T>({
     }
     const byUser = new Map<
       string,
-      { status: "approved" | "changes-requested"; timestamp: string }
+      {
+        status: "approved" | "changes-requested";
+        timestamp: string;
+        user: Revision["reviews"][number]["user"];
+      }
     >();
     const sorted = [...revision.reviews].sort(
       (a, b) =>
@@ -505,12 +509,14 @@ function ReviewAndPublishRevision<T>({
       byUser.set(r.userId, {
         status: r.decision === "approve" ? "approved" : "changes-requested",
         timestamp: new Date(r.dateCreated).toISOString(),
+        user: r.user,
       });
     }
     return Array.from(byUser, ([id, v]) => ({
       id,
       status: v.status,
       timestamp: v.timestamp,
+      user: v.user,
       stale:
         lastContentEditAt !== null &&
         new Date(v.timestamp).getTime() < lastContentEditAt,
