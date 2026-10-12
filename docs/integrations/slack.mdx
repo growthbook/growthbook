@@ -1,14 +1,13 @@
 ---
 title: Slack integration
 sidebarTitle: Slack
-description: "Connect the GrowthBook Slack app to your workspace, choose which channels get experiment and Feature Flag notifications, and ask the GrowthBook AI assistant questions from Slack."
+description: "Connect the GrowthBook Slack app to your workspace and choose which channels get experiment and Feature Flag notifications, including image cards for key experiment events."
 ---
 
 The GrowthBook Slack app connects a Slack workspace to your GrowthBook organization. Once it's connected, you can:
 
 - **Send notifications to channels.** Choose which projects, environments, tags, and events each channel hears about.
 - **Get visual cards.** Experiment launches, experiment stops, and sample ratio mismatch (SRM) warnings arrive as image cards. Everything else arrives as a formatted text message.
-- **Ask the AI assistant.** Mention `@GrowthBook` in a channel, or send it a direct message, to ask about your experiments and Feature Flags. See [Slack AI assistant](/integrations/slack/ai-assistant).
 
 <Info>
 This page covers the Slack app. If you set up Slack before the app was available, your incoming webhook connections still work. See [Legacy Slack webhooks](/integrations/slack/legacy-webhooks) to manage them or move them to the app.
@@ -18,9 +17,8 @@ This page covers the Slack app. If you set up Slack before the app was available
 
 - **GrowthBook permission:** You need the `manageIntegrations` permission. The **Admin** role includes it. To give it to someone else, use a custom role that includes the **Integrations Full Access** policy. See [user permissions](/account/user-permissions).
 - **Slack permission:** You need permission to install apps in your Slack workspace.
-- **If you self-host GrowthBook:** Create your own Slack app before you connect. See [Self-hosted Slack setup](/integrations/slack/self-hosted). GrowthBook Cloud users can skip this step.
 
-Notifications are available on every plan. The AI assistant has [extra requirements](/integrations/slack/ai-assistant#requirements).
+Notifications are available on every plan.
 
 ## Connect your Slack workspace
 
