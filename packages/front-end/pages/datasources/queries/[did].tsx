@@ -10,7 +10,7 @@ import {
   QueryLogUsage,
   QueryLogUsageGroup,
 } from "shared/types/query";
-import { Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -31,6 +31,7 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Table, {
@@ -186,9 +187,9 @@ const DataSourceUsagePage = (): React.ReactElement => {
   return (
     <div className="container pagecontents">
       {managedWarehousePending ? (
-        <div className="mt-3 mb-3">
+        <Box mt="3" mb="3">
           <ManagedWarehouseNoEventsCallout />
-        </div>
+        </Box>
       ) : null}
       {header}
 
@@ -312,7 +313,7 @@ function IncrementalRefreshCallout({
 const DRIVER_TABS = [
   { key: "factTables", label: "Fact tables", column: "Fact table" },
   { key: "experiments", label: "Experiments", column: "Experiment" },
-  { key: "users", label: "People", column: "Person" },
+  { key: "users", label: "People", column: "Run by" },
   { key: "queryTypes", label: "Query types", column: "Query type" },
 ] as const;
 
@@ -367,7 +368,7 @@ function UsageGroupTable({
     return { ...usage, id: id ?? "", name: getQueryTypeLabel(id ?? "unknown") };
   });
 
-  const { items, SortableTableColumnHeader } = useSearch({
+  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
     items: rows,
     searchFields: ["name"],
     localStorageKey: `datasourceUsage:${tab.key}`,
@@ -387,68 +388,71 @@ function UsageGroupTable({
   }
 
   return (
-    <Table variant="list" stickyHeader={false} roundedCorners mt="3">
-      <TableHeader>
-        <TableRow>
-          <SortableTableColumnHeader field="name">
-            {tab.column}
-          </SortableTableColumnHeader>
-          <SortableTableColumnHeader field="queries" style={NUMERIC_CELL}>
-            Queries
-          </SortableTableColumnHeader>
-          {units.map((u) => (
-            <SortableTableColumnHeader
-              key={u.field}
-              field={u.field}
-              style={NUMERIC_CELL}
-            >
-              {u.label}
+    <>
+      <SearchField {...searchInputProps} mt="3" />
+      <Table variant="list" roundedCorners scrollX>
+        <TableHeader>
+          <TableRow>
+            <SortableTableColumnHeader field="name">
+              {tab.column}
             </SortableTableColumnHeader>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell>
-              <Flex align="center" gap="2" wrap="wrap">
-                {row.href ? (
-                  <Link href={row.href}>{row.name}</Link>
-                ) : (
-                  <Text color={row.id ? "text-high" : "text-mid"}>
-                    {row.name}
-                  </Text>
-                )}
-                {row.noDateFilter && (
-                  <Tooltip content="The fact table SQL has no {{startDate}} filter, so queries may scan the whole table.">
-                    <Badge
-                      color="amber"
-                      variant="soft"
-                      label="No date filter"
-                    />
-                  </Tooltip>
-                )}
-              </Flex>
-            </TableCell>
-            <TableCell style={NUMERIC_CELL}>
-              {row.queries.toLocaleString()}
-            </TableCell>
-            {units.map((u, i) => (
-              <TableCell key={u.field} style={NUMERIC_CELL}>
-                <Tooltip content={u.exact(row[u.field])}>
-                  <span>{formats[i](row[u.field])}</span>
-                </Tooltip>
-                <span style={{ display: "inline-block", width: 44 }}>
-                  <Text size="sm" color="text-low">
-                    {share(row[u.field], total[u.field])}
-                  </Text>
-                </span>
-              </TableCell>
+            <SortableTableColumnHeader field="queries" style={NUMERIC_CELL}>
+              Queries
+            </SortableTableColumnHeader>
+            {units.map((u) => (
+              <SortableTableColumnHeader
+                key={u.field}
+                field={u.field}
+                style={NUMERIC_CELL}
+              >
+                {u.label}
+              </SortableTableColumnHeader>
             ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {items.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>
+                <Flex align="center" gap="2" wrap="wrap">
+                  {row.href ? (
+                    <Link href={row.href}>{row.name}</Link>
+                  ) : (
+                    <Text color={row.id ? "text-high" : "text-mid"}>
+                      {row.name}
+                    </Text>
+                  )}
+                  {row.noDateFilter && (
+                    <Tooltip content="The fact table SQL has no {{startDate}} filter, so queries may scan the whole table.">
+                      <Badge
+                        color="amber"
+                        variant="soft"
+                        label="No date filter"
+                      />
+                    </Tooltip>
+                  )}
+                </Flex>
+              </TableCell>
+              <TableCell style={NUMERIC_CELL}>
+                {row.queries.toLocaleString()}
+              </TableCell>
+              {units.map((u, i) => (
+                <TableCell key={u.field} style={NUMERIC_CELL}>
+                  <Tooltip content={u.exact(row[u.field])}>
+                    <span>{formats[i](row[u.field])}</span>
+                  </Tooltip>
+                  <span style={{ display: "inline-block", width: 44 }}>
+                    <Text size="sm" color="text-low">
+                      {share(row[u.field], total[u.field])}
+                    </Text>
+                  </span>
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </>
   );
 }
 
@@ -521,9 +525,9 @@ function RecentQueries({
           ? (data.experimentNames[q.experimentId] ?? q.experimentId)
           : "",
         factTableIds,
-        factTable: factTableIds[0]
-          ? (getFactTableById(factTableIds[0])?.name ?? factTableIds[0])
-          : "",
+        factTable: factTableIds
+          .map((id) => getFactTableById(id)?.name ?? id)
+          .join(", "),
         person: q.userId ? getUserDisplay(q.userId) : "Automated",
         startedAt: new Date(q.startedAt).getTime(),
         status: q.status,
@@ -532,7 +536,7 @@ function RecentQueries({
     }),
   ];
 
-  const { items, SortableTableColumnHeader } = useSearch({
+  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
     items: rows,
     searchFields: ["queryType", "experiment", "factTable", "person"],
     localStorageKey: "datasourceRecentQueries",
@@ -584,6 +588,7 @@ function RecentQueries({
           {actionError}
         </Callout>
       )}
+      <SearchField {...searchInputProps} />
       <Table variant="list" roundedCorners scrollX stickyLastColumn>
         <TableHeader>
           <TableRow>
@@ -642,27 +647,16 @@ function RecentQueries({
                   )}
                 </TableCell>
                 <TableCell>
-                  {row.factTable ? (
-                    <Tooltip
-                      content={row.factTableIds
-                        .map((id) => getFactTableById(id)?.name ?? id)
-                        .join(", ")}
-                    >
-                      <span>
-                        <Link href={`/fact-tables/${row.factTableIds[0]}`}>
-                          {row.factTable}
-                        </Link>
-                        {row.factTableIds.length > 1 && (
-                          <Text color="text-low">
-                            {" "}
-                            +{row.factTableIds.length - 1}
-                          </Text>
-                        )}
-                      </span>
-                    </Tooltip>
-                  ) : (
-                    "—"
-                  )}
+                  {row.factTableIds.length
+                    ? row.factTableIds.map((id, i) => (
+                        <React.Fragment key={id}>
+                          {i > 0 && ", "}
+                          <Link href={`/fact-tables/${id}`}>
+                            {getFactTableById(id)?.name ?? id}
+                          </Link>
+                        </React.Fragment>
+                      ))
+                    : "—"}
                 </TableCell>
                 <TableCell>{row.person || "—"}</TableCell>
                 <TableCell>
@@ -717,6 +711,14 @@ function RecentQueries({
         </TableBody>
       </Table>
     </>
+  );
+}
+
+function SearchField(props: React.ComponentProps<typeof TextField>) {
+  return (
+    <Box maxWidth="300px" mb="3">
+      <TextField type="search" placeholder="Search" {...props} />
+    </Box>
   );
 }
 
