@@ -63,6 +63,8 @@ export default function FeaturePage() {
     revision,
     version,
     setVersion,
+    loadRevisions,
+    unavailableVersions,
   } = useFeaturePageData(fid, router.query.v, userId);
 
   // Always reflects the current live version — read inside the post-publish
@@ -165,6 +167,8 @@ export default function FeaturePage() {
         revisions: data.revisions,
         baseFeature,
         currentVersion: version ?? baseFeature.version,
+        loadRevisions,
+        unavailableVersions,
       }}
     >
       <FeatureUsageProvider feature={feature}>
@@ -252,7 +256,7 @@ export default function FeaturePage() {
         )}
 
         {tab === "stats" && (
-          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+          <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
         )}
 
         {tab === "diagnostics" && (

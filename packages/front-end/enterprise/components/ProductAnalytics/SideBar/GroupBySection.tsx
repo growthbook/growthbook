@@ -57,11 +57,15 @@ function reindexAfterRemoval<T>(
 }
 
 export default function GroupBySection() {
-  const { draftExploreState, setDraftExploreState, commonColumns } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    commonColumns,
+    getFullFactTableById,
+  } = useExplorerContext();
+  const { getFactMetricById } = useDefinitions();
   const defaultMaxValues =
     draftExploreState.type === "journey" ? 3 : DEFAULT_MAX_VALUES;
-  const { getFactTableById, getFactMetricById } = useDefinitions();
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
     Array(draftExploreState.dimensions.length).fill(false),
   );
@@ -288,7 +292,7 @@ export default function GroupBySection() {
         const valueOptions = getColumnTopValues(
           draftExploreState.dataset,
           dim.column,
-          getFactTableById,
+          getFullFactTableById,
           getFactMetricById,
         ).map((v) => ({ label: v, value: v }));
 

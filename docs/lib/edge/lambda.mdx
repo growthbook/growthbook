@@ -1,8 +1,7 @@
 ---
 title: "Lambda@Edge Edge App & SDK"
-description: Evaluate GrowthBook feature flags and Visual Editor experiments at the edge with Lambda@Edge to cut flicker before HTML ships.
+description: Evaluate GrowthBook feature flags and AI Visual Editor experiments at the edge with Lambda@Edge to cut flicker before HTML ships.
 sidebarTitle: Lambda@Edge
-slug: lambda
 toc_max_heading_level: 5
 ---
 
@@ -357,7 +356,7 @@ With each hook, you may mutate any of the provided attributes _or_ return an ear
 - `onBeforeOriginFetch` - Similar hook to the above; triggers after any URL Redirect experiments have run but before any origin requests have been made.
 - `onOriginFetch` - Fired immediately after the origin fetch has been made, but before the full response body has been captured. Useful for exiting early based on response status or headers.
 - `onBodyReadyParams` - Fired once the entire response body has been parsed. In addition to early exiting, you may begin to mutate the final response body via `resHeaders` and the `setBody()` method. The text `body` as well as the optional parsed virtual DOM `root` (disabled by default, use `ALWAYS_PARSE_DOM` to enable) are exposed. NOTE: If mutating the `root` DOM, it is your responsibility to `setBody()` with the latest changes before the response is returned.
-- `onBeforeResponse` - The final hook fired before the response is returned to the user, triggering after both visual editor changes and client SDK hydration have been injected. While the virtual DOM is no longer available, this hook can be used to apply any final changes the body via `setBody()`.
+- `onBeforeResponse` - The final hook fired before the response is returned to the user, triggering after both AI Visual Editor changes and client SDK hydration have been injected. While the virtual DOM is no longer available, this hook can be used to apply any final changes the body via `setBody()`.
 
 To use one or more lifecycle hooks, pass any hooks to your `handleRequest` method:
 

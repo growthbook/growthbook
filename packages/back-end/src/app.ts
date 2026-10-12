@@ -953,6 +953,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
+app.get("/feature/:id/code-refs", featuresController.getFeatureCodeRefs);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
@@ -1087,6 +1088,10 @@ app.get(
   datasourcesController.getEventForwarderConnected,
 );
 app.post("/datasources", datasourcesController.postDataSources);
+app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
 app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,

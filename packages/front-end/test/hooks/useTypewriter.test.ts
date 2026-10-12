@@ -2,8 +2,10 @@ import type { MutableRefObject } from "react";
 import { act, renderHook } from "@testing-library/react";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat";
 import {
+  FINISHED_DRAIN_TICKS,
   TYPEWRITER_INITIAL_CHARS_PER_TICK,
   adjustRevealLengthForMarkdownLinks,
+  getDrainCharsPerTick,
   getTypewriterCharsPerTick,
   isWaitingForMarkdownLink,
   updateArrivalRateEstimate,
@@ -95,7 +97,27 @@ describe("getTypewriterCharsPerTick", () => {
         hasSuccessor: false,
         streamComplete: true,
       }),
-    ).toBe(30);
+    ).toBe(15);
+  });
+
+  it("animates a finished burst over the drain window instead of snapping it in", () => {
+    const burst = 2000;
+    const drainRate = getDrainCharsPerTick(burst);
+    expect(drainRate).toBe(burst / FINISHED_DRAIN_TICKS);
+
+    let buffered = burst;
+    let ticks = 0;
+    while (buffered > 0) {
+      buffered -= getTypewriterCharsPerTick({
+        bufferedCharacters: buffered,
+        arrivalRate: 3,
+        hasSuccessor: false,
+        streamComplete: true,
+        drainRate,
+      });
+      ticks++;
+    }
+    expect(ticks).toBe(FINISHED_DRAIN_TICKS);
   });
 
   it("does not reveal beyond the available content", () => {
@@ -337,7 +359,7 @@ describe("useTypewriter", () => {
     expect(mean).toBeLessThan(9);
   });
 
-  it("drains the remaining buffer quickly once the stream completes", () => {
+  it("animates the remaining buffer in over the drain window once the stream completes", () => {
     vi.useFakeTimers();
     const activeTurnItemsRef: MutableRefObject<ActiveTurnItem[]> = {
       current: [{ kind: "text", id: "text-1", content: "x".repeat(200) }],
@@ -356,7 +378,14 @@ describe("useTypewriter", () => {
 
     streamCompleteRef.current = true;
     act(() => {
-      vi.advanceTimersByTime(30 * 8);
+      vi.advanceTimersByTime(30 * 3);
+    });
+    expect(
+      result.current.displayedTextMap.get("text-1")?.length ?? 0,
+    ).toBeLessThan(200);
+
+    act(() => {
+      vi.advanceTimersByTime(30 * FINISHED_DRAIN_TICKS);
     });
     expect(result.current.displayedTextMap.get("text-1")).toHaveLength(200);
   });

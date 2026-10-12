@@ -21,7 +21,7 @@ import {
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
-import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
+import { findSDKConnectionByKeyForOrg } from "back-end/src/models/SdkConnectionModel";
 
 export const emptyListResponse = (limit: number, offset: number) => ({
   features: [] as never[],
@@ -45,7 +45,6 @@ type DefinitionLookups = Awaited<
  */
 export async function loadFeaturesPage(
   context: ApiReqContext,
-  organizationId: string,
   query: {
     projectId?: string;
     clientKey?: string;
@@ -120,8 +119,11 @@ export async function loadFeaturesPage(
       projects: projectId ? [projectId] : undefined,
       includeArchived,
     });
-    const sdkConnection = await findSDKConnectionByKey(query.clientKey);
-    if (!sdkConnection || sdkConnection.organization !== organizationId) {
+    const sdkConnection = await findSDKConnectionByKeyForOrg(
+      context,
+      query.clientKey,
+    );
+    if (!sdkConnection) {
       throw new Error("Invalid SDK connection key");
     }
     const payload = await getFeatureDefinitionsWithCache({
@@ -241,7 +243,6 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req) => {
     const r = await loadFeaturesPage(
       req.context,
-      req.organization.id,
       { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;

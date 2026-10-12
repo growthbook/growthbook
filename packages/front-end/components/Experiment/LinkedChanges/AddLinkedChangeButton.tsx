@@ -33,7 +33,7 @@ const MENU_ITEM_DESCRIPTIONS: Record<LinkedChange, string> = {
 };
 const MENU_ITEM_HEADERS: Record<LinkedChange, string> = {
   "feature-flag": "Feature Flag",
-  "visual-editor": "Visual Editor",
+  "visual-editor": "AI Visual Editor",
   redirects: "URL Redirect",
 };
 

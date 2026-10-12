@@ -1,15 +1,14 @@
 ---
-title: Preview and QA Visual Editor Experiments
+title: Preview and QA AI Visual Editor Experiments
 description: Preview draft A/B test variations with a querystring link, use the debug panel to diagnose issues, and avoid editing live experiments by mistake.
 sidebarTitle: Preview and QA
-slug: /app/visual/preview-and-qa
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 <CommercialFeature feature="visual-editor" />
 
-QA is where good A/B tests are made — or where bad ones get caught before they're launched on real users. The [Visual Editor](/app/visual) gives you several tools to verify a variation works on a real browser, on the real page, with the real SDK, before publishing.
+QA is where good A/B tests are made — or where bad ones get caught before they're launched on real users. The [AI Visual Editor](/app/visual) gives you several tools to verify a variation works on a real browser, on the real page, with the real SDK, before publishing.
 
 ## Preview links
 
@@ -59,7 +58,7 @@ The most common causes:
 
 ## The debug panel
 
-The Visual Editor includes a Debug Panel showing what the SDK actually evaluated on the active page. Use it to diagnose why a variation isn't showing.
+The AI Visual Editor includes a Debug Panel showing what the SDK actually evaluated on the active page. Use it to diagnose why a variation isn't showing.
 
 The panel surfaces:
 
@@ -72,7 +71,7 @@ If you're filing a support ticket about a variation not rendering, including a s
 
 ## The live-experiment editing warning
 
-When you open the Visual Editor against an experiment that's **already running**, the side panel shows an amber warning banner at the top.
+When you open the AI Visual Editor against an experiment that's **already running**, the side panel shows an amber warning banner at the top.
 
 Here's why that matters:
 
@@ -99,7 +98,7 @@ Visual changes are not applied while the banner is showing, even if you make edi
 
 ## QA checklist before going live
 
-Before moving a Visual Editor experiment out of draft:
+Before moving an AI Visual Editor experiment out of draft:
 
 - [ ] **Test the preview link** for each variation on the real production-like page.
 - [ ] **Test in multiple browsers** — at minimum Chrome and Safari. Variations sometimes render differently in Safari due to vendor-prefix or layout differences.
@@ -112,4 +111,4 @@ Before moving a Visual Editor experiment out of draft:
 ## Next steps
 
 - **[Troubleshooting](/app/visual/troubleshooting)** — when the preview doesn't behave as expected.
-- **[Visual Editor overview](/app/visual)** — back to the main page.
+- **[AI Visual Editor overview](/app/visual)** — back to the main page.

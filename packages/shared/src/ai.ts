@@ -89,6 +89,7 @@ export const AI_PROVIDER_MODEL_MAP = {
     // stopped issuing dated snapshots for them, so there is nothing to pin.
     "claude-opus-5-5",
     "claude-opus-5",
+    "claude-sonnet-5-5",
     "claude-sonnet-5",
     "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
@@ -139,7 +140,7 @@ export const AI_PROVIDER_MODEL_MAP = {
 
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5-5";
 // The visual editor is the most schema-sensitive workload we run: multi-step
 // tool loops that must end in a large, exact JSON object, plus vision. It
 // gets the Opus tier while the general default stays on Sonnet.
@@ -152,7 +153,7 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
   [AIProvider, AIModel]
 > = [
   ["openai", "gpt-5.4-mini"],
-  ["anthropic", "claude-sonnet-5"],
+  ["anthropic", "claude-sonnet-5-5"],
   ["google", "gemini-3.5-flash"],
   ["xai", "grok-4.3"],
   ["mistral", "mistral-medium-latest"],
@@ -191,6 +192,7 @@ export function isReasoningModel(model: AIModel): boolean {
 const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
   "claude-opus-5-5",
   "claude-opus-5",
+  "claude-sonnet-5-5",
   "claude-sonnet-5",
   "claude-opus-4-8",
 ]);
@@ -253,6 +255,7 @@ export function getMaxOutputTokens(
 // Documented ceilings only: over-asking is a 400, not a clamp.
 const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
   "claude-opus-5": 128000,
+  "claude-sonnet-5-5": 128000,
   "claude-sonnet-5": 128000,
   "claude-opus-4-8": 128000,
   "claude-sonnet-4-6": 128000,

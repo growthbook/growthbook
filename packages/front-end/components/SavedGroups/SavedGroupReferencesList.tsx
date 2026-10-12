@@ -11,16 +11,19 @@ type ExperimentRef = {
   projects?: string[];
 };
 type SavedGroupRef = { id: string; groupName?: string; projects?: string[] };
+type ContextualBanditRef = { id: string; name?: string; project?: string };
 
 interface SavedGroupReferencesListProps {
   features?: FeatureRef[];
   experiments?: ExperimentRef[];
+  contextualBandits?: ContextualBanditRef[];
   savedGroups?: SavedGroupRef[];
 }
 
 const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
   features = [],
   experiments = [],
+  contextualBandits = [],
   savedGroups = [],
 }) => {
   const sections: ReferenceSection[] = [
@@ -46,6 +49,16 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
           : e.projects?.length
             ? e.projects
             : undefined,
+      })),
+    },
+    {
+      title: "Contextual Bandits",
+      resourceType: "contextual bandit",
+      items: contextualBandits.map((cb) => ({
+        id: cb.id,
+        label: cb.name ?? cb.id,
+        href: `/contextual-bandit/${cb.id}`,
+        projectIds: cb.project ? [cb.project] : undefined,
       })),
     },
     {

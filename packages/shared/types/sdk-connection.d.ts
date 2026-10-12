@@ -1,4 +1,9 @@
-import { ManagedBy, SavedGroupFormat } from "shared/validators";
+import {
+  ManagedBy,
+  SavedGroupFormat,
+  SdkPayloadSize,
+  SdkPayloadSizeLevel,
+} from "shared/validators";
 
 // GrowthBook Proxy
 export interface ProxyConnection {
@@ -123,6 +128,11 @@ export interface SDKConnectionInterface {
    */
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
+
+  // Size of the last payload built for this connection
+  payloadSize?: SdkPayloadSize;
+  // The level last announced by event and email, so only changes notify
+  notifiedPayloadSizeLevel?: SdkPayloadSizeLevel;
 }
 
 export interface ProxyTestResult {

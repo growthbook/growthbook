@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -7,6 +7,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
+  resolveAnalysisIdentifierType,
   holdoutSizeToCoverage,
   isProjectListValidForProject,
   MAX_HOLDOUT_SIZE,
@@ -27,7 +28,12 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+  getExposureQuery,
+} from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -57,6 +63,9 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import MultiSelectField from "@/ui/MultiSelectField";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -80,7 +89,10 @@ export function getNewExperimentDatasourceDefaults(
   settings: OrganizationSettings,
   project?: string,
   initialValue?: Partial<ExperimentInterfaceStringDates>,
-): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+): Pick<
+  ExperimentInterfaceStringDates,
+  "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
+> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
@@ -95,14 +107,25 @@ export function getNewExperimentDatasourceDefaults(
     (initialId && validDatasources.find((d) => d.id === initialId)) ||
     validDatasources[0];
 
+  const exposureQuery = getExposureQuery(
+    initialDatasource.settings,
+    initialValue?.exposureQueryId,
+    initialValue?.userIdType,
+  );
   return {
     datasource: initialDatasource.id,
-    exposureQueryId:
-      getExposureQuery(
-        initialDatasource.settings,
-        initialValue?.exposureQueryId,
-        initialValue?.userIdType,
-      )?.id || "",
+    exposureQueryId: exposureQuery?.id || "",
+    /**
+     * Copy what the source analyzes on; left unset, a legacy source's copy
+     * would default differently.
+     */
+    exposureQueryIdentifierType:
+      exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
+        ? resolveAnalysisIdentifierType(
+            exposureQuery,
+            initialValue.exposureQueryIdentifierType,
+          )
+        : initialValue?.exposureQueryIdentifierType,
   };
 }
 
@@ -241,6 +264,15 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       throw new Error("Name must not be empty");
     }
 
+    // A copy whose identifier no query declares is left for the user to pick.
+    if (
+      assignmentQueryCopySource &&
+      value.exposureQueryId &&
+      !value.exposureQueryIdentifierType
+    ) {
+      throw new Error("Choose an identifier type for the assignment query");
+    }
+
     const phase = value.phases?.[0];
 
     validateSavedGroupTargeting(phase?.savedGroups);
@@ -264,6 +296,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       savedGroups: phase?.savedGroups,
       datasourceId: value.datasource,
       assignmentQueryId: value.exposureQueryId,
+      assignmentQueryIdentifierType: value.exposureQueryIdentifierType,
       goalMetrics: value.goalMetrics,
       secondaryMetrics: value.secondaryMetrics,
       environmentSettings: value.environmentSettings,
@@ -310,18 +343,36 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     canCreateWithoutProject ||
     permissionsUtils.canCreateHoldout({ projects: selectedProjects });
 
-  const exposureQueries = useMemo(() => {
-    return datasource?.settings?.queries?.exposure || [];
-  }, [datasource]);
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  /** A duplicate, or a holdout started from an experiment. */
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    initialExperiment?.exposureQueryId
+      ? { kind: "copy", ...initialExperiment }
+      : null;
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource,
+      assignmentQueryCopySource,
+    ),
+    datasource,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+  });
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
-  useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueries, exposureQueryId]);
 
   let header = "Add new Holdout";
   if (duplicate) {
@@ -603,43 +654,18 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 className="portal-overflow-ellipsis"
               />
 
-              {datasource?.properties?.exposureQueries && exposureQueries ? (
-                <SelectField
+              {datasource?.properties?.exposureQueries ? (
+                <AssignmentQueryFields
+                  selection={assignmentQuerySelection}
                   size="legacy"
-                  label={
-                    <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  value={form.watch("exposureQueryId") ?? ""}
-                  onChange={(v) => form.setValue("exposureQueryId", v)}
-                  required
-                  options={exposureQueries?.map((q) => {
-                    return {
-                      label: q.name,
-                      value: q.id,
-                    };
-                  })}
-                  formatOptionLabel={({ label, value }) => {
-                    const userIdType = exposureQueries?.find(
-                      (e) => e.id === value,
-                    )?.userIdType;
-                    return (
-                      <>
-                        {label}
-                        {userIdType ? (
-                          <span
-                            className="text-muted small float-right position-relative"
-                            style={{ top: 3 }}
-                          >
-                            Identifier Type: <code>{userIdType}</code>
-                          </span>
-                        ) : null}
-                      </>
-                    );
-                  }}
+                  notice={getCopiedAssignmentQueryNotice(
+                    datasource,
+                    assignmentQueryCopySource,
+                    {
+                      exposureQueryId,
+                      identifierType: exposureQueryIdentifierType,
+                    },
+                  )}
                 />
               ) : null}
             </div>
@@ -647,6 +673,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             <ExperimentMetricsSelector
               datasource={datasource?.id}
               exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
               project={project}
               goalMetrics={form.watch("goalMetrics") ?? []}
               secondaryMetrics={form.watch("secondaryMetrics") ?? []}

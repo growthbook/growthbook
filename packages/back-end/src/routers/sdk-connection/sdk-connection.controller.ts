@@ -24,6 +24,7 @@ import {
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
+import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
@@ -34,7 +35,10 @@ export const getSDKConnections = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await withReadablePayloadBreakdowns(
+    context,
+    await findSDKConnectionsByOrganization(context),
+  );
   res.status(200).json({
     status: 200,
     connections,

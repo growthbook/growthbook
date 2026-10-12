@@ -1,5 +1,7 @@
 import {
   autoMerge,
+  AutoMergeResult,
+  reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
@@ -26,8 +28,12 @@ import type { ReqContext } from "back-end/types/request";
 import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
+  scrubDeadProjectScopes,
 } from "back-end/src/models/FeatureModel";
-import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
+import {
+  computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
   getLiveAndBaseRevisionsForFeature,
@@ -347,7 +353,7 @@ export async function planFeatureRevisionMerge({
 
   return {
     environmentIds,
-    mergeResult: merged.result,
+    mergeResult: await scrubDeadProjectScopes(context, merged.result),
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
@@ -592,9 +598,10 @@ export async function collectFeaturePublishGates({
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
+        { result: plan.mergeResult, environmentIds: plan.environmentIds },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
   const hookHardErrors = [
     ...featureHookResults.hardErrors,
@@ -642,4 +649,42 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// The merge an unattended publish lands, under the governance the publish button
+// applies. `rebaseRequired` is the mergeable-but-blocked case; conflicts are the
+// caller's to report.
+export function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
 }
