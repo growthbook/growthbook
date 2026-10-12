@@ -1,10 +1,4 @@
 import React, { useState } from "react";
-import {
-  FaCheck,
-  FaCircle,
-  FaExclamationTriangle,
-  FaSquare,
-} from "react-icons/fa";
 import { PiXBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
@@ -16,11 +10,9 @@ import {
   QueryLogUsage,
   QueryLogUsageGroup,
 } from "shared/types/query";
-import { capitalize } from "lodash";
 import { Flex, Grid, IconButton } from "@radix-ui/themes";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -34,10 +26,12 @@ import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Table, {
   TableBody,
@@ -54,7 +48,7 @@ type UsageUnit = {
   label: string;
   // Picks one scale for a column from its biggest value, so rows compare at a glance
   scaleFor: (values: (number | undefined)[]) => (value: number) => string;
-  // Unrounded value for a title tooltip
+  // Unrounded value for a tooltip
   exact: (value: number) => string;
 };
 
@@ -146,42 +140,45 @@ const DataSourceUsagePage = (): React.ReactElement => {
   const d = getDatasourceById(did);
   const managedWarehousePending = d ? isManagedWarehouseUnavailable(d) : false;
 
-  const canView = d && permissions.check("readData", d.projects || []);
-
   const { data, error, mutate } = useApi<UsageResponse>(
     `/datasource/${did}/usage`,
   );
 
-  if (!canView) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
-    );
-  }
+  const header = (
+    <>
+      <PageHead
+        breadcrumb={[
+          { display: "Data Sources", href: "/datasources" },
+          { display: d?.name ?? did, href: `/datasources/${did}` },
+          { display: "Usage" },
+        ]}
+      />
+      <Heading as="h1" size="xl" mb="5">
+        Usage
+      </Heading>
+    </>
+  );
+  const errorPage = (message: React.ReactNode) => (
+    <div className="container pagecontents">
+      {header}
+      <Callout status="error">{message}</Callout>
+    </div>
+  );
 
-  if (datasourceError || error) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">{datasourceError ?? error?.message}</Callout>
-      </div>
-    );
-  }
-
-  if (!ready || !data) {
-    return <LoadingOverlay />;
-  }
+  if (datasourceError) return errorPage(datasourceError);
+  if (!ready) return <LoadingOverlay />;
   if (!d) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          Datasource <code>{did}</code> does not exist.
-        </Callout>
-      </div>
+    return errorPage(
+      <>
+        Data Source <code>{did}</code> does not exist.
+      </>,
     );
   }
+  if (!permissions.check("readData", d.projects || [])) {
+    return errorPage("You do not have access to view this page.");
+  }
+  if (error) return errorPage(error.message);
+  if (!data) return <LoadingOverlay />;
 
   const units = USAGE_UNITS[d.type] ?? DEFAULT_USAGE_UNITS;
   const { total } = data.usage;
@@ -193,34 +190,26 @@ const DataSourceUsagePage = (): React.ReactElement => {
           <ManagedWarehouseNoEventsCallout />
         </div>
       ) : null}
-      <PageHead
-        breadcrumb={[
-          { display: "Data Sources", href: "/datasources" },
-          { display: d.name, href: `/datasources/${did}` },
-          { display: "Usage" },
-        ]}
-      />
-      <Heading as="h1" size="xl" mb="5">
-        Usage
-      </Heading>
+      {header}
 
       <Heading as="h2" size="md" mb="3">
         Last 30 Days
       </Heading>
-      <Grid columns={{ initial: "1", sm: "4" }} gap="4" mb="4">
+      <Grid
+        columns={{ initial: "1", sm: String(units.length + 1) }}
+        gap="4"
+        mb="4"
+      >
         {units.map((u) => (
           <Frame key={u.field} mb="0" py="4" px="5">
             <Text color="text-mid" weight="medium">
               {u.label}
             </Text>
-            <Text
-              as="div"
-              size="xl"
-              weight="semibold"
-              title={u.exact(total[u.field])}
-            >
-              {u.scaleFor([total[u.field]])(total[u.field])}
-            </Text>
+            <Tooltip content={u.exact(total[u.field])}>
+              <Text as="div" size="xl" weight="semibold">
+                {u.scaleFor([total[u.field]])(total[u.field])}
+              </Text>
+            </Tooltip>
           </Frame>
         ))}
         <Frame mb="0" py="4" px="5">
@@ -315,7 +304,7 @@ function IncrementalRefreshCallout({
       }
     >
       Experiment queries used {shares.join(" and ")}.{" "}
-      <strong>Data Pipeline mode</strong> can help optimize this.
+      <strong>Data Pipeline Mode</strong> can help optimize this.
     </Callout>
   );
 }
@@ -431,10 +420,7 @@ function UsageGroupTable({
                   </Text>
                 )}
                 {row.noDateFilter && (
-                  <Tooltip
-                    body="The fact table SQL has no {{startDate}} filter, so queries may scan the whole table."
-                    tipPosition="top"
-                  >
+                  <Tooltip content="The fact table SQL has no {{startDate}} filter, so queries may scan the whole table.">
                     <Badge
                       color="amber"
                       variant="soft"
@@ -448,12 +434,10 @@ function UsageGroupTable({
               {row.queries.toLocaleString()}
             </TableCell>
             {units.map((u, i) => (
-              <TableCell
-                key={u.field}
-                style={NUMERIC_CELL}
-                title={u.exact(row[u.field])}
-              >
-                {formats[i](row[u.field])}
+              <TableCell key={u.field} style={NUMERIC_CELL}>
+                <Tooltip content={u.exact(row[u.field])}>
+                  <span>{formats[i](row[u.field])}</span>
+                </Tooltip>
                 <span style={{ display: "inline-block", width: 44 }}>
                   <Text size="sm" color="text-low">
                     {share(row[u.field], total[u.field])}
@@ -600,7 +584,7 @@ function RecentQueries({
           {actionError}
         </Callout>
       )}
-      <Table variant="list" stickyHeader={false} roundedCorners>
+      <Table variant="list" roundedCorners scrollX stickyLastColumn>
         <TableHeader>
           <TableRow>
             <SortableTableColumnHeader field="queryType">
@@ -634,18 +618,23 @@ function RecentQueries({
           {items.map((row) => {
             const { queryId } = row;
             return (
-              <TableRow
-                key={row.id}
-                onClick={queryId ? () => openQuery(queryId) : undefined}
-                style={queryId ? { cursor: "pointer" } : undefined}
-              >
-                <TableCell>{row.queryType}</TableCell>
+              <TableRow key={row.id}>
+                <TableCell>
+                  {queryId ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openQuery(queryId)}
+                    >
+                      {row.queryType}
+                    </Button>
+                  ) : (
+                    row.queryType
+                  )}
+                </TableCell>
                 <TableCell>
                   {row.experimentId ? (
-                    <Link
-                      href={`/experiment/${row.experimentId}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <Link href={`/experiment/${row.experimentId}`}>
                       {row.experiment}
                     </Link>
                   ) : (
@@ -654,43 +643,44 @@ function RecentQueries({
                 </TableCell>
                 <TableCell>
                   {row.factTable ? (
-                    <span
-                      title={row.factTableIds
+                    <Tooltip
+                      content={row.factTableIds
                         .map((id) => getFactTableById(id)?.name ?? id)
                         .join(", ")}
                     >
-                      <Link
-                        href={`/fact-tables/${row.factTableIds[0]}`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {row.factTable}
-                      </Link>
-                      {row.factTableIds.length > 1 && (
-                        <Text color="text-low">
-                          {" "}
-                          +{row.factTableIds.length - 1}
-                        </Text>
-                      )}
-                    </span>
+                      <span>
+                        <Link href={`/fact-tables/${row.factTableIds[0]}`}>
+                          {row.factTable}
+                        </Link>
+                        {row.factTableIds.length > 1 && (
+                          <Text color="text-low">
+                            {" "}
+                            +{row.factTableIds.length - 1}
+                          </Text>
+                        )}
+                      </span>
+                    </Tooltip>
                   ) : (
                     "—"
                   )}
                 </TableCell>
                 <TableCell>{row.person || "—"}</TableCell>
                 <TableCell>
-                  <span title={datetime(new Date(row.startedAt))}>
-                    {ago(new Date(row.startedAt))}
-                  </span>
+                  <Tooltip content={datetime(new Date(row.startedAt))}>
+                    <span>{ago(new Date(row.startedAt))}</span>
+                  </Tooltip>
                 </TableCell>
                 {statUnits.map((u, i) => {
                   const value = row[u.field];
                   return (
-                    <TableCell
-                      key={u.field}
-                      style={NUMERIC_CELL}
-                      title={value !== undefined ? u.exact(value) : undefined}
-                    >
-                      {value !== undefined ? statFormats[i](value) : "—"}
+                    <TableCell key={u.field} style={NUMERIC_CELL}>
+                      {value !== undefined ? (
+                        <Tooltip content={u.exact(value)}>
+                          <span>{statFormats[i](value)}</span>
+                        </Tooltip>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                   );
                 })}
@@ -730,6 +720,17 @@ function RecentQueries({
   );
 }
 
+const STATUS_BADGES: Record<
+  QueryInterface["status"],
+  { label: string; color: "green" | "amber" | "red" | "blue" | "gray" }
+> = {
+  succeeded: { label: "Succeeded", color: "green" },
+  "partially-succeeded": { label: "Partially succeeded", color: "amber" },
+  failed: { label: "Failed", color: "red" },
+  running: { label: "Running", color: "blue" },
+  queued: { label: "Queued", color: "gray" },
+};
+
 function QueryStatus({
   status,
   error,
@@ -739,53 +740,26 @@ function QueryStatus({
   error?: string;
   onCancel?: () => Promise<void>;
 }) {
+  const { label, color } = STATUS_BADGES[status];
   return (
-    <span className="d-flex align-items-center">
-      <Tooltip
-        body={
-          <div>
-            <strong>{capitalize(status)}</strong>
-            {status === "failed" && error && <p className="mb-0">{error}</p>}
-          </div>
-        }
-        tipMinWidth="50px"
-        tipPosition="top"
-      >
-        {status === "running" && (
-          <FaCircle className="text-info mr-2" title="Running" />
-        )}
-        {status === "queued" && (
-          <FaSquare className="text-secondary mr-2" title="Queued" />
-        )}
-        {status === "failed" && (
-          <FaExclamationTriangle className="text-danger mr-2" title="Failed" />
-        )}
-        {status === "succeeded" && (
-          <FaCheck className="text-success mr-2" title="Succeeded" />
-        )}
+    <Flex align="center" gap="2">
+      <Tooltip content={error} enabled={status === "failed" && !!error}>
+        <Badge label={label} color={color} variant="soft" />
       </Tooltip>
       {onCancel && (
-        <Tooltip
-          body="Cancel query"
-          tipPosition="top"
-          tipMinWidth="50"
-          flipTheme={false}
-        >
+        <Tooltip content="Cancel query">
           <IconButton
             variant="solid"
             color="tomato"
-            size="2"
-            style={{ width: 20, height: 20, padding: 2 }}
+            size="1"
             radius="full"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancel();
-            }}
+            aria-label="Cancel query"
+            onClick={onCancel}
           >
-            <PiXBold size={14} />
+            <PiXBold />
           </IconButton>
         </Tooltip>
       )}
-    </span>
+    </Flex>
   );
 }

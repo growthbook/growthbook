@@ -538,7 +538,7 @@ export default function FactTablePage() {
           )}
           {!hasStartDateFilter(factTable.sql) && (
             <Callout
-              status="info"
+              status="warning"
               mt="3"
               action={
                 <DocLink docSection="queryOptimization" useRadix>
