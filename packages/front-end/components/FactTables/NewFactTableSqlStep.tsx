@@ -100,6 +100,7 @@ function TablePicker({
   const {
     data,
     error: fetchError,
+    isValidating,
     mutate,
   } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
@@ -118,6 +119,11 @@ function TablePicker({
   const [error, setError] = useState<string | null>(null);
   const schemaError =
     error || fetchError?.message || informationSchema?.error?.message || null;
+  const refreshLabel = schemaError
+    ? "Retry loading tables"
+    : informationSchema
+      ? "Refresh tables"
+      : "Load tables";
 
   const buildSchema = async () => {
     setError(null);
@@ -237,13 +243,9 @@ function TablePicker({
                   ) : null}
                   {building
                     ? "Loading tables. This can take a minute."
-                    : !canRunQueries
+                    : data && !canRunQueries
                       ? "You don't have permission to load tables for this Data Source."
-                      : schemaError
-                        ? "Click to retry."
-                        : informationSchema
-                          ? "Refresh tables"
-                          : "Load tables"}
+                      : refreshLabel}
                 </>
               }
             >
@@ -252,10 +254,12 @@ function TablePicker({
                 variant="ghost"
                 size="1"
                 color={schemaError ? "red" : undefined}
-                aria-label="Refresh tables"
-                loading={building}
-                disabled={!canRunQueries || !data}
-                onClick={buildSchema}
+                aria-label={refreshLabel}
+                loading={building || (!!fetchError && isValidating)}
+                // Without the schema there's nothing to rebuild, so a failed
+                // load retries the load itself
+                disabled={data ? !canRunQueries : !fetchError}
+                onClick={data ? buildSchema : () => mutate()}
               >
                 <PiArrowClockwise />
               </IconButton>
