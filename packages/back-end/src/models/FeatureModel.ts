@@ -12,6 +12,7 @@ import {
   getApplicableEnvIds,
   getExperimentIdsFromRules,
   getRulesForEnvironment,
+  getValidation,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
@@ -3839,7 +3840,8 @@ async function cleanupOrphanedRampSchedules(
 // handler (which runs the same net non-throwing as publish gates). Only values
 // THIS publish changes are checked — a pre-existing violation must not block
 // status-only publishes (kill switches, safe-rollout rollbacks, ramp advances).
-// A baseConfig change re-checks everything (new backing schema).
+// A baseConfig change re-checks everything (new backing schema), and a
+// jsonSchema change sets `valueSchemaChanged` so every value is re-checked.
 export function computeProposedFeatureForValidation(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -3849,6 +3851,7 @@ export function computeProposedFeatureForValidation(
   proposedFeature: FeatureInterface;
   defaultToCheck: string | undefined;
   rulesToCheck: FeatureRule[];
+  valueSchemaChanged: boolean;
 } {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
     context,
@@ -3890,7 +3893,16 @@ export function computeProposedFeatureForValidation(
       changes.defaultValue !== feature.defaultValue)
       ? proposedFeature.defaultValue
       : undefined;
-  return { proposedFeature, defaultToCheck, rulesToCheck };
+  const valueSchemaChanged = !isEqual(
+    effectiveValueSchema(feature),
+    effectiveValueSchema(proposedFeature),
+  );
+  return { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged };
+}
+
+function effectiveValueSchema(feature: Pick<FeatureInterface, "jsonSchema">) {
+  const { validationEnabled, schemaString } = getValidation(feature);
+  return validationEnabled ? (schemaString ?? null) : null;
 }
 
 // Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
@@ -3915,7 +3927,7 @@ export async function prevalidatePublishRevision({
   skipValidation?: boolean;
   skipValueSchemaNet?: boolean;
 }) {
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(context, feature, revision, result);
   await assertFeatureSavedGroupScope(context, proposedFeature, [
     feature,
@@ -3925,8 +3937,14 @@ export async function prevalidatePublishRevision({
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
+  if (!skipValueSchemaNet && valueSchemaChanged) {
+    assertFeatureValuesValidForPublish(context, proposedFeature, {
+      defaultValue: proposedFeature.defaultValue,
+      rules: proposedFeature.rules,
+    });
+  }
   if (defaultToCheck !== undefined || rulesToCheck.length) {
-    if (!skipValueSchemaNet) {
+    if (!skipValueSchemaNet && !valueSchemaChanged) {
       assertFeatureValuesValidForPublish(
         context,
         proposedFeature,

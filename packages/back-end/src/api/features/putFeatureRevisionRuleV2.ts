@@ -45,6 +45,7 @@ import {
   stagedFeature,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -270,7 +271,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // ?skipSchemaValidation=true.
     assertFeatureValuesValid(
       req.context,
-      feature,
+      withStagedSchema(feature, revision),
       { rules: [updatedRule as FeatureRule] },
       { rules: [oldRule] },
     );

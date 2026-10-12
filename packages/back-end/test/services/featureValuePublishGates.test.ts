@@ -7,6 +7,17 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { evaluatePublishGates } from "back-end/src/revisions/publishGates";
 
+jest.mock("back-end/src/enterprise/sandbox/sandbox-eval", () => ({
+  collectValidateFeatureHookResults: jest.fn(async () => ({
+    hardErrors: [],
+    warnings: [],
+  })),
+  collectValidateFeatureRevisionHookResults: jest.fn(async () => ({
+    hardErrors: [],
+    warnings: [],
+  })),
+}));
+
 const plan: FeatureMergePlan = {
   environmentIds: ["production"],
   mergeResult: {},
@@ -95,5 +106,78 @@ describe("feature value publish gates", () => {
       "invalid-feature-value",
     ]);
     expect(gates[1].messages[0]).toContain("Rule #1");
+  });
+
+  describe("staged JSON schema", () => {
+    const schema = (json: object) => ({
+      schemaType: "schema" as const,
+      schema: JSON.stringify(json),
+      simple: { type: "object" as const, fields: [] },
+      date: new Date(),
+      enabled: true,
+    });
+    const loose = schema({ type: "object" });
+    const tight = schema({ type: "object", required: ["color"] });
+    const jsonFeature = (overrides: Partial<FeatureInterface>) =>
+      ({
+        id: "schema-feature",
+        organization: "org",
+        valueType: "json",
+        defaultValue: "{}",
+        rules: [],
+        environmentSettings: {},
+        ...overrides,
+      }) as unknown as FeatureInterface;
+    const schemaGate = async (
+      feature: FeatureInterface,
+      mergeResult: FeatureMergePlan["mergeResult"],
+    ) => {
+      const gates = await collectFeaturePublishGates({
+        context,
+        feature,
+        revision,
+        plan: { ...plan, mergeResult },
+        includeValidationGates: true,
+      });
+      return gates.find((gate) => gate.type === "schema-validation");
+    };
+
+    it("checks unchanged live values against a tightened staged schema", async () => {
+      const gate = await schemaGate(
+        jsonFeature({
+          jsonSchema: loose,
+          rules: [
+            {
+              id: "fr_1",
+              type: "force",
+              value: '{"size":1}',
+              description: "",
+              allEnvironments: true,
+            },
+          ],
+        }),
+        { metadata: { jsonSchema: tight } },
+      );
+      expect(gate?.messages).toEqual([
+        "Invalid feature value:",
+        expect.stringContaining("Default value"),
+        expect.stringContaining("Rule #1"),
+      ]);
+    });
+
+    it("accepts a changed value that only the loosened staged schema allows", async () => {
+      const gate = await schemaGate(jsonFeature({ jsonSchema: tight }), {
+        defaultValue: '{"size":1}',
+        metadata: { jsonSchema: loose },
+      });
+      expect(gate).toBeUndefined();
+    });
+
+    it("still skips unchanged values when the staged schema matches live", async () => {
+      const gate = await schemaGate(jsonFeature({ jsonSchema: tight }), {
+        metadata: { jsonSchema: { ...tight, date: new Date(0) } },
+      });
+      expect(gate).toBeUndefined();
+    });
   });
 });
