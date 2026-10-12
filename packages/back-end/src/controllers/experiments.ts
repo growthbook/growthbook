@@ -135,6 +135,7 @@ import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/sr
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
+import { trackEventForContext } from "back-end/src/services/growthbook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -3656,6 +3657,13 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   const context = getContextFromReq(req);
   const { experiments } = req.body;
   if (!experiments.length) {
+    trackEventForContext(context, "Experiment Impact Calculation Completed", {
+      outcome: "no_op",
+      requestedExperimentCount: 0,
+      analysisCount: 0,
+      requestedExperimentIds: [],
+      analyzedExperimentIds: [],
+    });
     res.status(200).json({
       status: 200,
     });
@@ -3692,13 +3700,25 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     });
   });
 
+  let outcome: "success" | "error" | "no_op" = "no_op";
   if (snapshotAnalysesToCreate.length > 0) {
-    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
-      (e) => {
-        req.log.error(e);
-      },
-    );
+    try {
+      await createSnapshotAnalyses(snapshotAnalysesToCreate, context);
+      outcome = "success";
+    } catch (e) {
+      outcome = "error";
+      req.log.error(e);
+    }
   }
+  trackEventForContext(context, "Experiment Impact Calculation Completed", {
+    outcome,
+    requestedExperimentCount: experiments.length,
+    analysisCount: snapshotAnalysesToCreate.length,
+    requestedExperimentIds: experiments,
+    analyzedExperimentIds: snapshotAnalysesToCreate.map(
+      ({ experiment }) => experiment.id,
+    ),
+  });
   res.status(200).json({
     status: 200,
   });
