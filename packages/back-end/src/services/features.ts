@@ -3942,6 +3942,19 @@ const logCyclicPrerequisite = (
   );
 };
 
+const logInvalidPrerequisiteCondition = (
+  err: unknown,
+  prerequisite: string,
+  environment: string,
+  organization?: string,
+  feature?: string,
+) => {
+  logger.warn(
+    { err, organization, feature, prerequisite, environment },
+    "Invalid prerequisite condition during SDK payload generation; treating it as failing",
+  );
+};
+
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
@@ -3993,6 +4006,14 @@ export const reduceFeaturesWithPrerequisites = (
           const evaled = evalDeterministicPrereqValue(
             state.value ?? null,
             prereq.condition,
+            (e) =>
+              logInvalidPrerequisiteCondition(
+                e,
+                prereq.id,
+                environment,
+                feature.organization,
+                feature.id,
+              ),
           );
           if (evaled === "fail") {
             removeFeature = true;
@@ -4140,6 +4161,13 @@ const getInlinePrerequisitesReductionInfo = (
         const evaled = evalDeterministicPrereqValue(
           state.value ?? null,
           pc.condition,
+          (e) =>
+            logInvalidPrerequisiteCondition(
+              e,
+              pc.id,
+              environment,
+              prereqFeature?.organization,
+            ),
         );
         if (evaled === "fail") {
           // remove the rule

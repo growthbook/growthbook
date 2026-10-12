@@ -296,6 +296,66 @@ describe("Prerequisite reduction in SDK Payload", () => {
     }
   });
 
+  it("Treats a prerequisite condition the SDK cannot evaluate as failing and keeps the rest of the payload", () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
+    const features: FeatureInterface[] = [
+      {
+        ...cloneDeep(childFeature),
+        prerequisites: [{ id: "parent1", condition: '{"$not":null}' }],
+      },
+      {
+        ...cloneDeep(childFeature),
+        id: "rule-consumer",
+        defaultValue: "false",
+        prerequisites: [],
+        rules: [
+          {
+            type: "force",
+            description: "",
+            enabled: true,
+            allEnvironments: true,
+            value: "true",
+            prerequisites: [{ id: "parent1", condition: '{"$or":[null]}' }],
+          },
+        ],
+      },
+      cloneDeep(parentFeature),
+      { ...cloneDeep(parentFeature), id: "unrelated1" },
+    ];
+
+    try {
+      const payload = generateFeaturesPayload({
+        features,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        holdoutsMap: new Map(),
+        capabilities: ["prerequisites"],
+      });
+      expect(payload).not.toHaveProperty("child1");
+      expect(payload["rule-consumer"]).toEqual({ defaultValue: false });
+      expect(payload).toHaveProperty("parent1");
+      expect(payload).toHaveProperty("unrelated1");
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization: "123",
+          feature: "child1",
+          prerequisite: "parent1",
+          environment: "production",
+        }),
+        expect.stringContaining("Invalid prerequisite condition"),
+      );
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({ prerequisite: "parent1" }),
+        expect.stringContaining("Invalid prerequisite condition"),
+      );
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("Does not block when top-level prerequisite has conditional state, creates inline gating rule", () => {
     const features: FeatureInterface[] = [
       cloneDeep(childFeature),

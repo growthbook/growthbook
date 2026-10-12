@@ -2990,12 +2990,17 @@ export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
   condition: string,
+  onError?: (e: unknown) => void,
 ): "pass" | "fail" {
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
   const evalObj = { value: value };
-  const pass = evalCondition(evalObj, parsedCondition);
-  return pass ? "pass" : "fail";
+  try {
+    return evalCondition(evalObj, parsedCondition) ? "pass" : "fail";
+  } catch (e) {
+    onError?.(e);
+    return "fail";
+  }
 }
 
 /** Maps each feature ID to the set of features that depend on it as a prerequisite. */
