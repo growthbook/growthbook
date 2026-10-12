@@ -97,6 +97,8 @@ const UNSAFE_REDIRECT_SCHEMES = [
   "file:",
   "blob:",
   "about:",
+  "filesystem:",
+  "intent:",
 ];
 
 const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];

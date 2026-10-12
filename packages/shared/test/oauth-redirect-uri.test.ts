@@ -25,6 +25,8 @@ describe("isSafeOAuthRedirectUri", () => {
     "file:///etc/passwd",
     "blob:https://evil.example/uuid",
     "about:blank",
+    "filesystem:https://evil.example/temporary/x.html",
+    "intent://evil.example#Intent;scheme=https;end",
     "not a url",
     "http://client.example.com/cb",
     "http://localhost.evil.example/cb",
