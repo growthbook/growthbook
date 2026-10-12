@@ -560,7 +560,7 @@ describe("mintAuthorizationCode redirect scheme", () => {
       }),
     ).rejects.toMatchObject({
       error: "invalid_request",
-      errorDescription: "redirect_uri uses an unsupported scheme",
+      errorDescription: "redirect_uri is not allowed",
     } satisfies Partial<OAuthError>);
 
     expect(context.models.oauthAuthCodes.create).not.toHaveBeenCalled();

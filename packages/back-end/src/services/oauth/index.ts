@@ -234,10 +234,7 @@ export async function getAuthorizeInfo(params: {
   }
   // Also covers clients registered before DCR rejected these schemes.
   if (!isSafeOAuthRedirectUri(params.redirectUri)) {
-    throw new OAuthError(
-      "invalid_request",
-      "redirect_uri uses an unsupported scheme",
-    );
+    throw new OAuthError("invalid_request", "redirect_uri is not allowed");
   }
   return {
     clientId: client.clientId,

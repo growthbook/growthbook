@@ -99,9 +99,14 @@ const UNSAFE_REDIRECT_SCHEMES = [
   "about:",
 ];
 
+const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
 export function isSafeOAuthRedirectUri(uri: string): boolean {
   try {
-    return !UNSAFE_REDIRECT_SCHEMES.includes(new URL(uri).protocol);
+    const url = new URL(uri);
+    // Plain http only to loopback (RFC 8252 §8.3); anything else sends the code in cleartext.
+    if (url.protocol === "http:") return LOOPBACK_HOSTS.includes(url.hostname);
+    return !UNSAFE_REDIRECT_SCHEMES.includes(url.protocol);
   } catch {
     return false;
   }
@@ -117,7 +122,10 @@ export const oauthDcrRequestValidator = z.object({
       z
         .string()
         .url()
-        .refine(isSafeOAuthRedirectUri, "Unsupported redirect URI scheme"),
+        .refine(
+          isSafeOAuthRedirectUri,
+          "Redirect URI must be https, loopback http, or an app scheme",
+        ),
     )
     .min(1),
   token_endpoint_auth_method: z.literal("none").optional(),

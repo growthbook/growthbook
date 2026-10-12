@@ -7,6 +7,8 @@ describe("isSafeOAuthRedirectUri", () => {
   it.each([
     "https://client.example.com/cb",
     "http://localhost:8787/callback",
+    "http://127.0.0.1:8787/callback",
+    "http://[::1]:8787/callback",
     "cursor://anysphere.cursor-retrieval/oauth/callback",
     "com.example.app:/oauth2redirect",
   ])("allows %s", (uri) => {
@@ -24,6 +26,8 @@ describe("isSafeOAuthRedirectUri", () => {
     "blob:https://evil.example/uuid",
     "about:blank",
     "not a url",
+    "http://client.example.com/cb",
+    "http://localhost.evil.example/cb",
   ])("rejects %j", (uri) => {
     expect(isSafeOAuthRedirectUri(uri)).toBe(false);
   });
