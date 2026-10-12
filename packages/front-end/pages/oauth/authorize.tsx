@@ -387,7 +387,7 @@ export default function OAuthAuthorizePage() {
           </Text>
           {redirectTarget && !redirectTarget.isLocal ? (
             <HelperText status="info" size="sm" mt="2">
-              Your authorization code will be sent to {redirectTarget.host}
+              Authorizing or denying will return you to {redirectTarget.host}
             </HelperText>
           ) : null}
         </Flex>
