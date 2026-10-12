@@ -26,8 +26,8 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
-import { ExperimentQualityConfigInterface } from "shared/enterprise";
 import {
+  ExperimentQualityConfigInterface,
   ExperimentationHealthSettingsInterface,
   WebhookSecretFrontEndInterface,
 } from "shared/validators";

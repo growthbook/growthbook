@@ -1,10 +1,25 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import isEqual from "lodash/isEqual";
+import isUndefined from "lodash/isUndefined";
+import omitBy from "lodash/omitBy";
 import {
-  ExperimentQualityConfigInterface,
+  ExperimentationHealthSummary,
+  computeHealthGrade,
+  countHealthOverrides,
+  getHealthTargetError,
+  resolveGradeWeights,
+  resolveHealthTargets,
   resolveQualityScope,
 } from "shared/enterprise";
-import { ExperimentationHealthQualitySettings } from "shared/validators";
+import {
+  ExperimentQualityConfigInterface,
+  ExperimentationHealthMetricKey,
+  ExperimentationHealthSettingsInterface,
+  ExperimentationHealthTarget,
+  ORG_DEFAULT_SCOPE,
+  experimentationHealthMetricKeys,
+} from "shared/validators";
 import { AIPromptInterface, AI_PROMPT_DEFAULTS } from "shared/ai";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -14,32 +29,46 @@ import Text from "@/ui/Text";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Field from "@/components/Forms/Field";
 import TempMessage from "@/components/TempMessage";
 import useApi from "@/hooks/useApi";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  QualityConfigDraft,
   configToDraft,
   draftToConfig,
   isDegenerateDraft,
 } from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
-import QualityScoreTab, {
-  GROWTHBOOK_DEFAULT_CONFIG_LABEL,
-} from "./QualityScoreTab";
+import QualityScoreTab from "./QualityScoreTab";
+import TargetsTab from "./TargetsTab";
+import GradeTab from "./GradeTab";
+import ConfigNameModal from "./ConfigNameModal";
 import { OverrideDot } from "./OverrideMarker";
 
-const ORG_SCOPE = "";
+// Select items can't use "" as a value
+const ORG_SCOPE_OPTION = "__organization__";
 
-function countOverrides(quality?: ExperimentationHealthQualitySettings) {
-  return Object.values(quality ?? {}).filter((v) => v !== undefined).length;
+// What one scope's record customizes
+type ScopeDraft = Pick<
+  ExperimentationHealthSettingsInterface,
+  "quality" | "targets" | "gradeWeights"
+>;
+
+function toScopeDraft(
+  record: ExperimentationHealthSettingsInterface | null,
+): ScopeDraft {
+  return {
+    quality: record?.quality ?? {},
+    targets: record?.targets ?? {},
+    gradeWeights: record?.gradeWeights,
+  };
 }
 
 export default function ExperimentationHealthPage() {
   const { apiCall } = useAuth();
-  const orgSettings = useOrgSettings();
+  const { aiEnabled } = useAISettings();
   const permissionsUtil = usePermissionsUtil();
   const {
     projects,
@@ -48,22 +77,22 @@ export default function ExperimentationHealthPage() {
     getExperimentQualityConfigById,
     mutateDefinitions,
   } = useDefinitions();
-
   const canManageConfigs = permissionsUtil.canManageOrgSettings();
-  const aiAvailable = !!orgSettings.aiEnabled;
 
-  const [scope, setScope] = useState(ORG_SCOPE);
+  const [scope, setScope] = useState(ORG_DEFAULT_SCOPE);
   const [resetOpen, setResetOpen] = useState(false);
   const [nameOnSaveOpen, setNameOnSaveOpen] = useState(false);
-  const [newConfigName, setNewConfigName] = useState("");
   const [saveMsg, setSaveMsg] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   const { data: statusData } = useApi<{ stoppedExperiments: number }>(
     "/experiment-quality-score/status",
   );
-  // The org's definition of a good hypothesis (customized on the AI
-  // settings page, else the shared default) seeds the Hypothesis quality
+  const { data: summary, mutate: mutateSummary } =
+    useApi<ExperimentationHealthSummary>(
+      `/experimentation-health/summary?project=${encodeURIComponent(scope)}`,
+    );
+  // The org's definition of a good hypothesis seeds the Hypothesis quality
   // check's context
   const { data: promptsData } = useApi<{ prompts: AIPromptInterface[] }>(
     "/ai/prompts",
@@ -72,90 +101,131 @@ export default function ExperimentationHealthPage() {
     promptsData?.prompts?.find((p) => p.type === "experiment-hypothesis")
       ?.prompt || AI_PROMPT_DEFAULTS["experiment-hypothesis"];
 
-  // --- Scope settings draft (quality on/off + configuration choice) ---
-  const orgRecord = getHealthSettingsForScope(ORG_SCOPE);
+  // --- Scope draft: quality choice, targets and grade weights ---
+  const isOrgScope = scope === ORG_DEFAULT_SCOPE;
+  const orgRecord = getHealthSettingsForScope(ORG_DEFAULT_SCOPE);
   const scopeRecord = getHealthSettingsForScope(scope);
-  const savedQualityKey = JSON.stringify([scope, scopeRecord?.quality ?? {}]);
-  const savedQuality = useMemo<ExperimentationHealthQualitySettings>(
-    () => scopeRecord?.quality ?? {},
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [savedQualityKey],
-  );
-  const [qualityDraft, setQualityDraft] = useState(savedQuality);
-  useEffect(() => setQualityDraft(savedQuality), [savedQuality]);
-  const qualityDirty =
-    JSON.stringify(qualityDraft) !== JSON.stringify(savedQuality);
+  const savedScope = useMemo(() => toScopeDraft(scopeRecord), [scopeRecord]);
+  // Edits are tagged with their scope so switching scopes drops them
+  const [scopeEdits, setScopeEdits] = useState<{
+    scope: string;
+    draft: ScopeDraft;
+  } | null>(null);
+  const scopeDraft =
+    scopeEdits?.scope === scope ? scopeEdits.draft : savedScope;
+  const scopeDirty = !isEqual(scopeDraft, savedScope);
+  const updateScope = (changes: Partial<ScopeDraft>) =>
+    setScopeEdits({ scope, draft: { ...scopeDraft, ...changes } });
 
-  const isOrgScope = scope === ORG_SCOPE;
-  const effective = isOrgScope
-    ? resolveQualityScope({ quality: qualityDraft }, null)
-    : resolveQualityScope(orgRecord, { quality: qualityDraft });
+  // On the organization default, the draft is the org record; on a Project,
+  // it overrides the saved org record field by field
+  const orgForResolve = isOrgScope ? scopeDraft : orgRecord;
+  const projectForResolve = isOrgScope ? null : scopeDraft;
+  const effective = resolveQualityScope(orgForResolve, projectForResolve);
+  const targets = resolveHealthTargets(orgForResolve, projectForResolve);
+  const weights = resolveGradeWeights(orgForResolve, projectForResolve);
 
-  // --- Configuration draft (the checks and weights being edited) ---
+  // --- Config draft: the checks and weights of the configuration in use ---
   // A missing or deleted configuration falls back to the built-in default
   const effectiveConfig: ExperimentQualityConfigInterface | null =
     (effective.configId &&
       getExperimentQualityConfigById(effective.configId)) ||
     null;
-  const configSeedKey = JSON.stringify(effectiveConfig);
   const configSeed = useMemo(
-    () =>
-      configToDraft(
-        effectiveConfig,
-        effectiveConfig?.name ?? GROWTHBOOK_DEFAULT_CONFIG_LABEL,
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [configSeedKey],
+    () => configToDraft(effectiveConfig),
+    [effectiveConfig],
   );
-  const [configDraft, setConfigDraft] = useState(configSeed);
-  useEffect(() => setConfigDraft(configSeed), [configSeed]);
-  const configDirty =
-    JSON.stringify(configDraft) !== JSON.stringify(configSeed);
+  const configKey = `${scope}:${effectiveConfig?.id ?? ""}`;
+  const [configEdits, setConfigEdits] = useState<{
+    key: string;
+    draft: QualityConfigDraft;
+  } | null>(null);
+  const configDraft =
+    configEdits?.key === configKey ? configEdits.draft : configSeed;
+  const configDirty = !isEqual(configDraft, configSeed);
 
-  const anyDirty = qualityDirty || configDirty;
+  const anyDirty = scopeDirty || configDirty;
   const degenerate = isDegenerateDraft(configDraft);
   const invalidCustomChecks = configDraft.customAiChecks.some(
     (c) => !c.rule.trim(),
   );
+  const hasTargetErrors = experimentationHealthMetricKeys.some(
+    (k) => !!getHealthTargetError(k, targets[k].target),
+  );
+
+  const savedGrade =
+    summary &&
+    computeHealthGrade({
+      ...summary,
+      orgRecord,
+      projectRecord: isOrgScope ? null : scopeRecord,
+    });
+  const draftGrade =
+    summary &&
+    computeHealthGrade({
+      ...summary,
+      orgRecord: orgForResolve,
+      projectRecord: projectForResolve,
+    });
 
   const customizedProjectIds = new Set(
     experimentationHealthSettings
-      .filter((r) => r.project !== ORG_SCOPE && countOverrides(r.quality))
+      .filter((r) => r.project !== ORG_DEFAULT_SCOPE && countHealthOverrides(r))
       .map((r) => r.project),
   );
-  const draftOverrideCount = countOverrides(qualityDraft);
+  const draftOverrideCount = countHealthOverrides(scopeDraft);
 
-  async function saveScope(quality: ExperimentationHealthQualitySettings) {
+  async function saveScope(draft: ScopeDraft) {
     await apiCall("/experimentation-health/settings", {
       method: "PUT",
-      body: JSON.stringify({ project: scope, quality }),
+      body: JSON.stringify({ project: scope, ...draft }),
     });
   }
 
+  async function createConfig(name: string): Promise<string> {
+    const res = await apiCall<{ config: ExperimentQualityConfigInterface }>(
+      "/experiment-quality-score/configs",
+      {
+        method: "POST",
+        body: JSON.stringify({ name, ...draftToConfig(configDraft) }),
+      },
+    );
+    await mutateDefinitions();
+    return res.config.id;
+  }
+
+  async function afterSave({ scoringChanged }: { scoringChanged: boolean }) {
+    setScopeEdits(null);
+    setConfigEdits(null);
+    await mutateDefinitions();
+    // Targets and weights don't change the values; quality settings do
+    if (scoringChanged) await mutateSummary();
+    setSaveMsg(true);
+  }
+
   async function save() {
-    // Edits to the built-in default become a new named configuration
+    // The built-in default can't be edited, so edits to it are saved as a
+    // new named configuration
     if (configDirty && !effectiveConfig) {
-      setNewConfigName("");
       setNameOnSaveOpen(true);
       return;
     }
     if (configDirty && effectiveConfig) {
       await apiCall(`/experiment-quality-score/configs/${effectiveConfig.id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          name: effectiveConfig.name,
-          ...draftToConfig(configDraft),
-        }),
+        body: JSON.stringify(draftToConfig(configDraft)),
       });
     }
-    if (qualityDirty) await saveScope(qualityDraft);
-    await mutateDefinitions();
-    setSaveMsg(true);
+    if (scopeDirty) await saveScope(scopeDraft);
+    await afterSave({
+      scoringChanged:
+        configDirty || !isEqual(scopeDraft.quality, savedScope.quality),
+    });
   }
 
   function cancel() {
-    setQualityDraft(savedQuality);
-    setConfigDraft(configSeed);
+    setScopeEdits(null);
+    setConfigEdits(null);
     setSaveError("");
   }
 
@@ -178,7 +248,7 @@ export default function ExperimentationHealthPage() {
               `/experimentation-health/settings?project=${encodeURIComponent(scope)}`,
               { method: "DELETE" },
             );
-            await mutateDefinitions();
+            await afterSave({ scoringChanged: true });
           }}
         >
           <Text as="p">
@@ -189,40 +259,20 @@ export default function ExperimentationHealthPage() {
       )}
 
       {nameOnSaveOpen && (
-        <ModalStandard
-          open
-          trackingEventModalType="name-experiment-quality-config"
+        <ConfigNameModal
           header="Name This Configuration"
           cta="Save"
-          ctaEnabled={!!newConfigName.trim()}
+          note={`The GrowthBook default can't be changed, so your edits are saved as a new configuration used by ${scopeLabel}.`}
           close={() => setNameOnSaveOpen(false)}
-          submit={async () => {
-            const res = await apiCall<{
-              config: ExperimentQualityConfigInterface;
-            }>("/experiment-quality-score/configs", {
-              method: "POST",
-              body: JSON.stringify({
-                name: newConfigName.trim(),
-                ...draftToConfig(configDraft),
-              }),
+          submit={async (name) => {
+            const configId = await createConfig(name);
+            await saveScope({
+              ...scopeDraft,
+              quality: { ...scopeDraft.quality, configId },
             });
-            await saveScope({ ...qualityDraft, configId: res.config.id });
-            await mutateDefinitions();
-            setSaveMsg(true);
+            await afterSave({ scoringChanged: true });
           }}
-        >
-          <Field
-            label="Name"
-            value={newConfigName}
-            onChange={(e) => setNewConfigName(e.target.value)}
-            placeholder="e.g. Growth team standards"
-            autoFocus
-          />
-          <Text size="sm" color="text-mid">
-            The GrowthBook default can&apos;t be changed, so your edits are
-            saved as a new configuration used by {scopeLabel}.
-          </Text>
-        </ModalStandard>
+        />
       )}
 
       <Heading as="h1" size="xl" mb="1">
@@ -253,11 +303,15 @@ export default function ExperimentationHealthPage() {
           </Text>
           <Select
             size="sm"
-            value={scope}
-            setValue={setScope}
+            value={isOrgScope ? ORG_SCOPE_OPTION : scope}
+            setValue={(v) =>
+              setScope(v === ORG_SCOPE_OPTION ? ORG_DEFAULT_SCOPE : v)
+            }
             disabled={anyDirty}
           >
-            <SelectItem value={ORG_SCOPE}>Organization default</SelectItem>
+            <SelectItem value={ORG_SCOPE_OPTION}>
+              Organization default
+            </SelectItem>
             {projects.length > 0 && <SelectSeparator />}
             {projects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
@@ -269,19 +323,19 @@ export default function ExperimentationHealthPage() {
             ))}
           </Select>
         </Flex>
-        {anyDirty && (
+        {anyDirty ? (
           <Text size="sm" color="text-low">
             Save or cancel your changes to switch scope
           </Text>
-        )}
-        {!anyDirty && isOrgScope && customizedProjectIds.size > 0 && (
-          <Text size="sm" color="text-low">
-            {customizedProjectIds.size}{" "}
-            {customizedProjectIds.size === 1 ? "Project" : "Projects"}{" "}
-            customized
-          </Text>
-        )}
-        {!anyDirty && !isOrgScope && (
+        ) : isOrgScope ? (
+          customizedProjectIds.size > 0 && (
+            <Text size="sm" color="text-low">
+              {customizedProjectIds.size}{" "}
+              {customizedProjectIds.size === 1 ? "Project" : "Projects"}{" "}
+              customized
+            </Text>
+          )
+        ) : (
           <Flex align="center" gap="2">
             {draftOverrideCount > 0 && <OverrideDot />}
             <Text size="sm" color="text-mid">
@@ -300,26 +354,66 @@ export default function ExperimentationHealthPage() {
         )}
       </Flex>
 
-      <Tabs defaultValue="quality" persistInURL mt="4">
+      <Tabs defaultValue="targets" persistInURL mt="4">
         <TabsList>
+          <TabsTrigger value="targets">Targets</TabsTrigger>
+          <TabsTrigger value="grade">Grade</TabsTrigger>
           <TabsTrigger value="quality">Quality Score</TabsTrigger>
         </TabsList>
+        <TabsContent value="targets">
+          <TargetsTab
+            isOrgScope={isOrgScope}
+            targets={targets}
+            setTarget={(
+              key: ExperimentationHealthMetricKey,
+              target: ExperimentationHealthTarget | undefined,
+            ) => {
+              const next = { ...scopeDraft.targets };
+              if (target) next[key] = target;
+              else delete next[key];
+              updateScope({ targets: next });
+            }}
+            values={summary?.values}
+            ideasInUse={!!summary?.ideasInUse}
+            loading={!summary}
+          />
+        </TabsContent>
+        <TabsContent value="grade">
+          <GradeTab
+            isOrgScope={isOrgScope}
+            weights={weights.weights}
+            orgWeights={weights.orgWeights}
+            overridden={weights.overridden}
+            setWeights={(gradeWeights) => updateScope({ gradeWeights })}
+            savedGrade={savedGrade ?? null}
+            draftGrade={draftGrade ?? null}
+            loading={!summary}
+          />
+        </TabsContent>
         <TabsContent value="quality">
           <QualityScoreTab
-            scope={scope}
-            orgQuality={isOrgScope ? qualityDraft : (orgRecord?.quality ?? {})}
-            qualityDraft={qualityDraft}
-            setQualityDraft={setQualityDraft}
+            isOrgScope={isOrgScope}
+            orgQuality={
+              (isOrgScope ? scopeDraft.quality : orgRecord?.quality) ?? {}
+            }
+            qualityDraft={scopeDraft.quality ?? {}}
+            setQualityDraft={(quality) =>
+              // Drop reset fields so an undone change doesn't read as an edit
+              updateScope({ quality: omitBy(quality, isUndefined) })
+            }
             effective={effective}
             effectiveConfig={effectiveConfig}
             configDraft={configDraft}
-            setConfigDraft={setConfigDraft}
+            setConfigDraft={(draft) =>
+              setConfigEdits({ key: configKey, draft })
+            }
             configDirty={configDirty}
             anyDirty={anyDirty}
             canManageConfigs={canManageConfigs}
-            aiAvailable={aiAvailable}
+            aiAvailable={aiEnabled}
             hypothesisDefinition={hypothesisDefinition}
             stoppedExperiments={statusData?.stoppedExperiments}
+            createConfig={createConfig}
           />
         </TabsContent>
       </Tabs>
@@ -342,6 +436,11 @@ export default function ExperimentationHealthPage() {
               Custom checks need a rule describing what to evaluate
             </HelperText>
           )}
+          {hasTargetErrors && (
+            <HelperText status="error">
+              Fix the invalid targets to save
+            </HelperText>
+          )}
           {saveMsg && (
             <TempMessage
               className="mb-0"
@@ -355,7 +454,9 @@ export default function ExperimentationHealthPage() {
             Cancel
           </Button>
           <Button
-            disabled={!anyDirty || degenerate || invalidCustomChecks}
+            disabled={
+              !anyDirty || degenerate || invalidCustomChecks || hasTargetErrors
+            }
             setError={(e) => setSaveError(e ?? "")}
             onClick={save}
           >

@@ -115,7 +115,6 @@ export type ExperimentQualityConfigBody = z.infer<
 export const experimentQualityConfigValidator = baseSchema
   .extend({
     name: z.string().min(1).max(100),
-    description: z.string().max(500).optional(),
     ...experimentQualityConfigBodyValidator.shape,
   })
   .strict();

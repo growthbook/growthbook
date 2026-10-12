@@ -1,5 +1,6 @@
 import {
   ExperimentQualityConfigInterface,
+  ORG_DEFAULT_SCOPE,
   experimentQualityConfigValidator,
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
@@ -45,7 +46,7 @@ export class ExperimentQualityConfigModel extends BaseClass {
       );
     if (!references.length) return;
 
-    if (references.some((r) => r.project === "")) {
+    if (references.some((r) => r.project === ORG_DEFAULT_SCOPE)) {
       throw new Error(
         "Cannot delete this config while the organization default uses it",
       );

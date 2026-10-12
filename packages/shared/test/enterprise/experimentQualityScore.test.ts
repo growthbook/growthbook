@@ -1,17 +1,15 @@
 import { ExperimentHealthSettings } from "shared/types/experiment";
 import {
   ExperimentForQualityScore,
-  EXPERIMENT_QUALITY_PRESETS,
   computeAIQualityInputsHash,
-  configMatchesPreset,
   getAICheckHashInputs,
   getExperimentDigestForCustomRules,
   getExperimentQualityScore,
-  getQualityChecksNeedingAttention,
   resolveExperimentQualityScoreSettings,
-  resolveQualityScope,
+  reflowShares,
   roundToTotal,
 } from "../../src/enterprise/experimentQualityScore";
+import { resolveQualityScope } from "../../src/enterprise/experimentationHealth";
 
 const healthSettings: ExperimentHealthSettings = {
   decisionFrameworkEnabled: true,
@@ -708,108 +706,20 @@ describe("custom AI rules", () => {
       }),
     ).not.toBe(hash);
   });
-
-  it("makes the config read as Custom, not Default", () => {
-    expect(
-      configMatchesPreset({
-        customAiChecks: [
-          { id: "rule1", name: "Metric budget", rule: "Fewer than 20 metrics" },
-        ],
-      }),
-    ).toBeNull();
-  });
 });
 
-describe("helpers", () => {
-  it("getQualityChecksNeedingAttention returns failing checks only", () => {
-    const experiment = baseExperiment({ hypothesis: "", description: "" });
-    const result = score(experiment);
-    const keys = getQualityChecksNeedingAttention(result).map((c) => c.key);
-    expect(keys).toContain("hypothesis");
-    expect(keys).toContain("description");
-    // Passing and pending checks excluded
-    expect(keys).not.toContain("owner");
-    expect(keys).not.toContain("ai-hypothesis-quality");
-  });
-
+describe("share math", () => {
   it("roundToTotal produces integers that sum to the total", () => {
     expect(roundToTotal([33.33, 33.33, 33.34])).toEqual([33, 33, 34]);
     const rounded = roundToTotal([35.5, 24.5, 20.0, 20.0]);
     expect(rounded.reduce((a, b) => a + b, 0)).toBe(100);
     expect(roundToTotal([0, 0, 0])).toEqual([0, 0, 0]);
   });
-});
 
-describe("presets", () => {
-  it("an empty config and undefined match the Default preset", () => {
-    expect(EXPERIMENT_QUALITY_PRESETS.map((p) => p.key)).toEqual(["default"]);
-    expect(configMatchesPreset({})).toBe("default");
-    expect(configMatchesPreset(undefined)).toBe("default");
-  });
-
-  it("matches the integer-rounded config the settings UI stores after applying Default", () => {
-    // The UI stores splits as integers summing to 100, so three equal
-    // checks become 34/33/33 — this must still read as Default, not Custom
-    expect(
-      configMatchesPreset({
-        aiChecksEnabled: true,
-        sections: {
-          documentation: { enabled: true, weight: 35 },
-          results: { enabled: true, weight: 25 },
-          health: { enabled: true, weight: 20 },
-          ai: { weight: 20 },
-        },
-        checks: {
-          hypothesis: { enabled: true, weight: 20 },
-          description: { enabled: true, weight: 20 },
-          screenshots: { enabled: false },
-          "tags-or-project": { enabled: true, weight: 20 },
-          "goal-metrics": { enabled: true, weight: 20 },
-          owner: { enabled: true, weight: 20 },
-          decision: { enabled: true, weight: 50 },
-          learnings: { enabled: true, weight: 50 },
-          "health-no-issues": { enabled: true, weight: 50 },
-          "health-powered": { enabled: true, weight: 50 },
-          "min-runtime": { enabled: false },
-          "ai-hypothesis-quality": { enabled: true, weight: 34 },
-          "ai-hypothesis-metric-alignment": { enabled: true, weight: 33 },
-          "ai-learnings-quality": { enabled: true, weight: 33 },
-        },
-      }),
-    ).toBe("default");
-  });
-
-  it("matches a raw-weight-scaled variant of the default shares", () => {
-    expect(
-      configMatchesPreset({
-        sections: {
-          documentation: { weight: 7 },
-          results: { weight: 5 },
-          health: { weight: 4 },
-          ai: { weight: 4 },
-        },
-      }),
-    ).toBe("default");
-  });
-
-  it("returns null for custom configs", () => {
-    expect(
-      configMatchesPreset({
-        aiChecksEnabled: true,
-        sections: { documentation: { weight: 50 } },
-      }),
-    ).toBeNull();
-    expect(
-      configMatchesPreset({
-        aiChecksEnabled: false,
-      }),
-    ).toBeNull();
-    expect(
-      configMatchesPreset({
-        checks: {
-          screenshots: { enabled: true },
-        },
-      }),
-    ).toBeNull();
+  it("reflowShares sets one share and re-flows the rest to the total", () => {
+    expect(reflowShares([34, 33, 33], 1, 40)).toEqual([30, 40, 30]);
+    expect(reflowShares([0, 100, 0], 1, 60)).toEqual([20, 60, 20]);
+    expect(reflowShares([50, 50], 0, 120)).toEqual([100, 0]);
+    expect(reflowShares([25], 0, 10)).toEqual([100]);
   });
 });

@@ -1,19 +1,19 @@
 import { FC } from "react";
 
-// Circular score indicator per the design: slate track, tier-colored arc,
-// score centered. Size is the rendered square in px.
+const SIZE = 64;
+
+// Circular score indicator: slate track, colored arc, score centered
 const ScoreRing: FC<{
   score: number;
   color: string; // css color for the arc + number
-  size?: number;
-}> = ({ score, color, size = 64 }) => {
+}> = ({ score, color }) => {
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const arc = (Math.min(Math.max(score, 0), 100) / 100) * circumference;
 
   return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} viewBox="0 0 56 56" role="presentation">
+    <div style={{ position: "relative", width: SIZE, height: SIZE }}>
+      <svg width={SIZE} height={SIZE} viewBox="0 0 56 56" role="presentation">
         <circle
           cx="28"
           cy="28"
@@ -41,7 +41,7 @@ const ScoreRing: FC<{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: size >= 64 ? 18 : 15,
+          fontSize: 18,
           fontWeight: 600,
           color,
           fontVariantNumeric: "tabular-nums",

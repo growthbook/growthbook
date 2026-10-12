@@ -5,12 +5,14 @@ import { PiCaretRightBold, PiTrash } from "react-icons/pi";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   EXPERIMENT_QUALITY_SECTIONS,
-  ExperimentQualityCheckKey,
-  ExperimentQualitySectionKey,
-  MAX_CUSTOM_QUALITY_CHECKS,
-  experimentQualitySectionKeys,
+  customQualityCheckKey,
   getChecksForSection,
 } from "shared/enterprise";
+import {
+  ExperimentQualityCheckKey,
+  MAX_CUSTOM_QUALITY_CHECKS,
+  experimentQualitySectionKeys,
+} from "shared/validators";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
@@ -18,299 +20,215 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
 import ShareBar from "./ShareBar";
 import {
   QualityConfigDraft,
   addCustomCheck,
+  countEnabledChecks,
   getEnabledSectionKeys,
-  reflowCheckWeights,
-  reflowCustomCheckWeights,
+  reflowMemberWeights,
   reflowSectionWeights,
   removeCustomCheck,
-  setCheckEnabled,
-  setCustomCheckEnabled,
   setSectionEnabled,
+  updateCheck,
   updateCustomCheck,
 } from "./qualityConfigDraft";
 import styles from "./ExperimentQuality.module.scss";
 
-export const SECTION_COLORS: Record<
-  ExperimentQualitySectionKey,
-  { bar: string; text: string }
-> = {
-  documentation: { bar: "var(--indigo-9)", text: "var(--indigo-11)" },
-  results: { bar: "var(--teal-9)", text: "var(--teal-11)" },
-  health: { bar: "var(--orange-9)", text: "var(--orange-11)" },
-  ai: { bar: "var(--violet-9)", text: "var(--violet-11)" },
-};
-
-const SECTION_NOTES: Partial<Record<ExperimentQualitySectionKey, string>> = {
-  results: "· stopped experiments only",
-  health: "· when traffic data exists",
-  ai: "· judged by AI, cached until inputs change",
-};
-
-const CHECK_QUALIFIERS: Partial<Record<ExperimentQualityCheckKey, string>> = {
-  screenshots: "· all except Holdouts",
-  "health-no-issues": "· SRM, multiple exposures, imbalance",
-  "min-runtime": "· stopped only",
-  "ai-hypothesis-quality": "· hypothesis present",
-  "ai-learnings-quality": "· stopped, learnings present",
-};
-
 const AI_CONTEXT_PLACEHOLDER =
   "Add guidance for the AI judge, e.g. what a good one looks like at your org";
 
-function SplitCell({
-  isOn,
-  split,
-  overall,
+// The row shared by built-in checks and custom AI rules: checkbox, label
+// area, split bar and "≈N% overall", with an optional text field below
+function WeightedRow({
+  id,
+  enabled,
+  disabled,
+  weight,
+  sectionShare,
+  color,
+  ariaLabel,
+  label,
+  below,
+  onToggle,
+  onSplitChange,
 }: {
-  isOn: boolean;
-  split: number;
-  overall: number;
+  id: string;
+  enabled: boolean;
+  // The whole section is switched off
+  disabled: boolean;
+  weight: number;
+  sectionShare: number;
+  color: string;
+  ariaLabel: string;
+  label: ReactNode;
+  below?: ReactNode;
+  onToggle: (v: boolean) => void;
+  onSplitChange: (v: number) => void;
 }) {
+  const isOn = enabled && !disabled;
+  const overall = Math.round((sectionShare * weight) / 100);
   return (
-    <Box style={{ textAlign: "right", lineHeight: 1.25 }}>
-      <span
-        style={{
-          fontSize: 12,
-          fontVariantNumeric: "tabular-nums",
-          color: isOn ? "var(--color-text-high)" : "var(--color-text-low)",
-        }}
-      >
-        {isOn ? `${split}%` : "—"}
-      </span>
-      <br />
-      <span style={{ fontSize: 10, color: "var(--color-text-low)" }}>
-        {isOn ? `≈${overall}% overall` : "excluded"}
-      </span>
+    <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
+      <div className={styles.checkRow}>
+        <Checkbox
+          mb="0"
+          value={enabled}
+          setValue={onToggle}
+          id={id}
+          disabled={disabled}
+        />
+        <Flex align="center" gap="2" wrap="wrap">
+          {label}
+        </Flex>
+        {isOn ? (
+          <ShareBar
+            value={weight}
+            onChange={onSplitChange}
+            color={color}
+            variant="check"
+            ariaLabel={`${ariaLabel}, ${overall}% of score`}
+          />
+        ) : (
+          <span className={styles.emptyTrack} />
+        )}
+        <Box style={{ textAlign: "right", lineHeight: 1.25 }}>
+          <span className={clsx(styles.splitValue, !isOn && styles.off)}>
+            {isOn ? `${weight}%` : "—"}
+          </span>
+          <br />
+          <span className={styles.splitNote}>
+            {isOn ? `≈${overall}% overall` : "excluded"}
+          </span>
+        </Box>
+      </div>
+      {isOn && below && (
+        <Box mt="1" mb="1" ml="6" pl="1">
+          {below}
+        </Box>
+      )}
     </Box>
   );
 }
 
-function EmptyTrack() {
-  return <span className={styles.emptyTrack} />;
+function ParamInput({
+  value,
+  min,
+  disabled,
+  ariaLabel,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  disabled: boolean;
+  ariaLabel: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <input
+      type="number"
+      className={styles.paramInput}
+      min={min}
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(parseInt(e.target.value))}
+    />
+  );
 }
 
-function CheckRowView({
+function CheckLabel({
   checkKey,
   draft,
-  sectionShare,
-  color,
   disabled,
-  contextFallback,
-  onToggle,
-  onSplitChange,
-  onParamChange,
-  onContextChange,
+  onChange,
 }: {
   checkKey: ExperimentQualityCheckKey;
   draft: QualityConfigDraft;
-  sectionShare: number;
-  color: { bar: string; text: string };
   disabled: boolean;
-  // Shown in the context textarea when the check has no stored context of
-  // its own (e.g. the hypothesis definition from AI settings)
-  contextFallback?: string;
-  onToggle: (v: boolean) => void;
-  onSplitChange: (v: number) => void;
-  onParamChange: (params: Record<string, number>) => void;
-  onContextChange: (v: string) => void;
+  onChange: (draft: QualityConfigDraft) => void;
 }) {
   const def = EXPERIMENT_QUALITY_CHECKS[checkKey];
   const check = draft.checks[checkKey];
-  const isOn = check.enabled && !disabled;
-  const overall = Math.round((sectionShare * check.weight) / 100);
-
+  const inputDisabled = !check.enabled || disabled;
+  const setParam = (params: Record<string, number>) =>
+    onChange(
+      updateCheck(draft, checkKey, { params: { ...check.params, ...params } }),
+    );
   return (
-    <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
-      <div className={styles.checkRow}>
-        <Checkbox
-          mb="0"
-          value={check.enabled}
-          setValue={onToggle}
-          id={`quality-check-${checkKey}`}
-          disabled={disabled}
-        />
-        <Flex align="center" gap="2" wrap="wrap">
-          <label htmlFor={`quality-check-${checkKey}`} className="mb-0">
-            <Text size="md">{def.label}</Text>
-          </label>
-          {checkKey === "goal-metrics" && (
-            <Flex align="center" gap="1">
-              <Text size="sm" color="text-mid">
-                · fewer than
-              </Text>
-              <input
-                type="number"
-                className={styles.paramInput}
-                min={2}
-                value={check.params?.maxGoalMetrics ?? 3}
-                disabled={!isOn}
-                aria-label="Maximum goal metrics"
-                onChange={(e) =>
-                  onParamChange({ maxGoalMetrics: parseInt(e.target.value) })
-                }
-              />
-            </Flex>
-          )}
-          {checkKey === "min-runtime" && (
-            <Flex align="center" gap="1">
-              <Text size="sm" color="text-mid">
-                · at least
-              </Text>
-              <input
-                type="number"
-                className={styles.paramInput}
-                min={1}
-                value={check.params?.minRuntimeDays ?? 14}
-                disabled={!isOn}
-                aria-label="Minimum runtime in days"
-                onChange={(e) =>
-                  onParamChange({ minRuntimeDays: parseInt(e.target.value) })
-                }
-              />
-              <Text size="sm" color="text-mid">
-                days
-              </Text>
-            </Flex>
-          )}
-          {CHECK_QUALIFIERS[checkKey] && (
-            <Text size="sm" color="text-low">
-              {CHECK_QUALIFIERS[checkKey]}
-            </Text>
-          )}
-        </Flex>
-        {isOn ? (
-          <ShareBar
-            value={check.weight}
-            onChange={onSplitChange}
-            color={color.bar}
-            variant="check"
-            ariaLabel={`${def.label}, ${overall}% of score`}
-          />
-        ) : (
-          <EmptyTrack />
-        )}
-        <SplitCell isOn={isOn} split={check.weight} overall={overall} />
-      </div>
-      {def.type === "ai" && isOn && (
-        <Box mt="1" mb="1" ml="6" pl="1">
-          <Text size="sm" weight="medium" color="text-mid" as="p" mb="1">
-            Context <Text color="text-low">· optional</Text>
+    <>
+      <label htmlFor={`quality-check-${checkKey}`} className="mb-0">
+        <Text size="md">{def.label}</Text>
+      </label>
+      {checkKey === "goal-metrics" && (
+        <Flex align="center" gap="1">
+          <Text size="sm" color="text-mid">
+            · fewer than
           </Text>
-          <Field
-            textarea
-            minRows={1}
-            placeholder={AI_CONTEXT_PLACEHOLDER}
-            value={check.aiContext ?? contextFallback ?? ""}
-            onChange={(e) => onContextChange(e.target.value)}
+          <ParamInput
+            value={check.params?.maxGoalMetrics ?? 3}
+            min={2}
+            disabled={inputDisabled}
+            ariaLabel="Maximum goal metrics"
+            onChange={(v) => setParam({ maxGoalMetrics: v })}
           />
-        </Box>
+        </Flex>
       )}
-    </Box>
+      {checkKey === "min-runtime" && (
+        <Flex align="center" gap="1">
+          <Text size="sm" color="text-mid">
+            · at least
+          </Text>
+          <ParamInput
+            value={check.params?.minRuntimeDays ?? 14}
+            min={1}
+            disabled={inputDisabled}
+            ariaLabel="Minimum runtime in days"
+            onChange={(v) => setParam({ minRuntimeDays: v })}
+          />
+          <Text size="sm" color="text-mid">
+            days
+          </Text>
+        </Flex>
+      )}
+      {def.note && (
+        <Text size="sm" color="text-low">
+          · {def.note}
+        </Text>
+      )}
+    </>
   );
 }
 
-function CustomCheckRowView({
-  custom,
-  sectionShare,
-  color,
-  disabled,
-  onToggle,
-  onSplitChange,
-  onUpdate,
-  onRemove,
+function FieldBelow({
+  label,
+  optional,
+  placeholder,
+  value,
+  onChange,
 }: {
-  custom: QualityConfigDraft["customAiChecks"][number];
-  sectionShare: number;
-  color: { bar: string; text: string };
-  disabled: boolean;
-  onToggle: (v: boolean) => void;
-  onSplitChange: (v: number) => void;
-  onUpdate: (updates: { name?: string; rule?: string }) => void;
-  onRemove: () => void;
+  label: string;
+  optional?: boolean;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const isOn = custom.enabled && !disabled;
-  const overall = Math.round((sectionShare * custom.weight) / 100);
-
   return (
-    <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
-      <div className={styles.checkRow}>
-        <Checkbox
-          mb="0"
-          value={custom.enabled}
-          setValue={onToggle}
-          id={`quality-custom-check-${custom.id}`}
-          disabled={disabled}
-        />
-        <Flex align="center" gap="2" wrap="wrap">
-          <input
-            type="text"
-            className={styles.paramInput}
-            style={{ width: 220, textAlign: "left", padding: "1px 6px" }}
-            placeholder="Name this check"
-            value={custom.name}
-            disabled={!isOn}
-            aria-label="Custom check name"
-            onChange={(e) => onUpdate({ name: e.target.value })}
-          />
-          <Badge label="Custom" color="violet" variant="soft" size="xs" />
-          <Tooltip content="Remove this custom check">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              aria-label="Remove custom check"
-            >
-              <PiTrash />
-            </Button>
-          </Tooltip>
-        </Flex>
-        {isOn ? (
-          <ShareBar
-            value={custom.weight}
-            onChange={onSplitChange}
-            color={color.bar}
-            variant="check"
-            ariaLabel={`${custom.name || "Custom check"}, ${overall}% of score`}
-          />
-        ) : (
-          <EmptyTrack />
-        )}
-        <SplitCell isOn={isOn} split={custom.weight} overall={overall} />
-      </div>
-      {isOn && (
-        <Box mt="1" mb="1" ml="6" pl="1">
-          <Text size="sm" weight="medium" color="text-mid" as="p" mb="1">
-            What to evaluate
-          </Text>
-          <Field
-            textarea
-            minRows={1}
-            placeholder='Describe how to score this from the experiment data, e.g. "start with 10 points and take off 2 for every goal metric beyond 5"'
-            value={custom.rule}
-            onChange={(e) => onUpdate({ rule: e.target.value })}
-          />
-        </Box>
-      )}
-    </Box>
+    <>
+      <Text size="sm" weight="medium" color="text-mid" as="p" mb="1">
+        {label}
+        {optional && <Text color="text-low"> · optional</Text>}
+      </Text>
+      <Field
+        textarea
+        minRows={1}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </>
   );
-}
-
-function countEnabledChecks(
-  draft: QualityConfigDraft,
-  sectionKey: ExperimentQualitySectionKey,
-): number {
-  const builtIn = getChecksForSection(sectionKey).filter(
-    (k) => draft.checks[k].enabled,
-  ).length;
-  const custom =
-    sectionKey === "ai"
-      ? draft.customAiChecks.filter((c) => c.enabled).length
-      : 0;
-  return builtIn + custom;
 }
 
 export default function QualityConfigEditor({
@@ -329,9 +247,7 @@ export default function QualityConfigEditor({
   // Rendered at the bottom of the open AI checks section
   aiSectionFooter?: ReactNode;
 }) {
-  const [openSections, setOpenSections] = useState<
-    Record<ExperimentQualitySectionKey, boolean>
-  >({ documentation: false, results: false, health: false, ai: false });
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 
   const enabledSectionKeys = getEnabledSectionKeys(draft);
   const stripSections = enabledSectionKeys.filter(
@@ -365,19 +281,15 @@ export default function QualityConfigEditor({
       </Flex>
 
       {experimentQualitySectionKeys.map((sectionKey) => {
+        const section = EXPERIMENT_QUALITY_SECTIONS[sectionKey];
         const color = SECTION_COLORS[sectionKey];
         const isAI = sectionKey === "ai";
         const sectionOn = enabledSectionKeys.includes(sectionKey);
-        const open = openSections[sectionKey];
+        const open = openSections.has(sectionKey);
         const share = sectionOn ? draft.sections[sectionKey].weight : 0;
         const aiParked = isAI && !aiAvailable;
-        const included = isAI
-          ? draft.aiChecksEnabled
-          : draft.sectionEnabled[sectionKey];
+        const included = draft.sectionEnabled[sectionKey];
         const enabledCount = countEnabledChecks(draft, sectionKey);
-        // Only the AI section is switched on and off as a whole; a stored
-        // config that turned off another section can still turn it back on
-        const showIncludedSwitch = !aiParked && (isAI || !included);
 
         return (
           <div key={sectionKey} className={styles.sectionPanel}>
@@ -392,22 +304,24 @@ export default function QualityConfigEditor({
                   type="button"
                   className={styles.sectionToggle}
                   onClick={() =>
-                    setOpenSections((s) => ({
-                      ...s,
-                      [sectionKey]: !s[sectionKey],
-                    }))
+                    setOpenSections((s) => {
+                      const next = new Set(s);
+                      if (!next.delete(sectionKey)) next.add(sectionKey);
+                      return next;
+                    })
                   }
                   aria-expanded={open}
-                  aria-label={`Toggle the ${EXPERIMENT_QUALITY_SECTIONS[sectionKey].label} section`}
+                  aria-label={`Toggle the ${section.label} section`}
                 >
                   <PiCaretRightBold
                     size={12}
                     className={clsx(styles.chevron, open && styles.open)}
                   />
                   <span
-                    style={{ color: color.text, fontSize: 13, fontWeight: 600 }}
+                    className={styles.sectionLabel}
+                    style={{ color: color.text }}
                   >
-                    {EXPERIMENT_QUALITY_SECTIONS[sectionKey].label}
+                    {section.label}
                   </span>
                 </button>
                 {aiParked ? (
@@ -416,9 +330,9 @@ export default function QualityConfigEditor({
                     <Link href="/settings#ai">Go to AI settings</Link>
                   </Text>
                 ) : open ? (
-                  SECTION_NOTES[sectionKey] && (
+                  section.note && (
                     <Text size="sm" color="text-low">
-                      {SECTION_NOTES[sectionKey]}
+                      · {section.note}
                     </Text>
                   )
                 ) : (
@@ -426,7 +340,10 @@ export default function QualityConfigEditor({
                     · {enabledCount} {enabledCount === 1 ? "check" : "checks"}
                   </Text>
                 )}
-                {showIncludedSwitch && (
+                {/* Only the AI section is switched on and off as a whole; a
+                    saved config that turned off another section can still
+                    turn it back on */}
+                {!aiParked && (isAI || !included) && (
                   <Switch
                     size="sm"
                     label="Included"
@@ -446,22 +363,15 @@ export default function QualityConfigEditor({
                     }
                     color={color.bar}
                     variant="section"
-                    ariaLabel={`${EXPERIMENT_QUALITY_SECTIONS[sectionKey].label}, ${share}% of score`}
+                    ariaLabel={`${section.label}, ${share}% of score`}
                   />
                 )}
               </Box>
               <span
-                style={{
-                  textAlign: "right",
-                  fontVariantNumeric: "tabular-nums",
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color:
-                    sectionOn && !aiParked
-                      ? "var(--color-text-high)"
-                      : "var(--color-text-low)",
-                }}
+                className={clsx(
+                  styles.sectionShare,
+                  !(sectionOn && !aiParked) && styles.off,
+                )}
               >
                 {sectionOn && !aiParked ? `${share}%` : "—"}
               </span>
@@ -469,81 +379,139 @@ export default function QualityConfigEditor({
 
             {open && !aiParked && (
               <>
-                {getChecksForSection(sectionKey).map((checkKey) => (
-                  <CheckRowView
-                    key={checkKey}
-                    checkKey={checkKey}
-                    draft={draft}
-                    sectionShare={share}
-                    color={color}
-                    contextFallback={
-                      checkKey === "ai-hypothesis-quality"
-                        ? hypothesisDefinition
-                        : undefined
-                    }
-                    disabled={!included}
-                    onToggle={(v) =>
-                      setDraft(setCheckEnabled(draft, checkKey, v))
-                    }
-                    onSplitChange={(v) =>
-                      setDraft(reflowCheckWeights(draft, checkKey, v))
-                    }
-                    onParamChange={(params) =>
-                      setDraft({
-                        ...draft,
-                        checks: {
-                          ...draft.checks,
-                          [checkKey]: {
-                            ...draft.checks[checkKey],
-                            params: {
-                              ...draft.checks[checkKey].params,
-                              ...params,
-                            },
-                          },
-                        },
-                      })
-                    }
-                    onContextChange={(v) =>
-                      setDraft({
-                        ...draft,
-                        checks: {
-                          ...draft.checks,
-                          [checkKey]: {
-                            ...draft.checks[checkKey],
-                            aiContext: v,
-                          },
-                        },
-                      })
-                    }
-                  />
-                ))}
-                {isAI &&
-                  draft.customAiChecks.map((custom) => (
-                    <CustomCheckRowView
-                      key={custom.id}
-                      custom={custom}
+                {getChecksForSection(sectionKey).map((checkKey) => {
+                  const check = draft.checks[checkKey];
+                  return (
+                    <WeightedRow
+                      key={checkKey}
+                      id={`quality-check-${checkKey}`}
+                      enabled={check.enabled}
+                      disabled={!included}
+                      weight={check.weight}
                       sectionShare={share}
-                      color={color}
-                      disabled={!draft.aiChecksEnabled}
-                      onToggle={(v) =>
-                        setDraft(setCustomCheckEnabled(draft, custom.id, v))
+                      color={color.bar}
+                      ariaLabel={EXPERIMENT_QUALITY_CHECKS[checkKey].label}
+                      label={
+                        <CheckLabel
+                          checkKey={checkKey}
+                          draft={draft}
+                          disabled={!included}
+                          onChange={setDraft}
+                        />
+                      }
+                      below={
+                        isAI && (
+                          <FieldBelow
+                            label="Context"
+                            optional
+                            placeholder={AI_CONTEXT_PLACEHOLDER}
+                            value={
+                              check.aiContext ??
+                              (checkKey === "ai-hypothesis-quality"
+                                ? hypothesisDefinition
+                                : "")
+                            }
+                            onChange={(aiContext) =>
+                              setDraft(
+                                updateCheck(draft, checkKey, { aiContext }),
+                              )
+                            }
+                          />
+                        )
+                      }
+                      onToggle={(enabled) =>
+                        setDraft(updateCheck(draft, checkKey, { enabled }))
                       }
                       onSplitChange={(v) =>
-                        setDraft(reflowCustomCheckWeights(draft, custom.id, v))
+                        setDraft(
+                          reflowMemberWeights(draft, sectionKey, checkKey, v),
+                        )
                       }
-                      onUpdate={(updates) =>
-                        setDraft(updateCustomCheck(draft, custom.id, updates))
+                    />
+                  );
+                })}
+                {isAI &&
+                  draft.customAiChecks.map((custom) => (
+                    <WeightedRow
+                      key={custom.id}
+                      id={`quality-custom-check-${custom.id}`}
+                      enabled={custom.enabled}
+                      disabled={!included}
+                      weight={custom.weight}
+                      sectionShare={share}
+                      color={color.bar}
+                      ariaLabel={custom.name || "Custom check"}
+                      label={
+                        <>
+                          <input
+                            type="text"
+                            className={clsx(
+                              styles.paramInput,
+                              styles.nameInput,
+                            )}
+                            placeholder="Name this check"
+                            value={custom.name}
+                            disabled={!custom.enabled || !included}
+                            aria-label="Custom check name"
+                            onChange={(e) =>
+                              setDraft(
+                                updateCustomCheck(draft, custom.id, {
+                                  name: e.target.value,
+                                }),
+                              )
+                            }
+                          />
+                          <Badge
+                            label="Custom"
+                            color="violet"
+                            variant="soft"
+                            size="xs"
+                          />
+                          <Tooltip content="Remove this custom check">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setDraft(removeCustomCheck(draft, custom.id))
+                              }
+                              aria-label="Remove custom check"
+                            >
+                              <PiTrash />
+                            </Button>
+                          </Tooltip>
+                        </>
                       }
-                      onRemove={() =>
-                        setDraft(removeCustomCheck(draft, custom.id))
+                      below={
+                        <FieldBelow
+                          label="What to evaluate"
+                          placeholder='Describe how to score this from the experiment data, e.g. "start with 10 points and take off 2 for every goal metric beyond 5"'
+                          value={custom.rule}
+                          onChange={(rule) =>
+                            setDraft(
+                              updateCustomCheck(draft, custom.id, { rule }),
+                            )
+                          }
+                        />
+                      }
+                      onToggle={(enabled) =>
+                        setDraft(
+                          updateCustomCheck(draft, custom.id, { enabled }),
+                        )
+                      }
+                      onSplitChange={(v) =>
+                        setDraft(
+                          reflowMemberWeights(
+                            draft,
+                            "ai",
+                            customQualityCheckKey(custom.id),
+                            v,
+                          ),
+                        )
                       }
                     />
                   ))}
                 {isAI && (
-                  <Box
-                    py="2"
-                    style={{ borderTop: "1px dashed var(--border-color-100)" }}
-                  >
+                  <Box py="2" className={styles.addCustomRow}>
                     {draft.customAiChecks.length < MAX_CUSTOM_QUALITY_CHECKS ? (
                       <>
                         <Link onClick={() => setDraft(addCustomCheck(draft))}>

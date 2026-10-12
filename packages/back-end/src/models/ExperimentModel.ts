@@ -1219,22 +1219,31 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   }));
 }
 
-// Candidates for the AI quality-score sweep. IDs only — the per-experiment
-// job re-fetches the doc, re-checks all gates, and no-ops when the cached
-// AI results are still fresh (inputs hash unchanged).
+const stoppedExperimentsFilter = (organization: string) => ({
+  organization,
+  status: "stopped",
+  archived: { $ne: true },
+});
+
+// Candidates for AI quality scoring. IDs only — each per-experiment job
+// re-fetches the doc and no-ops when its cached AI results are still fresh.
 export async function getStoppedExperimentIdsByOrganization(
   organization: string,
 ): Promise<string[]> {
   const experiments = await getCollection(COLLECTION)
-    .find({
-      organization,
-      status: "stopped",
-      archived: { $ne: true },
-    })
+    .find(stoppedExperimentsFilter(organization))
     .project({ id: true })
     .toArray();
 
   return experiments.map((exp) => exp.id);
+}
+
+export function countStoppedExperimentsByOrganization(
+  organization: string,
+): Promise<number> {
+  return getCollection(COLLECTION).countDocuments(
+    stoppedExperimentsFilter(organization),
+  );
 }
 
 /**

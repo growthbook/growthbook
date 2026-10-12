@@ -1,5 +1,6 @@
 import {
   ExperimentationHealthSettingsInterface,
+  ORG_DEFAULT_SCOPE,
   experimentationHealthSettingsValidator,
 } from "shared/validators";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
@@ -7,9 +8,6 @@ import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 export const EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION =
   "experimentationhealthsettings";
-
-// The organization default's record
-export const ORG_DEFAULT_SCOPE = "";
 
 const BaseClass = MakeModelClass({
   schema: experimentationHealthSettingsValidator,
@@ -33,7 +31,10 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-type ScopeUpdates = Pick<ExperimentationHealthSettingsInterface, "quality">;
+type ScopeUpdates = Pick<
+  ExperimentationHealthSettingsInterface,
+  "quality" | "targets" | "gradeWeights"
+>;
 
 // One record per scope: the organization default (project "") and each
 // Project that customizes anything. Fields left unset on a Project record

@@ -1,20 +1,42 @@
 import type { Response } from "express";
-import { ExperimentationHealthQualitySettings } from "shared/validators";
+import {
+  ExperimentationHealthGradeWeights,
+  ExperimentationHealthQualitySettings,
+  ExperimentationHealthTargets,
+  ORG_DEFAULT_SCOPE,
+  experimentationHealthMetricKeys,
+} from "shared/validators";
+import { countHealthOverrides, getHealthTargetError } from "shared/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ORG_DEFAULT_SCOPE } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
+import { getExperimentationHealthSummary } from "back-end/src/enterprise/services/experimentationHealth";
 
-// Saves one scope's settings ("" = the organization default). A Project
-// record left with nothing customized is deleted, so it inherits everything.
+// Saves one scope's settings (the organization default or a Project), replacing
+// what it customized before. A Project record left with nothing customized
+// is deleted, so it inherits everything.
 export async function putExperimentationHealthSettings(
   req: AuthRequest<{
     project: string;
     quality: ExperimentationHealthQualitySettings;
+    targets?: ExperimentationHealthTargets;
+    gradeWeights?: ExperimentationHealthGradeWeights;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { project, quality } = req.body;
+  const { project, quality, gradeWeights } = req.body;
+  const targets =
+    req.body.targets && Object.keys(req.body.targets).length
+      ? req.body.targets
+      : undefined;
+
+  for (const key of experimentationHealthMetricKeys) {
+    const target = targets?.[key];
+    const error = target ? getHealthTargetError(key, target) : null;
+    if (error) {
+      return res.status(400).json({ status: 400, message: error });
+    }
+  }
 
   if (project !== ORG_DEFAULT_SCOPE) {
     const projectDoc = await context.models.projects.getById(project);
@@ -25,8 +47,7 @@ export async function putExperimentationHealthSettings(
       });
     }
 
-    const hasOverrides = Object.values(quality).some((v) => v !== undefined);
-    if (!hasOverrides) {
+    if (!countHealthOverrides({ quality, targets, gradeWeights })) {
       const existing =
         await context.models.experimentationHealthSettings.getForScope(project);
       if (existing) {
@@ -36,9 +57,12 @@ export async function putExperimentationHealthSettings(
     }
   }
 
+  // Explicit undefined clears a field that is no longer customized
   const settings =
     await context.models.experimentationHealthSettings.upsertForScope(project, {
       quality,
+      targets,
+      gradeWeights,
     });
   return res.status(200).json({ status: 200, settings });
 }
@@ -57,4 +81,22 @@ export async function deleteExperimentationHealthSettings(
     await context.models.experimentationHealthSettings.delete(existing);
   }
   return res.status(200).json({ status: 200 });
+}
+
+// Current values for the Targets and Grade tabs (no project = the org)
+export async function getExperimentationHealthSummaryHandler(
+  req: AuthRequest<null, null, { project?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  if (!context.hasPremiumFeature("experiment-quality-score")) {
+    context.throwPlanDoesNotAllowError(
+      "Your organization does not have access to Experimentation Health",
+    );
+  }
+  const summary = await getExperimentationHealthSummary(
+    context,
+    req.query.project ?? ORG_DEFAULT_SCOPE,
+  );
+  return res.status(200).json({ status: 200, ...summary });
 }

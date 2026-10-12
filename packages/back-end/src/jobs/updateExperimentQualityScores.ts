@@ -11,16 +11,6 @@ import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterpr
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-// Orgs where quality scoring is on for the organization default or for at
-// least one Project. Cross-org enumeration for the sweep, so it queries the
-// collection directly rather than a context-scoped model.
-async function getOrganizationIdsWithQualityScoring(): Promise<string[]> {
-  return getCollection(EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION).distinct(
-    "organization",
-    { "quality.enabled": true },
-  );
-}
-
 type UpdateSingleExperimentQualityJob = Job<{
   experimentId: string;
   organization: string;
@@ -33,25 +23,18 @@ const UPDATE_SINGLE_EXPERIMENT_QUALITY = "updateSingleExperimentQualityScore";
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_QUALITY_UPDATES, async () => {
-    // Per-experiment jobs re-resolve each experiment's Project scope and
-    // no-op cheaply when scoring is off for it.
-    const orgIds = await getOrganizationIdsWithQualityScoring();
+    // Orgs where quality scoring is on for the organization default or a
+    // Project. Cross-org, so it reads the collection directly.
+    const orgIds: string[] = await getCollection(
+      EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION,
+    ).distinct("organization", { "quality.enabled": true });
 
     for (const orgId of orgIds) {
-      // Only the AI portion of the score is cached; deterministic checks
-      // are computed on read, so orgs without AI enabled need no sweep.
-      // (Per-config aiChecksEnabled is re-checked in the per-experiment
-      // job, so it is NOT filtered here.)
+      // Only AI verdicts are cached; deterministic checks are computed on
+      // read, so orgs without AI need no sweep
       const org = await findOrganizationById(orgId);
       if (!org?.settings?.aiEnabled) continue;
-
-      const experimentIds = await getStoppedExperimentIdsByOrganization(orgId);
-      for (const experimentId of experimentIds) {
-        await queueSingleExperimentQualityUpdate(agenda, {
-          experimentId,
-          organization: orgId,
-        });
-      }
+      await queueExperimentQualityScoreUpdatesForOrg(orgId);
     }
   });
 
@@ -66,32 +49,7 @@ export default async function (agenda: Agenda) {
   await job.save();
 }
 
-async function queueSingleExperimentQualityUpdate(
-  agenda: Agenda,
-  {
-    experimentId,
-    organization,
-    force,
-  }: { experimentId: string; organization: string; force?: boolean },
-) {
-  const job = agenda.create(UPDATE_SINGLE_EXPERIMENT_QUALITY, {
-    experimentId,
-    organization,
-    ...(force ? { force } : {}),
-  }) as UpdateSingleExperimentQualityJob;
-
-  job.unique({
-    experimentId,
-    organization,
-  });
-  job.schedule(new Date());
-  await job.save();
-}
-
-/**
- * Enqueue an AI quality-score update for a single experiment (e.g. right
- * after it is stopped, or from the manual refresh endpoint).
- */
+// `force` re-runs the AI checks even when the cached verdicts are fresh
 export async function queueExperimentQualityScoreUpdate({
   experimentId,
   organization,
@@ -101,29 +59,28 @@ export async function queueExperimentQualityScoreUpdate({
   organization: string;
   force?: boolean;
 }) {
-  await queueSingleExperimentQualityUpdate(getAgendaInstance(), {
+  const job = getAgendaInstance().create(UPDATE_SINGLE_EXPERIMENT_QUALITY, {
     experimentId,
     organization,
-    force,
-  });
+    ...(force ? { force } : {}),
+  }) as UpdateSingleExperimentQualityJob;
+  job.unique({ experimentId, organization });
+  job.schedule(new Date());
+  await job.save();
 }
 
-/**
- * Enqueue AI quality-score updates for every stopped, non-archived
- * experiment in the org (e.g. after quality-score settings change). The
- * per-experiment jobs re-check gates and skip fresh results, so this is
- * cheap for experiments whose AI inputs haven't changed.
- */
+// Every stopped, non-archived experiment in the org
 export async function queueExperimentQualityScoreUpdatesForOrg(
   organization: string,
+  { force }: { force?: boolean } = {},
 ): Promise<number> {
-  const agenda = getAgendaInstance();
   const experimentIds =
     await getStoppedExperimentIdsByOrganization(organization);
   for (const experimentId of experimentIds) {
-    await queueSingleExperimentQualityUpdate(agenda, {
+    await queueExperimentQualityScoreUpdate({
       experimentId,
       organization,
+      force,
     });
   }
   return experimentIds.length;
@@ -132,14 +89,10 @@ export async function queueExperimentQualityScoreUpdatesForOrg(
 const updateSingleExperimentQuality = async (
   job: UpdateSingleExperimentQualityJob,
 ) => {
-  const experimentId = job.attrs.data?.experimentId;
-  const organization = job.attrs.data?.organization;
-  const force = job.attrs.data?.force;
-
+  const { experimentId, organization, force } = job.attrs.data ?? {};
   if (!experimentId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
-
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment || experiment.archived) return;
 

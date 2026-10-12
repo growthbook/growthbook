@@ -1,13 +1,16 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiDotsThreeVerticalBold } from "react-icons/pi";
+import { ResolvedQualityScope } from "shared/enterprise";
 import {
   ExperimentQualityConfigInterface,
-  ResolvedQualityScope,
-} from "shared/enterprise";
-import { ExperimentationHealthQualitySettings } from "shared/validators";
+  ExperimentationHealthQualitySettings,
+  ORG_DEFAULT_SCOPE,
+} from "shared/validators";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
@@ -17,23 +20,20 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import QualityConfigEditor from "@/components/Settings/ExperimentQuality/QualityConfigEditor";
-import {
-  QualityConfigDraft,
-  draftToConfig,
-} from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
+import { QualityConfigDraft } from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
 import { OrgDefaultLink, OverrideDot } from "./OverrideMarker";
+import ConfigNameModal from "./ConfigNameModal";
 
 export const GROWTHBOOK_DEFAULT_CONFIG_LABEL = "GrowthBook default";
 const DEFAULT_CONFIG_VALUE = "__growthbook-default__";
 const CREATE_CONFIG_VALUE = "__create__";
 
-export function describeScopes(scopeNames: string[]): string {
-  const hasOrg = scopeNames.includes("");
-  const projectCount = scopeNames.filter((s) => s !== "").length;
+function describeScopes(scopes: string[]): string {
+  const hasOrg = scopes.includes(ORG_DEFAULT_SCOPE);
+  const projectCount = scopes.filter((s) => s !== ORG_DEFAULT_SCOPE).length;
   const parts = [
     ...(hasOrg ? ["the organization default"] : []),
     ...(projectCount
@@ -44,7 +44,7 @@ export function describeScopes(scopeNames: string[]): string {
 }
 
 export default function QualityScoreTab({
-  scope,
+  isOrgScope,
   orgQuality,
   qualityDraft,
   setQualityDraft,
@@ -58,8 +58,9 @@ export default function QualityScoreTab({
   aiAvailable,
   hypothesisDefinition,
   stoppedExperiments,
+  createConfig,
 }: {
-  scope: string;
+  isOrgScope: boolean;
   orgQuality: ExperimentationHealthQualitySettings;
   qualityDraft: ExperimentationHealthQualitySettings;
   setQualityDraft: (q: ExperimentationHealthQualitySettings) => void;
@@ -73,6 +74,8 @@ export default function QualityScoreTab({
   aiAvailable: boolean;
   hypothesisDefinition: string;
   stoppedExperiments?: number;
+  // Creates a configuration from the checks and weights being edited
+  createConfig: (name: string) => Promise<string>;
 }) {
   const { apiCall } = useAuth();
   const {
@@ -85,10 +88,7 @@ export default function QualityScoreTab({
   const [createOpen, setCreateOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [newName, setNewName] = useState("");
   const [recalculateStatus, setRecalculateStatus] = useState("");
-
-  const isOrgScope = scope === "";
   const orgConfigName = orgQuality.configId
     ? (getExperimentQualityConfigById(orgQuality.configId)?.name ??
       GROWTHBOOK_DEFAULT_CONFIG_LABEL)
@@ -115,67 +115,32 @@ export default function QualityScoreTab({
   return (
     <Box>
       {createOpen && (
-        <ModalStandard
-          open
-          trackingEventModalType="create-experiment-quality-config"
+        <ConfigNameModal
           header="Create Configuration"
           cta="Create"
-          ctaEnabled={!!newName.trim()}
+          note={`Starts from the checks and weights shown below. Save the page to use it for ${isOrgScope ? "the organization default" : "this Project"}.`}
           close={() => setCreateOpen(false)}
-          submit={async () => {
-            const res = await apiCall<{
-              config: ExperimentQualityConfigInterface;
-            }>("/experiment-quality-score/configs", {
-              method: "POST",
-              body: JSON.stringify({
-                name: newName.trim(),
-                ...draftToConfig(configDraft),
-              }),
-            });
-            await mutateDefinitions();
-            setQualityDraft({ ...qualityDraft, configId: res.config.id });
+          submit={async (name) => {
+            const configId = await createConfig(name);
+            setQualityDraft({ ...qualityDraft, configId });
           }}
-        >
-          <Field
-            label="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Growth team standards"
-            autoFocus
-          />
-          <Text size="sm" color="text-mid">
-            Starts from the checks and weights shown below. Save the page to use
-            it for {isOrgScope ? "the organization default" : "this Project"}.
-          </Text>
-        </ModalStandard>
+        />
       )}
 
       {renameOpen && effectiveConfig && (
-        <ModalStandard
-          open
-          trackingEventModalType="rename-experiment-quality-config"
+        <ConfigNameModal
           header="Rename Configuration"
           cta="Rename"
-          ctaEnabled={!!newName.trim()}
+          initialName={effectiveConfig.name}
           close={() => setRenameOpen(false)}
-          submit={async () => {
+          submit={async (name) => {
             await apiCall(
               `/experiment-quality-score/configs/${effectiveConfig.id}`,
-              {
-                method: "PUT",
-                body: JSON.stringify({ name: newName.trim() }),
-              },
+              { method: "PUT", body: JSON.stringify({ name }) },
             );
             await mutateDefinitions();
           }}
-        >
-          <Field
-            label="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            autoFocus
-          />
-        </ModalStandard>
+        />
       )}
 
       {deleteOpen && effectiveConfig && (
@@ -223,7 +188,6 @@ export default function QualityScoreTab({
                 disabled={configDirty}
                 setValue={(v) => {
                   if (v === CREATE_CONFIG_VALUE) {
-                    setNewName("");
                     setCreateOpen(true);
                     return;
                   }
@@ -265,12 +229,7 @@ export default function QualityScoreTab({
                   }
                   menuPlacement="end"
                 >
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setNewName(effectiveConfig.name);
-                      setRenameOpen(true);
-                    }}
-                  >
+                  <DropdownMenuItem onClick={() => setRenameOpen(true)}>
                     Rename
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -320,6 +279,19 @@ export default function QualityScoreTab({
         </Flex>
       </Flex>
 
+      {!effective.enabled && (
+        <Callout status="info" size="sm" mb="3">
+          Quality scoring is off for{" "}
+          {isOrgScope ? "the organization default" : "this Project"}. You can
+          set up the checks now — they apply once it&apos;s turned on.{" "}
+          <Link
+            onClick={() => setQualityDraft({ ...qualityDraft, enabled: true })}
+          >
+            Turn on
+          </Link>
+        </Callout>
+      )}
+
       {sharedNote && (
         <Box mb="3">
           <HelperText status="info" size="sm">
@@ -328,7 +300,7 @@ export default function QualityScoreTab({
         </Box>
       )}
 
-      <Box style={{ opacity: effective.enabled ? 1 : 0.6 }}>
+      <Box>
         <QualityConfigEditor
           draft={configDraft}
           setDraft={setConfigDraft}
@@ -353,11 +325,13 @@ export default function QualityScoreTab({
                 </Text>
                 <Button
                   variant="outline"
-                  disabled={anyDirty}
+                  disabled={anyDirty || !effective.enabled}
                   title={
                     anyDirty
                       ? "Save your changes first — recalculation uses the saved settings"
-                      : undefined
+                      : !effective.enabled
+                        ? "Turn on quality scoring to recalculate AI verdicts"
+                        : undefined
                   }
                   onClick={async () => {
                     setRecalculateStatus("");
@@ -383,23 +357,25 @@ export default function QualityScoreTab({
         />
       </Box>
 
-      <Flex
-        align="center"
-        gap="2"
-        px="3"
-        py="2"
-        style={{
-          borderRadius: 6,
-          background: "var(--slate-2)",
-          border: "1px solid var(--border-color-100)",
-        }}
-      >
-        <PiCheckCircleFill size={14} color="var(--green-9)" />
-        <Text size="sm" color="text-mid">
-          Changes to the quality checks and weights will re-score all
-          non-archived experiments
-        </Text>
-      </Flex>
+      {effective.enabled && (
+        <Flex
+          align="center"
+          gap="2"
+          px="3"
+          py="2"
+          style={{
+            borderRadius: 6,
+            background: "var(--slate-2)",
+            border: "1px solid var(--border-color-100)",
+          }}
+        >
+          <PiCheckCircleFill size={14} color="var(--green-9)" />
+          <Text size="sm" color="text-mid">
+            Changes to the quality checks and weights will re-score all
+            non-archived experiments
+          </Text>
+        </Flex>
+      )}
     </Box>
   );
 }

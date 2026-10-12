@@ -3,17 +3,15 @@ import { Slider } from "@radix-ui/themes";
 import clsx from "clsx";
 import styles from "./ExperimentQuality.module.scss";
 
-// Draggable share bar per the design: rounded track, colored fill, white
-// handle ringed in the bar color. Radix Slider provides keyboard arrows
-// and focus handling; callers re-flow sibling shares on change.
+// Draggable share bar: rounded track, colored fill, white handle ringed in
+// the bar color. Callers re-flow sibling shares on change.
 const ShareBar: FC<{
   value: number; // 0-100 integer share
   onChange: (value: number) => void;
   color: string; // css color for fill + handle ring
   variant: "section" | "check";
   ariaLabel: string;
-  disabled?: boolean;
-}> = ({ value, onChange, color, variant, ariaLabel, disabled }) => {
+}> = ({ value, onChange, color, variant, ariaLabel }) => {
   return (
     <Slider
       className={clsx(
@@ -27,7 +25,6 @@ const ShareBar: FC<{
       step={1}
       onValueChange={(v) => onChange(v[0])}
       aria-label={ariaLabel}
-      disabled={disabled}
       radius="full"
       size="1"
     />

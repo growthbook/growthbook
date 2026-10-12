@@ -13,76 +13,21 @@ import {
   aiExperimentQualityCheckKeys,
 } from "../validators/experiments";
 import {
-  CustomQualityCheck,
   DeterministicExperimentQualityCheckKey,
   ExperimentQualityCheckKey,
   ExperimentQualityCheckParams,
   ExperimentQualityConfigBody,
-  ExperimentQualityConfigInterface,
   ExperimentQualitySectionKey,
   MAX_CUSTOM_QUALITY_CHECKS,
-  deterministicExperimentQualityCheckKeys,
   experimentQualityCheckKeys,
   experimentQualitySectionKeys,
 } from "../validators/experiment-quality-score";
-import { ExperimentationHealthSettingsInterface } from "../validators/experimentation-health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
 } from "../constants";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../health";
-
-// Re-export the key sets so existing `shared/enterprise` imports keep working
-export type {
-  CustomQualityCheck,
-  ExperimentQualityCheckKey,
-  ExperimentQualitySectionKey,
-  DeterministicExperimentQualityCheckKey,
-  ExperimentQualityCheckParams,
-  ExperimentQualityConfigBody,
-  ExperimentQualityConfigInterface,
-};
-export {
-  MAX_CUSTOM_QUALITY_CHECKS,
-  experimentQualityCheckKeys,
-  experimentQualitySectionKeys,
-  deterministicExperimentQualityCheckKeys,
-};
-
-type HealthSettingsRecord = Pick<
-  ExperimentationHealthSettingsInterface,
-  "quality"
->;
-
-export interface ResolvedQualityScope {
-  enabled: boolean;
-  // undefined = the built-in GrowthBook default config
-  configId?: string;
-  // Which fields the Project record sets itself rather than inheriting
-  overridden: { enabled: boolean; configId: boolean };
-}
-
-/**
- * Resolves quality scoring for a scope field by field: anything the
- * Project record sets wins, everything else comes from the organization
- * default record. Scoring is off unless one of them turns it on.
- */
-export function resolveQualityScope(
-  orgRecord?: HealthSettingsRecord | null,
-  projectRecord?: HealthSettingsRecord | null,
-): ResolvedQualityScope {
-  const org = orgRecord?.quality;
-  const project = projectRecord?.quality;
-  return {
-    enabled: project?.enabled ?? org?.enabled ?? false,
-    configId: project?.configId ?? org?.configId,
-    overridden: {
-      enabled: project?.enabled !== undefined,
-      configId: project?.configId !== undefined,
-    },
-  };
-}
 
 export type ExperimentQualityCheckType = "deterministic" | "ai";
 
@@ -109,8 +54,10 @@ const EPS = 1e-9;
 
 export interface ExperimentQualitySectionDefinition {
   label: string;
-  // Raw cross-section share weight; the design defaults total 100 so raw
-  // weights read as percentages, but only the normalized ratio matters
+  // When the section's checks apply, shown next to its label
+  note?: string;
+  // Raw cross-section share weight; defaults total 100 so raw weights read
+  // as percentages, but only the normalized ratio matters
   defaultWeight: number;
 }
 
@@ -119,15 +66,29 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   ExperimentQualitySectionDefinition
 > = {
   documentation: { label: "Documentation", defaultWeight: 35 },
-  results: { label: "Results", defaultWeight: 25 },
-  health: { label: "Health", defaultWeight: 20 },
-  ai: { label: "AI checks", defaultWeight: 20 },
+  results: {
+    label: "Results",
+    note: "stopped experiments only",
+    defaultWeight: 25,
+  },
+  health: {
+    label: "Health",
+    note: "when traffic data exists",
+    defaultWeight: 20,
+  },
+  ai: {
+    label: "AI checks",
+    note: "judged by AI, cached until inputs change",
+    defaultWeight: 20,
+  },
 };
 
 export interface ExperimentQualityCheckDefinition {
   section: ExperimentQualitySectionKey;
   type: ExperimentQualityCheckType;
   label: string;
+  // When the check applies, shown next to its label
+  note?: string;
   defaultWeight: number;
   defaultEnabled: boolean;
   defaultParams?: ExperimentQualityCheckParams;
@@ -155,6 +116,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Has screenshots",
+    note: "all except Holdouts",
     defaultWeight: 1,
     defaultEnabled: false,
   },
@@ -198,6 +160,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "health",
     type: "deterministic",
     label: "No major health issues",
+    note: "SRM, multiple exposures, imbalance",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -212,6 +175,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "health",
     type: "deterministic",
     label: "Minimum runtime met",
+    note: "stopped only",
     defaultWeight: 1,
     defaultEnabled: false,
     defaultParams: { minRuntimeDays: 14 },
@@ -220,6 +184,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "ai",
     type: "ai",
     label: "Hypothesis quality",
+    note: "hypothesis present",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -234,6 +199,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "ai",
     type: "ai",
     label: "Learnings quality",
+    note: "stopped, learnings present",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -415,6 +381,8 @@ export function resolveExperimentQualityScoreSettings(
       enabledChecks.reduce((sum, c) => sum + checkWeight[c], 0) +
       enabledCustom.reduce((sum, c) => sum + c.rawWeight, 0);
     const enabledCount = enabledChecks.length + enabledCustom.length;
+    const splitFor = (enabled: boolean, weight: number) =>
+      !enabled ? 0 : splitSum > EPS ? weight / splitSum : 1 / enabledCount;
     for (const key of sectionChecks) {
       const def = EXPERIMENT_QUALITY_CHECKS[key];
       const isEnabled = checkEnabled[key] && sections[sectionKey].enabled;
@@ -425,11 +393,7 @@ export function resolveExperimentQualityScoreSettings(
         label: def.label,
         enabled: isEnabled,
         rawWeight: checkWeight[key],
-        split: !isEnabled
-          ? 0
-          : splitSum > EPS
-            ? checkWeight[key] / splitSum
-            : 1 / enabledCount,
+        split: splitFor(isEnabled, checkWeight[key]),
         params: sanitizeParams(key, cfg?.checks?.[key]?.params),
         aiContext:
           def.type === "ai" ? cfg?.checks?.[key]?.aiContext : undefined,
@@ -437,11 +401,7 @@ export function resolveExperimentQualityScoreSettings(
     }
     if (sectionKey === "ai") {
       for (const custom of customAiChecks) {
-        custom.split = !custom.enabled
-          ? 0
-          : splitSum > EPS
-            ? custom.rawWeight / splitSum
-            : 1 / enabledCount;
+        custom.split = splitFor(custom.enabled, custom.rawWeight);
       }
     }
   }
@@ -549,9 +509,6 @@ export function computeAIQualityInputsHash({
   analysis?: string;
   goalMetricNames: string[];
   aiCheckContexts: Array<[string, string]>;
-  // Set (via getExperimentDigestForCustomRules) when any custom rule is
-  // enabled — custom rules read the whole experiment, so any change to it
-  // must invalidate their verdicts
   experimentDigest?: string;
 }): string {
   return cyrb53(
@@ -564,6 +521,38 @@ export function computeAIQualityInputsHash({
       experimentDigest,
     ]),
   );
+}
+
+// Goal metric names as the AI judge sees them. Metrics that can't be found
+// are dropped, the same way on the front-end and back-end, so both compute
+// the same inputs hash.
+export function getGoalMetricNames(
+  goalMetricIds: string[],
+  getName: (id: string) => string | undefined,
+): string[] {
+  return goalMetricIds
+    .map((id) => getName(id))
+    .filter((name): name is string => !!name);
+}
+
+// The current AI inputs hash for an experiment under the given settings
+export function getAIQualityInputsHash(
+  experiment: ExperimentForQualityScore,
+  settings: ResolvedExperimentQualityScoreSettings,
+  goalMetricNames: string[],
+): string {
+  const hasCustomRules = settings.customAiChecks.some((c) => c.enabled);
+  return computeAIQualityInputsHash({
+    hypothesis: experiment.hypothesis,
+    analysis: experiment.analysis,
+    goalMetricNames,
+    aiCheckContexts: getAICheckHashInputs(settings),
+    // Custom rules read the whole experiment, so any change to it must
+    // invalidate their verdicts
+    experimentDigest: hasCustomRules
+      ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
+      : "",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -816,22 +805,25 @@ export function getExperimentQualityScore({
   goalMetricNames: string[];
   now?: Date;
 }): ExperimentQualityScoreResult {
-  const enabledCustomChecks = settings.customAiChecks.filter((c) => c.enabled);
-  const currentHash = computeAIQualityInputsHash({
-    hypothesis: experiment.hypothesis,
-    analysis: experiment.analysis,
-    goalMetricNames,
-    aiCheckContexts: getAICheckHashInputs(settings),
-    experimentDigest: enabledCustomChecks.length
-      ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
-      : "",
-  });
   const aiResults =
-    experiment.aiQualityResults?.inputsHash === currentHash
+    experiment.aiQualityResults?.inputsHash ===
+    getAIQualityInputsHash(experiment, settings, goalMetricNames)
       ? experiment.aiQualityResults
       : undefined;
 
   let pending = false;
+  // A fresh cached AI verdict, or a pending reason when there isn't one
+  const lookupAIVerdict = (key: string) => {
+    const cached = aiResults?.checks.find((c) => c.key === key);
+    if (cached) return { score: cached.score, reason: cached.reason };
+    pending = true;
+    return {
+      score: null,
+      reason: aiResults?.error
+        ? `AI scoring failed: ${aiResults.error}`
+        : "AI score not computed yet",
+    };
+  };
   let totalEnabledCheckCount = 0;
   let appliedCheckCount = 0;
 
@@ -863,20 +855,11 @@ export function getExperimentQualityScore({
       score = res.applicable ? (res.score ?? 0) : null;
       reason = res.reason;
     } else {
-      const aiKey = key as AIExperimentQualityCheckKey;
-      applicable = isAICheckApplicable(aiKey, experiment);
-      if (applicable) {
-        const cached = aiResults?.checks.find((c) => c.key === aiKey);
-        if (cached) {
-          score = cached.score;
-          reason = cached.reason;
-        } else {
-          pending = true;
-          reason = aiResults?.error
-            ? `AI scoring failed: ${aiResults.error}`
-            : "AI score not computed yet";
-        }
-      }
+      applicable = isAICheckApplicable(
+        key as AIExperimentQualityCheckKey,
+        experiment,
+      );
+      if (applicable) ({ score, reason } = lookupAIVerdict(key));
     }
 
     if (applicable) appliedCheckCount++;
@@ -898,11 +881,9 @@ export function getExperimentQualityScore({
 
   // Custom AI rules: always applicable when enabled — the rule text itself
   // decides how to treat missing fields
-  for (const custom of enabledCustomChecks) {
+  for (const custom of settings.customAiChecks.filter((c) => c.enabled)) {
     totalEnabledCheckCount++;
     appliedCheckCount++;
-    const cached = aiResults?.checks.find((c) => c.key === custom.key);
-    if (!cached) pending = true;
     evaluated.push({
       section: "ai",
       effW: settings.sections.ai.share * custom.split,
@@ -911,62 +892,44 @@ export function getExperimentQualityScore({
         type: "ai",
         label: custom.name,
         applicable: true,
-        score: cached ? cached.score : null,
-        reason: cached
-          ? cached.reason
-          : aiResults?.error
-            ? `AI scoring failed: ${aiResults.error}`
-            : "AI score not computed yet",
+        ...lookupAIVerdict(custom.key),
       },
     });
   }
 
   // Renormalize: N/A and pending checks leave the denominator
-  const scorable = evaluated.filter(
-    (e) => e.result.applicable && e.result.score !== null,
-  );
-  const denominator = scorable.reduce((sum, e) => sum + e.effW, 0);
-  const computedScore =
+  const isScorable = (e: Evaluated) =>
+    e.result.applicable && e.result.score !== null;
+  const denominator = evaluated
+    .filter(isScorable)
+    .reduce((sum, e) => sum + e.effW, 0);
+  // Points on the 0-100 scale: possible (score treated as 1) or earned
+  const points = (list: Evaluated[], earned: boolean) =>
     denominator > EPS
-      ? Math.round(
-          (100 *
-            scorable.reduce(
-              (sum, e) => sum + e.effW * (e.result.score ?? 0),
+      ? (100 *
+          list
+            .filter(isScorable)
+            .reduce(
+              (sum, e) => sum + e.effW * (earned ? (e.result.score ?? 0) : 1),
               0,
             )) /
-            denominator,
-        )
-      : null;
+        denominator
+      : 0;
+  const computedScore =
+    denominator > EPS ? Math.round(points(evaluated, true)) : null;
 
   const sections: ExperimentQualitySectionResult[] =
     experimentQualitySectionKeys.map((sectionKey) => {
       const section = settings.sections[sectionKey];
       const sectionChecks = evaluated.filter((e) => e.section === sectionKey);
-      const sectionScorable = sectionChecks.filter(
-        (e) => e.result.applicable && e.result.score !== null,
-      );
-      const possiblePoints =
-        denominator > EPS
-          ? (100 * sectionScorable.reduce((sum, e) => sum + e.effW, 0)) /
-            denominator
-          : 0;
-      const earnedPoints =
-        denominator > EPS
-          ? (100 *
-              sectionScorable.reduce(
-                (sum, e) => sum + e.effW * (e.result.score ?? 0),
-                0,
-              )) /
-            denominator
-          : 0;
       return {
         key: sectionKey,
         label: section.label,
         enabled: section.enabled,
         applicable: sectionChecks.some((e) => e.result.applicable),
         sharePercent: section.share * 100,
-        earnedPoints,
-        possiblePoints,
+        earnedPoints: points(sectionChecks, true),
+        possiblePoints: points(sectionChecks, false),
         checks: sectionChecks.map((e) => e.result),
       };
     });
@@ -984,26 +947,12 @@ export function getExperimentQualityScore({
   };
 }
 
-// ---------------------------------------------------------------------------
-// UI helpers
-// ---------------------------------------------------------------------------
+// A check scoring at or above this passes; below it needs attention
+export const QUALITY_CHECK_PASS_THRESHOLD = 0.5;
 
-export const QUALITY_CHECK_ATTENTION_THRESHOLD = 0.5;
-
-// Failing checks worth calling out. Exactly 0.5 is the design's amber
-// "partial" — not "needs attention". Pending AI checks are excluded.
-export function getQualityChecksNeedingAttention(
-  result: ExperimentQualityScoreResult,
-): ExperimentQualityCheckResult[] {
-  return result.sections.flatMap((section) =>
-    section.checks.filter(
-      (c) =>
-        c.applicable &&
-        c.score !== null &&
-        c.score < QUALITY_CHECK_ATTENTION_THRESHOLD,
-    ),
-  );
-}
+// ---------------------------------------------------------------------------
+// Share math for the settings editors
+// ---------------------------------------------------------------------------
 
 /**
  * Largest-remainder rounding: integer values guaranteed to sum to `total`.
@@ -1027,80 +976,24 @@ export function roundToTotal(values: number[], total = 100): number[] {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// Presets
-// ---------------------------------------------------------------------------
-
-export type ExperimentQualityScorePresetKey = "default";
-
-export interface ExperimentQualityScorePreset {
-  key: ExperimentQualityScorePresetKey;
-  label: string;
-  description: string;
-  config: ExperimentQualityConfigBody;
-}
-
-// A single "Default" preset (the catalog defaults); anything else reads as
-// "Custom" in the UI
-export const EXPERIMENT_QUALITY_PRESETS: ExperimentQualityScorePreset[] = [
-  {
-    key: "default",
-    label: "Default",
-    description:
-      "The recommended checks and weights: documentation, results, and health checks plus AI review, balanced 35/25/20/20.",
-    config: {},
-  },
-];
-
-// Tolerance for share/split comparison when matching presets. Stored
-// weights are integer percentages (e.g. three equal checks become
-// 34/33/33), so exact equality against a preset's 1/3 splits never holds —
-// anything within a rounding percentage point counts as the same share.
-const PRESET_SHARE_TOLERANCE = 0.01;
-
 /**
- * Detects whether a stored config is equivalent to a preset, comparing the
- * RESOLVED, normalized forms (so 35/25/20/20 matches 7/5/4/4, explicit
- * defaults match omitted fields, and integer-rounded shares like 34/33/33
- * match exact thirds). Ignores AI context fields and `enabled`. Returns
- * null when no preset matches ("Custom").
+ * Sets one share and re-flows the others in proportion so the integer
+ * shares keep totalling `total` (others split evenly when all are 0).
  */
-export function configMatchesPreset(
-  config?: ExperimentQualityConfigBody | null,
-): ExperimentQualityScorePresetKey | null {
-  const resolvedCandidate = resolveExperimentQualityScoreSettings(config);
-  for (const preset of EXPERIMENT_QUALITY_PRESETS) {
-    const resolvedPreset = resolveExperimentQualityScoreSettings(preset.config);
-    const sectionsMatch = experimentQualitySectionKeys.every((key) => {
-      const a = resolvedCandidate.sections[key];
-      const b = resolvedPreset.sections[key];
-      return (
-        a.enabled === b.enabled &&
-        Math.abs(a.share - b.share) < PRESET_SHARE_TOLERANCE
-      );
-    });
-    const checksMatch = experimentQualityCheckKeys.every((key) => {
-      const a = resolvedCandidate.checks[key];
-      const b = resolvedPreset.checks[key];
-      return (
-        a.enabled === b.enabled &&
-        Math.abs(a.split - b.split) < PRESET_SHARE_TOLERANCE &&
-        JSON.stringify(a.params ?? null) === JSON.stringify(b.params ?? null)
-      );
-    });
-    // No preset ships custom AI rules, so any enabled custom rule reads as
-    // a custom config
-    const customMatch =
-      resolvedCandidate.customAiChecks.filter((c) => c.enabled).length ===
-      resolvedPreset.customAiChecks.filter((c) => c.enabled).length;
-    if (
-      sectionsMatch &&
-      checksMatch &&
-      customMatch &&
-      resolvedCandidate.aiChecksEnabled === resolvedPreset.aiChecksEnabled
-    ) {
-      return preset.key;
-    }
-  }
-  return null;
+export function reflowShares(
+  shares: number[],
+  index: number,
+  newShare: number,
+  total = 100,
+): number[] {
+  if (shares.length <= 1) return shares.map(() => total);
+  const clamped = Math.min(Math.max(Math.round(newShare), 0), total);
+  const others = shares.filter((_, i) => i !== index);
+  const otherSum = others.reduce((s, v) => s + v, 0);
+  const redistributed = roundToTotal(
+    otherSum > EPS ? others : others.map(() => 1),
+    total - clamped,
+  );
+  let next = 0;
+  return shares.map((_, i) => (i === index ? clamped : redistributed[next++]));
 }

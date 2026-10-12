@@ -6,20 +6,16 @@ import {
   PiPencilSimpleFill,
   PiXCircleFill,
 } from "react-icons/pi";
-import { ExperimentQualityScoreResult } from "shared/enterprise";
+import {
+  ExperimentQualityScoreResult,
+  QUALITY_CHECK_PASS_THRESHOLD,
+} from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
-
-export const getScoreColor = (
-  score: number,
-): React.ComponentProps<typeof Badge>["color"] => {
-  if (score >= 80) return "green";
-  if (score >= 50) return "amber";
-  return "red";
-};
+import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
 
 const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
   result,
@@ -56,7 +52,7 @@ const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
                   <Box mt="1">
                     {check.score === null ? (
                       <PiCircleDashed color="var(--gray-9)" />
-                    ) : check.score >= 0.5 ? (
+                    ) : check.score >= QUALITY_CHECK_PASS_THRESHOLD ? (
                       <PiCheckCircleFill color="var(--green-9)" />
                     ) : (
                       <PiXCircleFill color="var(--red-9)" />
@@ -88,15 +84,14 @@ const QualityScoreBadge: FC<{
 }> = ({ experiment }) => {
   const quality = useExperimentQualityScore(experiment);
 
-  if (!quality || quality.result.score === null) return null;
+  const score = quality?.result.score ?? null;
+  if (!quality || score === null) return null;
   const { result } = quality;
-  const score = result.score;
-  if (score === null) return null;
 
   return (
     <Tooltip body={<QualityScoreTooltipBody result={result} />}>
       <Badge
-        color={getScoreColor(score)}
+        color={getScoreTier(score)}
         variant="soft"
         radius="full"
         label={

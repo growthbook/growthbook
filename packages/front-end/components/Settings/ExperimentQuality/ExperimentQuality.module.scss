@@ -115,3 +115,46 @@
   pointer-events: none;
   user-select: none;
 }
+
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sectionShare {
+  display: block;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-high);
+
+  &.off {
+    color: var(--color-text-low);
+  }
+}
+
+.splitValue {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-high);
+
+  &.off {
+    color: var(--color-text-low);
+  }
+}
+
+.splitNote {
+  font-size: 10px;
+  color: var(--color-text-low);
+}
+
+.nameInput {
+  width: 220px;
+  text-align: left;
+  padding: 1px 6px;
+}
+
+.addCustomRow {
+  border-top: 1px dashed var(--border-color-100);
+}

@@ -1,101 +1,53 @@
 import type { Response } from "express";
-import { ExperimentQualityConfigBody } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { ExperimentQualityConfigInterface } from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
+  countStoppedExperimentsByOrganization,
   getExperimentById,
-  getStoppedExperimentIdsByOrganization,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { computeAndStoreAIQualityChecks } from "back-end/src/enterprise/services/experimentQualityScore";
 import { queueExperimentQualityScoreUpdatesForOrg } from "back-end/src/jobs/updateExperimentQualityScores";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { ReqContext } from "back-end/types/request";
 
-// Recompute the AI quality checks for one experiment, bypassing the
-// inputs-hash cache (used by the manual refresh action in the UI)
-export async function postRefreshExperimentQualityScore(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-
+function requireQualityScoreFeature(context: ReqContext) {
   if (!context.hasPremiumFeature("experiment-quality-score")) {
-    return res.status(403).json({
-      status: 403,
-      message:
-        "Organization does not have the experiment quality score feature",
-    });
+    context.throwPlanDoesNotAllowError(
+      "Your organization does not have access to experiment quality scores",
+    );
   }
-
-  const experiment = await getExperimentById(context, req.params.id);
-  if (!experiment) {
-    return res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-
-  const updated = await computeAndStoreAIQualityChecks({
-    context,
-    experiment,
-    force: true,
-  });
-
-  return res.status(200).json({
-    status: 200,
-    experiment: updated ?? experiment,
-  });
 }
 
-// Enqueue AI quality-check updates for every stopped experiment in the org
-// (used after quality-score settings change). Runs through the job queue —
-// per-experiment jobs re-check gates and skip fresh results.
+// Re-runs the AI checks for every stopped experiment in the org, even ones
+// whose inputs haven't changed (e.g. after editing the AI prompt)
 export async function postRecalculateExperimentQualityScores(
   req: AuthRequest,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  if (!context.hasPremiumFeature("experiment-quality-score")) {
-    return res.status(403).json({
-      status: 403,
-      message:
-        "Organization does not have the experiment quality score feature",
-    });
-  }
-
+  requireQualityScoreFeature(context);
   if (!context.permissions.canManageOrgSettings()) {
     context.permissions.throwPermissionError();
   }
 
-  const queued = await queueExperimentQualityScoreUpdatesForOrg(context.org.id);
-
-  return res.status(200).json({
-    status: 200,
-    queued,
-  });
+  const queued = await queueExperimentQualityScoreUpdatesForOrg(
+    context.org.id,
+    { force: true },
+  );
+  return res.status(200).json({ status: 200, queued });
 }
 
-// Lightweight status for the settings page (e.g. how many stopped
-// experiments a recalculation would queue) without triggering anything
 export async function getExperimentQualityScoreStatus(
   req: AuthRequest,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  const stoppedExperiments = (
-    await getStoppedExperimentIdsByOrganization(context.org.id)
-  ).length;
-
-  return res.status(200).json({
-    status: 200,
-    stoppedExperiments,
-  });
+  const stoppedExperiments = await countStoppedExperimentsByOrganization(
+    context.org.id,
+  );
+  return res.status(200).json({ status: 200, stoppedExperiments });
 }
 
 // Set or clear the manual quality-score override for an experiment.
@@ -105,29 +57,15 @@ export async function postExperimentQualityScoreOverride(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  if (!context.hasPremiumFeature("experiment-quality-score")) {
-    return res.status(403).json({
-      status: 403,
-      message:
-        "Organization does not have the experiment quality score feature",
-    });
-  }
+  requireQualityScoreFeature(context);
 
   const experiment = await getExperimentById(context, req.params.id);
-  if (!experiment) {
-    return res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-  }
-
+  if (!experiment) return context.throwNotFoundError("Experiment not found");
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
 
   const { score, reason } = req.body;
-
   const qualityScoreOverride =
     score === null
       ? null
@@ -149,66 +87,30 @@ export async function postExperimentQualityScoreOverride(
 
   await context.auditLog({
     event: "experiment.update",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
+    entity: { object: "experiment", id: experiment.id },
     details: auditDetailsUpdate(experiment, updated),
   });
 
-  return res.status(200).json({
-    status: 200,
-    experiment: updated,
-  });
+  return res.status(200).json({ status: 200, experiment: updated });
 }
 
-// ---------------------------------------------------------------------------
-// Config CRUD — named, shareable quality configs referenced by id from org
-// and project settings. Permissions are enforced by the model.
-// ---------------------------------------------------------------------------
-
-export async function getExperimentQualityConfigs(
-  req: AuthRequest,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  return res.status(200).json({
-    status: 200,
-    configs: await context.models.experimentQualityConfigs.getAll(),
-  });
-}
-
-type ConfigWriteBody = {
-  name: string;
-  description?: string;
-} & ExperimentQualityConfigBody;
+// Named, shareable quality configs. Permissions are enforced by the model.
 
 export async function postExperimentQualityConfig(
-  req: AuthRequest<ConfigWriteBody>,
+  req: AuthRequest<CreateProps<ExperimentQualityConfigInterface>>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const {
-    name,
-    description,
-    aiChecksEnabled,
-    sections,
-    checks,
-    customAiChecks,
-  } = req.body;
-  const config = await context.models.experimentQualityConfigs.create({
-    name,
-    description,
-    aiChecksEnabled,
-    sections,
-    checks,
-    customAiChecks,
-  });
+  const config = await context.models.experimentQualityConfigs.create(req.body);
   return res.status(200).json({ status: 200, config });
 }
 
+// Only the fields sent change, so a rename can send just the name
 export async function putExperimentQualityConfig(
-  req: AuthRequest<Partial<ConfigWriteBody>, { id: string }>,
+  req: AuthRequest<
+    UpdateProps<ExperimentQualityConfigInterface>,
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -216,29 +118,11 @@ export async function putExperimentQualityConfig(
     req.params.id,
   );
   if (!existing) {
-    return res.status(404).json({
-      status: 404,
-      message: "Could not find a quality config with that id",
-    });
+    return context.throwNotFoundError("Could not find that configuration");
   }
-  const {
-    name,
-    description,
-    aiChecksEnabled,
-    sections,
-    checks,
-    customAiChecks,
-  } = req.body;
   const config = await context.models.experimentQualityConfigs.update(
     existing,
-    {
-      ...(name !== undefined ? { name } : {}),
-      ...(description !== undefined ? { description } : {}),
-      aiChecksEnabled,
-      sections,
-      checks,
-      customAiChecks,
-    },
+    req.body,
   );
   return res.status(200).json({ status: 200, config });
 }
@@ -252,10 +136,7 @@ export async function deleteExperimentQualityConfig(
     req.params.id,
   );
   if (!existing) {
-    return res.status(404).json({
-      status: 404,
-      message: "Could not find a quality config with that id",
-    });
+    return context.throwNotFoundError("Could not find that configuration");
   }
   await context.models.experimentQualityConfigs.delete(existing);
   return res.status(200).json({ status: 200 });

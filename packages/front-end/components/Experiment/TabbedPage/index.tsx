@@ -132,7 +132,8 @@ export default function TabbedPage({
 
   // The active tab persists in localStorage — fall back to Overview if
   // quality scoring has since been disabled for this experiment's scope
-  const qualityAvailable = !!useExperimentQualityScore(experiment);
+  const qualityScore = useExperimentQualityScore(experiment);
+  const qualityAvailable = !!qualityScore;
   useEffect(() => {
     if (tab === "quality" && !qualityAvailable) {
       setTab("overview");
@@ -530,6 +531,7 @@ export default function TabbedPage({
 
       <ExperimentHeader
         experiment={experiment}
+        qualityScore={qualityScore}
         holdout={holdout}
         envs={envs}
         tab={tab}
@@ -769,6 +771,7 @@ export default function TabbedPage({
       >
         <QualityTab
           experiment={experiment}
+          quality={qualityScore}
           mutate={mutate}
           editMetrics={editMetrics}
           setTabAndScroll={setTabAndScroll}

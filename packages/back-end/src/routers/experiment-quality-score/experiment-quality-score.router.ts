@@ -1,29 +1,20 @@
 import express from "express";
 import { z } from "zod";
-import { experimentQualityConfigBodyValidator } from "shared/validators";
+import { experimentQualityConfigValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawController from "./experiment-quality-score.controller";
 
-const configWriteBodyValidator = z
-  .object({
-    name: z.string().min(1).max(100),
-    description: z.string().max(500).optional(),
-    ...experimentQualityConfigBodyValidator.shape,
-  })
-  .strict();
+const configWriteBodyValidator = experimentQualityConfigValidator.omit({
+  id: true,
+  organization: true,
+  dateCreated: true,
+  dateUpdated: true,
+});
 
 const router = express.Router();
 
 const controller = wrapController(rawController);
-
-router.post(
-  "/experiment/:id/refresh",
-  validateRequestMiddleware({
-    params: z.object({ id: z.string() }).strict(),
-  }),
-  controller.postRefreshExperimentQualityScore,
-);
 
 router.post(
   "/recalculate",
@@ -49,12 +40,6 @@ router.post(
       .strict(),
   }),
   controller.postExperimentQualityScoreOverride,
-);
-
-router.get(
-  "/configs",
-  validateRequestMiddleware({}),
-  controller.getExperimentQualityConfigs,
 );
 
 router.post(

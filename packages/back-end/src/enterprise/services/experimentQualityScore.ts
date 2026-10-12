@@ -4,15 +4,15 @@ import {
   ExperimentAIQualityResults,
   ExperimentInterface,
   aiExperimentQualityCheckKeys,
+  ORG_DEFAULT_SCOPE,
 } from "shared/validators";
 import {
-  computeAIQualityInputsHash,
   customQualityCheckKey,
-  getAICheckHashInputs,
+  getAIQualityInputsHash,
   getExperimentDigestForCustomRules,
+  getGoalMetricNames,
   isAICheckApplicable,
-  resolveExperimentQualityScoreSettings,
-  resolveQualityScope,
+  resolveExperimentQualitySettings,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -82,28 +82,30 @@ export async function computeAndStoreAIQualityChecks({
   experiment: ExperimentInterface;
   force?: boolean;
 }): Promise<ExperimentInterface | null> {
-  if (!context.hasPremiumFeature("experiment-quality-score")) return null;
+  if (
+    !context.hasPremiumFeature("experiment-quality-score") ||
+    !context.org.settings?.aiEnabled
+  ) {
+    return null;
+  }
 
-  // A missing or deleted config resolves to the built-in defaults
-  const [orgRecord, projectRecord] = await Promise.all([
-    context.models.experimentationHealthSettings.getForScope(""),
+  const [orgRecord, projectRecord, configs] = await Promise.all([
+    context.models.experimentationHealthSettings.getForScope(ORG_DEFAULT_SCOPE),
     experiment.project
       ? context.models.experimentationHealthSettings.getForScope(
           experiment.project,
         )
       : null,
+    context.models.experimentQualityConfigs.getAll(),
   ]);
-  const { enabled, configId } = resolveQualityScope(orgRecord, projectRecord);
-  if (!enabled) return null;
-
-  const configDoc = configId
-    ? await context.models.experimentQualityConfigs.getById(configId)
-    : null;
-  const settings = resolveExperimentQualityScoreSettings(configDoc);
-  if (!settings.aiChecksEnabled) return null;
-
-  const { aiEnabled } = await getAISettingsForOrg(context);
-  if (!aiEnabled) return null;
+  const resolved = resolveExperimentQualitySettings({
+    orgRecord,
+    projectRecord,
+    getConfig: (id) => configs.find((c) => c.id === id),
+    aiEnabled: true,
+  });
+  if (!resolved?.settings.aiChecksEnabled) return null;
+  const { settings } = resolved;
 
   const applicableChecks = aiExperimentQualityCheckKeys.filter(
     (key) =>
@@ -114,45 +116,43 @@ export async function computeAndStoreAIQualityChecks({
   );
   if (!applicableChecks.length && !applicableCustomChecks.length) return null;
 
-  const goalMetrics = await getExperimentMetricsByIds(
-    context,
+  const [{ aiEnabled }, goalMetrics] = await Promise.all([
+    getAISettingsForOrg(context),
+    getExperimentMetricsByIds(context, experiment.goalMetrics),
+  ]);
+  if (!aiEnabled) return null;
+
+  const goalMetricNames = getGoalMetricNames(
     experiment.goalMetrics,
+    (id) => goalMetrics.find((m) => m.id === id)?.name,
   );
-  const goalMetricNames = goalMetrics.map((m) => m.name);
-
-  // Custom rules read a trimmed projection of the whole experiment, so it
-  // joins both the prompt and the invalidation hash
-  const experimentDigest = applicableCustomChecks.length
-    ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
-    : "";
-
-  const inputsHash = computeAIQualityInputsHash({
-    hypothesis: experiment.hypothesis,
-    analysis: experiment.analysis,
+  const inputsHash = getAIQualityInputsHash(
+    experiment,
+    settings,
     goalMetricNames,
-    aiCheckContexts: getAICheckHashInputs(settings),
-    experimentDigest,
-  });
+  );
   if (!force && experiment.aiQualityResults?.inputsHash === inputsHash) {
     return null;
   }
 
+  // Custom rules read a trimmed projection of the whole experiment
+  const experimentDigest = applicableCustomChecks.length
+    ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
+    : "";
+
   // Skip while over the AI usage limit; the sweep job will retry later
   if ((await secondsUntilAICanBeUsedAgain(context.org)) > 0) return null;
 
-  const { prompt, isDefaultPrompt, overrideModel } =
-    await context.models.aiPrompts.getAIPrompt("experiment-quality");
-
-  // Judge hypothesis quality against the same (possibly org-customized)
-  // definition of a good hypothesis used on the AI settings page. Like
-  // custom prompt text, this is applied to new verdicts only — the
-  // "Recalculate AI verdicts" action re-scores existing experiments.
-  const hypothesisDefinition = applicableChecks.includes(
-    "ai-hypothesis-quality",
-  )
-    ? (await context.models.aiPrompts.getAIPrompt("experiment-hypothesis"))
-        .prompt
-    : "";
+  // Hypothesis quality is judged against the same (possibly customized)
+  // definition of a good hypothesis used on the AI settings page
+  const [{ prompt, isDefaultPrompt, overrideModel }, hypothesisPrompt] =
+    await Promise.all([
+      context.models.aiPrompts.getAIPrompt("experiment-quality"),
+      applicableChecks.includes("ai-hypothesis-quality")
+        ? context.models.aiPrompts.getAIPrompt("experiment-hypothesis")
+        : null,
+    ]);
+  const hypothesisDefinition = hypothesisPrompt?.prompt ?? "";
 
   const customRulesPrompt = applicableCustomChecks.length
     ? [

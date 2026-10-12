@@ -907,18 +907,22 @@ export async function stopExperiment({
     });
   }
 
-  // Fire-and-forget: the decision and learnings just landed, so kick off
-  // the AI quality checks right away instead of waiting for the sweep.
-  // The job re-checks all gates (feature flag, org settings, AI enabled).
-  queueExperimentQualityScoreUpdate({
-    experimentId: updated.id,
-    organization: updated.organization,
-  }).catch((e) =>
-    logger.error(
-      e,
-      `Failed to queue AI quality-score update for experiment ${updated.id}`,
-    ),
-  );
+  // The decision and learnings just landed, so run the AI quality checks
+  // now instead of waiting for the sweep (the job re-checks the rest)
+  if (
+    context.hasPremiumFeature("experiment-quality-score") &&
+    context.org.settings?.aiEnabled
+  ) {
+    queueExperimentQualityScoreUpdate({
+      experimentId: updated.id,
+      organization: updated.organization,
+    }).catch((e) =>
+      logger.error(
+        e,
+        `Failed to queue AI quality-score update for experiment ${updated.id}`,
+      ),
+    );
+  }
 
   return { experiment, updated, isEnding };
 }

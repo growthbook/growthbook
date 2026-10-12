@@ -1,6 +1,6 @@
 import React from "react";
-import { Tooltip } from "@radix-ui/themes";
 import { PiArrowCounterClockwise } from "react-icons/pi";
+import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 
 // Marks a Project setting that overrides the organization default. Paired

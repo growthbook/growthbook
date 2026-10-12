@@ -31,8 +31,8 @@ import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
-import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
-import { getScoreColor } from "@/components/Experiment/QualityScoreBadge";
+import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualityScore";
+import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -86,6 +86,7 @@ import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
+  qualityScore: ExperimentQualityScoreHookResult | null;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -145,6 +146,7 @@ const SAVE_SETTING_TIMEOUT_MS = 3000;
 
 export default function ExperimentHeader({
   tab,
+  qualityScore,
   setTab,
   experiment,
   envs,
@@ -177,7 +179,6 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
-  const qualityScore = useExperimentQualityScore(experiment);
   const { snapshot, phase, analysis } = useSnapshot();
   const {
     checklistItemsRemaining,
@@ -1345,7 +1346,7 @@ export default function ExperimentHeader({
                             color={
                               qualityScore.result.score === null
                                 ? "gray"
-                                : getScoreColor(qualityScore.result.score)
+                                : getScoreTier(qualityScore.result.score)
                             }
                             label={String(qualityScore.result.score ?? "—")}
                           />

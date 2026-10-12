@@ -3,8 +3,10 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentQualityCheckResult,
   ExperimentQualitySectionResult,
+  QUALITY_CHECK_PASS_THRESHOLD,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { date } from "shared/dates";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -13,29 +15,19 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
+import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualityScore";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import { SECTION_COLORS } from "@/components/Settings/ExperimentQuality/QualityConfigEditor";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
+import {
+  SECTION_COLORS,
+  getScoreTier,
+  scaleColors,
+} from "@/components/Experiment/Quality/qualityDisplay";
 import { ExperimentTab } from "./index";
-
-const TIER = {
-  green: { arc: "var(--green-9)", text: "var(--green-11)" },
-  amber: { arc: "var(--amber-9)", text: "var(--amber-11)" },
-  red: { arc: "var(--red-9)", text: "var(--red-11)" },
-};
-
-function tierFor(score: number) {
-  if (score >= 80) return TIER.green;
-  if (score >= 50) return TIER.amber;
-  return TIER.red;
-}
 
 const CheckResultCell: FC<{
   check: ExperimentQualityCheckResult;
-  experiment: ExperimentInterfaceStringDates;
   editMetrics?: (() => void) | null;
   setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
 }> = ({ check, editMetrics, setTabAndScroll }) => {
@@ -100,16 +92,10 @@ const CheckResultCell: FC<{
         </Text>
       );
     }
-    const tier =
-      check.score >= 0.8
-        ? TIER.green
-        : check.score >= 0.5
-          ? TIER.amber
-          : TIER.red;
     return (
       <span
         style={{
-          color: tier.text,
+          color: scaleColors(getScoreTier(check.score * 100)).text,
           fontVariantNumeric: "tabular-nums",
           fontSize: 13,
         }}
@@ -127,8 +113,10 @@ const CheckResultCell: FC<{
     );
   }
 
-  if (check.score >= 0.5) {
-    return <span style={{ color: TIER.green.text, fontSize: 13 }}>✓</span>;
+  if (check.score >= QUALITY_CHECK_PASS_THRESHOLD) {
+    return (
+      <span style={{ color: scaleColors("green").text, fontSize: 13 }}>✓</span>
+    );
   }
 
   // Failed deterministic check: under-powered reads as amber per the
@@ -137,7 +125,7 @@ const CheckResultCell: FC<{
   return (
     <span
       style={{
-        color: isAmber ? TIER.amber.text : TIER.red.text,
+        color: scaleColors(isAmber ? "amber" : "red").text,
         fontSize: 13,
       }}
     >
@@ -150,11 +138,10 @@ const CheckResultCell: FC<{
 
 const SectionCard: FC<{
   section: ExperimentQualitySectionResult;
-  experiment: ExperimentInterfaceStringDates;
   editMetrics?: (() => void) | null;
   setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
   statusLabel: string;
-}> = ({ section, experiment, editMetrics, setTabAndScroll, statusLabel }) => {
+}> = ({ section, editMetrics, setTabAndScroll, statusLabel }) => {
   const color = SECTION_COLORS[section.key];
   return (
     <Box
@@ -205,7 +192,6 @@ const SectionCard: FC<{
               </Text>
               <CheckResultCell
                 check={check}
-                experiment={experiment}
                 editMetrics={editMetrics}
                 setTabAndScroll={setTabAndScroll}
               />
@@ -236,24 +222,21 @@ const SectionCard: FC<{
 
 const QualityTab: FC<{
   experiment: ExperimentInterfaceStringDates;
+  quality: ExperimentQualityScoreHookResult | null;
   mutate: () => void;
   editMetrics?: (() => void) | null;
   setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
-}> = ({ experiment, mutate, editMetrics, setTabAndScroll }) => {
-  const quality = useExperimentQualityScore(experiment);
+}> = ({ experiment, quality, mutate, editMetrics, setTabAndScroll }) => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [overrideScore, setOverrideScore] = useState<number>(
     quality?.result.score ?? 50,
   );
   const [overrideReason, setOverrideReason] = useState("");
 
-  if (!hasCommercialFeature("experiment-quality-score") || !quality) {
-    return null;
-  }
-  const { result, scope } = quality;
+  if (!quality) return null;
+  const { result, configName } = quality;
 
   const canOverride =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
@@ -266,7 +249,6 @@ const QualityTab: FC<{
       : "";
 
   const displayScore = result.score;
-  const tier = displayScore !== null ? tierFor(displayScore) : TIER.amber;
 
   async function submitOverride(score: number | null, reason?: string) {
     await apiCall(
@@ -327,8 +309,8 @@ const QualityTab: FC<{
         <Flex align="center" gap="3">
           <Text size="sm" color="text-low">
             Scored with{" "}
-            {scope.configName
-              ? `the ${scope.configName} configuration`
+            {configName
+              ? `the ${configName} configuration`
               : "the GrowthBook default configuration"}{" "}
             ·{" "}
             <Link href="/settings/experimentation-health#quality">
@@ -363,7 +345,10 @@ const QualityTab: FC<{
         }}
       >
         {displayScore !== null ? (
-          <ScoreRing score={displayScore} color={tier.arc} />
+          <ScoreRing
+            score={displayScore}
+            color={scaleColors(getScoreTier(displayScore)).bar}
+          />
         ) : (
           <ScoreRing score={0} color="var(--slate-8)" />
         )}
@@ -396,7 +381,7 @@ const QualityTab: FC<{
                 ? ` by ${result.override.userName}`
                 : ""}
               {result.override.dateOverridden
-                ? ` on ${new Date(result.override.dateOverridden).toLocaleDateString()}`
+                ? ` on ${date(result.override.dateOverridden)}`
                 : ""}
               {result.override.reason ? ` · ${result.override.reason}` : ""}
               {result.computedScore !== null
@@ -448,7 +433,6 @@ const QualityTab: FC<{
             <SectionCard
               key={section.key}
               section={section}
-              experiment={experiment}
               editMetrics={editMetrics}
               setTabAndScroll={setTabAndScroll}
               statusLabel={statusLabel}
