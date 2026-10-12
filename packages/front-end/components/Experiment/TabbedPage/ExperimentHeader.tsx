@@ -30,6 +30,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
+import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
+import { getScoreColor } from "@/components/Experiment/QualityScoreBadge";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -174,6 +177,7 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
+  const qualityScore = useExperimentQualityScore(experiment);
   const { snapshot, phase, analysis } = useSnapshot();
   const {
     checklistItemsRemaining,
@@ -1328,6 +1332,23 @@ export default function ExperimentHeader({
                               {healthNotificationCount}
                             </Avatar>
                           ) : null}
+                        </TabsTrigger>
+                      )}
+                      {qualityScore && (
+                        <TabsTrigger value="quality">
+                          Quality
+                          <Badge
+                            ml="2"
+                            size="xs"
+                            radius="full"
+                            variant="soft"
+                            color={
+                              qualityScore.result.score === null
+                                ? "gray"
+                                : getScoreColor(qualityScore.result.score)
+                            }
+                            label={String(qualityScore.result.score ?? "—")}
+                          />
                         </TabsTrigger>
                       )}
                       {hasMultiplePhases ? (

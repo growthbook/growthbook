@@ -409,7 +409,8 @@ export const experimentAIQualityResults = z
     checks: z.array(
       z
         .object({
-          key: z.enum(aiExperimentQualityCheckKeys),
+          // A built-in AI check key, or `custom:<id>` for custom AI rules
+          key: z.string(),
           score: z.number().min(0).max(1),
           reason: z.string(),
         })
@@ -422,6 +423,22 @@ export const experimentAIQualityResults = z
   .strict();
 export type ExperimentAIQualityResults = z.infer<
   typeof experimentAIQualityResults
+>;
+
+// Manual quality-score override, set from the experiment's Quality tab by
+// users with experiment-update permission. When present, it replaces the
+// computed score everywhere the score is displayed.
+export const experimentQualityScoreOverride = z
+  .object({
+    score: z.number().min(0).max(100),
+    userId: z.string(),
+    userName: z.string().optional(),
+    dateOverridden: z.date(),
+    reason: z.string().max(1000).optional(),
+  })
+  .strict();
+export type ExperimentQualityScoreOverride = z.infer<
+  typeof experimentQualityScoreOverride
 >;
 
 // Also imported by the Mongoose experiment schema so the two can't drift.
@@ -587,6 +604,7 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
     aiQualityResults: experimentAIQualityResults.optional(),
+    qualityScoreOverride: experimentQualityScoreOverride.optional().nullable(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),

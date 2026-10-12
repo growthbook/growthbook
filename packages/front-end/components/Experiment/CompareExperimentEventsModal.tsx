@@ -247,6 +247,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   banditStageDateStarted: false,
   analysisSummary: false,
   aiQualityResults: false,
+  qualityScoreOverride: false,
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,

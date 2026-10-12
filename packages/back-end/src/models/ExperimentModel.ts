@@ -384,6 +384,14 @@ const experimentSchema = new mongoose.Schema({
     ],
     error: String,
   },
+  qualityScoreOverride: {
+    _id: false,
+    score: Number,
+    userId: String,
+    userName: String,
+    dateOverridden: Date,
+    reason: String,
+  },
   analysisSummary: {
     _id: false,
     snapshotId: String,

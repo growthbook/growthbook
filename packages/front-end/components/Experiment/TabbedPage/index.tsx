@@ -20,6 +20,7 @@ import {
   getAvailableSliceTags,
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import {
@@ -52,6 +53,7 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import QualityTab from "./QualityTab";
 
 const experimentTabs = [
   "overview",
@@ -59,6 +61,7 @@ const experimentTabs = [
   "explore",
   "dashboards",
   "health",
+  "quality",
 ] as const;
 type ExperimentTabName = (typeof experimentTabs)[number];
 export type ExperimentTab =
@@ -126,6 +129,15 @@ export default function TabbedPage({
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
+
+  // The active tab persists in localStorage — fall back to Overview if
+  // quality scoring has since been disabled for this experiment's scope
+  const qualityAvailable = !!useExperimentQualityScore(experiment);
+  useEffect(() => {
+    if (tab === "quality" && !qualityAvailable) {
+      setTab("overview");
+    }
+  }, [tab, qualityAvailable, setTab]);
 
   const router = useRouter();
 
@@ -427,8 +439,12 @@ export default function TabbedPage({
 
   const isHoldout = experiment.type === "holdout";
 
+  // The Quality tab has its own results-focused rubric — the stopped
+  // results banner would just duplicate the decision above it
   const showStoppedBanner =
-    experiment.status === "stopped" && tab !== "dashboards";
+    experiment.status === "stopped" &&
+    tab !== "dashboards" &&
+    tab !== "quality";
 
   return (
     <PreLaunchChecklistProvider
@@ -742,6 +758,20 @@ export default function TabbedPage({
             });
           }}
           isTabActive={tab === "health"}
+        />
+      </div>
+      <div
+        className={
+          tab === "quality" && !showDashboardView
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <QualityTab
+          experiment={experiment}
+          mutate={mutate}
+          editMetrics={editMetrics}
+          setTabAndScroll={setTabAndScroll}
         />
       </div>
 

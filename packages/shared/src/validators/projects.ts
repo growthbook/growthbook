@@ -9,6 +9,7 @@ import {
 } from "./owner-field";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
+import { projectExperimentQualityPointerValidator } from "./experiment-quality-score";
 
 import { namedSchema } from "./openapi-helpers";
 import {
@@ -22,6 +23,10 @@ export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
+  // Quality scoring pointer: tri-state enabled + optional reference to an
+  // ExperimentQualityConfig doc. Internal only — not exposed through the
+  // public API validators.
+  experimentQuality: projectExperimentQualityPointerValidator.optional(),
 });
 
 export const projectValidator = baseSchema

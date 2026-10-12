@@ -1,5 +1,4 @@
 import Agenda, { Job } from "agenda";
-import { resolveExperimentQualityScoreSettings } from "shared/enterprise";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -9,6 +8,20 @@ import {
 import { getOrganizationsWithExperimentQualityScoring } from "back-end/src/models/OrganizationModel";
 import { computeAndStoreAIQualityChecks } from "back-end/src/enterprise/services/experimentQualityScore";
 import { getAgendaInstance } from "back-end/src/services/queueing";
+import { getCollection } from "back-end/src/util/mongo.util";
+
+// Orgs where quality scoring is enabled only via a project override (org
+// default off, project forced on). Cross-org enumeration for the sweep, so
+// it queries the collection directly rather than a context-scoped model.
+async function getOrganizationIdsWithProjectQualityScoring(): Promise<
+  string[]
+> {
+  const projects = await getCollection("projects")
+    .find({ "settings.experimentQuality.enabled": true })
+    .project({ organization: true })
+    .toArray();
+  return [...new Set(projects.map((p) => p.organization as string))];
+}
 
 type UpdateSingleExperimentQualityJob = Job<{
   experimentId: string;
@@ -22,27 +35,30 @@ const UPDATE_SINGLE_EXPERIMENT_QUALITY = "updateSingleExperimentQualityScore";
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_QUALITY_UPDATES, async () => {
+    // Scoring can be enabled at the org level OR forced on by a project
+    // override, so enumerate both. Per-experiment jobs re-resolve the
+    // project-aware config and no-op cheaply when nothing applies.
     const orgs = await getOrganizationsWithExperimentQualityScoring();
+    const orgIds = new Set(orgs.map((o) => o.id));
+    const aiEnabledByOrg = new Map(
+      orgs.map((o) => [o.id, !!o.settings?.aiEnabled]),
+    );
+    const projectOnlyOrgIds =
+      await getOrganizationIdsWithProjectQualityScoring();
+    for (const orgId of projectOnlyOrgIds) orgIds.add(orgId);
 
-    for (const org of orgs) {
-      const settings = resolveExperimentQualityScoreSettings(
-        org.settings?.experimentQualityScoreSettings,
-      );
+    for (const orgId of orgIds) {
       // Only the AI portion of the score is cached; deterministic checks
-      // are computed on read, so orgs without AI checks need no sweep
-      if (
-        !settings.enabled ||
-        !settings.aiChecksEnabled ||
-        !org.settings?.aiEnabled
-      ) {
-        continue;
-      }
+      // are computed on read, so orgs without AI enabled need no sweep.
+      // (Per-project aiChecksEnabled is re-checked in the per-experiment
+      // job, so it is NOT filtered here.)
+      if (aiEnabledByOrg.get(orgId) === false) continue;
 
-      const experimentIds = await getStoppedExperimentIdsByOrganization(org.id);
+      const experimentIds = await getStoppedExperimentIdsByOrganization(orgId);
       for (const experimentId of experimentIds) {
         await queueSingleExperimentQualityUpdate(agenda, {
           experimentId,
-          organization: org.id,
+          organization: orgId,
         });
       }
     }

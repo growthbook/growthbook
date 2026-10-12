@@ -258,7 +258,7 @@ const CompletedExperimentList = ({
                       flexGrow="1"
                       direction={"column"}
                     >
-                      <Flex gap="2" align="center">
+                      <Flex gap="2" align="center" width="100%">
                         <Box>
                           <ExperimentStatusIndicator
                             experimentData={e}
@@ -266,7 +266,7 @@ const CompletedExperimentList = ({
                           />
                         </Box>
                         <Box>{expResult}</Box>
-                        <Box>
+                        <Box ml="auto">
                           <QualityScoreBadge experiment={e} />
                         </Box>
                       </Flex>

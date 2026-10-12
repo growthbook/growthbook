@@ -1,0 +1,99 @@
+// Share bars (Radix Slider) restyled per the design: rounded track in
+// slate-4, colored range, white thumb with a 2px ring in the bar color.
+// The bar color is passed via the --share-bar-color custom property.
+.shareBar {
+  width: 100%;
+
+  :global(.rt-SliderTrack) {
+    background-color: var(--slate-4);
+    border-radius: 9999px;
+  }
+
+  :global(.rt-SliderRange) {
+    background-color: var(--share-bar-color);
+    border-radius: 9999px;
+  }
+
+  :global(.rt-SliderThumb)::after {
+    background-color: #fff;
+    box-shadow: inset 0 0 0 2px var(--share-bar-color);
+  }
+
+  &.sectionBar :global(.rt-SliderTrack) {
+    height: 16px;
+  }
+  &.sectionBar :global(.rt-SliderThumb)::after {
+    width: 14px;
+    height: 14px;
+  }
+
+  &.checkBar :global(.rt-SliderTrack) {
+    height: 12px;
+  }
+  &.checkBar :global(.rt-SliderThumb)::after {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.chevron {
+  transition: transform 200ms cubic-bezier(0.685, 0.0473, 0.346, 1);
+  color: var(--color-text-mid);
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.sectionPanel {
+  border: 1px solid var(--border-color-200);
+  background: var(--color-panel);
+  border-radius: 8px;
+  padding: 12px 16px 8px;
+  margin-bottom: 12px;
+}
+
+.sectionHeader {
+  display: grid;
+  grid-template-columns: 1fr 240px 52px 36px;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 8px;
+
+  &.withBorder {
+    border-bottom: 1px solid var(--border-color-100);
+  }
+}
+
+.checkRow {
+  display: grid;
+  grid-template-columns: 16px 1fr 200px 84px;
+  gap: 10px;
+  align-items: center;
+}
+
+.distributionStrip {
+  display: flex;
+  height: 10px;
+  border-radius: 9999px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.paramInput {
+  width: 40px;
+  box-sizing: border-box;
+  font-size: 12px;
+  text-align: center;
+  padding: 1px 2px;
+  border: 1px solid var(--border-color-200);
+  border-radius: 4px;
+  background: var(--color-panel);
+  color: var(--color-text-high);
+}
+
+.ghosted {
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
