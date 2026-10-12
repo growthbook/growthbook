@@ -2565,6 +2565,67 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
+function isConditionObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+function isOperatorValue(v: unknown): v is Record<string, unknown> {
+  if (!isConditionObject(v)) return false;
+  const keys = Object.keys(v);
+  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
+}
+
+// Catches sub-condition shapes the SDKs cannot evaluate (e.g. {"$not": null})
+function describeConditionShapeError(
+  condition: Record<string, unknown>,
+): string | null {
+  for (const [key, value] of Object.entries(condition)) {
+    if (key === "$and" || key === "$or" || key === "$nor") {
+      if (!Array.isArray(value) || !value.every(isConditionObject)) {
+        return `"${key}" must be an array of condition objects`;
+      }
+      for (const sub of value) {
+        const err = describeConditionShapeError(sub);
+        if (err) return err;
+      }
+    } else if (key === "$not") {
+      if (!isConditionObject(value)) {
+        return `"$not" must be a condition object`;
+      }
+      const err = describeConditionShapeError(value);
+      if (err) return err;
+    } else if (!key.startsWith("$")) {
+      const err = describeOperatorValueShapeError(value);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+function describeOperatorValueShapeError(value: unknown): string | null {
+  if (!isOperatorValue(value)) return null;
+  for (const [op, arg] of Object.entries(value)) {
+    let err: string | null = null;
+    if (op === "$elemMatch") {
+      if (!isConditionObject(arg)) {
+        return `"$elemMatch" must be an object`;
+      }
+      err = isOperatorValue(arg)
+        ? describeOperatorValueShapeError(arg)
+        : describeConditionShapeError(arg);
+    } else if (op === "$not" || op === "$size") {
+      err = describeOperatorValueShapeError(arg);
+    } else if ((op === "$all" || op === "$alli") && Array.isArray(arg)) {
+      for (const item of arg) {
+        err = describeOperatorValueShapeError(item);
+        if (err) break;
+      }
+    }
+    if (err) return err;
+  }
+  return null;
+}
+
 export function validateCondition(
   condition?: string,
   groupMap?: GroupMap,
@@ -2577,6 +2638,10 @@ export function validateCondition(
     const res = JSON.parse(condition);
     if (!res || typeof res !== "object") {
       return { success: false, empty: false, error: "Must be object" };
+    }
+    const shapeError = describeConditionShapeError(res);
+    if (shapeError) {
+      return { success: false, empty: false, error: shapeError };
     }
 
     const scrubbed = cloneDeep(res);

@@ -1057,6 +1057,11 @@ export async function postFeatures(
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
   await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  validatePrerequisiteConditions(
+    (feature.prerequisites ?? []).filter(
+      (p) => !source?.prerequisites?.some((sp) => isEqual(sp, p)),
+    ),
+  );
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,

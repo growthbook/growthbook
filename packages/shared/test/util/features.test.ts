@@ -58,6 +58,7 @@ import {
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
   evaluatePrerequisiteState,
+  evalDeterministicPrereqValue,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -2688,6 +2689,87 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("validateCondition sub-condition shapes", () => {
+  it.each([
+    ['{"$not":null}', '"$not" must be a condition object'],
+    ['{"$not":"x"}', '"$not" must be a condition object'],
+    ['{"$and":null}', '"$and" must be an array of condition objects'],
+    ['{"$and":[null]}', '"$and" must be an array of condition objects'],
+    ['{"$or":null}', '"$or" must be an array of condition objects'],
+    ['{"$or":[null]}', '"$or" must be an array of condition objects'],
+    ['{"$or":{"a":1}}', '"$or" must be an array of condition objects'],
+    ['{"$nor":null}', '"$nor" must be an array of condition objects'],
+    ['{"$nor":[1]}', '"$nor" must be an array of condition objects'],
+    ['{"value":{"$elemMatch":null}}', '"$elemMatch" must be an object'],
+    ['{"$or":[{"$and":[{"$not":null}]}]}', '"$not" must be a condition object'],
+    [
+      '{"orders":{"$elemMatch":{"total":1,"$or":[null]}}}',
+      '"$or" must be an array of condition objects',
+    ],
+    ['{"tags":{"$not":{"$elemMatch":null}}}', '"$elemMatch" must be an object'],
+  ])("rejects %s", (condition, error) => {
+    expect(validateCondition(condition)).toEqual({
+      success: false,
+      empty: false,
+      error,
+    });
+  });
+
+  it.each([
+    '{"$or":[]}',
+    '{"$and":[{"country":"US"},{"$or":[{"a":1},{"b":{"$gt":2}}]}]}',
+    '{"$nor":[{"browser":"firefox"}]}',
+    '{"$not":{"$savedGroups":["grp_a"]}}',
+    '{"$not":{"country":"US"}}',
+    '{"country":{"$not":null}}',
+    '{"country":{"$not":{"$regex":"^U"}}}',
+    '{"tags":{"$elemMatch":{"$eq":"a"}}}',
+    '{"orders":{"$elemMatch":{"total":{"$gt":10}}}}',
+    '{"tags":{"$size":{"$gt":0}}}',
+    '{"tags":{"$all":["a",{"$regex":"b"}]}}',
+    '{"value":{"$exists":true}}',
+    '{"data":{"$not":null,"other":1}}',
+    '{"$savedGroups":["grp_a"],"$notSavedGroups":["grp_b"]}',
+  ])("accepts %s", (condition) => {
+    const groupMap = new Map([
+      ["grp_a", { id: "grp_a", type: "condition" as const, condition: "{}" }],
+      ["grp_b", { id: "grp_b", type: "condition" as const, condition: "{}" }],
+    ]);
+    expect(validateCondition(condition, groupMap)).toEqual({
+      success: true,
+      empty: false,
+    });
+  });
+});
+
+describe("evalDeterministicPrereqValue", () => {
+  it("fails closed and reports the error for a condition the SDK cannot evaluate", () => {
+    const onError = jest.fn();
+    for (const condition of [
+      '{"$not":null}',
+      '{"$and":[null]}',
+      '{"$or":null}',
+      '{"value":{"$elemMatch":null}}',
+    ]) {
+      expect(evalDeterministicPrereqValue([1], condition, onError)).toBe(
+        "fail",
+      );
+    }
+    expect(onError).toHaveBeenCalledTimes(4);
+  });
+
+  it("evaluates valid conditions without reporting an error", () => {
+    const onError = jest.fn();
+    expect(evalDeterministicPrereqValue(true, '{"value":true}', onError)).toBe(
+      "pass",
+    );
+    expect(evalDeterministicPrereqValue(false, '{"value":true}', onError)).toBe(
+      "fail",
+    );
+    expect(onError).not.toHaveBeenCalled();
   });
 });
 
