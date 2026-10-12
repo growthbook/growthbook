@@ -1,12 +1,18 @@
 import Agenda, { Job } from "agenda";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextForAgendaJobByOrgId,
+} from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   getExperimentById,
+  getExperimentsByIds,
   getStoppedExperimentIdsByOrganization,
 } from "back-end/src/models/ExperimentModel";
-import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { computeAndStoreAIQualityChecks } from "back-end/src/enterprise/services/experimentQualityScore";
+import {
+  computeAndStoreAIQualityChecks,
+  getStaleAIQualityExperimentIds,
+} from "back-end/src/enterprise/services/experimentQualityScore";
 import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -30,11 +36,11 @@ export default async function (agenda: Agenda) {
     ).distinct("organization", { "quality.enabled": true });
 
     for (const orgId of orgIds) {
-      // Only AI verdicts are cached; deterministic checks are computed on
-      // read, so orgs without AI need no sweep
-      const org = await findOrganizationById(orgId);
-      if (!org?.settings?.aiEnabled) continue;
-      await queueExperimentQualityScoreUpdatesForOrg(orgId);
+      try {
+        await queueStaleExperimentQualityUpdates(orgId);
+      } catch (e) {
+        logger.error(e, `Experiment quality sweep failed for org ${orgId}`);
+      }
     }
   });
 
@@ -67,6 +73,25 @@ export async function queueExperimentQualityScoreUpdate({
   job.unique({ experimentId, organization });
   job.schedule(new Date());
   await job.save();
+}
+
+// Checks every stopped experiment's cached AI verdicts in one pass and
+// queues only the ones that are missing or out of date. Only AI verdicts
+// are cached (deterministic checks are computed on read), so orgs without
+// AI are skipped.
+async function queueStaleExperimentQualityUpdates(organization: string) {
+  const context = await getContextForAgendaJobByOrgId(organization);
+  if (!context.hasPremiumFeature("experiment-quality-score")) return;
+  if (!(await getAISettingsForOrg(context)).aiEnabled) return;
+
+  const experiments = await getExperimentsByIds(
+    context,
+    await getStoppedExperimentIdsByOrganization(organization),
+  );
+  const staleIds = await getStaleAIQualityExperimentIds(context, experiments);
+  for (const experimentId of staleIds) {
+    await queueExperimentQualityScoreUpdate({ experimentId, organization });
+  }
 }
 
 // Every stopped, non-archived experiment in the org

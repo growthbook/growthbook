@@ -65,6 +65,80 @@ const dimensionInstructionByCheckKey: Record<
     "learningsQuality: score the quality of the documented results summary / learnings",
 };
 
+// The org-wide inputs for AI quality scoring, loaded once for any number
+// of the org's experiments
+async function loadAIQualityInputs(
+  context: ReqContext,
+  goalMetricIds: string[],
+) {
+  const [records, configs, metrics] = await Promise.all([
+    context.models.experimentationHealthSettings.getAll(),
+    context.models.experimentQualityConfigs.getAll(),
+    getExperimentMetricsByIds(context, [...new Set(goalMetricIds)]),
+  ]);
+  const recordsByProject = new Map(records.map((r) => [r.project, r]));
+  const configsById = new Map(configs.map((c) => [c.id, c]));
+  const metricNames = new Map(metrics.map((m) => [m.id, m.name]));
+  return { recordsByProject, configsById, metricNames };
+}
+
+// The AI checks an experiment needs and their current inputs hash, or null
+// when scoring is off for it or none of its AI checks apply
+function getAIQualityWork(
+  experiment: ExperimentInterface,
+  inputs: Awaited<ReturnType<typeof loadAIQualityInputs>>,
+) {
+  const resolved = resolveExperimentQualitySettings({
+    orgRecord: inputs.recordsByProject.get(ORG_DEFAULT_SCOPE),
+    projectRecord: experiment.project
+      ? inputs.recordsByProject.get(experiment.project)
+      : null,
+    getConfig: (id) => inputs.configsById.get(id),
+    aiEnabled: true,
+  });
+  if (!resolved?.settings.aiChecksEnabled) return null;
+  const { settings } = resolved;
+
+  const applicableChecks = aiExperimentQualityCheckKeys.filter(
+    (key) =>
+      settings.checks[key].enabled && isAICheckApplicable(key, experiment),
+  );
+  const applicableCustomChecks = settings.customAiChecks.filter(
+    (c) => c.enabled,
+  );
+  if (!applicableChecks.length && !applicableCustomChecks.length) return null;
+
+  const goalMetricNames = getGoalMetricNames(experiment.goalMetrics, (id) =>
+    inputs.metricNames.get(id),
+  );
+  return {
+    settings,
+    applicableChecks,
+    applicableCustomChecks,
+    goalMetricNames,
+    inputsHash: getAIQualityInputsHash(experiment, settings, goalMetricNames),
+  };
+}
+
+// Experiments whose cached AI verdicts are missing or out of date
+export async function getStaleAIQualityExperimentIds(
+  context: ReqContext,
+  experiments: ExperimentInterface[],
+): Promise<string[]> {
+  const inputs = await loadAIQualityInputs(
+    context,
+    experiments.flatMap((e) => e.goalMetrics),
+  );
+  return experiments
+    .filter((experiment) => {
+      const work = getAIQualityWork(experiment, inputs);
+      return (
+        !!work && experiment.aiQualityResults?.inputsHash !== work.inputsHash
+      );
+    })
+    .map((experiment) => experiment.id);
+}
+
 /**
  * Runs the AI quality checks for an experiment and caches the verdicts on
  * the experiment document (`aiQualityResults`), keyed by an inputs hash so
@@ -89,48 +163,21 @@ export async function computeAndStoreAIQualityChecks({
     return null;
   }
 
-  const [orgRecord, projectRecord, configs] = await Promise.all([
-    context.models.experimentationHealthSettings.getForScope(ORG_DEFAULT_SCOPE),
-    experiment.project
-      ? context.models.experimentationHealthSettings.getForScope(
-          experiment.project,
-        )
-      : null,
-    context.models.experimentQualityConfigs.getAll(),
-  ]);
-  const resolved = resolveExperimentQualitySettings({
-    orgRecord,
-    projectRecord,
-    getConfig: (id) => configs.find((c) => c.id === id),
-    aiEnabled: true,
-  });
-  if (!resolved?.settings.aiChecksEnabled) return null;
-  const { settings } = resolved;
-
-  const applicableChecks = aiExperimentQualityCheckKeys.filter(
-    (key) =>
-      settings.checks[key].enabled && isAICheckApplicable(key, experiment),
-  );
-  const applicableCustomChecks = settings.customAiChecks.filter(
-    (c) => c.enabled,
-  );
-  if (!applicableChecks.length && !applicableCustomChecks.length) return null;
-
-  const [{ aiEnabled }, goalMetrics] = await Promise.all([
+  const [inputs, { aiEnabled }] = await Promise.all([
+    loadAIQualityInputs(context, experiment.goalMetrics),
     getAISettingsForOrg(context),
-    getExperimentMetricsByIds(context, experiment.goalMetrics),
   ]);
   if (!aiEnabled) return null;
 
-  const goalMetricNames = getGoalMetricNames(
-    experiment.goalMetrics,
-    (id) => goalMetrics.find((m) => m.id === id)?.name,
-  );
-  const inputsHash = getAIQualityInputsHash(
-    experiment,
+  const work = getAIQualityWork(experiment, inputs);
+  if (!work) return null;
+  const {
     settings,
+    applicableChecks,
+    applicableCustomChecks,
     goalMetricNames,
-  );
+    inputsHash,
+  } = work;
   if (!force && experiment.aiQualityResults?.inputsHash === inputsHash) {
     return null;
   }
