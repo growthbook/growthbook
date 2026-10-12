@@ -544,12 +544,15 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         ),
       );
       if (exists(inlineFilterColumn)) return;
+      // Case-insensitive: Snowflake's information schema reports EVENT_NAME
       const eventTypeColumn =
-        INLINE_FILTER_CANDIDATES.find((candidate) =>
-          columns.some(
-            (c) => c.column === candidate && c.datatype === "string",
+        INLINE_FILTER_CANDIDATES.map((candidate) =>
+          columns.find(
+            (c) =>
+              c.datatype === "string" &&
+              c.column.toLowerCase() === candidate.toLowerCase(),
           ),
-        ) || "";
+        ).find(Boolean)?.column ?? "";
       setInlineFilterColumn(eventTypeColumn);
       setTableType(eventTypeColumn ? "event" : "model");
     },
