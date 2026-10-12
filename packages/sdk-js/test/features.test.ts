@@ -1,4 +1,4 @@
-import { Context, Experiment, GrowthBook } from "../src";
+import { ConditionInterface, Context, Experiment, GrowthBook } from "../src";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -578,6 +578,75 @@ describe("features", () => {
 
     const result2 = growthbook.run(exp);
     expect(result2.variationId).toEqual(0);
+
+    growthbook.destroy();
+  });
+
+  it("treats malformed prerequisite conditions as not matching instead of throwing", () => {
+    const log = jest.fn();
+    const growthbook = new GrowthBook({
+      attributes: { id: "1" },
+      debug: true,
+      log,
+      features: {
+        parentFlag: { defaultValue: true },
+        arrayFlag: { defaultValue: [1, 2] },
+        gatedFlag: {
+          defaultValue: true,
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { $not: null } as unknown as ConditionInterface,
+                  gate: true,
+                },
+              ],
+            },
+          ],
+        },
+        ruleFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { $or: [null] } as unknown as ConditionInterface,
+                },
+              ],
+              force: "prereq",
+            },
+          ],
+        },
+      },
+      experiments: [
+        {
+          key: "exp",
+          variations: [{}, {}],
+          parentConditions: [
+            {
+              id: "arrayFlag",
+              condition: {
+                value: { $elemMatch: null },
+              } as unknown as ConditionInterface,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(growthbook.isOn("gatedFlag")).toEqual(false);
+    expect(growthbook.getFeatureValue("ruleFlag", "fallback")).toEqual(
+      "default",
+    );
+    expect(growthbook.run(growthbook.getExperiments()[0]).inExperiment).toEqual(
+      false,
+    );
+    expect(log).toHaveBeenCalledWith(
+      "Invalid prerequisite condition",
+      expect.objectContaining({ condition: { $not: null } }),
+    );
 
     growthbook.destroy();
   });
