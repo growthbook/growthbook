@@ -477,7 +477,7 @@ export default function TabbedPage({
               deviceType,
             });
           }}
-          cta="Open Visual Editor"
+          cta="Open AI Visual Editor"
           source={trackSource}
         />
       )}

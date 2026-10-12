@@ -45,7 +45,7 @@ import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import ManagedWarehouseModal from "@/components/DataSourceSetup/ManagedWarehouseModal";
 import Badge from "@/ui/Badge";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
@@ -764,7 +764,10 @@ const NewDataSourceForm: FC<{
 
   if (managedWarehouseOpen) {
     return (
-      <ManagedWarehouseModal close={() => setManagedWarehouseOpen(false)} />
+      <ManagedWarehouseModal
+        source={source}
+        close={() => setManagedWarehouseOpen(false)}
+      />
     );
   }
 

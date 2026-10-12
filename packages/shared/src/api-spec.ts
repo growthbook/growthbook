@@ -41,4 +41,6 @@ export type ApiEndpointSpec<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  /** API version prefix for the route path (default: "v1"). */
+  version?: "v1" | "v2";
 };

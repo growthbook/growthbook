@@ -7,7 +7,7 @@ import {
   apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
 } from "shared/enterprise";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const getDashboardsForExperimentEndpoint = {
   pathFragment: "/by-experiment/:experimentId",

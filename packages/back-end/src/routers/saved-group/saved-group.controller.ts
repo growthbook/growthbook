@@ -13,6 +13,7 @@ import {
   SavedGroupWithoutValues,
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -21,6 +22,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { DraftConflict } from "shared/types/draft-conflict";
+import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
@@ -101,8 +103,9 @@ export const postSavedGroup = async (
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    const allSavedGroups = await context.models.savedGroups.getAll();
-    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const referencedGroups =
+      await context.models.savedGroups.getReferencedWithoutValues(condition);
+    const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
     const conditionRes = validateCondition(
       condition,
       groupMap,
@@ -732,11 +735,12 @@ export const putSavedGroup = async (
     condition &&
     hasChanged(condition, comparisonBase.condition)
   ) {
-    // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
-    // importers), still validate general JSON/syntax but skip saved-group
-    // cyclic/invalid reference checks so users can fix them later.
-    const allSavedGroups = await context.models.savedGroups.getAll();
-    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // With skipCycleCheck=1 (importers, which create groups over several
+    // passes) only an unusable nested group is rejected; missing, cyclic and
+    // too-deep references are left for the user to fix later.
+    const referencedGroups =
+      await context.models.savedGroups.getReferencedWithoutValues(condition);
+    const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the savedGroupsObj for validation
     groupMap.set(savedGroup.id, {
       ...savedGroup,
@@ -745,9 +749,6 @@ export const putSavedGroup = async (
     const conditionRes = validateCondition(
       condition,
       groupMap,
-      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
-      // enforcing JSON validity and other saved-group errors (unknown group,
-      // invalid nested condition, max depth).
       skipCycleCheck === "1",
     );
     if (!conditionRes.success) {
@@ -1246,3 +1247,30 @@ export const getSavedGroupDraftStates = async (
 };
 
 // endregion GET /saved-groups/draft-states
+
+// region GET /saved-groups/metadata
+
+export const getSavedGroupsMetadata = async (
+  req: AuthRequest<null, Record<string, never>, { ids: string }>,
+  res: Response<{
+    status: 200;
+    savedGroups: SavedGroupMetadata[];
+    // Groups the requested ones reach that no longer exist, so rules can say
+    // they're broken
+    missingIds: string[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
+  const savedGroups =
+    await context.models.savedGroups.getMetadataWithNested(ids);
+  const missingIds = await context.models.savedGroups.getMissingIds([
+    ...findAllReferencedSavedGroupIds(
+      ids,
+      new Map(savedGroups.map((group) => [group.id, group])),
+    ),
+  ]);
+  return res.status(200).json({ status: 200, savedGroups, missingIds });
+};
+
+// endregion GET /saved-groups/metadata

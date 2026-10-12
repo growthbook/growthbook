@@ -581,15 +581,18 @@ describe("every revision content field resets an approval", () => {
 
 describe("computeRevisionPublishChanges", () => {
   const user = { type: "dashboard" as const, id: "u", email: "", name: "" };
+  const current = { ...FEATURE, version: 1 } as unknown as FeatureInterface;
+  const noRebase = { result: {}, environmentIds: [] };
 
   it("computes the published status and publisher", () => {
     const revision = makeRevision();
 
     const changes = computeRevisionPublishChanges(
-      FEATURE,
+      current,
       revision,
       user,
       "publish comment",
+      noRebase,
     );
 
     expect(changes.status).toBe("published");
@@ -602,13 +605,58 @@ describe("computeRevisionPublishChanges", () => {
     const revision = makeRevision({ comment: "original" });
 
     const changes = computeRevisionPublishChanges(
-      FEATURE,
+      current,
       revision,
       user,
       "ignored",
+      noRebase,
     );
 
     expect(changes.comment).toBe("original");
+  });
+
+  const alice = { id: "fr_alice", type: "force", value: "a" };
+  const bob = { id: "fr_bob", type: "force", value: "b" };
+
+  it("rebases the record onto live when the draft is behind it", () => {
+    const live = {
+      ...FEATURE,
+      version: 2,
+      defaultValue: "live",
+      rules: [bob],
+      environmentSettings: { production: { enabled: true } },
+    } as unknown as FeatureInterface;
+
+    const changes = computeRevisionPublishChanges(
+      live,
+      makeRevision({ baseVersion: 1, rules: [alice] as never }),
+      user,
+      "",
+      {
+        result: { rules: [alice, bob] as never },
+        environmentIds: ["production"],
+      },
+    );
+
+    expect(changes).toMatchObject({
+      status: "published",
+      baseVersion: 2,
+      defaultValue: "live",
+      rules: [alice, bob],
+      environmentsEnabled: { production: true },
+    });
+  });
+
+  it("keeps a current draft's base version and lands its content", () => {
+    const changes = computeRevisionPublishChanges(
+      current,
+      makeRevision({ baseVersion: 1, rules: [alice] as never }),
+      user,
+      "",
+      { result: { rules: [alice] as never }, environmentIds: ["production"] },
+    );
+
+    expect(changes).toMatchObject({ baseVersion: 1, rules: [alice] });
   });
 });
 

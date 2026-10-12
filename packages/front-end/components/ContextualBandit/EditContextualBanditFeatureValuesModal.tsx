@@ -1,3 +1,4 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -5,7 +6,7 @@ import {
   ContextualBanditRefRule,
 } from "shared/types/feature";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   naiveFlattenV1Rules,
@@ -16,9 +17,10 @@ import {
   DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { getDefaultValue, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
@@ -45,7 +47,7 @@ export interface Props {
 }
 
 type FeatureRevisionResponse = {
-  revisions: FeatureRevisionInterface[];
+  revisionList: MinimalFeatureRevisionInterface[];
 };
 
 type FormValues = {
@@ -69,7 +71,7 @@ export default function EditContextualBanditFeatureValuesModal({
   mutate,
   onSaved,
 }: Props) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
@@ -126,16 +128,27 @@ export default function EditContextualBanditFeatureValuesModal({
 
   // Target a draft already carrying staged changes to this rule, so repeated
   // edits accumulate there instead of spawning a new draft per save.
+  const openDraftVersions = useMemo(
+    () =>
+      (data?.revisionList ?? [])
+        .filter(
+          (r) =>
+            r.version !== feature.version &&
+            DRAFT_REVISION_STATUSES.includes(r.status),
+        )
+        .map((r) => r.version),
+    [data?.revisionList, feature.version],
+  );
+  const revisions = useFeatureRevisions(feature.id, [
+    feature.version,
+    ...openDraftVersions,
+  ]);
   const targetVersion = useMemo(() => {
     if (willPublish) return feature.version;
-    const openDraft = (data?.revisions ?? [])
-      .filter(
-        (r) =>
-          r.version !== feature.version &&
-          DRAFT_REVISION_STATUSES.includes(r.status) &&
-          !!cbRuleIn(r.rules),
-      )
-      .sort((a, b) => b.version - a.version)[0];
+    const openDraft = openDraftVersions
+      .map((v) => revisions.get(v))
+      .filter((r) => !!r && !!cbRuleIn(r.rules))
+      .sort((a, b) => (b?.version ?? 0) - (a?.version ?? 0))[0];
     return (
       openDraft?.version ??
       linkedFeatureInfo.draftRevisionVersion ??
@@ -144,7 +157,8 @@ export default function EditContextualBanditFeatureValuesModal({
     );
   }, [
     willPublish,
-    data?.revisions,
+    openDraftVersions,
+    revisions,
     feature.version,
     cbRuleIn,
     linkedFeatureInfo.draftRevisionVersion,
@@ -152,11 +166,10 @@ export default function EditContextualBanditFeatureValuesModal({
   ]);
 
   const existingRule = useMemo<ContextualBanditRefRule | undefined>(() => {
-    const revision = (data?.revisions ?? []).find(
-      (r) => r.version === targetVersion,
+    return (
+      cbRuleIn(revisions.get(targetVersion)?.rules) ?? cbRuleIn(feature.rules)
     );
-    return cbRuleIn(revision?.rules) ?? cbRuleIn(feature.rules);
-  }, [data?.revisions, feature.rules, targetVersion, cbRuleIn]);
+  }, [revisions, feature.rules, targetVersion, cbRuleIn]);
 
   const initialVariations = useMemo(
     () =>
@@ -200,11 +213,13 @@ export default function EditContextualBanditFeatureValuesModal({
   });
 
   const seededFromRevision = useRef(false);
+  // Seeded once the drafts it targets have loaded, not from live meanwhile
+  const ready = !!data && !revisions.loading && !!existingRule;
   useEffect(() => {
-    if (seededFromRevision.current || !data || !existingRule) return;
+    if (seededFromRevision.current || !ready) return;
     seededFromRevision.current = true;
     form.reset({ variations: initialVariations });
-  }, [data, existingRule, initialVariations, form]);
+  }, [ready, initialVariations, form]);
 
   const [showValueErrors, setShowValueErrors] = useState(false);
 
@@ -228,7 +243,7 @@ export default function EditContextualBanditFeatureValuesModal({
       }
       cta={willPublish ? "Save and publish" : "Save to draft"}
       // Nothing to submit until the revisions load and there's a rule to patch.
-      ctaEnabled={!!data && !!existingRule}
+      ctaEnabled={ready}
       close={close}
       open={true}
       size={"lg"}
@@ -272,31 +287,31 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const res = await apiCall<{
-          revisionVersion: number;
-          published: boolean;
-        }>(`/api/v1/contextual-bandits/${cb.id}/linked-feature/${feature.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            variations: updatedVariations,
-            description: existingRule.description ?? "",
-            enabled: existingRule.enabled ?? true,
-            allEnvironments: !!existingRule.allEnvironments,
-            ...(existingRule.allEnvironments
-              ? {}
-              : { environments: existingRule.environments ?? [] }),
-            ...(existingRule.allProjects === undefined
-              ? {}
-              : { allProjects: existingRule.allProjects }),
-            ...(existingRule.allProjects === false
-              ? { projects: existingRule.projects ?? [] }
-              : {}),
-            autoPublish: willPublish,
-            ...(willPublish || targetVersion === feature.version
-              ? {}
-              : { draftVersion: targetVersion }),
-          }),
-        });
+        const res = await restApiCall(
+          contextualBanditEndpoints.updateContextualBanditLinkedFeature,
+          {
+            params: { id: cb.id, featureId: feature.id },
+            body: {
+              variations: updatedVariations,
+              description: existingRule.description ?? "",
+              enabled: existingRule.enabled ?? true,
+              allEnvironments: !!existingRule.allEnvironments,
+              ...(existingRule.allEnvironments
+                ? {}
+                : { environments: existingRule.environments ?? [] }),
+              ...(existingRule.allProjects === undefined
+                ? {}
+                : { allProjects: existingRule.allProjects }),
+              ...(existingRule.allProjects === false
+                ? { projects: existingRule.projects ?? [] }
+                : {}),
+              autoPublish: willPublish,
+              ...(willPublish || targetVersion === feature.version
+                ? {}
+                : { draftVersion: targetVersion }),
+            },
+          },
+        );
 
         await mutate();
         // The save lands on a draft the card can't show — report where it went.

@@ -53,6 +53,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
+import AddEventTrackerModal, {
+  getAddableEventTrackers,
+} from "@/components/Settings/EditDataSource/AddEventTrackerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -70,6 +73,7 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [eventTrackerOpen, setEventTrackerOpen] = useState(false);
   const [
     deleteBlockedByEventForwarderModalOpen,
     setDeleteBlockedByEventForwarderModalOpen,
@@ -145,6 +149,12 @@ const DataSourcePage: FC = () => {
   const canUpdateDataSourceSettings =
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
+
+  const canAddEventTracker =
+    !!d &&
+    getAddableEventTrackers(d).length > 0 &&
+    canUpdateDataSourceSettings &&
+    permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
   const eventsForwarderFlag = useFeatureValue(
@@ -274,6 +284,16 @@ const DataSourcePage: FC = () => {
                   }}
                 >
                   Edit Connection Info
+                </DropdownMenuItem>
+              )}
+              {canAddEventTracker && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEventTrackerOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Add Event Tracker
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -665,6 +685,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           header="SQL Explorer"
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
+        />
+      )}
+      {eventTrackerOpen && (
+        <AddEventTrackerModal
+          datasource={d}
+          close={() => {
+            setEventTrackerOpen(false);
+            mutateCurrentDataSource();
+          }}
         />
       )}
       {auditModal && (

@@ -110,6 +110,11 @@ import type {
 const detachKey = (d: RevisionRampDetachAction) =>
   `${d.rampScheduleId}:${d.ruleId}`;
 
+const publishRebase = (desired: FeatureDesiredState) => ({
+  result: desired.plan.mergeResult,
+  environmentIds: desired.plan.environmentIds,
+});
+
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
@@ -413,7 +418,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return gates;
   },
 
-  async claim(context, revision, baseline, { comment, entityPreImage }) {
+  async claim(
+    context,
+    revision,
+    baseline,
+    { comment, entityPreImage, desiredState },
+  ) {
+    const desired = desiredState as unknown as FeatureDesiredState;
     const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
       entityPreImage as unknown as FeatureInterface,
       rawRevision(revision),
@@ -422,6 +433,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         status: baseline.revisionStatus,
         dateUpdated: baseline.revisionDateUpdated,
       },
+      publishRebase(desired),
       comment,
     );
     revision.claimStamp = claimStamp;
@@ -865,8 +877,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Run required published effects before the isolated best-effort tail.
     await emitFeatureRevisionPublishedSideEffects(
       context,
+      feature,
       raw,
       context.auditUser,
+      publishRebase(desired),
     );
     const finalRevision = await getPublishedRevisionForEvents(
       context,

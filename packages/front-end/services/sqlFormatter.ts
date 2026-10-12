@@ -7,6 +7,13 @@ export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
 }
 
+// Matches the Ace binding in CodeTextArea's onFormatShortcut
+export function getFormatSqlShortcutLabel(): string {
+  const isMac =
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+  return isMac ? "⇧⌘F" : "Ctrl+Shift+F";
+}
+
 function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
   return getDataSourceSqlDialect(datasourceType)?.formatDialect ?? "";
 }

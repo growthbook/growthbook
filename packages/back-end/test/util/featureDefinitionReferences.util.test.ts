@@ -1,7 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { MAX_SAVED_GROUP_DEPTH } from "shared/sdk-versioning";
 import {
   getSafeRolloutIdsForFeatureDefinitions,
   getSavedGroupIdsForFeatureDefinitions,
@@ -300,7 +299,7 @@ describe("loadSavedGroupsWithNested", () => {
     expect(calls).toEqual([["grp_a"], ["grp_b"]]);
   });
 
-  it("follows a chain two levels past the depth nested expansion stops at, and no further", async () => {
+  it("follows a chain to its end, one query per level, and stops at an id nothing stores", async () => {
     const chain: Group[] = Array.from({ length: 40 }, (_, i) => ({
       id: `grp_${i}`,
       type: "condition" as const,
@@ -308,10 +307,9 @@ describe("loadSavedGroupsWithNested", () => {
     }));
     const { calls, loadByIds } = store(chain);
     const loaded = await loadSavedGroupsWithNested(["grp_0"], loadByIds);
-    expect(calls).toHaveLength(MAX_SAVED_GROUP_DEPTH + 2);
-    expect(loaded.map((g) => g.id)).toEqual(
-      chain.slice(0, MAX_SAVED_GROUP_DEPTH + 2).map((g) => g.id),
-    );
+    expect(loaded.map((g) => g.id)).toEqual(chain.map((g) => g.id));
+    expect(calls).toHaveLength(41);
+    expect(calls[40]).toEqual(["grp_40"]);
   });
 
   it("follows any group that is not an ID list, as nested expansion does", async () => {

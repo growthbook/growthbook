@@ -58,7 +58,9 @@ const sdk = new opentelemetry.NodeSDK({
       : []),
   ],
   resourceDetectors: getResourceDetectors(),
-  logRecordProcessors: [new BatchLogRecordProcessor(new OTLPLogExporter())],
+  logRecordProcessors: [
+    new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() }),
+  ],
   metricReaders: [metricReader],
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: "growthbook",
