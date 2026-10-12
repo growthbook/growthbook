@@ -386,7 +386,8 @@ export default abstract class SqlIntegration
       await this.context.models.queryLogs.create({
         datasource: this.datasource.id,
         datasourceType: this.datasource.type,
-        queryType: metadata.queryType,
+        // A few integration-internal callers still omit metadata
+        queryType: metadata.queryType || "unknown",
         status: response ? "succeeded" : "failed",
         startedAt,
         durationMs: Date.now() - startedAt.getTime(),
