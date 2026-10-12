@@ -397,6 +397,12 @@ export default function OAuthAuthorizePage() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
+          {!verifiedRedirectUri ? (
+            <Text as="div" mt="1">
+              Close this page and start the connection again from the
+              application.
+            </Text>
+          ) : null}
         </Callout>
       ) : null}
 
@@ -478,50 +484,54 @@ export default function OAuthAuthorizePage() {
         </Frame>
       ) : null}
 
-      <Frame>
-        <Text as="div" size="md" weight="semibold" mb="3">
-          What this allows
-        </Text>
-        <Flex direction="column" gap="3">
-          <AccessItem icon={<PiUserCircle size={16} />}>
-            Acting as you in the selected organization, with the same
-            permissions you have in GrowthBook.
-          </AccessItem>
-          <AccessItem icon={<PiKey size={16} />}>
-            Access through the GrowthBook API on your behalf. Your password is
-            never shared.
-          </AccessItem>
-          <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
-            Access continues until you revoke it from{" "}
-            <Link href="/account/personal-access-tokens">
-              Personal Access Tokens
-            </Link>
-            .
-          </AccessItem>
-        </Flex>
-      </Frame>
+      {verifiedRedirectUri ? (
+        <>
+          <Frame>
+            <Text as="div" size="md" weight="semibold" mb="3">
+              What this allows
+            </Text>
+            <Flex direction="column" gap="3">
+              <AccessItem icon={<PiUserCircle size={16} />}>
+                Acting as you in the selected organization, with the same
+                permissions you have in GrowthBook.
+              </AccessItem>
+              <AccessItem icon={<PiKey size={16} />}>
+                Access through the GrowthBook API on your behalf. Your password
+                is never shared.
+              </AccessItem>
+              <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
+                Access continues until you revoke it from{" "}
+                <Link href="/account/personal-access-tokens">
+                  Personal Access Tokens
+                </Link>
+                .
+              </AccessItem>
+            </Flex>
+          </Frame>
 
-      <Flex gap="3">
-        <Button
-          variant="soft"
-          color="gray"
-          size="lg"
-          onClick={deny}
-          disabled={submitting || !verifiedRedirectUri}
-          style={{ flex: 1 }}
-        >
-          Deny
-        </Button>
-        <Button
-          size="lg"
-          onClick={approve}
-          disabled={submitting || !orgId || !!error}
-          loading={submitting}
-          style={{ flex: 1 }}
-        >
-          Authorize
-        </Button>
-      </Flex>
+          <Flex gap="3">
+            <Button
+              variant="soft"
+              color="gray"
+              size="lg"
+              onClick={deny}
+              disabled={submitting || !verifiedRedirectUri}
+              style={{ flex: 1 }}
+            >
+              Deny
+            </Button>
+            <Button
+              size="lg"
+              onClick={approve}
+              disabled={submitting || !orgId || !!error}
+              loading={submitting}
+              style={{ flex: 1 }}
+            >
+              Authorize
+            </Button>
+          </Flex>
+        </>
+      ) : null}
     </ConsentPageWrapper>
   );
 }
