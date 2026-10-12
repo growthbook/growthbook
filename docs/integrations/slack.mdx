@@ -74,7 +74,9 @@ Events are grouped into categories: **Feature Flags**, **Experiments**, **Holdou
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | **Recommended events** | A curated set of the most useful events for the category. This is what new channels start with. |
 | **All events**         | Every event in the category, including any events GrowthBook adds in the future.                |
-| **Custom selection**   | Only the events you check. Click **Show events** to see the full list.                          |
+| **Custom selection**   | Only the events you check.                                                                      |
+
+Next to the dropdown, GrowthBook shows how many of the category's events are selected, like **7 of 35**. Click **Show events** to see or change exactly which ones. Turned-off categories don't show this until you switch them on.
 
 The recommended events for the two default categories are:
 
@@ -97,9 +99,11 @@ The **Message Format** card controls how notifications look in the channel:
 
 Image cards are available for these events:
 
-- Experiment started
-- Experiment stopped
-- Experiment warning, for SRM warnings only
+- **Started:** an experiment starts.
+- **Stopped:** an experiment stops.
+- **Warnings:** only sample ratio mismatch (SRM) warnings. Other experiment warnings are sent as text.
+
+These are all in the **Experiments** category, and they're labeled **(card)** in the **Preview** list.
 
 Here's an SRM warning card in the **Light** format:
 
@@ -121,7 +125,7 @@ Cards are rendered on the GrowthBook server. No experiment data is sent to an ou
 
 The test uses the format you currently have selected, even if you haven't saved it yet. It doesn't create a real event. In Slack, the message is labeled **Test notification — sample data**.
 
-To see a card, test with **Experiment started** or **Experiment stopped** and a **Light** or **Dark** format.
+To see a card, test with **Started**, **Stopped**, or **Warnings** from the **Experiments** category, and a **Light** or **Dark** format.
 
 ## Manage channels
 
