@@ -27,15 +27,15 @@ Notifications are available on every plan. The AI assistant has [extra requireme
 1. In GrowthBook, go to [Settings → Slack](https://app.growthbook.io/integrations/slack). If **Slack** isn't in your **Settings** menu, you don't have permission to manage integrations. Ask an admin to connect Slack or give you access (see [Requirements](#requirements)).
 2. Click **Connect to Slack**.
 3. Slack asks you to pick a workspace and approve the GrowthBook app's permissions. Click **Allow**.
+
+   <Frame>![Slack's permission screen for the GrowthBook app, with Cancel and Allow buttons](/static/images/integrations/slack/slack-app-allow.png)</Frame>
+
 4. Slack sends you back to GrowthBook. You'll see **Slack workspace connected successfully.**, and the **Add a Slack Channel** dialog opens so you can pick your first channel.
 
 You can also start from Slack's side, for example with an **Add to Slack** button. When Slack sends you back to GrowthBook, you'll be asked to confirm which GrowthBook organization should own the workspace. If you belong to more than one organization, pick one from the **Organization** list, then click **Connect to _your organization_**.
 
 <Note>
 **One workspace per organization.** Each Slack workspace connects to exactly one GrowthBook organization, and each organization connects to exactly one Slack workspace. To move either side, disconnect the existing connection first.
-
-Slack Enterprise Grid org-wide installs aren't supported. Install the app into a specific workspace instead.
-
 </Note>
 
 ## Add a channel
@@ -154,7 +154,7 @@ Check that the channel shows **Active**, not **Inactive** or **Disabled**. If th
 The app may have been removed from the channel or the workspace. Re-invite `@GrowthBook` to the channel, or reconnect the workspace.
 
 **"Slack did not return a workspace id."**
-You tried to install the app across a whole Enterprise Grid org. Install it into a single workspace instead.
+Your company uses Slack Enterprise Grid, and the app was installed across your whole Slack org. GrowthBook connects to one workspace at a time. Ask your Slack admin to install the GrowthBook app into a single workspace instead.
 
 **I'm getting duplicate notifications.**
 You probably still have a [legacy Slack webhook](/integrations/slack/legacy-webhooks) or a Slack [event webhook](/app/webhooks/event-webhooks) posting to the same channel. Delete the old connection once the app is working.
