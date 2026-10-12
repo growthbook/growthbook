@@ -30,6 +30,7 @@ import {
   isProjectListValidForProject,
   parseIntWithDefault,
 } from "shared/util";
+import type { TestQueryType } from "shared/types/query";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -368,6 +369,7 @@ export default function NewFactTableSqlStep({
             datasourceId,
             limit,
             detectColumns: true,
+            queryType: "factTableTest" satisfies TestQueryType,
           }),
         });
         const results = { ...res, error: res.error || "" };
