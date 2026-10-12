@@ -101,7 +101,7 @@ const UNSAFE_REDIRECT_SCHEMES = [
   "intent:",
 ];
 
-const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+export const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 
 export function isSafeOAuthRedirectUri(uri: string): boolean {
   try {
