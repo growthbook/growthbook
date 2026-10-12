@@ -1332,6 +1332,13 @@ export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
   return Array.from(new Set(ids.filter((id) => !!id)));
 }
 
+// Every fact table a group of fact metrics reads, e.g. for one combined query
+export function getFactTableIdsForMetrics(
+  metrics: FactMetricInterface[],
+): string[] {
+  return Array.from(new Set(metrics.flatMap(getFactMetricFactTableIds)));
+}
+
 /**
  * Every ColumnRef the metric reads from, for dependency scans over fact table
  * columns and filters. Funnel steps have no column of their own, so they are
