@@ -1,0 +1,218 @@
+---
+title: In-app AI assistant
+description: "Ask GrowthBook's in-app AI assistant to create Feature Flags, design and analyze experiments, build dashboards, and query your data from any page, with your permissions and your approval on every change."
+keywords: [AI assistant, AI, agent, skills, Ask Data]
+sidebarTitle: In-app AI assistant
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+The in-app AI assistant is a chat panel built into GrowthBook. Ask it a question or describe a task in plain language, and it does the work with the GrowthBook REST API: creating Feature Flags, designing and launching experiments, interpreting results, building dashboards, and querying your data.
+
+It knows which page you're on, so "summarize this experiment" or "add a rule to this flag" works without naming the experiment or flag. It acts with your permissions, and it asks you to confirm every change before it happens.
+
+{/* TODO(alyssa): Screenshot of a full GrowthBook page with the AI Assistant panel open on the right. */}
+
+### How it compares to other GrowthBook AI tools
+
+| Tool                                                                                             | Where it runs                                    | Use it to                                                                                   |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **In-app AI assistant**                                                                          | Inside the GrowthBook app                        | Work with flags, experiments, metrics, dashboards, and your data without leaving GrowthBook |
+| **[MCP Server](/integrations/mcp)** and **[Agent Skills](/integrations/ai-agents/agent-skills)** | Your own AI agent, such as Claude Code or Cursor | Do the same work from your editor or chat client, alongside your code                       |
+| **[AI features](/integrations/ai)**                                                              | Specific screens in GrowthBook                   | Generate one thing in place, such as an experiment summary, a metric description, or SQL    |
+
+The assistant, the MCP Server, and the Agent Skills plugin all follow the same open-source [GrowthBook skills](https://github.com/growthbook/skills), so they handle tasks the same way.
+
+## Requirements
+
+<CommercialFeature feature="ai-suggestions" description="The in-app AI assistant is available on all GrowthBook Cloud plans. Self-hosted GrowthBook requires an Enterprise license." />
+
+- **AI turned on for your organization.** AI features are off until an admin turns them on. Until then, AI is turned off everywhere in GrowthBook, and none of it is required to use the core product.
+- **Self-hosted only:** GrowthBook 5.0 or later, and an API key for at least one AI provider.
+
+## Turn on the assistant
+
+An admin with permission to manage organization settings turns on AI once for the whole organization.
+
+1. Go to **Settings → General** and open the **AI & Prompts** tab.
+2. Turn on **Enable AI features**.
+3. On GrowthBook Cloud, review and accept the consent prompt, **Enable AI for the Entire Organization**.
+4. Save your settings.
+
+The sparkle button appears in the top navigation for everyone in the organization.
+
+{/* TODO(alyssa): Screenshot of Settings → General → AI & Prompts with Enable AI features turned on. */}
+
+### Self-hosted setup
+
+Self-hosted installs need an API key for at least one supported AI provider:
+
+| Provider  | Environment variable |
+| --------- | -------------------- |
+| OpenAI    | `OPENAI_API_KEY`     |
+| Anthropic | `ANTHROPIC_API_KEY`  |
+| Google    | `GOOGLE_AI_API_KEY`  |
+| xAI       | `XAI_API_KEY`        |
+| Mistral   | `MISTRAL_API_KEY`    |
+
+For example, with Docker Compose:
+
+```yaml
+environment:
+  - ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+Restart GrowthBook, then turn on AI as described above. You can choose a model under **Default AI model** on the same settings tab. See [Models and usage limits](#models-and-usage-limits) for the defaults.
+
+## Use the assistant
+
+Click the sparkle button (**Ask GrowthBook AI**) in the top navigation, next to your organization name. The panel opens on the right and stays open as you move between pages. Click the button again or **Close** to hide it, and use **Maximize panel** for more room.
+
+Type a request in the composer and press **Enter** to send it. Press **Shift + Enter** for a new line. While the assistant works, it shows each step it takes, such as loading a skill or calling the GrowthBook API. Expand **Completed N steps** to see the requests it made and what came back.
+
+A new conversation offers four starting points:
+
+- Help me understand and analyze my product metrics
+- Show me how my recently started experiments are going
+- Help me create a Feature Flag
+- Help me create an experiment
+
+Clicking one fills in the composer so you can edit it before sending.
+
+### Page context
+
+Each message tells the assistant which page you're viewing. On a Feature Flag, experiment, metric, fact metric, or dashboard page, you can refer to it as "this flag" or "this experiment." When the assistant creates or finds something, its reply links to it.
+
+### Mention metrics and pick a skill
+
+- Type **@** to mention a metric, fact metric, or metric group by name. The assistant gets the exact metric, so it doesn't have to search for it.
+- Type **/** to pick a skill directly, for example to start the experiment design workflow. The menu lists the skills your organization has turned on.
+
+### Dictate a message
+
+If your organization has a speech-to-text model available, a microphone button appears in the composer. Click **Dictate a message**, allow microphone access, and click **Stop dictating** when you're done. Your words are transcribed into the composer so you can review them before sending.
+
+### Answer the assistant's questions
+
+When the assistant needs a decision from you, such as which environment to target, it shows a short list of options to click. You can also type your own answer.
+
+### Rate a response
+
+Use the thumbs up or thumbs down under a reply to tell GrowthBook whether it helped. You can add an optional comment.
+
+## What the assistant can do
+
+The assistant uses **skills**: step-by-step playbooks for GrowthBook tasks. It reads every skill's description, then loads the full instructions when your request matches one.
+
+| Skill               | What it covers                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Feature Flags**   | Create, find, and review flags. Set default values, targeting, rules, prerequisites, and schedules. Ramp up rollouts, publish drafts, monitor, and clean up stale flags. |
+| **Experiments**     | Brainstorm and design experiments, launch them, analyze results, stop them, and record and search Learnings.                                                             |
+| **Analytics**       | Explore Product Analytics charts, create and edit dashboards, find and create metrics, and run SQL against your data.                                                    |
+| **GrowthBook docs** | Answer how-to and SDK questions about GrowthBook and link to the relevant docs.                                                                                          |
+
+Some things to try:
+
+- "What experiments are running on the checkout page?"
+- "Create a Feature Flag called `new-onboarding` that's off in production and on for internal users in staging."
+- "Summarize the results of this experiment and tell me whether it's ready to stop."
+- "Build a dashboard of signups and activation by week."
+- "Which flags haven't changed in 90 days?"
+
+The assistant works through the [GrowthBook REST API](/app/api), so it can do what the API supports. It can't run scripts or shell commands. For multi-armed bandits, it points you to the GrowthBook UI.
+
+## Approving changes
+
+The assistant reads freely, but it can't change anything without your approval. Before any create, update, or delete, it shows an **Apply this change?** card with the request it wants to make and a summary of what it will do. Expand **Request details** to see the exact request.
+
+- **Confirm** runs that exact request.
+- **Cancel** stops it. Sending a new message instead also cancels the pending change.
+
+{/* TODO(alyssa): Screenshot of the "Apply this change?" card. Needs a configured AI provider to capture. */}
+
+All AI in GrowthBook inherits the permissions of the user who starts the action. The assistant has no separate API key. If you can't do something in the GrowthBook UI, the assistant can't do it either. Changes it makes are recorded under your name, the same as changes you make yourself.
+
+Dashboards have one more safeguard: the assistant can only edit or delete the dashboard you're currently viewing. It can create a new dashboard from any page.
+
+## Ask Data
+
+With Ask Data turned on, the assistant can write and run read-only SQL against your connected data sources. Use it to answer ad-hoc questions about your data or to help build fact tables and metrics.
+
+Ask Data needs to be turned on in two places:
+
+1. **For the organization:** under **Settings → General → AI & Prompts**, turn on **Ask your data**. Schema, queries, and results are sent to your AI provider.
+2. **For each data source:** on the data source's page, find the **Ask Data** section and edit its settings:
+   - **Enable Ask Data**
+   - **Run policy:** **Auto-execute below cost threshold** or **Always confirm before executing**
+   - **Cost threshold (GiB):** queries that would scan more than this amount need your confirmation. The default is 1 GiB.
+
+{/* TODO(alyssa): Screenshot of the Ask Data Settings modal on a data source page. */}
+
+Cost estimates are only available for BigQuery. For other data sources, every query needs your confirmation before it runs. When a query needs confirmation, the assistant shows a **Run SQL query** card with the estimated cost.
+
+Ask Data queries must be read-only, return at most 500 rows, and need permission to run SQL Explorer queries on that data source.
+
+## Conversation history
+
+Your conversations are saved, and each one is private to you within your current organization. Conversations are kept until they're deleted.
+
+- **Start new conversation** (the **+** button) clears the panel for a new topic.
+- **Chat history** (the clock button) lists your past conversations by date. Pick one to continue it.
+
+Your current conversation stays open as you move between pages. If you switch organizations, the panel starts a fresh conversation, and switching back restores the one you had open.
+
+## Manage skills
+
+Admins can choose which skills the assistant uses. Under **Settings → General → AI & Prompts**, the **AI Assistant skills** section lists each skill with a checkbox. A skill that's turned off is hidden from the **/** menu, and the assistant can't load it. New skills start turned on.
+
+{/* TODO(alyssa): Screenshot of the AI Assistant skills section. */}
+
+On self-hosted GrowthBook, you can also add your own skills or replace the built-in ones by setting `AGENT_SKILLS_DIR`. Custom skills show a **Custom** badge in the skills list. See [AI Assistant Skills](/self-host/env#ai-assistant-skills) for the folder layout and file format.
+
+## Models and usage limits
+
+### GrowthBook Cloud
+
+The assistant runs on GrowthBook's managed AI keys and uses Claude Sonnet 5.5 by default. On plans other than Enterprise, AI usage is limited to a daily number of tokens, shared across every AI feature in GrowthBook. When your organization reaches the limit, the assistant shows how long until it resets. Enterprise organizations have no daily limit.
+
+<CommercialFeature feature="ai-byok" description="Bringing your own AI provider key on GrowthBook Cloud requires an Enterprise plan." />
+
+Enterprise organizations can add their own AI provider keys under **Settings → General → AI & Prompts**. AI usage is then billed by your provider, it doesn't count toward any GrowthBook limit, and you can choose your own models. Keys are encrypted at rest.
+
+### Self-hosted
+
+Self-hosted installs have no usage limit. Choose a model under **Default AI model**. If you don't choose one, GrowthBook uses the first provider with a key, in this order:
+
+| Provider  | Default model           |
+| --------- | ----------------------- |
+| OpenAI    | `gpt-5.4-mini`          |
+| Anthropic | `claude-sonnet-5-5`     |
+| Google    | `gemini-3.5-flash`      |
+| xAI       | `grok-4.3`              |
+| Mistral   | `mistral-medium-latest` |
+
+## Data and privacy
+
+To answer a request, the assistant sends your AI provider:
+
+- Your messages, the page path you're on, and the IDs of anything you @-mention
+- The conversation so far
+- The names and descriptions of your organization's skills, plus the instructions for any skill it loads
+- The responses from GrowthBook API calls it makes, such as the flags, experiments, or metrics it reads
+- With Ask Data turned on: your data source schema, the SQL it writes, and up to 500 rows of results
+
+On GrowthBook Cloud, requests go to GrowthBook's AI subprocessors unless your organization uses its own provider key. On self-hosted GrowthBook, requests go to the providers whose keys you configure.
+
+## Troubleshooting
+
+| Message                                                                                            | What to do                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The sparkle button doesn't appear                                                                  | Ask an admin to turn on **Enable AI features**. On self-hosted, also check that an AI provider key is set and that you have an Enterprise license. |
+| "AI is disabled for this organization. An admin can enable AI in GrowthBook → Settings → General." | Ask an admin to turn on AI.                                                                                                                        |
+| "AI is enabled, but no usable AI provider API key is configured."                                  | Self-hosted: set an AI provider key and restart GrowthBook. Cloud with your own keys: check the keys under **AI & Prompts**.                       |
+| "Your plan does not support AI features."                                                          | Self-hosted GrowthBook needs an Enterprise license for AI features.                                                                                |
+| "AI request limit reached. Try again in …"                                                         | Your organization reached its daily usage limit on GrowthBook Cloud. Wait for the reset, or add your own provider key on Enterprise.               |
+| "Ask data is not enabled for this organization"                                                    | An admin needs to turn on **Ask your data**.                                                                                                       |
+| "Ask data is not enabled for this data source"                                                     | Turn on **Enable Ask Data** in the data source's **Ask Data** settings.                                                                            |
+| "The assistant encountered repeated tool errors and stopped retrying."                             | Rephrase the request, or give more detail, such as the exact flag key or experiment name.                                                          |
+| "Generation was interrupted. You can send a new message."                                          | The reply stopped partway. Send your message again.                                                                                                |

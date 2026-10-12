@@ -291,6 +291,7 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/in-app-ai-assistant",
                       "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills"
