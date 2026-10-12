@@ -11,9 +11,9 @@ The assistant runs as you. It uses your linked GrowthBook account, so it can onl
 ## Requirements
 
 - The [Slack app is connected](/integrations/slack#connect-your-slack-workspace) to your organization.
-- AI is turned on for your organization in **Settings → General**, and an AI provider is set up in **Settings → AI & Prompts**. See [AI integrations](/integrations/ai).
-- **GrowthBook Cloud:** available on every plan. AI usage limits depend on your plan.
-- **Self-hosted:** requires an Enterprise license, and Slack must be able to reach your API server over HTTPS. See [Self-hosted Slack setup](/integrations/slack/self-hosted).
+- AI is turned on for your organization in **Settings → General**.
+- **GrowthBook Cloud:** available on every plan, with no AI provider setup needed. AI usage limits depend on your plan.
+- **Self-hosted:** requires an Enterprise license and an AI provider API key, set with an [environment variable](/self-host/env#ai-provider-api-keys) or in **Settings → AI & Prompts**. Slack must also be able to reach your API server over HTTPS. See [Self-hosted Slack setup](/integrations/slack/self-hosted) and [AI integrations](/integrations/ai).
 
 ## Turn the assistant on or off
 
@@ -78,7 +78,7 @@ An admin can turn on the **AI assistant** switch in GrowthBook under **Settings 
 An admin can turn on AI in **Settings → General**.
 
 **"AI is enabled, but no usable AI provider API key is configured."**
-An admin needs to add an AI provider key in **Settings → AI & Prompts**.
+This only happens on self-hosted GrowthBook. An admin needs to add an AI provider key with an [environment variable](/self-host/env#ai-provider-api-keys) or in **Settings → AI & Prompts**.
 
 **"Your linked GrowthBook account no longer has access to the connected organization."**
 Your account was removed from the organization, or you linked an account that isn't a member. Ask an admin to add you back, or send `link account` to link a different account.
