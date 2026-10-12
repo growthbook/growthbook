@@ -21,12 +21,11 @@ import {
   ExperimentQualityConfigInterface,
   ExperimentQualitySectionKey,
   MAX_CUSTOM_QUALITY_CHECKS,
-  OrganizationExperimentQualityPointer,
-  ProjectExperimentQualityPointer,
   deterministicExperimentQualityCheckKeys,
   experimentQualityCheckKeys,
   experimentQualitySectionKeys,
 } from "../validators/experiment-quality-score";
+import { ExperimentationHealthSettingsInterface } from "../validators/experimentation-health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
@@ -43,8 +42,6 @@ export type {
   ExperimentQualityCheckParams,
   ExperimentQualityConfigBody,
   ExperimentQualityConfigInterface,
-  OrganizationExperimentQualityPointer,
-  ProjectExperimentQualityPointer,
 };
 export {
   MAX_CUSTOM_QUALITY_CHECKS,
@@ -53,15 +50,38 @@ export {
   deterministicExperimentQualityCheckKeys,
 };
 
+type HealthSettingsRecord = Pick<
+  ExperimentationHealthSettingsInterface,
+  "quality"
+>;
+
+export interface ResolvedQualityScope {
+  enabled: boolean;
+  // undefined = the built-in GrowthBook default config
+  configId?: string;
+  // Which fields the Project record sets itself rather than inheriting
+  overridden: { enabled: boolean; configId: boolean };
+}
+
 /**
- * Whether quality scoring is on for an experiment's scope: the project
- * pointer's tri-state `enabled` wins, else the org gate.
+ * Resolves quality scoring for a scope field by field: anything the
+ * Project record sets wins, everything else comes from the organization
+ * default record. Scoring is off unless one of them turns it on.
  */
-export function resolveQualityEnabled(
-  orgPointer?: OrganizationExperimentQualityPointer,
-  projectPointer?: ProjectExperimentQualityPointer | null,
-): boolean {
-  return projectPointer?.enabled ?? orgPointer?.enabled ?? false;
+export function resolveQualityScope(
+  orgRecord?: HealthSettingsRecord | null,
+  projectRecord?: HealthSettingsRecord | null,
+): ResolvedQualityScope {
+  const org = orgRecord?.quality;
+  const project = projectRecord?.quality;
+  return {
+    enabled: project?.enabled ?? org?.enabled ?? false,
+    configId: project?.configId ?? org?.configId,
+    overridden: {
+      enabled: project?.enabled !== undefined,
+      configId: project?.configId !== undefined,
+    },
+  };
 }
 
 export type ExperimentQualityCheckType = "deterministic" | "ai";
@@ -141,7 +161,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
   "tags-or-project": {
     section: "documentation",
     type: "deterministic",
-    label: "Organized with tags or a project",
+    label: "Organized with tags or a Project",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -311,7 +331,7 @@ function sanitizeParams(
  * for the built-in GrowthBook default — including when a referenced config
  * has been deleted) into a fully-populated, normalized config. Missing
  * fields fall back to catalog defaults. The enabled gate is resolved
- * separately via resolveQualityEnabled.
+ * separately via resolveQualityScope.
  */
 export function resolveExperimentQualityScoreSettings(
   cfg?: ExperimentQualityConfigBody | null,

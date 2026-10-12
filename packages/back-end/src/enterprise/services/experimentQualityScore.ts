@@ -12,7 +12,7 @@ import {
   getExperimentDigestForCustomRules,
   isAICheckApplicable,
   resolveExperimentQualityScoreSettings,
-  resolveQualityEnabled,
+  resolveQualityScope,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -84,18 +84,18 @@ export async function computeAndStoreAIQualityChecks({
 }): Promise<ExperimentInterface | null> {
   if (!context.hasPremiumFeature("experiment-quality-score")) return null;
 
-  // Scoring is gated by the org pointer with a per-project tri-state
-  // override; the config body lives in its own collection, referenced by
-  // id (project pointer wins, else org pointer, else built-in defaults —
-  // including when a referenced config has been deleted)
-  const orgPointer = context.org.settings?.experimentQuality;
-  const project = experiment.project
-    ? await context.models.projects.getById(experiment.project)
-    : null;
-  const projectPointer = project?.settings?.experimentQuality;
-  if (!resolveQualityEnabled(orgPointer, projectPointer)) return null;
+  // A missing or deleted config resolves to the built-in defaults
+  const [orgRecord, projectRecord] = await Promise.all([
+    context.models.experimentationHealthSettings.getForScope(""),
+    experiment.project
+      ? context.models.experimentationHealthSettings.getForScope(
+          experiment.project,
+        )
+      : null,
+  ]);
+  const { enabled, configId } = resolveQualityScope(orgRecord, projectRecord);
+  if (!enabled) return null;
 
-  const configId = projectPointer?.configId ?? orgPointer?.configId;
   const configDoc = configId
     ? await context.models.experimentQualityConfigs.getById(configId)
     : null;

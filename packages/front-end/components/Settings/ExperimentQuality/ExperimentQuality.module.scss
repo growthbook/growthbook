@@ -55,7 +55,7 @@
 
 .sectionHeader {
   display: grid;
-  grid-template-columns: 1fr 240px 52px 36px;
+  grid-template-columns: 1fr 240px 52px;
   gap: 12px;
   align-items: center;
   padding-bottom: 8px;
@@ -63,6 +63,24 @@
   &.withBorder {
     border-bottom: 1px solid var(--border-color-100);
   }
+}
+
+.sectionToggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+// Track shown in place of a share bar when a check is excluded
+.emptyTrack {
+  display: block;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--slate-3);
 }
 
 .checkRow {

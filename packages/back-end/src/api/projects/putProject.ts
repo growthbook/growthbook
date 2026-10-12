@@ -10,14 +10,10 @@ export const putProject = createApiRequestHandler(putProjectValidator)(async (
     throw new Error("Could not find project with that id");
   }
 
-  const updates = req.context.models.projects.updateValidator.parse(req.body);
-  // The public API only exposes the stats settings — merge over the existing
-  // settings so internal-only fields (e.g. the quality-score config) survive
-  if (updates.settings) {
-    updates.settings = { ...project.settings, ...updates.settings };
-  }
-
-  const newProject = await req.context.models.projects.update(project, updates);
+  const newProject = await req.context.models.projects.update(
+    project,
+    req.context.models.projects.updateValidator.parse(req.body),
+  );
 
   return {
     project: await resolveOwnerEmail(

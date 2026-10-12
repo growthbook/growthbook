@@ -19,8 +19,7 @@ const BaseClass = MakeModelClass({
 });
 
 // Named, shareable experiment quality-score configs. Referenced by id from
-// org settings (`settings.experimentQuality.configId`) and project settings
-// (`settings.experimentQuality.configId`).
+// Experimentation Health settings records (`quality.configId`).
 export class ExperimentQualityConfigModel extends BaseClass {
   protected canRead(): boolean {
     // Any org member can read: configs are needed client-side to compute
@@ -40,21 +39,22 @@ export class ExperimentQualityConfigModel extends BaseClass {
     return this.context.hasPremiumFeature("experiment-quality-score");
   }
   protected async beforeDelete(existing: ExperimentQualityConfigInterface) {
-    if (
-      this.context.org.settings?.experimentQuality?.configId === existing.id
-    ) {
+    const references =
+      await this.context.models.experimentationHealthSettings.getByQualityConfigId(
+        existing.id,
+      );
+    if (!references.length) return;
+
+    if (references.some((r) => r.project === "")) {
       throw new Error(
-        "Cannot delete this config while it is the organization default",
+        "Cannot delete this config while the organization default uses it",
       );
     }
-    const projects = await this.context.models.projects.getAll();
-    const referencedBy = projects.find(
-      (p) => p.settings?.experimentQuality?.configId === existing.id,
+    const project = await this.context.models.projects.getById(
+      references[0].project,
     );
-    if (referencedBy) {
-      throw new Error(
-        `Cannot delete this config while the ${referencedBy.name} Project uses it`,
-      );
-    }
+    throw new Error(
+      `Cannot delete this config while the ${project?.name ?? references[0].project} Project uses it`,
+    );
   }
 }

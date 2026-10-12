@@ -84,8 +84,8 @@ export const customQualityCheckValidator = z
 export type CustomQualityCheck = z.infer<typeof customQualityCheckValidator>;
 
 // The checks-and-weights config body. Stored on ExperimentQualityConfig
-// documents (own collection) and referenced by id from org and project
-// settings pointers.
+// documents (own collection) and referenced by id from Experimentation
+// Health settings records.
 export const experimentQualityConfigBodyValidator = z
   .object({
     aiChecksEnabled: z.boolean().optional(),
@@ -121,23 +121,4 @@ export const experimentQualityConfigValidator = baseSchema
   .strict();
 export type ExperimentQualityConfigInterface = z.infer<
   typeof experimentQualityConfigValidator
->;
-
-// Pointer stored on org settings: the global gate + which config is the
-// org-wide default (undefined = the built-in GrowthBook default)
-export interface OrganizationExperimentQualityPointer {
-  enabled: boolean;
-  configId?: string;
-}
-
-// Pointer stored on project settings. `enabled` is tri-state: undefined
-// inherits the org flag; `configId` undefined uses the org's config.
-export const projectExperimentQualityPointerValidator = z
-  .object({
-    enabled: z.boolean().optional(),
-    configId: z.string().optional(),
-  })
-  .strict();
-export type ProjectExperimentQualityPointer = z.infer<
-  typeof projectExperimentQualityPointerValidator
 >;

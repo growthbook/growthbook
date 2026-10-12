@@ -17,7 +17,7 @@ import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { SECTION_COLORS } from "@/components/Settings/ExperimentQuality/ExperimentQualityScoreSettings";
+import { SECTION_COLORS } from "@/components/Settings/ExperimentQuality/QualityConfigEditor";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
 import { ExperimentTab } from "./index";
 
@@ -331,7 +331,9 @@ const QualityTab: FC<{
               ? `the ${scope.configName} configuration`
               : "the GrowthBook default configuration"}{" "}
             ·{" "}
-            <Link href="/settings/experiment-quality">view configuration</Link>
+            <Link href="/settings/experimentation-health#quality">
+              view configuration
+            </Link>
           </Text>
           {canOverride && !result.override && (
             <Button

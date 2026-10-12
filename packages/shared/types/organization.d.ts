@@ -15,7 +15,6 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
-  OrganizationExperimentQualityPointer,
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
@@ -406,9 +405,6 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
-  // The config body lives in its own collection (experimentqualityconfigs);
-  // org settings only carry the gate + a config reference
-  experimentQuality?: OrganizationExperimentQualityPointer;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
   savedGroupSizeLimit?: number;

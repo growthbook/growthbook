@@ -296,9 +296,9 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteTag(),
       },
       {
-        name: "Experiment Quality",
-        href: "/settings/experiment-quality",
-        path: /^settings\/experiment-quality/,
+        name: "Experimentation Health",
+        href: "/settings/experimentation-health",
+        path: /^settings\/experimentation-health/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageOrgSettings(),
       },

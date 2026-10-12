@@ -4,9 +4,9 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Callout from "@/ui/Callout";
-import ExperimentQualityScoreSettings from "@/components/Settings/ExperimentQuality/ExperimentQualityScoreSettings";
+import ExperimentationHealthPage from "@/components/Settings/ExperimentationHealth/ExperimentationHealthPage";
 
-const ExperimentQualityPage: React.FC = () => {
+const ExperimentationHealthSettingsPage: React.FC = () => {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -15,7 +15,7 @@ const ExperimentQualityPage: React.FC = () => {
       <div className="container pagecontents">
         <Box mt="4">
           <PremiumEmptyState
-            title="Experiment Quality Scoring"
+            title="Experimentation Health"
             description="Score every experiment 0–100 on completeness and trustworthiness — hypothesis, documented decisions and learnings, health checks, and optional AI review."
             commercialFeature="experiment-quality-score"
             learnMoreLink="https://docs.growthbook.io/app/experiment-configuration"
@@ -29,7 +29,7 @@ const ExperimentQualityPage: React.FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error" mt="4">
-          You do not have permission to manage Experiment Quality settings.
+          You do not have permission to manage Experimentation Health settings.
         </Callout>
       </div>
     );
@@ -37,11 +37,11 @@ const ExperimentQualityPage: React.FC = () => {
 
   return (
     <div className="container pagecontents">
-      <Box pt="4" pb="6" style={{ maxWidth: 920, margin: "0 auto" }}>
-        <ExperimentQualityScoreSettings />
+      <Box pt="4" pb="6" style={{ maxWidth: 980, margin: "0 auto" }}>
+        <ExperimentationHealthPage />
       </Box>
     </div>
   );
 };
 
-export default ExperimentQualityPage;
+export default ExperimentationHealthSettingsPage;

@@ -115,10 +115,7 @@ const ProjectPage: FC = () => {
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
 
   const saveSettings = form.handleSubmit(async (value) => {
-    // Spread the stored settings first: this page only edits the stats
-    // fields, and the PUT replaces settings wholesale — internal-only keys
-    // (e.g. the quality-score override) must survive a stats-only save
-    const payload: ProjectSettings = { ...settings, ...value };
+    const payload: ProjectSettings = { ...value };
     if (typeof payload.confidenceLevel === "number") {
       payload.confidenceLevel = payload.confidenceLevel / 100;
     }

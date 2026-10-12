@@ -9,7 +9,7 @@ import {
   getExperimentQualityScore,
   getQualityChecksNeedingAttention,
   resolveExperimentQualityScoreSettings,
-  resolveQualityEnabled,
+  resolveQualityScope,
   roundToTotal,
 } from "../../src/enterprise/experimentQualityScore";
 
@@ -224,18 +224,57 @@ describe("resolveExperimentQualityScoreSettings", () => {
     expect(fromNull.sections.documentation.share).toBeCloseTo(0.35, 9);
   });
 
-  it("resolveQualityEnabled: project tri-state wins, else org gate", () => {
-    expect(resolveQualityEnabled(undefined, undefined)).toBe(false);
-    expect(resolveQualityEnabled({ enabled: true }, undefined)).toBe(true);
-    expect(resolveQualityEnabled({ enabled: false }, { enabled: true })).toBe(
-      true,
-    );
-    expect(resolveQualityEnabled({ enabled: true }, { enabled: false })).toBe(
-      false,
-    );
-    expect(
-      resolveQualityEnabled({ enabled: true }, { configId: "eqc__x" }),
-    ).toBe(true);
+  describe("resolveQualityScope", () => {
+    it("is off with no records", () => {
+      expect(resolveQualityScope(undefined, undefined)).toEqual({
+        enabled: false,
+        configId: undefined,
+        overridden: { enabled: false, configId: false },
+      });
+    });
+
+    it("inherits every field from the organization default", () => {
+      const scope = resolveQualityScope(
+        { quality: { enabled: true, configId: "eqc__org" } },
+        null,
+      );
+      expect(scope.enabled).toBe(true);
+      expect(scope.configId).toBe("eqc__org");
+      expect(scope.overridden).toEqual({ enabled: false, configId: false });
+    });
+
+    it("lets a Project override each field independently", () => {
+      const org = { quality: { enabled: true, configId: "eqc__org" } };
+
+      const disabledOnly = resolveQualityScope(org, {
+        quality: { enabled: false },
+      });
+      expect(disabledOnly.enabled).toBe(false);
+      expect(disabledOnly.configId).toBe("eqc__org");
+      expect(disabledOnly.overridden).toEqual({
+        enabled: true,
+        configId: false,
+      });
+
+      const configOnly = resolveQualityScope(org, {
+        quality: { configId: "eqc__proj" },
+      });
+      expect(configOnly.enabled).toBe(true);
+      expect(configOnly.configId).toBe("eqc__proj");
+      expect(configOnly.overridden).toEqual({
+        enabled: false,
+        configId: true,
+      });
+    });
+
+    it("lets a Project turn scoring on when the organization has it off", () => {
+      const scope = resolveQualityScope(
+        { quality: { enabled: false } },
+        { quality: { enabled: true } },
+      );
+      expect(scope.enabled).toBe(true);
+      expect(scope.configId).toBeUndefined();
+    });
   });
 
   it("sanitizes params, merging defaults", () => {
