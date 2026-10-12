@@ -368,7 +368,13 @@ function UsageGroupTable({
     return { ...usage, id: id ?? "", name: getQueryTypeLabel(id ?? "unknown") };
   });
 
-  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    clear,
+    SortableTableColumnHeader,
+  } = useSearch({
     items: rows,
     searchFields: ["name"],
     localStorageKey: `datasourceUsage:${tab.key}`,
@@ -389,7 +395,11 @@ function UsageGroupTable({
 
   return (
     <>
-      <SearchField {...searchInputProps} mt="3" />
+      <SearchField
+        {...searchInputProps}
+        placeholder={`Search ${tab.label.toLowerCase()}`}
+        mt="3"
+      />
       <Table variant="list" roundedCorners scrollX>
         <TableHeader>
           <TableRow>
@@ -450,6 +460,9 @@ function UsageGroupTable({
               ))}
             </TableRow>
           ))}
+          {isFiltered && !items.length && (
+            <NoMatchesRow colSpan={2 + units.length} clear={clear} />
+          )}
         </TableBody>
       </Table>
     </>
@@ -536,7 +549,13 @@ function RecentQueries({
     }),
   ];
 
-  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    clear,
+    SortableTableColumnHeader,
+  } = useSearch({
     items: rows,
     searchFields: ["queryType", "experiment", "factTable", "person"],
     localStorageKey: "datasourceRecentQueries",
@@ -588,7 +607,7 @@ function RecentQueries({
           {actionError}
         </Callout>
       )}
-      <SearchField {...searchInputProps} />
+      <SearchField {...searchInputProps} placeholder="Search queries" />
       <Table variant="list" roundedCorners scrollX stickyLastColumn>
         <TableHeader>
           <TableRow>
@@ -708,6 +727,9 @@ function RecentQueries({
               </TableRow>
             );
           })}
+          {isFiltered && !items.length && (
+            <NoMatchesRow colSpan={6 + statUnits.length} clear={clear} />
+          )}
         </TableBody>
       </Table>
     </>
@@ -717,8 +739,27 @@ function RecentQueries({
 function SearchField(props: React.ComponentProps<typeof TextField>) {
   return (
     <Box maxWidth="300px" mb="3">
-      <TextField type="search" placeholder="Search" {...props} />
+      <TextField type="search" {...props} />
     </Box>
+  );
+}
+
+function NoMatchesRow({
+  colSpan,
+  clear,
+}: {
+  colSpan: number;
+  clear: () => void;
+}) {
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} style={{ textAlign: "center" }}>
+        No matching results.{" "}
+        <Button variant="ghost" size="sm" onClick={clear}>
+          Clear search
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
