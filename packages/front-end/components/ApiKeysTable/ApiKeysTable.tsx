@@ -126,7 +126,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             <TableColumnHeader width="150px">Last Used</TableColumnHeader>
             <SortableTableColumnHeader
               field="expiresAtSort"
-              style={{ width: 130 }}
+              style={{ width: 170 }}
             >
               Expires
             </SortableTableColumnHeader>
@@ -240,7 +240,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   </Tooltip>
                 )}
               </TableCell>
-              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+              <TableCell style={dimStyle(key)}>
                 <ExpiresCell
                   expiresAt={key.expiresAt}
                   maxLifetimeDays={
