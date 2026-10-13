@@ -6,6 +6,7 @@ sidebarTitle: PHP
 
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import PhpEventTracking from "/snippets/partials/sdk-event-tracking/_php.mdx";
 
 The GrowthBook PHP SDK requires PHP version 8.0 or greater.
 
@@ -280,6 +281,12 @@ mixpanel.track("Experiment Viewed", <?=json_encode([
   'Variant name' => $impression->result->key
 ])?>);
 ```
+
+### GrowthBook Event Tracking
+
+Sends experiment view and feature usage events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<PhpEventTracking />
 
 ### Logging
 
