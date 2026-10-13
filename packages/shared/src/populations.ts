@@ -53,12 +53,6 @@ export function getPopulationRuleViolations({
 }: PopulationRuleInput): string[] {
   const violations: string[] = [];
 
-  if (steps.length > MAX_POPULATION_STEPS) {
-    violations.push(
-      `Populations can have at most ${MAX_POPULATION_STEPS} steps (this one has ${steps.length}).`,
-    );
-  }
-
   if (steps[0]?.windowSettings.type === "conversion") {
     violations.push("The first step cannot use a conversion window.");
   }

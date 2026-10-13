@@ -17,6 +17,7 @@ import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import UITooltip from "@/ui/Tooltip";
+import { getErrorDetails } from "@/services/apiCallError";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -48,6 +49,7 @@ type ModalProps = {
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  errorDetails?: string | null;
   loading?: boolean;
   size?: "md" | "lg" | "xl" | "max" | "fill";
   sizeY?: "max" | "fill";
@@ -108,6 +110,7 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  errorDetails: externalErrorDetails,
   loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
@@ -135,6 +138,7 @@ const Modal: FC<ModalProps> = ({
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -154,8 +158,9 @@ const Modal: FC<ModalProps> = ({
 
   useEffect(() => {
     setError(externalError || null);
+    setErrorDetails(externalErrorDetails || null);
     externalError && scrollToTop();
-  }, [externalError]);
+  }, [externalError, externalErrorDetails]);
 
   useEffect(() => {
     setLoading(externalLoading || false);
@@ -282,7 +287,9 @@ const Modal: FC<ModalProps> = ({
         ) : (
           <>
             {aboveBodyContent}
-            {error && <ErrorDisplay error={error} mb="3" />}
+            {error && (
+              <ErrorDisplay error={error} details={errorDetails} mb="3" />
+            )}
             {children}
           </>
         )}
@@ -476,6 +483,7 @@ const Modal: FC<ModalProps> = ({
                 }
               } catch (e) {
                 setError(e.message);
+                setErrorDetails(getErrorDetails(e));
                 scrollToTop();
                 setLoading(false);
                 if (trackOnSubmit) {

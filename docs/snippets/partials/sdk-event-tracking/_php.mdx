@@ -1,0 +1,26 @@
+Requires `growthbook/growthbook` v2.4.0 or later.
+
+```php
+use Growthbook\Growthbook;
+use Growthbook\GrowthBookTrackingPlugin;
+use Growthbook\GrowthBookTrackingPluginConfig;
+
+$growthbook = Growthbook::create()
+  ->withAttributes(['id' => $userId])
+  ->addPlugin(new GrowthBookTrackingPlugin(
+    new GrowthBookTrackingPluginConfig(
+      ingestorHost: "https://us-east-1.gb-ingest.com",
+    )
+  ));
+
+$growthbook->initialize("YOUR_CLIENT_KEY");
+```
+
+Call `addPlugin()` after any `with*()` methods. Those return a copy of the instance, and a discarded copy closes the plugin. The plugin gets its client key from `initialize()`, and pending events are sent when the request ends.
+
+Custom events aren't supported yet. Send them with the [Ingestion API](/app/managed-warehouse#ingestion-api).
+
+| Option         | Description                                                |
+| -------------- | ---------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                             |
+| `batchSize`    | Events to queue before sending mid-request. Default `100`. |
