@@ -50,18 +50,16 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
             {user?.type === "dashboard" ? (
               <span title={user.email}>{user.name}</span>
             ) : user?.type === "api_key" ? (
-              <span title={user.apiKey}>
-                <EventUser
-                  user={
-                    // Older events didn't store an org key's name.
-                    user.id || user.name
-                      ? user
-                      : { ...user, name: apiKeyDescriptions?.[user.apiKey] }
-                  }
-                  display="name"
-                  wrap
-                />
-              </span>
+              <EventUser
+                user={
+                  // Older events didn't store an org key's name.
+                  user.id || user.name
+                    ? user
+                    : { ...user, name: apiKeyDescriptions?.[user.apiKey] }
+                }
+                display="name"
+                wrap
+              />
             ) : user?.type === "system" ? (
               <span title="An automatic process or background job not associated with a user">
                 System

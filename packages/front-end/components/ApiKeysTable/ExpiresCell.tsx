@@ -52,22 +52,15 @@ const ExpiryText: FC<{ expiresAt: ExpiresAt }> = ({ expiresAt }) => {
       </Tooltip>
     );
   }
-  if (status === "expiring-soon") {
-    return (
-      <Tooltip content={datetime(expiresAt as string | Date)}>
-        <span>
-          <Badge
-            color="amber"
-            variant="soft"
-            label={`Expires ${ago(expiresAt as string | Date)}`}
-          />
-        </span>
-      </Tooltip>
-    );
-  }
   return (
     <Tooltip content={datetime(expiresAt as string | Date)}>
-      <span>{ago(expiresAt as string | Date)}</span>
+      <span
+        style={
+          status === "expiring-soon" ? { color: "var(--amber-11)" } : undefined
+        }
+      >
+        {ago(expiresAt as string | Date)}
+      </span>
     </Tooltip>
   );
 };

@@ -3,6 +3,7 @@ import { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
 import { PiRobot } from "react-icons/pi";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import type { Size } from "@/ui/Avatar";
 import { useUser } from "@/services/UserContext";
 import UserAvatar from "./UserAvatar";
@@ -142,28 +143,53 @@ export default function EventUser({
   );
   if (display === "avatar") return avatar;
 
-  const badge = (label: string, title: string) => (
-    <Badge variant="outline" label={label} size="xs" ml="1" title={title} />
+  const apiPill = (tip: string) => (
+    <Tooltip content={tip}>
+      <span>
+        <Badge variant="outline" label="API" size="xs" />
+      </span>
+    </Tooltip>
   );
-  const apiBadge = keyActed
-    ? requester
-      ? badge(
-          `for ${requesterName}`,
-          `${requesterName} asked. The key acted with its own permissions.`,
-        )
-      : keyName
-        ? badge("API", "via API key")
-        : null
-    : user.type === "api_key"
-      ? requester
-        ? badge(
-            `via ${keyName || "API key"}`,
-            "Requested through this API key, with only the permissions both the key and this member hold",
-          )
-        : badge("API", "via personal access token")
-      : null;
+  const aside = (text: string, tip: string) => (
+    <Tooltip content={tip}>
+      <span style={{ color: "var(--color-text-low)" }}>{text}</span>
+    </Tooltip>
+  );
+  // Who else took part, then the API pill on every API request. A nameless key
+  // that names no one already reads "API key".
+  const attribution =
+    user.type === "api_key" ? (
+      <>
+        {requester &&
+          (keyActed
+            ? aside(
+                `for ${requesterName}`,
+                `${requesterName} asked. The key acted with its own permissions.`,
+              )
+            : aside(
+                `via ${keyName || "API key"}`,
+                "Requested through this API key",
+              ))}
+        {(!keyActed || requester || keyName) &&
+          apiPill(
+            keyActed || requester ? "via API key" : "via personal access token",
+          )}
+      </>
+    ) : null;
 
   const freshUser = { ...user, name, email } as EventUserType;
+  // The name, email and attribution read as one phrase, spaced like words.
+  const label = (withEmail: boolean) => (
+    <Flex
+      align="center"
+      gap="1"
+      wrap={wrap ? "wrap" : "nowrap"}
+      display="inline-flex"
+    >
+      {getUserLabel(freshUser, withEmail)}
+      {attribution}
+    </Flex>
+  );
 
   if (display === "avatar-name" || display === "avatar-name-email") {
     return (
@@ -174,21 +200,10 @@ export default function EventUser({
         display="inline-flex"
       >
         {avatar}
-        {getUserLabel(freshUser, display === "avatar-name-email")}
-        {apiBadge}
+        {label(display === "avatar-name-email")}
       </Flex>
     );
   }
 
-  return (
-    <Flex
-      align="center"
-      gap="2"
-      wrap={wrap ? "wrap" : "nowrap"}
-      display="inline-flex"
-    >
-      {getUserLabel(freshUser, display === "name-email")}
-      {apiBadge}
-    </Flex>
-  );
+  return label(display === "name-email");
 }
