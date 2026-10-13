@@ -58,6 +58,7 @@ import {
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
@@ -105,6 +106,7 @@ import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { QueryLogModel } from "back-end/src/models/QueryLogModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
@@ -128,6 +130,7 @@ export type ModelName =
   | "urlRedirects"
   | "metricAnalysis"
   | "populationData"
+  | "populations"
   | "savedQueries"
   | "metricGroups"
   | "segments"
@@ -176,7 +179,8 @@ export type ModelName =
   | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs"
-  | "aiCredentials";
+  | "aiCredentials"
+  | "queryLogs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -189,6 +193,7 @@ export const modelClasses = {
   urlRedirects: UrlRedirectModel,
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
+  populations: PopulationModel,
   savedQueries: SavedQueryDataModel,
   metricGroups: MetricGroupModel,
   segments: SegmentModel,
@@ -223,6 +228,7 @@ export const modelClasses = {
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
+  queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
@@ -370,6 +376,7 @@ export class ReqContextClass {
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      populations: new PopulationModel(this),
       savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
@@ -405,6 +412,7 @@ export class ReqContextClass {
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
+      queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
