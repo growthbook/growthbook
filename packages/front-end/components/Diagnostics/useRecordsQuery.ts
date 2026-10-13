@@ -116,9 +116,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   const [error, setError] = useState<Error>();
   const [inFlight, setInFlight] = useState<null | "cache" | "query">(null);
   const [cacheProbe, setCacheProbe] = useState<"pending" | "done">("pending");
-  const [stateEndpoint, setStateEndpoint] = useState(endpoint);
   const requestVersion = useRef(0);
-  const endpointIsCurrent = stateEndpoint === endpoint;
 
   const configRef = useRef({
     buildParams,
@@ -133,25 +131,9 @@ export default function useRecordsQuery<TRow, TResponse>({
     selectNoCachedResult,
   };
 
-  useEffect(() => {
-    if (endpointIsCurrent) return;
-    requestVersion.current++;
-    setStateEndpoint(endpoint);
-    setDateRange(defaultDateRange);
-    setRowFilters([]);
-    setAppliedDateRange(null);
-    setAppliedRowFilters(null);
-    setAppliedWindow(null);
-    setVisibleWindow(null);
-    setData(undefined);
-    setError(undefined);
-    setInFlight(null);
-    setCacheProbe("pending");
-  }, [defaultDateRange, endpoint, endpointIsCurrent]);
-
   const run = useCallback(
     ({ filters, range, cache }: RunArgs) => {
-      if (!canRun || !isActive || !endpointIsCurrent) return;
+      if (!canRun || !isActive) return;
 
       const resolvedRange = calculateProductAnalyticsDateRange(range);
       const resolved: ResolvedWindow = {
@@ -198,25 +180,17 @@ export default function useRecordsQuery<TRow, TResponse>({
           setCacheProbe("done");
         });
     },
-    [apiCall, canRun, endpoint, endpointIsCurrent, isActive],
+    [apiCall, canRun, endpoint, isActive],
   );
 
   useEffect(() => {
-    if (!canRun || !isActive || !endpointIsCurrent) return;
+    if (!canRun || !isActive) return;
     if (cacheProbe !== "pending" || inFlight !== null) return;
     run({ filters: [], range: defaultDateRange, cache: "required" });
-  }, [
-    canRun,
-    isActive,
-    endpointIsCurrent,
-    cacheProbe,
-    inFlight,
-    defaultDateRange,
-    run,
-  ]);
+  }, [canRun, isActive, cacheProbe, inFlight, defaultDateRange, run]);
 
   useEffect(() => {
-    if (!canRun || !isActive || !autoRun || !endpointIsCurrent) return;
+    if (!canRun || !isActive || !autoRun) return;
     if (cacheProbe !== "done" || inFlight !== null) return;
     if (data !== undefined || error !== undefined) return;
     run({ filters: rowFilters, range: dateRange, cache: "preferred" });
@@ -224,7 +198,6 @@ export default function useRecordsQuery<TRow, TResponse>({
     canRun,
     isActive,
     autoRun,
-    endpointIsCurrent,
     cacheProbe,
     inFlight,
     data,

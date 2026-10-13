@@ -308,7 +308,16 @@ export default function HealthTab({
           decisionFrameworkEnabled={decisionFrameworkEnabled}
         />
       ) : null}
-      <ExposureLogsCard experiment={experiment} isTabActive={isTabActive} />
+      <ExposureLogsCard
+        key={[
+          experiment.id,
+          experiment.datasource,
+          experiment.exposureQueryId,
+          experiment.exposureQueryIdentifierType ?? "",
+        ].join("-")}
+        experiment={experiment}
+        isTabActive={isTabActive}
+      />
     </>
   );
 }
