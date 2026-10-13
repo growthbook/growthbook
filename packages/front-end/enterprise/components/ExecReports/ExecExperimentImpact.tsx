@@ -345,6 +345,9 @@ export default function ExecExperimentImpact({
               variationImpact.scaledImpactAdjusted ??
               variationImpact.scaledImpact,
             standardError: variationImpact.se,
+            relativeEffect: variationImpact.relativeEffect,
+            relativeEffectStandardError:
+              variationImpact.relativeEffectStandardError,
           }),
         );
       }),
