@@ -2022,7 +2022,7 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes, context);
+  normalizeStatusUpdateScheduleChanges(experiment, changes, context.armer);
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -3064,7 +3064,7 @@ export async function postExperimentTargeting(
   );
 
   await validateChangedPhaseReferences(
-    [{ condition, savedGroups }],
+    [{ condition, savedGroups, prerequisites }],
     experiment.phases.slice(-1),
     context,
   );

@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.8.1** - Unreleased
+
+- Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+
 ## **1.8.0** - Sep 29, 2026
 
 - Add `$savedGroup` operator for referencing any kind of Saved Group, not just ID Lists

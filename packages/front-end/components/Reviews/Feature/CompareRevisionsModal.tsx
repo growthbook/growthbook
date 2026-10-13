@@ -38,6 +38,7 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
@@ -504,15 +505,6 @@ export default function CompareRevisionsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [fetchedRevisions, setFetchedRevisions] = useState<
-    Record<number, FeatureRevisionInterface>
-  >({});
-  const [loadingVersions, setLoadingVersions] = useState<Set<number>>(
-    new Set(),
-  );
-  const [failedVersions, setFailedVersions] = useState<Set<number>>(new Set());
-  const fetchingRef = useRef<Set<number>>(new Set());
-
   // Revision log drill-down state
   const [expandedLogVersions, setExpandedLogVersions] = useState<Set<number>>(
     new Set(),
@@ -528,82 +520,6 @@ export default function CompareRevisionsModal({
     logIndex: number;
   } | null>(null);
   const fetchingLogRef = useRef<Set<number>>(new Set());
-
-  const getFullRevision = useCallback(
-    (version: number): FeatureRevisionInterface | null => {
-      const fromRevisions = revisions.find((r) => r.version === version);
-      if (fromRevisions) return fromRevisions;
-      return fetchedRevisions[version] ?? null;
-    },
-    [revisions, fetchedRevisions],
-  );
-
-  const fetchRevisions = useCallback(
-    async (versions: number[]) => {
-      // Skip already cached or in-flight versions
-      const toFetch = versions.filter(
-        (v) => !getFullRevision(v) && !fetchingRef.current.has(v),
-      );
-      if (!toFetch.length) return;
-
-      // Clear prior failures for versions being (re)fetched
-      setFailedVersions((prev) => {
-        if (!toFetch.some((v) => prev.has(v))) return prev;
-        const next = new Set(prev);
-        toFetch.forEach((v) => next.delete(v));
-        return next;
-      });
-
-      toFetch.forEach((v) => fetchingRef.current.add(v));
-      setLoadingVersions((prev) => {
-        const next = new Set(prev);
-        toFetch.forEach((v) => next.add(v));
-        return next;
-      });
-
-      try {
-        const response = await apiCall<{
-          revisions: FeatureRevisionInterface[];
-        }>(`/feature/${feature.id}/revisions?versions=${toFetch.join(",")}`);
-        const returnedVersions = new Set(
-          response.revisions?.map((r) => r.version) ?? [],
-        );
-        if (returnedVersions.size) {
-          setFetchedRevisions((prev) => {
-            const next = { ...prev };
-            response.revisions.forEach((r) => {
-              next[r.version] = r;
-            });
-            return next;
-          });
-        }
-        // Versions not returned are definitively missing
-        const missing = toFetch.filter((v) => !returnedVersions.has(v));
-        if (missing.length) {
-          setFailedVersions((prev) => {
-            const next = new Set(prev);
-            missing.forEach((v) => next.add(v));
-            return next;
-          });
-        }
-      } catch {
-        // Network / server error — all requested versions failed
-        setFailedVersions((prev) => {
-          const next = new Set(prev);
-          toFetch.forEach((v) => next.add(v));
-          return next;
-        });
-      } finally {
-        toFetch.forEach((v) => fetchingRef.current.delete(v));
-        setLoadingVersions((prev) => {
-          const next = new Set(prev);
-          toFetch.forEach((v) => next.delete(v));
-          return next;
-        });
-      }
-    },
-    [apiCall, feature.id, getFullRevision],
-  );
 
   const fetchRevisionLog = useCallback(
     async (version: number) => {
@@ -710,17 +626,20 @@ export default function CompareRevisionsModal({
     return set;
   }, [selectedSortedSet, previewDraftVersion, liveVersion]);
 
-  useEffect(() => {
-    const missing = [...neededVersions].filter((v) => !getFullRevision(v));
-    if (missing.length) fetchRevisions(missing);
-  }, [neededVersions, getFullRevision, fetchRevisions]);
-
-  // A version is failed if the fetch completed but it wasn't returned
-  const isVersionFailed = useCallback(
-    (v: number) =>
-      failedVersions.has(v) && !loadingVersions.has(v) && !getFullRevision(v),
-    [failedVersions, loadingVersions, getFullRevision],
+  // Shares the flag page's revision cache: anything compared here is loaded
+  // once for the page and everything else on it
+  const comparedRevisions = useFeatureRevisions(feature.id, [
+    ...neededVersions,
+  ]);
+  const getFullRevision = useCallback(
+    (version: number): FeatureRevisionInterface | null =>
+      revisions.find((r) => r.version === version) ??
+      comparedRevisions.get(version) ??
+      null,
+    [revisions, comparedRevisions],
   );
+  const isVersionFailed = comparedRevisions.isUnavailable;
+  const fetchRevisions = comparedRevisions.retry;
 
   const [diffPage, setDiffPage] = useState(0);
   useEffect(() => {
@@ -905,7 +824,9 @@ export default function CompareRevisionsModal({
         : selectedSorted.length >= 2
           ? [selectedSorted[0], selectedSorted[selectedSorted.length - 1]]
           : [];
-  const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
+  const displayLoading = displayVersions.some((v) =>
+    comparedRevisions.isLoading(v),
+  );
   const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
 
   // Backfill source for legacy revisions that don't store envelope fields
@@ -970,8 +891,8 @@ export default function CompareRevisionsModal({
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&
-    (loadingVersions.has(liveVersion) ||
-      loadingVersions.has(previewDraftVersion));
+    (comparedRevisions.isLoading(liveVersion) ||
+      comparedRevisions.isLoading(previewDraftVersion));
   const previewDisplayFailed =
     previewDraftVersion !== null
       ? [liveVersion, previewDraftVersion].filter((v) => isVersionFailed(v))

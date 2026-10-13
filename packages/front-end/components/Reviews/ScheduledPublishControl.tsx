@@ -13,6 +13,7 @@ import DatePicker from "@/components/DatePicker";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 
 type Mode = "approve" | "date";
 
@@ -496,7 +497,7 @@ export default function ScheduledPublishControl({
         />
         {error && (
           <Callout status="error" size="sm" mt="2">
-            {error}
+            <MarkdownLinks text={error} />
           </Callout>
         )}
       </Box>
@@ -642,7 +643,7 @@ export default function ScheduledPublishControl({
           )}
           {error && (
             <Callout status="error" mt="2">
-              {error}
+              <MarkdownLinks text={error} />
             </Callout>
           )}
         </Box>

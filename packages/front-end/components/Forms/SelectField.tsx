@@ -18,6 +18,7 @@ import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
+import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
@@ -77,6 +78,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  noOptionsMessage?: () => ReactNode;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
@@ -278,6 +280,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  noOptionsMessage,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
@@ -493,6 +496,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
@@ -522,6 +526,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     forceUndefinedValueToNull ? (selected ?? null) : selected
                   }
                   placeholder={initialOption ?? placeholder}
+                  noOptionsMessage={noOptionsMessage}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
@@ -533,6 +538,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
