@@ -61963,6 +61963,9 @@ paths:
       summary: Get all populations
       tags:
         - Populations
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           description: Successful response
@@ -61971,11 +61974,31 @@ paths:
               schema:
                 type: object
                 properties:
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
                   populations:
                     type: array
                     items:
                       $ref: '#/components/schemas/Population'
                 required:
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
                   - populations
                 additionalProperties: false
       x-codeSamples:

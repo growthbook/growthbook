@@ -307,6 +307,6 @@ export default {
   },
   "visual-editor": {
     plan: "pro",
-    displayName: "AI Visual Editor",
+    displayName: "Visual Editor",
   },
 };
