@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -56,29 +57,42 @@ export function SRMWarningFooter({
   variations,
   users,
   isBandit,
+  pValue,
+  boldLowTrafficMessage = false,
 }: {
   srm: number;
   srmHealth: SRMHealthStatus;
   variations?: ExperimentReportVariation[];
   users: number[];
   isBandit: boolean;
+  pValue?: ReactNode;
+  boldLowTrafficMessage?: boolean;
 }) {
   if (srmHealth === "not-enough-traffic") {
+    const message =
+      "More traffic is required to detect a Sample Ratio Mismatch (SRM).";
     return (
       <Callout status="info">
-        More traffic is required to detect a Sample Ratio Mismatch (SRM).
+        {boldLowTrafficMessage ? (
+          <Text weight="semibold">{message}</Text>
+        ) : (
+          message
+        )}
       </Callout>
     );
   }
 
   return (
-    <SRMWarning
-      srm={srm}
-      variations={variations}
-      users={users}
-      showWhenHealthy
-      isBandit={isBandit}
-    />
+    <>
+      {pValue}
+      <SRMWarning
+        srm={srm}
+        variations={variations}
+        users={users}
+        showWhenHealthy
+        isBandit={isBandit}
+      />
+    </>
   );
 }
 

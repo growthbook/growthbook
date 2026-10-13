@@ -11,10 +11,9 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
-import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import SRMCardShell, { useSrmHealth } from "./SRMCardShell";
+import SRMCardShell, { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
@@ -91,26 +90,19 @@ export default function BanditSRMCard({
         />
       </div>
       <div>
-        {overallHealth !== "not-enough-traffic" ? (
-          <>
+        <SRMWarningFooter
+          srm={srm ?? Infinity}
+          srmHealth={overallHealth}
+          users={users}
+          isBandit
+          boldLowTrafficMessage
+          pValue={
             <Text as="div" color="text-low" mx="3" mb="2">
               p-value:{" "}
               {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
             </Text>
-            <SRMWarning
-              srm={srm ?? Infinity}
-              users={users}
-              showWhenHealthy
-              isBandit={true}
-            />
-          </>
-        ) : (
-          <Callout status="info">
-            <Text weight="semibold">
-              More traffic is required to detect a Sample Ratio Mismatch (SRM).
-            </Text>
-          </Callout>
-        )}
+          }
+        />
       </div>
     </SRMCardShell>
   );
