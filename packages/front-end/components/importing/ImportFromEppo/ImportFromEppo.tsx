@@ -445,6 +445,12 @@ export default function ImportFromEppo() {
         </Callout>
       ) : null}
 
+      {data && CATEGORIES.every(({ key }) => !data[key].length) ? (
+        <Callout status="info" mb="4">
+          Eppo returned nothing to import for this API key.
+        </Callout>
+      ) : null}
+
       {data
         ? CATEGORIES.map(({ key: category, label }) => {
             const items = getItems(category);
@@ -459,7 +465,11 @@ export default function ImportFromEppo() {
             return (
               <Frame key={category}>
                 <Checkbox
-                  label={`${label} (${items.length})`}
+                  label={`${label} (${ids.length})${
+                    items.length - ids.length > 0
+                      ? ` · ${items.length - ids.length} unchanged`
+                      : ""
+                  }`}
                   value={
                     selected === ids.length && selected > 0
                       ? true

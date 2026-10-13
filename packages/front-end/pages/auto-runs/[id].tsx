@@ -20,6 +20,7 @@ import {
 } from "@/components/GetStarted/FeaturedCards";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
@@ -30,6 +31,7 @@ import Table, {
   TableColumnHeader,
   TableHeader,
   TableRow,
+  TableRowHeaderCell,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
@@ -68,17 +70,43 @@ const KIND: Record<
   tag: { label: "Tag", href: () => "/tags", review: "Tags" },
 };
 
+// Named resources stay Title Case; experiment, environment and tag are plain
+const PLURAL: Record<ArtifactKind, string> = {
+  "sdk-connection": "SDK Connections",
+  feature: "Feature Flags",
+  experiment: "experiments",
+  attribute: "attributes",
+  metric: "Fact Metrics",
+  "fact-table": "Fact Tables",
+  "saved-group": "Saved Groups",
+  environment: "environments",
+  tag: "tags",
+};
+
+function kindList(artifacts: Artifact[]): string {
+  const names = [...new Set(artifacts.map((a) => PLURAL[a.kind]))];
+  if (names.length <= 1) return names[0] ?? "Items";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 function NameCell({
   name,
   subtitle,
+  error = false,
 }: {
   name: string;
   subtitle?: string | null;
+  error?: boolean;
 }) {
   return (
     <Box>
       <Text weight="medium">{name}</Text>
-      {subtitle && (
+      {subtitle && error && (
+        <HelperText status="error" size="sm">
+          {subtitle}
+        </HelperText>
+      )}
+      {subtitle && !error && (
         <Text as="p" size="sm" color="text-mid">
           {subtitle}
         </Text>
@@ -186,14 +214,19 @@ function SetUpTable({
         {artifacts.map((a) => (
           <TableRow key={`${a.kind}:${a.id}`}>
             <TableCell>
-              <Text color="text-mid">{KIND[a.kind].label}</Text>
+              <Text color="text-mid">
+                {a.kind === "metric" && a.id.startsWith("fact__")
+                  ? "Fact Metric"
+                  : KIND[a.kind].label}
+              </Text>
             </TableCell>
-            <TableCell style={{ verticalAlign: "middle" }}>
+            <TableRowHeaderCell style={{ verticalAlign: "middle" }}>
               <NameCell
                 name={a.label}
                 subtitle={a.detail === "Deleted" ? null : a.detail}
+                error={a.action === "failed"}
               />
-            </TableCell>
+            </TableRowHeaderCell>
             {review && (
               <ReviewCell
                 href={KIND[a.kind].href(a.id)}
@@ -248,9 +281,7 @@ function DeleteRunButton({
           title="Delete everything this run created?"
           content={
             <>
-              Everything this import created will be deleted: Feature Flags,
-              experiments, Fact Metrics, Fact Tables, Saved Groups, environments
-              and tags. Items this run only updated are kept.
+              {`${kindList(created)} created by this import will be deleted. Items this run only updated are kept.`}
               {updatedLater.length > 0 &&
                 ` A later import has since updated ${updatedLater.map((a) => `${KIND[a.kind].label} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it" : "they"} will be deleted too.`}{" "}
               This can&apos;t be undone.
@@ -329,8 +360,12 @@ export default function AutoRunPage() {
     const failed = run.metadata.failed;
     const failedItems = run.artifacts.filter((a) => a.action === "failed");
     const deletedItems = run.artifacts.filter((a) => a.action === "deleted");
+    const existingItems = run.artifacts.filter((a) => a.action === "existing");
     const imported = run.artifacts.filter(
-      (a) => a.action !== "failed" && a.action !== "deleted",
+      (a) =>
+        a.action !== "failed" &&
+        a.action !== "deleted" &&
+        a.action !== "existing",
     );
     return (
       <Container
@@ -367,6 +402,14 @@ export default function AutoRunPage() {
           </Section>
         ) : (
           <Callout status="info">Nothing was imported in this run.</Callout>
+        )}
+        {existingItems.length > 0 && (
+          <Section
+            title="Already in GrowthBook"
+            description="Left as they were."
+          >
+            <SetUpTable artifacts={existingItems} />
+          </Section>
         )}
         {failedItems.length > 0 && (
           <Section
