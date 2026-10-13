@@ -99,7 +99,6 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     getLatestPhaseVariations(experiment).forEach((v) => {
       const entry = { index: v.index, name: v.name || `Variation ${v.index}` };
       byId.set(v.key || String(v.index), entry);
-      byId.set(String(v.index), entry);
     });
     return byId;
   }, [experiment]);
