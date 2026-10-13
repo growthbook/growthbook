@@ -110,11 +110,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
       metricAnalysisDays: 90,
-      // customization:
-      customized: false,
-      logoPath: "",
-      primaryColor: "#391c6d",
-      secondaryColor: "#50279a",
       northStar: {
         //enabled: false,
         title: "",
@@ -262,11 +257,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
       targetMDE: form.watch("metricDefaults.targetMDE"),
     },
-    // customization:
-    customized: form.watch("customized"),
-    logoPath: form.watch("logoPath"),
-    primaryColor: form.watch("primaryColor"),
-    secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
