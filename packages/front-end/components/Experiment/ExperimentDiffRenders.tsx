@@ -8,7 +8,7 @@ import {
 } from "shared/types/feature";
 import { getMetricLink } from "shared/experiments";
 import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
-import { timestamp } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { formatTrafficSplit } from "@/services/utils";
@@ -44,7 +44,8 @@ type Post = Partial<ExperimentInterfaceStringDates>;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // Phase dates bound warehouse queries, so they read in UTC like the forms that set them.
-const phaseDatetime = (d: string | Date) => `${timestamp(d, "UTC")} UTC`;
+const phaseDatetime = (d: string | Date) =>
+  `${getValidDate(d).toISOString().replace("T", " ").slice(0, 19)} UTC`;
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

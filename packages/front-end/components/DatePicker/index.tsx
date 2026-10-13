@@ -2,7 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { endOfDay, format, startOfDay } from "date-fns";
-import { format as formatTimeZone, formatInTimeZone } from "date-fns-tz";
+import { format as formatTimeZone } from "date-fns-tz";
 import React, {
   ReactNode,
   useCallback,
@@ -197,9 +197,11 @@ export default function DatePicker({
   const formatField = useCallback(
     (value: Date | string): string =>
       isUtc
-        ? formatInTimeZone(getValidDate(value), "UTC", dateFormat)
+        ? getValidDate(value)
+            .toISOString()
+            .slice(0, precision === "datetime" ? 16 : 10)
         : format(parseDateInput(value), dateFormat),
-    [isUtc, dateFormat, parseDateInput],
+    [isUtc, precision, dateFormat, parseDateInput],
   );
   // A typed UTC wall-clock is read as UTC directly, never via a local Date that can't hold DST-gap times.
   const parseField = useCallback(
