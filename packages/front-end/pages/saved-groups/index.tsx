@@ -61,6 +61,11 @@ export default function SavedGroupsPage() {
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+  // The flag can load after the hash is read, so fall back when it's off
+  const shownTab =
+    activeTab === "remoteGroups" && !remoteGroupsEnabled
+      ? "conditionGroups"
+      : activeTab;
 
   // Sync activeTab with URL hash changes (e.g., browser back/forward)
   useEffect(() => {
@@ -143,7 +148,9 @@ export default function SavedGroupsPage() {
         Create reusable user groups as targets for Feature Flags or experiments.
       </Text>
       <HelperText status="info" my="4">
-        Learn more about using Condition Groups and ID Lists.
+        {remoteGroupsEnabled
+          ? "Learn more about using Condition Groups, ID Lists and Remote Groups."
+          : "Learn more about using Condition Groups and ID Lists."}
         <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
@@ -161,7 +168,7 @@ export default function SavedGroupsPage() {
       ) : (
         <>
           <Tabs
-            value={activeTab}
+            value={shownTab}
             onValueChange={(newTab) => {
               setActiveTab(newTab);
               // Clear search query and update hash when switching tabs

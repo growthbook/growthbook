@@ -1156,7 +1156,7 @@ export default function EditSavedGroupPage() {
                     !canDraft
                       ? "You don't have permission to edit this Saved Group."
                       : metadataReviewRequired && isMerged
-                        ? "You cannot edit a merged revision."
+                        ? "You cannot edit a published revision."
                         : metadataReviewRequired && isDiscarded
                           ? "You cannot edit a discarded revision."
                           : undefined
@@ -1450,7 +1450,7 @@ export default function EditSavedGroupPage() {
                 viewedVersion={displayedSavedGroup?.currentUploadVersion}
                 useVersionDisabledReason={
                   isMerged
-                    ? "You cannot edit a merged revision."
+                    ? "You cannot edit a published revision."
                     : isDiscarded
                       ? "You cannot edit a discarded revision."
                       : !canDraft
@@ -1491,7 +1491,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft
@@ -1552,7 +1552,7 @@ export default function EditSavedGroupPage() {
                       <Tooltip
                         body={
                           isMerged
-                            ? "You cannot edit a merged revision."
+                            ? "You cannot edit a published revision."
                             : isDiscarded
                               ? "You cannot edit a discarded revision."
                               : !canDraft
@@ -1587,7 +1587,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft
@@ -1626,7 +1626,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft

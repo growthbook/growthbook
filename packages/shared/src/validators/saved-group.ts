@@ -164,6 +164,13 @@ export const apiSavedGroupValidator = namedSchema(
       projects: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       useEmptyListGroup: z.boolean().optional(),
+      currentUploadVersion: z
+        .number()
+        .int()
+        .describe(
+          "When type = 'remote', the version of the upload the group uses. Absent when it uses none.",
+        )
+        .optional(),
       currentUpload: z
         .object({
           version: z.number().int(),

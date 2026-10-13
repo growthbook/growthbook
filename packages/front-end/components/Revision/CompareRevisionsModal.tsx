@@ -327,7 +327,7 @@ function activityLabel(item: ActivityTimelineItem): string {
     case "updated":
       return "Revision updated";
     case "merged":
-      return "Merged";
+      return "Published";
     case "discarded":
       return "Discarded";
     case "reopened":

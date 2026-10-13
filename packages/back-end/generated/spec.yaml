@@ -69599,6 +69599,11 @@ components:
           type: boolean
         useEmptyListGroup:
           type: boolean
+        currentUploadVersion:
+          description: >-
+            When type = 'remote', the version of the upload the group uses.
+            Absent when it uses none.
+          type: integer
         currentUpload:
           description: >-
             When type = 'remote', the upload whose IDs the group uses, or null

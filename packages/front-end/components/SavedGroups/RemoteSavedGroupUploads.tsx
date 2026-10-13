@@ -9,7 +9,6 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCheckCircleFill,
-  PiCircle,
   PiDownloadSimple,
   PiTrash,
   PiUploadSimple,
@@ -31,6 +30,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -87,8 +87,15 @@ function UploadModal({
   const [progress, setProgress] = useState<number | null>(null);
   const [useWhenChecked, setUseWhenChecked] = useState(canUseVersion);
   const [checking, setChecking] = useState(false);
-  // Stops waiting for the check once the modal is closed
+  const fileInput = useRef<HTMLInputElement>(null);
+  // Stops waiting for validation once the modal is closed or unmounted
   const closed = useRef(false);
+  useEffect(
+    () => () => {
+      closed.current = true;
+    },
+    [],
+  );
   const closeModal = () => {
     closed.current = true;
     close();
@@ -104,6 +111,7 @@ function UploadModal({
         const { upload } = await apiCall<SavedGroupUploadDetails>(
           `/saved-groups/${savedGroup.id}/uploads/${version}`,
         );
+        if (closed.current) return null;
         if (upload.status.type !== "pending") return upload.status;
       }
     } finally {
@@ -153,6 +161,7 @@ function UploadModal({
         : upload.status;
     if (!status) return;
     await onUploaded();
+    if (closed.current) return;
     if (status.type === "invalid") {
       throw new Error(
         `Version ${upload.version} is invalid, so the group won't use it. See its details for the problems found.`,
@@ -180,13 +189,26 @@ function UploadModal({
             per line. A first line equal to the attribute name is skipped.
           </Text>
           <Text as="p" mb="3">
-            Each upload should contain a complete list of values, not
-            additions/deletions/deltas. Each successive upload will create a new
-            version of the ID list, and will replace previous versions.
+            Each upload is a complete list of values, saved as a new version.
+            Older versions stay until you delete them.
           </Text>
+          <Flex align="center" gap="3">
+            <Button
+              variant="outline"
+              onClick={() => fileInput.current?.click()}
+            >
+              Choose CSV
+            </Button>
+            <Text color={file ? undefined : "text-low"}>
+              {file?.name ?? "No file chosen"}
+            </Text>
+          </Flex>
           <input
+            ref={fileInput}
             type="file"
             accept=".csv,text/csv"
+            aria-label="CSV file"
+            style={{ display: "none" }}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
           {canUseVersion && (
@@ -233,16 +255,8 @@ function UploadModal({
 
 /**
  * A check on the version the viewed revision uses. Other valid versions show
- * an empty circle that switches to them.
+ * a "Use" button that switches to them.
  */
-// The check and the circle share one box, so they line up
-const MARK_STYLE = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 24,
-  height: 24,
-};
 
 function VersionMark({
   inUse,
@@ -260,7 +274,7 @@ function VersionMark({
   if (inUse) {
     return (
       <Tooltip content={inUseLabel}>
-        <span style={{ ...MARK_STYLE, color: "var(--green-10)" }}>
+        <span style={{ display: "inline-flex", color: "var(--green-10)" }}>
           <PiCheckCircleFill size={20} aria-label={inUseLabel} />
         </span>
       </Tooltip>
@@ -270,18 +284,15 @@ function VersionMark({
   return (
     <Tooltip content={useDisabledReason ?? "Use this version"}>
       {/* A disabled button gets no hover events, so the tooltip wraps a span */}
-      <span style={MARK_STYLE}>
+      <span>
         <Button
           variant="ghost"
-          color="gray"
           size="sm"
           aria-label="Use this version"
           disabled={!!useDisabledReason}
           onClick={onUse}
-          // Just the icon, so it lines up with the check
-          style={{ padding: 0, margin: 0, height: "auto" }}
         >
-          <PiCircle size={20} />
+          Use
         </Button>
       </span>
     </Tooltip>
@@ -339,10 +350,12 @@ export default function RemoteSavedGroupUploads({
   const liveVersion = savedGroup.currentUploadVersion;
 
   // The live and draft versions are always listed, even when they're on
-  // another page, so they stay easy to find and manage.
+  // another page, so they stay easy to find and manage. Only on the first
+  // page, so later pages read newest first.
   const pageUploads = data?.uploads ?? [];
   const pinnedVersions = [liveVersion, viewedVersion].filter(
     (v, i, all): v is number =>
+      page === 1 &&
       v !== undefined &&
       all.indexOf(v) === i &&
       !pageUploads.some((u) => u.version === v),
@@ -470,10 +483,8 @@ export default function RemoteSavedGroupUploads({
         </Callout>
       ) : !data ? null : !data.total ? (
         <Callout status="info" size="sm">
-          No uploads yet. Upload a CSV of IDs, or you can alternatively manage
-          group membership data in your own storage infrastructure, and
-          implement a resolver to lookup group membership.{" "}
-          <DocLink docSection="remoteSavedGroups">View docs</DocLink>
+          No uploads yet. Upload a CSV of IDs, or manage membership in your own
+          storage. <DocLink docSection="remoteSavedGroups">View docs</DocLink>
         </Callout>
       ) : (
         <Table variant="list">
@@ -514,9 +525,25 @@ export default function RemoteSavedGroupUploads({
                 </TableCell>
                 <TableCell>
                   <Flex align="center" gap="2">
-                    {upload.version}
+                    {/* Rows aren't focusable, so the version opens details */}
+                    <Link
+                      color="dark"
+                      aria-label={`Version ${upload.version} details`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDetailsVersion(upload.version);
+                      }}
+                    >
+                      {upload.version}
+                    </Link>
                     {upload.version === liveVersion && (
-                      <Badge label="Live" color="gray" />
+                      <Badge
+                        label="Live"
+                        color="green"
+                        variant="solid"
+                        radius="full"
+                      />
                     )}
                   </Flex>
                 </TableCell>

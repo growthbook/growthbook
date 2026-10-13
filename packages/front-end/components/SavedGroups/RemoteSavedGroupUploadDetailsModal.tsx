@@ -45,12 +45,10 @@ export function UploadStatusBadge({
       );
     case "invalid":
       return (
-        <Tooltip content={status.errors.join("\n")}>
-          <Badge
-            label={`Invalid: ${status.invalidLineCount.toLocaleString()} bad lines`}
-            color="red"
-          />
-        </Tooltip>
+        <Badge
+          label={`Invalid: ${status.invalidLineCount.toLocaleString()} bad lines`}
+          color="red"
+        />
       );
   }
 }
@@ -252,7 +250,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
             )}
 
             <Heading as="h3" size="sm" mb="2">
-              Data stores
+              Data Stores
             </Heading>
             {!upload.loads.length ? (
               <Text color="text-low">

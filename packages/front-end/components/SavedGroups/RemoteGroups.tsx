@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import Link from "next/link";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
@@ -19,7 +18,8 @@ import RemoteSavedGroupSetupCallout from "@/components/SavedGroups/RemoteSavedGr
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
+import Link from "@/ui/Link";
 import Table, {
   TableHeader,
   TableBody,
@@ -175,12 +175,18 @@ export default function RemoteGroups({ groups, mutate }: Props) {
             Remote Groups
           </Heading>
           <Tooltip
-            body="You do not have permission to create Saved Groups."
-            shouldDisplay={!canCreate}
+            content="You do not have permission to create Saved Groups."
+            enabled={!canCreate}
           >
-            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
-              Add Remote Group
-            </Button>
+            {/* A disabled button gets no hover events, so the tooltip wraps a span */}
+            <span>
+              <Button
+                disabled={!canCreate}
+                onClick={() => setSavedGroupForm({})}
+              >
+                Add Remote Group
+              </Button>
+            </span>
           </Tooltip>
         </Flex>
         <Text as="p" color="text-mid" mb="1">
@@ -232,10 +238,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
                     <TableRow key={s.id}>
                       <TableCell>
                         <Flex align="center" gap="2">
-                          <Link
-                            style={{ color: "var(--gray-12)" }}
-                            href={`/saved-groups/${s.id}`}
-                          >
+                          <Link color="dark" href={`/saved-groups/${s.id}`}>
                             {s.groupName}
                           </Link>
                         </Flex>
@@ -263,7 +266,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
                 {!items.length && isFiltered && (
                   <TableRow>
                     <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      No matching saved groups
+                      No matching Saved Groups
                     </TableCell>
                   </TableRow>
                 )}

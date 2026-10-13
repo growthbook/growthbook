@@ -59,7 +59,10 @@ import SavedGroupDraftSelectorForChanges, {
 
 import useProjectOptions from "@/hooks/useProjectOptions";
 
-type SavedGroupFormValues = CreateSavedGroupProps;
+// The upload version is a form value so resolving a conflict can change it.
+type SavedGroupFormValues = CreateSavedGroupProps & {
+  currentUploadVersion?: number;
+};
 
 const TYPE_LABELS: Record<SavedGroupType, string> = {
   condition: "Condition Group",
@@ -223,6 +226,7 @@ const SavedGroupForm: FC<{
 
   const form = useForm<SavedGroupFormValues>({
     defaultValues: {
+      currentUploadVersion: useUploadVersion ?? current.currentUploadVersion,
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
@@ -306,6 +310,7 @@ const SavedGroupForm: FC<{
 
     const currentFormValues = form.getValues();
     const newValues = {
+      currentUploadVersion: useUploadVersion ?? baseData.currentUploadVersion,
       groupName: baseData.groupName || "",
       owner: baseData.owner || "",
       attributeKey: baseData.attributeKey || "",
@@ -333,6 +338,7 @@ const SavedGroupForm: FC<{
     seedKey,
     currentRevision,
     liveVersion,
+    useUploadVersion,
     type,
     project,
     orgId,
@@ -537,10 +543,9 @@ const SavedGroupForm: FC<{
               ...(fieldChanged("projects") ? { projects: value.projects } : {}),
             };
           } else if (editUploadOnly) {
-            payload =
-              useUploadVersion !== current.currentUploadVersion
-                ? { currentUploadVersion: useUploadVersion }
-                : {};
+            payload = fieldChanged("currentUploadVersion")
+              ? { currentUploadVersion: value.currentUploadVersion }
+              : {};
           } else if (editConditionOnly) {
             payload = fieldChanged("condition")
               ? { condition: value.condition }
