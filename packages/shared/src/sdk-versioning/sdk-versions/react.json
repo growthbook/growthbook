@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "1.8.1",
+      "prerelease": true
+    },
+    {
       "version": "1.8.0",
       "capabilities": ["savedGroupReferencesV2"]
     },

@@ -29,7 +29,7 @@ import {
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
-  isInHouseConsumerSink,
+  isInHouseConsumerTopic,
 } from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
@@ -347,7 +347,8 @@ export async function provisionEventForwarderThroughLicenseServer(
 
     // In-house consumer sinks have no connector to wait on: tables exist and
     // write access passed, so they are ready now.
-    const inHouseConsumer = isInHouseConsumerSink(
+    const inHouseConsumer = isInHouseConsumerTopic(
+      eventForwarderConfig.topic,
       eventForwarderConfig.sinkType,
     );
     const currentEventForwarderConfig =
