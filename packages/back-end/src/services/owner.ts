@@ -53,7 +53,7 @@ export async function resolveOwnerForCreate(
   if (resolved) return resolved;
   if (context.actingUserId) return context.actingUserId;
   throw new Error(
-    "Must specify an `owner` in the request body. The `owner` field is only optional when authenticating with a personal access token (PAT), or with an organization API key that assumes the role of a member it names with `X-GrowthBook-Requested-By`.",
+    "Must specify an `owner` in the request body. It's optional only with a personal access token, or an organization API key that assumes a named member's role.",
   );
 }
 

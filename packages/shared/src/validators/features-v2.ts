@@ -307,7 +307,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       autoPublishEnabledBy: z
         .string()
         .describe(
-          "User or API key the deferred publish will run as. Its authority is re-checked when the publish fires. An organization API key that assumed the role of a member it named with `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and runs with that member as its requester.",
+          "User or API key the deferred publish runs as, re-checked when it fires. A key that assumed a member's role is recorded as `<keyId>:<memberId>`.",
         )
         .optional(),
       autoPublishEnabledByUser: apiEventUser
@@ -334,7 +334,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "Who reviewed: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it reviewed as itself",
+                  "Who reviewed: a member's user ID, or an API key's ID when it reviewed as itself",
                 ),
               user: apiEventUser.optional(),
               status: z.enum([

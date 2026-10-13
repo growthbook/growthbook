@@ -67,12 +67,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   requesterHeader: requesterHeaderValidator
     .optional()
     .describe(
-      "Org API keys only. Whether requests may (`optional`, the default), must (`required`) or must not (`rejected`) name a member in `X-GrowthBook-Requested-By`",
+      "Org API keys only. Whether requests may (`optional`, default), must (`required`) or must not (`rejected`) send `X-GrowthBook-Requested-By`",
     ),
   requesterPermissions: requesterPermissionsValidator
     .optional()
     .describe(
-      "Org API keys only. With a named member, `assume` (the default) acts as that member, with only what both the key and the member can do; `key` acts as the key itself, with its own role, drafts, verdicts and ownership, and only records who asked",
+      "Org API keys only. `assume` (default) acts as the named member, within the key's role; `key` acts as the key and only records the member",
     ),
   disabled: z
     .boolean()

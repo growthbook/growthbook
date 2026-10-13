@@ -31,7 +31,7 @@ export const ownerInputField = z
   );
 
 const OWNER_PERSON_DEFAULT =
-  "the person making the request: a personal access token's owner, or the member whose role an organization API key assumes with `X-GrowthBook-Requested-By`";
+  "the requesting member: a personal access token's owner, or the member an organization API key assumes";
 
 /**
  * Optional owner input for create endpoints. When omitted, the owner defaults to

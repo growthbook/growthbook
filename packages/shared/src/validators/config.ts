@@ -457,7 +457,7 @@ export const apiConfigValidator = namedSchema(
       lockedBy: z
         .string()
         .describe(
-          "Who locked the config (when `locked`): the user ID of a personal access token's owner or of the member whose role an organization API key assumed, or the key's own ID when it acted as itself.",
+          "Who locked the config: a member's user ID, or an API key's ID when it acted as itself",
         )
         .optional(),
       dateLocked: z

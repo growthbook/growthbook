@@ -319,7 +319,7 @@ export const revisionScheduleResponseFields = {
     .string()
     .optional()
     .describe(
-      "User or API key the deferred publish will run as. Its authority is re-checked when the publish fires. An organization API key that assumed the role of a member it named with `X-GrowthBook-Requested-By` is recorded as `<keyId>:<memberId>`, and runs with that member as its requester.",
+      "User or API key the deferred publish runs as, re-checked when it fires. A key that assumed a member's role is recorded as `<keyId>:<memberId>`.",
     ),
   autoPublishEnabledByUser: apiEventUser
     .optional()

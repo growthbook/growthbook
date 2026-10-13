@@ -22,7 +22,7 @@ export function assertUserScopedKeyForMine(
 ): void {
   if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` needs a member to filter by. Use a personal access token, or an organization API key that assumes the role of a member it names with X-GrowthBook-Requested-By.",
+      "`mine=true` needs a member: use a personal access token, or an organization API key that assumes a named member's role.",
     );
   }
 }

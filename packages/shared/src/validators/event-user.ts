@@ -30,27 +30,24 @@ export type EventUserRequestedBy = z.infer<typeof eventUserRequestedBy>;
 export const actorIdField = z
   .string()
   .describe(
-    "Who acted: the user ID of the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed; otherwise the key's own ID, when it acted as itself",
+    "Who acted: a member's user ID, or an API key's ID when it acted as itself",
   );
 
 export const REVIEW_VERDICT_NOTE =
-  "A verdict (`approve` or `request-changes`) belongs to whoever the request acts as: the signed-in member, a personal access token's owner, the member whose role an organization API key assumes, or otherwise the key itself, judged on the key's own role. No one can rule on a draft they created.";
+  "The verdict belongs to whoever the request acts as; see [Naming who asked](/api/introduction#naming-who-asked). No one can rule on a draft they created.";
 
 export const REQUIRES_PERSON_NOTE =
-  "Requires a personal access token, or an organization API key that assumes the role of a member it names with `X-GrowthBook-Requested-By`.";
+  "Needs a personal access token, or an organization API key that assumes a named member's role.";
 
 const requestedByField = eventUserRequestedBy.describe(
-  "The member an organization API key named with `X-GrowthBook-Requested-By`. When `assumedRole` is true, this member is the person behind the action; otherwise the key acted as itself and this only records who asked.",
+  "The member named with `X-GrowthBook-Requested-By`",
 );
 
 const assumedRoleField = z
   .boolean()
-  .describe(
-    "True when the request assumed the named member's role, with only the permissions both the key and the member hold. Absent when the key kept its own role.",
-  );
+  .describe("Whether the key assumed the named member's role");
 
-// Actor shape the REST API returns. For an organization API key, `name` is the
-// key's name and `apiKey` its ID.
+// Actor shape the REST API returns.
 export const apiEventUser = namedSchema(
   "EventUser",
   z
@@ -58,39 +55,29 @@ export const apiEventUser = namedSchema(
       type: z
         .enum(["dashboard", "api_key", "system"])
         .describe(
-          "`dashboard` for a signed-in member, `api_key` for an organization API key or a personal access token, `system` for GrowthBook itself",
+          "`dashboard` (signed-in member), `api_key` (API key or personal access token) or `system`",
         ),
       id: z
         .string()
-        .describe(
-          "The member's user ID: the signed-in member, or a personal access token's owner. Absent for an organization API key, which names its member in `requestedBy`",
-        )
+        .describe("The member's user ID. Absent for an organization API key")
         .optional(),
       apiKey: z
         .string()
-        .describe(
-          "The ID of the API key used, when the action came through one. Revision fields such as `authorId` hold this ID when an organization API key acted as itself",
-        )
+        .describe("The API key's ID, when the action came through one")
         .optional(),
       name: z
         .string()
-        .describe(
-          "The member's name, or the key's name for an organization API key",
-        )
+        .describe("The member's name, or the organization API key's name")
         .optional(),
       email: z
         .string()
-        .describe(
-          "The member's email. Absent for an organization API key, which names its member in `requestedBy`",
-        )
+        .describe("The member's email. Absent for an organization API key")
         .optional(),
       requestedBy: requestedByField.optional(),
       assumedRole: assumedRoleField.optional(),
     })
     .strict()
-    .describe(
-      "Who performed an action: a member (`id`), or an organization API key (`apiKey`). A key that assumed the role of the member it named (`assumedRole`) acted as `requestedBy`; otherwise it acted as itself and `requestedBy` only records who asked",
-    ),
+    .describe("Who performed an action"),
 );
 
 export type ApiEventUser = z.infer<typeof apiEventUser>;
@@ -244,9 +231,7 @@ export const eventReviewer = z
   .object({
     id: z
       .string()
-      .describe(
-        "The reviewer's user ID: the signed-in member, a personal access token's owner, or the member whose role an organization API key assumed. Absent when a key reviewed as itself",
-      )
+      .describe("The reviewer's user ID. Absent when a key reviewed as itself")
       .optional(),
     name: z
       .string()
