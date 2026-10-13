@@ -202,6 +202,8 @@ export default function CloudUsage() {
     !selectedKeys.length || selectedKeys.includes(key);
   const visibleTotals = keyTotals.filter((t) => isVisible(t.key));
   const visibleRows = byKeyRows?.filter((r) => isVisible(r.key));
+  // A selection carried over from another month can match nothing in this one
+  const selectionIsEmpty = isFiltered && !visibleTotals.length;
   const series = byKeyRows
     ? getSeries(visibleTotals, keyTotals, getKeyLabel)
     : [{ key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR }];
@@ -374,7 +376,12 @@ export default function CloudUsage() {
           </Box>
         )
       )}
-      {totalRequests > 0 && (
+      {selectionIsEmpty && (
+        <Callout status="info" mb="5">
+          No usage for the selected sources this month.
+        </Callout>
+      )}
+      {totalRequests > 0 && !selectionIsEmpty && (
         <Box mb="5">
           <Heading as="h3" size="sm" mb="2">
             CDN Requests
@@ -394,7 +401,7 @@ export default function CloudUsage() {
           />
         </Box>
       )}
-      {totalBandwidth > 0 && (
+      {totalBandwidth > 0 && !selectionIsEmpty && (
         <Box>
           <Heading as="h3" size="sm" mb="2">
             CDN Bandwidth
