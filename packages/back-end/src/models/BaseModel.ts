@@ -1726,22 +1726,19 @@ export abstract class BaseModel<
         .join("_");
     const name = indexName(fields);
     const legacyName = indexName(legacyFields);
-    const ignoreMissing = (err: { codeName?: string }) => {
-      if (err.codeName !== "IndexNotFound") throw err;
-    };
 
     const existing = await collection.indexes().catch((err) => {
       if (err.codeName === "NamespaceNotFound") return [];
       throw err;
     });
-    // A non-unique index on the same keys would block creating the unique one.
-    if (existing.some((i) => i.name === name && !i.unique)) {
-      await collection.dropIndex(name).catch(ignoreMissing);
-    }
+    // Can't swap a non-unique index for a unique one without a gap, so the legacy index stays.
+    if (existing.some((i) => i.name === name && !i.unique)) return;
     await collection.createIndex(fields, { unique: true });
     // Drop the pKey-first index only once the org-first one enforces uniqueness.
     if (legacyName !== name && existing.some((i) => i.name === legacyName)) {
-      await collection.dropIndex(legacyName).catch(ignoreMissing);
+      await collection.dropIndex(legacyName).catch((err) => {
+        if (err.codeName !== "IndexNotFound") throw err;
+      });
     }
   }
 
