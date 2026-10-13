@@ -184,6 +184,7 @@ describe("experiment custom hooks", () => {
     await seedExperimentHook();
     mockRunInSandbox.mockResolvedValue({
       ok: false,
+      rejected: true,
       error: "Rejected by hook",
       warnings: [],
     });
@@ -226,6 +227,7 @@ describe("experiment custom hooks", () => {
     await seedExperimentHook();
     mockRunInSandbox.mockResolvedValue({
       ok: false,
+      rejected: true,
       error: "Update rejected",
       warnings: [],
     });

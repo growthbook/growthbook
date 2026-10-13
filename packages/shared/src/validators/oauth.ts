@@ -89,12 +89,47 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
 
 export type OAuthGrantInterface = z.infer<typeof oauthGrantValidator>;
 
+// Schemes that run or render content in the browser instead of handing off to an app.
+const UNSAFE_REDIRECT_SCHEMES = [
+  "javascript:",
+  "data:",
+  "vbscript:",
+  "file:",
+  "blob:",
+  "about:",
+  "filesystem:",
+  "intent:",
+];
+
+export const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+export function isSafeOAuthRedirectUri(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    // Plain http only to loopback (RFC 8252 §8.3); anything else sends the code in cleartext.
+    if (url.protocol === "http:") return LOOPBACK_HOSTS.includes(url.hostname);
+    return !UNSAFE_REDIRECT_SCHEMES.includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 /** RFC 7591 registration request body (public MCP clients).
  * Not `.strict()` — clients (e.g. Cursor) send optional metadata like logo_uri.
  * Unknown keys are stripped; only fields we care about are kept.
  */
 export const oauthDcrRequestValidator = z.object({
-  redirect_uris: z.array(z.string().url()).min(1),
+  redirect_uris: z
+    .array(
+      z
+        .string()
+        .url()
+        .refine(
+          isSafeOAuthRedirectUri,
+          "Redirect URI must be https, loopback http, or an app scheme",
+        ),
+    )
+    .min(1),
   token_endpoint_auth_method: z.literal("none").optional(),
   grant_types: z.array(z.string()).optional(),
   response_types: z.array(z.string()).optional(),
