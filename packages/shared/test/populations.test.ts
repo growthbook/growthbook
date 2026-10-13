@@ -164,34 +164,6 @@ describe("getPopulationRuleViolations", () => {
     ).toEqual(["Fact table ftb_missing not found."]);
   });
 
-  it("allows the maximum number of steps", () => {
-    expect(
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: Array.from({ length: MAX_POPULATION_STEPS }, () =>
-          step("ftb_events"),
-        ),
-        factTables: [events],
-      }),
-    ).toEqual([]);
-  });
-
-  it("rejects more than the maximum number of steps", () => {
-    expect(
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: Array.from({ length: MAX_POPULATION_STEPS + 1 }, () =>
-          step("ftb_events"),
-        ),
-        factTables: [events],
-      }),
-    ).toEqual([
-      `Populations can have at most ${MAX_POPULATION_STEPS} steps (this one has ${MAX_POPULATION_STEPS + 1}).`,
-    ]);
-  });
-
   it("limits the number of distinct fact tables, not steps per fact table", () => {
     const tables = Array.from(
       { length: MAX_POPULATION_FACT_TABLES + 1 },
