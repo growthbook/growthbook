@@ -56,13 +56,13 @@ export function UploadStatusBadge({
 function describeLoad(status: Load["status"]): string {
   switch (status.type) {
     case "loading":
-      return "loading";
+      return "Loading";
     case "loaded":
-      return `loaded ${status.rowCount.toLocaleString()} IDs`;
+      return `Loaded ${status.rowCount.toLocaleString()} IDs`;
     case "invalid":
-      return `invalid (${status.invalidLineCount.toLocaleString()} bad lines)`;
+      return `Invalid (${status.invalidLineCount.toLocaleString()} bad lines)`;
     case "failed":
-      return `failed: ${status.error}`;
+      return `Failed: ${status.error}`;
   }
 }
 

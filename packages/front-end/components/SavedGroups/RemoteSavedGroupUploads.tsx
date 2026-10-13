@@ -5,6 +5,7 @@ import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ApiSavedGroupUpload,
   SavedGroupUploadDetails,
+  SavedGroupUploadUrlResponse,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -46,13 +47,6 @@ import Table, {
 } from "@/ui/Table";
 
 type UploadsPage = { uploads: ApiSavedGroupUpload[]; total: number };
-
-type UploadUrlResponse = {
-  signedUrl: string;
-  fields: Record<string, string> | null;
-  fileKey: string;
-  maxBytes: number;
-};
 
 const UPLOADS_PER_PAGE = 50;
 
@@ -121,7 +115,7 @@ function UploadModal({
 
   const upload = async () => {
     if (!file) return;
-    const target = await apiCall<UploadUrlResponse>(
+    const target = await apiCall<SavedGroupUploadUrlResponse>(
       `/saved-groups/${savedGroup.id}/upload-url`,
       { method: "POST" },
     );
@@ -225,6 +219,11 @@ function UploadModal({
               Validating the file. This takes a few seconds for small files, and
               longer for large ones. You can close this and choose the version
               later.
+            </Text>
+          )}
+          {progress !== null && (
+            <Text as="p" color="text-mid" mt="3">
+              Uploading {Math.round(progress * 100)}%
             </Text>
           )}
           {progress !== null && (
@@ -349,23 +348,20 @@ export default function RemoteSavedGroupUploads({
   }, [data, page, lastPage]);
   const liveVersion = savedGroup.currentUploadVersion;
 
-  // The live and draft versions are always listed, even when they're on
-  // another page, so they stay easy to find and manage. Only on the first
-  // page, so later pages read newest first.
+  // The live and viewed versions are fetched on every page, to tell whether
+  // the viewed one was deleted. On the first page they're also listed when
+  // they're on another page, so they stay easy to find; later pages read
+  // newest first.
   const pageUploads = data?.uploads ?? [];
-  const pinnedVersions = [liveVersion, viewedVersion].filter(
-    (v, i, all): v is number =>
-      page === 1 &&
-      v !== undefined &&
-      all.indexOf(v) === i &&
-      !pageUploads.some((u) => u.version === v),
+  const keyVersions = [liveVersion, viewedVersion].filter(
+    (v, i, all): v is number => v !== undefined && all.indexOf(v) === i,
   );
-  const { data: pinnedData, mutate: mutatePinned } = useApi<UploadsPage>(
-    `/saved-groups/${savedGroup.id}/uploads?versions=${pinnedVersions.join(",")}`,
-    { shouldRun: () => !!data && pinnedVersions.length > 0 },
+  const { data: keyData, mutate: mutateKey } = useApi<UploadsPage>(
+    `/saved-groups/${savedGroup.id}/uploads?versions=${keyVersions.join(",")}`,
+    { shouldRun: () => keyVersions.length > 0 },
   );
   const refresh = async () => {
-    await Promise.all([mutate(), mutatePinned()]);
+    await Promise.all([mutate(), mutateKey()]);
   };
 
   const localStorage = getUploadMethod() === "local";
@@ -377,16 +373,18 @@ export default function RemoteSavedGroupUploads({
         ? "You don't have permission to publish this Saved Group."
         : null;
 
-  const uploads = [
-    ...(pinnedVersions.length ? (pinnedData?.uploads ?? []) : []),
-    ...pageUploads,
-  ];
+  const pinned =
+    page === 1 && keyVersions.length
+      ? (keyData?.uploads ?? []).filter(
+          (u) => !pageUploads.some((p) => p.version === u.version),
+        )
+      : [];
+  const uploads = [...pinned, ...pageUploads];
   // Deleted uploads aren't listed, so an old revision can name one
   const viewedVersionDeleted =
     viewedVersion !== undefined &&
-    pinnedVersions.includes(viewedVersion) &&
-    !!pinnedData &&
-    !pinnedData.uploads.some((u) => u.version === viewedVersion);
+    !!keyData &&
+    !keyData.uploads.some((u) => u.version === viewedVersion);
   // The server also refuses versions other open drafts use
   const deleteDisabledReason = (version: number) =>
     !canUpload
@@ -473,8 +471,8 @@ export default function RemoteSavedGroupUploads({
         viewedVersion === undefined &&
         uploads.some((u) => u.status.type === "valid") && (
           <Callout status="warning" size="sm" mb="3">
-            This group doesn&apos;t use an upload yet, so it targets no one.
-            Select a version below.
+            This group doesn&apos;t use an upload yet, so it targets no one. Use
+            a version below.
           </Callout>
         )}
       {error ? (

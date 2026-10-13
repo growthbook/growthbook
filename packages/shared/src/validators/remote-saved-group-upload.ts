@@ -227,6 +227,10 @@ export const savedGroupUploadUrlResponseValidator = z
   })
   .strict();
 
+export type SavedGroupUploadUrlResponse = z.infer<
+  typeof savedGroupUploadUrlResponseValidator
+>;
+
 export const postSavedGroupUploadUrlValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

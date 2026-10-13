@@ -205,7 +205,10 @@ export default function SavedGroupsPage() {
               {remoteGroupsEnabled && (
                 <TabsTrigger value="remoteGroups">
                   Remote Groups
-                  <span className="ml-2 round-text-background text-main">
+                  <span
+                    className="round-text-background text-main"
+                    style={{ marginLeft: 8 }}
+                  >
                     {remoteGroups.length}
                   </span>
                 </TabsTrigger>

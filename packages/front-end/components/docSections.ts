@@ -145,8 +145,8 @@ export const docSections = {
     "/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm",
   apiPostEnvironment: "/api/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
-  // Page to be written with the remote saved groups docs
-  remoteSavedGroups: "/features/remote-saved-groups",
+  // The saved groups section until a remote saved groups page is written
+  remoteSavedGroups: "/features/targeting#saved-groups",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",

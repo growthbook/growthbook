@@ -191,7 +191,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
         </Flex>
         <Text as="p" color="text-mid" mb="1">
           Remote Groups allow you to upload much larger lists of targeting IDs.
-          The lists are stored and managed outside of the payload.
+          The lists are stored and managed outside of the SDK payload.
         </Text>
 
         <Box mt="4">

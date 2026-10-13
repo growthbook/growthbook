@@ -378,7 +378,7 @@ export default function RevertModal<T extends RevertableEntity>({
       </Box>
 
       {targetProblem && (
-        <Callout status="warning" mb="4">
+        <Callout status="error" mb="4">
           {targetProblem}
         </Callout>
       )}

@@ -60,9 +60,8 @@ import SavedGroupDraftSelectorForChanges, {
 import useProjectOptions from "@/hooks/useProjectOptions";
 
 // The upload version is a form value so resolving a conflict can change it.
-type SavedGroupFormValues = CreateSavedGroupProps & {
-  currentUploadVersion?: number;
-};
+type SavedGroupFormValues = CreateSavedGroupProps &
+  Pick<UpdateSavedGroupProps, "currentUploadVersion">;
 
 const TYPE_LABELS: Record<SavedGroupType, string> = {
   condition: "Condition Group",

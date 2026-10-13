@@ -671,7 +671,7 @@ export function getSavedGroupUploadVersionBadges(
 ): DiffBadge[] {
   return isEqual(pre?.currentUploadVersion, post.currentUploadVersion)
     ? []
-    : [{ label: "Change upload version", action: "edit upload version" }];
+    : [{ label: "Edit upload version", action: "edit upload version" }];
 }
 
 export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {
