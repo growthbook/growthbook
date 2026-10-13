@@ -190,7 +190,10 @@ function SetUpTable({
               <Text color="text-mid">{KIND[a.kind].label}</Text>
             </TableCell>
             <TableCell style={{ verticalAlign: "middle" }}>
-              <NameCell name={a.label} subtitle={a.detail} />
+              <NameCell
+                name={a.label}
+                subtitle={a.detail === "Deleted" ? null : a.detail}
+              />
             </TableCell>
             {review && (
               <ReviewCell

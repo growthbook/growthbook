@@ -484,21 +484,22 @@ export default function ImportFromEppo() {
                           <Fragment key={id}>
                             <TableRow>
                               <TableCell>
-                                <Checkbox
-                                  size="sm"
-                                  label={
-                                    <VisuallyHidden>{item.name}</VisuallyHidden>
-                                  }
-                                  value={
-                                    item.status !== "invalid" &&
-                                    isSelected(category, item.key)
-                                  }
-                                  setValue={(v) => setSelected([id], v)}
-                                  disabled={
-                                    item.status === "invalid" ||
-                                    untouched(category, item)
-                                  }
-                                />
+                                {untouched(category, item) ? null : (
+                                  <Checkbox
+                                    size="sm"
+                                    label={
+                                      <VisuallyHidden>
+                                        {item.name}
+                                      </VisuallyHidden>
+                                    }
+                                    value={
+                                      item.status !== "invalid" &&
+                                      isSelected(category, item.key)
+                                    }
+                                    setValue={(v) => setSelected([id], v)}
+                                    disabled={item.status === "invalid"}
+                                  />
+                                )}
                               </TableCell>
                               <TableRowHeaderCell>
                                 {item.name}

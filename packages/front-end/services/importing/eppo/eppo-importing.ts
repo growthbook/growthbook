@@ -1601,7 +1601,7 @@ export async function teardownRun(
               id: artifact.id,
               label: artifact.label,
               by: artifact.by,
-              detail: "Deleted",
+              detail: artifact.detail,
               externalId: artifact.externalId ?? null,
               action: "deleted",
             },
@@ -1997,7 +1997,13 @@ export async function runEppoImport({
     (n, { key }) => n + selected(key, data[key]).length,
     0,
   );
-  if (selectedCount > MAX_AUTO_RUN_ARTIFACTS) {
+  const existingUntouched = (category: "environments" | "tags") =>
+    data[category].filter((i) => i.existingId && i.status !== "invalid");
+  const recordedCount =
+    selectedCount +
+    existingUntouched("environments").length +
+    existingUntouched("tags").length;
+  if (recordedCount > MAX_AUTO_RUN_ARTIFACTS) {
     throw new Error(
       `Select at most ${MAX_AUTO_RUN_ARTIFACTS} items per import so the run can record them all`,
     );
@@ -2023,13 +2029,15 @@ export async function runEppoImport({
     item: ImportItem<{ id: number }>;
     id: string;
     error?: string;
+    // Whether the item counted toward `completed`
+    imported?: boolean;
   };
   let recorded: Recorded[] = [];
   const record = <T extends { id: number }>(
     item: ImportItem<T>,
     id: string,
   ) => {
-    recorded.push({ item, id });
+    recorded.push({ item, id, imported: true });
   };
   const flushRecorded = async (category: EppoCategory) => {
     const kind = ARTIFACT_KINDS[category];
@@ -2056,8 +2064,8 @@ export async function runEppoImport({
         });
       } catch (e) {
         // The objects exist but aren't recorded, so say so
-        chunk.forEach(({ item, error }) => {
-          if (error) return;
+        chunk.forEach(({ item, error, imported }) => {
+          if (error || !imported) return;
           outcome.completed--;
           outcome.failed++;
           setItem(category, item.key, {
@@ -2127,9 +2135,9 @@ export async function runEppoImport({
 
     // Existing environments and tags are left alone but still go on the run
     const recordExisting = (category: "environments" | "tags") =>
-      data[category]
-        .filter((i) => i.existingId && i.status !== "invalid")
-        .forEach((i) => record(i, i.key));
+      existingUntouched(category).forEach((i) =>
+        recorded.push({ item: i, id: i.key }),
+      );
 
     recordExisting("environments");
     // Serial, one env per call: each rewrites the org list
