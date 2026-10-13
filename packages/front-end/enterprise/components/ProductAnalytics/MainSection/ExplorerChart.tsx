@@ -9,6 +9,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { parseUtcBucketDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -210,7 +211,10 @@ export default function ExplorerChart({
   );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
-    submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
+    submittedExploreState.chartSettings?.categoryAxisLabel?.trim() ??
+    (submittedExploreState.dimensions?.[0]?.dimensionType === "date"
+      ? "Date (UTC)"
+      : undefined);
   const customValueAxisName =
     submittedExploreState.chartSettings?.valueAxisLabel?.trim();
   const valueAxisName = customValueAxisName ?? defaultValueAxisName;
@@ -595,7 +599,7 @@ export default function ExplorerChart({
             const date =
               typeof params.value === "number"
                 ? new Date(params.value)
-                : new Date(String(params.value));
+                : parseUtcBucketDate(String(params.value));
             return formatDateByGranularity(date, resolvedGranularity);
           }
         : undefined;
@@ -703,6 +707,8 @@ export default function ExplorerChart({
     });
 
     return {
+      // Time-axis ticks show warehouse buckets in UTC, matching the tooltip and table labels.
+      useUTC: true,
       tooltip: {
         appendTo: "body",
         trigger: "axis",

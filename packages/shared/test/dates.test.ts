@@ -2,6 +2,7 @@ import {
   dateStringArrayBetweenDates,
   getValidDate,
   lastMondayString,
+  parseUtcBucketDate,
   resolveScheduleStopAfter,
   resolveScheduledStop,
 } from "../src/dates";
@@ -23,6 +24,32 @@ describe("getValidDate", () => {
     expect(getValidDate(d, fallback)).toEqual(d);
     expect(getValidDate(t, fallback)).toEqual(d);
     expect(getValidDate(d.toISOString(), fallback)).toEqual(d);
+  });
+});
+
+describe("parseUtcBucketDate", () => {
+  it("reads zoneless warehouse timestamps as UTC", () => {
+    expect(parseUtcBucketDate("2026-10-01 07:00:00").toISOString()).toBe(
+      "2026-10-01T07:00:00.000Z",
+    );
+    expect(parseUtcBucketDate("2026-10-01T07:00:00.123").toISOString()).toBe(
+      "2026-10-01T07:00:00.123Z",
+    );
+    expect(parseUtcBucketDate("2026-03-08 02:30").toISOString()).toBe(
+      "2026-03-08T02:30:00.000Z",
+    );
+  });
+
+  it("leaves dates, instants and explicit zones alone", () => {
+    expect(parseUtcBucketDate("2026-10-01").toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
+    expect(parseUtcBucketDate("2026-10-01T07:00:00+02:00").toISOString()).toBe(
+      "2026-10-01T05:00:00.000Z",
+    );
+    const d = new Date("2026-10-01T07:00:00Z");
+    expect(parseUtcBucketDate(d).getTime()).toBe(d.getTime());
+    expect(parseUtcBucketDate(d.getTime()).getTime()).toBe(d.getTime());
   });
 });
 

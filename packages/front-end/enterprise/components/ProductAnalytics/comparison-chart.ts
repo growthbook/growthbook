@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { parseUtcBucketDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRangeForMode,
@@ -742,7 +743,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) => [
-          new Date(x).getTime(),
+          parseUtcBucketDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -830,7 +831,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (chartType === "line" || chartType === "area") {
         const data = sourceSortedXValues.map((x) => [
-          new Date(x).getTime(),
+          parseUtcBucketDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -1194,7 +1195,7 @@ export function buildExplorerChartTooltipFormatter({
       const date =
         typeof rawAxisValue === "number"
           ? new Date(rawAxisValue)
-          : new Date(String(rawAxisValue));
+          : parseUtcBucketDate(String(rawAxisValue));
       let header: string;
       let groupedLineAreaCompareRows = false;
       if (
@@ -1205,13 +1206,13 @@ export function buildExplorerChartTooltipFormatter({
         const axisMs =
           typeof rawAxisValue === "number"
             ? rawAxisValue
-            : new Date(String(rawAxisValue)).getTime();
+            : parseUtcBucketDate(String(rawAxisValue)).getTime();
         const currentX = sortedXValues.find(
-          (xv) => new Date(xv).getTime() === axisMs,
+          (xv) => parseUtcBucketDate(xv).getTime() === axisMs,
         );
         if (
           currentX !== undefined &&
-          !Number.isNaN(new Date(currentX).getTime())
+          !Number.isNaN(parseUtcBucketDate(currentX).getTime())
         ) {
           const compKey = getAlignedComparisonDimensionKeyForTooltip(
             sortedXValues,
@@ -1221,15 +1222,15 @@ export function buildExplorerChartTooltipFormatter({
             comparisonAlignment,
           );
           const currentFormatted = formatDateByGranularity(
-            new Date(currentX),
+            parseUtcBucketDate(currentX),
             dateGranularity,
           );
           if (
             compKey !== undefined &&
-            !Number.isNaN(new Date(compKey).getTime())
+            !Number.isNaN(parseUtcBucketDate(compKey).getTime())
           ) {
             const prevFormatted = formatDateByGranularity(
-              new Date(compKey),
+              parseUtcBucketDate(compKey),
               dateGranularity,
             );
             groupedLineAreaCompareRows = true;

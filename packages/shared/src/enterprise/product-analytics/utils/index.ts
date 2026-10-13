@@ -1,4 +1,5 @@
 import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
+import { parseUtcBucketDate } from "shared/dates";
 import type {
   FactMetricInterface,
   FactTableColumnType,
@@ -498,7 +499,7 @@ export type ExplorationColumn =
 function getDimensionLabels(config: ExplorationConfig | null): string[] {
   const labels: string[] = [];
   for (const d of config?.dimensions ?? []) {
-    if (d.dimensionType === "date") labels.push("Date");
+    if (d.dimensionType === "date") labels.push("Date (UTC)");
     else if (d.dimensionType === "dynamic")
       labels.push(d.column ?? "Dimension");
     else if (d.dimensionType === "static") labels.push(d.column);
@@ -697,7 +698,10 @@ export function sortExplorationRows(
 
     if (dim0A !== dim0B) {
       if (isTimeseries) {
-        return new Date(dim0A).getTime() - new Date(dim0B).getTime();
+        return (
+          parseUtcBucketDate(dim0A).getTime() -
+          parseUtcBucketDate(dim0B).getTime()
+        );
       }
       return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
     }

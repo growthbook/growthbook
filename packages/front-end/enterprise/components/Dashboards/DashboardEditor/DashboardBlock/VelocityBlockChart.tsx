@@ -237,10 +237,10 @@ export default function VelocityBlockChart({
       compactBucketLabel(b.date, resolvedGranularity),
     );
     const tooltipLabels = currentBuckets.map((b) =>
-      formatDateByGranularity(b.date, resolvedGranularity),
+      formatDateByGranularity(b.date, resolvedGranularity, null),
     );
     const prevTooltipLabels = previousBuckets.map((b) =>
-      b ? formatDateByGranularity(b.date, resolvedGranularity) : "",
+      b ? formatDateByGranularity(b.date, resolvedGranularity, null) : "",
     );
 
     // previousBuckets is already aligned 1:1 with the current buckets; padded

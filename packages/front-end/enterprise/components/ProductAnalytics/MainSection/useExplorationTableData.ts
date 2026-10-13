@@ -14,6 +14,7 @@ import {
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
+import { parseUtcBucketDate } from "shared/dates";
 import {
   compareJourneyStepValues,
   journeyDisplayLookaheadDepth,
@@ -62,7 +63,7 @@ function formatCellForTable(
       context.resolvedGranularity
     ) {
       return formatDateByGranularity(
-        new Date(raw),
+        parseUtcBucketDate(raw),
         context.resolvedGranularity,
       );
     }
@@ -260,7 +261,7 @@ function buildFunnelTableData(
   const dimensionLabel = (() => {
     const d = submittedExploreState.dimensions?.[0];
     if (!d) return "Dimension";
-    if (d.dimensionType === "date") return "Date";
+    if (d.dimensionType === "date") return "Date (UTC)";
     if (d.dimensionType === "dynamic") return d.column ?? "Dimension";
     if (d.dimensionType === "static") return d.column;
     if (d.dimensionType === "slice") return "Slice";
@@ -753,7 +754,10 @@ export default function useExplorationTableData(
           entries.push([
             PREV_BUCKET_DATE_KEY,
             typeof prevDim0 === "string" && resolvedGranularity
-              ? formatDateByGranularity(new Date(prevDim0), resolvedGranularity)
+              ? formatDateByGranularity(
+                  parseUtcBucketDate(prevDim0),
+                  resolvedGranularity,
+                )
               : null,
           ] as const);
         }

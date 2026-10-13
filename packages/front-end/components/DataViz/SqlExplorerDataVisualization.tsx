@@ -9,7 +9,7 @@ import {
   yAxisAggregationType,
   dimensionAxisConfiguration,
 } from "shared/validators";
-import { getValidDate } from "shared/dates";
+import { getValidDate, parseUtcBucketDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
@@ -39,7 +39,9 @@ function parseYValue(
     if (yType === "string") {
       return yValue + "";
     } else if (yType === "date") {
-      return getValidDate(yValue).toISOString();
+      return getValidDate(
+        typeof yValue === "string" ? parseUtcBucketDate(yValue) : yValue,
+      ).toISOString();
     } else {
       return yValue * 1;
     }
@@ -181,20 +183,20 @@ export function DataVisualizationDisplay({
         switch (filter.filterMethod) {
           // Date filters
           case "today": {
-            const filterDate = new Date(rowValue);
+            const filterDate = parseUtcBucketDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
             // Compare only the date parts (year/month/day) in UTC
             return (
-              filterDate.getFullYear() === now.getUTCFullYear() &&
-              filterDate.getMonth() === now.getUTCMonth() &&
-              filterDate.getDate() === now.getUTCDate()
+              filterDate.getUTCFullYear() === now.getUTCFullYear() &&
+              filterDate.getUTCMonth() === now.getUTCMonth() &&
+              filterDate.getUTCDate() === now.getUTCDate()
             );
           }
 
           case "last7Days": {
-            const filterDate = new Date(rowValue);
+            const filterDate = parseUtcBucketDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
@@ -204,7 +206,7 @@ export function DataVisualizationDisplay({
           }
 
           case "last30Days": {
-            const filterDate = new Date(rowValue);
+            const filterDate = parseUtcBucketDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
@@ -214,7 +216,7 @@ export function DataVisualizationDisplay({
           }
 
           case "dateRange": {
-            const filterDate = new Date(rowValue);
+            const filterDate = parseUtcBucketDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const startDate = filter.config.startDate
@@ -461,7 +463,7 @@ export function DataVisualizationDisplay({
               ? parseFloat(xValue) || 0
               : Number(xValue);
         } else if (xType === "date") {
-          newRow.x = new Date(xValue);
+          newRow.x = parseUtcBucketDate(xValue);
         } else if (xType === "string") {
           newRow.x = xValue + "";
         }
@@ -728,6 +730,8 @@ export function DataVisualizationDisplay({
 
   const option = useMemo(() => {
     return {
+      // Query results are shown as returned, in UTC, matching the UTC bucketing and filters above.
+      useUTC: true,
       dataset,
       tooltip: {
         appendTo: "body",
