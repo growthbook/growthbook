@@ -9,10 +9,6 @@ import { ReactNode, useState } from "react";
 import Button from "@/ui/Button";
 import styles from "./CollapsibleSidePanel.module.scss";
 
-/**
- * A filter panel beside its content on desktop and above it on narrow screens.
- * The collapse control sits on the divider between the two regions.
- */
 export default function CollapsibleSidePanel({
   panel,
   children,
