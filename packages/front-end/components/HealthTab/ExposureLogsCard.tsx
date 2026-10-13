@@ -191,11 +191,13 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     (row: ExperimentExposureRecord) =>
       [
         row.timestamp,
+        formatTimestamp(row.timestamp),
         row.userId ?? "",
         row.variationId,
+        variationsById.get(row.variationId)?.name ?? "",
         ...Object.values(row.dimensions).map((v) => v ?? ""),
       ].join(" "),
-    [],
+    [variationsById],
   );
 
   // Dimension values aren't enumerable up front, so offer the ones this buffer

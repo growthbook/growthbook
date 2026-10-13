@@ -15,6 +15,7 @@ router.post(
       .object({
         startDate: z.string().datetime(),
         endDate: z.string().datetime(),
+        rollingWindow: z.boolean().optional(),
         rowFilters: z.array(stringRowFilterValidator).optional(),
         cache: z.enum(["preferred", "required", "never"]).optional(),
       })

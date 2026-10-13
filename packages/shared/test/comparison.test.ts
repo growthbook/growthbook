@@ -27,6 +27,7 @@ import {
   getInclusiveUtcCalendarDayCount,
   getOverlappingComparisonModes,
   isPositiveLookbackValue,
+  isRollingDateRange,
   isUtcYyyyMmDdWithinInclusiveRange,
   productAnalyticsDateDimensionBucketMergeKey,
   resolveBlockComparison,
@@ -482,6 +483,53 @@ describe("calculateProductAnalyticsDateRange presets", () => {
       expect(
         utc(calculateProductAnalyticsDateRange(lookback(5)).startDate),
       ).toBe("2024-06-11T00:00:00.000Z");
+    });
+  });
+
+  describe("isRollingDateRange", () => {
+    // Asserted against the resolved range rather than a hard-coded list, so
+    // adding a preset without classifying it fails here. Callers cache a
+    // rolling range by its length and a closed one by its bounds, so a preset
+    // that silently changes sides starts serving the wrong cached rows.
+    const endsAtNow = (dateRange: ExplorationDateRange) =>
+      calculateProductAnalyticsDateRange(dateRange).endDate.getTime() ===
+      Date.now();
+
+    it("matches which presets resolve to an end of now", () => {
+      for (const predefined of dateRangePredefined) {
+        expect([predefined, isRollingDateRange(preset(predefined))]).toEqual([
+          predefined,
+          endsAtNow(preset(predefined)),
+        ]);
+      }
+    });
+
+    it("treats the closed presets as fixed", () => {
+      expect(isRollingDateRange(preset("yesterday"))).toBe(false);
+      expect(isRollingDateRange(preset("lastCalendarYear"))).toBe(false);
+      expect(
+        isRollingDateRange({
+          predefined: "customDateRange",
+          lookbackValue: null,
+          lookbackUnit: null,
+          startDate: "2024-01-01",
+          endDate: "2024-01-31",
+        }),
+      ).toBe(false);
+    });
+
+    it("treats lookbacks and the open-ended presets as rolling", () => {
+      expect(isRollingDateRange(preset("today"))).toBe(true);
+      expect(isRollingDateRange(preset("last7Days"))).toBe(true);
+      expect(
+        isRollingDateRange({
+          predefined: "customLookback",
+          lookbackValue: 5,
+          lookbackUnit: "day",
+          startDate: null,
+          endDate: null,
+        }),
+      ).toBe(true);
     });
   });
 });
