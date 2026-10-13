@@ -3670,7 +3670,8 @@ export async function postFeatureSync(
       FeatureInterface,
       "organization" | "version" | "dateCreated" | "dateUpdated"
     >,
-    { id: string }
+    { id: string },
+    { mirror?: string }
   >,
   res: Response<
     { status: 200; feature: FeatureInterface },
@@ -3700,10 +3701,33 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
+  // mirror=true: rules replace and env toggles land; others keep the old update
+  const mirror = req.query?.mirror === "true";
+
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envEnabledIn = data.environmentSettings as
+    | Record<string, { enabled?: boolean }>
+    | undefined;
+  for (const env of environments) {
+    const enabled = envEnabledIn?.[env]?.enabled;
+    if (
+      mirror &&
+      typeof enabled === "boolean" &&
+      enabled !== !!feature.environmentSettings?.[env]?.enabled
+    ) {
+      environmentsEnabled[env] = enabled;
+    }
+  }
+
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments)),
+      Array.from(
+        new Set([
+          ...getEnabledEnvironments(feature, environments),
+          ...Object.keys(environmentsEnabled),
+        ]),
+      ),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -3735,7 +3759,8 @@ export async function postFeatureSync(
   const envSettingsIn = data.environmentSettings as
     | Record<string, { rules?: FeatureRule[] }>
     | undefined;
-  const flatRulesIn = Array.isArray(data.rules) ? data.rules : undefined;
+  const flatRulesIn =
+    mirror && Array.isArray(data.rules) ? data.rules : undefined;
   if (flatRulesIn) {
     // Keep stored seeds for rules echoed by id so a re-sync doesn't re-bucket
     inheritStoredRolloutSeeds(flatRulesIn, liveFeatureRules);
@@ -3751,9 +3776,12 @@ export async function postFeatureSync(
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
     ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(Object.keys(environmentsEnabled).length ? { environmentsEnabled } : {}),
   };
 
-  let needsNewRevision = Object.keys(metadata).length > 0;
+  let needsNewRevision =
+    Object.keys(metadata).length > 0 ||
+    Object.keys(environmentsEnabled).length > 0;
 
   if (
     data.defaultValue != null &&

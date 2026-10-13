@@ -61638,6 +61638,7 @@ paths:
                   enum:
                     - cli-wizard
                     - skill
+                    - eppo-import
                 agent:
                   type: string
                   maxLength: 50
@@ -61836,6 +61837,9 @@ paths:
                     - attribute
                     - metric
                     - fact-table
+                    - saved-group
+                    - environment
+                    - tag
                 id:
                   description: Id, or key for Feature Flags
                   type: string
@@ -61854,6 +61858,19 @@ paths:
                     - type: string
                       maxLength: 500
                     - type: 'null'
+                externalId:
+                  anyOf:
+                    - type: string
+                      maxLength: 200
+                    - type: 'null'
+                action:
+                  type: string
+                  enum:
+                    - created
+                    - updated
+                    - existing
+                    - deleted
+                    - failed
               required:
                 - kind
                 - id
@@ -61883,6 +61900,7 @@ paths:
                     enum:
                       - cli-wizard
                       - skill
+                      - eppo-import
                   agent:
                     anyOf:
                       - type: string
@@ -81117,6 +81135,7 @@ components:
           enum:
             - cli-wizard
             - skill
+            - eppo-import
         agent:
           anyOf:
             - type: string
@@ -81156,6 +81175,9 @@ components:
                   - attribute
                   - metric
                   - fact-table
+                  - saved-group
+                  - environment
+                  - tag
               id:
                 type: string
               label:
@@ -81169,6 +81191,20 @@ components:
                 anyOf:
                   - type: string
                   - type: 'null'
+              externalId:
+                description: Id in the system this was imported from, when it was imported
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              action:
+                description: What the run did to this object
+                type: string
+                enum:
+                  - created
+                  - updated
+                  - existing
+                  - deleted
+                  - failed
               dateCreated:
                 type: string
                 format: date-time
@@ -84453,6 +84489,9 @@ components:
             - attribute
             - metric
             - fact-table
+            - saved-group
+            - environment
+            - tag
         id:
           type: string
         label:
@@ -84466,6 +84505,20 @@ components:
           anyOf:
             - type: string
             - type: 'null'
+        externalId:
+          description: Id in the system this was imported from, when it was imported
+          anyOf:
+            - type: string
+            - type: 'null'
+        action:
+          description: What the run did to this object
+          type: string
+          enum:
+            - created
+            - updated
+            - existing
+            - deleted
+            - failed
         dateCreated:
           type: string
           format: date-time

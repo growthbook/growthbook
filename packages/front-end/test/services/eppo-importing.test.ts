@@ -1,19 +1,31 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ApiAutoRun } from "shared/validators";
+import { vi } from "vitest";
 import {
   EppoAllocation,
   EppoData,
   EppoExperiment,
   EppoFlag,
   EppoMetric,
+  getCappingSettings,
+  getImportedIds,
   getVariationValue,
+  runEppoImport,
+  EppoImportData,
+  ExistingIds,
+  teardownRun,
+  mergePhase,
   rulesToCondition,
   toEnvironmentId,
+  toExperimentUpdate,
   toPhaseDate,
   TransformContext,
+  updatedByLaterRuns,
   transformExperiment,
   transformFactSource,
   transformFlag,
   transformMetric,
+  widenValues,
 } from "@/services/importing/eppo/eppo-importing";
 
 const EPPO: EppoData = {
@@ -59,9 +71,11 @@ function mkCtx(overrides: Partial<TransformContext> = {}): TransformContext {
     eppo: EPPO,
     project: "",
     datasource: DATASOURCE,
+    environmentIds: new Set(["production", "test"]),
     savedGroupIds: new Map(),
     factTableIds: new Map([[10, "ftb_purchases"]]),
     metricIds: new Map(),
+    experiments: new Map(),
     factTableColumns: new Map(),
     ...overrides,
   };
@@ -130,13 +144,13 @@ describe("rulesToCondition", () => {
       $or: [
         {
           country: { $in: ["US", "CA"] },
-          age: { $gte: 18 },
-          appVersion: { $vlt: "2.1.0" },
+          age: { $exists: true, $gte: 18 },
+          appVersion: { $exists: true, $vlt: "2.1.0" },
         },
         {
-          email: { $regex: "@acme\\.com$" },
+          email: { $exists: true, $regex: "@acme\\.com$" },
           plan: { $exists: true },
-          tier: { $nin: ["free"] },
+          tier: { $exists: true, $nin: ["free"] },
         },
       ],
     });
@@ -152,7 +166,12 @@ describe("rulesToCondition", () => {
           ],
         },
       ]),
-    ).toEqual({ $and: [{ age: { $gt: 18 } }, { age: { $lt: 65 } }] });
+    ).toEqual({
+      $and: [
+        { age: { $exists: true, $gt: 18 } },
+        { age: { $exists: true, $lt: 65 } },
+      ],
+    });
   });
 
   it("returns null without rules", () => {
@@ -179,7 +198,29 @@ describe("getVariationValue", () => {
     expect(getVariationValue("number", v("3.5"))).toBe("3.5");
     expect(getVariationValue("string", v("blue"))).toBe("blue");
     expect(getVariationValue("json", v('{"a":1}'))).toBe('{"a":1}');
-    expect(getVariationValue("json", v("control"))).toBe('"control"');
+  });
+
+  // A key that isn't a value of the type is an error, not a guess
+  it("rejects keys that aren't values of the flag's type", () => {
+    const v = (variant_key: string) => ({ id: 1, name: "", variant_key });
+    expect(() => getVariationValue("number", v("control"))).toThrow(
+      'Variation "control" isn\'t a number',
+    );
+    expect(() => getVariationValue("boolean", v("enabled"))).toThrow(
+      "isn't true or false",
+    );
+    expect(() => getVariationValue("json", v("control"))).toThrow("isn't JSON");
+  });
+});
+
+describe("widenValues", () => {
+  // Eppo compares as strings; the SDK compares strictly
+  it("lists number and boolean forms alongside the string", () => {
+    expect(widenValues(["2", "3"])).toEqual(["2", 2, "3", 3]);
+    expect(widenValues(["true"])).toEqual(["true", true]);
+    expect(widenValues(["US"])).toEqual(["US"]);
+    expect(widenValues(["001"])).toEqual(["001"]);
+    expect(widenValues([" 2", "1.0", " true"])).toEqual([" 2", "1.0", " true"]);
   });
 });
 
@@ -217,7 +258,7 @@ describe("transformFlag", () => {
           ],
         }),
         mkAllocation({ id: 3, name: "Rollout", percent_exposure: 0.2 }),
-        // Catch-all matching the default value is dropped
+        // Only the default allocation is redundant with defaultValue
         mkAllocation({
           id: 4,
           name: "Default",
@@ -247,7 +288,9 @@ describe("transformFlag", () => {
         id: "fr_eppo_1",
         type: "force",
         value: "true",
-        condition: JSON.stringify({ email: { $regex: "@acme" } }),
+        condition: JSON.stringify({
+          email: { $exists: true, $regex: "@acme" },
+        }),
         environments: ["production"],
       }),
       expect.objectContaining({
@@ -295,7 +338,7 @@ describe("transformFlag", () => {
 
     const [inlined] = transformFlag(flag, mkCtx()).rules;
     expect(inlined).toMatchObject({
-      condition: JSON.stringify({ beta: { $in: ["true"] } }),
+      condition: JSON.stringify({ beta: { $in: ["true", true] } }),
       savedGroups: [],
     });
   });
@@ -317,7 +360,10 @@ describe("transformFlag", () => {
       mkCtx({ savedGroupIds: new Map([[7, "grp_beta"]]) }),
     ).rules;
     expect(JSON.parse(rule.condition || "")).toEqual({
-      $or: [{ id: { $in: ["123"] } }, { $not: { beta: { $in: ["true"] } } }],
+      $or: [
+        { id: { $in: ["123", 123] } },
+        { $not: { beta: { $in: ["true", true] } } },
+      ],
     });
   });
 
@@ -325,6 +371,255 @@ describe("transformFlag", () => {
     expect(() =>
       transformFlag(mkFlag([mkAllocation({ type: "SWITCHBACK" })]), mkCtx()),
     ).toThrow("Switchback");
+  });
+
+  // Eppo evaluates top-down; a rule-less 100% allocation shadows later ones
+  it("keeps a non-default catch-all that serves the default value", () => {
+    const { rules } = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          name: "Kill switch",
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+        mkAllocation({
+          id: 2,
+          targeting_rules: [
+            {
+              conditions: [
+                { attribute: "email", operator: "MATCHES", values: ["@acme"] },
+              ],
+            },
+          ],
+        }),
+        mkAllocation({
+          id: 3,
+          is_default: true,
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+      ]),
+      mkCtx(),
+    );
+    expect(rules.map((r) => r.id)).toEqual(["fr_eppo_1", "fr_eppo_2"]);
+    expect(rules[0]).toMatchObject({ type: "force", value: "false" });
+  });
+
+  it("links experiment allocations to imported experiments", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 5, name: "Checkout test", status: "RUNNING" },
+      }),
+    ]);
+    const [rule] = transformFlag(
+      flag,
+      mkCtx({
+        eppo: { ...EPPO, flags: [flag] },
+        experiments: new Map([
+          [
+            5,
+            {
+              id: "exp_1",
+              status: "running",
+              variations: [
+                { id: "var_a", key: "off" },
+                { id: "var_b", key: "on" },
+              ],
+              phase: {
+                condition: "",
+                savedGroups: [],
+                coverage: 1,
+                variationWeights: [0.5, 0.5],
+              },
+            },
+          ],
+        ]),
+      }),
+    ).rules;
+    expect(rule).toMatchObject({
+      type: "experiment-ref",
+      experimentId: "exp_1",
+      variations: [
+        { variationId: "var_a", value: "false" },
+        { variationId: "var_b", value: "true" },
+      ],
+    });
+
+    expect(transformFlag(flag, mkCtx()).rules[0]).toMatchObject({
+      type: "experiment",
+    });
+  });
+
+  it("links a targeted allocation only when the phase targets the same users", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        percent_exposure: 0.5,
+        targeting_rules: [
+          {
+            conditions: [
+              { attribute: "country", operator: "ONE_OF", values: ["US"] },
+            ],
+          },
+        ],
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 5, name: "Checkout test", status: "RUNNING" },
+      }),
+    ]);
+    const eppo = {
+      ...EPPO,
+      flags: [flag],
+      experiments: [
+        {
+          id: 5,
+          name: "Checkout test",
+          status: "RUNNING",
+          variations: [
+            {
+              variation_id: 1,
+              variant_key: "on",
+              name: "On",
+              is_control: true,
+              is_active: true,
+            },
+            {
+              variation_id: 2,
+              variant_key: "off",
+              name: "Off",
+              is_control: false,
+              is_active: true,
+            },
+          ],
+        } as EppoExperiment,
+      ],
+    };
+    const targeting = {
+      condition: JSON.stringify({ country: { $in: ["US"] } }),
+      savedGroups: [],
+      coverage: 0.5,
+    };
+    // The new experiment's phase carries the allocation's targeting
+    expect(
+      transformExperiment(eppo.experiments[0], mkCtx({ eppo })).phases?.[0],
+    ).toMatchObject(targeting);
+
+    const variations = [
+      { id: "var_a", key: "off" },
+      { id: "var_b", key: "on" },
+    ];
+    const ruleFor = (
+      phase?: typeof targeting & { variationWeights?: number[] },
+      status: "running" | "stopped" = "running",
+    ) =>
+      transformFlag(
+        flag,
+        mkCtx({
+          eppo,
+          experiments: new Map([
+            [5, { id: "exp_1", status, variations, phase }],
+          ]),
+        }),
+      ).rules[0];
+    const live = { ...targeting, variationWeights: [0.5, 0.5] };
+    expect(ruleFor(live)).toMatchObject({ type: "experiment-ref" });
+    // Unknown phase, stopped experiment, or different weights: keep the inline rule
+    expect(ruleFor()).toMatchObject({ type: "experiment" });
+    expect(ruleFor(live, "stopped")).toMatchObject({ type: "experiment" });
+    expect(
+      ruleFor({ ...targeting, variationWeights: [0.9, 0.1] }),
+    ).toMatchObject({ type: "experiment" });
+    // A wider live phase would widen the test, so keep an inline rule
+    expect(
+      ruleFor({ condition: "", savedGroups: [], coverage: 1 }),
+    ).toMatchObject({
+      type: "experiment",
+      coverage: 0.5,
+      condition: targeting.condition,
+    });
+  });
+
+  it("keeps a default allocation that splits traffic as an experiment rule", () => {
+    const feature = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          key: "holdback",
+          type: "EXPERIMENT",
+          is_default: true,
+          variation_weight: [
+            { variation_id: 1, weight: 50 },
+            { variation_id: 2, weight: 50 },
+          ],
+        }),
+      ]),
+      mkCtx(),
+    );
+    expect(feature.defaultValue).toBe("false");
+    expect(feature.rules).toEqual([
+      expect.objectContaining({
+        id: "fr_eppo_1",
+        type: "experiment",
+        trackingKey: "new-checkout-holdback",
+      }),
+    ]);
+  });
+
+  it("keeps another environment's default where it serves something else", () => {
+    const feature = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          is_default: true,
+          variation_weight: [{ variation_id: 2, weight: 100 }],
+        }),
+        mkAllocation({ id: 2, is_default: true, environment_id: 101 }),
+      ]),
+      mkCtx(),
+    );
+    expect(feature.defaultValue).toBe("false");
+    expect(feature.rules).toEqual([
+      expect.objectContaining({
+        id: "fr_eppo_2",
+        type: "force",
+        value: "true",
+        environments: ["test"],
+      }),
+    ]);
+  });
+
+  it("only references environments the org will have", () => {
+    const feature = transformFlag(
+      mkFlag([mkAllocation({ id: 1, environment_id: undefined })]),
+      mkCtx({ environmentIds: new Set(["production"]) }),
+    );
+    expect(feature.environmentSettings).toEqual({
+      production: { enabled: true },
+    });
+    expect(feature.rules[0]).toMatchObject({ environments: ["production"] });
+  });
+
+  it("rejects variations that would share a value", () => {
+    const flag = mkFlag([]);
+    flag.variation_type = "INTEGER";
+    flag.variations = [
+      { id: 1, name: "A", variant_key: "control" },
+      { id: 2, name: "B", variant_key: "treatment" },
+    ];
+    expect(() => transformFlag(flag, mkCtx())).toThrow("isn't a number");
+    flag.variations = [
+      { id: 1, name: "A", variant_key: "1" },
+      { id: 2, name: "B", variant_key: "1.0" },
+    ];
+    expect(() => transformFlag(flag, mkCtx())).toThrow("same value");
   });
 });
 
@@ -573,8 +868,18 @@ describe("transformMetric", () => {
         ctx,
       );
 
-    // Warehouses fold column names differently
-    expect(sum("revenue").numerator).toMatchObject({ column: "revenue" });
+    // The Fact Table's spelling is what the metric endpoints look up
+    expect(sum("revenue").numerator).toMatchObject({ column: "REVENUE" });
+    expect(
+      transformMetric(
+        mkMetric({ numerator_aggregation: agg("sum", { column: "revenue" }) }),
+        mkCtx({
+          factTableColumns: new Map([
+            ["ftb_purchases", ["REVENUE", "revenue"]],
+          ]),
+        }),
+      ).numerator,
+    ).toMatchObject({ column: "revenue" });
     expect(() => sum("__count__")).toThrow(
       'Column "__count__" isn\'t in the "Purchases" Fact Table',
     );
@@ -617,13 +922,35 @@ describe("transformMetric", () => {
         ctx,
       ).numerator,
     ).toMatchObject({ column: "$$count" });
-    // Columns aren't known until the Fact Table exists
+    // Columns unknown until the Fact Table exists and detection has run
     expect(
       transformMetric(
         mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),
         mkCtx(),
       ).numerator,
     ).toMatchObject({ column: "anything" });
+    expect(
+      transformMetric(
+        mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),
+        mkCtx({ factTableColumns: new Map([["ftb_purchases", []]]) }),
+      ).numerator,
+    ).toMatchObject({ column: "anything" });
+  });
+
+  it("maps both winsorization tails", () => {
+    expect(
+      getCappingSettings({
+        metric_event_source_id: 10,
+        operation: "sum",
+        column: "revenue",
+        winsor_upper_percentile: 0.999,
+        winsor_lower_fixed_value: 0,
+        winsor_basis_filter: "positiveOnly",
+      }),
+    ).toEqual({
+      cappingSettings: { type: "percentile", value: 0.999, ignoreZeros: true },
+      lowerCappingSettings: { type: "absolute", value: 0 },
+    });
   });
 
   it("rejects unsupported metrics and missing fact tables", () => {
@@ -707,6 +1034,225 @@ describe("transformExperiment", () => {
       variationWeights: [0.25, 0.75],
       dateEnded: "2024-02-01T00:00:00Z",
     });
+    // Org analysis defaults apply unless Eppo has an explicit plan
+    expect(result).not.toHaveProperty("statsEngine");
+    expect(
+      transformExperiment(
+        {
+          ...experiment,
+          analysis_plan: { confidence_interval_method: "Sequential" },
+        },
+        mkCtx(),
+      ),
+    ).toMatchObject({
+      statsEngine: "frequentist",
+      sequentialTestingEnabled: true,
+      regressionAdjustmentEnabled: false,
+    });
+  });
+
+  it("leaves metric fields alone without a Data Source", () => {
+    const result = transformExperiment(experiment, mkCtx({ datasource: null }));
+    expect(result).not.toHaveProperty("datasource");
+    expect(result).not.toHaveProperty("goalMetrics");
+  });
+
+  it("keeps the ids of an experiment being updated", () => {
+    const result = transformExperiment(experiment, mkCtx(), {
+      id: "exp_1",
+      variations: [
+        { id: "var_a", key: "off" },
+        { id: "var_b", key: "on" },
+      ],
+    });
+    expect(result.variations?.map((v) => v.id)).toEqual(["var_a", "var_b"]);
+    expect(result.phases?.[0].variations.map((v) => v.id)).toEqual([
+      "var_a",
+      "var_b",
+    ]);
+  });
+
+  it("rejects experiments GrowthBook can't model", () => {
+    expect(() =>
+      transformExperiment(
+        { ...experiment, computation_type: "SWITCHBACK" },
+        mkCtx(),
+      ),
+    ).toThrow("SWITCHBACK");
+    expect(() =>
+      transformExperiment(
+        { ...experiment, is_holdout_analysis: true },
+        mkCtx(),
+      ),
+    ).toThrow("Holdout");
+  });
+
+  it("limits updates to what Eppo owns", () => {
+    const transformed = transformExperiment(experiment, mkCtx());
+    const running = toExperimentUpdate(transformed, true);
+    expect(Object.keys(running.update).sort()).toEqual([
+      "analysis",
+      "hypothesis",
+      "name",
+    ]);
+    expect(running.phase).toBeUndefined();
+
+    const stopped = toExperimentUpdate(transformed, false);
+    expect(stopped.update).not.toHaveProperty("tags");
+    expect(stopped.update).not.toHaveProperty("project");
+    expect(stopped.update).not.toHaveProperty("trackingKey");
+    expect(stopped.phase).toBeDefined();
+  });
+
+  it("lays Eppo's phase over the existing one", () => {
+    const existing = {
+      name: "Phase 1",
+      dateStarted: "2023-12-01T00:00:00Z",
+      dateEnded: "",
+      reason: "",
+      coverage: 1,
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any" as const, ids: ["grp_1"] }],
+      prerequisites: [],
+      variationWeights: [0.5, 0.5],
+      variations: [],
+    };
+    const incoming = transformExperiment(experiment, mkCtx()).phases?.[0];
+    if (!incoming) throw new Error("no phase");
+    expect(mergePhase(existing, incoming)).toMatchObject({
+      name: "Phase 1",
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any", ids: ["grp_1"] }],
+      coverage: 0.5,
+      variationWeights: [0.25, 0.75],
+      dateStarted: "2024-01-01T00:00",
+      dateEnded: "2024-02-01T00:00",
+    });
+    // Dates GrowthBook has and Eppo lacks survive
+    expect(
+      mergePhase(existing, {
+        ...incoming,
+        dateStarted: "",
+        dateEnded: "",
+      }),
+    ).toMatchObject({ dateStarted: "2023-12-01T00:00", dateEnded: "" });
+  });
+});
+
+describe("getImportedIds", () => {
+  const run = (
+    dateCreated: string,
+    artifacts: Partial<ApiAutoRun["artifacts"][number]>[],
+  ): ApiAutoRun =>
+    ({
+      id: `arun_${dateCreated}`,
+      source: "eppo-import",
+      dateCreated,
+      artifacts: artifacts.map((a) => ({
+        kind: "metric",
+        id: "",
+        label: "",
+        by: "growthbook",
+        detail: null,
+        dateCreated,
+        ...a,
+      })),
+    }) as ApiAutoRun;
+
+  it("maps Eppo ids to what later runs created, if it still exists", () => {
+    const ids = getImportedIds(
+      [
+        run("2024-02-01", [
+          { kind: "metric", id: "fact__new", externalId: "metrics:1" },
+        ]),
+        run("2024-01-01", [
+          { kind: "metric", id: "fact__old", externalId: "metrics:1" },
+          { kind: "saved-group", id: "grp_gone", externalId: "audiences:7" },
+          { kind: "feature", id: "flag-a", externalId: "flags:3" },
+          { kind: "attribute", id: "country" },
+        ]),
+        {
+          ...run("2024-03-01", [{ id: "x", externalId: "metrics:2" }]),
+          source: "cli-wizard",
+        },
+      ],
+      (kind, id) => id !== "grp_gone",
+    );
+    expect(ids.metrics).toEqual(new Map([[1, "fact__new"]]));
+    expect(ids.audiences.size).toBe(0);
+    expect(ids.flags).toEqual(new Map([[3, "flag-a"]]));
+  });
+
+  it("forgets what a teardown deleted so the next import creates it", () => {
+    const ids = getImportedIds(
+      [
+        run("2024-01-01", [
+          { kind: "feature", id: "flag-a", externalId: "flags:3" },
+          { kind: "feature", id: "flag-b", externalId: "flags:4" },
+        ]),
+        run("2024-01-02", [
+          {
+            kind: "feature",
+            id: "flag-a",
+            externalId: "flags:3",
+            action: "deleted",
+          },
+          {
+            kind: "feature",
+            id: "flag-b",
+            externalId: "flags:4",
+            action: "failed",
+          },
+        ]),
+      ],
+      () => true,
+    );
+    // A failed update doesn't disown the item; a delete does
+    expect(ids.flags).toEqual(new Map([[4, "flag-b"]]));
+  });
+});
+
+describe("updatedByLaterRuns", () => {
+  const run = (
+    dateCreated: string,
+    artifacts: Partial<ApiAutoRun["artifacts"][number]>[],
+  ): ApiAutoRun =>
+    ({
+      id: `arun_${dateCreated}`,
+      source: "eppo-import",
+      dateCreated,
+      artifacts: artifacts.map((a) => ({
+        kind: "feature",
+        id: "",
+        label: "",
+        by: "growthbook",
+        detail: null,
+        dateCreated,
+        ...a,
+      })),
+    }) as ApiAutoRun;
+
+  it("lists what this run created that a later import updated", () => {
+    const target = run("2024-02-01", [
+      { id: "flag-a", action: "created" },
+      { id: "flag-b", action: "created" },
+      { kind: "saved-group", id: "grp_1", detail: "Created from Eppo" },
+      { id: "flag-c", action: "updated" },
+    ]);
+    const updated = updatedByLaterRuns(target, [
+      target,
+      run("2024-03-01", [
+        { id: "flag-a", action: "updated" },
+        { id: "flag-c", action: "updated" },
+        { kind: "saved-group", id: "grp_1", detail: "Updated from Eppo" },
+      ]),
+      run("2024-01-01", [{ id: "flag-b", action: "updated" }]),
+      {
+        ...run("2024-04-01", [{ id: "flag-b", action: "updated" }]),
+        source: "cli-wizard",
+      },
+    ]);
+    expect(updated.map((a) => a.id)).toEqual(["flag-a", "grp_1"]);
   });
 });
 
@@ -715,5 +1261,225 @@ describe("toPhaseDate", () => {
     expect(toPhaseDate("2024-02-01T00:00:00Z")).toBe("2024-02-01T00:00");
     expect(toPhaseDate("2024-02-01T02:30:00+02:00")).toBe("2024-02-01T00:30");
     expect(toPhaseDate(undefined)).toBe("");
+  });
+});
+
+describe("teardownRun", () => {
+  const artifact = (
+    kind: ApiAutoRun["artifacts"][number]["kind"],
+    id: string,
+  ): ApiAutoRun["artifacts"][number] => ({
+    kind,
+    id,
+    label: id,
+    by: "growthbook",
+    detail: "Created from Eppo",
+    action: "created",
+    dateCreated: "2024-01-01",
+  });
+  const run = (artifacts: ApiAutoRun["artifacts"]): ApiAutoRun =>
+    ({ id: "arun_1", source: "eppo-import", artifacts }) as ApiAutoRun;
+
+  // Records every request; `fail` makes matching requests throw
+  const mockApi = (
+    fail: (url: string, method: string) => string | undefined = () => undefined,
+  ) => {
+    const calls: string[] = [];
+    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+      const method = options?.method ?? "GET";
+      calls.push(`${method} ${url}`);
+      const error = fail(url, method);
+      if (error) throw new Error(error);
+      if (method === "GET" && url.startsWith("/feature/")) {
+        return { feature: { archived: false } };
+      }
+      if (method === "GET" && url.startsWith("/saved-groups/")) {
+        return { savedGroup: { archived: true } };
+      }
+      return {};
+    });
+    return { calls, apiCall: apiCall as never };
+  };
+
+  it("deletes dependents first, archiving where required, and records each", async () => {
+    const { calls, apiCall } = mockApi();
+    const result = await teardownRun(
+      run([
+        artifact("saved-group", "grp_1"),
+        artifact("fact-table", "ftb_1"),
+        artifact("feature", "flag-a"),
+        artifact("metric", "fact__1"),
+      ]),
+      apiCall,
+    );
+    expect(result).toEqual({ deleted: 4, failures: [] });
+    expect(calls.filter((c) => !c.includes("/auto-runs/"))).toEqual([
+      "GET /feature/flag-a",
+      "POST /feature/flag-a/archive",
+      "DELETE /feature/flag-a",
+      "DELETE /fact-metrics/fact__1",
+      "DELETE /fact-tables/ftb_1",
+      "GET /saved-groups/grp_1",
+      // Already archived, so no archive step and nothing to restore
+      "DELETE /saved-groups/grp_1",
+    ]);
+    expect(calls.filter((c) => c.includes("/auto-runs/"))).toHaveLength(4);
+  });
+
+  it("restores the archive state when a delete fails and keeps what a failure still uses", async () => {
+    const { calls, apiCall } = mockApi((url, method) =>
+      method === "DELETE" && url === "/fact-metrics/fact__1"
+        ? "Metric is in use"
+        : method === "DELETE" && url === "/feature/flag-a"
+          ? "Still a prerequisite"
+          : undefined,
+    );
+    const result = await teardownRun(
+      run([
+        artifact("feature", "flag-a"),
+        artifact("metric", "fact__1"),
+        artifact("fact-table", "ftb_1"),
+        artifact("saved-group", "grp_1"),
+        artifact("tag", "checkout"),
+      ]),
+      apiCall,
+    );
+    expect(result.deleted).toBe(1);
+    expect(result.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["flag-a", "Still a prerequisite"],
+      ["fact__1", "Metric is in use"],
+      ["ftb_1", "Kept because something that uses it couldn't be deleted"],
+      ["grp_1", "Kept because something that uses it couldn't be deleted"],
+    ]);
+    // The flag was live before, so it is un-archived again
+    expect(calls).toContain("POST /feature/flag-a/archive");
+    expect(
+      calls.filter((c) => c === "POST /feature/flag-a/archive"),
+    ).toHaveLength(2);
+    expect(calls).not.toContain("DELETE /fact-tables/ftb_1");
+    expect(calls).toContain("DELETE /tag");
+  });
+});
+
+describe("runEppoImport", () => {
+  const emptyExisting = (): ExistingIds => ({
+    environments: new Set(),
+    tags: new Set(),
+    imported: {
+      audiences: new Map(),
+      factSources: new Map(),
+      metrics: new Map(),
+      experiments: new Map(),
+      flags: new Map(),
+    },
+    savedGroups: new Map(),
+    features: new Set(),
+    factTables: new Map(),
+    factMetrics: new Map(),
+    experiments: new Map(),
+    experimentRefs: new Map(),
+    factTableColumns: new Map(),
+  });
+  const data = (): EppoImportData => ({
+    environments: [],
+    tags: [],
+    audiences: EPPO.audiences.map((a) => ({
+      key: String(a.id),
+      name: a.name,
+      eppo: a,
+      status: "pending",
+    })),
+    factSources: [],
+    metrics: [],
+    experiments: [],
+    flags: [],
+  });
+
+  // Routes the importer's requests; `onRecord` decides what the run's
+  // artifact endpoint does
+  const mockApi = (onRecord: () => unknown) => {
+    const calls: { method: string; url: string; body?: unknown }[] = [];
+    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+      const method = options?.method ?? "GET";
+      const body =
+        typeof options?.body === "string"
+          ? JSON.parse(options.body)
+          : undefined;
+      calls.push({ method, url, body });
+      if (url === "/auto-runs") return { autoRun: { id: "arun_1" } };
+      if (url === "/auto-runs/arun_1/artifacts") return onRecord();
+      if (url === "/saved-groups") {
+        return { savedGroup: { id: `grp_${body.groupName}` } };
+      }
+      return {};
+    });
+    return { calls, apiCall: apiCall as never };
+  };
+
+  const run = (apiCall: never) => {
+    const results: Record<string, { status: string; error?: string }> = {};
+    return runEppoImport({
+      data: data(),
+      eppo: EPPO,
+      isSelected: () => true,
+      existing: emptyExisting(),
+      project: "",
+      datasource: null,
+      attributeSchema: [{ property: "id", datatype: "string" }],
+      apiCall,
+      setItem: (category, key, update) => {
+        results[`${category}:${key}`] = {
+          ...results[`${category}:${key}`],
+          ...update,
+        };
+      },
+    }).then((outcome) => ({ outcome, results }));
+  };
+
+  it("records what it created on the run and reports the outcome", async () => {
+    const { calls, apiCall } = mockApi(() => ({}));
+    const { outcome, results } = await run(apiCall);
+    expect(outcome).toEqual({ runId: "arun_1", completed: 1, failed: 0 });
+    expect(results["audiences:7"]).toEqual({
+      status: "completed",
+      error: undefined,
+    });
+    const recorded = calls.find((c) => c.url === "/auto-runs/arun_1/artifacts");
+    expect(recorded?.body).toEqual({
+      artifacts: [
+        expect.objectContaining({
+          kind: "saved-group",
+          id: "grp_Beta users",
+          externalId: "audiences:7",
+          action: "created",
+        }),
+      ],
+    });
+    expect(calls.at(-1)).toMatchObject({
+      method: "PUT",
+      url: "/auto-runs/arun_1",
+      body: { outcome: "completed" },
+    });
+  });
+
+  // The object exists but would be created again next time, so the item is
+  // marked failed rather than quietly dropped from the report
+  it("marks an import failed when the run rejects its record", async () => {
+    const { calls, apiCall } = mockApi(() => {
+      throw new Error("Label too long");
+    });
+    const { outcome, results } = await run(apiCall);
+    expect(
+      calls.some((c) => c.method === "POST" && c.url === "/saved-groups"),
+    ).toBe(true);
+    expect(outcome).toEqual({ runId: "arun_1", completed: 0, failed: 1 });
+    expect(results["audiences:7"]).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("couldn't be recorded"),
+    });
+    expect(calls.at(-1)).toMatchObject({
+      url: "/auto-runs/arun_1",
+      body: { outcome: "failed" },
+    });
   });
 });

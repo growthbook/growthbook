@@ -445,6 +445,10 @@ try {
 export const WEBHOOKS = webhooks;
 export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
+// Overridable so a local mock can stand in for Eppo
+export const EPPO_API_BASE_URL =
+  process.env.EPPO_API_BASE_URL || "https://eppo.cloud/api/v1/";
+
 /**
  * Allows custom configuration of the trust proxy settings as
  * described in the docs: https://expressjs.com/en/5x/api.html#trust.proxy.options.table

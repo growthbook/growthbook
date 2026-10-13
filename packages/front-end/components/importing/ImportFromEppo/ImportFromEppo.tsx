@@ -1,5 +1,7 @@
 import React, { Fragment, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
+import { ApiAutoRun } from "shared/validators";
 import {
   buildImportData,
   CATEGORIES,
@@ -8,8 +10,11 @@ import {
   ExistingIds,
   fetchEppoData,
   getColumnNames,
+  getImportedIds,
   ImportItem,
   ImportResult,
+  ItemMatch,
+  matchItems,
   runEppoImport,
 } from "@/services/importing/eppo/eppo-importing";
 import { useAuth } from "@/services/auth";
@@ -19,6 +24,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import useApi from "@/hooks/useApi";
 import track from "@/services/track";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
@@ -35,13 +41,31 @@ import Table, {
   TableColumnHeader,
   TableHeader,
   TableRow,
+  TableRowHeaderCell,
 } from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
 
-function StatusBadge({ item }: { item: ImportItem<unknown> }) {
+const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
+  audiences: (id) => `/saved-groups/${id}`,
+  factSources: (id) => `/fact-tables/${id}`,
+  metrics: (id) => `/fact-metrics/${id}`,
+  experiments: (id) => `/experiment/${id}`,
+  flags: (id) => `/features/${id}`,
+};
+
+// Existing environments and tags are left as they are
+const UNTOUCHED: EppoCategory[] = ["environments", "tags"];
+
+function StatusBadge({
+  item,
+  category,
+}: {
+  item: ImportItem<unknown>;
+  category: EppoCategory;
+}) {
   switch (item.status) {
     case "invalid":
       return <Badge color="red" label="Can't import" />;
@@ -50,13 +74,21 @@ function StatusBadge({ item }: { item: ImportItem<unknown> }) {
     case "completed":
       return <Badge color="green" label="Imported" />;
     case "pending":
+      if (item.match === "name") return <Badge color="amber" label="Exists" />;
+      if (item.existingId && UNTOUCHED.includes(category)) {
+        return <Badge color="gray" label="No change" />;
+      }
       return (
         <Badge color="gray" label={item.existingId ? "Update" : "Create"} />
       );
   }
 }
 
+const inProject = (project: string, projects?: string[] | null) =>
+  !project || !projects?.length || projects.includes(project);
+
 export default function ImportFromEppo() {
+  const router = useRouter();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const {
@@ -73,6 +105,9 @@ export default function ImportFromEppo() {
   const attributeSchema = useAttributeSchema();
   const { features, mutate: mutateFeatures } = useFeatureMetaInfo();
   const { experiments, mutateExperiments } = useExperiments("", true);
+  const { data: runsData, mutate: mutateRuns } = useApi<{
+    autoRuns: ApiAutoRun[];
+  }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
   const [project, setProject] = useState("");
@@ -86,18 +121,38 @@ export default function ImportFromEppo() {
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
-  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+  // Explicit (de)selections; everything else follows its default
+  const [selection, setSelection] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const existing: ExistingIds = useMemo(
-    () => ({
+  const existing: ExistingIds = useMemo(() => {
+    const ids = {
+      "saved-group": new Set(savedGroups.map((sg) => sg.id)),
+      "fact-table": new Set(factTables.map((ft) => ft.id)),
+      metric: new Set(factMetrics.map((m) => m.id)),
+      experiment: new Set(experiments.map((e) => e.id)),
+      feature: new Set(features.map((f) => f.id)),
+    };
+    return {
       environments: new Set(environments.map((e) => e.id)),
       tags: new Set(tags.map((t) => t.id)),
-      savedGroups: new Map(savedGroups.map((sg) => [sg.groupName, sg.id])),
+      imported: getImportedIds(
+        runsData?.autoRuns ?? [],
+        (kind, id) => kind in ids && ids[kind as keyof typeof ids].has(id),
+      ),
+      savedGroups: new Map(
+        savedGroups
+          .filter((sg) => inProject(project, sg.projects))
+          .map((sg) => [sg.groupName, sg.id]),
+      ),
+      // Feature keys are org-unique
       features: new Set(features.map((f) => f.id)),
       factTables: new Map(
         factTables
-          .filter((ft) => ft.datasource === datasourceId)
+          .filter(
+            (ft) =>
+              ft.datasource === datasourceId && inProject(project, ft.projects),
+          )
           .map((ft) => [ft.name, ft.id]),
       ),
       factTableColumns: new Map(
@@ -105,34 +160,72 @@ export default function ImportFromEppo() {
       ),
       factMetrics: new Map(
         factMetrics
-          .filter((m) => m.datasource === datasourceId)
+          .filter(
+            (m) =>
+              m.datasource === datasourceId && inProject(project, m.projects),
+          )
           .map((m) => [m.name, m.id]),
       ),
       experiments: new Map(
         experiments
-          .filter((e) => e.trackingKey)
+          .filter(
+            (e) =>
+              e.trackingKey && inProject(project, e.project ? [e.project] : []),
+          )
           .map((e) => [e.trackingKey, e.id]),
       ),
-    }),
-    [
-      environments,
-      tags,
-      savedGroups,
-      features,
-      factTables,
-      factMetrics,
-      experiments,
-      datasourceId,
-    ],
+      experimentRefs: new Map(
+        experiments.map((e) => [
+          e.id,
+          {
+            status: e.status,
+            variations: e.variations.map((v) => ({ id: v.id, key: v.key })),
+          },
+        ]),
+      ),
+    };
+  }, [
+    environments,
+    tags,
+    savedGroups,
+    features,
+    factTables,
+    factMetrics,
+    experiments,
+    datasourceId,
+    project,
+    runsData,
+  ]);
+
+  const matches = useMemo(
+    () => (eppo ? matchItems(eppo, existing) : null),
+    [eppo, existing],
   );
 
-  // Rebuilt when the project, Data Source, or existing GrowthBook data changes
+  // Run-created items update by default; name matches wait for a tick
+  const untouched = (category: EppoCategory, match: ItemMatch) =>
+    UNTOUCHED.includes(category) && !!match.existingId;
+  const isSelected = (category: EppoCategory, key: string) => {
+    const match: ItemMatch = matches?.[category].get(key) ?? {};
+    if (untouched(category, match)) return false;
+    return selection[itemId(category, key)] ?? match.match !== "name";
+  };
+
   const data = useMemo(
     () =>
-      eppo
-        ? buildImportData(eppo, existing, project, datasource ?? null)
+      eppo && matches
+        ? buildImportData(
+            eppo,
+            existing,
+            matches,
+            project,
+            datasource ?? null,
+            (category, key) =>
+              selection[itemId(category, key)] ??
+              matches[category].get(key)?.match !== "name",
+          )
         : null,
-    [eppo, existing, project, datasource],
+    [eppo, matches, existing, project, datasource, selection],
   );
 
   const getItems = (category: EppoCategory): ImportItem<unknown>[] =>
@@ -140,24 +233,29 @@ export default function ImportFromEppo() {
       ...item,
       ...results[itemId(category, item.key)],
     }));
-  const isSelected = (category: EppoCategory, key: string) =>
-    !deselected.has(itemId(category, key));
   const selectable = (category: EppoCategory) =>
-    getItems(category).filter((item) => item.status !== "invalid");
+    getItems(category).filter(
+      (item) => item.status !== "invalid" && !untouched(category, item),
+    );
   const selectedItems = CATEGORIES.flatMap(({ key }) =>
     selectable(key)
       .filter((item) => isSelected(key, item.key))
       .map((item) => ({ category: key, item })),
   );
   const selectedCount = selectedItems.length;
-  // Existing environments are left as they are
-  const overwriteCount = selectedItems.filter(
-    ({ category, item }) => item.existingId && category !== "environments",
+  const updating = selectedItems.filter(
+    ({ category, item }) => item.existingId && !UNTOUCHED.includes(category),
+  );
+  const updateCount = updating.filter(
+    ({ item }) => item.match === "run",
+  ).length;
+  const overwriteCount = updating.filter(
+    ({ item }) => item.match === "name",
   ).length;
   const setSelected = (ids: string[], selected: boolean) =>
-    setDeselected((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => (selected ? next.delete(id) : next.add(id)));
+    setSelection((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => (next[id] = selected));
       return next;
     });
 
@@ -166,9 +264,17 @@ export default function ImportFromEppo() {
     setBusy("fetching");
     setError(null);
     try {
-      setEppo(await fetchEppoData(apiKey, apiCall));
+      // Refresh so a run deleted since page load isn't matched
+      const [data] = await Promise.all([
+        fetchEppoData(apiKey, apiCall),
+        mutateDefinitions(),
+        mutateFeatures(),
+        mutateExperiments(),
+        mutateRuns(),
+      ]);
+      setEppo(data);
       setResults({});
-      setDeselected(new Set());
+      setSelection({});
     } catch (e) {
       setError(e.message);
     }
@@ -198,8 +304,9 @@ export default function ImportFromEppo() {
     };
     const timer = window.setInterval(flush, 250);
 
+    let runId: string | null = null;
     try {
-      await runEppoImport({
+      const outcome = await runEppoImport({
         data,
         eppo,
         isSelected,
@@ -213,24 +320,30 @@ export default function ImportFromEppo() {
           pending[id] = { ...pending[id], ...update };
         },
       });
+      runId = outcome.runId;
+      track("Eppo import finished", {
+        source: "eppo",
+        completed: outcome.completed,
+        failed: outcome.failed,
+      });
     } catch (e) {
       setError(e.message);
     }
     window.clearInterval(timer);
     flush();
-    // Refresh existing ids so a re-run updates instead of duplicating
+    // Refresh what exists so a re-run updates instead of duplicating
     await Promise.all([
       mutateDefinitions(),
       mutateFeatures(),
       mutateExperiments(),
+      mutateRuns(),
       refreshOrganization(),
     ]);
     setBusy(null);
+    if (runId) router.push(`/auto-runs/${runId}`);
   };
 
-  const missingVariationValues = eppo?.flags.some((f) =>
-    f.variations?.some((v) => v.value === undefined),
-  );
+  const nonStringFlags = eppo?.flags.some((f) => f.variation_type !== "STRING");
 
   return (
     <Box>
@@ -262,7 +375,7 @@ export default function ImportFromEppo() {
               value: ds.id,
             }))}
             onChange={setDatasourceId}
-            helpText="Required to import Fact Tables and Fact Metrics"
+            helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
         </Grid>
         <Flex gap="3" mt="4">
@@ -290,19 +403,35 @@ export default function ImportFromEppo() {
         </Callout>
       ) : null}
 
-      {overwriteCount ? (
-        <Callout status="warning" mb="4">
-          {`${overwriteCount} selected ${
-            overwriteCount === 1 ? "item already exists" : "items already exist"
-          } in GrowthBook and will be overwritten.`}
+      {updateCount ? (
+        <Callout status="info" mb="4">
+          {`${updateCount} selected ${
+            updateCount === 1 ? "item" : "items"
+          } from earlier imports will be updated to match Eppo.`}
+          {updating.some(({ category }) => category === "flags")
+            ? " Rules on an existing Feature Flag are replaced; owners, tags and Projects are kept."
+            : ""}
         </Callout>
       ) : null}
 
-      {missingVariationValues ? (
+      {overwriteCount ? (
         <Callout status="warning" mb="4">
-          Eppo&apos;s API doesn&apos;t return variation values, so each Feature
-          Flag variation uses its key as the value. Check non-string Feature
-          Flags after importing.
+          {`${overwriteCount} selected ${
+            overwriteCount === 1 ? "item was" : "items were"
+          } not created by an Eppo import and only ${
+            overwriteCount === 1 ? "shares" : "share"
+          } a name or key with the Eppo item. Importing overwrites ${
+            overwriteCount === 1 ? "it" : "them"
+          } with Eppo's definition.`}
+        </Callout>
+      ) : null}
+
+      {nonStringFlags ? (
+        <Callout status="info" mb="4">
+          Eppo&apos;s API doesn&apos;t return variation values, so each
+          variation uses its key as the value. Non-string Feature Flags whose
+          keys aren&apos;t values of their type are marked &quot;Can&apos;t
+          import&quot;.
         </Callout>
       ) : null}
 
@@ -313,7 +442,10 @@ export default function ImportFromEppo() {
             const ids = selectable(category).map((i) =>
               itemId(category, i.key),
             );
-            const selected = ids.filter((id) => !deselected.has(id)).length;
+            const selected = selectable(category).filter((i) =>
+              isSelected(category, i.key),
+            ).length;
+            const href = HREFS[category];
             return (
               <Frame key={category}>
                 <Checkbox
@@ -352,29 +484,47 @@ export default function ImportFromEppo() {
                           <Fragment key={id}>
                             <TableRow>
                               <TableCell>
-                                <Checkbox
-                                  size="sm"
-                                  label={
-                                    <VisuallyHidden>{item.name}</VisuallyHidden>
-                                  }
-                                  value={
-                                    item.status !== "invalid" &&
-                                    isSelected(category, item.key)
-                                  }
-                                  setValue={(v) => setSelected([id], v)}
-                                  disabled={item.status === "invalid"}
-                                />
+                                {untouched(category, item) ? null : (
+                                  <Checkbox
+                                    size="sm"
+                                    label={
+                                      <VisuallyHidden>
+                                        {item.name}
+                                      </VisuallyHidden>
+                                    }
+                                    value={
+                                      item.status !== "invalid" &&
+                                      isSelected(category, item.key)
+                                    }
+                                    setValue={(v) => setSelected([id], v)}
+                                    disabled={item.status === "invalid"}
+                                  />
+                                )}
                               </TableCell>
-                              <TableCell>
+                              <TableRowHeaderCell>
                                 {item.name}
+                                {item.existingId && href ? (
+                                  <HelperText status="info" size="sm">
+                                    {item.match === "name"
+                                      ? "Same name as "
+                                      : "Imported before as "}
+                                    <Link href={href(item.existingId)} external>
+                                      {item.name}
+                                    </Link>
+                                  </HelperText>
+                                ) : item.existingId ? (
+                                  <HelperText status="info" size="sm">
+                                    Already in GrowthBook
+                                  </HelperText>
+                                ) : null}
                                 {item.error ? (
                                   <HelperText status="error" size="sm">
                                     {item.error}
                                   </HelperText>
                                 ) : null}
-                              </TableCell>
+                              </TableRowHeaderCell>
                               <TableCell>
-                                <StatusBadge item={item} />
+                                <StatusBadge item={item} category={category} />
                               </TableCell>
                               <TableCell>
                                 <Link
