@@ -585,43 +585,43 @@ export default function NewFactTableSqlStep({
             {tableColumnsError}
           </Callout>
         ) : null}
-        {selectedTable ? (
-          <Flex direction="column" gap="2">
-            {rowFilters.length ? <Text weight="semibold">Filters</Text> : null}
-            {columnSource ? (
-              <RowFilterEditorRows
-                value={rowFilters}
-                setValue={setRowFilters}
-                columnSource={columnSource}
-                dateInputWidth={260}
-              />
-            ) : null}
-            {loadingColumns ? (
-              <Flex align="center" gap="2">
-                <LoadingSpinner />
-                <Text size="sm" color="text-low">
-                  Loading columns...
-                </Text>
-              </Flex>
-            ) : (
-              <RowFilterActions
-                disabled={!columnSource}
-                onAdd={(filter) => setRowFilters([...rowFilters, filter])}
-                onViewSampleRows={
-                  canRunQueries ? () => setSampleRowsOpen(true) : undefined
-                }
-                canViewSampleRows={
-                  !!columnSource && rowFilters.every(isRowFilterComplete)
-                }
-              />
-            )}
-            {rowFilterError ? (
-              <Callout status="error" size="sm">
-                {rowFilterError}
-              </Callout>
-            ) : null}
-          </Flex>
-        ) : null}
+        <Flex direction="column" gap="2">
+          {rowFilters.length ? <Text weight="semibold">Filters</Text> : null}
+          {columnSource ? (
+            <RowFilterEditorRows
+              value={rowFilters}
+              setValue={setRowFilters}
+              columnSource={columnSource}
+              dateInputWidth={260}
+            />
+          ) : null}
+          {loadingColumns ? (
+            <Flex align="center" gap="2">
+              <LoadingSpinner />
+              <Text size="sm" color="text-low">
+                Loading columns...
+              </Text>
+            </Flex>
+          ) : (
+            <RowFilterActions
+              disabled={!columnSource}
+              onAdd={(filter) => setRowFilters([...rowFilters, filter])}
+              onViewSampleRows={
+                canRunQueries && selectedTable
+                  ? () => setSampleRowsOpen(true)
+                  : undefined
+              }
+              canViewSampleRows={
+                !!columnSource && rowFilters.every(isRowFilterComplete)
+              }
+            />
+          )}
+          {rowFilterError ? (
+            <Callout status="error" size="sm">
+              {rowFilterError}
+            </Callout>
+          ) : null}
+        </Flex>
         {sampleRowsOpen && selectedTable ? (
           <RowFilterSampleRowsModal
             title={[selectedTable.schemaName, selectedTable.tableName]
