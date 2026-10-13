@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -12,6 +13,7 @@ import {
   PiCheckBold,
   PiXBold,
 } from "react-icons/pi";
+import isEqual from "lodash/isEqual";
 import {
   DataSourceInterfaceWithParams,
   DataSourceType,
@@ -23,7 +25,8 @@ import {
   TestableDataSourceType,
 } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
-import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialSettings } from "@/services/datasources";
@@ -36,7 +39,9 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
@@ -81,8 +86,9 @@ export default function ConnectDataSourceLayout({
   onSuccess,
 }: ConnectDataSourceLayoutProps) {
   const existing = mode === "edit";
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, projects: orgProjects } = useDefinitions();
   const { apiCall, orgId } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
 
   const [datasource, setDatasource] =
     useState<Partial<DataSourceInterfaceWithParams>>(initial);
@@ -93,6 +99,15 @@ export default function ConnectDataSourceLayout({
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Incremented whenever the params a test would cover change, so a response
+  // from an earlier test cannot approve credentials it never saw.
+  const testRunRef = useRef(0);
+
+  const resetTest = useCallback(() => {
+    testRunRef.current += 1;
+    setTestStatus("idle");
+    setTestMessage(null);
+  }, []);
 
   useEffect(() => {
     track("View Datasource Connect Page", {
@@ -107,10 +122,9 @@ export default function ConnectDataSourceLayout({
     if (!dirty) {
       setDatasource(initial);
       setParamsDirty(false);
-      setTestStatus("idle");
-      setTestMessage(null);
+      resetTest();
     }
-  }, [initial, dirty]);
+  }, [initial, dirty, resetTest]);
 
   const typeInfo = useMemo(
     () => dataSourceConnections.find((c) => c.type === datasource.type),
@@ -134,11 +148,10 @@ export default function ConnectDataSourceLayout({
       setDirty(true);
       if (next.params !== datasource.params) {
         setParamsDirty(true);
-        setTestStatus("idle");
-        setTestMessage(null);
+        resetTest();
       }
     },
-    [datasource.params],
+    [datasource.params, resetTest],
   );
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
@@ -149,6 +162,26 @@ export default function ConnectDataSourceLayout({
       [e.target.name]: e.target.value,
     });
   };
+
+  // Create mode only: let the user scope the new Data Source to Projects they
+  // can create in. An empty selection is All Projects, which needs a global role.
+  const projectOptions = useProjectOptions(
+    (project) =>
+      permissionsUtil.canCreateDataSource({
+        projects: [project],
+        type: datasource.type,
+      }),
+    [],
+  );
+  const showProjectPicker = !existing && orgProjects.length > 0;
+  const projectPermissionError =
+    !existing &&
+    !permissionsUtil.canCreateDataSource({
+      projects: datasource.projects,
+      type: datasource.type,
+    })
+      ? "You don't have permission to create a Data Source for All Projects. Select a Project."
+      : null;
 
   // BigQuery verifies the connection from the form above, which also loads
   // datasets so the user can choose a default dataset.
@@ -172,6 +205,7 @@ export default function ConnectDataSourceLayout({
     ) {
       return;
     }
+    const runId = (testRunRef.current += 1);
     setTestStatus("running");
     setTestMessage(null);
     setHasError(false);
@@ -201,6 +235,8 @@ export default function ConnectDataSourceLayout({
       if (res.status > 200) {
         throw new Error(res.message || "Unable to connect to the Data Source");
       }
+      // Params changed while this test was in flight; its result is stale.
+      if (runId !== testRunRef.current) return;
       setTestStatus("passed");
       setTestMessage(null);
       track("Data Source Connection Test Passed", {
@@ -209,6 +245,7 @@ export default function ConnectDataSourceLayout({
         type: datasource.type,
       });
     } catch (e) {
+      if (runId !== testRunRef.current) return;
       const message =
         e instanceof Error ? e.message : "Unable to connect to the Data Source";
       setTestStatus("failed");
@@ -228,6 +265,7 @@ export default function ConnectDataSourceLayout({
     !isSampleData &&
     !!datasource.name?.trim() &&
     !!datasource.type &&
+    projectPermissionError === null &&
     (!needsSuccessfulTest || testStatus === "passed") &&
     (!isBigQuery || !!bigQueryDefaultDataset) &&
     (existing ? dirty : true);
@@ -238,6 +276,9 @@ export default function ConnectDataSourceLayout({
     }
     if (!datasource.name?.trim()) {
       return "Enter a Data Source name to continue";
+    }
+    if (projectPermissionError !== null) {
+      return "Select a Project to continue";
     }
     if (isBigQuery && !bigQueryDefaultDataset) {
       return "Choose a default dataset to continue";
@@ -267,8 +308,19 @@ export default function ConnectDataSourceLayout({
       let id = datasource.id;
 
       if (existing && id) {
-        const putBody = { ...datasource };
-        delete putBody.eventForwarderConfig;
+        // Only send what this page edits. Description and Projects are edited
+        // on the Data Source page, and sending stale copies would overwrite
+        // changes made there while this form was open. Params only go up when
+        // touched, since the server re-tests the connection whenever present.
+        const putBody: Partial<DataSourceInterfaceWithParams> = {
+          name: datasource.name,
+        };
+        if (paramsDirty) {
+          putBody.params = datasource.params;
+        }
+        if (!isEqual(datasource.settings, initial.settings)) {
+          putBody.settings = datasource.settings;
+        }
         const res = await apiCall<{ status: number; message: string }>(
           `/datasource/${id}`,
           {
@@ -351,191 +403,206 @@ export default function ConnectDataSourceLayout({
 
   return (
     <Grid
-      columns={{ initial: "1", lg: "minmax(0, 1fr) minmax(420px, 560px)" }}
-      // From lg up the columns sit side by side and scroll independently, so
-      // lock the grid to the viewport below the top nav. Below that they
-      // stack and the page scrolls normally so the footer stays reachable.
+      // From lg up the form and instructions sit side by side and scroll
+      // independently, so the grid is locked to the viewport below the top
+      // nav and the save bar stays under the form. Below lg everything stacks
+      // (form, instructions, save bar) and the page scrolls normally.
+      // The form track keeps a real minimum so the shared connection forms'
+      // two-up fields are not crushed beside the instructions.
+      columns={{ initial: "1", lg: "minmax(640px, 1fr) minmax(320px, 420px)" }}
+      rows={{ initial: "auto", lg: "minmax(0, 1fr) auto" }}
+      areas={{
+        initial: '"form" "instructions" "footer"',
+        lg: '"form instructions" "footer instructions"',
+      }}
       height={{ initial: "auto", lg: "calc(100dvh - 56px)" }}
       maxHeight={{ initial: "none", lg: "calc(100dvh - 56px)" }}
       overflow={{ initial: "visible", lg: "hidden" }}
-      align="stretch"
     >
+      <Box
+        gridArea="form"
+        py="5"
+        px="6"
+        minWidth="0"
+        minHeight="0"
+        overflowY={{ initial: "visible", lg: "auto" }}
+        style={{ scrollbarGutter: "stable" }}
+      >
+        <Flex align="center" gap="3" wrap="wrap" mb="2">
+          <Avatar size="lg" variant="soft" radius="small" color="violet">
+            {DATA_SOURCE_TYPE_ABBR[type]}
+          </Avatar>
+          <Heading as="h1" size="xl" mb="0">
+            {existing
+              ? `Edit ${typeInfo.display}`
+              : `Connect ${typeInfo.display}`}
+          </Heading>
+          <Badge
+            label={setup === "event_forwarder" ? "Event Forwarder" : "Custom"}
+            color="violet"
+            variant="soft"
+          />
+        </Flex>
+        <Text as="p" color="text-mid" mb="4">
+          {setup === "event_forwarder"
+            ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination you configure."
+            : "GrowthBook reads your data to run analysis. It only needs read access."}
+        </Text>
+
+        {isSampleData && (
+          <Callout status="warning" mb="4">
+            You cannot edit the sample Data Source connection.
+          </Callout>
+        )}
+
+        {saveError && (
+          <Callout status="error" mb="4">
+            {saveError}
+          </Callout>
+        )}
+
+        <Frame mb="4">
+          <Heading as="h3" size="md" mb="4">
+            Connection
+          </Heading>
+          <TextField
+            label="Data Source name"
+            name="name"
+            required
+            markRequired
+            value={datasource.name || ""}
+            onChange={onChange}
+            disabled={isSampleData}
+            autoFocus={!existing}
+            mb="3"
+          />
+          {showProjectPicker ? (
+            <Box mb="3">
+              <MultiSelectField
+                label="Projects"
+                placeholder="All Projects"
+                value={datasource.projects || []}
+                options={projectOptions}
+                onChange={(projects) =>
+                  updateDatasource({ ...datasource, projects })
+                }
+                helpText="Only Projects where you can create Data Sources are listed."
+                error={projectPermissionError ?? undefined}
+                errorLevel="warning"
+              />
+            </Box>
+          ) : null}
+          <ConnectionSettings
+            datasource={datasource}
+            existing={existing}
+            hasError={hasError}
+            setDatasource={updateDatasource}
+            setDirty={(next) => {
+              setDirty(next);
+              if (next) {
+                setParamsDirty(true);
+                resetTest();
+              }
+            }}
+          />
+        </Frame>
+
+        {canTest && (
+          <Frame
+            mb="4"
+            style={{
+              borderColor: testBorderColor,
+              borderWidth: 1,
+              borderStyle: "solid",
+            }}
+          >
+            <Flex align="center" justify="between" gap="3" mb="2">
+              <Heading as="h3" size="md" mb="0">
+                Connection Test
+              </Heading>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={testStatus === "running" || isSampleData}
+                loading={testStatus === "running"}
+                icon={<PiArrowClockwise />}
+                onClick={async () => {
+                  await runTest();
+                }}
+              >
+                {testStatus === "idle"
+                  ? "Test connection"
+                  : testStatus === "running"
+                    ? "Testing"
+                    : "Retry test"}
+              </Button>
+            </Flex>
+            {testStatus === "idle" || testStatus === "running" ? (
+              <Text as="p" size="sm" color="text-mid" mb="0">
+                {setup === "event_forwarder"
+                  ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
+                  : "Checks that GrowthBook can connect and read your data."}
+              </Text>
+            ) : (
+              <ConnectionTestRow
+                status={testStatus}
+                name={readAccessTarget}
+                error={testStatus === "failed" ? testMessage : null}
+              />
+            )}
+          </Frame>
+        )}
+      </Box>
+
+      <Box gridArea="instructions" minWidth="0" minHeight="0">
+        <DataSourceConnectInstructions
+          type={type}
+          displayName={typeInfo.display}
+          docs={typeInfo.docs}
+          setup={setup}
+          params={datasource.params}
+          existing={existing}
+        />
+      </Box>
+
       <Flex
-        direction="column"
+        gridArea="footer"
+        align="center"
+        justify="between"
+        gap="3"
+        wrap="wrap"
+        px="6"
+        py="4"
         style={{
-          width: "100%",
-          minWidth: 0,
-          minHeight: 0,
-          height: "100%",
+          background: "var(--background-color)",
+          borderTop: "1px solid var(--gray-a5)",
         }}
       >
-        <Box
-          py="5"
-          px="6"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: "auto",
-            scrollbarGutter: "stable",
-          }}
+        <Button
+          variant="ghost"
+          color="gray"
+          icon={<PiArrowLeft />}
+          onClick={onCancel}
         >
-          <Flex align="center" gap="3" wrap="wrap" mb="2">
-            <Avatar size="lg" variant="soft" radius="small" color="violet">
-              {DATA_SOURCE_TYPE_ABBR[type]}
-            </Avatar>
-            <Heading as="h1" size="xl" mb="0">
-              {existing
-                ? `Edit ${typeInfo.display}`
-                : `Connect ${typeInfo.display}`}
-            </Heading>
-            <Badge
-              label={setup === "event_forwarder" ? "Event Forwarder" : "Custom"}
-              color="violet"
-              variant="soft"
-            />
-          </Flex>
-          <Text as="p" color="text-mid" mb="4">
-            {setup === "event_forwarder"
-              ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination you configure."
-              : "GrowthBook reads your data to run analysis. It only needs read access."}
-          </Text>
-
-          {isSampleData && (
-            <Callout status="warning" mb="4">
-              You cannot edit the sample Data Source connection.
-            </Callout>
-          )}
-
-          {saveError && (
-            <Callout status="error" mb="4">
-              {saveError}
-            </Callout>
-          )}
-
-          <Frame mb="4">
-            <Heading as="h3" size="md" mb="4">
-              Connection
-            </Heading>
-            <Field
-              label="Data Source name"
-              name="name"
-              required
-              value={datasource.name || ""}
-              onChange={onChange}
-              disabled={isSampleData}
-              containerClassName="mb-3"
-              autoFocus={!existing}
-            />
-            <ConnectionSettings
-              datasource={datasource}
-              existing={existing}
-              hasError={hasError}
-              setDatasource={updateDatasource}
-              setDirty={(next) => {
-                setDirty(next);
-                if (next) {
-                  setParamsDirty(true);
-                  setTestStatus("idle");
-                  setTestMessage(null);
-                }
-              }}
-            />
-          </Frame>
-
-          {canTest && (
-            <Frame
-              mb="4"
-              style={{
-                borderColor: testBorderColor,
-                borderWidth: 1,
-                borderStyle: "solid",
-              }}
-            >
-              <Flex align="center" justify="between" gap="3" mb="2">
-                <Heading as="h3" size="md" mb="0">
-                  Connection Test
-                </Heading>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={testStatus === "running" || isSampleData}
-                  loading={testStatus === "running"}
-                  icon={<PiArrowClockwise />}
-                  onClick={async () => {
-                    await runTest();
-                  }}
-                >
-                  {testStatus === "idle"
-                    ? "Test connection"
-                    : testStatus === "running"
-                      ? "Testing"
-                      : "Retry test"}
-                </Button>
-              </Flex>
-              {testStatus === "idle" || testStatus === "running" ? (
-                <Text as="p" size="sm" color="text-mid" mb="0">
-                  {setup === "event_forwarder"
-                    ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
-                    : "Checks that GrowthBook can connect and read your data."}
-                </Text>
-              ) : (
-                <ConnectionTestRow
-                  status={testStatus}
-                  name={readAccessTarget}
-                  error={testStatus === "failed" ? testMessage : null}
-                />
-              )}
-            </Frame>
-          )}
-        </Box>
-
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          wrap="wrap"
-          px="6"
-          py="4"
-          flexShrink="0"
-          style={{
-            background: "var(--background-color)",
-            borderTop: "1px solid var(--gray-a5)",
-          }}
-        >
+          Back
+        </Button>
+        <Flex align="center" gap="3">
+          {saveHint ? (
+            <Text size="sm" color="text-mid">
+              {saveHint}
+            </Text>
+          ) : null}
           <Button
-            variant="ghost"
-            color="gray"
-            icon={<PiArrowLeft />}
-            onClick={onCancel}
+            disabled={!canSave}
+            loading={saving}
+            onClick={async () => {
+              await handleSave();
+            }}
           >
-            Back
+            {existing ? "Save changes" : "Create Data Source"}
           </Button>
-          <Flex align="center" gap="3">
-            {saveHint ? (
-              <Text size="sm" color="text-mid">
-                {saveHint}
-              </Text>
-            ) : null}
-            <Button
-              disabled={!canSave}
-              loading={saving}
-              onClick={async () => {
-                await handleSave();
-              }}
-            >
-              {existing ? "Save changes" : "Create Data Source"}
-            </Button>
-          </Flex>
         </Flex>
       </Flex>
-
-      <DataSourceConnectInstructions
-        type={type}
-        displayName={typeInfo.display}
-        docs={typeInfo.docs}
-        setup={setup}
-        params={datasource.params}
-      />
     </Grid>
   );
 }

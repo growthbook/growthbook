@@ -1,10 +1,12 @@
 import { FC, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   DataSourceType,
   SchemaFormat,
 } from "shared/types/datasource";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
 import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
@@ -13,6 +15,8 @@ import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 
 function parseSetup(value: string | string[] | undefined): ConnectSetupKind {
@@ -39,6 +43,8 @@ function parseType(
 const NewDataSourceConnectPage: FC = () => {
   const router = useRouter();
   const { enabled, ready } = useNewDataSourceOnboarding();
+  const { project } = useDefinitions();
+  const { orgId } = useAuth();
   const type = parseType(router.query.type);
   const setup = parseSetup(router.query.setup);
   const schemaFormat = parseSchemaFormat(router.query.schema);
@@ -59,8 +65,14 @@ const NewDataSourceConnectPage: FC = () => {
       type: option.type,
       params: option.default,
       settings: {},
+      // Start scoped to the current Project (if any) so Project-level
+      // creators can test and save without first changing the picker.
+      projects: getDefaultProjectsForNewResource({
+        project,
+        organizationId: orgId || undefined,
+      }),
     } as Partial<DataSourceInterfaceWithParams>;
-  }, [type]);
+  }, [type, project, orgId]);
 
   if (!ready || !enabled) {
     return <LoadingOverlay />;
@@ -72,7 +84,7 @@ const NewDataSourceConnectPage: FC = () => {
 
   if (!type || !initial) {
     return (
-      <div className="container pagecontents">
+      <Box px="6" py="5">
         <PageHead
           breadcrumb={[
             { display: "Data Sources", href: "/datasources" },
@@ -84,7 +96,7 @@ const NewDataSourceConnectPage: FC = () => {
           Choose a warehouse type from{" "}
           <Link href="/datasources/new">Add Data Source</Link> to continue.
         </Callout>
-      </div>
+      </Box>
     );
   }
 

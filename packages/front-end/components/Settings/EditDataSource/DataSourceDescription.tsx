@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Flex, TextArea } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { GBEdit } from "@/components/Icons";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
@@ -52,6 +53,7 @@ export default function DataSourceDescription({
         <TextArea
           autoFocus
           aria-label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           size="2"
           variant="surface"
           resize="vertical"
@@ -104,7 +106,7 @@ export default function DataSourceDescription({
   }
 
   return (
-    <Flex align="center" gap="2" mt="2">
+    <Flex align="start" gap="2" mt="2">
       <Text color="text-mid" whiteSpace="pre-wrap">
         {value}
       </Text>

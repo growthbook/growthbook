@@ -90,7 +90,7 @@ function postgresLikeSteps(
         "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
       code: opts.createUserSql(user, database, schema || "public"),
       codeNote:
-        "Replace `public` with your analytics schema if events live elsewhere.",
+        "Grants use the Default Schema field. Change it there if events live in another schema.",
     },
     {
       title: "Allow network access",
@@ -111,9 +111,11 @@ export function getDataSourceSetupInstructions(
   type: DataSourceType,
   setup: ConnectSetupKind,
   params?: Partial<DataSourceParams>,
+  opts: { existing?: boolean } = {},
 ): SetupInstructionStep[] {
   const p = asRecord(params);
   const isEventForwarder = setup === "event_forwarder";
+  const existing = opts.existing ?? false;
 
   switch (type) {
     case "bigquery": {
@@ -172,8 +174,14 @@ GRANT \`roles/bigquery.dataEditor\`
       const warehouse = field(p, "warehouse", "COMPUTE_WH");
       const database = field(p, "database", "ANALYTICS");
       const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
+      // Match SnowflakeForm: connections saved before authMethod existed used
+      // a password; new connections default to key-pair.
       const authMethod =
-        typeof p.authMethod === "string" ? p.authMethod : "key-pair";
+        typeof p.authMethod === "string"
+          ? p.authMethod
+          : existing
+            ? "password"
+            : "key-pair";
       const workloadProvider =
         typeof p.workloadIdentityProvider === "string"
           ? p.workloadIdentityProvider
@@ -375,6 +383,7 @@ Source: ${CLOUD_EGRESS_IP}/32`,
           title: "Create a read-only user",
           description: "Run in the query editor.",
           code: `CREATE USER ${user} WITH PASSWORD 'securepassword';
+GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
@@ -479,6 +488,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
     }
 
     case "mysql": {
+      const cloud = isCloud();
       const user = field(p, "user", "growthbook");
       const database = field(p, "database", "your_database");
       const port = field(p, "port", "3306");
@@ -493,9 +503,13 @@ FLUSH PRIVILEGES;`,
         },
         {
           title: "Allow network access",
-          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal instead of localhost.`,
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          description: cloud
+            ? `Allow port ${port} from this IP.`
+            : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
+          code: cloud
+            ? `# GrowthBook Cloud egress IP
+${CLOUD_EGRESS_IP}/32`
+            : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -505,6 +519,7 @@ ${CLOUD_EGRESS_IP}/32`,
     }
 
     case "mssql": {
+      const cloud = isCloud();
       const user = field(p, "user", "growthbook");
       const schema = field(p, "defaultSchema", "dbo");
       const port = field(p, "port", "1433");
@@ -518,9 +533,13 @@ GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
         },
         {
           title: "Allow network access",
-          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal as the server instead of localhost.`,
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          description: cloud
+            ? `Allow port ${port} from this IP.`
+            : "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
+          code: cloud
+            ? `# GrowthBook Cloud egress IP
+${CLOUD_EGRESS_IP}/32`
+            : undefined,
         },
         {
           title: "Enter credentials and test",

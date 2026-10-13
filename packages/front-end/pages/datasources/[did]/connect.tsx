@@ -1,5 +1,6 @@
 import { FC, useEffect } from "react";
 import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
@@ -50,11 +51,11 @@ const EditDataSourceConnectPage: FC = () => {
 
   if (definitionsError || currentDataSourceError) {
     return (
-      <div className="container pagecontents">
+      <Box px="6" py="5">
         <Callout status="error">
           {definitionsError || currentDataSourceError?.message}
         </Callout>
-      </div>
+      </Box>
     );
   }
 
@@ -64,7 +65,7 @@ const EditDataSourceConnectPage: FC = () => {
 
   if (!d) {
     return (
-      <div className="container pagecontents">
+      <Box px="6" py="5">
         <Callout status="error">
           Data Source{" "}
           <Text as="span" mono>
@@ -72,7 +73,7 @@ const EditDataSourceConnectPage: FC = () => {
           </Text>{" "}
           does not exist.
         </Callout>
-      </div>
+      </Box>
     );
   }
 
@@ -93,7 +94,7 @@ const EditDataSourceConnectPage: FC = () => {
 
   if (!canUpdateConnectionParams) {
     return (
-      <div className="container pagecontents">
+      <Box px="6" py="5">
         <PageHead
           breadcrumb={[
             { display: "Data Sources", href: "/datasources" },
@@ -104,11 +105,12 @@ const EditDataSourceConnectPage: FC = () => {
         <Callout status="error">
           You cannot edit connection info for this Data Source.
         </Callout>
-      </div>
+      </Box>
     );
   }
 
-  const setup = d.eventForwarderConfig != null ? "event_forwarder" : "custom";
+  const setup =
+    (d.eventForwarderConfig ?? null) !== null ? "event_forwarder" : "custom";
 
   return (
     <>

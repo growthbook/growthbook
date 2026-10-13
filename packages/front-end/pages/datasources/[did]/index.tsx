@@ -445,7 +445,7 @@ const DataSourcePage: FC = () => {
           )}
           {canUpdateDataSourceSettings && projects.length > 0 && (
             <Link
-              aria-label="Edit projects"
+              aria-label="Edit Projects"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjectsOpen(true);
@@ -696,7 +696,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               Projects{" "}
               <Tooltip
                 body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Data Sources."
+                  "The dropdown below has been filtered to only include Projects where you have permission to update Data Sources."
                 }
               />
             </>

@@ -133,14 +133,18 @@ export default function DataSourceConnectInstructions({
   docs,
   setup,
   params,
+  existing,
 }: {
   type: DataSourceType;
   displayName: string;
   docs: DocSection;
   setup: ConnectSetupKind;
   params?: Partial<DataSourceParams>;
+  existing: boolean;
 }) {
-  const steps = getDataSourceSetupInstructions(type, setup, params);
+  const steps = getDataSourceSetupInstructions(type, setup, params, {
+    existing,
+  });
 
   return (
     <Box asChild className={styles.aside}>
