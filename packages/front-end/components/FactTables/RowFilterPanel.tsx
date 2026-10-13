@@ -7,12 +7,16 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { RowFilterActions } from "./RowFilterActions";
 import { RowFilterFields } from "./RowFilterFields";
-import { isRowFilterComplete, type FilterColumnSource } from "./rowFilterUtils";
+import {
+  isRowFilterComplete,
+  operatorLabelMap,
+  type FilterColumnSource,
+} from "./rowFilterUtils";
 
 /** A local id keeps a row from remounting (and losing focus) as it is edited. */
 type LocalRowFilter = RowFilter & { _localId: number };
 
-function toRowFilter({ _localId: _id, ...rest }: LocalRowFilter): RowFilter {
+function toRowFilter({ _localId, ...rest }: LocalRowFilter): RowFilter {
   return rest;
 }
 
@@ -218,5 +222,6 @@ function getFilterSummary(
   const column =
     columnSource.columns.find((c) => c.value === filter.column)?.label ??
     filter.column;
-  return `${column} ${filter.operator} ${filter.values?.join(", ") ?? ""}`.trim();
+  const operator = operatorLabelMap[filter.operator];
+  return `${column} ${operator} ${filter.values?.join(", ") ?? ""}`.trim();
 }

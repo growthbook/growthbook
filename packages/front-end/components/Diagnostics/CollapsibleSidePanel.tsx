@@ -6,6 +6,7 @@ import {
   PiCaretUp,
 } from "react-icons/pi";
 import { ReactNode, useState } from "react";
+import Button from "@/ui/Button";
 import styles from "./CollapsibleSidePanel.module.scss";
 
 /**
@@ -55,8 +56,10 @@ export default function CollapsibleSidePanel({
         </Box>
       )}
       <Box className={styles.divider}>
-        <button
-          type="button"
+        <Button
+          variant="soft"
+          color="gray"
+          size="sm"
           className={styles.toggle}
           onClick={toggle}
           aria-expanded={!collapsed}
@@ -64,19 +67,19 @@ export default function CollapsibleSidePanel({
         >
           <span className={styles.desktopIcon}>
             {collapsed ? (
-              <PiCaretRight size={12} aria-hidden />
+              <PiCaretRight aria-hidden />
             ) : (
-              <PiCaretLeft size={12} aria-hidden />
+              <PiCaretLeft aria-hidden />
             )}
           </span>
           <span className={styles.mobileIcon}>
             {collapsed ? (
-              <PiCaretDown size={12} aria-hidden />
+              <PiCaretDown aria-hidden />
             ) : (
-              <PiCaretUp size={12} aria-hidden />
+              <PiCaretUp aria-hidden />
             )}
           </span>
-        </button>
+        </Button>
       </Box>
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}

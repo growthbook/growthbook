@@ -1934,9 +1934,11 @@ describe("getExperimentExposuresQuery", () => {
   const params = {
     experimentId: "exp_123",
     experimentTrackingKey: "my-experiment",
-    exposureQuerySql:
-      "SELECT ts AS timestamp, uid AS user_id, vid AS variation_id, eid AS experiment_id FROM t WHERE eid = '{{experimentId}}' AND ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'",
-    userIdType: "user_id",
+    exposureQuery: {
+      query:
+        "SELECT ts AS timestamp, uid AS user_id, vid AS variation_id, eid AS experiment_id FROM t WHERE eid = '{{experimentId}}' AND ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'",
+      identifierType: "user_id",
+    },
     startDate: new Date("2025-03-01T00:00:00.000Z"),
     endDate: new Date("2025-03-08T00:00:00.000Z"),
     dimensions: ["country"],
@@ -2116,13 +2118,13 @@ describe("getExperimentExposuresQuery", () => {
     expect(
       getExperimentExposuresQuery(snowflakeDialect, {
         ...params,
-        userIdType: "userId",
+        exposureQuery: { ...params.exposureQuery, identifierType: "userId" },
       }),
     ).toContain('"USERID" DESC');
     expect(
       getExperimentExposuresQuery(postgresDialect, {
         ...params,
-        userIdType: "userId",
+        exposureQuery: { ...params.exposureQuery, identifierType: "userId" },
       }),
     ).toContain('"userid" DESC');
   });

@@ -16,29 +16,6 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-
-  border: 1px solid var(--gray-a5);
-  border-radius: 50%;
-  background-color: var(--color-panel-solid);
-  color: var(--color-text-mid);
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--violet-a7);
-    color: var(--violet-11);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--violet-8);
-    outline-offset: 1px;
-  }
 }
 
 .desktopIcon,

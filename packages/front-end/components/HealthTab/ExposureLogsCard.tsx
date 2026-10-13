@@ -4,6 +4,7 @@ import {
   isManagedWarehouse,
   isManagedWarehousePendingQueryError,
   isManagedWarehouseUnavailable,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import type { ExperimentExposureRecord } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -17,7 +18,10 @@ import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
 import { formatTimestamp, truncate } from "@/components/Diagnostics/format";
 import { RecordsColumn } from "@/components/Diagnostics/types";
-import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import type {
+  ColumnTopValue,
+  FilterColumnSource,
+} from "@/components/FactTables/rowFilterUtils";
 import { datasourcesWithoutHealthData } from "./constants";
 
 interface ExposuresResponse {
@@ -25,6 +29,7 @@ interface ExposuresResponse {
   dimensions: string[];
   extraColumns: string[];
   truncated: boolean;
+  valuesTruncated?: boolean;
   sql?: string;
   error?: string;
   cached?: boolean;
@@ -61,7 +66,11 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     () => exposureQuery?.dimensions ?? [],
     [exposureQuery?.dimensions],
   );
-  const userIdColumn = exposureQuery?.userIdType || DEFAULT_USER_ID_COLUMN;
+  const userIdColumn =
+    resolveAnalysisIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    ) || DEFAULT_USER_ID_COLUMN;
 
   const canRun =
     !!datasource &&
@@ -81,11 +90,22 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     autoRun,
     isActive: isTabActive,
     selectRows: (data) => data.records,
-    selectMeta: (data) => ({ truncated: data.truncated, ranAt: data.ranAt }),
+    selectMeta: (data) => ({
+      truncated: data.truncated,
+      valuesTruncated: data.valuesTruncated,
+      ranAt: data.ranAt,
+    }),
     selectNoCachedResult: (data) => data.noCachedResult === true,
-    buildParams: ({ startDate, endDate, rowFilters, cache }) => ({
+    buildParams: ({
       startDate,
       endDate,
+      rollingWindow,
+      rowFilters,
+      cache,
+    }) => ({
+      startDate,
+      endDate,
+      rollingWindow,
       rowFilters,
       cache,
     }),
@@ -97,8 +117,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
   const variationsById = useMemo(() => {
     const byId = new Map<string, { index: number; name: string }>();
     getLatestPhaseVariations(experiment).forEach((v) => {
-      const entry = { index: v.index, name: v.name || `Variation ${v.index}` };
-      byId.set(v.key || String(v.index), entry);
+      byId.set(v.key || String(v.index), { index: v.index, name: v.name });
     });
     return byId;
   }, [experiment]);
@@ -188,10 +207,13 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       ...dimensions.map((d): [string, string] => [d, d]),
     ];
 
-    const topValues = new Map<string, string[]>();
+    const topValues = new Map<string, ColumnTopValue[]>();
     topValues.set(
       VARIATION_COLUMN,
-      getLatestPhaseVariations(experiment).map((v) => v.key || String(v.index)),
+      getLatestPhaseVariations(experiment).map((v) => ({
+        label: v.name ? `${v.index}: ${v.name}` : `Variation ${v.index}`,
+        value: v.key || String(v.index),
+      })),
     );
     for (const dim of dimensions) {
       const seen = new Set<string>();

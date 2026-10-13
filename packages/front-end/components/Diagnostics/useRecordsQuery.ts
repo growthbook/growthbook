@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isEqual } from "lodash";
-import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  isRollingDateRange,
+} from "shared/enterprise";
 import type { ExplorationDateRange } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
 import { canNarrowLoadedRows } from "@/components/FactTables/rowFilterMatch";
@@ -19,6 +22,7 @@ export type RecordsCacheOption = "preferred" | "required" | "never";
 export interface BuildParamsInput {
   startDate: string;
   endDate: string;
+  rollingWindow: boolean;
   rowFilters: RowFilter[];
   cache: RecordsCacheOption;
 }
@@ -26,6 +30,7 @@ export interface BuildParamsInput {
 export interface RecordsQueryMeta {
   truncated: boolean;
   ranAt?: string;
+  valuesTruncated?: boolean;
 }
 
 export interface RecordsQueryConfig<TRow, TResponse> {
@@ -164,6 +169,7 @@ export default function useRecordsQuery<TRow, TResponse>({
           configRef.current.buildParams({
             startDate: resolved.startDate,
             endDate: resolved.endDate,
+            rollingWindow: isRollingDateRange(range),
             rowFilters: filters,
             cache,
           }),
@@ -245,6 +251,8 @@ export default function useRecordsQuery<TRow, TResponse>({
   );
   const truncated = meta?.truncated ?? false;
 
+  const loadedRowsAreLossy = truncated || (meta?.valuesTruncated ?? false);
+
   const submit = useCallback(() => {
     if (inFlight !== null) return;
     run({ filters: rowFilters, range: dateRange, cache: "never" });
@@ -253,7 +261,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   const filtersCanNarrow = canNarrowLoadedRows({
     loadedFilters: appliedRowFilters,
     nextFilters: rowFilters,
-    truncated,
+    truncated: loadedRowsAreLossy,
   });
 
   const applyControls = useCallback(
@@ -267,7 +275,7 @@ export default function useRecordsQuery<TRow, TResponse>({
       const sameRange = isEqual(range, appliedDateRange);
       let nextWindow: ResolvedWindow | null = visibleWindow;
       let rangeCanNarrow = sameRange;
-      if (!sameRange && appliedWindow !== null && !truncated) {
+      if (!sameRange && appliedWindow !== null && !loadedRowsAreLossy) {
         const resolvedRange = calculateProductAnalyticsDateRange(range);
         const candidate: ResolvedWindow = {
           startDate: resolvedRange.startDate.toISOString(),
@@ -288,7 +296,7 @@ export default function useRecordsQuery<TRow, TResponse>({
         canNarrowLoadedRows({
           loadedFilters: appliedRowFilters,
           nextFilters: filters,
-          truncated,
+          truncated: loadedRowsAreLossy,
         });
 
       if (canNarrow) {
@@ -306,9 +314,9 @@ export default function useRecordsQuery<TRow, TResponse>({
       appliedWindow,
       dateRange,
       inFlight,
+      loadedRowsAreLossy,
       rowFilters,
       run,
-      truncated,
       visibleWindow,
     ],
   );
@@ -323,7 +331,10 @@ export default function useRecordsQuery<TRow, TResponse>({
     isRefreshing: inFlight !== null,
     isIdle: (cacheProbe === "done" || !canRun) && inFlight === null && !hasRun,
     localNarrowingIsLossy:
-      inFlight === null && appliedRowFilters !== null && !filtersCanNarrow,
+      inFlight === null &&
+      appliedRowFilters !== null &&
+      !isEqual(rowFilters, appliedRowFilters) &&
+      !filtersCanNarrow,
     truncated,
     ranAt: meta?.ranAt,
     submit,

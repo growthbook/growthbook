@@ -935,8 +935,7 @@ export type FeatureEvalDiagnosticsQueryResponse =
 export type ExperimentExposuresQueryParams = {
   experimentId: string;
   experimentTrackingKey: string;
-  exposureQuerySql: string;
-  userIdType: string;
+  exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
   dimensions: string[];

@@ -7,16 +7,26 @@ import { columnNamesMatch } from "back-end/src/util/sql";
 export const MAX_EXTRA_COLUMNS = 40;
 export const MAX_VALUE_LENGTH = 1000;
 
+export type ExposuresWindow =
+  | { kind: "rolling"; windowMs: number }
+  | { kind: "fixed"; startDate: Date; endDate: Date };
+
 export interface ExposuresCacheKeyParams {
   experimentId: string;
   experimentTrackingKey: string;
   exposureQueryId: string;
   exposureQuerySql: string;
-  userIdType: string;
+  identifierType: string;
   dimensions: string[];
-  windowMs: number;
+  window: ExposuresWindow;
   rowFilters: RowFilter[];
   limit: number;
+}
+
+function windowCacheKeyPart(window: ExposuresWindow): unknown[] {
+  return window.kind === "rolling"
+    ? ["rolling", Math.round(window.windowMs / 60000)]
+    : ["fixed", window.startDate.toISOString(), window.endDate.toISOString()];
 }
 
 export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
@@ -27,9 +37,9 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
         params.experimentTrackingKey,
         params.exposureQueryId,
         params.exposureQuerySql,
-        params.userIdType,
+        params.identifierType,
         params.dimensions,
-        Math.round(params.windowMs / 60000),
+        windowCacheKeyPart(params.window),
         params.rowFilters.map((f) => [
           f.operator,
           f.column ?? "",
@@ -43,8 +53,7 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
 
 export interface ShapeExposureRowsParams {
   rows: Record<string, unknown>[];
-  /** Exposure query column holding the unit id. */
-  userIdType: string;
+  identifierType: string;
   /** Dimensions declared on the exposure query, in configured order. */
   dimensions: string[];
   caseSensitive: boolean;
@@ -53,6 +62,7 @@ export interface ShapeExposureRowsParams {
 export interface ShapedExposures {
   records: ExperimentExposureRecord[];
   extraColumns: string[];
+  valuesTruncated: boolean;
 }
 
 /** Normalize a naive warehouse timestamp to an ISO string, assuming UTC. */
@@ -60,7 +70,7 @@ export function normalizeTimestamp(value: unknown): string {
   if (value instanceof Date) {
     return isNaN(value.getTime()) ? "" : value.toISOString();
   }
-  const raw = value == null ? "" : String(value);
+  const raw = (value ?? null) === null ? "" : String(value);
   if (!raw) return "";
   const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
   const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
@@ -72,6 +82,11 @@ function truncateValue(value: string): string {
   return value.length <= MAX_VALUE_LENGTH
     ? value
     : value.slice(0, MAX_VALUE_LENGTH) + "…";
+}
+
+/** Truncation is the only way past MAX_VALUE_LENGTH, so length identifies it. */
+function isTruncated(value: string | null): boolean {
+  return value !== null && value.length > MAX_VALUE_LENGTH;
 }
 
 /**
@@ -121,14 +136,14 @@ export function getColumn(
  */
 export function shapeExposureRows({
   rows,
-  userIdType,
+  identifierType,
   dimensions,
   caseSensitive,
 }: ShapeExposureRowsParams): ShapedExposures {
   // Only columns already surfaced as typed fields. Everything else the
   // exposure query returned — experiment_id included — goes to `extra` so the
   // expanded row shows the complete record.
-  const reserved = [userIdType, "timestamp", "variation_id", ...dimensions];
+  const reserved = [identifierType, "timestamp", "variation_id", ...dimensions];
   const isReserved = (key: string) =>
     reserved.some((r) => columnNamesMatch(key, r, caseSensitive));
 
@@ -144,10 +159,15 @@ export function shapeExposureRows({
     }
   }
 
+  // Only the filterable columns matter here; `extra` is never filtered on.
+  let valuesTruncated = false;
+
   const records = rows.map((row) => {
     const dimensionValues: Record<string, string | null> = {};
     for (const dim of dimensions) {
-      dimensionValues[dim] = coerceValue(getColumn(row, dim, caseSensitive));
+      const value = coerceValue(getColumn(row, dim, caseSensitive));
+      if (isTruncated(value)) valuesTruncated = true;
+      dimensionValues[dim] = value;
     }
 
     const extra: Record<string, string | null> = {};
@@ -155,9 +175,12 @@ export function shapeExposureRows({
       extra[key] = coerceValue(getColumn(row, key, caseSensitive));
     }
 
+    const userId = coerceValue(getColumn(row, identifierType, caseSensitive));
+    if (isTruncated(userId)) valuesTruncated = true;
+
     return {
       timestamp: normalizeTimestamp(getColumn(row, "timestamp", caseSensitive)),
-      userId: coerceValue(getColumn(row, userIdType, caseSensitive)),
+      userId,
       variationId:
         coerceValue(getColumn(row, "variation_id", caseSensitive)) ?? "",
       dimensions: dimensionValues,
@@ -165,5 +188,5 @@ export function shapeExposureRows({
     };
   });
 
-  return { records, extraColumns };
+  return { records, extraColumns, valuesTruncated };
 }

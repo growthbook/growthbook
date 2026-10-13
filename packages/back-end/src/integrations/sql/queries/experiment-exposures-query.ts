@@ -66,7 +66,7 @@ export function getExperimentExposuresQuery(
   const trackingKey = dialect.escapeStringLiteral(params.experimentTrackingKey);
 
   const compiledExposureQuery = compileSqlTemplate(
-    params.exposureQuerySql,
+    params.exposureQuery.query,
     {
       startDate: params.startDate,
       endDate: params.endDate,
@@ -98,7 +98,7 @@ export function getExperimentExposuresQuery(
   const orderColumns = Array.from(
     new Set([
       "timestamp",
-      params.userIdType,
+      params.exposureQuery.identifierType,
       "variation_id",
       ...params.dimensions,
     ]),

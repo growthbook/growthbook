@@ -390,7 +390,7 @@ export async function runExperimentExposuresQuery(
     !integration.runExperimentExposuresQuery
   ) {
     throw new Error(
-      "Exposure logs are not supported for this data source type.",
+      "Exposure logs are not supported for this Data Source type.",
     );
   }
 

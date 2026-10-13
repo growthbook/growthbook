@@ -8,10 +8,11 @@ import {
   MAX_VALUE_LENGTH,
   normalizeTimestamp,
   shapeExposureRows,
+  type ExposuresWindow,
 } from "back-end/src/services/experiment-exposures";
 
 const base = {
-  userIdType: "user_id",
+  identifierType: "user_id",
   dimensions: ["country"],
   caseSensitive: false,
 };
@@ -150,6 +151,33 @@ describe("shapeExposureRows", () => {
     expect(Object.keys(records[0].extra)).toHaveLength(MAX_EXTRA_COLUMNS);
   });
 
+  it("reports a shortened filterable value", () => {
+    const long = "x".repeat(MAX_VALUE_LENGTH + 1);
+    const row = {
+      timestamp: "2025-01-01 00:00:00",
+      user_id: "u1",
+      variation_id: "0",
+      country: "US",
+    };
+
+    expect(shapeExposureRows({ ...base, rows: [row] }).valuesTruncated).toBe(
+      false,
+    );
+    expect(
+      shapeExposureRows({ ...base, rows: [{ ...row, country: long }] })
+        .valuesTruncated,
+    ).toBe(true);
+    expect(
+      shapeExposureRows({ ...base, rows: [{ ...row, user_id: long }] })
+        .valuesTruncated,
+    ).toBe(true);
+    // `extra` is never filtered on, so a long value there is harmless.
+    expect(
+      shapeExposureRows({ ...base, rows: [{ ...row, payload: long }] })
+        .valuesTruncated,
+    ).toBe(false);
+  });
+
   it("produces records matching the shared validator", () => {
     const { records } = shapeExposureRows({
       ...base,
@@ -172,19 +200,24 @@ describe("shapeExposureRows", () => {
 });
 
 describe("getExposuresCacheKey", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const rolling = (windowMs: number): ExposuresWindow => ({
+    kind: "rolling",
+    windowMs,
+  });
   const base = {
     experimentId: "exp_123",
     experimentTrackingKey: "my-experiment",
     exposureQueryId: "eq_1",
     exposureQuerySql: "SELECT * FROM exposures",
-    userIdType: "user_id",
+    identifierType: "user_id",
     dimensions: ["country"],
-    windowMs: 24 * 60 * 60 * 1000,
+    window: rolling(DAY_MS),
     rowFilters: [],
     limit: 1000,
   };
 
-  it("ignores where the window sits, which is the whole point", () => {
+  it("ignores where a rolling window sits, which is the whole point", () => {
     // The generated SQL embeds minute-snapped dates, so a rolling 24h window
     // produces a different string every minute and never hits the cache twice.
     expect(getExposuresCacheKey(base)).toBe(getExposuresCacheKey({ ...base }));
@@ -192,14 +225,42 @@ describe("getExposuresCacheKey", () => {
 
   it("ignores sub-minute jitter in the window length", () => {
     expect(
-      getExposuresCacheKey({ ...base, windowMs: base.windowMs + 400 }),
+      getExposuresCacheKey({ ...base, window: rolling(DAY_MS + 400) }),
     ).toBe(getExposuresCacheKey(base));
   });
 
   it("separates windows of different lengths", () => {
     expect(
-      getExposuresCacheKey({ ...base, windowMs: 7 * 24 * 60 * 60 * 1000 }),
+      getExposuresCacheKey({ ...base, window: rolling(7 * DAY_MS) }),
     ).not.toBe(getExposuresCacheKey(base));
+  });
+
+  it("separates a fixed day from the rolling window of the same length", () => {
+    // Yesterday and the default rolling day are both 24 hours long, so without
+    // this a Health tab asking for the default would be served yesterday.
+    const fixed = {
+      ...base,
+      window: {
+        kind: "fixed" as const,
+        startDate: new Date("2025-01-01T00:00:00Z"),
+        endDate: new Date("2025-01-02T00:00:00Z"),
+      },
+    };
+    expect(getExposuresCacheKey(fixed)).not.toBe(getExposuresCacheKey(base));
+  });
+
+  it("separates fixed windows at different points in history", () => {
+    const fixedFrom = (day: string) => ({
+      ...base,
+      window: {
+        kind: "fixed" as const,
+        startDate: new Date(`${day}T00:00:00Z`),
+        endDate: new Date(`${day}T12:00:00Z`),
+      },
+    });
+    expect(getExposuresCacheKey(fixedFrom("2025-01-01"))).not.toBe(
+      getExposuresCacheKey(fixedFrom("2025-02-01")),
+    );
   });
 
   it("separates a filtered run from an unfiltered one", () => {

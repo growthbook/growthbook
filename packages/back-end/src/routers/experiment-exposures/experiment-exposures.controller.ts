@@ -3,7 +3,12 @@ import { snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
-import { formatQueryExecutionErrorForApi, parseOptionalInt } from "shared/util";
+import type { ResolvedExposureQuery } from "shared/types/integrations";
+import {
+  formatQueryExecutionErrorForApi,
+  parseOptionalInt,
+  resolveExposureQueryForAnalysis,
+} from "shared/util";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -21,6 +26,7 @@ import {
 import {
   getExposuresCacheKey,
   shapeExposureRows,
+  type ExposuresWindow,
 } from "back-end/src/services/experiment-exposures";
 import { logger } from "back-end/src/util/logger";
 
@@ -29,6 +35,8 @@ type ExposuresResponse = {
   dimensions: string[];
   extraColumns: string[];
   truncated: boolean;
+  /** A filterable value was shortened, so the client must not filter locally. */
+  valuesTruncated?: boolean;
   sql?: string;
   error?: string;
   cached?: boolean;
@@ -45,6 +53,8 @@ export async function postExposures(
     {
       startDate: string;
       endDate: string;
+      /** The window ends at "now" and moves with the clock (a lookback). */
+      rollingWindow?: boolean;
       rowFilters?: RowFilter[];
       cache?: "preferred" | "required" | "never";
     },
@@ -61,14 +71,14 @@ export async function postExposures(
   }
   if (!experiment.datasource) {
     context.throwBadRequestError(
-      "This experiment is not connected to a data source.",
+      "This experiment is not connected to a Data Source.",
     );
     return;
   }
 
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
-    context.throwNotFoundError("Data source not found");
+    context.throwNotFoundError("Data Source not found");
     return;
   }
 
@@ -91,6 +101,21 @@ export async function postExposures(
     return;
   }
 
+  // The logs have to read the identifier the experiment analyzes on, not the
+  // query's frozen legacy one. Throws when the query stopped declaring it.
+  let resolvedExposureQuery: ResolvedExposureQuery;
+  try {
+    resolvedExposureQuery = resolveExposureQueryForAnalysis(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    );
+  } catch (e) {
+    context.throwBadRequestError(
+      e instanceof Error ? e.message : "Could not resolve the identifier type.",
+    );
+    return;
+  }
+
   const windowMs =
     new Date(req.body.endDate).getTime() -
     new Date(req.body.startDate).getTime();
@@ -100,6 +125,9 @@ export async function postExposures(
 
   const startDate = snapToMinuteStart(new Date(req.body.startDate));
   const endDate = snapToMinuteEnd(new Date(req.body.endDate));
+  const window: ExposuresWindow = req.body.rollingWindow
+    ? { kind: "rolling", windowMs }
+    : { kind: "fixed", startDate, endDate };
   const dimensions = exposureQuery.dimensions || [];
 
   const rowFilters = req.body.rowFilters ?? [];
@@ -117,7 +145,7 @@ export async function postExposures(
   // Outside the try below, whose catch turns throws into a 200 + error body.
   if (!integration.getExperimentExposuresQuery) {
     context.throwBadRequestError(
-      "Exposure logs are not supported for this data source type.",
+      "Exposure logs are not supported for this Data Source type.",
     );
     return;
   }
@@ -127,8 +155,7 @@ export async function postExposures(
     sql = integration.getExperimentExposuresQuery({
       experimentId: experiment.id,
       experimentTrackingKey: experiment.trackingKey,
-      exposureQuerySql: exposureQuery.query,
-      userIdType: exposureQuery.userIdType,
+      exposureQuery: resolvedExposureQuery,
       startDate,
       endDate,
       dimensions,
@@ -147,10 +174,10 @@ export async function postExposures(
     experimentId: experiment.id,
     experimentTrackingKey: experiment.trackingKey,
     exposureQueryId: exposureQuery.id,
-    exposureQuerySql: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    exposureQuerySql: resolvedExposureQuery.query,
+    identifierType: resolvedExposureQuery.identifierType,
     dimensions,
-    windowMs,
+    window,
     rowFilters,
     limit: BUFFER_SIZE,
   });
@@ -192,8 +219,7 @@ export async function postExposures(
       const result = await runExperimentExposuresQuery(integration, {
         experimentId: experiment.id,
         experimentTrackingKey: experiment.trackingKey,
-        exposureQuerySql: exposureQuery.query,
-        userIdType: exposureQuery.userIdType,
+        exposureQuery: resolvedExposureQuery,
         startDate,
         endDate,
         dimensions,
@@ -230,9 +256,9 @@ export async function postExposures(
   const truncated = rawRows.length > BUFFER_SIZE;
   const bufferRows = truncated ? rawRows.slice(0, BUFFER_SIZE) : rawRows;
 
-  const { records, extraColumns } = shapeExposureRows({
+  const { records, extraColumns, valuesTruncated } = shapeExposureRows({
     rows: bufferRows,
-    userIdType: exposureQuery.userIdType,
+    identifierType: resolvedExposureQuery.identifierType,
     dimensions,
     caseSensitive: integration.columnNamesAreCaseSensitive,
   });
@@ -242,6 +268,7 @@ export async function postExposures(
     dimensions,
     extraColumns,
     truncated,
+    valuesTruncated,
     sql,
     cached,
     ranAt: ranAt.toISOString(),
