@@ -32,13 +32,21 @@ When you compare two designs, prefer the one that meets more budgets, as long as
 These describe the character of the product. Use them to judge whether a design feels like GrowthBook, not as rules for any one element.
 
 - **The data is the hero.** The interface frames the content and doesn't compete with it. Tables, numbers, and results carry the visual weight; the controls around them stay smaller and lighter. When a screen feels busy, quiet the interface before you shrink the data.
-- **Hierarchy through restraint.** Emphasis comes from a few levels of contrast and size, not from more colors, fonts, or styles. To make something stand out, make it darker or larger. Don't invent a new treatment.
+- **Hierarchy through restraint.** Emphasis comes from a few levels of contrast and size, not from more colors, fonts, or styles. To make something stand out, raise its contrast or size; to quiet it, lower its contrast, never below 4.5:1 text contrast. In a dark theme, emphasis means lighter, not darker. Don't invent a new treatment.
 - **Built for repeat use.** GrowthBook is designed for people who come back every day and want to move fast. Favor speed for experienced users over hand-holding, and put explanation where it's needed instead of everywhere.
 - **Warm precision.** The product is exact without being cold. A technical, number-heavy tool can still feel calm and considered.
 
+## Visual hierarchy
+
+- **Give each screen one thing to read first.** Use a few text levels, each with a job: primary (the answer or value), secondary (labels and context), tertiary (metadata like sources and timestamps). Don't add a level for style.
+- **Put the answer first, with its evidence and definition visible.** Show intervals, sample sizes, and how a number was calculated beside it, at full legibility, never behind a click. Controls that define the result (filters, date range) stay visible near it. Controls that act on the result come after.
+- **Pair labels and values the same way everywhere.** Label in secondary, value in primary, unit and delta close to the value.
+- **Rank actions by frequency.** One primary action, other frequent actions as visible secondary buttons, rare actions in a menu.
+- **Test it.** Blur the screen. The answer should still be the first thing you see.
+
 ## Lessons from full-page flows
 
-The metric creation flow was the first of the new full-page flows, and its review rounds kept returning to the same themes. Treat these as defaults for any new full-page flow.
+Design reviews of full-page flows kept returning to the same themes. Treat these as defaults for any new full-page flow.
 
 ### Fewer containers, tighter spacing
 
@@ -57,25 +65,25 @@ The metric creation flow was the first of the new full-page flows, and its revie
 
 - Show the parts as well as the result, for example `600 / 80 = 7.5`. Users trust a number more when they can see how it was calculated.
 - Don't headline a partial value, such as today's incomplete total. Show a complete, representative window instead.
-- Show relative times ("3 hours ago") with the exact date and time in a tooltip, never a raw timestamp.
+- Show relative times ("3 hours ago") with the exact date and time in a tooltip, never a raw timestamp. Use `ago()` and `datetime()` from `shared/dates`.
 
 ### Keep the definition visible
 
 - Never hide anything that defines what the user is looking at, like filters or settings that change the result, behind a dropdown or a collapsed section. This matters most in read-only views.
 - Order fields by dependency: a field comes right after the field it depends on.
-- Name fields by what they mean to the user ("Retention period"), not by the implementation ("Window").
+- Name fields with the term the public docs use. If the docs don't name it, use the GrowthBook glossary term, then what the field means to the user. Never use an internal or implementation name.
 - Show secondary attributes, such as the Data Source that a table belongs to, with a quieter visual treatment, not in parentheses inside the main label.
 
 ### One scroll, stable layout, reachable actions
 
 - Avoid scroll areas inside scroll areas. Let content grow to its natural height and rely on the page or panel scroll.
-- Keep a panel the same size when the user switches tabs inside it, so the layout doesn't jump.
+- Where it's practical, keep a panel the same size when the user switches tabs inside it, for example with a minimum height, so the layout doesn't jump. Don't reshape the content just to make tabs match.
 - Keep primary actions in view on long forms. A sticky action bar must clear the top navigation and never cover content.
 - Put a frequently used action on a visible button, not only in an overflow menu.
 
 ### Choose the plainest control
 
-- Use a checkbox for an on/off setting in a form, and indent the settings it reveals beneath it so they read as its children.
+- Use a switch only when flipping it takes effect right away, with no Save or Apply step. In a form the user saves, use a checkbox, even when it reveals more fields, and indent the revealed fields beneath it so they read as its children.
 - Put descriptions and plan badges inside dropdown options, not in a separate line below the field.
 - Focus the first field when a creation flow opens.
 
@@ -90,7 +98,7 @@ The metric creation flow was the first of the new full-page flows, and its revie
 
 Users act on what GrowthBook shows them: they ship a variation, kill a feature, or roll back a change. A wrong or ambiguous number costs more than a missing one.
 
-- Show where a number comes from: the metric, the date range, the population, and the analysis settings.
+- Show where a number comes from when the screen doesn't already make it clear: a non-default date range, a filtered population, or non-default analysis settings. Don't repeat context that's already visible on the screen.
 - Distinguish clearly between a result and the absence of a result. Loading, empty, not-yet-significant, and error states each look different.
 - State uncertainty. Show intervals and sample sizes next to the estimate, not behind a click.
 - Never round, truncate, or color a value in a way that changes its meaning.
@@ -110,9 +118,9 @@ Power users scan many experiments, metrics, and flags at once. Use space efficie
 
 - Use tables and compact lists for collections. Use cards only when items need a visual or a summary that a row can't hold.
 - Avoid empty space that carries no meaning, such as a wide card holding one value or a modal that's mostly padding. Avoid the opposite too: if a section needs a second look to parse, give it more room or split it.
-- Group related controls and separate unrelated ones with spacing, not borders.
+- Within a section, group related controls and separate unrelated ones with spacing. Between major sections in one container, a divider rule is fine. Avoid a border or nested card around each group.
 - Align numbers to the right and use tabular figures so columns compare at a glance.
-- Remove decoration that doesn't carry information: extra borders, icons that repeat a label, color used for style alone.
+- Remove decoration that doesn't carry information: extra borders, shadows, color used for style alone, and icons that repeat a label. Keep icons that save space or aid recognition, such as in icon-only buttons and status.
 - Give each screen one primary task. Move secondary actions into menus or secondary pages.
 
 ## 4. Let the component speak for itself
@@ -138,6 +146,7 @@ GrowthBook has deep configuration (statistics engines, attribution models, targe
 A user who learns one part of GrowthBook should already understand the next. Reuse before you invent.
 
 - Use the design system (`@/ui/`) for every control that has an equivalent there. If a pattern is missing and generic, propose it as a new `@/ui/` component instead of a one-off.
+- Reuse an existing icon before adding one, and use the same icon for the same concept everywhere. Which icon sets to import from is an implementation rule, not a principle.
 - The same concept looks and behaves the same everywhere: a status badge, a metric result, an environment toggle.
 - Use the named-resource vocabulary from the copy guide. Call a thing by the same name on every screen.
 - Introduce a new pattern only when existing ones fail the task, and design it so other screens can adopt it.
@@ -149,11 +158,11 @@ Color in GrowthBook signals state and outcome. Use it sparingly so it stays read
 - Reserve green and red for outcomes and status (winning or losing, healthy or failing), and pair them with text or an icon so the meaning doesn't depend on color alone.
 - Use the violet accent for primary actions and selection, not for decoration.
 - Neutral grays do most of the work. If everything is colorful, nothing stands out.
-- Design every screen for both light and dark themes.
+- Design every screen for both light and dark themes. Use the theme's semantic color tokens and component color props instead of hard-coded colors, so both themes work without extra effort.
 
 ## 8. Accessible by default
 
-Accessibility is part of the design, not a pass at the end. Every design must meet [WCAG 2.2](https://www.w3.org/TR/WCAG22/) level AA. Unlike the efficiency budgets, this is a requirement, not a starting point. The `@/ui/` components are built on Radix, which handles much of the keyboard and screen reader behavior, but layout, color, and copy are up to the design.
+Accessibility is part of the design, not a pass at the end. Every new or changed screen must meet [WCAG 2.2](https://www.w3.org/TR/WCAG22/) level AA. Unlike the efficiency budgets, this is a requirement for new work, not a starting point. Existing screens don't meet it everywhere yet. Don't fix unrelated screens as part of a change; file the gap separately. The `@/ui/` components are built on Radix, which handles much of the keyboard and screen reader behavior, but layout, color, and copy are up to the design.
 
 The criteria that most often affect GrowthBook designs:
 
@@ -175,9 +184,9 @@ The criteria that most often affect GrowthBook designs:
 
 Beyond the minimum:
 
-- Don't put essential information only in a tooltip or on hover.
+- Don't put essential information only in a tooltip or on hover. Charts are the exception: they can show exact values on hover when the key values are also available as text or in a table (see 1.1.1 above).
 - Respect reduced-motion settings for animations and transitions.
-- Check every design in both light and dark themes. Contrast must pass in each.
+- Check every design in both light and dark themes. Contrast must pass in each. Theme tokens handle most of this, so focus on anything custom.
 
 ## 9. Plan every state
 
