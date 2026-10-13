@@ -41,6 +41,7 @@ import Table, {
   TableColumnHeader,
   TableHeader,
   TableRow,
+  TableRowHeaderCell,
 } from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -202,8 +203,11 @@ export default function ImportFromEppo() {
   );
 
   // Run-created items update by default; name matches wait for a tick
+  const untouched = (category: EppoCategory, match: ItemMatch) =>
+    UNTOUCHED.includes(category) && !!match.existingId;
   const isSelected = (category: EppoCategory, key: string) => {
     const match: ItemMatch = matches?.[category].get(key) ?? {};
+    if (untouched(category, match)) return false;
     return selection[itemId(category, key)] ?? match.match !== "name";
   };
 
@@ -230,7 +234,9 @@ export default function ImportFromEppo() {
       ...results[itemId(category, item.key)],
     }));
   const selectable = (category: EppoCategory) =>
-    getItems(category).filter((item) => item.status !== "invalid");
+    getItems(category).filter(
+      (item) => item.status !== "invalid" && !untouched(category, item),
+    );
   const selectedItems = CATEGORIES.flatMap(({ key }) =>
     selectable(key)
       .filter((item) => isSelected(key, item.key))
@@ -401,7 +407,10 @@ export default function ImportFromEppo() {
         <Callout status="info" mb="4">
           {`${updateCount} selected ${
             updateCount === 1 ? "item" : "items"
-          } from earlier imports will be updated to match Eppo. Rules on an existing Feature Flag are replaced; owners, tags and projects are kept.`}
+          } from earlier imports will be updated to match Eppo.`}
+          {updating.some(({ category }) => category === "flags")
+            ? " Rules on an existing Feature Flag are replaced; owners, tags and Projects are kept."
+            : ""}
         </Callout>
       ) : null}
 
@@ -485,21 +494,21 @@ export default function ImportFromEppo() {
                                     isSelected(category, item.key)
                                   }
                                   setValue={(v) => setSelected([id], v)}
-                                  disabled={item.status === "invalid"}
+                                  disabled={
+                                    item.status === "invalid" ||
+                                    untouched(category, item)
+                                  }
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableRowHeaderCell>
                                 {item.name}
                                 {item.existingId && href ? (
                                   <HelperText status="info" size="sm">
                                     {item.match === "name"
                                       ? "Same name as "
                                       : "Imported before as "}
-                                    <Link
-                                      href={href(item.existingId)}
-                                      target="_blank"
-                                    >
-                                      {item.existingId}
+                                    <Link href={href(item.existingId)} external>
+                                      {item.name}
                                     </Link>
                                   </HelperText>
                                 ) : item.existingId ? (
@@ -512,7 +521,7 @@ export default function ImportFromEppo() {
                                     {item.error}
                                   </HelperText>
                                 ) : null}
-                              </TableCell>
+                              </TableRowHeaderCell>
                               <TableCell>
                                 <StatusBadge item={item} category={category} />
                               </TableCell>

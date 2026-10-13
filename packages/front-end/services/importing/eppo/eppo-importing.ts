@@ -2036,37 +2036,36 @@ export async function runEppoImport({
     const batch = recorded;
     recorded = [];
     if (!batch.length) return;
-    try {
-      for (let i = 0; i < batch.length; i += RECORD_CHUNK) {
+    for (let i = 0; i < batch.length; i += RECORD_CHUNK) {
+      const chunk = batch.slice(i, i + RECORD_CHUNK);
+      try {
         await apiCall(`/auto-runs/${runId}/artifacts`, {
           method: "POST",
           body: JSON.stringify({
-            artifacts: batch
-              .slice(i, i + RECORD_CHUNK)
-              .map(({ item, id, error }) => ({
-                kind,
-                id,
-                label: item.name.slice(0, 200),
-                by: "growthbook",
-                ...(error
-                  ? { action: "failed", detail: error.slice(0, 500) }
-                  : artifactAction(category, item)),
-                externalId: externalId(category, item.eppo.id),
-              })),
+            artifacts: chunk.map(({ item, id, error }) => ({
+              kind,
+              id,
+              label: item.name.slice(0, 200),
+              by: "growthbook",
+              ...(error
+                ? { action: "failed", detail: error.slice(0, 500) }
+                : artifactAction(category, item)),
+              externalId: externalId(category, item.eppo.id),
+            })),
           }),
         });
-      }
-    } catch (e) {
-      // The objects exist but aren't recorded, so say so
-      batch.forEach(({ item, error }) => {
-        if (error) return;
-        outcome.completed--;
-        outcome.failed++;
-        setItem(category, item.key, {
-          status: "failed",
-          error: `Imported, but couldn't be recorded in the run report: ${e.message}`,
+      } catch (e) {
+        // The objects exist but aren't recorded, so say so
+        chunk.forEach(({ item, error }) => {
+          if (error) return;
+          outcome.completed--;
+          outcome.failed++;
+          setItem(category, item.key, {
+            status: "failed",
+            error: `Imported, but couldn't be recorded in the run report: ${e.message}`,
+          });
         });
-      });
+      }
     }
   };
 
@@ -2126,21 +2125,27 @@ export async function runEppoImport({
       await ensureAttributeExists(attribute, attributeSchema, apiCall);
     }
 
+    // Existing environments and tags are left alone but still go on the run
+    const recordExisting = (category: "environments" | "tags") =>
+      data[category]
+        .filter((i) => i.existingId && i.status !== "invalid")
+        .forEach((i) => record(i, i.key));
+
+    recordExisting("environments");
     // Serial, one env per call: each rewrites the org list
     const createdEnvs = new Set<string>();
     await importEach(
       "environments",
       data.environments,
       async (item) => {
-        if (!item.existingId) {
-          await apiCall("/environment", {
-            method: "PUT",
-            body: JSON.stringify({
-              environments: [{ id: item.key, description: item.eppo.name }],
-            }),
-          });
-          createdEnvs.add(item.key);
-        }
+        if (item.existingId) return;
+        await apiCall("/environment", {
+          method: "PUT",
+          body: JSON.stringify({
+            environments: [{ id: item.key, description: item.eppo.name }],
+          }),
+        });
+        createdEnvs.add(item.key);
         record(item, item.key);
       },
       { serial: true },
@@ -2148,17 +2153,17 @@ export async function runEppoImport({
     // Envs the plan refused drop out of the rules
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
+    recordExisting("tags");
     await importEach("tags", data.tags, async (item) => {
-      if (!item.existingId) {
-        await apiCall("/tag", {
-          method: "POST",
-          body: JSON.stringify({
-            id: item.key,
-            description: item.eppo.description ?? "",
-            color: "blue",
-          }),
-        });
-      }
+      if (item.existingId) return;
+      await apiCall("/tag", {
+        method: "POST",
+        body: JSON.stringify({
+          id: item.key,
+          description: item.eppo.description ?? "",
+          color: "blue",
+        }),
+      });
       record(item, item.key);
     });
 
@@ -2300,7 +2305,9 @@ export async function runEppoImport({
                 reason: "",
                 dateEnded: toPhaseDate(experiment.phases?.[0]?.dateEnded),
                 results: experiment.results,
-                winner: experiment.winner,
+                winnerVariationId: current.variations.find(
+                  (v) => v.key === item.eppo.winning_variant_key,
+                )?.id,
                 analysis: experiment.analysis,
                 excludeFromPayload: true,
               }),

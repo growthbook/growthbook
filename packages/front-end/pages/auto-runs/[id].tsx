@@ -42,7 +42,7 @@ type ArtifactKind = Artifact["kind"];
 // file before it could render at all. The Type column already names it.
 const KIND: Record<
   ArtifactKind,
-  { label: string; href: (id: string) => string }
+  { label: string; href: (id: string) => string; review?: string }
 > = {
   "sdk-connection": { label: "SDK Connection", href: (id) => `/sdks/${id}` },
   feature: { label: "Feature Flag", href: (id) => `/features/${id}` },
@@ -60,8 +60,13 @@ const KIND: Record<
   },
   "fact-table": { label: "Fact Table", href: (id) => `/fact-tables/${id}` },
   "saved-group": { label: "Saved Group", href: (id) => `/saved-groups/${id}` },
-  environment: { label: "Environment", href: () => "/environments" },
-  tag: { label: "Tag", href: () => "/tags" },
+  // No detail page; the link opens the list, and says so
+  environment: {
+    label: "Environment",
+    href: () => "/environments",
+    review: "Environments",
+  },
+  tag: { label: "Tag", href: () => "/tags", review: "Tags" },
 };
 
 function NameCell({
@@ -83,10 +88,16 @@ function NameCell({
   );
 }
 
-function ReviewCell({ href }: { href: string }) {
+function ReviewCell({
+  href,
+  label = "Review",
+}: {
+  href: string;
+  label?: string;
+}) {
   return (
     <TableCell justify="end" style={{ whiteSpace: "nowrap" }}>
-      <UiLink href={href}>Review</UiLink>
+      <UiLink href={href}>{label}</UiLink>
     </TableCell>
   );
 }
@@ -152,16 +163,24 @@ function CreatedTable({
 }
 
 /** Type | Name | Review — no environment column; it doesn't apply to these. */
-function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
-  const reviewable = (a: Artifact) =>
-    a.action !== "deleted" && a.action !== "failed";
+function SetUpTable({
+  artifacts,
+  review = true,
+}: {
+  artifacts: Artifact[];
+  review?: boolean;
+}) {
   return (
     <Table variant="list">
       <TableHeader>
         <TableRow>
           <TableColumnHeader>Type</TableColumnHeader>
           <TableColumnHeader>Name</TableColumnHeader>
-          <TableColumnHeader style={{ width: "1%" }}>Review</TableColumnHeader>
+          {review && (
+            <TableColumnHeader style={{ width: "1%" }}>
+              Review
+            </TableColumnHeader>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -173,10 +192,11 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
             <TableCell style={{ verticalAlign: "middle" }}>
               <NameCell name={a.label} subtitle={a.detail} />
             </TableCell>
-            {reviewable(a) ? (
-              <ReviewCell href={KIND[a.kind].href(a.id)} />
-            ) : (
-              <TableCell />
+            {review && (
+              <ReviewCell
+                href={KIND[a.kind].href(a.id)}
+                label={KIND[a.kind].review}
+              />
             )}
           </TableRow>
         ))}
@@ -190,13 +210,12 @@ function DeleteRunButton({
   onDone,
 }: {
   run: ApiAutoRun;
-  onDone: () => Promise<unknown>;
+  onDone: (failures: TeardownFailure[]) => Promise<unknown>;
 }) {
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [confirming, setConfirming] = useState(false);
-  const [failures, setFailures] = useState<TeardownFailure[]>([]);
   // Deletions are recorded on the run, which only its creator or an admin may update
   const canRecord =
     !run.createdBy ||
@@ -209,22 +228,6 @@ function DeleteRunButton({
   const updatedLater = updatedByLaterRuns(run, runsData?.autoRuns ?? []);
   return (
     <>
-      {failures.length > 0 && (
-        <Callout status="error" size="md" mb="4" style={{ width: "100%" }}>
-          <Text weight="medium" as="div">
-            {failures.length === 1
-              ? "1 item couldn't be deleted"
-              : `${failures.length} items couldn't be deleted`}
-          </Text>
-          <Box mt="1">
-            {failures.map(({ artifact, error }) => (
-              <Text as="div" size="sm" key={`${artifact.kind}:${artifact.id}`}>
-                {KIND[artifact.kind].label} {artifact.label}: {error}
-              </Text>
-            ))}
-          </Box>
-        </Callout>
-      )}
       {created.length > 0 ? (
         <Button
           color="red"
@@ -233,7 +236,7 @@ function DeleteRunButton({
           onClick={() => setConfirming(true)}
         >
           {created.length === 1
-            ? "Delete the 1 item this run created"
+            ? "Delete the item this run created"
             : `Delete the ${created.length} items this run created`}
         </Button>
       ) : (
@@ -244,11 +247,11 @@ function DeleteRunButton({
           title="Delete everything this run created?"
           content={
             <>
-              Everything this import created is deleted: Feature Flags,
-              experiments, metrics, Fact Tables, Saved Groups, environments and
-              tags. Items this run only updated are kept.
+              Everything this import created will be deleted: Feature Flags,
+              experiments, Fact Metrics, Fact Tables, Saved Groups, environments
+              and tags. Items this run only updated are kept.
               {updatedLater.length > 0 &&
-                ` A later import has since updated ${updatedLater.map((a) => `${KIND[a.kind].label} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it is" : "they are"} deleted too.`}{" "}
+                ` A later import has since updated ${updatedLater.map((a) => `${KIND[a.kind].label} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it" : "they"} will be deleted too.`}{" "}
               This can&apos;t be undone.
             </>
           }
@@ -257,9 +260,8 @@ function DeleteRunButton({
           onCancel={() => setConfirming(false)}
           onConfirm={async () => {
             const result = await teardownRun(run, apiCall);
-            setFailures(result.failures);
             setConfirming(false);
-            await onDone();
+            await onDone(result.failures);
           }}
         />
       )}
@@ -277,6 +279,7 @@ export default function AutoRunPage() {
   );
   const { mutateDefinitions } = useDefinitions();
   const { refreshOrganization } = useUser();
+  const [failures, setFailures] = useState<TeardownFailure[]>([]);
 
   const run = data?.autoRun;
   const completed = run?.outcome === "completed";
@@ -325,7 +328,10 @@ export default function AutoRunPage() {
   if (run.source === "eppo-import") {
     const failed = run.metadata.failed;
     const failedItems = run.artifacts.filter((a) => a.action === "failed");
-    const imported = run.artifacts.filter((a) => a.action !== "failed");
+    const deletedItems = run.artifacts.filter((a) => a.action === "deleted");
+    const imported = run.artifacts.filter(
+      (a) => a.action !== "failed" && a.action !== "deleted",
+    );
     return (
       <Container
         size="3"
@@ -355,7 +361,7 @@ export default function AutoRunPage() {
         {imported.length > 0 ? (
           <Section
             title="Imported From Eppo"
-            description="Open an item to review its settings. Importing again updates these instead of creating duplicates."
+            description="Open an item to review its settings. Importing again updates created and updated items instead of creating duplicates."
           >
             <SetUpTable artifacts={imported} />
           </Section>
@@ -367,19 +373,48 @@ export default function AutoRunPage() {
             title="Failed to Import"
             description="Why each item couldn't be imported. Fix the cause and import again."
           >
-            <SetUpTable artifacts={failedItems} />
+            <SetUpTable artifacts={failedItems} review={false} />
           </Section>
+        )}
+        {deletedItems.length > 0 && (
+          <Section
+            title="Deleted"
+            description="Removed from GrowthBook. The next import creates them again."
+          >
+            <SetUpTable artifacts={deletedItems} review={false} />
+          </Section>
+        )}
+        {failures.length > 0 && (
+          <Callout status="error" size="md" mt="5">
+            <Text weight="medium" as="div">
+              {failures.length === 1
+                ? "1 item couldn't be deleted"
+                : `${failures.length} items couldn't be deleted`}
+            </Text>
+            <Box mt="1">
+              {failures.map(({ artifact, error }) => (
+                <Text
+                  as="div"
+                  size="sm"
+                  key={`${artifact.kind}:${artifact.id}`}
+                >
+                  {KIND[artifact.kind].label} {artifact.label}: {error}
+                </Text>
+              ))}
+            </Box>
+          </Callout>
         )}
         <Flex justify="between" align="center" mt="6" gap="3" wrap="wrap">
           <DeleteRunButton
             run={run}
-            onDone={() =>
-              Promise.all([
+            onDone={(result) => {
+              setFailures(result);
+              return Promise.all([
                 mutate(),
                 mutateDefinitions(),
                 refreshOrganization(),
-              ])
-            }
+              ]);
+            }}
           />
           <LinkButton href="/">Continue to home</LinkButton>
         </Flex>

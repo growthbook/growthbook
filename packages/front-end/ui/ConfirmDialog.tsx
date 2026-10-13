@@ -34,8 +34,10 @@ export default function ConfirmDialog({
                 {title}
               </Text>
             </AlertDialog.Title>
-            <AlertDialog.Description size="2" color="gray">
-              {content}
+            <AlertDialog.Description>
+              <Text as="div" size="2" color="gray">
+                {content}
+              </Text>
             </AlertDialog.Description>
           </Box>
           {error && <HelperText status="error">{error}</HelperText>}
