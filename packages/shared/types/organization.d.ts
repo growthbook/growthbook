@@ -260,10 +260,6 @@ export type ApprovalFlowPolicy = Omit<
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
