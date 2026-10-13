@@ -380,7 +380,9 @@ const EventWebHookAddEditSettings = ({
                   disabledMessage={
                     canUseAllEnvironments
                       ? undefined
-                      : "You don't have access to every environment. Choose the environments this webhook should notify."
+                      : environments.length
+                        ? "You don't have access to every environment. Choose the environments this webhook should notify."
+                        : "Choose a Project you have access to. Environments you can use will show up here."
                   }
                   onSelectAll={() => form.setValue("environments", [])}
                 />
@@ -619,7 +621,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
       ctaEnabled={submitEnabled && permitted}
-      disabledMessage={permitted ? undefined : scopeMessage}
+      disabledMessage={submitEnabled && !permitted ? scopeMessage : undefined}
       submit={async () => {
         await handleSubmit();
       }}

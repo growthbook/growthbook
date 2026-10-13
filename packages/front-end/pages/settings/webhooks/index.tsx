@@ -46,8 +46,9 @@ const WebhooksPage: FC = () => {
         <div className="mt-5">
           <h2>Webhook Secrets</h2>
           <p>
-            Define secret variables that can be used within your webhook
-            endpoints or headers. Simply reference them using Handlebars syntax.
+            {canManageSecrets
+              ? "Define secret variables that can be used within your webhook endpoints or headers. Simply reference them using Handlebars syntax."
+              : "Reference webhook secrets in your endpoints or headers using Handlebars syntax."}{" "}
             For example, <code>{"{{ MY_SECRET }}"}</code>.
           </p>
           {!canManageSecrets && (
