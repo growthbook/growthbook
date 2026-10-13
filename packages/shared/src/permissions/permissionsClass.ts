@@ -37,6 +37,7 @@ import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
+import type { NotificationFilters } from "../validators/event-webhook";
 import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
@@ -68,7 +69,7 @@ type NotificationEvent = {
   projects: string[];
 };
 
-type EventWebhookScope = { projects: string[]; environments: string[] };
+type EventWebhookScope = Pick<NotificationFilters, "projects" | "environments">;
 
 // The Event Forwarder Events fact table is `managedBy: "api"` but is
 // intentionally editable and deletable by users for now, so it skips the
