@@ -47,7 +47,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
 
-// Where the GrowthBook entity an item matched lives
 const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   audiences: (id) => `/saved-groups/${id}`,
   factSources: (id) => `/fact-tables/${id}`,
@@ -84,8 +83,6 @@ function StatusBadge({
   }
 }
 
-// An entity is in scope when no project is picked, or it is in that project
-// (or in every project)
 const inProject = (project: string, projects?: string[] | null) =>
   !project || !projects?.length || projects.includes(project);
 
@@ -209,7 +206,6 @@ export default function ImportFromEppo() {
     return selection[itemId(category, key)] ?? match.match !== "name";
   };
 
-  // Rebuilt when the project, Data Source, selection or GrowthBook data changes
   const data = useMemo(
     () =>
       eppo && matches

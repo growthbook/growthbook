@@ -438,7 +438,6 @@ describe("transformFlag", () => {
       ],
     });
 
-    // Without the experiment (not imported), fall back to an inline rule
     expect(transformFlag(flag, mkCtx()).rules[0]).toMatchObject({
       type: "experiment",
     });

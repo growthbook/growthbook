@@ -1636,7 +1636,6 @@ export function getImportedIds(
   return ids;
 }
 
-// GrowthBook entities an Eppo item may match
 export type ExistingIds = {
   environments: Set<string>;
   tags: Set<string>;
@@ -1962,7 +1961,11 @@ export async function runEppoImport({
 
   // What each category created, sent to the run in one append once the
   // category finishes so concurrent items never race on the run document
-  type Recorded = { item: ImportItem<unknown>; id: string; error?: string };
+  type Recorded = {
+    item: ImportItem<{ id: number }>;
+    id: string;
+    error?: string;
+  };
   let recorded: Recorded[] = [];
   const record = <T extends { id: number }>(
     item: ImportItem<T>,
@@ -1987,7 +1990,7 @@ export async function runEppoImport({
             ...(error
               ? { action: "failed", detail: error.slice(0, 500) }
               : artifactAction(category, item)),
-            externalId: externalId(category, (item.eppo as { id: number }).id),
+            externalId: externalId(category, item.eppo.id),
           })),
         }),
       });
@@ -2010,7 +2013,7 @@ export async function runEppoImport({
   // the import. Updates never send it, so a later owner change sticks.
   const created = <T extends object>(payload: T) => ({ ...payload, owner: "" });
 
-  const importEach = async <T>(
+  const importEach = async <T extends { id: number }>(
     category: EppoCategory,
     items: ImportItem<T>[],
     importItem: (item: ImportItem<T>) => Promise<unknown>,
@@ -2032,9 +2035,7 @@ export async function runEppoImport({
           // id is the Eppo reference since nothing was created in GrowthBook.
           recorded.push({
             item,
-            id:
-              item.existingId ??
-              externalId(category, (item.eppo as { id: number }).id),
+            id: item.existingId ?? externalId(category, item.eppo.id),
             error: e.message,
           });
         }

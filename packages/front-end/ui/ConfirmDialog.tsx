@@ -34,7 +34,6 @@ export default function ConfirmDialog({
                 {title}
               </Text>
             </AlertDialog.Title>
-            {/* The description renders a <p>, which can't hold a <div> */}
             <AlertDialog.Description size="2" color="gray">
               {content}
             </AlertDialog.Description>
