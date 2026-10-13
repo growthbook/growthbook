@@ -83,6 +83,7 @@ export async function runFactTableTestQuery(
       sql,
       [timestampColumn],
       "factTableValidation",
+      factTable.id,
     );
     return { sql, ...results };
   } catch (e) {
