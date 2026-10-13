@@ -3,7 +3,6 @@ import {
   ExperimentStatus,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { datetime } from "shared/dates";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
@@ -44,7 +43,7 @@ export default function EditStatusModal({
           ? "analysis"
           : experiment.status,
       reason: "",
-      dateEnded: new Date().toISOString().substr(0, 16),
+      dateEnded: new Date().toISOString(),
     },
   });
   const { apiCall } = useAuth();
@@ -158,10 +157,11 @@ export default function EditStatusModal({
               placeholder="(optional)"
             />
             <DatePicker
-              label="Stop Time (UTC)"
+              label="Stop Time"
+              timeZone="utc"
               date={form.watch("dateEnded")}
               setDate={(v) => {
-                form.setValue("dateEnded", v ? datetime(v) : "");
+                form.setValue("dateEnded", v ? v.toISOString() : "");
               }}
             />
           </>

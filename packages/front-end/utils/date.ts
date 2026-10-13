@@ -1,3 +1,26 @@
+// Map an instant to/from a Date whose local fields are its UTC fields, so a local-only picker edits UTC.
+export function utcInstantToPickerDate(instant: Date): Date {
+  return new Date(
+    instant.getUTCFullYear(),
+    instant.getUTCMonth(),
+    instant.getUTCDate(),
+    instant.getUTCHours(),
+    instant.getUTCMinutes(),
+  );
+}
+
+export function pickerDateToUtcInstant(picked: Date): Date {
+  return new Date(
+    Date.UTC(
+      picked.getFullYear(),
+      picked.getMonth(),
+      picked.getDate(),
+      picked.getHours(),
+      picked.getMinutes(),
+    ),
+  );
+}
+
 export const formatDateForURL = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed

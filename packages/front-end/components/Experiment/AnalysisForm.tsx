@@ -7,7 +7,7 @@ import {
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -187,12 +187,8 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
-        .toISOString()
-        .substr(0, 16),
-      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
-        .toISOString()
-        .substr(0, 16),
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "").toISOString(),
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
@@ -785,11 +781,12 @@ const AnalysisForm: FC<{
             <div className="row">
               <div className="col">
                 <DatePicker
-                  label="Start Time (UTC)"
+                  label="Start Time"
+                  timeZone="utc"
                   helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateStarted", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? v.toISOString() : "");
                   }}
                   scheduleEndDate={form.watch("dateEnded")}
                   disableAfter={form.watch("dateEnded") || undefined}
@@ -798,11 +795,12 @@ const AnalysisForm: FC<{
               {experiment.status === "stopped" && (
                 <div className="col">
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End Time"
+                    timeZone="utc"
                     helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}

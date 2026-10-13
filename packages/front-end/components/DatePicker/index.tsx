@@ -2,6 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { endOfDay, format, startOfDay } from "date-fns";
+import { format as formatTimeZone } from "date-fns-tz";
 import React, {
   ReactNode,
   useCallback,
@@ -19,6 +20,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import { pickerDateToUtcInstant, utcInstantToPickerDate } from "@/utils/date";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -50,6 +52,11 @@ type Props = {
   wrapRangeInputs?: boolean;
   compact?: boolean;
   disabled?: boolean;
+  /**
+   * Clock the user picks on, shown beside the field. "utc" takes and returns
+   * true instants while editing their UTC wall-clock.
+   */
+  timeZone?: "utc" | "local";
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -105,10 +112,10 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
 
 export default function DatePicker({
   id,
-  date,
-  setDate,
-  date2,
-  setDate2,
+  date: dateProp,
+  setDate: setDateProp,
+  date2: date2Prop,
+  setDate2: setDate2Prop,
   label,
   label2,
   helpText,
@@ -116,18 +123,57 @@ export default function DatePicker({
   clampInput = true,
   inputWidth,
   precision = "datetime",
-  disableBefore,
-  disableAfter,
-  activeDates,
-  scheduleStartDate,
-  scheduleEndDate,
+  disableBefore: disableBeforeProp,
+  disableAfter: disableAfterProp,
+  activeDates: activeDatesProp,
+  scheduleStartDate: scheduleStartDateProp,
+  scheduleEndDate: scheduleEndDateProp,
   containerClassName = "form-group",
   clearButton = false,
   wrapRangeInputs = false,
   compact = false,
   disabled,
+  timeZone,
   fixedSpanMode,
 }: Props) {
+  // Everything below works in the picker's local frame; UTC mode converts at the props boundary.
+  const isUtc = timeZone === "utc";
+  const toPicker = useCallback(
+    (v: Date | string | undefined) =>
+      v && isUtc ? utcInstantToPickerDate(getValidDate(v)) : v,
+    [isUtc],
+  );
+  const date = useMemo(() => toPicker(dateProp), [toPicker, dateProp]);
+  const date2 = useMemo(() => toPicker(date2Prop), [toPicker, date2Prop]);
+  const disableBefore = useMemo(
+    () => toPicker(disableBeforeProp),
+    [toPicker, disableBeforeProp],
+  );
+  const disableAfter = useMemo(
+    () => toPicker(disableAfterProp),
+    [toPicker, disableAfterProp],
+  );
+  const scheduleStartDate = toPicker(scheduleStartDateProp);
+  const scheduleEndDate = toPicker(scheduleEndDateProp);
+  const activeDates = activeDatesProp?.map((d) => toPicker(d) ?? d);
+  const setDate = useCallback(
+    (d: Date | undefined) =>
+      setDateProp(d && isUtc ? pickerDateToUtcInstant(d) : d),
+    [setDateProp, isUtc],
+  );
+  const setDate2 = useMemo(
+    () =>
+      setDate2Prop &&
+      ((d: Date | undefined) =>
+        setDate2Prop(d && isUtc ? pickerDateToUtcInstant(d) : d)),
+    [setDate2Prop, isUtc],
+  );
+  const zone = isUtc
+    ? "UTC"
+    : timeZone === "local"
+      ? formatTimeZone(date ? getValidDate(date) : new Date(), "z")
+      : null;
+
   const inputHeight = compact ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
     ? {
@@ -248,6 +294,9 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
+  const fieldLabel = isRange ? (label ?? label2) : label;
+  // Without a label to suffix, the zone sits inline after the field.
+  const inlineZone = fieldLabel ? null : zone;
 
   const rangeFieldValue = useMemo(() => {
     if (
@@ -382,16 +431,17 @@ export default function DatePicker({
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
             >
-              {(isRange ? (label ?? label2) : label) ? (
+              {fieldLabel ? (
                 // Associated with the input when the caller supplies an `id`;
                 // without it the label is visible but has no accessible name.
                 <Text as="label" htmlFor={id || undefined} weight="semibold">
-                  {isRange ? (label ?? label2) : label}
+                  {fieldLabel}
+                  {zone ? ` (${zone})` : null}
                 </Text>
               ) : null}
               <div
                 style={
-                  clearButton && !isRange
+                  (clearButton && !isRange) || inlineZone
                     ? {
                         display: "flex",
                         alignItems: "center",
@@ -482,6 +532,11 @@ export default function DatePicker({
                     }}
                   />
                 </div>
+                {inlineZone ? (
+                  <Text size="sm" color="text-low" whiteSpace="nowrap">
+                    {inlineZone}
+                  </Text>
+                ) : null}
                 {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
                 {clearButton && !isRange && (
                   <Button

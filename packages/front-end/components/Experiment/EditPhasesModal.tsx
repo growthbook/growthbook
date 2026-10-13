@@ -120,11 +120,19 @@ export default function EditPhasesModal({
                 <TableCell>{i + 1}</TableCell>
                 <TableCell>{phase.name}</TableCell>
                 <TableCell>
-                  <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
+                  <strong
+                    title={`${datetime(phase.dateStarted ?? "", "UTC")} UTC`}
+                  >
                     {date(phase.dateStarted ?? "", "UTC")}
                   </strong>{" "}
                   to{" "}
-                  <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
+                  <strong
+                    title={
+                      phase.dateEnded
+                        ? `${datetime(phase.dateEnded, "UTC")} UTC`
+                        : undefined
+                    }
+                  >
                     {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                   </strong>
                 </TableCell>

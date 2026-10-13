@@ -6,7 +6,7 @@ import {
 import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getValidDate } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { DifferenceType } from "shared/types/stats";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
@@ -68,17 +68,11 @@ export default function ConfigureReport({
       ...report,
       experimentAnalysisSettings: {
         ...report.experimentAnalysisSettings,
-        dateStarted: new Date(
-          getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
-            .toISOString()
-            .substr(0, 16),
+        dateStarted: getValidDate(
+          report.experimentAnalysisSettings?.dateStarted ?? "",
         ),
         dateEnded: report.experimentAnalysisSettings?.dateEnded
-          ? new Date(
-              getValidDate(report.experimentAnalysisSettings.dateEnded)
-                .toISOString()
-                .substr(0, 16),
-            )
+          ? getValidDate(report.experimentAnalysisSettings.dateEnded)
           : null,
         lookbackOverride: report.experimentAnalysisSettings?.lookbackOverride
           ? report.experimentAnalysisSettings.lookbackOverride.type === "date"
@@ -104,24 +98,6 @@ export default function ConfigureReport({
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
     }
-    const d = new Date();
-    // @ts-expect-error types are good enough for CRUD
-    value.experimentAnalysisSettings = {
-      ...value.experimentAnalysisSettings,
-      dateStarted: new Date(
-        getValidDate(
-          value.experimentAnalysisSettings?.dateStarted ?? "",
-        ).getTime() -
-          d.getTimezoneOffset() * 60 * 1000,
-      ),
-      dateEnded: value.experimentAnalysisSettings?.dateEnded
-        ? new Date(
-            getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
-              d.getTimezoneOffset() * 60 * 1000,
-          )
-        : null,
-    };
-
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
     }>(`/report/${report.id}`, {
@@ -304,7 +280,8 @@ export default function ConfigureReport({
               <div style={{ width: "50%" }}>
                 <DatePicker
                   key={`${datePickerKey}_date1`}
-                  label="Analysis Start (UTC)"
+                  label="Analysis Start"
+                  timeZone="utc"
                   containerClassName="mb-2"
                   date={form.watch("experimentAnalysisSettings.dateStarted")}
                   setDate={(d) =>
@@ -322,11 +299,7 @@ export default function ConfigureReport({
                   onClick={() => {
                     form.setValue(
                       "experimentAnalysisSettings.dateStarted",
-                      new Date(
-                        getValidDate(experiment?.phases?.[0]?.dateStarted)
-                          .toISOString()
-                          .substr(0, 16),
-                      ),
+                      getValidDate(experiment?.phases?.[0]?.dateStarted),
                     );
                     incrementDatePickerKey();
                   }}
@@ -335,11 +308,7 @@ export default function ConfigureReport({
                     Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
-                      {new Date(
-                        getValidDate(experiment?.phases?.[0]?.dateStarted)
-                          .toISOString()
-                          .substr(0, 16),
-                      ).toLocaleDateString()}
+                      {date(experiment?.phases?.[0]?.dateStarted ?? "", "UTC")}
                     </small>
                   </div>
                 </Button>
@@ -353,13 +322,9 @@ export default function ConfigureReport({
                       onClick={() => {
                         form.setValue(
                           "experimentAnalysisSettings.dateStarted",
-                          new Date(
-                            getValidDate(
-                              experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted ?? "",
-                            )
-                              .toISOString()
-                              .substr(0, 16),
+                          getValidDate(
+                            experiment?.phases?.[latestPhaseIndex]
+                              ?.dateStarted ?? "",
                           ),
                         );
                         incrementDatePickerKey();
@@ -369,14 +334,11 @@ export default function ConfigureReport({
                         Use latest phase ({latestPhaseIndex + 1}) start date
                         <br />
                         <small>
-                          {new Date(
-                            getValidDate(
-                              experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted,
-                            )
-                              .toISOString()
-                              .substr(0, 16),
-                          ).toLocaleDateString()}
+                          {date(
+                            experiment?.phases?.[latestPhaseIndex]
+                              ?.dateStarted ?? "",
+                            "UTC",
+                          )}
                         </small>
                       </div>
                     </Button>
@@ -396,7 +358,8 @@ export default function ConfigureReport({
                 ) : (
                   <DatePicker
                     key={`${datePickerKey}_date2`}
-                    label="End (UTC)"
+                    label="End"
+                    timeZone="utc"
                     containerClassName="mb-2"
                     date={
                       form.watch("experimentAnalysisSettings.dateEnded") ??
@@ -422,13 +385,8 @@ export default function ConfigureReport({
                         onClick={() => {
                           form.setValue(
                             "experimentAnalysisSettings.dateEnded",
-                            new Date(
-                              getValidDate(
-                                experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded,
-                              )
-                                .toISOString()
-                                .substr(0, 16),
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]?.dateEnded,
                             ),
                           );
                           incrementDatePickerKey();
@@ -439,14 +397,11 @@ export default function ConfigureReport({
                           Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
                           <small>
-                            {new Date(
-                              getValidDate(
-                                experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded,
-                              )
-                                .toISOString()
-                                .substr(0, 16),
-                            ).toLocaleDateString()}
+                            {date(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateEnded ?? "",
+                              "UTC",
+                            )}
                           </small>
                         </div>
                       </Button>

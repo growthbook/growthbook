@@ -1,9 +1,8 @@
 import {
   customDimensionDraftError,
   isCutoffWithinBounds,
-  pickerDateToUtcInstant,
-  utcInstantToPickerDate,
 } from "@/components/Dimensions/CustomDimensionFields";
+import { pickerDateToUtcInstant, utcInstantToPickerDate } from "@/utils/date";
 
 // These only mean anything when the runner is NOT on UTC; the suite sets
 // TZ=America/Los_Angeles so the shift is observable.

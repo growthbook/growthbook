@@ -13,7 +13,6 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -75,7 +74,7 @@ const NewPhaseForm: FC<{
           status: "active" as const,
         })),
       reason: "",
-      dateStarted: new Date().toISOString().substr(0, 16),
+      dateStarted: new Date().toISOString(),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
@@ -177,10 +176,11 @@ const NewPhaseForm: FC<{
       )}
       {!hasLinkedChanges && (
         <DatePicker
-          label="Start Time (UTC)"
+          label="Start Time"
+          timeZone="utc"
           date={form.watch("dateStarted")}
           setDate={(v) => {
-            form.setValue("dateStarted", v ? datetime(v) : "");
+            form.setValue("dateStarted", v ? v.toISOString() : "");
           }}
         />
       )}
