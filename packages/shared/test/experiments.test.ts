@@ -3164,6 +3164,31 @@ describe("getClusterExperimentMetricEligibility", () => {
     ).toEqual({ allowed: true });
   });
 
+  it("allows a max aggregation when the fact table exposes the cluster identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true });
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon", "max"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("max");
+    }
+  });
+
   it("rejects metrics whose fact table has neither identifier", () => {
     const result = getClusterExperimentMetricEligibility(
       factMetric("mean", "ft_anon"),
@@ -3233,6 +3258,21 @@ describe("getClusterMetricAnalysisLevel", () => {
         options,
       ),
     ).toBe("cluster");
+  });
+
+  it("analyzes aggregations that can't sum across sub-units per cluster", () => {
+    const max = (factTableId: string) =>
+      ({
+        metricType: "mean",
+        numerator: { factTableId, column: "value", aggregation: "max" },
+        denominator: null,
+      }) as unknown as FactMetricInterface;
+    expect(getClusterMetricAnalysisLevel(max("ft_both"), options)).toBe(
+      "cluster",
+    );
+    expect(getClusterMetricAnalysisLevel(max("ft_user_only"), options)).toBe(
+      null,
+    );
   });
 
   it("returns null when no single identifier reaches every fact table", () => {
