@@ -72,12 +72,12 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
                 onFocus={() => setHovered(true)}
                 onBlur={leave}
               >
-                <code className="text-main text-break">{value}</code>
+                <code className={styles.secret}>{value}</code>
               </button>
             }
           />
         ) : (
-          <code className="text-main text-break">{value}</code>
+          <code className={styles.secret}>{value}</code>
         )}
         <Box
           position="absolute"

@@ -1,7 +1,7 @@
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
-import { FaRobot } from "react-icons/fa";
+import { PiRobot } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import type { Size } from "@/ui/Avatar";
 import { useUser } from "@/services/UserContext";
@@ -135,7 +135,7 @@ export default function EventUser({
     <UserAvatar
       email={email}
       name={name}
-      icon={keyActed ? <FaRobot /> : undefined}
+      icon={keyActed ? <PiRobot /> : undefined}
       size={size}
       variant="soft"
     />

@@ -119,14 +119,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
       <Table variant="surface" layout="fixed" mb="3">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader width="15%">Description</TableColumnHeader>
-            <TableColumnHeader width="270px">Key</TableColumnHeader>
-            <TableColumnHeader width="16%">Role</TableColumnHeader>
-            <TableColumnHeader width="16%">Project Roles</TableColumnHeader>
+            <TableColumnHeader>Description</TableColumnHeader>
+            <TableColumnHeader width="240px">Key</TableColumnHeader>
+            <TableColumnHeader>Role</TableColumnHeader>
+            <TableColumnHeader>Project Roles</TableColumnHeader>
             <TableColumnHeader width="150px">Last Used</TableColumnHeader>
             <SortableTableColumnHeader
               field="expiresAtSort"
-              style={{ width: 180 }}
+              style={{ width: 130 }}
             >
               Expires
             </SortableTableColumnHeader>
@@ -176,13 +176,16 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 {requesterHeaderPolicy(key) === "required" && (
                   <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
                     <Flex
-                      align="center"
+                      align="start"
                       gap="1"
                       mt="1"
                       width="fit-content"
                       style={{ color: "var(--brown-10)" }}
                     >
-                      <PiIdentificationCard size={18} />
+                      {/* One text line tall, so the icon sits on the first row. */}
+                      <Flex flexShrink="0" align="center" height="16px">
+                        <PiIdentificationCard size={18} />
+                      </Flex>
                       <Text size="sm">Requester required</Text>
                     </Flex>
                   </Tooltip>

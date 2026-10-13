@@ -3,6 +3,11 @@
   color: transparent;
 }
 
+.secret {
+  color: var(--text-color-main);
+  overflow-wrap: anywhere;
+}
+
 // Nested to outrank the popover anchor's `all: unset`.
 .revealed .value {
   display: block;
@@ -25,7 +30,9 @@
   background-color: var(--color-panel-solid);
 }
 
-// Shown only while the key is hovered or focused, so it never covers it.
+// Shown only while the key is hovered or keyboard-focused, so it never covers
+// it. A click's focus doesn't count, or Hide would stay up after the pointer
+// leaves.
 .hide {
   right: -4px;
   bottom: -6px;
@@ -34,7 +41,7 @@
   transition: opacity 150ms ease;
 
   .revealed:hover &,
-  .revealed:focus-within & {
+  .revealed:has(:focus-visible) & {
     opacity: 1;
     pointer-events: auto;
   }

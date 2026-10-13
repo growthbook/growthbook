@@ -205,10 +205,10 @@ export function revisionActor(revision: ActorSources, id: string): EventUser {
   );
 }
 
-// One line naming an actor, led by whoever acted: "Dana via CI key" when an org
-// key assumed Dana's role, "CI key for Dana" when it acted as itself and named
-// her, "Pat (API)" for a personal access token, "CI key (API)" for a key that
-// named no one. `nameFor` supplies a member's current name.
+// One line naming an actor, led by whoever acted: "Dana via Slackbot" when an
+// org key named Slackbot assumed Dana's role, "Slackbot for Dana" when it acted
+// as itself and named her, "Pat (API)" for a personal access token, "Slackbot
+// (API)" for a key that named no one. `nameFor` supplies a member's current name.
 export function eventUserLabel(
   user: EventUser,
   {
