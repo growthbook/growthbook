@@ -17,7 +17,7 @@ const HEADER_HELP: Record<HeaderPolicy, string> = {
 
 const PERMISSIONS_HELP: Record<PermissionsMode, string> = {
   assume: "Acts as the member, limited to what this key can also do.",
-  key: "Acts as the key. The name is only logged.",
+  key: "Acts as the key. The member's name is only logged.",
 };
 
 const RequestedByFields: FC<{

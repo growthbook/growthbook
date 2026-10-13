@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useId, useRef, useState } from "react";
 import {
   addDays,
   allowedExpirationPresets,
@@ -113,6 +113,7 @@ const ApiKeyExpirationField: FC<{
         ? `Enter or select a date on or before ${date(latest)}.`
         : undefined;
   const picksDate = selection === DATE;
+  const dateId = useId();
   // A preset only says how long; this turns it into the date it lands on.
   const expiresNote =
     value && !problem && !picksDate ? (
@@ -185,10 +186,11 @@ const ApiKeyExpirationField: FC<{
               <Box>{expiresNote}</Box>
               {picksDate && (
                 <>
-                  <Text as="label" weight="semibold" mb="0">
+                  <Text as="label" htmlFor={dateId} weight="semibold" mb="0">
                     Date
                   </Text>
                   <DatePicker
+                    id={dateId}
                     size="md"
                     date={value ?? undefined}
                     setDate={(d) => setValue(d ?? null)}
