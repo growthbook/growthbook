@@ -59,7 +59,12 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
 export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
   | { type: "condition"; condition: ConditionInterface }
-  | { type: "remote"; attributeKey: string };
+  | {
+      type: "remote";
+      attributeKey: string;
+      // Derived groups: the remote group whose IDs this attribute is checked against
+      valuesFrom?: string;
+    };
 
 /** The `savedGroups` field of a savedGroupReferencesV2 payload: ID to entry. */
 export type SavedGroupPayloadMap = Record<string, SavedGroupPayloadEntry>;

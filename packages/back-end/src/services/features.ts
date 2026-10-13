@@ -47,6 +47,8 @@ import {
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
   forEachRemoteGroupIdInCondition,
+  getDerivedRemoteGroups,
+  parseDerivedGroupId,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
   SavedGroupPayloadStrategy,
@@ -834,6 +836,13 @@ export function getUsedSavedGroupIds(
   experimentsDefinitions.forEach((experimentDefinition) => {
     addConditionToUsedGroupIds(experimentDefinition.condition);
     addConditionToUsedGroupIds(experimentDefinition.parentConditions);
+  });
+
+  // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
+  // too: its lookups use the source's attribute.
+  [...seedIds].forEach((id) => {
+    const derived = parseDerivedGroupId(id, groupMap);
+    if (derived) seedIds.add(derived.sourceId);
   });
 
   return findAllReferencedSavedGroupIds(seedIds, groupMap);
@@ -1883,9 +1892,11 @@ export async function buildSDKPayloadForConnection(
     experimentsDefinitions,
     data.groupMap,
   );
-  const usedSavedGroups = data.savedGroups.filter((sg) =>
-    usedSavedGroupIds.has(sg.id),
-  );
+  const usedSavedGroups = [
+    ...data.savedGroups.filter((sg) => usedSavedGroupIds.has(sg.id)),
+    // Remote groups checked against another attribute
+    ...getDerivedRemoteGroups(usedSavedGroupIds, data.savedGroups),
+  ];
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,

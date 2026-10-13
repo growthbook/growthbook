@@ -2,6 +2,7 @@ export * from "./errors";
 export * from "./types";
 export * from "./walk";
 export * from "./remote";
+export * from "./derived";
 export * from "./referenced-ids";
 export * from "./strategy-inline";
 export * from "./strategy-references-v1";

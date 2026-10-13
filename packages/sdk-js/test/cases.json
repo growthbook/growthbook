@@ -12809,6 +12809,48 @@
             "values": ["u_1"]
           }
         }
+      ],
+      [
+        "derived group: member through another attribute",
+        { "$savedGroup": { "id": "grp_vip:parent_id" } },
+        { "parent_id": "a9", "__gb_remoteGroupIds": ["grp_vip:parent_id"] },
+        true,
+        {
+          "grp_vip": { "type": "remote", "attributeKey": "account_id" },
+          "grp_vip:parent_id": {
+            "type": "remote",
+            "attributeKey": "parent_id",
+            "valuesFrom": "grp_vip"
+          }
+        }
+      ],
+      [
+        "derived group: the source group alone doesn't match",
+        { "$savedGroup": { "id": "grp_vip:parent_id" } },
+        { "account_id": "a1", "__gb_remoteGroupIds": ["grp_vip"] },
+        false,
+        {
+          "grp_vip": { "type": "remote", "attributeKey": "account_id" },
+          "grp_vip:parent_id": {
+            "type": "remote",
+            "attributeKey": "parent_id",
+            "valuesFrom": "grp_vip"
+          }
+        }
+      ],
+      [
+        "derived group: negated, not a member",
+        { "$not": { "$savedGroup": { "id": "grp_vip:parent_id" } } },
+        { "parent_id": "a2", "__gb_remoteGroupIds": [] },
+        true,
+        {
+          "grp_vip": { "type": "remote", "attributeKey": "account_id" },
+          "grp_vip:parent_id": {
+            "type": "remote",
+            "attributeKey": "parent_id",
+            "valuesFrom": "grp_vip"
+          }
+        }
       ]
     ],
     "feature": [

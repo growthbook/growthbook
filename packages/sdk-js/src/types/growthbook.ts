@@ -634,10 +634,23 @@ export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
   | { type: "condition"; condition: ConditionInterface }
   // IDs live outside the payload; see `SavedGroupResolver`
-  | { type: "remote"; attributeKey: string };
+  | {
+      type: "remote";
+      attributeKey: string;
+      /**
+       * Set on a derived group (ID `<group id>:<attribute>`): the remote group
+       * whose IDs `attributeKey`'s value is looked up in.
+       */
+      valuesFrom?: string;
+    };
 
 /** A remote saved group from the payload, as a resolver sees it. */
-export type RemoteSavedGroup = { id: string; attributeKey: string };
+export type RemoteSavedGroup = {
+  id: string;
+  attributeKey: string;
+  /** For a derived group, the remote group whose IDs it checks. */
+  valuesFrom?: string;
+};
 
 /**
  * Looks up which of `groups` a user is in, from their `attributes` (only the

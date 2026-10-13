@@ -28,6 +28,21 @@ describe("getRemoteSavedGroups", () => {
       { id: "grp_beta", attributeKey: "user_id" },
     ]);
     expect(getRemoteSavedGroups({ grp_v1: ["a"] })).toEqual([]);
+    expect(
+      getRemoteSavedGroups({
+        "grp_vip:parent_id": {
+          type: "remote",
+          attributeKey: "parent_id",
+          valuesFrom: "grp_vip",
+        },
+      }),
+    ).toEqual([
+      {
+        id: "grp_vip:parent_id",
+        attributeKey: "parent_id",
+        valuesFrom: "grp_vip",
+      },
+    ]);
   });
 });
 
@@ -167,6 +182,43 @@ describe("redisResolver", () => {
       ],
     });
     expect(ids).toEqual(["grp_a"]);
+  });
+
+  it("checks a derived group's attribute in its source group's sets", async () => {
+    const client = redis({
+      "gb:member:account_id:a9": ["grp_vip"],
+      "gb:member:account_id:a1": [],
+    });
+    const ids = await redisResolver(client)({
+      attributes: { account_id: "a1", parent_id: "a9" },
+      groups: [
+        { id: "grp_vip", attributeKey: "account_id" },
+        {
+          id: "grp_vip:parent_id",
+          attributeKey: "parent_id",
+          valuesFrom: "grp_vip",
+        },
+      ],
+    });
+    expect(ids).toEqual(["grp_vip:parent_id"]);
+    // One lookup per key, even when groups share it
+    expect(client.sMembers).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips a derived group whose source group isn't listed", async () => {
+    const client = redis({ "gb:member:parent_id:a9": ["grp_vip"] });
+    const ids = await redisResolver(client)({
+      attributes: { parent_id: "a9" },
+      groups: [
+        {
+          id: "grp_vip:parent_id",
+          attributeKey: "parent_id",
+          valuesFrom: "grp_vip",
+        },
+      ],
+    });
+    expect(ids).toEqual([]);
+    expect(client.sMembers).not.toHaveBeenCalled();
   });
 
   it("skips values that can't be keys", async () => {

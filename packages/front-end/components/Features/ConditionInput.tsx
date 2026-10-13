@@ -1006,7 +1006,13 @@ function ConditionAndGroupInput({
         }
 
         const savedGroupOptions = savedGroups
-          .filter((g) => g.type === "list" && g.attributeKey === field)
+          // A remote group works on any attribute: on another one, its IDs
+          // are matched against this attribute's value.
+          .filter(
+            (g) =>
+              (g.type === "list" && g.attributeKey === field) ||
+              g.type === "remote",
+          )
           .filter((group) => {
             // Preserve the selected group on existing out-of-scope conditions.
             if (
@@ -1023,7 +1029,13 @@ function ConditionAndGroupInput({
                   props.savedGroupProjects,
                 );
           })
-          .map((g) => ({ label: g.groupName, value: g.id }));
+          .map((g) => ({
+            label:
+              g.type === "remote" && g.attributeKey !== field
+                ? `${g.groupName} (${g.attributeKey} IDs)`
+                : g.groupName,
+            value: g.id,
+          }));
 
         let operatorOptions: OperatorOption[] = getConditionOperators(
           attribute.datatype,

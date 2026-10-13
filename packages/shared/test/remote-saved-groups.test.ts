@@ -4,7 +4,9 @@ import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import {
   addRemoteGroupIdsGuard,
   createAttributeConditionFromGroupIds,
+  getDerivedRemoteGroups,
   getSavedGroupPayloadStrategy,
+  parseDerivedGroupId,
   SDKCapability,
 } from "../src/sdk-versioning";
 import { recursiveWalk } from "../util";
@@ -135,10 +137,12 @@ describe.each([
     });
   });
 
-  it("fails closed on another attribute", () => {
+  it("uses the derived group on another attribute", () => {
     const condition = { parent_id: { $inGroup: "vip" } };
     strategy.finalizeCondition(condition);
-    expect(condition).toEqual({ __sgRemoteOverride__: "vip" });
+    expect(condition).toEqual({
+      __gb_remoteGroupIds: { $in: ["vip:parent_id"], $exists: true },
+    });
   });
 
   it("rewrites a hand-written $savedGroup reference", () => {
@@ -150,12 +154,14 @@ describe.each([
     });
   });
 
-  it("fails closed on a hand-written $savedGroup on another attribute", () => {
+  it("uses the derived group for a hand-written $savedGroup on another attribute", () => {
     const condition = {
       $savedGroup: { id: "vip", attribute: "parent_id" },
     };
     strategy.finalizeCondition(condition);
-    expect(condition).toEqual({ __sgRemoteOverride__: "vip" });
+    expect(condition).toEqual({
+      __gb_remoteGroupIds: { $in: ["vip:parent_id"], $exists: true },
+    });
   });
 
   it("rewrites nested $savedGroups and guards negations", () => {
@@ -234,6 +240,23 @@ describe("remote entries in referencesV2 without the capability", () => {
   });
 });
 
+describe("derived group IDs", () => {
+  it("split at the first ':' when the source is a remote group", () => {
+    expect(parseDerivedGroupId("vip:parent_id", groupMap)).toEqual({
+      sourceId: "vip",
+      attribute: "parent_id",
+    });
+    expect(parseDerivedGroupId("vip:a:b.c", groupMap)).toEqual({
+      sourceId: "vip",
+      attribute: "a:b.c",
+    });
+    expect(parseDerivedGroupId("list:id", groupMap)).toBeNull();
+    expect(parseDerivedGroupId("missing:id", groupMap)).toBeNull();
+    expect(parseDerivedGroupId("vip", groupMap)).toBeNull();
+    expect(parseDerivedGroupId("vip:", groupMap)).toBeNull();
+  });
+});
+
 describe("remote groups evaluate correctly", () => {
   const evalGroups: SavedGroupInterface[] = [
     ...groups,
@@ -284,14 +307,23 @@ describe("remote groups evaluate correctly", () => {
     __gb_remoteGroupIds: [],
   };
   const unresolved = { account_id: "a3", parent_id: "p3" };
+  // A member through the derived group `vip:parent_id`
+  const derivedMember = {
+    account_id: "a4",
+    parent_id: "p4",
+    __gb_remoteGroupIds: ["vip:parent_id"],
+  };
 
   describe.each(formats)("in %s", (_, capabilities, format) => {
-    const check = (stored: object, expected: [boolean, boolean, boolean]) =>
+    const check = (
+      stored: object,
+      expected: boolean[],
+      users = [member, nonMember, unresolved],
+    ) =>
       expect(
-        [member, nonMember, unresolved].map((a) =>
-          evaluate(capabilities, format, stored, a),
-        ),
+        users.map((a) => evaluate(capabilities, format, stored, a)),
       ).toEqual(expected);
+    const derivedUsers = [derivedMember, member, nonMember, unresolved];
 
     it("in group", () => {
       check({ account_id: { $inGroup: "vip" } }, [true, false, false]);
@@ -309,21 +341,30 @@ describe("remote groups evaluate correctly", () => {
       ]);
     });
 
-    it("another attribute fails closed, even negated", () => {
-      check({ parent_id: { $inGroup: "vip" } }, [false, false, false]);
-      check({ $not: { parent_id: { $inGroup: "vip" } } }, [
-        false,
-        false,
-        false,
-      ]);
+    it("another attribute uses the derived group, also negated", () => {
+      check(
+        { parent_id: { $inGroup: "vip" } },
+        [true, false, false, false],
+        derivedUsers,
+      );
+      check(
+        { $not: { parent_id: { $inGroup: "vip" } } },
+        [false, true, true, false],
+        derivedUsers,
+      );
     });
 
-    it("a condition group with an override fails closed, even negated", () => {
-      check({ $not: { $savedGroups: ["cond_override"] } }, [
-        false,
-        false,
-        false,
-      ]);
+    it("a condition group with an override uses the derived group", () => {
+      check(
+        { $savedGroups: ["cond_override"] },
+        [true, false, false, false],
+        derivedUsers,
+      );
+      check(
+        { $not: { $savedGroups: ["cond_override"] } },
+        [false, true, true, false],
+        derivedUsers,
+      );
     });
 
     it("$savedGroups through a condition group", () => {
@@ -345,7 +386,7 @@ describe("remote groups evaluate correctly", () => {
     });
   });
 
-  it("referencesV2 with the capability keeps references and fails closed on overrides", () => {
+  it("referencesV2 with the capability references groups and derived groups", () => {
     const strategy = strategyFor(V2_REMOTE, "referencesV2");
     const negated = { account_id: { $not: { $inGroup: "vip" } } };
     strategy.finalizeCondition(negated);
@@ -355,6 +396,45 @@ describe("remote groups evaluate correctly", () => {
     });
     const override = { $not: { parent_id: { $inGroup: "vip" } } };
     strategy.finalizeCondition(override);
-    expect(override).toEqual({ __sgRemoteOverride__: "vip" });
+    expect(override).toEqual({
+      $not: { $savedGroup: { id: "vip:parent_id" } },
+      __gb_remoteGroupIds: { $exists: true },
+    });
+    const handWritten = { $savedGroup: { id: "vip", attribute: "parent_id" } };
+    strategy.finalizeCondition(handWritten);
+    expect(handWritten).toEqual({
+      $savedGroup: { id: "vip:parent_id" },
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("emits derived entries for derived groups, including ones in condition groups", () => {
+    const strategy = getSavedGroupPayloadStrategy({
+      capabilities: V2_REMOTE,
+      savedGroupFormat: "referencesV2",
+      groupMap: evalMap,
+      organization: org,
+    });
+    const payload = strategy.buildSavedGroupsPayload([
+      ...evalGroups,
+      ...getDerivedRemoteGroups(["beta:email"], evalGroups),
+    ]);
+    expect(payload).toMatchObject({
+      vip: { type: "remote", attributeKey: "account_id" },
+      "vip:parent_id": {
+        type: "remote",
+        attributeKey: "parent_id",
+        valuesFrom: "vip",
+      },
+      "beta:email": {
+        type: "remote",
+        attributeKey: "email",
+        valuesFrom: "beta",
+      },
+      cond_override: {
+        type: "condition",
+        condition: { $savedGroup: { id: "vip:parent_id" } },
+      },
+    });
   });
 });

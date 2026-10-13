@@ -4,13 +4,18 @@ import { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
 import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { NodeHandler, recursiveWalk } from "../../util";
 import { SDKCapability } from "../types";
-import { SAVED_GROUP_ERROR_REMOTE_OVERRIDE } from "./errors";
 import {
   findAllReferencedSavedGroupIds,
+  forEachSavedGroupIdInCondition,
   readSavedGroupReferenceId,
 } from "./referenced-ids";
 import { SAVED_GROUP_TYPE_CAPABILITY } from "./strategy-references-v2";
 import { SavedGroupPayloadStrategy } from "./types";
+import {
+  getDerivedGroupId,
+  getDerivedRemoteGroups,
+  isRemoteGroupId,
+} from "./derived";
 import { andConditionsInto } from "./walk";
 
 /*
@@ -93,9 +98,9 @@ function createConditionFromGroupId(
 }
 
 /**
- * Converts `$inGroup` / `$notInGroup` on a remote group. On the group's own
- * attribute it becomes the mode's condition; on another attribute it would
- * need a derived group, which doesn't exist yet, so it fails closed.
+ * Converts `$inGroup` / `$notInGroup` on a remote group into the mode's
+ * condition. On another attribute it uses the derived group for that
+ * attribute instead.
  */
 export function convertInGroupOperator(
   groupId: string,
@@ -104,10 +109,13 @@ export function convertInGroupOperator(
   include: boolean,
   mode: RemoteGroupMode,
 ): ConditionInterface {
-  if (!group.attributeKey || group.attributeKey !== attribute) {
-    return { [SAVED_GROUP_ERROR_REMOTE_OVERRIDE]: groupId };
-  }
-  return createConditionFromGroupId(groupId, include, mode);
+  return createConditionFromGroupId(
+    group.attributeKey === attribute
+      ? groupId
+      : getDerivedGroupId(groupId, attribute),
+    include,
+    mode,
+  );
 }
 
 // endregion
@@ -136,8 +144,9 @@ export function convertInGroupOperator(
  *     both        -> {"$not": <the $inGroup result above>}
  *
  *   {"parent_id": {"$inGroup": "grp_vip"}}   (another attribute)
- *     both        -> {"__sgRemoteOverride__": "grp_vip"}
- *     (`failClosedOnRemoteOverride` then replaces the whole rule with it)
+ *     attribute   -> {"__gb_remoteGroupIds": {"$in": ["grp_vip:parent_id"]}}
+ *     referenceV2 -> {"$savedGroup": {"id": "grp_vip:parent_id"}}
+ *     (the derived group `grp_vip:parent_id`)
  */
 export function rewriteRemoteGroupReferences(
   node: unknown,
@@ -178,16 +187,17 @@ export function rewriteRemoteGroupReferences(
   }
 
   // Stored conditions use the forms above, but `$savedGroup` can be written by
-  // hand. SDKs reading `referenceV2` payloads understand it as is.
-  if ("$savedGroup" in node && mode === "attribute") {
+  // hand. `referenceV2` SDKs read a plain reference as is; one on another
+  // attribute becomes the derived group.
+  if ("$savedGroup" in node) {
     const reference = node.$savedGroup;
     const groupId = readSavedGroupReferenceId(reference);
-    if (isRemote(groupId)) {
+    const attribute = isPlainObject(reference) ? reference.attribute : null;
+    const group = isRemote(groupId) ? groupMap.get(groupId) : undefined;
+    const override =
+      typeof attribute === "string" && attribute !== group?.attributeKey;
+    if (groupId && group && (mode === "attribute" || override)) {
       delete node.$savedGroup;
-      const attribute = isPlainObject(reference)
-        ? reference.attribute
-        : undefined;
-      const group = groupMap.get(groupId) ?? {};
       conditions.push(
         typeof attribute === "string"
           ? convertInGroupOperator(groupId, group, attribute, true, mode)
@@ -260,15 +270,7 @@ function rewriteRemoteGroupsInGroup<T extends SavedGroupForPayload>(
   try {
     const condition: unknown = JSON.parse(group.condition);
     rewriteRemoteGroupReferences(condition, groupMap, mode);
-    const override = findRemoteOverride(condition);
-    return {
-      ...group,
-      condition: JSON.stringify(
-        override
-          ? { [SAVED_GROUP_ERROR_REMOTE_OVERRIDE]: override }
-          : condition,
-      ),
-    };
+    return { ...group, condition: JSON.stringify(condition) };
   } catch {
     // Strategies drop unparseable conditions themselves.
     return group;
@@ -310,47 +312,9 @@ export function usesRemoteGroup(condition: unknown, groupMap: GroupMap) {
   });
   if (found) return true;
   for (const id of findReferencedGroupIds(condition, groupMap)) {
-    if (groupMap.get(id)?.type === "remote") return true;
+    if (isRemoteGroupId(id, groupMap)) return true;
   }
   return false;
-}
-
-/** The remote group of the first override marker in a condition, if any. */
-function findRemoteOverride(condition: unknown): string | null {
-  let groupId: string | null = null;
-  recursiveWalk(condition, ([key, value]) => {
-    if (key === SAVED_GROUP_ERROR_REMOTE_OVERRIDE && !groupId) {
-      groupId = String(value);
-    }
-  });
-  return groupId;
-}
-
-/**
- * Replaces a whole condition with the override marker, in place, when it uses
- * a remote group under another attribute, directly or through a condition
- * group. A marker deeper in the condition could sit under a `$not` and match
- * everyone; replacing the whole condition makes the rule match nobody.
- *
- * `rewrittenGroupMap` has condition groups already rewritten, so a group with
- * an override is just the marker.
- */
-export function failClosedOnRemoteOverride(
-  condition: unknown,
-  rewrittenGroupMap: GroupMap,
-): void {
-  if (!isPlainObject(condition)) return;
-  let override = findRemoteOverride(condition);
-  for (const id of findReferencedGroupIds(condition, rewrittenGroupMap)) {
-    if (override) break;
-    const groupCondition = rewrittenGroupMap.get(id)?.condition;
-    if (groupCondition?.includes(SAVED_GROUP_ERROR_REMOTE_OVERRIDE)) {
-      override = findRemoteOverride(JSON.parse(groupCondition));
-    }
-  }
-  if (!override) return;
-  for (const key of Object.keys(condition)) delete condition[key];
-  condition[SAVED_GROUP_ERROR_REMOTE_OVERRIDE] = override;
 }
 
 /**
@@ -402,9 +366,7 @@ export function forEachRemoteGroupIdInCondition(
     for (const ids of Object.values(value)) {
       if (!Array.isArray(ids)) continue;
       for (const id of ids) {
-        if (typeof id === "string" && groupMap.get(id)?.type === "remote") {
-          fn(id);
-        }
+        if (typeof id === "string" && isRemoteGroupId(id, groupMap)) fn(id);
       }
     }
   });
@@ -459,14 +421,35 @@ export function withRemoteGroups({
     finalizeCondition: (condition) => {
       rewriteRemoteGroupReferences(condition, groupMap, mode);
       strategy.finalizeCondition(condition);
-      failClosedOnRemoteOverride(condition, rewrittenGroupMap);
       addRemoteGroupIdsGuard(condition, groupMap);
     },
-    buildSavedGroupsPayload: (usedSavedGroups) =>
-      strategy.buildSavedGroupsPayload(
-        usedSavedGroups.map((group) =>
-          rewriteRemoteGroupsInGroup(group, groupMap, mode),
+    buildSavedGroupsPayload: (usedSavedGroups) => {
+      const rewritten = usedSavedGroups.map((group) =>
+        rewriteRemoteGroupsInGroup(group, groupMap, mode),
+      );
+      // Condition groups can use derived groups too. Their source groups are
+      // already used, since the stored conditions name them.
+      const used = new Set(rewritten.map((group) => group.id));
+      const derivedIds = new Set<string>();
+      rewritten.forEach((group) => {
+        if (group.type !== "condition" || !group.condition) return;
+        try {
+          const condition: unknown = JSON.parse(group.condition);
+          forEachSavedGroupIdInCondition(condition, (id) => derivedIds.add(id));
+          forEachRemoteGroupIdInCondition(condition, groupMap, (id) =>
+            derivedIds.add(id),
+          );
+        } catch {
+          // Strategies drop unparseable conditions themselves.
+        }
+      });
+      return strategy.buildSavedGroupsPayload([
+        ...rewritten,
+        ...getDerivedRemoteGroups(
+          [...derivedIds].filter((id) => !used.has(id)),
+          usedSavedGroups,
         ),
-      ),
+      ]);
+    },
   };
 }

@@ -28,7 +28,11 @@ export function getRemoteSavedGroups(
       (remote, id) => {
         const entry = savedGroups[id];
         return !Array.isArray(entry) && entry.type === "remote"
-          ? remote.concat({ id, attributeKey: entry.attributeKey })
+          ? remote.concat({
+              id,
+              attributeKey: entry.attributeKey,
+              ...(entry.valuesFrom && { valuesFrom: entry.valuesFrom }),
+            })
           : remote;
       },
       [],
@@ -69,36 +73,38 @@ export type RedisSetClient = {
  * A resolver for remote groups loaded into Redis by GrowthBook's loader: one
  * `SMEMBERS gb:member:<attribute>:<value>` per attribute value. Works with a
  * node-redis v4 client; wrap others, e.g. `{ sMembers: (k) => redis.smembers(k) }`.
+ *
+ * A derived group checks its own attribute's value in its source group's
+ * sets: `grp_vip:parent_id` looks up `gb:member:<grp_vip's attribute>:<parent_id>`
+ * and matches when `grp_vip` comes back.
  */
 export function redisResolver(redis: RedisSetClient): SavedGroupResolver {
   return async ({ attributes, groups }) => {
-    const lookups = unique(groups.map((g) => g.attributeKey)).reduce<
-      { attribute: string; key: string }[]
-    >(
-      (all, attribute) =>
-        all.concat(
-          toLookupValues(attributes[attribute]).map((value) => ({
-            attribute,
-            key: `gb:member:${attribute}:${value}`,
-          })),
-        ),
-      [],
-    );
-    const members = await Promise.all(
-      lookups.map(({ key }) => redis.sMembers(key)),
-    );
-    // Only keep groups on the looked-up attribute: keys can collide when
-    // attributes or values contain ":", e.g. `a:b` + `c` and `a` + `b:c`.
+    // For each group and value: the Redis key, and the ID that means a match
+    const checks = groups.reduce<
+      { id: string; key: string; matchId: string }[]
+    >((all, group) => {
+      const source = group.valuesFrom
+        ? groups.find((g) => g.id === group.valuesFrom)
+        : group;
+      if (!source) return all;
+      return all.concat(
+        toLookupValues(attributes[group.attributeKey]).map((value) => ({
+          id: group.id,
+          key: `gb:member:${source.attributeKey}:${value}`,
+          matchId: source.id,
+        })),
+      );
+    }, []);
+    const keys = unique(checks.map((c) => c.key));
+    const members = await Promise.all(keys.map((k) => redis.sMembers(k)));
+    // Checking for the expected ID, not any ID in the set, also keeps keys
+    // that collide when attributes or values contain ":" (`a:b` + `c` and
+    // `a` + `b:c`) from mixing up groups.
     return unique(
-      lookups.reduce<string[]>(
-        (ids, { attribute }, i) =>
-          ids.concat(
-            members[i].filter((id) =>
-              groups.some((g) => g.id === id && g.attributeKey === attribute),
-            ),
-          ),
-        [],
-      ),
+      checks
+        .filter((c) => members[keys.indexOf(c.key)].indexOf(c.matchId) !== -1)
+        .map((c) => c.id),
     );
   };
 }

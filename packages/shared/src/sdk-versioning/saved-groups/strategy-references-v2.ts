@@ -17,6 +17,7 @@ import {
 import { SDKCapability } from "../types";
 import { SAVED_GROUP_ERROR_INVALID, SAVED_GROUP_ERROR_UNKNOWN } from "./errors";
 import { SavedGroupPayloadStrategy } from "./types";
+import { parseDerivedGroupId } from "./derived";
 import {
   andConditionsInto,
   NestedGroupRenderer,
@@ -260,7 +261,13 @@ function buildV2PayloadEntry(
     }
     case "remote": {
       if (!group.attributeKey) return null;
-      return { type: "remote", attributeKey: group.attributeKey };
+      // A derived group looks its attribute's value up in its source group
+      const derived = parseDerivedGroupId(group.id, groupMap);
+      return {
+        type: "remote",
+        attributeKey: group.attributeKey,
+        ...(derived && { valuesFrom: derived.sourceId }),
+      };
     }
   }
 }
