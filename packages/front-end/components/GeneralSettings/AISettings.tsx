@@ -400,44 +400,6 @@ export default function AISettings({
                   mb="4"
                 />
               )}
-              {form.watch("aiEnabled") &&
-                aiAgreedTo &&
-                canChooseModels &&
-                (form.watch("aiAutocompleteEnabled") ?? true) && (
-                  <Box mb="4" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="aiAutocompleteModel"
-                      size="2"
-                      className="font-weight-semibold"
-                    >
-                      Autocomplete model
-                    </Text>
-                    <SelectField
-                      size="medium"
-                      id="aiAutocompleteModel"
-                      disabled={!canEdit}
-                      helpText="A small, fast model keeps suggestions cheap and quick."
-                      value={form.watch("aiAutocompleteModel") || ""}
-                      onChange={(v) => form.setValue("aiAutocompleteModel", v)}
-                      sort={false}
-                      options={[
-                        {
-                          value: "",
-                          label: `Use default (${getModelDisplayLabel(AUTOCOMPLETE_AI_MODEL)})`,
-                        },
-                        ...getAvailableAIModelOptions(
-                          availableProviders,
-                          form.watch("aiAutocompleteModel"),
-                        ),
-                      ]}
-                    />
-                    <ApiKeyWarning
-                      model={form.watch("aiAutocompleteModel")}
-                      hasKey={hasKeyForModel}
-                    />
-                  </Box>
-                )}
               {form.watch("aiEnabled") && aiAgreedTo && (
                 <AgentSkillsSettings canEdit={canEdit} />
               )}
@@ -556,6 +518,43 @@ export default function AISettings({
                       />
                     )}
                   </Box>
+                  {(form.watch("aiAutocompleteEnabled") ?? true) && (
+                    <Box mb="6" width="100%">
+                      <Text
+                        as="label"
+                        htmlFor="aiAutocompleteModel"
+                        size="3"
+                        className="font-weight-semibold"
+                      >
+                        Autocomplete model
+                      </Text>
+                      <SelectField
+                        size="medium"
+                        id="aiAutocompleteModel"
+                        disabled={!canEdit}
+                        helpText="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
+                        value={form.watch("aiAutocompleteModel") || ""}
+                        onChange={(v) =>
+                          form.setValue("aiAutocompleteModel", v)
+                        }
+                        sort={false}
+                        options={[
+                          {
+                            value: "",
+                            label: `Use default (${getModelDisplayLabel(AUTOCOMPLETE_AI_MODEL)})`,
+                          },
+                          ...getAvailableAIModelOptions(
+                            availableProviders,
+                            form.watch("aiAutocompleteModel"),
+                          ),
+                        ]}
+                      />
+                      <ApiKeyWarning
+                        model={form.watch("aiAutocompleteModel")}
+                        hasKey={hasKeyForModel}
+                      />
+                    </Box>
+                  )}
                 </>
               )}
             </Flex>
