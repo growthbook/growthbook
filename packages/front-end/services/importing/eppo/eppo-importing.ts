@@ -2117,7 +2117,7 @@ export async function runEppoImport({
       ...selected("experiments", data.experiments).flatMap((e) =>
         eppo.flags.flatMap((f) =>
           (f.allocations ?? []).some((a) => a.experiment?.id === e.eppo.id)
-            ? getFlagAttributes(f.eppo, eppo)
+            ? getFlagAttributes(f, eppo)
             : [],
         ),
       ),
