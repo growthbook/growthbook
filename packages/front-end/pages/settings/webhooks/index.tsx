@@ -14,10 +14,8 @@ import Callout from "@/ui/Callout";
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
-  const canManageWebhooks =
-    permissionsUtil.canCreateEventWebhook() ||
-    permissionsUtil.canUpdateEventWebhook() ||
-    permissionsUtil.canDeleteEventWebhook();
+  const canManageWebhooks = permissionsUtil.canManageSomeEventWebhooks();
+  const canManageSecrets = permissionsUtil.canManageWebhookSecrets();
 
   const { apiCall } = useAuth();
 
@@ -80,41 +78,48 @@ const WebhooksPage: FC = () => {
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
-                    <MoreMenu useRadix={false}>
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditSecretId(secret.id);
-                        }}
-                      >
-                        Edit
-                      </a>
-                      <DeleteButton
-                        useRadix={false}
-                        onClick={async () => {
-                          await apiCall<void>(`/webhook-secrets/${secret.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutateDefinitions();
-                        }}
-                        className="dropdown-item"
-                        displayName="Webhook Secret"
-                        text="Delete Secret"
-                      />
-                    </MoreMenu>
+                    {canManageSecrets && (
+                      <MoreMenu useRadix={false}>
+                        <a
+                          href="#"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditSecretId(secret.id);
+                          }}
+                        >
+                          Edit
+                        </a>
+                        <DeleteButton
+                          useRadix={false}
+                          onClick={async () => {
+                            await apiCall<void>(
+                              `/webhook-secrets/${secret.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            await mutateDefinitions();
+                          }}
+                          className="dropdown-item"
+                          displayName="Webhook Secret"
+                          text="Delete Secret"
+                        />
+                      </MoreMenu>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
-            Add Webhook Secret
-          </Button>
+          {canManageSecrets && (
+            <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
+              Add Webhook Secret
+            </Button>
+          )}
         </div>
       </div>
-      {newSecretOpen && (
+      {newSecretOpen && canManageSecrets && (
         <WebhookSecretModal
           close={() => {
             setNewSecretOpen(false);

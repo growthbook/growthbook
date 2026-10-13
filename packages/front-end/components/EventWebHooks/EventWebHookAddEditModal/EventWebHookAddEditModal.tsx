@@ -29,6 +29,7 @@ import {
   WebhookIcon,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
 import { DocLink } from "@/components/DocLink";
@@ -173,13 +174,21 @@ const EventWebHookAddEditSettings = ({
     headers: string;
   };
 }) => {
-  const environmentSettings = useEnvironments();
-  const environments = environmentSettings.map((env) => env.id);
+  const permissionsUtil = usePermissionsUtil();
 
   const selectedPayloadType = form.watch("payloadType");
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
+
+  const canUseEnvironments = (environments: string[]) =>
+    permissionsUtil.canCreateEventWebhook({
+      projects: selectedProjects,
+      environments,
+    });
+  const environments = useEnvironments()
+    .map((env) => env.id)
+    .filter((env) => canUseEnvironments([env]));
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
 
@@ -344,7 +353,9 @@ const EventWebHookAddEditSettings = ({
                   name="Environment"
                   allLabel="Receive notifications for all Environments"
                   isAll={!selectedEnvironments.length}
-                  disabled={!selectedEnvironments.length}
+                  disabled={
+                    !selectedEnvironments.length || !canUseEnvironments([])
+                  }
                   onSelectAll={() => form.setValue("environments", [])}
                 />
               }
@@ -464,6 +475,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   mode,
   error,
 }) => {
+  const permissionsUtil = usePermissionsUtil();
   const [submitEnabled, setSubmitEnabled] = useState(false);
   const [validHeaders, setValidHeaders] = useState(true);
   const [step, setStep] = useState<Step>(mode.mode);
@@ -518,6 +530,15 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const modalTitle =
     mode.mode === "edit" ? "Edit Webhook" : "Create New Webhook";
 
+  const scope = {
+    projects: form.watch("projects"),
+    environments: form.watch("environments"),
+  };
+  const permitted =
+    mode.mode === "edit"
+      ? permissionsUtil.canUpdateEventWebhook(mode.data, scope)
+      : permissionsUtil.canCreateEventWebhook(scope);
+
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
@@ -561,7 +582,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       trackingEventModalType=""
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
-      ctaEnabled={submitEnabled}
+      ctaEnabled={submitEnabled && permitted}
       submit={async () => {
         await handleSubmit();
       }}
@@ -585,12 +606,20 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />
       ) : (
-        <EventWebHookAddEditSettings
-          form={form}
-          handleFormValidation={handleFormValidation}
-          validHeaders={validHeaders}
-          forcedParams={forcedParams}
-        />
+        <>
+          {!permitted && (
+            <Callout status="warning" mb="4">
+              You can only save webhooks filtered to environments and Projects
+              you have access to.
+            </Callout>
+          )}
+          <EventWebHookAddEditSettings
+            form={form}
+            handleFormValidation={handleFormValidation}
+            validHeaders={validHeaders}
+            forcedParams={forcedParams}
+          />
+        </>
       )}
     </Modal>
   );

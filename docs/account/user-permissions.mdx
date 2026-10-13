@@ -298,6 +298,12 @@ environment restrictions.
 Moving a resource to another Project requires the relevant permission in both
 the current and destination Projects.
 
+Event webhooks also respect a role's Project and environment restrictions. A
+role limited to specific environments can only view and manage webhooks whose
+environment filter includes only those environments. Webhooks that notify for
+all Environments, and webhook secrets, which are shared by every webhook,
+require access that is not limited by environment.
+
 #### Deactivating Roles
 
 As we do not support the ability for an organization to delete a standard role, we have introduced the ability for enterprise organizations to deactivate both standard and custom roles. When a role is deactivated, we remove the role from the roles dropdown when adding a new user or updating an existing user's role. If you deactivate a role that is assigned to a user, the user will experience no changes to their permission level. The deactivation of the role simply removes it from the role options.

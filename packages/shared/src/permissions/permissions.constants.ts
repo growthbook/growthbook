@@ -977,6 +977,7 @@ export const ENV_SCOPED_PERMISSIONS = [
   "manageEnvironments",
   "manageSDKConnections",
   "manageSDKWebhooks",
+  "manageEventWebhooks",
   "runExperiments",
   // Review is env-scoped exactly where publish is: you may not approve what you
   // could not publish. Saved groups are absent because none of their atoms are.
@@ -1042,7 +1043,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageTags",
   "manageApiKeys",
   "manageIntegrations",
-  "manageEventWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
   "manageDecisionCriteria",
