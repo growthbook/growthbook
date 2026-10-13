@@ -5,12 +5,11 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
   PiArrowLeft,
   PiCheckBold,
-  PiSpinnerGap,
   PiXBold,
 } from "react-icons/pi";
 import {
@@ -25,7 +24,6 @@ import {
 } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import Field from "@/components/Forms/Field";
-import spinnerStyles from "@/components/LoadingSpinner.module.scss";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialSettings } from "@/services/datasources";
@@ -352,17 +350,15 @@ export default function ConnectDataSourceLayout({
         : "var(--gray-a5)";
 
   return (
-    <Box
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) minmax(420px, 560px)",
-        // Independent column scroll: lock to the viewport below the top nav
-        // and let each column scroll its own content.
-        height: "calc(100dvh - 56px)",
-        maxHeight: "calc(100dvh - 56px)",
-        overflow: "hidden",
-        alignItems: "stretch",
-      }}
+    <Grid
+      columns={{ initial: "1", lg: "minmax(0, 1fr) minmax(420px, 560px)" }}
+      // From lg up the columns sit side by side and scroll independently, so
+      // lock the grid to the viewport below the top nav. Below that they
+      // stack and the page scrolls normally so the footer stays reachable.
+      height={{ initial: "auto", lg: "calc(100dvh - 56px)" }}
+      maxHeight={{ initial: "none", lg: "calc(100dvh - 56px)" }}
+      overflow={{ initial: "visible", lg: "hidden" }}
+      align="stretch"
     >
       <Flex
         direction="column"
@@ -476,20 +472,19 @@ export default function ConnectDataSourceLayout({
                       : "Retry test"}
                 </Button>
               </Flex>
-              {testStatus === "idle" && (
+              {testStatus === "idle" || testStatus === "running" ? (
                 <Text as="p" size="sm" color="text-mid" mb="0">
                   {setup === "event_forwarder"
                     ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
                     : "Checks that GrowthBook can connect and read your data."}
                 </Text>
-              )}
-              {testStatus !== "idle" ? (
+              ) : (
                 <ConnectionTestRow
                   status={testStatus}
                   name={readAccessTarget}
                   error={testStatus === "failed" ? testMessage : null}
                 />
-              ) : null}
+              )}
             </Frame>
           )}
         </Box>
@@ -541,7 +536,7 @@ export default function ConnectDataSourceLayout({
         setup={setup}
         params={datasource.params}
       />
-    </Box>
+    </Grid>
   );
 }
 
@@ -550,73 +545,46 @@ function ConnectionTestRow({
   name,
   error,
 }: {
-  status: Exclude<TestStatus, "idle">;
+  status: "passed" | "failed";
   name: string;
   error: string | null;
 }) {
   const passed = status === "passed";
-  const failed = status === "failed";
-  const label = passed
-    ? "Confirmed read access to"
-    : failed
-      ? "Could not confirm read access to"
-      : "Checking read access to";
 
   return (
-    <Flex align="start" gap="3" mt="4">
-      <Flex
-        align="center"
-        justify="center"
-        flexShrink="0"
-        aria-hidden
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: "50%",
-          background: passed
-            ? "var(--green-a3)"
-            : failed
-              ? "var(--red-a3)"
-              : "var(--gray-a3)",
-          color: passed
-            ? "var(--green-11)"
-            : failed
-              ? "var(--red-11)"
-              : "var(--gray-11)",
-        }}
-      >
-        {passed ? <PiCheckBold size={12} /> : null}
-        {failed ? <PiXBold size={12} /> : null}
-        {status === "running" ? (
-          <PiSpinnerGap size={12} className={spinnerStyles.spin} />
-        ) : null}
-      </Flex>
-      <Box style={{ minWidth: 0, lineHeight: "22px" }}>
-        <Text
-          as="span"
-          size="sm"
-          color={status === "running" ? "text-mid" : "text-high"}
+    <Box mt="4">
+      <Flex align="center" gap="3">
+        <Flex
+          align="center"
+          justify="center"
+          flexShrink="0"
+          aria-hidden
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: passed ? "var(--green-a3)" : "var(--red-a3)",
+            color: passed ? "var(--green-11)" : "var(--red-11)",
+          }}
         >
-          {label}{" "}
+          {passed ? <PiCheckBold size={12} /> : <PiXBold size={12} />}
+        </Flex>
+        <Text as="span" size="sm" color="text-high">
+          {passed
+            ? "Confirmed read access to"
+            : "Could not confirm read access to"}{" "}
           <Text as="span" size="sm" mono>
             {name}
           </Text>
         </Text>
-        {failed && error ? (
-          <Box
-            mt="1"
-            style={{
-              color: "var(--red-11)",
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: 12,
-              lineHeight: 1.5,
-              wordBreak: "break-word",
-            }}
-          >
+      </Flex>
+      {!passed && error ? (
+        <Callout status="error" size="sm" mt="3">
+          <Text as="span" size="sm" mono overflowWrap="anywhere">
             {error}
-          </Box>
-        ) : null}
-      </Box>
-    </Flex>
+          </Text>
+        </Callout>
+      ) : null}
+    </Box>
   );
 }

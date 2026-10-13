@@ -11,6 +11,7 @@ import {
   getDataSourceSetupInstructions,
   SetupInstructionStep,
 } from "./getDataSourceSetupInstructions";
+import styles from "./DataSourceConnectInstructions.module.scss";
 
 export type { ConnectSetupKind };
 
@@ -97,28 +98,28 @@ function CodeNote({ note }: { note: string }) {
   return (
     <Text as="p" color="text-mid" mt="2" mb="0">
       {parts.map((part, i) =>
-        i % 2 === 1 ? <code key={i}>{part}</code> : part,
+        i % 2 === 1 ? (
+          <Text key={i} as="span" mono color="text-high">
+            {part}
+          </Text>
+        ) : (
+          part
+        ),
       )}
     </Text>
   );
 }
 
 function InstructionStepView({ step }: { step: SetupInstructionStep }) {
-  const displayCode = step.code
-    ? step.preserveCase
-      ? step.code
-      : step.code.toUpperCase()
-    : undefined;
-
   return (
     <Box>
-      <Box mb="2" style={{ fontSize: 14, fontWeight: 500 }}>
+      <Text as="p" weight="medium" mb="2">
         {step.title}
-      </Box>
+      </Text>
       <InstructionDescription step={step} />
-      {displayCode ? (
+      {step.code ? (
         <>
-          <CommandBlock code={displayCode} />
+          <CommandBlock code={step.code} />
           {step.codeNote ? <CodeNote note={step.codeNote} /> : null}
         </>
       ) : null}
@@ -142,20 +143,7 @@ export default function DataSourceConnectInstructions({
   const steps = getDataSourceSetupInstructions(type, setup, params);
 
   return (
-    <Box
-      asChild
-      style={{
-        background: "var(--color-panel-solid)",
-        borderLeft: "1px solid var(--gray-a5)",
-        height: "100%",
-        minHeight: 0,
-        overflowY: "auto",
-        // Keep left/right padding visually equal when a scrollbar appears.
-        scrollbarGutter: "stable",
-        padding: "24px 24px 48px",
-        boxSizing: "border-box",
-      }}
-    >
+    <Box asChild className={styles.aside}>
       <aside>
         <Heading as="h3" size="md" mb="1">
           Setup Instructions

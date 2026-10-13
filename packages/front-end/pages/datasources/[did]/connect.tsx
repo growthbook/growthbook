@@ -7,6 +7,7 @@ import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSou
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -65,7 +66,11 @@ const EditDataSourceConnectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error">
-          Data Source <code>{did}</code> does not exist.
+          Data Source{" "}
+          <Text as="span" mono>
+            {did}
+          </Text>{" "}
+          does not exist.
         </Callout>
       </div>
     );

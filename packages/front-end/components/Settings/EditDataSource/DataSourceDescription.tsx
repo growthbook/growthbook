@@ -51,6 +51,7 @@ export default function DataSourceDescription({
       <Flex direction="column" gap="2" mt="2" width="100%">
         <TextArea
           autoFocus
+          aria-label="Description"
           size="2"
           variant="surface"
           resize="vertical"

@@ -445,6 +445,7 @@ const DataSourcePage: FC = () => {
           )}
           {canUpdateDataSourceSettings && projects.length > 0 && (
             <Link
+              aria-label="Edit projects"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjectsOpen(true);

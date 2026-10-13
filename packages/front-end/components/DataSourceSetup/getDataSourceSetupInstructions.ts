@@ -15,11 +15,13 @@ export type SetupInstructionStep = {
     section: DocSection;
     label: string;
   };
+  /**
+   * Rendered verbatim. Author keywords in the case you want shown; values
+   * filled from the form (users, passwords, identifiers) keep their case.
+   */
   code?: string;
   /** Shown under the code block. Backticks render as inline code. */
   codeNote?: string;
-  /** When true, skip the all-caps transform (e.g. JSON policies, IAM role ids). */
-  preserveCase?: boolean;
 };
 
 const CLOUD_EGRESS_IP = "52.70.79.40";
@@ -126,8 +128,6 @@ export function getDataSourceSetupInstructions(
           description:
             "Grant BigQuery Data Viewer, Metadata Viewer, and Job User. Console steps are in the {link}.",
           docLink: { section: "bigquery", label: "BigQuery guide" },
-          // Role ids such as roles/bigquery.jobUser are case-sensitive.
-          preserveCase: true,
           code: `gcloud iam service-accounts create growthbook \\
   --project=${projectId}
 gcloud projects add-iam-policy-binding ${projectId} \\
@@ -143,7 +143,6 @@ gcloud projects add-iam-policy-binding ${projectId} \\
         {
           title: "Create a JSON key",
           description: "In the console: Manage keys → Add key → JSON.",
-          preserveCase: true,
           code: `gcloud iam service-accounts keys create \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
@@ -159,7 +158,6 @@ gcloud projects add-iam-policy-binding ${projectId} \\
       return withEventForwarderWrite(steps, {
         title: "Grant write access for Event Forwarder",
         description: "Grant BigQuery Data Editor on the destination dataset.",
-        preserveCase: true,
         code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
   OPTIONS (location = "${location}");
 GRANT \`roles/bigquery.dataEditor\`
@@ -194,10 +192,7 @@ GRANT SELECT ON ALL TABLES
   TO ROLE ${role};`;
 
       let createUserCode: string;
-      let preserveUserSqlCase = false;
       if (authMethod === "workload-identity") {
-        // ARNs, issuer URLs, and subjects are case-sensitive.
-        preserveUserSqlCase = true;
         const identityBinding =
           workloadProvider === "AZURE"
             ? `CREATE USER ${user}
@@ -262,7 +257,6 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
           title: "Create a user and grant access",
           description: userStepDescription,
           code: createUserCode,
-          preserveCase: preserveUserSqlCase,
         },
         {
           title: "Allow network access",
@@ -332,7 +326,6 @@ GRANT USE SCHEMA, CREATE TABLE
             ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
             : "Replace the application ID and schema.",
           code: grantCode,
-          preserveCase: true,
         },
       ];
 
@@ -417,7 +410,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
     }
   ]
 }`,
-          preserveCase: true,
         },
         {
           title: "Create an access key",
