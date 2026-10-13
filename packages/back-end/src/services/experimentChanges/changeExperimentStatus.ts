@@ -28,6 +28,7 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { queueExperimentQualityScoreUpdate } from "back-end/src/jobs/updateExperimentQualityScores";
+import { queueExperimentProcessScoreUpdate } from "back-end/src/jobs/updateExperimentProcessScores";
 import { logger } from "back-end/src/util/logger";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
@@ -907,21 +908,30 @@ export async function stopExperiment({
     });
   }
 
-  // The decision and learnings just landed, so run the AI quality checks
-  // now instead of waiting for the sweep (the job re-checks the rest)
-  if (
-    context.hasPremiumFeature("experiment-quality-score") &&
-    context.org.settings?.aiEnabled
-  ) {
-    queueExperimentQualityScoreUpdate({
-      experimentId: updated.id,
-      organization: updated.organization,
-    }).catch((e) =>
-      logger.error(
-        e,
-        `Failed to queue AI quality-score update for experiment ${updated.id}`,
-      ),
-    );
+  if (context.hasPremiumFeature("experiment-quality-score")) {
+    // How it was run is settled once it stops
+    if (isEnding) {
+      queueExperimentProcessScoreUpdate(updated.organization, updated.id).catch(
+        (e) =>
+          logger.error(
+            e,
+            `Failed to queue process score update for experiment ${updated.id}`,
+          ),
+      );
+    }
+    // The decision and learnings just landed, so run the AI quality checks
+    // now instead of waiting for the sweep (the job re-checks the rest)
+    if (context.org.settings?.aiEnabled) {
+      queueExperimentQualityScoreUpdate({
+        experimentId: updated.id,
+        organization: updated.organization,
+      }).catch((e) =>
+        logger.error(
+          e,
+          `Failed to queue AI quality-score update for experiment ${updated.id}`,
+        ),
+      );
+    }
   }
 
   return { experiment, updated, isEnding };

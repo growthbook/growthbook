@@ -392,6 +392,21 @@ const experimentSchema = new mongoose.Schema({
     dateOverridden: Date,
     reason: String,
   },
+  processResults: {
+    _id: false,
+    version: Number,
+    dateComputed: Date,
+    rules: [
+      {
+        _id: false,
+        key: String,
+        result: String,
+        detail: String,
+        date: Date,
+        user: String,
+      },
+    ],
+  },
   analysisSummary: {
     _id: false,
     snapshotId: String,

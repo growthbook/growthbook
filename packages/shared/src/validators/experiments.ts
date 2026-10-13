@@ -441,6 +441,28 @@ export type ExperimentQualityScoreOverride = z.infer<
   typeof experimentQualityScoreOverride
 >;
 
+// Cached process-rule results, computed from the experiment's change
+// history when it stops. Recomputed when `version` falls behind the rules.
+export const experimentProcessResults = z
+  .object({
+    version: z.number(),
+    dateComputed: z.date(),
+    rules: z.array(
+      z
+        .object({
+          key: z.string(),
+          result: z.enum(["pass", "fail", "na"]),
+          // The change that failed the rule
+          detail: z.string().optional(),
+          date: z.date().optional(),
+          user: z.string().optional(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export type ExperimentProcessResults = z.infer<typeof experimentProcessResults>;
+
 // Also imported by the Mongoose experiment schema so the two can't drift.
 export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
 export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
@@ -605,6 +627,7 @@ export const experimentInterface = z
     analysisSummary: experimentAnalysisSummary.optional(),
     aiQualityResults: experimentAIQualityResults.optional(),
     qualityScoreOverride: experimentQualityScoreOverride.optional().nullable(),
+    processResults: experimentProcessResults.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),

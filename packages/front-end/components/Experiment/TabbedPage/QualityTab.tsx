@@ -19,6 +19,7 @@ import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualitySc
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
+import ProcessCard from "@/components/Experiment/Quality/ProcessCard";
 import {
   SECTION_COLORS,
   getScoreTier,
@@ -439,6 +440,8 @@ const QualityTab: FC<{
             />
           ))}
       </Flex>
+
+      <ProcessCard experiment={experiment} />
     </Box>
   );
 };

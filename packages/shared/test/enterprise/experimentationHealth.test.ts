@@ -4,7 +4,6 @@ import {
   HealthExperiment,
   computeHealthGrade,
   countHealthOverrides,
-  evaluateProcessSignals,
   getAverage,
   getCompletedExperimentsInWindow,
   getExperimentsStartedPerMonth,
@@ -12,7 +11,6 @@ import {
   getHealthTargetError,
   getHealthWindow,
   getIdeasPerMonth,
-  getProcessScore,
   getWinRate,
   reflowGradeWeights,
   resolveGradeWeights,
@@ -298,120 +296,5 @@ describe("window metrics", () => {
         window,
       ),
     ).toBe(1);
-  });
-});
-
-describe("process signals", () => {
-  const started = daysAgo(60);
-  const base: HealthExperiment = {
-    status: "stopped",
-    phases: [{ dateStarted: started, dateEnded: daysAgo(30) }],
-    goalMetrics: ["met_a"],
-    hypothesis: "If we do X, Y goes up",
-  };
-  const beforeStart = { date: daysAgo(70), pre: {}, post: {} };
-
-  it("passes a clean run", () => {
-    expect(evaluateProcessSignals(base, [beforeStart])).toEqual({
-      "goal-metrics-before-start": true,
-      "goal-metrics-unchanged": true,
-      "hypothesis-unchanged": true,
-      "ran-cleanly": true,
-      "not-ended-early": null,
-    });
-  });
-
-  it("can't judge history-based signals without any history", () => {
-    const results = evaluateProcessSignals(base, []);
-    expect(results["goal-metrics-before-start"]).toBeNull();
-    expect(results["goal-metrics-unchanged"]).toBeNull();
-    expect(results["hypothesis-unchanged"]).toBeNull();
-    expect(results["ran-cleanly"]).toBe(true);
-  });
-
-  it("flags goal metrics added or changed after the start", () => {
-    const addedLate = evaluateProcessSignals(base, [
-      beforeStart,
-      {
-        date: daysAgo(50),
-        pre: { goalMetrics: [] },
-        post: { goalMetrics: ["met_a"] },
-      },
-    ]);
-    expect(addedLate["goal-metrics-before-start"]).toBe(false);
-    // Adding the first goal metric is "set late", not "changed"
-    expect(addedLate["goal-metrics-unchanged"]).toBe(true);
-
-    const changed = evaluateProcessSignals(base, [
-      beforeStart,
-      {
-        date: daysAgo(50),
-        pre: { goalMetrics: ["met_b"] },
-        post: { goalMetrics: ["met_a"] },
-      },
-    ]);
-    expect(changed["goal-metrics-before-start"]).toBe(true);
-    expect(changed["goal-metrics-unchanged"]).toBe(false);
-  });
-
-  it("ignores edits made before the start", () => {
-    const results = evaluateProcessSignals(base, [
-      {
-        date: daysAgo(70),
-        pre: { goalMetrics: [], hypothesis: "" },
-        post: { goalMetrics: ["met_a"], hypothesis: base.hypothesis },
-      },
-    ]);
-    expect(results["goal-metrics-before-start"]).toBe(true);
-    expect(results["hypothesis-unchanged"]).toBe(true);
-  });
-
-  it("flags hypothesis edits, restarts, extra phases and early ends", () => {
-    const results = evaluateProcessSignals(
-      {
-        ...base,
-        statusUpdateSchedule: { stopAt: daysAgo(10) },
-      },
-      [
-        beforeStart,
-        {
-          date: daysAgo(40),
-          pre: { hypothesis: "old" },
-          post: { hypothesis: "new" },
-        },
-        {
-          date: daysAgo(35),
-          pre: { status: "stopped" },
-          post: { status: "running" },
-        },
-      ],
-    );
-    expect(results["hypothesis-unchanged"]).toBe(false);
-    expect(results["ran-cleanly"]).toBe(false);
-    expect(results["not-ended-early"]).toBe(false);
-
-    expect(
-      evaluateProcessSignals(
-        {
-          ...base,
-          phases: [
-            { dateStarted: started, dateEnded: daysAgo(40) },
-            { dateStarted: daysAgo(40), dateEnded: daysAgo(30) },
-          ],
-        },
-        [],
-      )["ran-cleanly"],
-    ).toBe(false);
-  });
-
-  it("averages each experiment's pass rate, skipping unknowns", () => {
-    expect(
-      getProcessScore([
-        { a: true, b: true, c: null },
-        { a: true, b: false, c: null },
-        { a: null, b: null, c: null },
-      ]),
-    ).toBe(75);
-    expect(getProcessScore([])).toBeNull();
   });
 });

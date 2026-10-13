@@ -1,7 +1,5 @@
 import {
   ExperimentationHealthSummary,
-  ProcessHistoryEntry,
-  evaluateProcessSignals,
   getAverage,
   getCompletedExperimentsInWindow,
   getExperimentQualityScore,
@@ -17,63 +15,38 @@ import {
 import { ExperimentInterface, ORG_DEFAULT_SCOPE } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { getIdeasByOrganization } from "back-end/src/services/ideas";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import {
+  canJudgeProcess,
+  hasCurrentProcessResults,
+} from "back-end/src/enterprise/services/experimentProcess";
+import { queueExperimentProcessScoreBackfill } from "back-end/src/jobs/updateExperimentProcessScores";
+import { logger } from "back-end/src/util/logger";
 
-// Audit events whose before/after snapshots feed the process signals
-const PROCESS_AUDIT_EVENTS = [
-  "experiment.update",
-  "experiment.status",
-  "experiment.phase",
-];
-
-function toProcessFields(snapshot: unknown): ProcessHistoryEntry["pre"] {
-  if (!snapshot || typeof snapshot !== "object") return undefined;
-  const { goalMetrics, hypothesis, status } = snapshot as Record<
-    string,
-    unknown
-  >;
-  return {
-    ...(Array.isArray(goalMetrics)
-      ? { goalMetrics: goalMetrics.filter((m) => typeof m === "string") }
-      : {}),
-    ...(typeof hypothesis === "string" ? { hypothesis } : {}),
-    ...(status === "draft" || status === "running" || status === "stopped"
-      ? { status }
-      : {}),
-  };
-}
-
-async function getProcessHistory(
+// Average process score of completed experiments with current cached
+// results. Missing or outdated results are filled in by a background job,
+// so this never reads audit history.
+function getAverageProcessScore(
   context: ReqContext,
-  experimentIds: string[],
-): Promise<Map<string, ProcessHistoryEntry[]>> {
-  const history = new Map<string, ProcessHistoryEntry[]>();
-  if (!experimentIds.length) return history;
-  const audits = await findAuditByEntityList(
-    context.org.id,
-    "experiment",
-    experimentIds,
-    { event: { $in: PROCESS_AUDIT_EVENTS } },
-  );
-  for (const audit of audits) {
-    let details: { pre?: unknown; post?: unknown } = {};
-    try {
-      details = audit.details ? JSON.parse(audit.details) : {};
-    } catch {
-      // Unparseable details still mark that history exists
-    }
-    const entries = history.get(audit.entity.id) ?? [];
-    entries.push({
-      date: audit.dateCreated,
-      pre: toProcessFields(details.pre),
-      post: toProcessFields(details.post),
-    });
-    history.set(audit.entity.id, entries);
+  completed: ExperimentInterface[],
+): { average: number | null; pending: number } {
+  const judgeable = completed.filter(canJudgeProcess);
+  const pending = judgeable.filter((e) => !hasCurrentProcessResults(e));
+  if (pending.length) {
+    queueExperimentProcessScoreBackfill(
+      context.org.id,
+      pending.map((e) => e.id),
+    ).catch((e) =>
+      logger.error(e, "Failed to queue the process score backfill"),
+    );
   }
-  return history;
+  const scores = judgeable
+    .filter(hasCurrentProcessResults)
+    .map((e) => getProcessScore(e.processResults?.rules ?? []))
+    .filter((score): score is number => score !== null);
+  return { average: getAverage(scores), pending: pending.length };
 }
 
 async function getAverageQualityScore(
@@ -136,14 +109,11 @@ export async function getExperimentationHealthSummary(
   });
   const completed = getCompletedExperimentsInWindow(experiments, window);
 
-  const [averageQualityScore, history, ideas] = await Promise.all([
+  const [averageQualityScore, ideas] = await Promise.all([
     getAverageQualityScore(context, completed),
-    getProcessHistory(
-      context,
-      completed.map((e) => e.id),
-    ),
     getIdeasByOrganization(context.org.id, project || undefined),
   ]);
+  const process = getAverageProcessScore(context, completed);
 
   const ideaDates = ideas
     .filter(
@@ -163,14 +133,11 @@ export async function getExperimentationHealthSummary(
         window,
       ),
       averageQualityScore,
-      processScore: getProcessScore(
-        completed.map((e) =>
-          evaluateProcessSignals(e, history.get(e.id) ?? []),
-        ),
-      ),
+      processScore: process.average,
       winRate: getWinRate(completed),
       ideasPerMonth,
     },
     ideasInUse: ideasPerMonth > 0,
+    processPending: process.pending,
   };
 }

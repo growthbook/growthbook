@@ -41,6 +41,7 @@ function TargetRow({
   loading,
   onChange,
   onReset,
+  note,
 }: {
   metricKey: ExperimentationHealthMetricKey;
   resolved: ResolvedHealthTarget;
@@ -49,6 +50,8 @@ function TargetRow({
   loading: boolean;
   onChange: (target: ExperimentationHealthTarget) => void;
   onReset: () => void;
+  // Shown under the current value
+  note?: string;
 }) {
   const def = EXPERIMENTATION_HEALTH_METRICS[metricKey];
   const { target } = resolved;
@@ -132,6 +135,11 @@ function TargetRow({
               ? "—"
               : `Now ${formatHealthValue(metricKey, value)}`}
         </span>
+        {note && (
+          <Text size="sm" color="text-low">
+            {note}
+          </Text>
+        )}
         {overridden && (
           <OrgDefaultLink
             value={formatTarget(resolved.orgTarget)}
@@ -149,6 +157,7 @@ export default function TargetsTab({
   setTarget,
   values,
   ideasInUse,
+  processPending,
   loading,
 }: {
   isOrgScope: boolean;
@@ -160,6 +169,8 @@ export default function TargetsTab({
   ) => void;
   values?: ExperimentationHealthValues;
   ideasInUse: boolean;
+  // Completed experiments whose process score is still being calculated
+  processPending: number;
   loading: boolean;
 }) {
   const areas = (
@@ -209,6 +220,11 @@ export default function TargetsTab({
                 loading={loading}
                 onChange={(target) => setTarget(key, target)}
                 onReset={() => setTarget(key, undefined)}
+                note={
+                  key === "processScore" && processPending
+                    ? `${processPending} still being scored`
+                    : undefined
+                }
               />
             ))}
           </div>

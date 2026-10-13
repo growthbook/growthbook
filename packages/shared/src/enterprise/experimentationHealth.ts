@@ -341,6 +341,8 @@ export interface ExperimentationHealthSummary {
   values: ExperimentationHealthValues;
   // Ideas show only when the scope has ideas in the window
   ideasInUse: boolean;
+  // Completed experiments whose process results are still being computed
+  processPending: number;
 }
 
 export interface ExperimentationHealthGrade {
@@ -438,9 +440,6 @@ export interface HealthExperiment {
   archived?: boolean;
   phases: { dateStarted?: DateLike; dateEnded?: DateLike }[];
   results?: string | null;
-  goalMetrics?: string[];
-  hypothesis?: string;
-  statusUpdateSchedule?: { stopAt?: DateLike } | null;
 }
 
 // Experiments first started in the window. Drafts already carry a start
@@ -485,140 +484,4 @@ export function getIdeasPerMonth(
   window: HealthWindow,
 ): number {
   return perMonth(ideaDates.filter((d) => inWindow(d, window)).length, window);
-}
-
-// ---------------------------------------------------------------------------
-// Process: pass/fail signals about how each experiment was set up and run,
-// read from the experiment and its change history. Add or remove signals in
-// PROCESS_SIGNALS.
-// ---------------------------------------------------------------------------
-
-type ProcessFields = Pick<
-  HealthExperiment,
-  "goalMetrics" | "hypothesis" | "status"
->;
-
-export interface ProcessHistoryEntry {
-  date: DateLike;
-  // The experiment before and after the change, when the change recorded it
-  pre?: Partial<ProcessFields>;
-  post?: Partial<ProcessFields>;
-}
-
-// true = passed, false = failed, null = not enough information to judge
-type ProcessSignalResult = boolean | null;
-
-function sameSet(a: string[] = [], b: string[] = []) {
-  return a.length === b.length && a.every((x) => b.includes(x));
-}
-
-function changesAfterStart(
-  experiment: HealthExperiment,
-  history: ProcessHistoryEntry[],
-): ProcessHistoryEntry[] {
-  const start = experiment.phases[0]?.dateStarted;
-  if (!start) return [];
-  const startTime = new Date(start).getTime();
-  return history
-    .filter((h) => new Date(h.date).getTime() > startTime)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-}
-
-export const PROCESS_SIGNALS: {
-  key: string;
-  label: string;
-  evaluate: (
-    experiment: HealthExperiment,
-    history: ProcessHistoryEntry[],
-  ) => ProcessSignalResult;
-}[] = [
-  {
-    key: "goal-metrics-before-start",
-    label: "Goal metrics were set before the start",
-    evaluate: (experiment, history) => {
-      if (!history.length) return null;
-      // The first change after the start records what was there at the start
-      const firstChange = changesAfterStart(experiment, history).find(
-        (h) => h.pre?.goalMetrics !== undefined,
-      );
-      const atStart = firstChange
-        ? firstChange.pre?.goalMetrics
-        : experiment.goalMetrics;
-      return !!atStart?.length;
-    },
-  },
-  {
-    key: "goal-metrics-unchanged",
-    label: "Goal metrics didn't change after the start",
-    evaluate: (experiment, history) => {
-      if (!history.length) return null;
-      return !changesAfterStart(experiment, history).some(
-        (h) =>
-          !!h.pre?.goalMetrics?.length &&
-          h.post?.goalMetrics !== undefined &&
-          !sameSet(h.pre.goalMetrics, h.post.goalMetrics),
-      );
-    },
-  },
-  {
-    key: "hypothesis-unchanged",
-    label: "The hypothesis wasn't edited after the start",
-    evaluate: (experiment, history) => {
-      if (!history.length) return null;
-      return !changesAfterStart(experiment, history).some(
-        (h) =>
-          h.pre?.hypothesis !== undefined &&
-          h.post?.hypothesis !== undefined &&
-          h.pre.hypothesis.trim() !== h.post.hypothesis.trim(),
-      );
-    },
-  },
-  {
-    key: "ran-cleanly",
-    label: "Ran without a restart or new phase",
-    evaluate: (experiment, history) =>
-      experiment.phases.length <= 1 &&
-      !history.some(
-        (h) => h.pre?.status === "stopped" && h.post?.status === "running",
-      ),
-  },
-  {
-    key: "not-ended-early",
-    label: "Wasn't ended before its scheduled end",
-    evaluate: (experiment) => {
-      const stopAt = experiment.statusUpdateSchedule?.stopAt;
-      const endedAt =
-        experiment.phases[experiment.phases.length - 1]?.dateEnded;
-      if (!stopAt || !endedAt) return null;
-      // Allow an hour for the scheduled stop job to run
-      const tolerance = 60 * 60 * 1000;
-      return (
-        new Date(endedAt).getTime() >= new Date(stopAt).getTime() - tolerance
-      );
-    },
-  },
-];
-
-export function evaluateProcessSignals(
-  experiment: HealthExperiment,
-  history: ProcessHistoryEntry[],
-): Record<string, ProcessSignalResult> {
-  return Object.fromEntries(
-    PROCESS_SIGNALS.map((s) => [s.key, s.evaluate(experiment, history)]),
-  );
-}
-
-// Mean, across experiments, of each experiment's share of signals passed
-// (unknown signals don't count); 0-100, or null when nothing could be judged
-export function getProcessScore(
-  results: Record<string, ProcessSignalResult>[],
-): number | null {
-  const perExperiment = results
-    .map((r) => {
-      const known = Object.values(r).filter((v): v is boolean => v !== null);
-      return known.length ? known.filter(Boolean).length / known.length : null;
-    })
-    .filter((v): v is number => v !== null);
-  const average = getAverage(perExperiment);
-  return average === null ? null : average * 100;
 }

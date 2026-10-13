@@ -375,6 +375,7 @@ export default function ExperimentationHealthPage() {
             }}
             values={summary?.values}
             ideasInUse={!!summary?.ideasInUse}
+            processPending={summary?.processPending ?? 0}
             loading={!summary}
           />
         </TabsContent>
