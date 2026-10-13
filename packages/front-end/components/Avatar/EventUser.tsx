@@ -1,6 +1,5 @@
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
-import { ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiRobot } from "react-icons/pi";
 import Badge from "@/ui/Badge";
@@ -22,7 +21,7 @@ export interface Props {
     | "avatar-name-email";
   size?: Size;
   wrap?: boolean;
-  /** For raw logs: details inline instead of in tooltips, except the API key's ID. */
+  /** For raw logs: spells out how a key acted and adds its ID to the API tooltip. */
   expanded?: boolean;
 }
 
@@ -104,7 +103,13 @@ export default function EventUser({
         </Flex>
       );
     }
-    return <span>System</span>;
+    return expanded ? (
+      <Tooltip content="An automatic process or background job not associated with a user">
+        <span>System</span>
+      </Tooltip>
+    ) : (
+      <span>System</span>
+    );
   }
 
   // Whoever acted gets the avatar and the name, and the other party goes in the
@@ -147,8 +152,6 @@ export default function EventUser({
   );
   if (display === "avatar") return avatar;
 
-  const withTip = (tip: string, node: ReactElement) =>
-    expanded ? node : <Tooltip content={tip}>{node}</Tooltip>;
   const apiPill = (tip: string) => (
     <Tooltip content={tip}>
       <span>
@@ -156,14 +159,14 @@ export default function EventUser({
       </span>
     </Tooltip>
   );
-  // `role` names the key's mode, spelled out where tooltips aren't used.
-  const aside = (text: string, tip: string, role: string) =>
-    withTip(
-      tip,
+  // `role` names the key's mode as its settings do, spelled out when expanded.
+  const aside = (text: string, tip: string, role: string) => (
+    <Tooltip content={tip}>
       <span style={{ color: "var(--color-text-low)" }}>
         {expanded ? `${text} (${role})` : text}
-      </span>,
-    );
+      </span>
+    </Tooltip>
+  );
   const pillTip =
     keyActed || requester ? "via API key" : "via personal access token";
   // Who else took part, then the API pill on every API request. A nameless key
@@ -176,12 +179,12 @@ export default function EventUser({
             ? aside(
                 `for ${requesterName}`,
                 `${requesterName} asked. The key acted with its own permissions.`,
-                "key's role",
+                "used key's role",
               )
             : aside(
                 `via ${keyName || "API key"}`,
                 "Requested through this API key",
-                "assumed role",
+                "assumed member's role",
               ))}
         {(!keyActed || requester || keyName) &&
           apiPill(expanded ? `${pillTip} · ${user.apiKey}` : pillTip)}

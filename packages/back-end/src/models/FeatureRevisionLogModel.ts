@@ -2,7 +2,10 @@ import {
   ANY_REVIEW_FOOTPRINT,
   featureReviewCandidateProjects,
 } from "shared/util";
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  canCommentOnRevisionEntity,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { eventUserIdentity } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -92,9 +95,15 @@ export class FeatureRevisionLogModel extends BaseClass {
   private isOwnedEntry(doc: FeatureRevisionLogInterface): boolean {
     const authorId = eventUserIdentity(doc.user ?? null);
     if (!authorId || authorId !== this.context.actorId) return false;
-    const project = this.getForeignRefs(doc).feature?.project;
+    // An assuming key keeps its own comments only where it could post them.
+    const { feature } = this.getForeignRefs(doc);
     return this.context.authorRightsAllow((keyContext) =>
-      keyContext.permissions.canAddComment(project ? [project] : []),
+      canCommentOnRevisionEntity(
+        keyContext.permissions,
+        "feature",
+        null,
+        feature ?? {},
+      ),
     );
   }
 

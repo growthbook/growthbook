@@ -1199,6 +1199,56 @@ describe("attribution across callers", () => {
     });
   });
 
+  describe("flag comments", () => {
+    it("lets a key assuming a member edit a comment its review access let it post", async () => {
+      const settings = org as unknown as { customRoles?: unknown[] };
+      settings.customRoles = [
+        {
+          id: "flag_reviewer",
+          description: "",
+          policies: ["ReadData", "FlagsReview"],
+        },
+      ];
+      try {
+        await as("a personal token").post("/api/v2/features", {
+          id: "checkout-flow",
+          valueType: "boolean",
+          defaultValue: "false",
+        });
+        const draft = await as("a personal token").put(
+          "/api/v2/features/checkout-flow/revisions/new/metadata",
+          { description: "Updated" },
+        );
+        const path = `/api/v2/features/checkout-flow/revisions/${draft.body.revision.version}`;
+        const reviewer = as("a key naming the member", bob, {
+          ...KEY,
+          id: "key_reviewer",
+          key: "secret_reviewer",
+          role: "flag_reviewer",
+        });
+        expect(
+          (
+            await reviewer.post(`${path}/submit-review`, {
+              action: "comment",
+              comment: "Looks off",
+            })
+          ).status,
+        ).toBe(200);
+        const entry = await collection("featurerevisionlog").findOne({
+          organization: ORG_ID,
+          featureId: "checkout-flow",
+          action: "Comment",
+        });
+        expect(
+          (await reviewer.put(`${path}/log/${entry?.id}`, { comment: "Fine" }))
+            .status,
+        ).toBe(200);
+      } finally {
+        delete settings.customRoles;
+      }
+    });
+  });
+
   describe("revision webhooks", () => {
     it("report the version a draft is based on", async () => {
       const created = await as("a personal token").post(
