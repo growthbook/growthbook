@@ -48,7 +48,7 @@ import {
   featureForSavedGroupValidation,
   Feature as SavedGroupScopeFeature,
 } from "back-end/src/util/savedGroupProjectScope.util";
-import { BadRequestError, ConflictError } from "back-end/src/util/errors";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
   normalizeFeatureJSONValues,
@@ -2793,9 +2793,7 @@ export async function submitReviewAndComments(
         );
         const key = context.keyActingAsItself;
         if (key && (contributed || (current.editorKeys ?? []).includes(key))) {
-          throw new BadRequestError(
-            "Cannot submit a review on a draft you created",
-          );
+          throw new Error("Cannot submit a review on a draft you created");
         }
         if (contributed && verdict === "approved" && blockSelfApproval) {
           throw new Error("You cannot approve a draft you contributed to.");
