@@ -1,5 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiAutoRun } from "shared/validators";
+import { vi } from "vitest";
 import {
   EppoAllocation,
   EppoData,
@@ -9,6 +10,7 @@ import {
   getCappingSettings,
   getImportedIds,
   getVariationValue,
+  teardownRun,
   mergePhase,
   rulesToCondition,
   toEnvironmentId,
@@ -214,6 +216,7 @@ describe("widenValues", () => {
     expect(widenValues(["2", "3"])).toEqual(["2", 2, "3", 3]);
     expect(widenValues(["true"])).toEqual(["true", true]);
     expect(widenValues(["US"])).toEqual(["US"]);
+    expect(widenValues(["001"])).toEqual(["001"]);
   });
 });
 
@@ -418,10 +421,17 @@ describe("transformFlag", () => {
             5,
             {
               id: "exp_1",
+              status: "running",
               variations: [
                 { id: "var_a", key: "off" },
                 { id: "var_b", key: "on" },
               ],
+              phase: {
+                condition: "",
+                savedGroups: [],
+                coverage: 1,
+                variationWeights: [0.5, 0.5],
+              },
             },
           ],
         ]),
@@ -502,16 +512,27 @@ describe("transformFlag", () => {
       { id: "var_a", key: "off" },
       { id: "var_b", key: "on" },
     ];
-    const ruleFor = (phase?: typeof targeting) =>
+    const ruleFor = (
+      phase?: typeof targeting & { variationWeights?: number[] },
+      status: "running" | "stopped" = "running",
+    ) =>
       transformFlag(
         flag,
         mkCtx({
           eppo,
-          experiments: new Map([[5, { id: "exp_1", variations, phase }]]),
+          experiments: new Map([
+            [5, { id: "exp_1", status, variations, phase }],
+          ]),
         }),
       ).rules[0];
-    expect(ruleFor()).toMatchObject({ type: "experiment-ref" });
-    expect(ruleFor(targeting)).toMatchObject({ type: "experiment-ref" });
+    const live = { ...targeting, variationWeights: [0.5, 0.5] };
+    expect(ruleFor(live)).toMatchObject({ type: "experiment-ref" });
+    // Unknown phase, stopped experiment, or different weights: keep the inline rule
+    expect(ruleFor()).toMatchObject({ type: "experiment" });
+    expect(ruleFor(live, "stopped")).toMatchObject({ type: "experiment" });
+    expect(
+      ruleFor({ ...targeting, variationWeights: [0.9, 0.1] }),
+    ).toMatchObject({ type: "experiment" });
     // A wider live phase would widen the test, so keep an inline rule
     expect(
       ruleFor({ condition: "", savedGroups: [], coverage: 1 }),
@@ -845,6 +866,16 @@ describe("transformMetric", () => {
 
     // The Fact Table's spelling is what the metric endpoints look up
     expect(sum("revenue").numerator).toMatchObject({ column: "REVENUE" });
+    expect(
+      transformMetric(
+        mkMetric({ numerator_aggregation: agg("sum", { column: "revenue" }) }),
+        mkCtx({
+          factTableColumns: new Map([
+            ["ftb_purchases", ["REVENUE", "revenue"]],
+          ]),
+        }),
+      ).numerator,
+    ).toMatchObject({ column: "revenue" });
     expect(() => sum("__count__")).toThrow(
       'Column "__count__" isn\'t in the "Purchases" Fact Table',
     );
@@ -1198,5 +1229,102 @@ describe("toPhaseDate", () => {
     expect(toPhaseDate("2024-02-01T00:00:00Z")).toBe("2024-02-01T00:00");
     expect(toPhaseDate("2024-02-01T02:30:00+02:00")).toBe("2024-02-01T00:30");
     expect(toPhaseDate(undefined)).toBe("");
+  });
+});
+
+describe("teardownRun", () => {
+  const artifact = (
+    kind: ApiAutoRun["artifacts"][number]["kind"],
+    id: string,
+  ): ApiAutoRun["artifacts"][number] => ({
+    kind,
+    id,
+    label: id,
+    by: "growthbook",
+    detail: "Created from Eppo",
+    action: "created",
+    dateCreated: "2024-01-01",
+  });
+  const run = (artifacts: ApiAutoRun["artifacts"]): ApiAutoRun =>
+    ({ id: "arun_1", source: "eppo-import", artifacts }) as ApiAutoRun;
+
+  // Records every request; `fail` makes matching requests throw
+  const mockApi = (
+    fail: (url: string, method: string) => string | undefined = () => undefined,
+  ) => {
+    const calls: string[] = [];
+    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+      const method = options?.method ?? "GET";
+      calls.push(`${method} ${url}`);
+      const error = fail(url, method);
+      if (error) throw new Error(error);
+      if (method === "GET" && url.startsWith("/feature/")) {
+        return { feature: { archived: false } };
+      }
+      if (method === "GET" && url.startsWith("/saved-groups/")) {
+        return { savedGroup: { archived: true } };
+      }
+      return {};
+    });
+    return { calls, apiCall: apiCall as never };
+  };
+
+  it("deletes dependents first, archiving where required, and records each", async () => {
+    const { calls, apiCall } = mockApi();
+    const result = await teardownRun(
+      run([
+        artifact("saved-group", "grp_1"),
+        artifact("fact-table", "ftb_1"),
+        artifact("feature", "flag-a"),
+        artifact("metric", "fact__1"),
+      ]),
+      apiCall,
+    );
+    expect(result).toEqual({ deleted: 4, failures: [] });
+    expect(calls.filter((c) => !c.includes("/auto-runs/"))).toEqual([
+      "GET /feature/flag-a",
+      "POST /feature/flag-a/archive",
+      "DELETE /feature/flag-a",
+      "DELETE /fact-metrics/fact__1",
+      "DELETE /fact-tables/ftb_1",
+      "GET /saved-groups/grp_1",
+      // Already archived, so no archive step and nothing to restore
+      "DELETE /saved-groups/grp_1",
+    ]);
+    expect(calls.filter((c) => c.includes("/auto-runs/"))).toHaveLength(4);
+  });
+
+  it("restores the archive state when a delete fails and keeps what a failure still uses", async () => {
+    const { calls, apiCall } = mockApi((url, method) =>
+      method === "DELETE" && url === "/fact-metrics/fact__1"
+        ? "Metric is in use"
+        : method === "DELETE" && url === "/feature/flag-a"
+          ? "Still a prerequisite"
+          : undefined,
+    );
+    const result = await teardownRun(
+      run([
+        artifact("feature", "flag-a"),
+        artifact("metric", "fact__1"),
+        artifact("fact-table", "ftb_1"),
+        artifact("saved-group", "grp_1"),
+        artifact("tag", "checkout"),
+      ]),
+      apiCall,
+    );
+    expect(result.deleted).toBe(1);
+    expect(result.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["flag-a", "Still a prerequisite"],
+      ["fact__1", "Metric is in use"],
+      ["ftb_1", "Kept because something that uses it couldn't be deleted"],
+      ["grp_1", "Kept because something that uses it couldn't be deleted"],
+    ]);
+    // The flag was live before, so it is un-archived again
+    expect(calls).toContain("POST /feature/flag-a/archive");
+    expect(
+      calls.filter((c) => c === "POST /feature/flag-a/archive"),
+    ).toHaveLength(2);
+    expect(calls).not.toContain("DELETE /fact-tables/ftb_1");
+    expect(calls).toContain("DELETE /tag");
   });
 });

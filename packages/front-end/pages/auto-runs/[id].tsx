@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import {
@@ -192,9 +193,16 @@ function DeleteRunButton({
   onDone: () => Promise<unknown>;
 }) {
   const { apiCall } = useAuth();
+  const { userId } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<TeardownFailure[]>([]);
-  const created = createdByRun(run);
+  // Deletions are recorded on the run, which only its creator or an admin may update
+  const canRecord =
+    !run.createdBy ||
+    run.createdBy === userId ||
+    permissionsUtil.canManageOrgSettings();
+  const created = canRecord ? createdByRun(run) : [];
   const { data: runsData } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs", {
     shouldRun: () => created.length > 0,
   });
@@ -346,7 +354,7 @@ export default function AutoRunPage() {
         )}
         {imported.length > 0 ? (
           <Section
-            title="Imported from Eppo"
+            title="Imported From Eppo"
             description="Open an item to review its settings. Importing again updates these instead of creating duplicates."
           >
             <SetUpTable artifacts={imported} />
@@ -356,7 +364,7 @@ export default function AutoRunPage() {
         )}
         {failedItems.length > 0 && (
           <Section
-            title="Failed to import"
+            title="Failed to Import"
             description="Why each item couldn't be imported. Fix the cause and import again."
           >
             <SetUpTable artifacts={failedItems} />

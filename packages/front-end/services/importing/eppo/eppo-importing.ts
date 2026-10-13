@@ -22,7 +22,11 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SDKAttribute } from "shared/types/organization";
-import { ApiAutoRun, AutoRunArtifact } from "shared/validators";
+import {
+  ApiAutoRun,
+  AutoRunArtifact,
+  MAX_AUTO_RUN_ARTIFACTS,
+} from "shared/validators";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -324,10 +328,31 @@ export type PhaseTargeting = {
 
 export type GBExperimentRef = {
   id: string;
+  status?: ExperimentInterfaceStringDates["status"];
   variations: { id: string; key: string }[];
-  // An experiment-ref rule serves the phase's targeting, not its own
-  phase?: PhaseTargeting;
+  // An experiment-ref rule serves the phase's targeting and weights, not its own
+  phase?: PhaseTargeting & { variationWeights?: number[] };
 };
+
+// Whether an experiment-ref rule would serve exactly what the allocation does
+export function servesLikeAllocation(
+  linked: GBExperimentRef,
+  served: { key: string; weight: number }[],
+  targeting: PhaseTargeting,
+): boolean {
+  const phase = linked.phase;
+  if (linked.status !== "running" || !phase) return false;
+  if (!sameTargeting(phase, targeting)) return false;
+  if (linked.variations.length !== served.length) return false;
+  const total = served.reduce((sum, s) => sum + s.weight, 0);
+  const weights = new Map(served.map((s) => [s.key, s.weight / total]));
+  return linked.variations.every((v, i) => {
+    const w = weights.get(v.key);
+    return (
+      w !== undefined && Math.abs(w - (phase.variationWeights?.[i] ?? 0)) < 1e-6
+    );
+  });
+}
 
 export type TransformContext = {
   eppo: EppoData;
@@ -361,7 +386,7 @@ export function widenValues(values: string[]): (string | number | boolean)[] {
   for (const v of values) {
     out.add(v);
     const t = v.trim();
-    if (t !== "" && !isNaN(Number(t))) out.add(Number(t));
+    if (t !== "" && String(Number(t)) === t) out.add(Number(t));
     if (t === "true") out.add(true);
     if (t === "false") out.add(false);
   }
@@ -660,17 +685,18 @@ export function transformFlag(
     };
 
     if (served.length > 1) {
-      // experiment-ref only when variations and targeting match the phase
       const linked = a.experiment && ctx.experiments.get(a.experiment.id);
       const byKey = new Map([...variations.values()].map((v) => [v.key, v]));
-      const phase =
-        linked &&
-        (linked.phase ?? getLinkedTargeting(a.experiment?.id ?? 0, ctx));
       if (
         linked &&
-        linked.variations.every((v) => byKey.has(v.key)) &&
-        phase &&
-        sameTargeting(phase, { ...targeting, coverage })
+        servesLikeAllocation(
+          linked,
+          served.map((w) => ({
+            key: getVariation(w.variation_id).key,
+            weight: w.weight,
+          })),
+          { ...targeting, coverage },
+        )
       ) {
         rules.push({
           ...base,
@@ -843,7 +869,9 @@ function requireColumn(
   );
   // No columns means detection hasn't run
   if (!columns?.length) return column;
-  const match = columns.find((c) => c.toLowerCase() === column.toLowerCase());
+  const match =
+    columns.find((c) => c === column) ??
+    columns.find((c) => c.toLowerCase() === column.toLowerCase());
   if (!match) {
     const name = ctx.eppo.factSources.find((f) => f.id === factSourceId)?.name;
     throw new Error(`Column "${column}" isn't in the "${name}" Fact Table`);
@@ -1307,6 +1335,8 @@ export function toExperimentUpdate(
       ...copy,
       ...pick(rest, [
         "status",
+        "datasource",
+        "exposureQueryId",
         "variations",
         "goalMetrics",
         "secondaryMetrics",
@@ -1401,6 +1431,7 @@ export const ARTIFACT_KINDS: Record<EppoCategory, AutoRunArtifact["kind"]> = {
 };
 
 export const EPPO_RUN_SOURCE = "eppo-import";
+const RECORD_CHUNK = 200;
 
 type ArtifactAction = NonNullable<AutoRunArtifact["action"]>;
 
@@ -1464,7 +1495,10 @@ async function deleteArtifact(
   const id = encodeURIComponent(artifact.id);
   switch (artifact.kind) {
     case "feature": {
-      // Archive first (autoPublish lands it now); roll back if the delete fails
+      // Archive first (autoPublish lands it now); restore the original state if the delete fails
+      const { feature } = await apiCall<{ feature: { archived?: boolean } }>(
+        `/feature/${id}`,
+      );
       const archive = (archived: boolean) =>
         apiCall(`/feature/${id}/archive`, {
           method: "POST",
@@ -1474,11 +1508,11 @@ async function deleteArtifact(
             ignoreWarnings: true,
           }),
         });
-      await archive(true);
+      if (!feature.archived) await archive(true);
       try {
         await apiCall(`/feature/${id}`, { method: "DELETE" });
       } catch (e) {
-        await archive(false).catch(() => undefined);
+        if (!feature.archived) await archive(false).catch(() => undefined);
         throw e;
       }
       return;
@@ -1493,17 +1527,20 @@ async function deleteArtifact(
       await apiCall(`/fact-tables/${id}`, { method: "DELETE" });
       return;
     case "saved-group": {
+      const { savedGroup } = await apiCall<{
+        savedGroup: { archived?: boolean };
+      }>(`/saved-groups/${id}`);
       const archive = (archived: boolean) =>
         apiCall(`/saved-groups/${id}`, {
           method: "PUT",
           body: JSON.stringify({ archived }),
         });
-      await archive(true);
+      if (!savedGroup.archived) await archive(true);
       try {
         await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
       } catch (e) {
-        // Roll back, or the archived group would import twice
-        await archive(false).catch(() => undefined);
+        // Restore, or the archived group would import twice
+        if (!savedGroup.archived) await archive(false).catch(() => undefined);
         throw e;
       }
       return;
@@ -1528,14 +1565,31 @@ export type TeardownFailure = {
   error: string;
 };
 
+// Kinds that must stay when something referencing them couldn't be deleted
+const KEPT_WHEN_FAILED: Partial<
+  Record<AutoRunArtifact["kind"], AutoRunArtifact["kind"][]>
+> = {
+  feature: ["experiment", "saved-group", "environment"],
+  experiment: ["metric"],
+  metric: ["fact-table"],
+};
+
 // One at a time so one blocked delete doesn't stop the rest
 export async function teardownRun(
   run: ApiAutoRun,
   apiCall: ApiCall,
 ): Promise<{ deleted: number; failures: TeardownFailure[] }> {
   const failures: TeardownFailure[] = [];
+  const kept = new Set<AutoRunArtifact["kind"]>();
   let deleted = 0;
   for (const artifact of createdByRun(run)) {
+    if (kept.has(artifact.kind)) {
+      failures.push({
+        artifact,
+        error: "Kept because something that uses it couldn't be deleted",
+      });
+      continue;
+    }
     try {
       await deleteArtifact(artifact, apiCall);
       await apiCall(`/auto-runs/${run.id}/artifacts`, {
@@ -1557,6 +1611,7 @@ export async function teardownRun(
       deleted++;
     } catch (e) {
       failures.push({ artifact, error: e.message });
+      KEPT_WHEN_FAILED[artifact.kind]?.forEach((k) => kept.add(k));
     }
   }
   return { deleted, failures };
@@ -1613,7 +1668,7 @@ export type ExistingIds = {
   factTables: Map<string, string>; // name, on the selected Data Source
   factMetrics: Map<string, string>; // name, on the selected Data Source
   experiments: Map<string, string>; // tracking key
-  experimentVariations: Map<string, GBExperimentRef["variations"]>; // id
+  experimentRefs: Map<string, Pick<GBExperimentRef, "variations" | "status">>; // id
   factTableColumns: Map<string, string[]>; // Fact Table id
 };
 
@@ -1769,12 +1824,49 @@ function getInitialContext(
       .filter((v) => v.is_active)
       .map((v) => ({ key: v.variant_key, id: `var_eppo_${v.variation_id}` }));
     if (existingId) {
+      const ref = existing.experimentRefs.get(existingId);
       experiments.set(e.id, {
         id: existingId,
-        variations: existing.experimentVariations.get(existingId) ?? variations,
+        status: ref?.status,
+        variations: ref?.variations ?? variations,
       });
     } else if (placeholder && isSelected("experiments", String(e.id))) {
-      experiments.set(e.id, { id: placeholder, variations });
+      const active = e.variations
+        .filter((v) => v.is_active)
+        .sort((a, b) => Number(b.is_control) - Number(a.is_control));
+      const total = active.reduce(
+        (sum, v) => sum + (v.weighted_expected_traffic || 0),
+        0,
+      );
+      const targeting = getLinkedTargeting(e.id, {
+        eppo,
+        project,
+        datasource,
+        environmentIds: new Set(),
+        savedGroupIds,
+        factTableIds,
+        metricIds,
+        experiments,
+        factTableColumns: new Map(),
+      });
+      experiments.set(e.id, {
+        id: placeholder,
+        status: e.status === "RUNNING" ? "running" : undefined,
+        variations: active.map((v) => ({
+          key: v.variant_key,
+          id: `var_eppo_${v.variation_id}`,
+        })),
+        phase: targeting
+          ? {
+              ...targeting,
+              variationWeights: active.map((v) =>
+                total
+                  ? (v.weighted_expected_traffic || 0) / total
+                  : 1 / active.length,
+              ),
+            }
+          : undefined,
+      });
     }
   });
   return {
@@ -1905,6 +1997,11 @@ export async function runEppoImport({
     (n, { key }) => n + selected(key, data[key]).length,
     0,
   );
+  if (selectedCount > MAX_AUTO_RUN_ARTIFACTS) {
+    throw new Error(
+      `Select at most ${MAX_AUTO_RUN_ARTIFACTS} items per import so the run can record them all`,
+    );
+  }
 
   // The run is what a re-run reads to update instead of re-create
   const { autoRun } = await apiCall<{ autoRun: ApiAutoRun }>("/auto-runs", {
@@ -1940,21 +2037,25 @@ export async function runEppoImport({
     recorded = [];
     if (!batch.length) return;
     try {
-      await apiCall(`/auto-runs/${runId}/artifacts`, {
-        method: "POST",
-        body: JSON.stringify({
-          artifacts: batch.map(({ item, id, error }) => ({
-            kind,
-            id,
-            label: item.name,
-            by: "growthbook",
-            ...(error
-              ? { action: "failed", detail: error.slice(0, 500) }
-              : artifactAction(category, item)),
-            externalId: externalId(category, item.eppo.id),
-          })),
-        }),
-      });
+      for (let i = 0; i < batch.length; i += RECORD_CHUNK) {
+        await apiCall(`/auto-runs/${runId}/artifacts`, {
+          method: "POST",
+          body: JSON.stringify({
+            artifacts: batch
+              .slice(i, i + RECORD_CHUNK)
+              .map(({ item, id, error }) => ({
+                kind,
+                id,
+                label: item.name.slice(0, 200),
+                by: "growthbook",
+                ...(error
+                  ? { action: "failed", detail: error.slice(0, 500) }
+                  : artifactAction(category, item)),
+                externalId: externalId(category, item.eppo.id),
+              })),
+          }),
+        });
+      }
     } catch (e) {
       // The objects exist but aren't recorded, so say so
       batch.forEach(({ item, error }) => {
@@ -2012,6 +2113,13 @@ export async function runEppoImport({
       ),
       ...selected("flags", data.flags).flatMap((f) =>
         getFlagAttributes(f.eppo, eppo),
+      ),
+      ...selected("experiments", data.experiments).flatMap((e) =>
+        eppo.flags.flatMap((f) =>
+          (f.allocations ?? []).some((a) => a.experiment?.id === e.eppo.id)
+            ? getFlagAttributes(f.eppo, eppo)
+            : [],
+        ),
       ),
     ]);
     for (const attribute of attributes) {
@@ -2184,6 +2292,21 @@ export async function runEppoImport({
             body: JSON.stringify(update),
           });
           current = res.experiment ?? current;
+          // Stopping is its own endpoint; it lands the outcome and end date
+          if (current.status === "running" && experiment.status === "stopped") {
+            await apiCall(`/experiment/${id}/stop`, {
+              method: "POST",
+              body: JSON.stringify({
+                reason: "",
+                dateEnded: toPhaseDate(experiment.phases?.[0]?.dateEnded),
+                results: experiment.results,
+                winner: experiment.winner,
+                analysis: experiment.analysis,
+                excludeFromPayload: true,
+              }),
+            });
+            current = { ...current, status: "stopped" };
+          }
           const last = current.phases.length - 1;
           if (phase && last >= 0) {
             const merged = mergePhase(current.phases[last], phase);
@@ -2200,11 +2323,13 @@ export async function runEppoImport({
         const livePhase = current?.phases[current.phases.length - 1];
         ctx.experiments.set(item.eppo.id, {
           id,
+          status: current?.status,
           variations: current?.variations ?? [],
           phase: livePhase && {
             condition: livePhase.condition ?? "",
             savedGroups: livePhase.savedGroups ?? [],
             coverage: livePhase.coverage ?? 1,
+            variationWeights: livePhase.variationWeights,
           },
         });
         record(item, id);

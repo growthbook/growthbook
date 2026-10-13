@@ -5,7 +5,7 @@ import { namedSchema } from "./openapi-helpers";
 // One automated pass (SDK wizard or importer); `artifacts` is its only record
 
 export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
-export const MAX_AUTO_RUN_ARTIFACTS = 2000;
+export const MAX_AUTO_RUN_ARTIFACTS = 5000;
 export const autoRunArtifactActions = [
   "created",
   "updated",

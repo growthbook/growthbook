@@ -103,7 +103,7 @@ export default function ImportFromEppo() {
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
   const { features, mutate: mutateFeatures } = useFeatureMetaInfo();
-  const { experiments, mutateExperiments } = useExperiments();
+  const { experiments, mutateExperiments } = useExperiments("", true);
   const { data: runsData, mutate: mutateRuns } = useApi<{
     autoRuns: ApiAutoRun[];
   }>("/auto-runs");
@@ -173,10 +173,13 @@ export default function ImportFromEppo() {
           )
           .map((e) => [e.trackingKey, e.id]),
       ),
-      experimentVariations: new Map(
+      experimentRefs: new Map(
         experiments.map((e) => [
           e.id,
-          e.variations.map((v) => ({ id: v.id, key: v.key })),
+          {
+            status: e.status,
+            variations: e.variations.map((v) => ({ id: v.id, key: v.key })),
+          },
         ]),
       ),
     };
