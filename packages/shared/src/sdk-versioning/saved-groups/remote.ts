@@ -177,6 +177,25 @@ export function rewriteRemoteGroupReferences(
     }
   }
 
+  // Stored conditions use the forms above, but `$savedGroup` can be written by
+  // hand. SDKs reading `referenceV2` payloads understand it as is.
+  if ("$savedGroup" in node && mode === "attribute") {
+    const reference = node.$savedGroup;
+    const groupId = readSavedGroupReferenceId(reference);
+    if (isRemote(groupId)) {
+      delete node.$savedGroup;
+      const attribute = isPlainObject(reference)
+        ? reference.attribute
+        : undefined;
+      const group = groupMap.get(groupId) ?? {};
+      conditions.push(
+        typeof attribute === "string"
+          ? convertInGroupOperator(groupId, group, attribute, true, mode)
+          : createConditionFromGroupId(groupId, true, mode),
+      );
+    }
+  }
+
   for (const [field, value] of Object.entries(node)) {
     if (field.startsWith("$") || !isPlainObject(value)) continue;
     let removed = false;

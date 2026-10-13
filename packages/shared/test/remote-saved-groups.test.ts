@@ -141,6 +141,23 @@ describe.each([
     expect(condition).toEqual({ __sgRemoteOverride__: "vip" });
   });
 
+  it("rewrites a hand-written $savedGroup reference", () => {
+    const condition = { $not: { $savedGroup: { id: "vip" } } };
+    strategy.finalizeCondition(condition);
+    expect(condition).toEqual({
+      $not: { __gb_remoteGroupIds: { $in: ["vip"] } },
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("fails closed on a hand-written $savedGroup on another attribute", () => {
+    const condition = {
+      $savedGroup: { id: "vip", attribute: "parent_id" },
+    };
+    strategy.finalizeCondition(condition);
+    expect(condition).toEqual({ __sgRemoteOverride__: "vip" });
+  });
+
   it("rewrites nested $savedGroups and guards negations", () => {
     const condition = { $not: { $savedGroups: ["vip"] } };
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());

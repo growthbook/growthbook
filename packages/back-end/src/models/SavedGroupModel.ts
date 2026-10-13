@@ -279,7 +279,15 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   protected async afterDelete(doc: SavedGroupInterface) {
     if (doc.type === "remote") {
-      await deleteRemoteSavedGroupUploads(this.context, doc.id);
+      // The group is already gone, so a failure here can't be retried through
+      // it; the rest of the delete still runs, and the upload cleanup job
+      // removes what's left.
+      await deleteRemoteSavedGroupUploads(this.context, doc.id).catch((err) =>
+        this.context.logger.error(
+          err,
+          "Could not delete a remote Saved Group's uploads",
+        ),
+      );
     }
     await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
   }
