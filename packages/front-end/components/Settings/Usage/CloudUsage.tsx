@@ -255,7 +255,7 @@ export default function CloudUsage() {
   const getKeyLabel = (key: string) => {
     if (key === IMAGES_KEY) return "Visual Editor images";
     if (key === UNKNOWN_KEY) return "Deleted or not visible to you";
-    if (key === ALL_PROJECTS_KEY) return "All Projects";
+    if (key === ALL_PROJECTS_KEY) return "All Projects (unscoped)";
     if (breakdown === "type") return requestTypeLabels[key] ?? key;
     if (breakdown === "project")
       return getProjectNames(key.split(",")).join(" + ");
@@ -454,7 +454,7 @@ export default function CloudUsage() {
       </Callout>
       {byKeyError ? (
         <Callout status="error" mb="5">
-          Failed to get usage by source: {byKeyError.message}
+          Failed to load the usage breakdown: {byKeyError.message}
         </Callout>
       ) : (
         sourceRows && (
@@ -604,7 +604,8 @@ type CumulativePoint = {
 };
 
 function useCumulativeData(data: StackedPoint[]): CumulativePoint[] {
-  const sums: Record<string, number> = {};
+  // No prototype, so a group named like a built-in (e.g. "constructor") starts at undefined
+  const sums: Record<string, number> = Object.create(null);
   let total = 0;
   return data.map((d) => {
     let dailyTotal = 0;
@@ -613,7 +614,13 @@ function useCumulativeData(data: StackedPoint[]): CumulativePoint[] {
       dailyTotal += v;
     });
     total += dailyTotal;
-    return { ts: d.ts, v: { ...sums }, daily: d.v, total, dailyTotal };
+    return {
+      ts: d.ts,
+      v: Object.assign(Object.create(null), sums),
+      daily: d.v,
+      total,
+      dailyTotal,
+    };
   });
 }
 
@@ -1031,7 +1038,7 @@ function getStackedData(
   const byDay = new Map<string, Record<string, number>>();
   rows.forEach((r) => {
     const day = r.date.substring(0, 10);
-    const v = byDay.get(day) ?? {};
+    const v: Record<string, number> = byDay.get(day) ?? Object.create(null);
     const key = seriesKeys.has(r.key) ? r.key : OTHER_KEY;
     v[key] = (v[key] ?? 0) + r[metric];
     byDay.set(day, v);
@@ -1039,7 +1046,7 @@ function getStackedData(
   // By-key rows skip days without traffic, so the daily totals set the days
   return usage.map((u) => ({
     ts: new Date(u.date),
-    v: byDay.get(u.date.substring(0, 10)) ?? {},
+    v: byDay.get(u.date.substring(0, 10)) ?? Object.create(null),
   }));
 }
 
