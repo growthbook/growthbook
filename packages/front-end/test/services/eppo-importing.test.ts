@@ -195,8 +195,7 @@ describe("getVariationValue", () => {
     expect(getVariationValue("json", v('{"a":1}'))).toBe('{"a":1}');
   });
 
-  // Guessing "0" or "false" for every variation would import cleanly and
-  // serve the wrong value, so a key that isn't a value of the type is an error
+  // A key that isn't a value of the type is an error, not a guess
   it("rejects keys that aren't values of the flag's type", () => {
     const v = (variant_key: string) => ({ id: 1, name: "", variant_key });
     expect(() => getVariationValue("number", v("control"))).toThrow(
@@ -210,7 +209,7 @@ describe("getVariationValue", () => {
 });
 
 describe("widenValues", () => {
-  // Eppo casts attributes to strings before ONE_OF; the SDK compares strictly
+  // Eppo compares as strings; the SDK compares strictly
   it("lists number and boolean forms alongside the string", () => {
     expect(widenValues(["2", "3"])).toEqual(["2", 2, "3", 3]);
     expect(widenValues(["true"])).toEqual(["true", true]);
@@ -367,8 +366,7 @@ describe("transformFlag", () => {
     ).toThrow("Switchback");
   });
 
-  // Eppo evaluates allocations top-down, so a rule-less 100% allocation above
-  // others shadows them even when it serves the default value
+  // Eppo evaluates top-down; a rule-less 100% allocation shadows later ones
   it("keeps a non-default catch-all that serves the default value", () => {
     const { rules } = transformFlag(
       mkFlag([
@@ -514,8 +512,7 @@ describe("transformFlag", () => {
       ).rules[0];
     expect(ruleFor()).toMatchObject({ type: "experiment-ref" });
     expect(ruleFor(targeting)).toMatchObject({ type: "experiment-ref" });
-    // A live phase that targets everyone would widen the test, so keep the
-    // allocation's own targeting on an inline rule
+    // A wider live phase would widen the test, so keep an inline rule
     expect(
       ruleFor({ condition: "", savedGroups: [], coverage: 1 }),
     ).toMatchObject({
@@ -846,8 +843,7 @@ describe("transformMetric", () => {
         ctx,
       );
 
-    // Warehouses fold column names differently; the Fact Table's spelling is
-    // the one the metric endpoints look up
+    // The Fact Table's spelling is what the metric endpoints look up
     expect(sum("revenue").numerator).toMatchObject({ column: "REVENUE" });
     expect(() => sum("__count__")).toThrow(
       'Column "__count__" isn\'t in the "Purchases" Fact Table',
@@ -891,7 +887,7 @@ describe("transformMetric", () => {
         ctx,
       ).numerator,
     ).toMatchObject({ column: "$$count" });
-    // Columns aren't known until the Fact Table exists, or detection has run
+    // Columns unknown until the Fact Table exists and detection has run
     expect(
       transformMetric(
         mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),

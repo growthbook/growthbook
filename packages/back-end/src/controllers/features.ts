@@ -3701,7 +3701,7 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  // mirror=true replaces rules and lands env toggles; other callers keep the old update behavior
+  // mirror=true: rules replace and env toggles land; others keep the old update
   const mirror = req.query?.mirror === "true";
 
   const environmentsEnabled: Record<string, boolean> = {};

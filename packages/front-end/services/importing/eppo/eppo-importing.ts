@@ -630,7 +630,7 @@ export function transformFlag(
     }
     const served = servedVariations(a);
     if (!served.length) return;
-    // The default that gave defaultValue is redundant; a split default or another env's default stays a rule
+    // The default behind defaultValue is redundant; other defaults stay rules
     if (a === defaultAllocation && defaultServed?.length === 1) return;
     const coverage = allocationCoverage(a);
     if (
@@ -660,7 +660,7 @@ export function transformFlag(
     };
 
     if (served.length > 1) {
-      // experiment-ref only when variations and targeting match, since the rule serves the phase's
+      // experiment-ref only when variations and targeting match the phase
       const linked = a.experiment && ctx.experiments.get(a.experiment.id);
       const byKey = new Map([...variations.values()].map((v) => [v.key, v]));
       const phase =
@@ -829,7 +829,7 @@ function toColumnRef(
   };
 }
 
-// Returns the Fact Table's spelling; warehouses fold case and the metric endpoints match exactly
+// Returns the Fact Table's spelling; the metric endpoints match exactly
 function requireColumn(
   factSourceId: number,
   column: FactColumn,
@@ -1138,7 +1138,7 @@ export function transformMetric(
   };
 }
 
-// Only the definition; thresholds, priors, tags and projects stay as set in GrowthBook
+// Only the definition; thresholds, priors, tags and projects stay
 export function toMetricUpdate(metric: FactMetricPayload) {
   return {
     ...pick(metric, [
@@ -1283,7 +1283,7 @@ export function transformExperiment(
         }
       : {}),
     analysis: experiment.key_takeaways ?? "",
-    // Org defaults apply unless Eppo has a plan; Sequential* maps to sequential testing
+    // Org defaults unless Eppo has a plan; Sequential* means sequential
     ...(plan
       ? {
           statsEngine: method === "Bayesian" ? "bayesian" : "frequentist",
@@ -1327,7 +1327,7 @@ export function toPhaseDate(date?: string): string {
   return date ? new Date(date).toISOString().slice(0, 16) : "";
 }
 
-// Eppo's settings over the existing phase, so GrowthBook-only targeting and dates survive
+// Eppo's settings over the existing phase; GrowthBook-only fields survive
 export function mergePhase(
   existing: ExperimentPhaseStringDates,
   incoming: ExperimentPhaseStringDates,
@@ -2018,7 +2018,7 @@ export async function runEppoImport({
       await ensureAttributeExists(attribute, attributeSchema, apiCall);
     }
 
-    // One serial call per env: a refused name shouldn't block the rest, and each call rewrites the org list
+    // Serial, one env per call: each rewrites the org list
     const createdEnvs = new Set<string>();
     await importEach(
       "environments",
