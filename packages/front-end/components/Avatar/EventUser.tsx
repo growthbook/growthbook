@@ -1,5 +1,6 @@
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
+import { ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiRobot } from "react-icons/pi";
 import Badge from "@/ui/Badge";
@@ -21,6 +22,8 @@ export interface Props {
     | "avatar-name-email";
   size?: Size;
   wrap?: boolean;
+  /** For raw logs: details inline instead of in tooltips, except the API key's ID. */
+  expanded?: boolean;
 }
 
 function getUserLabel(user?: EventUserType | null, bothNameAndEmail?: boolean) {
@@ -60,6 +63,7 @@ export default function EventUser({
   display = "avatar",
   size = "md",
   wrap = false,
+  expanded = false,
 }: Props) {
   const { users, getOwnerDisplay } = useUser();
 
@@ -143,6 +147,8 @@ export default function EventUser({
   );
   if (display === "avatar") return avatar;
 
+  const withTip = (tip: string, node: ReactElement) =>
+    expanded ? node : <Tooltip content={tip}>{node}</Tooltip>;
   const apiPill = (tip: string) => (
     <Tooltip content={tip}>
       <span>
@@ -150,11 +156,16 @@ export default function EventUser({
       </span>
     </Tooltip>
   );
-  const aside = (text: string, tip: string) => (
-    <Tooltip content={tip}>
-      <span style={{ color: "var(--color-text-low)" }}>{text}</span>
-    </Tooltip>
-  );
+  // `role` names the key's mode, spelled out where tooltips aren't used.
+  const aside = (text: string, tip: string, role: string) =>
+    withTip(
+      tip,
+      <span style={{ color: "var(--color-text-low)" }}>
+        {expanded ? `${text} (${role})` : text}
+      </span>,
+    );
+  const pillTip =
+    keyActed || requester ? "via API key" : "via personal access token";
   // Who else took part, then the API pill on every API request. A nameless key
   // that names no one already reads "API key".
   const attribution =
@@ -165,15 +176,15 @@ export default function EventUser({
             ? aside(
                 `for ${requesterName}`,
                 `${requesterName} asked. The key acted with its own permissions.`,
+                "key's role",
               )
             : aside(
                 `via ${keyName || "API key"}`,
                 "Requested through this API key",
+                "assumed role",
               ))}
         {(!keyActed || requester || keyName) &&
-          apiPill(
-            keyActed || requester ? "via API key" : "via personal access token",
-          )}
+          apiPill(expanded ? `${pillTip} · ${user.apiKey}` : pillTip)}
       </>
     ) : null;
 

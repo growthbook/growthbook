@@ -47,23 +47,18 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
         </td>
         <td>
           <span className="py-1 d-block">
-            {user?.type === "dashboard" ? (
-              <span title={user.email}>{user.name}</span>
-            ) : user?.type === "api_key" ? (
+            {user ? (
               <EventUser
                 user={
                   // Older events didn't store an org key's name.
-                  user.id || user.name
-                    ? user
-                    : { ...user, name: apiKeyDescriptions?.[user.apiKey] }
+                  user.type === "api_key" && !user.id && !user.name
+                    ? { ...user, name: apiKeyDescriptions?.[user.apiKey] }
+                    : user
                 }
-                display="name"
+                display="name-email"
+                expanded
                 wrap
               />
-            ) : user?.type === "system" ? (
-              <span title="An automatic process or background job not associated with a user">
-                System
-              </span>
             ) : (
               ""
             )}
