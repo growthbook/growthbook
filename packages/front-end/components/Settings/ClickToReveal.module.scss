@@ -30,9 +30,8 @@
   background-color: var(--color-panel-solid);
 }
 
-// Shown only while the key is hovered or keyboard-focused, so it never covers
-// it. A click's focus doesn't count, or Hide would stay up after the pointer
-// leaves.
+// Shown while the key is hovered or keyboard-focused; a click's focus would
+// keep it up after the pointer leaves.
 .hide {
   right: -4px;
   bottom: -6px;

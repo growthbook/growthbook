@@ -15,6 +15,11 @@ const HEADER_HELP: Record<HeaderPolicy, string> = {
   rejected: "Requests with this header are rejected.",
 };
 
+const PERMISSIONS_HELP: Record<PermissionsMode, string> = {
+  assume: "Acts as the member, limited to what this key can also do.",
+  key: "Acts as the key. The name is only logged.",
+};
+
 const RequestedByFields: FC<{
   header: HeaderPolicy;
   setHeader: (header: HeaderPolicy) => void;
@@ -74,9 +79,7 @@ const RequestedByFields: FC<{
               ]}
             />
             <Text size="sm" color="text-mid">
-              {permissions === "assume"
-                ? "Acts as the member, limited to what this key can also do."
-                : "Acts as the key. The name is only logged."}
+              {PERMISSIONS_HELP[permissions]}
             </Text>
           </>
         )}
