@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -76,7 +77,7 @@ function ValuesBox({
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
-// and an inline ReactDiffViewer for multi-line / JSON values.
+// and an inline diff viewer for multi-line / JSON values.
 function ValueChangedField({
   label,
   pre,
@@ -136,7 +137,7 @@ function ValueChangedField({
         className="diff-wrapper diff-wrapper-compact"
         style={{ maxHeight: 250, overflowY: "auto" }}
       >
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}

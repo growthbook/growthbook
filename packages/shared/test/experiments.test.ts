@@ -27,6 +27,7 @@ import {
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
   isFactMetricJoinable,
+  getFactTableIdsForMetrics,
   parseSliceQueryString,
   parseSliceMetricId,
   generateSliceString,
@@ -3183,5 +3184,42 @@ describe("withScheduledBy", () => {
     ["nobody", undefined, staged],
   ])("stamps %s", (_who, by, expected) => {
     expect(withScheduledBy(staged, by)).toEqual({ ...staged, ...expected });
+  });
+});
+
+describe("getFactTableIdsForMetrics", () => {
+  const metric = (m: object) => m as unknown as FactMetricInterface;
+  const mean = (factTableId: string) =>
+    metric({ metricType: "mean", numerator: { factTableId } });
+  const ratio = (numerator: string, denominator: string) =>
+    metric({
+      metricType: "ratio",
+      numerator: { factTableId: numerator },
+      denominator: { factTableId: denominator },
+    });
+  const funnel = (steps: string[]) =>
+    metric({
+      metricType: "funnel",
+      numerator: null,
+      funnelSettings: { steps: steps.map((factTableId) => ({ factTableId })) },
+    });
+
+  it("returns nothing for no metrics", () => {
+    expect(getFactTableIdsForMetrics([])).toEqual([]);
+  });
+
+  it("dedupes ids shared across metrics", () => {
+    expect(
+      getFactTableIdsForMetrics([mean("ft_a"), mean("ft_a"), mean("ft_b")]),
+    ).toEqual(["ft_a", "ft_b"]);
+  });
+
+  it("includes ratio denominators and every funnel step", () => {
+    expect(
+      getFactTableIdsForMetrics([
+        ratio("ft_a", "ft_b"),
+        funnel(["ft_b", "ft_c", "ft_d"]),
+      ]),
+    ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
   });
 });

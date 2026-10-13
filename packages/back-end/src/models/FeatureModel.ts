@@ -591,6 +591,48 @@ export async function getAllFeatures(
   );
 }
 
+// Only the ids of the features the caller can read, selected the same way as
+// `getAllFeatures`. Loads the permission-bearing fields and nothing else.
+export async function getAllFeatureIds(
+  context: ReqContext | ApiReqContext,
+  {
+    projects,
+    projectsAreReadAllowlist = false,
+    includeArchived = false,
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    includeArchived?: boolean;
+  } = {},
+): Promise<string[]> {
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
+  if (projects && projects.length) {
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
+  }
+  const docs = await FeatureModel.find(q, {
+    id: 1,
+    project: 1,
+    targetingProjects: 1,
+    targetingAllProjects: 1,
+  }).lean<
+    Pick<
+      FeatureInterface,
+      "id" | "project" | "targetingProjects" | "targetingAllProjects"
+    >[]
+  >();
+  return docs
+    .filter((doc) => context.permissions.canReadTargetingScopedResource(doc))
+    .map((doc) => doc.id);
+}
+
 // Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
 // read a feature's behavior (rules, environment settings, values, links) but
 // never its editor/authoring fields: the stale-detection/dependents graph and
@@ -606,23 +648,91 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, EDITOR_FIELDS_PROJECTION);
+}
+
+// Features for graph walks (dependents, health, staleness, saved-group and
+// move references): everything in `getAllFeaturesWithoutEditorFields` plus the
+// default value and every rule and variation value projected out, since those
+// are the bulk of a feature document and no graph computation reads them.
+export async function getAllFeaturesForGraph(
+  context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, GRAPH_PROJECTION);
+}
+
+// `ids` plus every feature whose prerequisites name one of them, shaped like
+// getAllFeaturesForGraph: what a one-hop dependents question needs. Legacy
+// documents keep their rules per environment, so those are matched per org
+// environment; documents with no environment settings at all always come
+// back. The caller's own check decides.
+export async function getFeaturesWithPrerequisitesOn(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  const named = { $in: ids };
+  return getAllFeaturesProjected(
+    context,
+    {
+      includeArchived,
+      filter: {
+        $or: [
+          { id: named },
+          { "prerequisites.id": named },
+          { "rules.prerequisites.id": named },
+          ...getEnvironmentIdsFromOrg(context.org).map((env) => ({
+            [`environmentSettings.${env}.rules.prerequisites.id`]: named,
+          })),
+          { environmentSettings: { $exists: false } },
+        ],
+      },
+    },
+    GRAPH_PROJECTION,
+  );
+}
+
+const EDITOR_FIELDS_PROJECTION = {
+  description: 0,
+  jsonSchema: 0,
+  customFields: 0,
+  draft: 0,
+} as const;
+
+const GRAPH_PROJECTION = {
+  ...EDITOR_FIELDS_PROJECTION,
+  defaultValue: 0,
+  "rules.value": 0,
+  "rules.variations.value": 0,
+} as const;
+
+async function getAllFeaturesProjected(
+  context: ReqContext | ApiReqContext,
   {
     includeArchived = false,
     ids,
-  }: { includeArchived?: boolean; ids?: string[] } = {},
+    filter,
+  }: {
+    includeArchived?: boolean;
+    ids?: string[];
+    filter?: FilterQuery<FeatureDocument>;
+  },
+  projection: Record<string, 0>,
 ): Promise<FeatureInterface[]> {
   if (ids && !ids.length) return [];
   const q: FilterQuery<FeatureDocument> = {
     ...featureListQuery(context.org.id, { includeArchived }),
     ...(ids ? { id: { $in: ids } } : {}),
+    ...(filter ? { $and: [filter] } : {}),
   };
 
-  const docs = await FeatureModel.find(q, {
-    description: 0,
-    jsonSchema: 0,
-    customFields: 0,
-    draft: 0,
-  }).lean<LegacyFeatureInterface[]>();
+  const docs = await FeatureModel.find(q, projection).lean<
+    LegacyFeatureInterface[]
+  >();
 
   const features = docs.map((raw) =>
     migrateRawFeatureToV2(

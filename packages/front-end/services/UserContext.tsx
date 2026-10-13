@@ -38,7 +38,7 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
-import { AgreementType } from "shared/validators";
+import { AgreementType, SdkPayloadSizeAlert } from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
@@ -146,6 +146,8 @@ export interface UserContextValue {
   canSubscribe: boolean;
   freeSeats: number;
   usage?: OrganizationUsage;
+  sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
+  expiringPersonalAccessTokens: GetOrganizationResponse["expiringPersonalAccessTokens"];
 }
 
 interface UserResponse {
@@ -200,6 +202,8 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  sdkPayloadSizeAlerts: [],
+  expiringPersonalAccessTokens: [],
   orgSuspended: false,
 });
 
@@ -617,6 +621,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
         usage: currentOrg?.usage,
+        sdkPayloadSizeAlerts: currentOrg?.sdkPayloadSizeAlerts ?? [],
+        expiringPersonalAccessTokens:
+          currentOrg?.expiringPersonalAccessTokens ?? [],
       }}
     >
       {children}

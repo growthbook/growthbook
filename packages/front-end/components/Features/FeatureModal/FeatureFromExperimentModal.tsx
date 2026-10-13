@@ -55,6 +55,7 @@ import DraftSelectorDropdown, {
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
@@ -255,16 +256,15 @@ export default function FeatureFromExperimentModal({
   // Enabled environments of the destination state the rule will land in: the
   // selected draft (overlaid on live) when saving to an existing draft, or the
   // live feature otherwise (new draft / apply now).
+  const selectedDraftRevision = useFeatureRevisions(existingFeature?.id ?? "", [
+    draftMode === "existing" ? selectedDraft : null,
+  ]).get(selectedDraft);
   const enabledEnvsForDestination = useMemo<string[] | null>(() => {
     if (!existing || !existingFeature) return null;
 
     const envIds = environments.map((e) => e.id);
     const draftRevision =
-      draftMode === "existing" && selectedDraft !== null
-        ? existingFeatureData?.revisions?.find(
-            (r) => r.version === selectedDraft,
-          )
-        : undefined;
+      draftMode === "existing" ? selectedDraftRevision : undefined;
 
     // mergeRevision overlays the draft's environmentsEnabled per env, which is
     // what publishing applies — envs the draft doesn't record keep their live
@@ -279,9 +279,8 @@ export default function FeatureFromExperimentModal({
   }, [
     existing,
     existingFeature,
-    existingFeatureData?.revisions,
+    selectedDraftRevision,
     draftMode,
-    selectedDraft,
     environments,
   ]);
 
@@ -427,6 +426,16 @@ export default function FeatureFromExperimentModal({
   }
 
   if (holdoutWarning) {
+    ctaEnabled = false;
+  }
+
+  // The rule's environments come from the selected draft, so wait for it
+  if (
+    existing &&
+    draftMode === "existing" &&
+    selectedDraft !== null &&
+    !selectedDraftRevision
+  ) {
     ctaEnabled = false;
   }
 

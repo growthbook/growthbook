@@ -1,5 +1,7 @@
 import type { EventUser } from "shared/validators";
 import {
+  CustomHookEntityType,
+  CustomHookErrorDetail,
   CustomHookInterface,
   CustomHookType,
   hookEntityType,
@@ -21,8 +23,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ConfigInterface } from "shared/types/config";
 import { ExperimentInterface } from "shared/types/experiment";
-import { SoftWarningError } from "back-end/src/util/errors";
+import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -617,9 +620,29 @@ export async function runValidateExperimentHooks({
 // acknowledge-class). Non-throwing so the caller can either throw (the assert
 // wrappers) or emit gates (the REST publish handlers).
 export type CustomHookResults = {
-  hardErrors: string[];
+  hardErrors: CustomHookErrorDetail[];
   warnings: string[];
 };
+
+const entityNoun: Record<CustomHookEntityType, string> = {
+  feature: "Feature Flag",
+  config: "Config",
+  experiment: "experiment",
+};
+
+// Rejections show as written; failures collapse to one retry hint (detail stays in `details`).
+export function customHookErrorMessage(
+  errors: CustomHookErrorDetail[],
+  entityType: CustomHookEntityType,
+): string {
+  const lines = errors.filter((e) => e.rejected).map((e) => e.message);
+  if (errors.some((e) => !e.rejected)) {
+    lines.push(
+      `Validation for this ${entityNoun[entityType]} failed unexpectedly. Try again, or check with your GrowthBook admins if it keeps happening.`,
+    );
+  }
+  return lines.join("\n");
+}
 
 // Run every matching hook and collect the results without throwing. All hard
 // errors are collected (not short-circuited on the first), so a gate can list them.
@@ -646,7 +669,7 @@ export async function collectCustomHookResults(
     configBases,
   );
 
-  const hardErrors: string[] = [];
+  const hardErrors: CustomHookErrorDetail[] = [];
   const warnings: string[] = [];
   for (const hook of hooks) {
     const { error, warnings: hookWarnings } = await _runCustomHook(
@@ -698,7 +721,10 @@ async function _runCustomHooks(
       ? context.canSkipHooksFor(hookFamily)
       : false;
   if (hardErrors.length && !canSkip) {
-    throw new Error(hardErrors.join("\n"));
+    throw new CustomHookError(
+      customHookErrorMessage(hardErrors, hookFamily),
+      hardErrors,
+    );
   }
 
   // Hook warnings are acknowledge-class: bypassable by ignoreWarnings (anyone).
@@ -778,7 +804,8 @@ export function formatCustomHookTestResult(
 
   return {
     success: false,
-    error: result.error || "Unknown error",
+    error:
+      (!result.rejected && result.stack) || result.error || "Unknown error",
     warnings: result.warnings,
     log: result.log,
     suppressed,
@@ -810,13 +837,25 @@ async function _runCustomHook(
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,
-): Promise<{ error?: string; warnings: string[] }> {
+): Promise<{ error?: CustomHookErrorDetail; warnings: string[] }> {
   const res = await runInSandbox(hook.code, functionArgs);
 
   if (res.ok) {
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+    // Users only see a generic message for crashes, so keep the real error in the server logs.
+    if (!res.rejected) {
+      logger.warn(
+        {
+          hookId: hook.id,
+          hookName: hook.name,
+          error: res.error,
+          stack: res.stack,
+        },
+        "Custom hook failed to run",
+      );
+    }
   }
 
   // Only worth a second sandbox run when there's an outcome to suppress.
@@ -833,9 +872,16 @@ async function _runCustomHook(
       if (errorSuppressed) return { warnings: [] };
     }
 
-    const error =
-      (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
-    return { error, warnings: [] };
+    return {
+      error: {
+        hookName: hook.name,
+        rejected: !!res.rejected,
+        message: res.error || "Custom hook error",
+        ...(res.stack ? { stack: res.stack } : {}),
+        ...(res.log ? { log: res.log } : {}),
+      },
+      warnings: [],
+    };
   }
 
   let warnings = res.warnings;

@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { managedByValidator } from "./managed-by";
+import {
+  optionalOwnerInputField,
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+} from "./owner-field";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
 
@@ -23,6 +29,8 @@ export const projectValidator = baseSchema
     managedBy: managedByValidator.optional(),
     restrictAccess: z.boolean().optional(),
     allowTargeting: z.boolean().optional(),
+    // Absent on projects that predate it.
+    owner: ownerField.optional(),
   })
   .strict();
 
@@ -60,6 +68,8 @@ export const apiProjectValidator = namedSchema(
           "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
         )
         .optional(),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
       settings: z
         .object({
           statsEngine: z.string().optional(),
@@ -77,6 +87,7 @@ export type ApiProject = z.infer<typeof apiProjectValidator>;
 const postProjectBody = z
   .object({
     name: z.string(),
+    owner: optionalOwnerInputField,
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     publicId: z
       .string()
@@ -121,6 +132,7 @@ const postProjectBody = z
 const putProjectBody = z
   .object({
     name: z.string().describe("Project name.").optional(),
+    owner: ownerInputField.optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)

@@ -728,9 +728,10 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   if (context.teams.some((team) => usingRole(team, id))) {
     throw new Error("Role is currently being used by at least one team");
   }
+  // PATs are invisible to admins; a deleted role just fails closed for them.
   if (
     (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
-      (key) => key.role === id,
+      (key) => !key.userId && key.role === id,
     )
   ) {
     throw new Error("Role is currently being used by at least one API key");

@@ -1,4 +1,4 @@
-import { GroupMap } from "shared/types/saved-group";
+import { SavedGroupForPayload } from "shared/types/saved-group";
 import { recursiveWalk } from "../../util";
 
 /**
@@ -37,6 +37,37 @@ export function forEachSavedGroupIdInCondition(
 }
 
 /**
+ * The group ids a rule's targeting names directly: its saved group list, its
+ * condition and its prerequisites' conditions. A malformed condition names
+ * none.
+ */
+export function savedGroupIdsInTargeting(targeting: {
+  condition?: string;
+  savedGroups?: { ids: string[] }[];
+  prerequisites?: { condition: string }[];
+}): string[] {
+  const ids = new Set<string>();
+  for (const entry of targeting.savedGroups ?? []) {
+    entry.ids.forEach((id) => ids.add(id));
+  }
+  const conditions = [
+    targeting.condition,
+    ...(targeting.prerequisites ?? []).map((p) => p.condition),
+  ];
+  for (const condition of conditions) {
+    if (!condition) continue;
+    try {
+      forEachSavedGroupIdInCondition(JSON.parse(condition), (id) =>
+        ids.add(id),
+      );
+    } catch {
+      // Bad JSON means no ids
+    }
+  }
+  return [...ids];
+}
+
+/**
  * Returns the given group ids plus every group they reference, at any depth.
  * A condition group's condition can name more groups, so following one id can
  * turn up several. Ids already found are never followed twice, so loops stop.
@@ -52,7 +83,7 @@ export function forEachSavedGroupIdInCondition(
  */
 export function findAllReferencedSavedGroupIds(
   seedIds: Iterable<string>,
-  savedGroups: GroupMap,
+  savedGroups: Map<string, Pick<SavedGroupForPayload, "type" | "condition">>,
 ): Set<string> {
   const resolved = new Set<string>();
   const queue = Array.from(seedIds);
