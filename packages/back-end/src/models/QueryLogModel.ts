@@ -51,7 +51,8 @@ export class QueryLogModel extends BaseClass {
     return false;
   }
 
-  // Checks the data source once instead of every row
+  // Every row shares this one data source, so check it up front and bypass the
+  // per-row filter, which would stop the limit running in Mongo
   private assertCanReadDatasource(datasource: DataSourceInterface) {
     if (
       !this.context.permissions.canReadMultiProjectResource(
