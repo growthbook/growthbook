@@ -1,13 +1,16 @@
 ---
 title: GrowthBook Slack app
 sidebarTitle: Slack
-description: "Set up the GrowthBook Slack app to send experiment and Feature Flag notifications to the Slack channels you choose, and to ask the GrowthBook AI assistant questions from Slack."
+description: "Set up the GrowthBook Slack app to send experiment and Feature Flag notifications to the Slack channels you choose, with visual summaries of experiment results, and to ask the GrowthBook AI assistant questions from Slack."
 ---
 
 The GrowthBook Slack app connects a Slack workspace to your GrowthBook organization. Once it's connected, you can:
 
 - **Send notifications to channels.** Choose which projects, environments, tags, and events each channel hears about.
-- **Get visual cards.** Experiment launches, experiment stops, and sample ratio mismatch (SRM) warnings arrive as image cards. Everything else arrives as a formatted text message.
+- **See experiment results in Slack.** When an experiment starts, stops, or has a sample ratio mismatch (SRM), the notification is an image card instead of plain text. The stopped card charts each variation's lift on the goal metric, and the SRM card compares actual and expected traffic, so people can read the outcome without opening GrowthBook. Everything else is a formatted text message.
+
+   <Frame><img src="/static/images/integrations/slack/slack-card-srm.png" alt="A Light SRM warning card in Slack showing each variation's units, actual traffic split, and expected split, with the p-value" width="600" /></Frame>
+
 - **Ask the AI assistant.** Mention `@GrowthBook` in a channel, or send it a direct message, to ask about your experiments and Feature Flags. See [Slack AI assistant](/integrations/slack/ai-assistant).
 
 <Info>
@@ -105,9 +108,7 @@ Image cards are available for these events:
 
 These are all in the **Experiments** category, and they're labeled **(card)** in the **Preview** list.
 
-Here's an SRM warning card in the **Light** format:
-
-<Frame><img src="/static/images/integrations/slack/slack-card-srm.png" alt="A Light SRM warning card in Slack showing each variation's units, actual traffic split, and expected split, with the p-value" width="600" /></Frame>
+The SRM warning card at the top of this page uses the **Light** format.
 
 Every other event is sent as text, even when **Light** or **Dark** is selected. If a card can't be created or uploaded, GrowthBook sends the text version instead, so the notification still arrives.
 
