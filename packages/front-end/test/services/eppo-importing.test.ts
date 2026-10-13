@@ -1,6 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiAutoRun } from "shared/validators";
-import { vi } from "vitest";
 import {
   EppoAllocation,
   EppoData,
@@ -26,6 +25,7 @@ import {
   transformFlag,
   transformMetric,
   widenValues,
+  ApiCall,
 } from "@/services/importing/eppo/eppo-importing";
 
 const EPPO: EppoData = {
@@ -1271,7 +1271,10 @@ describe("teardownRun", () => {
     fail: (url: string, method: string) => string | undefined = () => undefined,
   ) => {
     const calls: string[] = [];
-    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+    const respond = async (
+      url: string,
+      options?: RequestInit,
+    ): Promise<unknown> => {
       const method = options?.method ?? "GET";
       calls.push(`${method} ${url}`);
       const error = fail(url, method);
@@ -1283,8 +1286,10 @@ describe("teardownRun", () => {
         return { savedGroup: { archived: true } };
       }
       return {};
-    });
-    return { calls, apiCall: apiCall as never };
+    };
+    const apiCall = <T>(url: string, options?: RequestInit) =>
+      respond(url, options) as Promise<T>;
+    return { calls, apiCall };
   };
 
   it("deletes dependents first, archiving where required, and records each", async () => {
@@ -1381,7 +1386,10 @@ describe("runEppoImport", () => {
 
   const mockApi = (onRecord: () => unknown) => {
     const calls: { method: string; url: string; body?: unknown }[] = [];
-    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+    const respond = async (
+      url: string,
+      options?: RequestInit,
+    ): Promise<unknown> => {
       const method = options?.method ?? "GET";
       const body =
         typeof options?.body === "string"
@@ -1394,11 +1402,13 @@ describe("runEppoImport", () => {
         return { savedGroup: { id: `grp_${body.groupName}` } };
       }
       return {};
-    });
-    return { calls, apiCall: apiCall as never };
+    };
+    const apiCall = <T>(url: string, options?: RequestInit) =>
+      respond(url, options) as Promise<T>;
+    return { calls, apiCall };
   };
 
-  const run = (apiCall: never) => {
+  const run = (apiCall: ApiCall) => {
     const results: Record<string, { status: string; error?: string }> = {};
     return runEppoImport({
       data: data(),

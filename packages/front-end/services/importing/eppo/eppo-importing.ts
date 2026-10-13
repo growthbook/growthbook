@@ -228,7 +228,7 @@ export type EppoData = {
   experiments: EppoExperiment[];
 };
 
-type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
+export type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
 
 async function getFromEppo<T>(
   endpoint: string,

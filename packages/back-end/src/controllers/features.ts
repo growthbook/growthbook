@@ -3701,7 +3701,7 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  const mirror = req.query?.mirror === "true";
+  const mirror = req.query.mirror === "true";
 
   const environmentsEnabled: Record<string, boolean> = {};
   const envEnabledIn = data.environmentSettings as
