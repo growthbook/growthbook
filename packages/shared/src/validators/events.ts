@@ -133,6 +133,7 @@ export {
   eventUserPersonId,
   eventUserIdentity,
   eventUserKeyName,
+  eventUserLegacyLabel,
   eventUserCredit,
   eventUserToApiEventUser,
   revisionActor,

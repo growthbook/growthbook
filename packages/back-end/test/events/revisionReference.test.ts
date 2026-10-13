@@ -1,5 +1,6 @@
 import type { Revision } from "shared/enterprise";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Context } from "back-end/src/models/BaseModel";
 import {
   featureRevisionReference,
   revisionReference,
@@ -15,28 +16,36 @@ describe("revision webhook references", () => {
     name: "Dana",
     email: "",
   };
+  const context = {
+    models: { revisions: { getBaseVersion: async () => 2 } },
+  } as unknown as Context;
 
-  it("carries a generic revision's schedule", () => {
+  it("carries a generic revision's state", async () => {
     const revision = {
       id: "rev_1",
-      version: 3,
       status: "approved",
       authorId: "u_dana",
       activityLog: [{ action: "created", userId: "u_dana", user: author }],
       reviews: [],
+      dateCreated: at,
+      dateUpdated: at,
       autoPublishOnApproval: true,
       scheduledPublishAt: at,
       scheduledPublishLockEdits: true,
     } as unknown as Revision;
 
-    expect(revisionReference(revision)).toMatchObject({
-      version: 3,
+    expect(await revisionReference(context, revision)).toMatchObject({
+      // Saved before versions were recorded.
+      version: 0,
+      baseVersion: 2,
+      comment: "",
+      dateCreated: at.toISOString(),
       autoPublishOnApproval: true,
       scheduledPublishAt: at.toISOString(),
       scheduledPublishLockEdits: true,
     });
     expect(
-      revisionReference({
+      await revisionReference(context, {
         ...revision,
         autoPublishOnApproval: false,
         scheduledPublishAt: null,
@@ -45,20 +54,32 @@ describe("revision webhook references", () => {
     ).not.toHaveProperty("scheduledPublishAt");
   });
 
-  it("carries a flag draft's base version and schedule", () => {
+  it("carries a flag draft's base version, schedule and deprecated fields", () => {
     const revision = {
       featureId: "checkout",
       version: 7,
       baseVersion: 5,
       status: "pending-review",
+      comment: "Shorter copy",
       createdBy: author,
+      dateCreated: at,
+      dateUpdated: at,
       scheduledPublishAt: at,
     } as unknown as FeatureRevisionInterface;
 
-    expect(featureRevisionReference(revision)).toMatchObject({
-      version: 7,
-      baseVersion: 5,
-      scheduledPublishAt: at.toISOString(),
-    });
+    expect(featureRevisionReference(revision)).toEqual(
+      expect.objectContaining({
+        version: 7,
+        baseVersion: 5,
+        comment: "Shorter copy",
+        scheduledPublishAt: at.toISOString(),
+        featureId: "checkout",
+        date: at.toISOString(),
+        createdBy: "Dana",
+      }),
+    );
+    expect(featureRevisionReference(revision)).not.toHaveProperty(
+      "publishedBy",
+    );
   });
 });

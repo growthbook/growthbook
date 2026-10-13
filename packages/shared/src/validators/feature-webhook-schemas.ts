@@ -7,8 +7,20 @@ import { z } from "zod";
 import { ownerField } from "./owner-field";
 import { revisionWebhookReference } from "./revision-webhook-reference";
 
+const deprecated = <T extends z.ZodType>(schema: T, instead: string) =>
+  schema.describe(`Deprecated: use ${instead}.`).meta({ deprecated: true });
+
 export const featureRevisionWebhookPayload = revisionWebhookReference
-  .extend({ feature: z.object({ id: z.string() }) })
+  .extend({
+    feature: z.object({ id: z.string() }),
+    featureId: deprecated(z.string(), "`feature.id`"),
+    date: deprecated(z.string(), "`dateCreated`"),
+    createdBy: deprecated(z.string().optional(), "`author`"),
+    publishedBy: deprecated(
+      z.string().optional(),
+      "the `user` on `feature.revision.published`",
+    ),
+  })
   .strict();
 
 export type FeatureRevisionWebhookPayload = z.infer<

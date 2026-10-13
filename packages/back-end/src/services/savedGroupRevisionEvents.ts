@@ -53,7 +53,7 @@ export async function dispatchSavedGroupRevisionEvent(
   if (revision.target.type !== "saved-group") return;
   try {
     const reference = {
-      ...revisionReference(revision),
+      ...(await revisionReference(context, revision)),
       savedGroup: {
         id: revision.target.id,
         name: revision.target.snapshot.groupName,

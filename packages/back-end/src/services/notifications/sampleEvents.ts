@@ -193,8 +193,12 @@ const sampleExperimentDiff: DiffResult = {
 const sampleRevision = (): FeatureRevisionWebhookPayload => ({
   id: "frev_notification_test",
   version: 3,
+  baseVersion: 2,
   status: "draft",
   title: "Adjust checkout banner copy",
+  comment: "Shorter banner copy for mobile",
+  dateCreated: "2026-01-01T00:00:00.000Z",
+  dateUpdated: "2026-01-01T00:00:00.000Z",
   authorId: "u_notification_test",
   author: {
     type: "dashboard",
@@ -203,6 +207,9 @@ const sampleRevision = (): FeatureRevisionWebhookPayload => ({
     email: "notifications@example.com",
   },
   feature: { id: "checkout-banner" },
+  featureId: "checkout-banner",
+  date: "2026-01-01T00:00:00.000Z",
+  createdBy: "Notification Test User",
 });
 
 const sampleRamp = (): RampScheduleStartedPayload => ({

@@ -888,6 +888,33 @@ export class RevisionModel extends BaseClass {
     return results[0] ?? null;
   }
 
+  // The entity version a draft is based on: its latest merge as of when the
+  // draft started or was last rebased, or 0 when none is found.
+  async getBaseVersion(revision: Revision): Promise<number> {
+    let rebasedAt: Date | undefined;
+    for (let i = revision.activityLog.length - 1; i >= 0; i--) {
+      if (revision.activityLog[i].targetSnapshot !== undefined) {
+        rebasedAt = revision.activityLog[i].dateCreated;
+        break;
+      }
+    }
+    const [base] = await this._find(
+      {
+        "target.type": revision.target.type,
+        "target.id": revision.target.id,
+        status: "merged",
+        id: { $ne: revision.id },
+        "resolution.dateCreated": { $lte: rebasedAt ?? revision.dateCreated },
+      } as Record<string, unknown>,
+      {
+        sort: { "resolution.dateCreated": -1, version: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return base?.version ?? 0;
+  }
+
   // Select the revision merged most recently; publish order can differ from creation order.
   async getLatestMergedByTarget(
     entityType: RevisionTargetType,

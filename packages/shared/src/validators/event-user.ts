@@ -258,6 +258,17 @@ export function auditUserToEventUser(
   return { type: "dashboard", id: u.id, email: u.email, name: u.name };
 }
 
+// How the v1 REST API and older webhook fields name an actor: a member's name,
+// "API" or "SYSTEM".
+export function eventUserLegacyLabel(
+  user: EventUser | undefined,
+): string | undefined {
+  if (!user) return undefined;
+  if (user.type === "api_key") return "API";
+  if (user.type === "system") return "SYSTEM";
+  return user.name || undefined;
+}
+
 // The REST shape of a stored actor.
 export function eventUserToApiEventUser(
   user: EventUser | undefined,

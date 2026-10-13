@@ -56,7 +56,7 @@ export async function dispatchConfigRevisionEvent(
   if (revision.target.type !== "config") return;
   try {
     const reference = {
-      ...revisionReference(revision),
+      ...(await revisionReference(context, revision)),
       config: {
         id: revision.target.id,
         key: revision.target.snapshot.key,

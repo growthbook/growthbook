@@ -1315,10 +1315,16 @@ Triggered when a new draft revision is created for a feature
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1375,6 +1381,12 @@ Triggered when a new draft revision is created for a feature
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -1425,10 +1437,16 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1485,6 +1503,12 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             change: "rule.add" | "rule.update" | "rule.delete" | "rule.reorder" | "rule.rampSchedule.set" | "rule.rampSchedule.remove" | "toggle" | "defaultValue" | "prerequisites" | "holdout" | "archive" | "metadata";
             environments?: string[] | undefined;
         };
@@ -1537,10 +1561,16 @@ Triggered when a draft revision is submitted for review
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1597,6 +1627,12 @@ Triggered when a draft revision is submitted for review
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             reviewComment: string | null;
         };
     };
@@ -1648,10 +1684,16 @@ Triggered when a draft revision is approved by a reviewer
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1708,6 +1750,12 @@ Triggered when a draft revision is approved by a reviewer
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -1780,10 +1828,16 @@ Triggered when a reviewer requests changes on a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1840,6 +1894,12 @@ Triggered when a reviewer requests changes on a draft revision
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -1912,10 +1972,16 @@ Triggered when a comment is added to a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -1972,6 +2038,12 @@ Triggered when a comment is added to a draft revision
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -2044,10 +2116,16 @@ Triggered when a draft revision is discarded
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2104,6 +2182,12 @@ Triggered when a draft revision is discarded
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2154,10 +2238,16 @@ Triggered when a discarded draft revision is reopened as a draft
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2214,6 +2304,12 @@ Triggered when a discarded draft revision is reopened as a draft
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2264,10 +2360,16 @@ Triggered when the author (or an editor) recalls a review request, returning the
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2324,6 +2426,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2374,10 +2482,16 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2434,6 +2548,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2484,10 +2604,16 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2544,6 +2670,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2594,10 +2726,16 @@ Triggered when a draft revision is rebased onto the latest published version
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2654,6 +2792,12 @@ Triggered when a draft revision is rebased onto the latest published version
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
         };
     };
     user: {
@@ -2704,10 +2848,16 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2764,6 +2914,12 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             bulkPublishId?: string | undefined;
         };
     };
@@ -2815,10 +2971,16 @@ Triggered when a feature is reverted to a previous published revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2875,6 +3037,12 @@ Triggered when a feature is reverted to a previous published revision
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             revertedToVersion: number;
             bulkPublishId?: string | undefined;
         };
@@ -2927,10 +3095,16 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -2987,6 +3161,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             feature: {
                 id: string;
             };
+            /** Deprecated: use `feature.id`. */
+            featureId: string;
+            /** Deprecated: use `dateCreated`. */
+            date: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
             bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
@@ -5350,10 +5530,16 @@ Triggered when a new draft revision is created for a saved group
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -5461,10 +5647,16 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -5573,10 +5765,16 @@ Triggered when a draft revision is submitted for review
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -5684,10 +5882,16 @@ Triggered when a draft revision is approved by a reviewer
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -5817,10 +6021,16 @@ Triggered when a reviewer requests changes on a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -5950,10 +6160,16 @@ Triggered when a comment is added to a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6083,10 +6299,16 @@ Triggered when a draft revision is discarded
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6194,10 +6416,16 @@ Triggered when a draft revision is rebased onto the latest live state
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6305,10 +6533,16 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6417,10 +6651,16 @@ Triggered when a saved group is reverted to a previous published revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6530,10 +6770,16 @@ Triggered when a discarded revision is reopened
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6641,10 +6887,16 @@ Triggered when the author (or an editor) recalls a review request, returning the
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6752,10 +7004,16 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6863,10 +7121,16 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -6974,10 +7238,16 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7315,10 +7585,16 @@ Triggered when a new draft revision is created for a constant
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7427,10 +7703,16 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7540,10 +7822,16 @@ Triggered when a draft revision is submitted for review
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7652,10 +7940,16 @@ Triggered when a draft revision is approved by a reviewer
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7786,10 +8080,16 @@ Triggered when a reviewer requests changes on a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -7920,10 +8220,16 @@ Triggered when a comment is added to a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8054,10 +8360,16 @@ Triggered when a draft revision is discarded
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8166,10 +8478,16 @@ Triggered when a draft revision is rebased onto the latest live state
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8278,10 +8596,16 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8391,10 +8715,16 @@ Triggered when a constant is reverted to a previous published revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8505,10 +8835,16 @@ Triggered when a discarded revision is reopened
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8617,10 +8953,16 @@ Triggered when the author (or an editor) recalls a review request, returning the
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8729,10 +9071,16 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8841,10 +9189,16 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -8953,10 +9307,16 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -9491,10 +9851,16 @@ Triggered when a new draft revision is created for a config
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -9603,10 +9969,16 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -9716,10 +10088,16 @@ Triggered when a draft revision is submitted for review
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -9828,10 +10206,16 @@ Triggered when a draft revision is approved by a reviewer
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -9962,10 +10346,16 @@ Triggered when a reviewer requests changes on a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10096,10 +10486,16 @@ Triggered when a comment is added to a draft revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10230,10 +10626,16 @@ Triggered when a draft revision is discarded
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10342,10 +10744,16 @@ Triggered when a draft revision is rebased onto the latest live state
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10454,10 +10862,16 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10567,10 +10981,16 @@ Triggered when a config is reverted to a previous published revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10681,10 +11101,16 @@ Triggered when a discarded revision is reopened
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10793,10 +11219,16 @@ Triggered when the author (or an editor) recalls a review request, returning the
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -10905,10 +11337,16 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -11017,10 +11455,16 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */
@@ -11129,10 +11573,16 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
     data: {
         object: {
             id?: string | undefined;
-            version?: number | undefined;
-            baseVersion?: number | undefined;
+            /** 0 for a revision saved before versions were recorded */
+            version: number;
+            /** The live version this revision is based on, or 0 if unknown */
+            baseVersion: number;
             status: string;
             title?: string | undefined;
+            /** The revision's description */
+            comment: string;
+            dateCreated: string;
+            dateUpdated: string;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
             authorId: string;
             /** Who performed an action */

@@ -8,6 +8,6 @@ import EventWebhookList from '/snippets/partials/event-webhook/_event-webhook-li
 
 We currently support the following event types.
 
-Revision events (`*.revision.*`) carry a reference to the revision: its ID, version, status, author and the entity it belongs to, plus the event's own fields such as the reviewer. Fetch the full revision, with its changes, reviews and history, from the [REST API](/api).
+Revision events (`*.revision.*`) describe the revision without its content: its ID, version and base version, status, title, description, dates, author, schedule and the entity it belongs to, plus the event's own fields such as the reviewer. Fetch the full revision, with its changes, reviews and history, from the [REST API](/api). Feature Flag revision events also keep the deprecated `featureId`, `date`, `createdBy` and `publishedBy` fields for existing integrations.
 
 <EventWebhookList />

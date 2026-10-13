@@ -91,6 +91,7 @@ import {
   ApiFeatureWithRevisionsV2,
   ContextualBanditInterface,
   EventUser,
+  eventUserLegacyLabel,
   eventUserToApiEventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
@@ -2509,15 +2510,6 @@ export async function encrypt(
 }
 
 // v1's frozen string actor; v2 returns the structured actor instead.
-function eventUserToString(
-  user: FeatureRevisionInterface["createdBy"] | null | undefined,
-): string | undefined {
-  if (!user) return undefined;
-  if (user.type === "api_key") return "API";
-  if (user.type === "system") return "SYSTEM";
-  return user.name || undefined;
-}
-
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -2651,8 +2643,8 @@ export function revisionToApiInterface(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
+    createdBy: eventUserLegacyLabel(rev.createdBy),
+    publishedBy: eventUserLegacyLabel(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -3159,8 +3151,8 @@ export function getApiFeatureObj({
       );
     }
   });
-  const createdBy = eventUserToString(revision?.createdBy);
-  const publishedBy = eventUserToString(revision?.publishedBy);
+  const createdBy = eventUserLegacyLabel(revision?.createdBy);
+  const publishedBy = eventUserLegacyLabel(revision?.publishedBy);
 
   const revisionDefs = revisions?.map((rev) => {
     // Bucket twice: REST response shape (matches the feature env loop above)
@@ -3203,8 +3195,8 @@ export function getApiFeatureObj({
         scrubConfigExtends(definition),
       );
     });
-    const createdBy = eventUserToString(rev?.createdBy);
-    const publishedBy = eventUserToString(rev?.publishedBy);
+    const createdBy = eventUserLegacyLabel(rev?.createdBy);
+    const publishedBy = eventUserLegacyLabel(rev?.publishedBy);
     return {
       id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,

@@ -55,7 +55,7 @@ export async function dispatchConstantRevisionEvent(
   if (revision.target.type !== "constant") return;
   try {
     const reference = {
-      ...revisionReference(revision),
+      ...(await revisionReference(context, revision)),
       constant: {
         id: revision.target.id,
         key: revision.target.snapshot.key,

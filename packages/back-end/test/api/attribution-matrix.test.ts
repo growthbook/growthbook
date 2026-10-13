@@ -1199,6 +1199,42 @@ describe("attribution across callers", () => {
     });
   });
 
+  describe("revision webhooks", () => {
+    it("report the version a draft is based on", async () => {
+      const created = await as("a personal token").post(
+        "/api/v1/saved-groups",
+        {
+          name: "Testers",
+          values: ["u1"],
+          attributeKey: "userId",
+        },
+      );
+      const revisions = `/api/v1/saved-groups-revisions/${created.body.savedGroup.id}`;
+      const draft = async (values: string[]) =>
+        (
+          await as("a personal token").put(`${revisions}/new/values`, {
+            values,
+          })
+        ).body.revision.version as number;
+      const first = await draft(["u2"]);
+      expect(
+        (await as("a personal token").post(`${revisions}/${first}/publish`))
+          .status,
+      ).toBe(200);
+      const second = await draft(["u3"]);
+
+      const event = await collection("events").findOne({
+        organizationId: ORG_ID,
+        event: "savedGroup.revision.created",
+        "data.data.object.version": second,
+      });
+      expect(event?.data?.data?.object).toMatchObject({
+        version: second,
+        baseVersion: first,
+      });
+    });
+  });
+
   describe("owners and other records", () => {
     it.each(ACTORS)("defaults a new project's owner for %s", async (actor) => {
       const res = await as(actor).post("/api/v1/projects", { name: "Web" });
