@@ -1,7 +1,7 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { z } from "zod";
 import type { Response } from "express";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   draftValuesEqual,
   formatByteSizeString,
@@ -26,6 +26,7 @@ import { DraftConflict } from "shared/types/draft-conflict";
 import {
   paginationQueryFields,
   type ApiSavedGroupUpload,
+  type SavedGroupUploadDetails,
 } from "shared/validators";
 import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
@@ -42,7 +43,11 @@ import { validatePagination } from "back-end/src/util/handler";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
+  assertUsableUploadVersion,
   createRemoteSavedGroupUpload,
+  deleteRemoteSavedGroupUpload,
+  getRemoteSavedGroupUploadDetails,
+  getRemoteSavedGroupUploadDownloadUrl,
   getRemoteSavedGroupUploadUrl,
   listRemoteSavedGroupUploads,
 } from "back-end/src/services/remoteSavedGroups";
@@ -551,6 +556,7 @@ export const putSavedGroup = async (
     owner,
     values,
     condition,
+    currentUploadVersion,
     description,
     projects,
     archived,
@@ -659,6 +665,7 @@ export const putSavedGroup = async (
       owner,
       values,
       condition,
+      currentUploadVersion,
       description,
       projects,
     };
@@ -770,6 +777,20 @@ export const putSavedGroup = async (
     }
 
     fieldsToUpdate.condition = condition;
+  }
+  if (
+    savedGroup.type === "remote" &&
+    currentUploadVersion !== undefined &&
+    hasChanged(currentUploadVersion, comparisonBase.currentUploadVersion)
+  ) {
+    // Checked now too, since a draft doesn't write the group until it's
+    // published
+    await assertUsableUploadVersion(
+      context,
+      savedGroup.id,
+      currentUploadVersion,
+    );
+    fieldsToUpdate.currentUploadVersion = currentUploadVersion;
   }
   if (hasChanged(description, comparisonBase.description)) {
     if (typeof description === "string" && description.length > 100) {
@@ -1289,17 +1310,26 @@ export const getSavedGroupsMetadata = async (
 // region remote saved group uploads
 
 export const getSavedGroupUploads = async (
-  req: AuthRequest<never, { id: string }, { limit?: string; offset?: string }>,
+  req: AuthRequest<
+    never,
+    { id: string },
+    { limit?: string; offset?: string; versions?: string }
+  >,
   res: Response<{ status: 200; uploads: ApiSavedGroupUpload[]; total: number }>,
 ) => {
   const context = getContextFromReq(req);
   const { limit, offset } = validatePagination(
-    z.object(paginationQueryFields).parse(req.query),
+    z.object(paginationQueryFields).parse(omit(req.query, "versions")),
   );
   const { uploads, total } = await listRemoteSavedGroupUploads(
     context,
     req.params.id,
-    { limit, offset },
+    {
+      limit,
+      offset,
+      // Checked by the router as comma-separated numbers
+      versions: req.query.versions?.split(",").map(Number),
+    },
   );
   return res.status(200).json({ status: 200, uploads, total });
 };
@@ -1316,7 +1346,7 @@ export const postSavedGroupUploadUrl = async (
 };
 
 export const postSavedGroupUpload = async (
-  req: AuthRequest<{ fileKey: string }, { id: string }>,
+  req: AuthRequest<{ fileKey: string; fileName?: string }, { id: string }>,
   res: Response<{ status: 200; upload: ApiSavedGroupUpload }>,
 ) => {
   const context = getContextFromReq(req);
@@ -1324,8 +1354,51 @@ export const postSavedGroupUpload = async (
     context,
     req.params.id,
     req.body.fileKey,
+    req.body.fileName,
   );
   return res.status(200).json({ status: 200, upload });
+};
+
+export const getSavedGroupUpload = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 } & SavedGroupUploadDetails>,
+) => {
+  const context = getContextFromReq(req);
+  const details = await getRemoteSavedGroupUploadDetails(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200, ...details });
+};
+
+export const getSavedGroupUploadDownloadUrl = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200; url: string }>,
+) => {
+  const context = getContextFromReq(req);
+  const url = await getRemoteSavedGroupUploadDownloadUrl(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200, url });
+};
+
+export const deleteSavedGroupUpload = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+  await deleteRemoteSavedGroupUpload(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200 });
 };
 
 // endregion remote saved group uploads

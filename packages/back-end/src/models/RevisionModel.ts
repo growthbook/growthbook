@@ -843,6 +843,22 @@ export class RevisionModel extends BaseClass {
    * `authorId` is supplied, restrict to revisions authored by that user — the
    * `?mine=true` query path. Used by the public `revisions/latest` endpoint.
    */
+  /** Every open revision of an entity, if the entity can be read. */
+  async getOpenByTarget(entityType: RevisionTargetType, entityId: string) {
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return [];
+    return this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: { $in: [...RevisionModel.OPEN_STATUSES] },
+      } as Record<string, unknown>,
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   async getLatestOpenByTarget(
     entityType: RevisionTargetType,
     entityId: string,

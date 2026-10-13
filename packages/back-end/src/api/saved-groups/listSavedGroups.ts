@@ -1,6 +1,6 @@
 import { listSavedGroupsValidator } from "shared/validators";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import { addLatestUploads } from "back-end/src/services/remoteSavedGroups";
+import { toApiSavedGroupsWithUploads } from "back-end/src/services/remoteSavedGroups";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -29,14 +29,9 @@ export const listSavedGroups = createApiRequestHandler(
 
   return {
     savedGroups: await resolveOwnerEmails(
-      await addLatestUploads(
+      await toApiSavedGroupsWithUploads(
         req.context,
-        filtered.flatMap((g) => {
-          const full = byId.get(g.id);
-          return full
-            ? [req.context.models.savedGroups.toApiInterface(full)]
-            : [];
-        }),
+        filtered.flatMap((g) => byId.get(g.id) ?? []),
       ),
       req.context,
     ),

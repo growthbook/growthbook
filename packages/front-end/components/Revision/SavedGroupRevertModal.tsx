@@ -1,5 +1,7 @@
-import { Revision } from "shared/enterprise";
+import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ApiSavedGroupUpload } from "shared/validators";
+import useApi from "@/hooks/useApi";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 import { RevisionDiffConfig } from "./useRevisionDiff";
 import RevertModal from "./RevertModal";
@@ -13,6 +15,7 @@ const REVERTABLE_FIELDS = [
   "condition",
   "description",
   "projects",
+  "currentUploadVersion",
 ] as const satisfies readonly (keyof SavedGroupInterface)[];
 
 export interface Props {
@@ -36,10 +39,59 @@ export interface Props {
 
 // Thin wrapper around the entity-agnostic RevertModal.
 export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
+  // The upload versions the revisions a revert can restore use
+  const targetVersions = [
+    ...new Set(
+      rest.allRevisions.flatMap((r) => {
+        const state = applyTopLevelPatchOps(
+          r.target.snapshot,
+          r.target.proposedChanges,
+        );
+        return "currentUploadVersion" in state &&
+          state.currentUploadVersion !== undefined
+          ? [state.currentUploadVersion]
+          : [];
+      }),
+    ),
+  ];
+  // Deleted uploads aren't returned
+  const { data: uploadsData } = useApi<{
+    uploads: ApiSavedGroupUpload[];
+    total: number;
+  }>(
+    `/saved-groups/${savedGroup.id}/uploads?limit=100&versions=${targetVersions.join(",")}`,
+    { shouldRun: () => targetVersions.length > 0 },
+  );
+
+  // A remote group can only use a valid upload that still exists
+  const getTargetProblem = (target: SavedGroupInterface) => {
+    const version = target.currentUploadVersion;
+    if (version === undefined || !uploadsData) return null;
+    const { uploads, total } = uploadsData;
+    const upload = uploads.find((u) => u.version === version);
+    if (!upload) {
+      // Past the first page of results, the server checks it on restore
+      if (total > uploads.length) return null;
+      return `This revision uses upload version ${version}, which has been deleted, so it can't be restored.`;
+    }
+    return upload.status.type === "valid"
+      ? null
+      : `This revision uses upload version ${version}, which isn't valid, so it can't be restored.`;
+  };
+
+  // A version can't be cleared, so reverting keeps the current one
+  const getTargetWarning = (target: SavedGroupInterface) =>
+    target.currentUploadVersion === undefined &&
+    savedGroup.currentUploadVersion !== undefined
+      ? `This revision is from before the group used an upload. Reverting keeps upload version ${savedGroup.currentUploadVersion}.`
+      : null;
+
   return (
     <RevertModal<SavedGroupInterface>
       liveEntity={savedGroup}
       revertableFields={REVERTABLE_FIELDS}
+      getTargetProblem={getTargetProblem}
+      getTargetWarning={getTargetWarning}
       apiPathBase="/saved-groups"
       renderDraftSelector={({
         mode,

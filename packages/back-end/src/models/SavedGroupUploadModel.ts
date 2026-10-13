@@ -44,12 +44,14 @@ export class SavedGroupUploadModel extends BaseClass {
   }
 
   /**
-   * Sets the result of GrowthBook's check of the whole file. Only a `pending`
-   * upload changes, so a rerun of the check can't overwrite a result.
+   * Sets the result of GrowthBook's check of the whole file, and its hash when
+   * it was read in full. Only a `pending` upload changes, so a rerun of the
+   * check can't overwrite a result.
    */
   public async setStatus(
     upload: SavedGroupUploadInterface,
     status: SavedGroupUploadStatus,
+    sha256?: string,
   ): Promise<void> {
     await this._dangerousGetCollection().updateOne(
       {
@@ -57,7 +59,13 @@ export class SavedGroupUploadModel extends BaseClass {
         id: upload.id,
         "status.type": "pending",
       },
-      { $set: { status, dateUpdated: new Date() } },
+      {
+        $set: {
+          status,
+          ...(sha256 ? { sha256 } : {}),
+          dateUpdated: new Date(),
+        },
+      },
     );
   }
 
@@ -90,24 +98,52 @@ export class SavedGroupUploadModel extends BaseClass {
   }
 
   /**
-   * A page of a group's uploads, newest first. Access is checked on the saved
-   * group (see `canRead`), so the database can apply the limit.
+   * Marks an upload deleted. The record stays, so its version number isn't
+   * reused; setting it again keeps the first date.
+   */
+  public async markDeleted(upload: SavedGroupUploadInterface): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id: upload.id,
+        dateDeleted: { $exists: false },
+      },
+      { $set: { dateDeleted: new Date(), dateUpdated: new Date() } },
+    );
+  }
+
+  /**
+   * A page of a group's uploads, newest first, without deleted ones unless
+   * `includeDeleted`, and only `versions` when given. Access is checked on the
+   * saved group (see `canRead`), so the database can apply the limit.
    */
   public async getPageBySavedGroup(
     savedGroupId: string,
-    { limit, offset }: { limit: number; offset: number },
+    {
+      limit,
+      offset,
+      includeDeleted = false,
+      versions,
+    }: {
+      limit: number;
+      offset: number;
+      includeDeleted?: boolean;
+      versions?: number[];
+    },
   ): Promise<{ uploads: SavedGroupUploadInterface[]; total: number }> {
+    const filter = {
+      savedGroupId,
+      ...(includeDeleted ? {} : { dateDeleted: { $exists: false } }),
+      ...(versions ? { version: { $in: versions } } : {}),
+    };
     const [uploads, total] = await Promise.all([
-      this._find(
-        { savedGroupId },
-        {
-          sort: { version: -1 },
-          limit,
-          skip: offset,
-          bypassReadPermissionChecks: true,
-        },
-      ),
-      this._countDocuments({ savedGroupId }),
+      this._find(filter, {
+        sort: { version: -1 },
+        limit,
+        skip: offset,
+        bypassReadPermissionChecks: true,
+      }),
+      this._countDocuments(filter),
     ]);
     return { uploads, total };
   }
@@ -116,39 +152,32 @@ export class SavedGroupUploadModel extends BaseClass {
     return this._findOne({ sourceKey });
   }
 
+  /** A version, unless it's deleted. */
   public getVersion(savedGroupId: string, version: number) {
+    return this._findOne({
+      savedGroupId,
+      version,
+      dateDeleted: { $exists: false },
+    });
+  }
+
+  /** A version, even if it's deleted, so a delete can be retried. */
+  public getVersionIncludingDeleted(savedGroupId: string, version: number) {
     return this._findOne({ savedGroupId, version });
   }
 
   /**
-   * The newest upload of a group, valid only when `validOnly`. Access is
-   * checked on the saved group (see `canRead`), so skipping the per-document
-   * read check lets the database apply the limit.
+   * The newest upload of a group. Access is checked on the saved group (see
+   * `canRead`), so skipping the per-document read check lets the database
+   * apply the limit.
    */
   public async getLatest(
     savedGroupId: string,
-    { validOnly = false }: { validOnly?: boolean } = {},
   ): Promise<SavedGroupUploadInterface | null> {
     const [latest] = await this._find(
-      (validOnly
-        ? { savedGroupId, "status.type": "valid" }
-        : { savedGroupId }) as Parameters<typeof this._find>[0],
+      { savedGroupId } as Parameters<typeof this._find>[0],
       { sort: { version: -1 }, limit: 1, bypassReadPermissionChecks: true },
     );
     return latest ?? null;
-  }
-
-  /** The latest valid upload of each of `savedGroupIds`, one query each. */
-  public async getLatestValidBySavedGroups(
-    savedGroupIds: string[],
-  ): Promise<Map<string, SavedGroupUploadInterface>> {
-    const uploads = await Promise.all(
-      savedGroupIds.map((id) => this.getLatest(id, { validOnly: true })),
-    );
-    return new Map(
-      uploads
-        .filter((u): u is SavedGroupUploadInterface => !!u)
-        .map((u) => [u.savedGroupId, u]),
-    );
   }
 }

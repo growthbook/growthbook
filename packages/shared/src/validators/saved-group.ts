@@ -67,6 +67,8 @@ export const savedGroupValidator = z
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
     archived: z.boolean().optional(),
+    // Remote groups: the upload whose IDs the group uses
+    currentUploadVersion: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -83,6 +85,7 @@ export const savedGroupUpdatableFieldsSchema = savedGroupValidator.pick({
   projects: true,
   useEmptyListGroup: true,
   archived: true,
+  currentUploadVersion: true,
 });
 
 export const postSavedGroupBodyValidator = z
@@ -103,6 +106,7 @@ export const putSavedGroupBodyValidator = z.object({
   owner: ownerInputField.optional(),
   values: z.string().array().optional(),
   condition: z.string().optional(),
+  currentUploadVersion: z.number().int().positive().optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
   archived: z.boolean().optional(),
@@ -115,6 +119,8 @@ export const putSavedGroupBodyValidator = z.object({
       owner: ownerInputField,
       values: z.string().array(),
       condition: z.string(),
+      // null when the group didn't use an upload yet
+      currentUploadVersion: z.number().int().positive().nullable(),
       description: z.string(),
       projects: z.string().array(),
     })
@@ -158,14 +164,14 @@ export const apiSavedGroupValidator = namedSchema(
       projects: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       useEmptyListGroup: z.boolean().optional(),
-      latestUpload: z
+      currentUpload: z
         .object({
           version: z.number().int(),
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .nullable()
         .describe(
-          "When type = 'remote', the newest valid upload of its IDs, or null if there is none. Loaders load this version.",
+          "When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version.",
         )
         .optional(),
     })
@@ -231,6 +237,14 @@ const updateSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    currentUploadVersion: z
+      .number()
+      .int()
+      .positive()
+      .describe(
+        "When type = 'remote', the upload whose IDs the group uses. Must be a valid upload of this group.",
+      )
+      .optional(),
     bypassApproval: z
       .boolean()
       .describe(

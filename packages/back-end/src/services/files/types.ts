@@ -9,6 +9,15 @@ export interface ListedFile {
   uploadedAt: string;
 }
 
+/** What storage reports about one stored file. */
+export interface StoredFileInfo {
+  size: number;
+  contentType: string | null;
+  lastModified: Date | null;
+  /** The storage checksum, without quotes. */
+  etag: string | null;
+}
+
 export interface SignedUploadUrl {
   signedUrl: string;
   fileUrl: string;
@@ -43,7 +52,7 @@ export interface FileStorage {
     logContext: Record<string, unknown>,
   ): Promise<string>;
   /** Throws when the file doesn't exist. */
-  getSize(key: string, cfg: DestinationConfig): Promise<number>;
+  getInfo(key: string, cfg: DestinationConfig): Promise<StoredFileInfo>;
   readStream(key: string, cfg: DestinationConfig): AsyncIterable<Uint8Array>;
   /** Bytes `start` to `end`, inclusive. */
   readRange(
@@ -54,10 +63,12 @@ export interface FileStorage {
   ): Promise<Buffer>;
   /** Missing files are ignored. */
   delete(key: string, cfg: DestinationConfig): Promise<void>;
+  /** With `contentDisposition`, the response carries that header. */
   getSignedReadUrl(
     key: string,
     expiresInMinutes: number,
     cfg: DestinationConfig,
+    contentDisposition?: string,
   ): Promise<string>;
   getSignedUploadUrl(
     request: SignedUploadRequest,

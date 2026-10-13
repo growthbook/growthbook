@@ -22076,6 +22076,12 @@ paths:
                   type: array
                   items:
                     type: string
+                currentUploadVersion:
+                  description: >-
+                    When type = 'remote', the upload whose IDs the group uses.
+                    Must be a valid upload of this group.
+                  type: integer
+                  exclusiveMinimum: 0
                 bypassApproval:
                   description: >-
                     Set to true to update the live Saved Group without approval.
@@ -22358,10 +22364,11 @@ paths:
       operationId: postSavedGroupUpload
       summary: Upload a new version of a remote saved group's IDs
       description: >-
-        Replaces the group's IDs with the next version. The start and end of the
-        file are checked for one ID per line; loaders trim and deduplicate the
-        IDs. The SDK payload doesn't change; loaders pick up the new version
-        from `latestUpload` on the saved group, and download it from `GET
+        Records the next version of the group's IDs. The start and end of the
+        file are checked for one ID per line, then the whole file in the
+        background; loaders trim and deduplicate the IDs. Once it's valid, set
+        the group's `currentUploadVersion` to use it. Loaders pick up the
+        group's version from `currentUpload` and download it from `GET
         /saved-groups/{id}/uploads/{version}/file`, which redirects to a
         short-lived signed storage URL.
       tags:
@@ -22378,6 +22385,11 @@ paths:
                 fileKey:
                   description: The `fileKey` from the upload URL endpoint
                   type: string
+                fileName:
+                  description: The file's original name, used when downloading it
+                  type: string
+                  minLength: 1
+                  maxLength: 255
               required:
                 - fileKey
               additionalProperties: false
@@ -69587,10 +69599,10 @@ components:
           type: boolean
         useEmptyListGroup:
           type: boolean
-        latestUpload:
+        currentUpload:
           description: >-
-            When type = 'remote', the newest valid upload of its IDs, or null if
-            there is none. Loaders load this version.
+            When type = 'remote', the upload whose IDs the group uses, or null
+            if it has none. Loaders load this version.
           anyOf:
             - type: object
               properties:
@@ -69998,9 +70010,21 @@ components:
           type: string
         version:
           type: integer
+        fileName:
+          description: The uploaded file's original name, if it was given
+          anyOf:
+            - type: string
+            - type: 'null'
         size:
           description: File size in bytes
           type: integer
+        sha256:
+          description: >-
+            Hex SHA-256 of the file, set once it's validated. Null if it isn't
+            validated yet, or wasn't read in full.
+          anyOf:
+            - type: string
+            - type: 'null'
         dateCreated:
           format: date-time
           type: string
@@ -70138,7 +70162,9 @@ components:
       required:
         - savedGroupId
         - version
+        - fileName
         - size
+        - sha256
         - dateCreated
         - createdBy
         - status

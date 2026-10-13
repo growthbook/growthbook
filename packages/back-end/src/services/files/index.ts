@@ -4,10 +4,15 @@ import { getDestinationConfig, UploadDestination } from "./config";
 import { gcsFileStorage } from "./gcs";
 import { localFileStorage, resolveUploadPath } from "./local";
 import { s3FileStorage } from "./s3";
-import { FileStorage, ListedFile, SignedUploadUrl } from "./types";
+import {
+  FileStorage,
+  ListedFile,
+  SignedUploadUrl,
+  StoredFileInfo,
+} from "./types";
 
 export type { UploadDestination } from "./config";
-export type { ListedFile } from "./types";
+export type { ListedFile, StoredFileInfo } from "./types";
 export { getUploadsDir, resolveUploadPath } from "./local";
 export * from "./sessionReplay";
 
@@ -50,19 +55,43 @@ export async function uploadFile(
   );
 }
 
-/** A stored file's size in bytes, or null if it doesn't exist. */
-export async function getFileSize(
+/** What storage reports about a file, or null if it doesn't exist. */
+export async function getFileInfo(
   filePath: string,
   destination: UploadDestination = "private",
-): Promise<number | null> {
+): Promise<StoredFileInfo | null> {
   assertSafeKey(filePath);
   try {
-    return await getFileStorage().getSize(
+    return await getFileStorage().getInfo(
       filePath,
       getDestinationConfig(destination),
     );
   } catch {
     return null;
+  }
+}
+
+/** A stored file's size in bytes, or null if it doesn't exist. */
+export async function getFileSize(
+  filePath: string,
+  destination: UploadDestination = "private",
+): Promise<number | null> {
+  return (await getFileInfo(filePath, destination))?.size ?? null;
+}
+
+/** Where a file is stored, e.g. `s3://bucket/key`, for showing to admins. */
+export function getStorageLocation(
+  filePath: string,
+  destination: UploadDestination = "private",
+): string {
+  const cfg = getDestinationConfig(destination);
+  switch (UPLOAD_METHOD) {
+    case "s3":
+      return `s3://${cfg.s3Bucket}/${filePath}`;
+    case "google-cloud":
+      return `gs://${cfg.gcsBucket}/${filePath}`;
+    default:
+      return resolveUploadPath(filePath);
   }
 }
 
@@ -141,6 +170,35 @@ export async function getSignedImageUrl(
     objectKey,
     expiresInMinutes,
     getDestinationConfig(destination),
+  );
+}
+
+/**
+ * `Content-Disposition` for downloading under `name`: an ASCII fallback for
+ * older clients, plus the exact name in UTF-8 (RFC 6266).
+ */
+export function attachmentDisposition(name: string): string {
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, "_");
+  const utf8 = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+
+/** A short-lived URL that downloads a stored file under `downloadName`. */
+export async function getSignedDownloadUrl(
+  filePath: string,
+  downloadName: string,
+  expiresInMinutes: number = 15,
+  destination: UploadDestination = "private",
+): Promise<string> {
+  assertSafeKey(filePath);
+  return getFileStorage().getSignedReadUrl(
+    filePath,
+    expiresInMinutes,
+    getDestinationConfig(destination),
+    attachmentDisposition(downloadName),
   );
 }
 

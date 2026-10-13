@@ -3,7 +3,9 @@ import { useRouter } from "next/router";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex, Heading, Text } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import IdLists from "@/components/SavedGroups/IdLists";
+import RemoteGroups from "@/components/SavedGroups/RemoteGroups";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import SavedGroupReviews from "@/components/SavedGroups/SavedGroupReviews";
 import { useUser } from "@/services/UserContext";
@@ -17,6 +19,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+
+function isTab(hash: string) {
+  return (
+    hash === "idLists" ||
+    hash === "conditionGroups" ||
+    hash === "drafts" ||
+    hash === "remoteGroups"
+  );
+}
 
 export default function SavedGroupsPage() {
   const router = useRouter();
@@ -36,16 +47,13 @@ export default function SavedGroupsPage() {
   };
 
   const { refreshOrganization } = useUser();
+  const remoteGroupsEnabled = useFeatureIsOn("remote-saved-groups");
 
   // Initialize activeTab from URL hash, default to conditionGroups
   const getInitialTab = () => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.slice(1); // Remove the #
-      if (
-        hash === "idLists" ||
-        hash === "conditionGroups" ||
-        hash === "drafts"
-      ) {
+      if (isTab(hash)) {
         return hash;
       }
     }
@@ -58,11 +66,7 @@ export default function SavedGroupsPage() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      if (
-        hash === "idLists" ||
-        hash === "conditionGroups" ||
-        hash === "drafts"
-      ) {
+      if (isTab(hash)) {
         setActiveTab(hash);
       }
     };
@@ -81,19 +85,14 @@ export default function SavedGroupsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
-  const [idLists, conditionGroups] = useMemo(() => {
-    const idLists: SavedGroupWithoutValues[] = [];
-    const conditionGroups: SavedGroupWithoutValues[] = [];
-    savedGroups.forEach((savedGroup) => {
-      if (savedGroup.type === "condition") {
-        conditionGroups.push(savedGroup);
-      }
-      if (savedGroup.type === "list") {
-        idLists.push(savedGroup);
-      }
-    });
-    return [idLists, conditionGroups];
-  }, [savedGroups]);
+  const [idLists, conditionGroups, remoteGroups] = useMemo(
+    () => [
+      savedGroups.filter((g) => g.type === "list"),
+      savedGroups.filter((g) => g.type === "condition"),
+      savedGroups.filter((g) => g.type === "remote"),
+    ],
+    [savedGroups],
+  );
 
   useEffect(() => {
     // Not using $groups attribute in a any saved groups
@@ -196,6 +195,14 @@ export default function SavedGroupsPage() {
                   {idLists.length}
                 </span>
               </TabsTrigger>
+              {remoteGroupsEnabled && (
+                <TabsTrigger value="remoteGroups">
+                  Remote Groups
+                  <span className="ml-2 round-text-background text-main">
+                    {remoteGroups.length}
+                  </span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="drafts">
                 Drafts
                 <span className="ml-2 round-text-background text-main">
@@ -213,6 +220,12 @@ export default function SavedGroupsPage() {
             <TabsContent value="idLists">
               <IdLists groups={allSavedGroups} mutate={mutateGroups} />
             </TabsContent>
+
+            {remoteGroupsEnabled && (
+              <TabsContent value="remoteGroups">
+                <RemoteGroups groups={allSavedGroups} mutate={mutateGroups} />
+              </TabsContent>
+            )}
 
             <TabsContent value="drafts">
               <SavedGroupReviews />

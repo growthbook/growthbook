@@ -32,12 +32,17 @@ export const gcsFileStorage: FileStorage = {
     return joinUrl(cfg.gcsDomain, key);
   },
 
-  async getSize(key, cfg) {
+  async getInfo(key, cfg) {
     const [metadata] = await new Storage()
       .bucket(cfg.gcsBucket)
       .file(key)
       .getMetadata();
-    return Number(metadata.size);
+    return {
+      size: Number(metadata.size),
+      contentType: metadata.contentType ?? null,
+      lastModified: metadata.updated ? new Date(metadata.updated) : null,
+      etag: metadata.etag ?? null,
+    };
   },
 
   async *readStream(key, cfg) {
@@ -62,13 +67,14 @@ export const gcsFileStorage: FileStorage = {
       .delete({ ignoreNotFound: true });
   },
 
-  async getSignedReadUrl(key, expiresInMinutes, cfg) {
+  async getSignedReadUrl(key, expiresInMinutes, cfg, contentDisposition) {
     const [signedUrl] = await new Storage()
       .bucket(cfg.gcsBucket)
       .file(key)
       .getSignedUrl({
         action: "read",
         expires: Date.now() + expiresInMinutes * 60 * 1000,
+        responseDisposition: contentDisposition,
       });
     return signedUrl;
   },

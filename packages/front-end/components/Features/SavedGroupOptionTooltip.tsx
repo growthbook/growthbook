@@ -27,9 +27,13 @@ export function SavedGroupOptionTooltipContent({
       title={group.groupName}
     >
       <OptionTooltipRow label="Type:">
-        {group.type === "list" ? "ID List" : "Condition Group"}
+        {group.type === "list"
+          ? "ID List"
+          : group.type === "remote"
+            ? "Remote Group"
+            : "Condition Group"}
       </OptionTooltipRow>
-      {group.type === "list" && group.attributeKey && (
+      {group.type !== "condition" && group.attributeKey && (
         <OptionTooltipRow label="Attribute:">
           {group.attributeKey}
         </OptionTooltipRow>

@@ -101,11 +101,17 @@ export const savedGroupUploadValidator = baseSchema.safeExtend({
   sourceKey: z.string(),
   // GrowthBook's own copy, which nothing writes to after it's made
   fileKey: z.string(),
+  // The file's name on the uploader's computer, used for downloads
+  fileName: z.string().optional(),
   size: z.number().int().nonnegative(),
   createdBy: z.string(),
   status: savedGroupUploadStatusValidator,
   // One entry per data store, from loaders' reports
   loads: z.array(savedGroupUploadLoadValidator).optional(),
+  // Hex SHA-256 of the file, computed when it's validated
+  sha256: z.string().optional(),
+  // Set when deleted. The record stays, so its version number isn't reused.
+  dateDeleted: z.date().optional(),
 });
 
 export type SavedGroupUploadInterface = z.infer<
@@ -118,7 +124,17 @@ export const apiSavedGroupUploadValidator = namedSchema(
     .object({
       savedGroupId: z.string(),
       version: z.number().int(),
+      fileName: z
+        .string()
+        .nullable()
+        .describe("The uploaded file's original name, if it was given"),
       size: z.number().int().describe("File size in bytes"),
+      sha256: z
+        .string()
+        .nullable()
+        .describe(
+          "Hex SHA-256 of the file, set once it's validated. Null if it isn't validated yet, or wasn't read in full.",
+        ),
       dateCreated: z.string().meta({ format: "date-time" }),
       createdBy: z.string(),
       status: savedGroupUploadStatusValidator,
@@ -137,6 +153,31 @@ export const apiSavedGroupUploadValidator = namedSchema(
 );
 
 export type ApiSavedGroupUpload = z.infer<typeof apiSavedGroupUploadValidator>;
+
+/** One upload for the app's details view, with what storage reports. */
+export const savedGroupUploadDetailsValidator = z
+  .object({
+    upload: apiSavedGroupUploadValidator,
+    file: z
+      .object({
+        size: z.number().int(),
+        contentType: z.string().nullable(),
+        lastModified: z.string().nullable(),
+        etag: z.string().nullable(),
+      })
+      .strict()
+      .nullable()
+      .describe("Null when the file is missing from storage"),
+    storageLocation: z
+      .string()
+      .nullable()
+      .describe("Where the file is stored. Null on GrowthBook Cloud."),
+  })
+  .strict();
+
+export type SavedGroupUploadDetails = z.infer<
+  typeof savedGroupUploadDetailsValidator
+>;
 
 const idParams = z
   .object({
@@ -204,6 +245,12 @@ export const postSavedGroupUploadUrlValidator = {
 export const postSavedGroupUploadBodyValidator = z
   .object({
     fileKey: z.string().describe("The `fileKey` from the upload URL endpoint"),
+    fileName: z
+      .string()
+      .min(1)
+      .max(255)
+      .optional()
+      .describe("The file's original name, used when downloading it"),
   })
   .strict();
 
@@ -218,7 +265,7 @@ export const postSavedGroupUploadValidator = {
     .strict(),
   summary: "Upload a new version of a remote saved group's IDs",
   description:
-    "Replaces the group's IDs with the next version. The start and end of the file are checked for one ID per line; loaders trim and deduplicate the IDs. The SDK payload doesn't change; loaders pick up the new version from `latestUpload` on the saved group, and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
+    "Records the next version of the group's IDs. The start and end of the file are checked for one ID per line, then the whole file in the background; loaders trim and deduplicate the IDs. Once it's valid, set the group's `currentUploadVersion` to use it. Loaders pick up the group's version from `currentUpload` and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
   operationId: "postSavedGroupUpload",
   tags: ["saved-groups"],
   method: "post" as const,

@@ -14,11 +14,14 @@ import {
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/router";
 import {
   draftValuesEqual,
   isIdListSupportedAttribute,
+  isRemoteGroupSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
+import { isInternalAttributeName } from "shared/constants";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
@@ -58,6 +61,12 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 
 type SavedGroupFormValues = CreateSavedGroupProps;
 
+const TYPE_LABELS: Record<SavedGroupType, string> = {
+  condition: "Condition Group",
+  list: "ID List",
+  remote: "Remote Group",
+};
+
 const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
@@ -72,6 +81,8 @@ const SavedGroupForm: FC<{
   liveVersion?: SavedGroupInterface;
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
+  /** Remote groups: switch to this upload version, and nothing else. */
+  useUploadVersion?: number;
   autoBypassApproval?: boolean;
   mutate?: () => void | Promise<void>;
 }> = ({
@@ -88,10 +99,12 @@ const SavedGroupForm: FC<{
   liveVersion,
   editInfoOnly = false,
   editConditionOnly = false,
+  useUploadVersion,
   autoBypassApproval = false,
   mutate,
 }) => {
   const { apiCall, orgId } = useAuth();
+  const router = useRouter();
   const settings = useOrgSettings();
   const { savedGroupSizeLimit } = settings;
   const { user } = useUser();
@@ -237,7 +250,9 @@ const SavedGroupForm: FC<{
       projects: current.projects ?? [],
       ...(current.type === "condition"
         ? { condition: current.condition ?? "" }
-        : { values: current.values ?? [] }),
+        : current.type === "remote"
+          ? { currentUploadVersion: current.currentUploadVersion ?? null }
+          : { values: current.values ?? [] }),
     },
     labels: {
       groupName: "Name",
@@ -246,6 +261,7 @@ const SavedGroupForm: FC<{
       projects: "Projects",
       condition: "Condition",
       values: "IDs",
+      currentUploadVersion: "Upload version",
     },
     formatters: {
       projects: namedProjectsFormatter(getProjectById),
@@ -373,21 +389,28 @@ const SavedGroupForm: FC<{
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
     : false;
-  const isValid = editInfoOnly
-    ? !!form.watch("groupName")
-    : editConditionOnly
-      ? !!form.watch("condition")
-      : !!form.watch("groupName") &&
-        (type === "list"
-          ? !!form.watch("attributeKey") &&
-            (!listAboveSizeLimit || adminBypassSizeLimit)
-          : !!form.watch("condition"));
+  const editUploadOnly = useUploadVersion !== undefined;
+  // Content-only edits don't touch the fields the project check is about.
+  const editContentOnly = editConditionOnly || editUploadOnly;
+  const isValid = editUploadOnly
+    ? true
+    : editInfoOnly
+      ? !!form.watch("groupName")
+      : editConditionOnly
+        ? !!form.watch("condition")
+        : !!form.watch("groupName") &&
+          (type === "condition"
+            ? !!form.watch("condition")
+            : !!form.watch("attributeKey") &&
+              (type === "remote" ||
+                !listAboveSizeLimit ||
+                adminBypassSizeLimit));
 
   const getCtaDisabledMessage = (): string | undefined => {
     if (isEditBlocked) {
       return "This revision is discarded and cannot be edited.";
     }
-    if (!hasProjectPermission && !editConditionOnly) {
+    if (!hasProjectPermission && !editContentOnly) {
       if (!selectedProjects.length && projectsOptions.length > 0) {
         return "Select a project to continue.";
       }
@@ -401,7 +424,7 @@ const SavedGroupForm: FC<{
     }
     if (!form.watch("groupName")) return "Enter a name to continue.";
     if (editInfoOnly) return undefined;
-    if (type === "list") {
+    if (type !== "condition") {
       if (!form.watch("attributeKey")) {
         return "Select an attribute key to continue.";
       }
@@ -412,6 +435,11 @@ const SavedGroupForm: FC<{
     return form.watch("condition") ? undefined : "Add a condition to continue.";
   };
   const ctaDisabledMessage = getCtaDisabledMessage();
+
+  const isSupportedAttribute =
+    type === "remote"
+      ? isRemoteGroupSupportedAttribute
+      : isIdListSupportedAttribute;
 
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
@@ -427,13 +455,13 @@ const SavedGroupForm: FC<{
       open={true}
       size="lg"
       header={
-        editInfoOnly
-          ? "Edit Information"
-          : editConditionOnly
-            ? "Edit Condition"
-            : `${current.id ? "Edit" : "Add"} ${
-                type === "condition" ? "Condition Group" : "ID List"
-              }`
+        editUploadOnly
+          ? `Use Version ${useUploadVersion}`
+          : editInfoOnly
+            ? "Edit Information"
+            : editConditionOnly
+              ? "Edit Condition"
+              : `${current.id ? "Edit" : "Add"} ${TYPE_LABELS[type]}`
       }
       cta={
         !current.id
@@ -458,7 +486,7 @@ const SavedGroupForm: FC<{
       }
       ctaEnabled={
         isValid &&
-        (editConditionOnly || hasProjectPermission) &&
+        (editContentOnly || hasProjectPermission) &&
         !isEditBlocked &&
         conflict.resolved
       }
@@ -508,6 +536,11 @@ const SavedGroupForm: FC<{
                 : {}),
               ...(fieldChanged("projects") ? { projects: value.projects } : {}),
             };
+          } else if (editUploadOnly) {
+            payload =
+              useUploadVersion !== current.currentUploadVersion
+                ? { currentUploadVersion: useUploadVersion }
+                : {};
           } else if (editConditionOnly) {
             payload = fieldChanged("condition")
               ? { condition: value.condition }
@@ -602,12 +635,13 @@ const SavedGroupForm: FC<{
           }
         }
         // Create new saved group
-        else {
+        let createdId: string | null = null;
+        if (!current.id) {
           const payload: CreateSavedGroupProps = {
             ...value,
           };
           setErrorMessage("");
-          await apiCall(
+          const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
             `/saved-groups`,
             {
               method: "POST",
@@ -621,9 +655,14 @@ const SavedGroupForm: FC<{
               }
             },
           );
+          createdId = res.savedGroup.id;
         }
         mutateDefinitions({});
         await mutate?.();
+        // Uploads happen on the group's page
+        if (type === "remote" && createdId) {
+          await router.push(`/saved-groups/${createdId}`);
+        }
       })}
       error={errorMessage}
     >
@@ -664,7 +703,12 @@ const SavedGroupForm: FC<{
           </div>
         </>
       )}
-      {!editConditionOnly && (
+      {editUploadOnly && (
+        <Text as="p" mb="3">
+          The group will use the IDs from version {useUploadVersion}.
+        </Text>
+      )}
+      {!editContentOnly && (
         <>
           <Field
             size="legacy"
@@ -731,6 +775,7 @@ const SavedGroupForm: FC<{
       )}
 
       {!editInfoOnly &&
+        !editUploadOnly &&
         (type === "condition" ? (
           <>
             <ConditionInput
@@ -758,16 +803,18 @@ const SavedGroupForm: FC<{
               disabled={!!current.attributeKey}
               onChange={(v) => form.setValue("attributeKey", v)}
               placeholder="Choose one..."
-              options={attributeSchema.map((a) => ({
-                value: a.property,
-                label: a.property,
-              }))}
+              options={attributeSchema
+                .filter((a) => !isInternalAttributeName(a.property))
+                .map((a) => ({
+                  value: a.property,
+                  label: a.property,
+                }))}
               isOptionDisabled={({ label }) => {
                 const attr = attributeSchema.find(
                   (attr) => attr.property === label,
                 );
                 if (!attr) return false;
-                return !isIdListSupportedAttribute(attr);
+                return !isSupportedAttribute(attr);
               }}
               sort={false}
               formatOptionLabel={({ label }) => {
@@ -775,14 +822,18 @@ const SavedGroupForm: FC<{
                   (attr) => attr.property === label,
                 );
                 if (!attr) return label;
-                const unsupported = !isIdListSupportedAttribute(attr);
+                const unsupported = !isSupportedAttribute(attr);
                 return (
                   <div className={clsx(unsupported ? "disabled" : "")}>
                     {label}
                     {unsupported && (
                       <span className="float-right">
                         <Tooltip
-                          body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                          body={
+                            type === "remote"
+                              ? "Remote Groups need a string or number attribute."
+                              : "The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                          }
                           tipPosition="top"
                         >
                           unsupported datatype
@@ -794,7 +845,7 @@ const SavedGroupForm: FC<{
               }}
               helpText={current.attributeKey && "This field cannot be edited."}
             />
-            {!current.id && (
+            {!current.id && type === "list" && (
               <IdListItemInput
                 values={form.watch("values") || []}
                 setValues={(newValues) => {

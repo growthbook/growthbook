@@ -1,26 +1,43 @@
+import { createHash } from "crypto";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import type { SavedGroupUploadInterface } from "shared/validators";
+import type {
+  JsonPatchOperation,
+  Revision,
+  SavedGroupUploadInterface,
+} from "shared/validators";
 import {
   copyFile,
   deleteFile,
+  getFileInfo,
   getFileSize,
+  getSignedDownloadUrl,
   readFileRange,
   readFileStream,
 } from "back-end/src/services/files";
 import { queueValidateRemoteSavedGroupUpload } from "back-end/src/jobs/validateRemoteSavedGroupUpload";
 import {
+  assertUsableUploadVersion,
   createRemoteSavedGroupUpload,
+  deleteRemoteSavedGroupUpload,
   deleteRemoteSavedGroupUploads,
+  getRemoteSavedGroupUpload,
+  getRemoteSavedGroupUploadDetails,
+  getRemoteSavedGroupUploadDownloadUrl,
+  listRemoteSavedGroupUploads,
   RemoteSavedGroupsContext,
+  toApiSavedGroupsWithUploads,
   validateRemoteSavedGroupUpload,
 } from "back-end/src/services/remoteSavedGroups";
 
 jest.mock("back-end/src/services/files", () => ({
   copyFile: jest.fn(),
   deleteFile: jest.fn(),
+  getFileInfo: jest.fn(),
   getFileSize: jest.fn(),
+  getSignedDownloadUrl: jest.fn(),
   getSignedUploadUrl: jest.fn(),
+  getStorageLocation: (key: string) => `s3://bucket/${key}`,
   readFileRange: jest.fn(),
   readFileStream: jest.fn(),
 }));
@@ -49,11 +66,35 @@ const group: SavedGroupInterface = {
   dateUpdated: new Date(),
 };
 
+// An open draft of `snapshot` with the given changes
+function makeDraft(
+  snapshot: SavedGroupInterface,
+  proposedChanges: JsonPatchOperation[],
+): Revision {
+  return {
+    id: "rev_1",
+    authorId: "u_1",
+    target: { type: "saved-group", id: snapshot.id, snapshot, proposedChanges },
+    status: "draft",
+    reviews: [],
+    activityLog: [],
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: snapshot.organization,
+  };
+}
+
 const duplicateKeyError = () =>
   Object.assign(new Error("E11000 duplicate key"), { code: 11000 });
 
 // A context with an upload store that enforces the model's unique indexes.
-function makeContext() {
+// `currentUploadVersion` is the live group's; `draftVersions` are the versions
+// its open drafts point to.
+function makeContext({
+  currentUploadVersion,
+  draftVersions = [],
+}: { currentUploadVersion?: number; draftVersions?: number[] } = {}) {
+  const liveGroup: SavedGroupInterface = { ...group, currentUploadVersion };
   const uploads: SavedGroupUploadInterface[] = [];
   // Audit events by id, unique like the audit collection
   const audits = new Map<string, unknown>();
@@ -84,7 +125,21 @@ function makeContext() {
       },
     },
     models: {
-      savedGroups: { getById: async (id) => (id === group.id ? group : null) },
+      savedGroups: {
+        getById: async (id) => (id === liveGroup.id ? liveGroup : null),
+      },
+      revisions: {
+        getOpenByTarget: async () =>
+          draftVersions.map((version) =>
+            makeDraft(liveGroup, [
+              {
+                op: "replace",
+                path: "/currentUploadVersion",
+                value: version,
+              },
+            ]),
+          ),
+      },
       savedGroupUploads: {
         create: async (props) => {
           // Yield first, like a database round trip, so concurrent calls race
@@ -120,10 +175,16 @@ function makeContext() {
           uploads
             .filter((u) => u.savedGroupId === savedGroupId)
             .sort((a, b) => b.version - a.version)[0] ?? null,
-        getLatestValidBySavedGroups: async () => new Map(),
-        getPageBySavedGroup: async (savedGroupId, { limit, offset }) => {
+        getPageBySavedGroup: async (
+          savedGroupId,
+          { limit, offset, includeDeleted },
+        ) => {
           const matching = uploads
-            .filter((u) => u.savedGroupId === savedGroupId)
+            .filter(
+              (u) =>
+                u.savedGroupId === savedGroupId &&
+                (includeDeleted || !u.dateDeleted),
+            )
             .sort((a, b) => b.version - a.version);
           return {
             uploads: matching.slice(offset, offset + limit),
@@ -132,11 +193,25 @@ function makeContext() {
         },
         getVersion: async (savedGroupId, version) =>
           uploads.find(
+            (u) =>
+              u.savedGroupId === savedGroupId &&
+              u.version === version &&
+              !u.dateDeleted,
+          ) ?? null,
+        getVersionIncludingDeleted: async (savedGroupId, version) =>
+          uploads.find(
             (u) => u.savedGroupId === savedGroupId && u.version === version,
           ) ?? null,
-        setStatus: async (upload, status) => {
+        markDeleted: async (upload) => {
           const stored = uploads.find((u) => u.id === upload.id);
-          if (stored?.status.type === "pending") stored.status = status;
+          if (stored && !stored.dateDeleted) stored.dateDeleted = new Date();
+        },
+        setStatus: async (upload, status, sha256) => {
+          const stored = uploads.find((u) => u.id === upload.id);
+          if (stored?.status.type === "pending") {
+            stored.status = status;
+            if (sha256) stored.sha256 = sha256;
+          }
         },
         upsertLoad: async () => null,
       },
@@ -502,10 +577,27 @@ describe("validateRemoteSavedGroupUpload", () => {
     return { context, upload: uploads[0] };
   }
 
-  it("marks a good file valid", async () => {
-    const { context, upload } = await pendingUpload("user_id\nu1\nu2\nu1\n");
+  it("marks a good file valid and records its SHA-256", async () => {
+    const csv = "user_id\nu1\nu2\nu1\n";
+    const { context, upload } = await pendingUpload(csv);
     await validateRemoteSavedGroupUpload(context, upload.id);
     expect(upload.status).toEqual({ type: "valid", idCount: 3 });
+    expect(upload.sha256).toBe(createHash("sha256").update(csv).digest("hex"));
+  });
+
+  it("records no hash when it stops before the end of a binary file", async () => {
+    // A null byte past the sampled start and end, so the full check finds it
+    const lines = Array.from({ length: 30000 }, (_, i) => `user_${i}`);
+    lines[15000] = "bad\u0000line";
+    const { context, upload } = await pendingUpload(lines.join("\n"));
+    jest.mocked(readFileStream).mockImplementation(async function* () {
+      const contents = Buffer.from(lines.join("\n"));
+      yield contents.subarray(0, 200000);
+      yield contents.subarray(200000);
+    });
+    await validateRemoteSavedGroupUpload(context, upload.id);
+    expect(upload.status.type).toBe("invalid");
+    expect(upload.sha256).toBeUndefined();
   });
 
   it("marks a bad file invalid", async () => {
@@ -536,6 +628,276 @@ describe("validateRemoteSavedGroupUpload", () => {
     upload.status = { type: "valid", idCount: 1 };
     await validateRemoteSavedGroupUpload(context, upload.id);
     expect(readFileStream).not.toHaveBeenCalled();
+  });
+});
+
+describe("upload details and downloads", () => {
+  async function invalidUpload() {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    uploads[0].status = { type: "invalid", invalidLineCount: 1, errors: [] };
+    return { context, upload: uploads[0] };
+  }
+
+  it("shows any upload with its storage info and location", async () => {
+    const { context, upload } = await invalidUpload();
+    jest.mocked(getFileInfo).mockResolvedValue({
+      size: 3,
+      contentType: "text/csv",
+      lastModified: new Date("2026-10-01T00:00:00Z"),
+      etag: "abc",
+    });
+
+    const details = await getRemoteSavedGroupUploadDetails(context, "grp_1", 1);
+
+    expect(details.upload.status.type).toBe("invalid");
+    expect(details.file).toEqual({
+      size: 3,
+      contentType: "text/csv",
+      lastModified: "2026-10-01T00:00:00.000Z",
+      etag: "abc",
+    });
+    expect(details.storageLocation).toBe(`s3://bucket/${upload.fileKey}`);
+  });
+
+  it("shows a missing file as null", async () => {
+    const { context } = await invalidUpload();
+    jest.mocked(getFileInfo).mockResolvedValue(null);
+    const details = await getRemoteSavedGroupUploadDetails(context, "grp_1", 1);
+    expect(details.file).toBeNull();
+  });
+
+  it("downloads any upload, while loaders only get valid ones", async () => {
+    const { context, upload } = await invalidUpload();
+    jest.mocked(getSignedDownloadUrl).mockResolvedValue("https://signed");
+
+    expect(
+      await getRemoteSavedGroupUploadDownloadUrl(context, "grp_1", 1),
+    ).toBe("https://signed");
+    // No name was given, so it falls back to the group and version
+    expect(getSignedDownloadUrl).toHaveBeenCalledWith(
+      upload.fileKey,
+      "grp_1-v1.csv",
+      15,
+    );
+    await expect(
+      getRemoteSavedGroupUpload(context, "grp_1", 1),
+    ).rejects.toThrow("Could not find that upload");
+  });
+
+  it("keeps the original file name for downloads", async () => {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    const created = await createRemoteSavedGroupUpload(
+      context,
+      "grp_1",
+      stagingKey("a"),
+      "VIP accounts.csv",
+    );
+    expect(created.fileName).toBe("VIP accounts.csv");
+
+    await getRemoteSavedGroupUploadDownloadUrl(context, "grp_1", 1);
+    expect(getSignedDownloadUrl).toHaveBeenCalledWith(
+      uploads[0].fileKey,
+      "VIP accounts.csv",
+      15,
+    );
+  });
+
+  it("is a 404 for a version that doesn't exist", async () => {
+    const { context } = makeContext();
+    await expect(
+      getRemoteSavedGroupUploadDetails(context, "grp_1", 9),
+    ).rejects.toThrow("Could not find that upload");
+  });
+});
+
+describe("deleteRemoteSavedGroupUpload", () => {
+  // Versions 1 and up, with the given statuses
+  async function uploadsWith(
+    statuses: SavedGroupUploadInterface["status"][],
+    options?: Parameters<typeof makeContext>[0],
+  ) {
+    const { context, uploads, audits } = makeContext(options);
+    for (const [i, status] of statuses.entries()) {
+      files.set(stagingKey(`${i}`), Buffer.from("u1\n"));
+      await createRemoteSavedGroupUpload(context, "grp_1", stagingKey(`${i}`));
+      uploads[i].status = status;
+    }
+    return { context, uploads, audits };
+  }
+  const valid = { type: "valid" as const, idCount: 1 };
+  const invalid = { type: "invalid" as const, invalidLineCount: 1, errors: [] };
+
+  it("marks an upload the group doesn't use deleted, deletes its file, and audits it", async () => {
+    const { context, uploads, audits } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 2,
+    });
+    const { fileKey } = uploads[0];
+
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 1);
+
+    expect(uploads[0].dateDeleted).toBeInstanceOf(Date);
+    expect(files.has(fileKey)).toBe(false);
+    expect([...audits.values()]).toContainEqual(
+      expect.objectContaining({ event: "savedGroup.uploadDeleted" }),
+    );
+    const { uploads: listed } = await listRemoteSavedGroupUploads(
+      context,
+      "grp_1",
+      { limit: 10, offset: 0 },
+    );
+    expect(listed.map((u) => u.version)).toEqual([2]);
+    await expect(
+      getRemoteSavedGroupUploadDetails(context, "grp_1", 1),
+    ).rejects.toThrow("Could not find that upload");
+  });
+
+  it("doesn't reuse a deleted version number", async () => {
+    const { context, uploads } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 1,
+    });
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 2);
+
+    files.set(stagingKey("next"), Buffer.from("u2\n"));
+    const next = await createRemoteSavedGroupUpload(
+      context,
+      "grp_1",
+      stagingKey("next"),
+    );
+
+    expect(next.version).toBe(3);
+    expect(uploads).toHaveLength(3);
+  });
+
+  it("refuses to resubmit a deleted upload's file", async () => {
+    const { context } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 2,
+    });
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 1);
+    await expect(
+      createRemoteSavedGroupUpload(context, "grp_1", stagingKey("0")),
+    ).rejects.toThrow("This upload was deleted.");
+  });
+
+  it("finishes on retry when the audit failed", async () => {
+    const { context, uploads, audits } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 2,
+    });
+    const { fileKey } = uploads[0];
+    jest
+      .mocked(context.auditLog)
+      .mockRejectedValueOnce(new Error("audit down"));
+
+    await expect(
+      deleteRemoteSavedGroupUpload(context, "grp_1", 1),
+    ).rejects.toThrow("audit down");
+    expect(files.has(fileKey)).toBe(true);
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 1);
+
+    expect(files.has(fileKey)).toBe(false);
+    expect(
+      [...audits.values()].filter((a) =>
+        JSON.stringify(a).includes("savedGroup.uploadDeleted"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("deletes invalid and pending uploads", async () => {
+    const { context, uploads } = await uploadsWith([
+      invalid,
+      { type: "pending" },
+    ]);
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 1);
+    await deleteRemoteSavedGroupUpload(context, "grp_1", 2);
+    expect(uploads.every((u) => u.dateDeleted)).toBe(true);
+  });
+
+  it("refuses the group's current version", async () => {
+    const { context, uploads } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 1,
+    });
+    await expect(
+      deleteRemoteSavedGroupUpload(context, "grp_1", 1),
+    ).rejects.toThrow("current version");
+    expect(uploads).toHaveLength(2);
+  });
+
+  it("refuses a version an open draft uses", async () => {
+    const { context, uploads } = await uploadsWith([valid, valid], {
+      currentUploadVersion: 1,
+      draftVersions: [2],
+    });
+    await expect(
+      deleteRemoteSavedGroupUpload(context, "grp_1", 2),
+    ).rejects.toThrow("open draft");
+    expect(uploads).toHaveLength(2);
+  });
+
+  it("needs publish access", async () => {
+    const { context } = await uploadsWith([valid, valid]);
+    context.permissions.canRevisionAction = () => false;
+    await expect(
+      deleteRemoteSavedGroupUpload(context, "grp_1", 1),
+    ).rejects.toThrow("forbidden");
+  });
+});
+
+describe("assertUsableUploadVersion", () => {
+  it("accepts only a valid upload of the group", async () => {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+
+    // Still pending
+    await expect(
+      assertUsableUploadVersion(context, "grp_1", 1),
+    ).rejects.toThrow("Version 1 is not a valid upload");
+    uploads[0].status = { type: "valid", idCount: 1 };
+    await expect(
+      assertUsableUploadVersion(context, "grp_1", 1),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertUsableUploadVersion(context, "grp_1", 2),
+    ).rejects.toThrow("Version 2 is not a valid upload");
+  });
+});
+
+describe("toApiSavedGroupsWithUploads", () => {
+  it("adds the current upload to remote groups only", async () => {
+    const { context } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    const withApi = {
+      ...context,
+      models: {
+        ...context.models,
+        savedGroups: {
+          ...context.models.savedGroups,
+          toApiInterface: (g: SavedGroupInterface) => ({
+            id: g.id,
+            type: g.type,
+            name: g.groupName,
+            dateCreated: g.dateCreated.toISOString(),
+            dateUpdated: g.dateUpdated.toISOString(),
+          }),
+        },
+      },
+    };
+
+    const [current, none, list] = await toApiSavedGroupsWithUploads(withApi, [
+      { ...group, currentUploadVersion: 1 },
+      group,
+      { ...group, id: "grp_list", type: "list" },
+    ]);
+
+    expect(current.currentUpload).toEqual({
+      version: 1,
+      dateCreated: expect.any(String),
+    });
+    expect(none.currentUpload).toBeNull();
+    expect(list).not.toHaveProperty("currentUpload");
   });
 });
 

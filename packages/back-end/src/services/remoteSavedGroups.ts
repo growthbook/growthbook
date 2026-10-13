@@ -1,5 +1,7 @@
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { applyTopLevelPatchOps } from "shared/enterprise";
 import {
   checkRemoteGroupCsvSample,
   parseRemoteGroupCsv,
@@ -13,6 +15,7 @@ import type { SavedGroupInterface } from "shared/types/saved-group";
 import type {
   ApiSavedGroup,
   ApiSavedGroupUpload,
+  SavedGroupUploadDetails,
   SavedGroupUploadLoad,
   SavedGroupUploadInterface,
 } from "shared/validators";
@@ -21,14 +24,20 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   copyFile,
   deleteFile,
+  getFileInfo,
   getFileSize,
+  getSignedDownloadUrl,
   getSignedUploadUrl,
+  getStorageLocation,
   readFileRange,
   readFileStream,
 } from "back-end/src/services/files";
 import { queueValidateRemoteSavedGroupUpload } from "back-end/src/jobs/validateRemoteSavedGroupUpload";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
-import { auditDetailsCreate } from "back-end/src/services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+} from "back-end/src/services/audit";
 import {
   assertRemoteSavedGroupAttribute,
   assertRemoteSavedGroupsEnabled,
@@ -36,6 +45,7 @@ import {
 } from "back-end/src/services/savedGroups";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 type FullContext = ReqContext | ApiReqContext;
 
@@ -50,6 +60,7 @@ export type RemoteSavedGroupsContext = Pick<
   >;
   models: {
     savedGroups: Pick<FullContext["models"]["savedGroups"], "getById">;
+    revisions: Pick<FullContext["models"]["revisions"], "getOpenByTarget">;
     savedGroupUploads: Pick<
       FullContext["models"]["savedGroupUploads"],
       | "create"
@@ -57,15 +68,18 @@ export type RemoteSavedGroupsContext = Pick<
       | "getById"
       | "getBySourceKey"
       | "getLatest"
-      | "getLatestValidBySavedGroups"
       | "getPageBySavedGroup"
       | "getVersion"
+      | "getVersionIncludingDeleted"
+      | "markDeleted"
       | "setStatus"
       | "upsertLoad"
     >;
   };
 };
 type Context = RemoteSavedGroupsContext;
+
+const DOWNLOAD_URL_MINUTES = 15;
 
 function storagePrefix(context: Context, savedGroupId: string) {
   return `${context.org.id}/remote-saved-groups/${savedGroupId}`;
@@ -120,7 +134,9 @@ export function toApiSavedGroupUpload(
   return {
     savedGroupId: upload.savedGroupId,
     version: upload.version,
+    fileName: upload.fileName ?? null,
     size: upload.size,
+    sha256: upload.sha256 ?? null,
     dateCreated: upload.dateCreated.toISOString(),
     createdBy: upload.createdBy,
     status: upload.status,
@@ -239,6 +255,7 @@ export async function createRemoteSavedGroupUpload(
   context: Context,
   id: string,
   sourceKey: string,
+  fileName?: string,
 ): Promise<ApiSavedGroupUpload> {
   const group = await getRemoteSavedGroupForUpload(context, id);
 
@@ -281,7 +298,12 @@ export async function createRemoteSavedGroupUpload(
 
   let upload: SavedGroupUploadInterface;
   try {
-    upload = await recordUpload(context, group, { sourceKey, fileKey, size });
+    upload = await recordUpload(context, group, {
+      sourceKey,
+      fileKey,
+      fileName,
+      size,
+    });
   } catch (e) {
     // A failed insert may still have been saved, e.g. when its
     // acknowledgment is lost, so check before deleting the copy. Another
@@ -317,6 +339,10 @@ async function finishUpload(
   context: Context,
   upload: SavedGroupUploadInterface,
 ): Promise<ApiSavedGroupUpload> {
+  // Resubmitting a file after its upload was deleted doesn't bring it back.
+  if (upload.dateDeleted) {
+    throw new BadRequestError("This upload was deleted.");
+  }
   // The upload has its own copy now. Resubmissions find it by `sourceKey`.
   await deleteStagedFile(upload.sourceKey);
 
@@ -354,8 +380,14 @@ async function recordUpload(
   {
     sourceKey,
     fileKey,
+    fileName,
     size,
-  }: { sourceKey: string; fileKey: string; size: number },
+  }: {
+    sourceKey: string;
+    fileKey: string;
+    fileName: string | undefined;
+    size: number;
+  },
 ): Promise<SavedGroupUploadInterface> {
   for (let attempt = 0; ; attempt++) {
     const latest = await context.models.savedGroupUploads.getLatest(group.id);
@@ -365,6 +397,7 @@ async function recordUpload(
         version: (latest?.version ?? 0) + 1,
         sourceKey,
         fileKey,
+        ...(fileName ? { fileName } : {}),
         size,
         createdBy: context.userId || "",
         status: { type: "pending" },
@@ -383,7 +416,9 @@ export async function validateRemoteSavedGroupUpload(
   uploadId: string,
 ): Promise<void> {
   const upload = await context.models.savedGroupUploads.getById(uploadId);
-  if (!upload || upload.status.type !== "pending") return;
+  if (!upload || upload.status.type !== "pending" || upload.dateDeleted) {
+    return;
+  }
   const group = await context.models.savedGroups.getById(upload.savedGroupId);
   if (!group) return;
 
@@ -399,8 +434,20 @@ export async function validateRemoteSavedGroupUpload(
     return;
   }
 
+  // Hashed while it's parsed. The parser stops early on files that aren't
+  // text, so the hash is kept only when the whole file was read.
+  const hash = createHash("sha256");
+  let readAll = false;
+  const { fileKey } = upload;
+  async function* hashed() {
+    for await (const chunk of readFileStream(fileKey)) {
+      hash.update(chunk);
+      yield chunk;
+    }
+    readAll = true;
+  }
   const result = await parseRemoteGroupCsv(
-    readFileStream(upload.fileKey),
+    hashed(),
     getCsvOptions(context, group),
   );
   await context.models.savedGroupUploads.setStatus(
@@ -408,13 +455,15 @@ export async function validateRemoteSavedGroupUpload(
     result.type === "valid"
       ? { type: "valid", idCount: result.idCount }
       : result,
+    readAll ? hash.digest("hex") : undefined,
   );
 }
 
+/** A page of a group's uploads, newest first; only `versions` when given. */
 export async function listRemoteSavedGroupUploads(
   context: Context,
   id: string,
-  page: { limit: number; offset: number },
+  page: { limit: number; offset: number; versions?: number[] },
 ): Promise<{ uploads: ApiSavedGroupUpload[]; total: number }> {
   const group = await getRemoteSavedGroup(context, id);
   const { uploads, total } =
@@ -423,37 +472,64 @@ export async function listRemoteSavedGroupUploads(
 }
 
 /**
- * Adds `latestUpload` to remote groups: the newest valid upload, which loaders
- * load. Pending and invalid uploads never reach them.
+ * The REST shape of saved groups, with `currentUpload` on remote groups: the
+ * upload the group points to, which loaders load.
  */
-export async function addLatestUploads(
-  context: Context,
-  savedGroups: ApiSavedGroup[],
-): Promise<ApiSavedGroup[]> {
-  const remoteIds = savedGroups
-    .filter((g) => g.type === "remote")
-    .map((g) => g.id);
-  if (!remoteIds.length) return savedGroups;
-  const latest =
-    await context.models.savedGroupUploads.getLatestValidBySavedGroups(
-      remoteIds,
-    );
-  return savedGroups.map((g) => {
-    if (g.type !== "remote") return g;
-    const upload = latest.get(g.id);
-    return {
-      ...g,
-      latestUpload: upload
-        ? {
-            version: upload.version,
-            dateCreated: upload.dateCreated.toISOString(),
-          }
-        : null,
+export async function toApiSavedGroupsWithUploads(
+  context: Context & {
+    models: {
+      savedGroups: Pick<FullContext["models"]["savedGroups"], "toApiInterface">;
     };
-  });
+  },
+  savedGroups: SavedGroupInterface[],
+): Promise<ApiSavedGroup[]> {
+  return Promise.all(
+    savedGroups.map(async (g) => {
+      const api = context.models.savedGroups.toApiInterface(g);
+      if (g.type !== "remote") return api;
+      const upload =
+        g.currentUploadVersion === undefined
+          ? null
+          : await context.models.savedGroupUploads.getVersion(
+              g.id,
+              g.currentUploadVersion,
+            );
+      return {
+        ...api,
+        currentUpload: upload
+          ? {
+              version: upload.version,
+              dateCreated: upload.dateCreated.toISOString(),
+            }
+          : null,
+      };
+    }),
+  );
 }
 
-export async function getRemoteSavedGroupUpload(
+/**
+ * A remote group can only use a valid upload of its own. Checked when the
+ * group is written and when a draft proposes it, so a draft can't name a
+ * version that won't publish.
+ */
+export async function assertUsableUploadVersion(
+  context: Context,
+  savedGroupId: string,
+  version: number,
+): Promise<void> {
+  const upload = await context.models.savedGroupUploads.getVersion(
+    savedGroupId,
+    version,
+  );
+  if (upload?.status.type !== "valid") {
+    throw new BadRequestError(
+      `Version ${version} is not a valid upload of this Saved Group`,
+    );
+  }
+}
+
+/** An upload of any status. */
+async function findRemoteSavedGroupUpload(
   context: Context,
   id: string,
   version: number,
@@ -463,10 +539,126 @@ export async function getRemoteSavedGroupUpload(
     group.id,
     version,
   );
-  if (!upload || upload.status.type !== "valid") {
+  if (!upload) throw new NotFoundError("Could not find that upload");
+  return upload;
+}
+
+/** A valid upload, as loaders see it. */
+export async function getRemoteSavedGroupUpload(
+  context: Context,
+  id: string,
+  version: number,
+): Promise<SavedGroupUploadInterface> {
+  const upload = await findRemoteSavedGroupUpload(context, id, version);
+  if (upload.status.type !== "valid") {
     throw new NotFoundError("Could not find that upload");
   }
   return upload;
+}
+
+/** An upload of any status, with what storage reports about its file. */
+export async function getRemoteSavedGroupUploadDetails(
+  context: Context,
+  id: string,
+  version: number,
+): Promise<SavedGroupUploadDetails> {
+  const upload = await findRemoteSavedGroupUpload(context, id, version);
+  const file = await getFileInfo(upload.fileKey);
+  return {
+    upload: toApiSavedGroupUpload(upload),
+    file: file && {
+      ...file,
+      lastModified: file.lastModified?.toISOString() ?? null,
+    },
+    // On Cloud the bucket is GrowthBook's own, so its paths aren't shown.
+    storageLocation: IS_CLOUD ? null : getStorageLocation(upload.fileKey),
+  };
+}
+
+/**
+ * A short-lived URL to download an upload's file, of any status, under its
+ * original name (or `<group id>-v<version>.csv` when it has none).
+ */
+export async function getRemoteSavedGroupUploadDownloadUrl(
+  context: Context,
+  id: string,
+  version: number,
+): Promise<string> {
+  const upload = await findRemoteSavedGroupUpload(context, id, version);
+  return getSignedDownloadUrl(
+    upload.fileKey,
+    upload.fileName ?? `${upload.savedGroupId}-v${upload.version}.csv`,
+    DOWNLOAD_URL_MINUTES,
+  );
+}
+
+/**
+ * Deletes an upload, unless the live group or an open draft points to it. The
+ * record is marked deleted rather than removed, so its version number isn't
+ * reused. Each step can repeat, so retrying after a failure finishes the job.
+ */
+export async function deleteRemoteSavedGroupUpload(
+  context: Context,
+  id: string,
+  version: number,
+): Promise<void> {
+  const group = await getRemoteSavedGroup(context, id);
+  assertCanPublish(context, group);
+  const upload =
+    await context.models.savedGroupUploads.getVersionIncludingDeleted(
+      group.id,
+      version,
+    );
+  if (!upload) throw new NotFoundError("Could not find that upload");
+
+  // A retry of a delete that already got this far skips the checks.
+  if (!upload.dateDeleted) {
+    if (group.currentUploadVersion === version) {
+      throw new BadRequestError(
+        "This is the group's current version, so it can't be deleted.",
+      );
+    }
+    const drafts = await context.models.revisions.getOpenByTarget(
+      "saved-group",
+      group.id,
+    );
+    const inDraft = drafts.some((r) => {
+      const proposed = applyTopLevelPatchOps(
+        r.target.snapshot,
+        r.target.proposedChanges,
+      );
+      return (
+        "currentUploadVersion" in proposed &&
+        proposed.currentUploadVersion === version
+      );
+    });
+    if (inDraft) {
+      throw new BadRequestError(
+        "An open draft uses this version, so it can't be deleted.",
+      );
+    }
+    await context.models.savedGroupUploads.markDeleted(upload);
+  }
+
+  // A fixed id, so a retry doesn't write the event twice.
+  try {
+    await context.auditLog(
+      {
+        event: "savedGroup.uploadDeleted",
+        entity: { object: "savedGroup", id: group.id },
+        details: auditDetailsDelete({
+          version: upload.version,
+          size: upload.size,
+          fileName: upload.fileName ?? null,
+        }),
+      },
+      `aud_${upload.id}_deleted`,
+    );
+  } catch (err) {
+    if (!isDuplicateKeyError(err)) throw err;
+  }
+  // Missing files are ignored, so this can repeat too.
+  await deleteFile(upload.fileKey);
 }
 
 /**
@@ -504,6 +696,7 @@ export async function deleteRemoteSavedGroupUploads(
       await context.models.savedGroupUploads.getPageBySavedGroup(savedGroupId, {
         limit: 100,
         offset: 0,
+        includeDeleted: true,
       });
     if (!uploads.length) return;
     for (const upload of uploads) {

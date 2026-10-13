@@ -9,5 +9,6 @@ export const postSavedGroupUpload = createApiRequestHandler(
     req.context,
     req.params.id,
     req.body.fileKey,
+    req.body.fileName,
   ),
 }));

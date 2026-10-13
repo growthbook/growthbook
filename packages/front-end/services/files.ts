@@ -96,6 +96,52 @@ export async function uploadFile(
 }
 
 /**
+ * Uploads a file to a signed storage URL, reporting progress from 0 to 1.
+ * With `fields`, it's an S3 presigned POST; otherwise a PUT (GCS).
+ * Uses XMLHttpRequest because fetch can't report upload progress.
+ */
+export function uploadToSignedUrl({
+  signedUrl,
+  fields,
+  file,
+  contentType,
+  onProgress,
+}: {
+  signedUrl: string;
+  fields: Record<string, string> | null;
+  file: File;
+  contentType: string;
+  onProgress: (fraction: number) => void;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+    xhr.onerror = () => reject(new Error("Upload failed: network error"));
+
+    if (fields) {
+      const formData = new FormData();
+      Object.entries(fields).forEach(([key, value]) =>
+        formData.append(key, value),
+      );
+      // S3 requires the file last
+      formData.append("file", file);
+      xhr.open("POST", signedUrl);
+      xhr.send(formData);
+    } else {
+      xhr.open("PUT", signedUrl);
+      xhr.setRequestHeader("Content-Type", contentType);
+      xhr.send(file);
+    }
+  });
+}
+
+/**
  * Save the text content as a file with the given file name.
  * @param textContent
  * @param fileName

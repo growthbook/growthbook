@@ -5,6 +5,7 @@ import {
   isSavedGroupAvailableForProjects,
   extractConditionAttributeKeys,
 } from "shared/util";
+import { isInternalAttributeName } from "shared/constants";
 import { some } from "lodash";
 import {
   PiBracketsCurly,
@@ -132,9 +133,13 @@ function useScopedAttributes(
       // Dotted keys reference a property on an object attribute.
       referenced.add(k.split(".")[0]);
     }
-    const scoped = new Set(scopedSchema.map((s) => s.property));
+    // Internal attributes are set by GrowthBook's SDKs, not targeted directly.
+    const visibleSchema = scopedSchema.filter(
+      (s) => !isInternalAttributeName(s.property),
+    );
+    const scoped = new Set(visibleSchema.map((s) => s.property));
     const attributeSchema = [
-      ...scopedSchema,
+      ...visibleSchema,
       ...allSchema.filter(
         (s) => !scoped.has(s.property) && referenced.has(s.property),
       ),

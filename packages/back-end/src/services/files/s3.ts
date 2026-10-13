@@ -136,11 +136,16 @@ export const s3FileStorage: FileStorage = {
     return joinUrl(cfg.s3Domain, key);
   },
 
-  async getSize(key, cfg) {
+  async getInfo(key, cfg) {
     const head = await getS3Client(cfg.s3Region).send(
       new HeadObjectCommand({ Bucket: cfg.s3Bucket, Key: key }),
     );
-    return head.ContentLength ?? 0;
+    return {
+      size: head.ContentLength ?? 0,
+      contentType: head.ContentType ?? null,
+      lastModified: head.LastModified ?? null,
+      etag: head.ETag?.replace(/"/g, "") ?? null,
+    };
   },
 
   async *readStream(key, cfg) {
@@ -166,10 +171,14 @@ export const s3FileStorage: FileStorage = {
     );
   },
 
-  getSignedReadUrl(key, expiresInMinutes, cfg) {
+  getSignedReadUrl(key, expiresInMinutes, cfg, contentDisposition) {
     return getSignedUrl(
       getS3Client(cfg.s3Region),
-      new GetObjectCommand({ Bucket: cfg.s3Bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: cfg.s3Bucket,
+        Key: key,
+        ResponseContentDisposition: contentDisposition,
+      }),
       { expiresIn: expiresInMinutes * 60 },
     );
   },

@@ -18,7 +18,10 @@ import {
   savedGroupUpdated,
 } from "back-end/src/services/savedGroups";
 import { BadRequestError } from "back-end/src/util/errors";
-import { deleteRemoteSavedGroupUploads } from "back-end/src/services/remoteSavedGroups";
+import {
+  assertUsableUploadVersion,
+  deleteRemoteSavedGroupUploads,
+} from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
@@ -162,7 +165,11 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       await assertSavedGroupProjectScope(this.context, doc, previousDoc);
     }
     if (doc.type === "remote") {
-      this.validateRemoteGroup(doc, previousDoc, writeOptions);
+      await this.validateRemoteGroup(doc, previousDoc, writeOptions);
+    } else if (doc.currentUploadVersion !== undefined) {
+      throw new BadRequestError(
+        "Only remote Saved Groups can have a currentUploadVersion",
+      );
     }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
@@ -176,7 +183,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     }
   }
 
-  private validateRemoteGroup(
+  private async validateRemoteGroup(
     doc: SavedGroupInterface,
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
@@ -203,6 +210,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       // Loaders store IDs by attribute, so changing it would need a reload.
       throw new BadRequestError(
         "The attributeKey of a remote Saved Group cannot change",
+      );
+    }
+    // Compensation restores a version that was valid when it was written.
+    if (
+      doc.currentUploadVersion !== undefined &&
+      doc.currentUploadVersion !== previousDoc?.currentUploadVersion &&
+      !writeOptions?.isCompensation
+    ) {
+      await assertUsableUploadVersion(
+        this.context,
+        doc.id,
+        doc.currentUploadVersion,
       );
     }
   }

@@ -49,6 +49,8 @@ import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import RemoteSavedGroupUploads from "@/components/SavedGroups/RemoteSavedGroupUploads";
+import RemoteSavedGroupSetupCallout from "@/components/SavedGroups/RemoteSavedGroupSetupCallout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
@@ -398,6 +400,10 @@ export default function EditSavedGroupPage() {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [editConditionModal, setEditConditionModal] =
     useState<null | Partial<SavedGroupInterface>>(null);
+  const [useUploadModal, setUseUploadModal] = useState<null | {
+    version: number;
+    current: Partial<SavedGroupInterface>;
+  }>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -456,6 +462,16 @@ export default function EditSavedGroupPage() {
               {
                 event: "savedGroup.deleted",
                 getLabel: () => "Deleted",
+                alwaysVisible: true,
+              },
+              {
+                event: "savedGroup.uploaded",
+                getLabel: () => "Uploaded IDs",
+                alwaysVisible: true,
+              },
+              {
+                event: "savedGroup.uploadDeleted",
+                getLabel: () => "Deleted an upload",
                 alwaysVisible: true,
               },
             ],
@@ -800,6 +816,28 @@ export default function EditSavedGroupPage() {
           onSelectRevision={selectFlow}
           liveVersion={savedGroup}
           editConditionOnly={true}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
+        />
+      )}
+      {useUploadModal && (
+        <SavedGroupForm
+          close={() => {
+            setUseUploadModal(null);
+            mutate();
+          }}
+          current={useUploadModal.current}
+          type={savedGroup.type}
+          approvalFlowRequired={approvalRequired}
+          metadataReviewRequired={metadataReviewRequired}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          liveVersion={savedGroup}
+          useUploadVersion={useUploadModal.version}
           mutate={async () => {
             await Promise.all([mutateRevisions(), mutate()]);
           }}
@@ -1308,7 +1346,7 @@ export default function EditSavedGroupPage() {
           <>
             <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
               <Flex gap="4" align="center" wrap="wrap">
-                {savedGroup.type === "list" && (
+                {savedGroup.type !== "condition" && (
                   <Box>
                     <Text weight="medium">Attribute Key: </Text>
                     {savedGroup.attributeKey}
@@ -1391,11 +1429,55 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
-            <LargeSavedGroupPerformanceWarning
-              {...largeSavedGroupSupport}
-              type={savedGroup.type === "condition" ? "condition" : "list"}
-            />
-            {savedGroup.type === "condition" ? (
+            {savedGroup.type === "remote" ? (
+              <RemoteSavedGroupSetupCallout />
+            ) : (
+              <LargeSavedGroupPerformanceWarning
+                {...largeSavedGroupSupport}
+                type={savedGroup.type === "condition" ? "condition" : "list"}
+              />
+            )}
+            {savedGroup.type === "remote" ? (
+              <RemoteSavedGroupUploads
+                savedGroup={savedGroup}
+                canUpload={permissionsUtil.canRevisionAction(
+                  "saved-group",
+                  "publish",
+                  savedGroup,
+                  NO_ENVIRONMENT_BINDING,
+                )}
+                viewing={isLive ? "live" : isDraft ? "draft" : "other"}
+                viewedVersion={displayedSavedGroup?.currentUploadVersion}
+                useVersionDisabledReason={
+                  isMerged
+                    ? "You cannot edit a merged revision."
+                    : isDiscarded
+                      ? "You cannot edit a discarded revision."
+                      : !canDraft
+                        ? "You don't have permission to edit drafts for this Saved Group."
+                        : null
+                }
+                onUseVersion={(version) => {
+                  // Like editing the condition: work in the user's open draft.
+                  // The dialog starts from the revision it saves into, so its
+                  // conflict check compares against that, not live.
+                  const target = selectedRevision ?? userOpenRevision ?? null;
+                  if (!selectedRevision && userOpenRevision) {
+                    selectFlow(userOpenRevision);
+                  }
+                  setUseUploadModal({
+                    version,
+                    current: target
+                      ? applyTopLevelPatchOps(
+                          (target.target.snapshot as SavedGroupInterface) ||
+                            savedGroup,
+                          target.target.proposedChanges,
+                        )
+                      : savedGroup,
+                  });
+                }}
+              />
+            ) : savedGroup.type === "condition" ? (
               <>
                 <Heading size="md" as="h2" mb="3">
                   Condition

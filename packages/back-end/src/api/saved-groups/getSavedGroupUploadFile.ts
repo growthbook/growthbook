@@ -17,7 +17,7 @@ const paramsValidator = z
  * GET /v1/saved-groups/:id/uploads/:version/file
  *
  * An upload's CSV, as uploaded, for loaders. Redirects to a signed storage
- * URL. Loaders know which version they loaded from `latestUpload`, so there's
+ * URL. Loaders know which version they loaded from `currentUpload`, so there's
  * no ETag: a cached redirect would point at an expired signature.
  */
 export async function getSavedGroupUploadFile(req: Request, res: Response) {

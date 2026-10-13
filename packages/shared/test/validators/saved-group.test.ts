@@ -3,7 +3,10 @@ import {
   REMOTE_GROUP_IDS_ATTRIBUTE,
 } from "../../src/constants";
 import { isRemoteGroupSupportedAttribute } from "../../src/util/saved-groups";
-import { postSavedGroupBodyValidator } from "../../src/validators/saved-group";
+import {
+  postSavedGroupBodyValidator,
+  putSavedGroupBodyValidator,
+} from "../../src/validators/saved-group";
 import { listSavedGroupUploadsValidator } from "../../src/validators/remote-saved-group-upload";
 
 describe("remote saved group bodies", () => {
@@ -42,6 +45,21 @@ describe("remote saved group bodies", () => {
       true,
     );
     expect(parse({ type: "condition", condition: '{"a":1}' })).toBe(true);
+  });
+});
+
+describe("putSavedGroupBodyValidator", () => {
+  it("accepts a baseline without an upload version, but not a new null one", () => {
+    expect(
+      putSavedGroupBodyValidator.safeParse({
+        currentUploadVersion: 1,
+        baseline: { currentUploadVersion: null },
+      }).success,
+    ).toBe(true);
+    expect(
+      putSavedGroupBodyValidator.safeParse({ currentUploadVersion: null })
+        .success,
+    ).toBe(false);
   });
 });
 

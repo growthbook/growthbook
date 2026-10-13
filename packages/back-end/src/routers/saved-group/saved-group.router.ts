@@ -105,9 +105,48 @@ router.get(
   "/:id/uploads",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
-    query: z.object(paginationQueryFields).strict(),
+    query: z
+      .object({
+        ...paginationQueryFields,
+        // Comma-separated version numbers, e.g. "3,7"
+        versions: z
+          .string()
+          .regex(/^\d+(,\d+)*$/)
+          .optional(),
+      })
+      .strict(),
   }),
   savedGroupController.getSavedGroupUploads,
+);
+
+router.get(
+  "/:id/uploads/:version",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroupUpload,
+);
+
+router.get(
+  "/:id/uploads/:version/download-url",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroupUploadDownloadUrl,
+);
+
+router.delete(
+  "/:id/uploads/:version",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.deleteSavedGroupUpload,
 );
 
 router.post(

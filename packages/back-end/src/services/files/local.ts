@@ -40,8 +40,14 @@ export const localFileStorage: FileStorage = {
     return `/upload/${key}`;
   },
 
-  async getSize(key) {
-    return (await fs.promises.stat(resolveUploadPath(key))).size;
+  async getInfo(key) {
+    const stat = await fs.promises.stat(resolveUploadPath(key));
+    return {
+      size: stat.size,
+      contentType: null,
+      lastModified: stat.mtime,
+      etag: null,
+    };
   },
 
   async *readStream(key) {

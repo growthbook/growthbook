@@ -1,8 +1,10 @@
 import path from "path";
 import fs from "fs";
 import {
+  attachmentDisposition,
   copyFile,
   deleteFile,
+  getFileInfo,
   getFileSize,
   getUploadsDir,
   readFileRange,
@@ -61,6 +63,18 @@ describe("resolveUploadPath", () => {
   });
 });
 
+describe("attachmentDisposition", () => {
+  it("names the download, with an ASCII fallback and the exact UTF-8 name", () => {
+    expect(attachmentDisposition("ids.csv")).toBe(
+      `attachment; filename="ids.csv"; filename*=UTF-8''ids.csv`,
+    );
+    expect(attachmentDisposition('Clientes "VIP" é (1).csv')).toBe(
+      `attachment; filename="Clientes _VIP_ _ (1).csv"; ` +
+        `filename*=UTF-8''Clientes%20%22VIP%22%20%C3%A9%20%281%29.csv`,
+    );
+  });
+});
+
 // Tests run with UPLOAD_METHOD=local, so the helpers use the uploads dir.
 describe("file helpers (local storage)", () => {
   const prefix = `test-files-${process.pid}`;
@@ -79,6 +93,13 @@ describe("file helpers (local storage)", () => {
   it("gets a file's size, or null when it's missing", async () => {
     expect(await getFileSize(key("src.csv"))).toBe(10);
     expect(await getFileSize(key("missing.csv"))).toBeNull();
+  });
+
+  it("gets a file's info, or null when it's missing", async () => {
+    const info = await getFileInfo(key("src.csv"));
+    expect(info).toMatchObject({ size: 10, contentType: null, etag: null });
+    expect(info?.lastModified?.getTime()).toBeGreaterThan(0);
+    expect(await getFileInfo(key("missing.csv"))).toBeNull();
   });
 
   it("reads an inclusive range, cut short at the end of the file", async () => {
@@ -146,9 +167,20 @@ describe("s3FileStorage", () => {
     });
   });
 
-  it("gets the size from a HEAD request", async () => {
-    mockSend.mockImplementation(async () => ({ ContentLength: 42 }));
-    expect(await s3FileStorage.getSize("a/b.csv", cfg)).toBe(42);
+  it("gets file info from a HEAD request, without quotes on the ETag", async () => {
+    const lastModified = new Date("2026-10-01T00:00:00Z");
+    mockSend.mockImplementation(async () => ({
+      ContentLength: 42,
+      ContentType: "text/csv",
+      LastModified: lastModified,
+      ETag: '"abc123"',
+    }));
+    expect(await s3FileStorage.getInfo("a/b.csv", cfg)).toEqual({
+      size: 42,
+      contentType: "text/csv",
+      lastModified,
+      etag: "abc123",
+    });
     expect(sentInput()).toEqual({ Bucket: "bucket", Key: "a/b.csv" });
   });
 
@@ -166,7 +198,7 @@ describe("s3FileStorage", () => {
     mockSend.mockImplementation(async () => {
       throw new Error("NoSuchKey");
     });
-    await expect(s3FileStorage.getSize("a/b.csv", cfg)).rejects.toThrow(
+    await expect(s3FileStorage.getInfo("a/b.csv", cfg)).rejects.toThrow(
       "NoSuchKey",
     );
   });

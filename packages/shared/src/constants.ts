@@ -313,7 +313,7 @@ export const entityEvents = {
   oauthGrant: ["create", "update", "delete"],
   oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
-  savedGroup: ["created", "deleted", "updated", "uploaded"],
+  savedGroup: ["created", "deleted", "updated", "uploaded", "uploadDeleted"],
   constant: ["created", "updated", "deleted"],
   config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
