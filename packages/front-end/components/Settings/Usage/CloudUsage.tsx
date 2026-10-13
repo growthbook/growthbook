@@ -40,6 +40,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import { isCloud } from "@/services/env";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 
@@ -85,22 +86,16 @@ type Series = { key: string; label: string; color: string };
 type StackedPoint = { ts: Date; v: Record<string, number> };
 type KeyTotals = { key: string; requests: number; bandwidth: number };
 
-function downloadUsageCsv(usage: DailyUsage[], month: string) {
-  const csv = new Parser().parse(
-    usage.map((u) => ({
-      // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
-      date: u.date.substring(0, 10),
-      requests: u.requests,
-      // Raw bytes: full precision, unlike the page's rounded display
-      bandwidth_bytes: u.bandwidth,
-      managed_clickhouse_events: u.managedClickhouseEvents,
-    })),
-  );
+function downloadCsv(
+  rows: Record<string, string | number>[],
+  filename: string,
+) {
+  const csv = new Parser().parse(rows);
 
   const url = window.URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `cdn-usage-${month}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -160,6 +155,7 @@ export default function CloudUsage() {
   endDate.setUTCMonth(endDate.getUTCMonth() + 1);
   endDate.setUTCDate(0);
   endDate.setUTCHours(23, 59, 59, 999);
+  const month = startDate.toISOString().substring(0, 7);
 
   // Use dummy data for testing
   if (useDummyData) {
@@ -241,17 +237,62 @@ export default function CloudUsage() {
       <Flex gap="2" align="center" mb="4">
         <h2 className="mr-4 mb-0">CDN Usage</h2>
         <Flex ml="auto" gap="3" align="center">
-          <Button
-            variant="ghost"
-            icon={<PiDownloadSimple />}
+          <DropdownMenu
             disabled={!usage.length}
-            onClick={() => {
-              downloadUsageCsv(usage, startDate.toISOString().substring(0, 7));
-              track("Exported CDN Usage CSV");
-            }}
+            menuPlacement="end"
+            trigger={
+              <Button
+                variant="ghost"
+                icon={<PiDownloadSimple />}
+                disabled={!usage.length}
+              >
+                Export CSV
+              </Button>
+            }
           >
-            Export CSV
-          </Button>
+            <DropdownMenuItem
+              onClick={() => {
+                downloadCsv(
+                  usage.map((u) => ({
+                    // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
+                    date: u.date.substring(0, 10),
+                    requests: u.requests,
+                    // Raw bytes: full precision, unlike the page's rounded display
+                    bandwidth_bytes: u.bandwidth,
+                    managed_clickhouse_events: u.managedClickhouseEvents,
+                  })),
+                  `cdn-usage-${month}.csv`,
+                );
+                track("Exported CDN Usage CSV", { breakdown: "totals" });
+              }}
+            >
+              Daily totals
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!visibleRows?.length}
+              onClick={() => {
+                if (!visibleRows) return;
+                // Respects the sources filter, like the graphs
+                downloadCsv(
+                  visibleRows.map((r) => ({
+                    date: r.date.substring(0, 10),
+                    source: getKeyLabel(r.key),
+                    sdk_key: r.key === IMAGES_KEY ? "" : r.key,
+                    environment:
+                      connections.find((c) => c.key === r.key)?.environment ??
+                      "",
+                    type: r.type,
+                    requests: r.requests,
+                    bandwidth_bytes: r.bandwidth,
+                  })),
+                  `cdn-usage-by-source-${month}.csv`,
+                );
+                track("Exported CDN Usage CSV", { breakdown: "source" });
+              }}
+            >
+              Daily by source
+            </DropdownMenuItem>
+          </DropdownMenu>
           <SelectField
             size="legacy"
             options={monthOptions}
