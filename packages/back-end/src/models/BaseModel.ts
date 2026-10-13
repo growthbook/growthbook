@@ -1727,10 +1727,12 @@ export abstract class BaseModel<
     const name = indexName(fields);
     const legacyName = indexName(legacyFields);
 
-    const existing = await collection.indexes().catch((err) => {
-      if (err.codeName === "NamespaceNotFound") return [];
-      throw err;
-    });
+    const existing: { name?: string; unique?: boolean }[] = await collection
+      .indexes()
+      .catch((err) => {
+        if (err.codeName === "NamespaceNotFound") return [];
+        throw err;
+      });
     // Can't swap a non-unique index for a unique one without a gap, so the legacy index stays.
     if (existing.some((i) => i.name === name && !i.unique)) return;
     await collection.createIndex(fields, { unique: true });
