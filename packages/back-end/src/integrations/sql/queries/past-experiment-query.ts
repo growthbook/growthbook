@@ -4,7 +4,7 @@ import type { ExposureQuery } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
-/** Per identifier counted. */
+/** Per query, split evenly across the identifiers it counts. */
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export function getPastExperimentQuery(
@@ -18,7 +18,7 @@ export function getPastExperimentQuery(
   const countUnits = (identifierType: string) =>
     dialect.hasCountDistinctHLL()
       ? dialect.hllCardinality(dialect.hllAggregate(identifierType))
-      : `COUNT(distinct ${identifierType})`;
+      : `COUNT(DISTINCT ${identifierType})`;
   return format(
     `-- Past Experiments
     WITH
@@ -143,11 +143,11 @@ export function getPastExperimentQuery(
           users,
           latest_data
         FROM __ranked
-        WHERE rn <= ${MAX_ROWS_PAST_EXPERIMENTS_QUERY}
+        WHERE rn <= ${Math.floor(MAX_ROWS_PAST_EXPERIMENTS_QUERY / identifierTypes.length)}
       )
     ${dialect.selectStarLimit(
       `__limited`,
-      MAX_ROWS_PAST_EXPERIMENTS_QUERY * identifierTypes.length,
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY,
       `ORDER BY start_date DESC, experiment_id ASC, variation_id ASC, identifier_type ASC`,
     )}`,
     dialect.formatDialect,

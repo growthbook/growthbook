@@ -23,15 +23,15 @@ describe("getPastExperimentQuery", () => {
     );
 
     expect(sql.match(/FROM\s+t\b/g)).toHaveLength(1);
-    expect(sql).toMatch(/COUNT\(distinct anonymous_id\) as users_0/);
-    expect(sql).toMatch(/COUNT\(distinct user_id\) as users_1/);
+    expect(sql).toMatch(/COUNT\(DISTINCT anonymous_id\) as users_0/);
+    expect(sql).toMatch(/COUNT\(DISTINCT user_id\) as users_1/);
     expect(sql).toMatch(/'user_id'\s*AS\s*VARCHAR\) as identifier_type/i);
     // Noise thresholds are per identifier
     expect(sql).toMatch(
       /GROUP BY\s+exposure_query,\s*identifier_type,\s*experiment_id,\s*variation_id/,
     );
-    // The row cap applies to each identifier, so one can't crowd out another
+    // The row cap is split across identifiers, so one can't crowd out another
     expect(sql).toMatch(/PARTITION BY\s+identifier_type/);
-    expect(sql).toMatch(/WHERE\s+rn <= 3000/);
+    expect(sql).toMatch(/WHERE\s+rn <= 1500/);
   });
 });
