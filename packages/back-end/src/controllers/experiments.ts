@@ -3661,6 +3661,8 @@ export async function postSnapshotsWithScaledImpactAnalysis(
       outcome: "no_op",
       requestedExperimentCount: 0,
       analysisCount: 0,
+      successfulAnalysisCount: 0,
+      failedAnalysisCount: 0,
       requestedExperimentIds: [],
       analyzedExperimentIds: [],
     });
@@ -3700,13 +3702,26 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     });
   });
 
-  let outcome: "success" | "error" | "no_op" = "no_op";
+  let outcome: "success" | "partial_error" | "error" | "no_op" = "no_op";
+  let successfulAnalysisCount = 0;
+  let failedAnalysisCount = 0;
   if (snapshotAnalysesToCreate.length > 0) {
     try {
-      await createSnapshotAnalyses(snapshotAnalysesToCreate, context);
-      outcome = "success";
+      const analysisOutcome = await createSnapshotAnalyses(
+        snapshotAnalysesToCreate,
+        context,
+      );
+      successfulAnalysisCount = analysisOutcome.successCount;
+      failedAnalysisCount = analysisOutcome.errorCount;
+      outcome =
+        failedAnalysisCount === 0
+          ? "success"
+          : successfulAnalysisCount > 0
+            ? "partial_error"
+            : "error";
     } catch (e) {
       outcome = "error";
+      failedAnalysisCount = snapshotAnalysesToCreate.length;
       req.log.error(e);
     }
   }
@@ -3714,6 +3729,8 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     outcome,
     requestedExperimentCount: experiments.length,
     analysisCount: snapshotAnalysesToCreate.length,
+    successfulAnalysisCount,
+    failedAnalysisCount,
     requestedExperimentIds: experiments,
     analyzedExperimentIds: snapshotAnalysesToCreate.map(
       ({ experiment }) => experiment.id,

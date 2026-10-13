@@ -9,7 +9,6 @@ import React, {
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Link from "next/link";
 import { getValidDate } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -30,6 +29,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
 import track, { TrackEventProps } from "@/services/track";
 import { isCloud } from "@/services/env";
+import Link from "@/ui/Link";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
@@ -97,6 +97,7 @@ export default function ExecExperimentImpact({
 
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
+  const [snapshotLoadFailed, setSnapshotLoadFailed] = useState(false);
   const [showAllExperiments, setShowAllExperiments] = useState(false);
   const [hasBeenViewed, setHasBeenViewed] = useState(false);
 
@@ -158,11 +159,13 @@ export default function ExecExperimentImpact({
         .join(",");
       if (!experimentIds) {
         setSnapshots([]);
+        setSnapshotLoadFailed(false);
         setLoading(false);
         return;
       }
 
       setLoading(true);
+      setSnapshotLoadFailed(false);
       try {
         const { snapshots } = await apiCall<{
           snapshots: ExperimentSnapshotInterface[];
@@ -171,6 +174,8 @@ export default function ExecExperimentImpact({
         });
         setSnapshots(snapshots);
       } catch (error) {
+        setSnapshots(undefined);
+        setSnapshotLoadFailed(true);
         console.error(`Error getting snapshots: ${error.message}`);
       }
       setLoading(false);
@@ -241,9 +246,11 @@ export default function ExecExperimentImpact({
     ? "metric_required"
     : experiments.length === 0
       ? "no_matching_metric_experiments"
-      : experimentsWithNoImpact.length > 0
-        ? "scaled_impact_missing"
-        : "ready";
+      : snapshotLoadFailed
+        ? "data_load_failed"
+        : experimentsWithNoImpact.length > 0
+          ? "scaled_impact_missing"
+          : "ready";
 
   useEffect(() => {
     if (loading) return;
@@ -261,6 +268,7 @@ export default function ExecExperimentImpact({
     experimentsWithNoImpact.length,
     loading,
     metric,
+    snapshotLoadFailed,
     surface,
   ]);
 
@@ -352,7 +360,7 @@ export default function ExecExperimentImpact({
     lastTrackedResultsKeyRef.current = resultsKey;
 
     resultRows.forEach((result) => {
-      track("Experiment Impact Result Viewed", {
+      track("Experiment Impact Result Evaluated", {
         surface,
         metricId: metric,
         ...result,
@@ -485,7 +493,7 @@ export default function ExecExperimentImpact({
     );
   }
   return (
-    <div ref={impactContainerRef}>
+    <Box ref={impactContainerRef}>
       {!embedded && (
         <Flex justify="between" align="start" mb="2">
           <Box>
@@ -959,10 +967,8 @@ export default function ExecExperimentImpact({
               {showMoreExperiments && (
                 <Box mb="4" mt="2">
                   <Flex justify="center">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
                         trackInteraction("experiment_list_toggled", {
                           expanded: !showAllExperiments,
                           experimentCount: showExperiments.length,
@@ -973,7 +979,7 @@ export default function ExecExperimentImpact({
                       {showAllExperiments
                         ? "Show fewer"
                         : `Show all ${showExperiments.length} experiments`}
-                    </a>
+                    </Link>
                   </Flex>
                 </Box>
               )}
@@ -999,6 +1005,6 @@ export default function ExecExperimentImpact({
           </Box>
         )}
       </Flex>
-    </div>
+    </Box>
   );
 }
