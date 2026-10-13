@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { DailyUsage, UsageLimits } from "shared/types/organization";
+import { Fragment, useState } from "react";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import {
+  DailyUsage,
+  DailyUsageByKey,
+  UsageLimits,
+} from "shared/types/organization";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import { AreaClosed } from "@visx/shape";
+import { AreaStack } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
@@ -18,10 +23,20 @@ import {
   PiDownloadSimple,
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { isCloud } from "@/services/env";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -49,6 +64,27 @@ function formatBandwidth(bytes: number, decimals?: number) {
   return parseFloat(adjusted.toFixed(digits)) + " " + sizes[i];
 }
 
+const TOTAL_KEY = "__total__";
+// By-key rows give image traffic an empty key
+const IMAGES_KEY = "__images__";
+const OTHER_KEY = "__other__";
+const SINGLE_SERIES_COLOR = "var(--violet-9)";
+const OTHER_COLOR = "var(--slate-8)";
+const seriesColors = [
+  "var(--violet-9)",
+  "var(--cyan-9)",
+  "var(--amber-9)",
+  "var(--crimson-9)",
+  "var(--green-9)",
+  "var(--blue-9)",
+  "var(--orange-9)",
+  "var(--lime-10)",
+];
+
+type Series = { key: string; label: string; color: string };
+type StackedPoint = { ts: Date; v: Record<string, number> };
+type KeyTotals = { key: string; requests: number; bandwidth: number };
+
 function downloadUsageCsv(usage: DailyUsage[], month: string) {
   const csv = new Parser().parse(
     usage.map((u) => ({
@@ -73,6 +109,8 @@ function downloadUsageCsv(usage: DailyUsage[], month: string) {
 
 export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
+  // Empty means all keys
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
   const router = useRouter();
   const useDummyData = !isCloud() && !!router.query.dummy;
@@ -83,6 +121,12 @@ export default function CloudUsage() {
   }>(`/billing/usage?monthsAgo=${monthsAgo}`, {
     shouldRun: () => !useDummyData,
   });
+  const { data: byKeyData, error: byKeyError } = useApi<{
+    rows: DailyUsageByKey[];
+  }>(`/billing/usage/by-key?monthsAgo=${monthsAgo}`, {
+    shouldRun: () => !useDummyData,
+  });
+  const { data: sdkData } = useSDKConnections();
 
   if (!isCloud() && !useDummyData) {
     return (
@@ -138,6 +182,30 @@ export default function CloudUsage() {
     limits.cdnRequests = 1_000_000;
     limits.cdnBandwidth = 5_000_000_000;
   }
+
+  const connections = sdkData?.connections ?? [];
+  const getKeyLabel = (key: string) =>
+    key === IMAGES_KEY
+      ? "Visual Editor images"
+      : (connections.find((c) => c.key === key)?.name ?? key);
+
+  // Undefined while loading or on error: the graphs then show totals only
+  const byKeyRows = (
+    useDummyData ? getDummyRows(usage, connections) : byKeyData?.rows
+  )?.map((r) => (r.key ? r : { ...r, key: IMAGES_KEY }));
+  const keyTotals = getKeyTotals(byKeyRows ?? []);
+  const isVisible = (key: string) =>
+    !selectedKeys.length || selectedKeys.includes(key);
+  const visibleTotals = keyTotals.filter((t) => isVisible(t.key));
+  const visibleRows = byKeyRows?.filter((r) => isVisible(r.key));
+  const series = byKeyRows
+    ? getSeries(visibleTotals, keyTotals, getKeyLabel)
+    : [{ key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR }];
+  // Only keys with traffic this month, plus selections carried over from another month
+  const keyOptions = [
+    ...keyTotals.map((t) => t.key),
+    ...selectedKeys.filter((k) => !keyTotals.some((t) => t.key === k)),
+  ].map((k) => ({ value: k, label: getKeyLabel(k) }));
 
   const totalRequests = usage.reduce((sum, u) => sum + u.requests, 0);
   const totalBandwidth = usage.reduce((sum, u) => sum + u.bandwidth, 0);
@@ -234,17 +302,38 @@ export default function CloudUsage() {
         Usage data not available prior to February 2025. Graphs may be delayed
         by up to 24 hours.
       </Callout>
+      {byKeyError ? (
+        <Callout status="error" mb="5">
+          Failed to get usage by source: {byKeyError.message}
+        </Callout>
+      ) : (
+        keyTotals.length > 0 && (
+          <Box mb="5" style={{ maxWidth: 600 }}>
+            <MultiSelectField
+              label="Sources"
+              placeholder="All sources"
+              value={selectedKeys}
+              onChange={setSelectedKeys}
+              options={keyOptions}
+              sort={false}
+            />
+          </Box>
+        )
+      )}
       {totalRequests > 0 && (
         <Box mb="5">
           <h3>CDN Requests</h3>
           <DailyGraph
-            data={usage.map((u) => ({ ts: new Date(u.date), v: u.requests }))}
+            data={getStackedData(usage, visibleRows, series, "requests")}
+            series={series}
             formatValue={(v) => requestsFormatter.format(v)}
             formatTooltipValue={(v) => v.toLocaleString()}
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnRequests === "unlimited" ? null : limits.cdnRequests
+              limits.cdnRequests === "unlimited" || selectedKeys.length
+                ? null
+                : limits.cdnRequests
             }
           />
         </Box>
@@ -253,29 +342,41 @@ export default function CloudUsage() {
         <Box>
           <h3>CDN Bandwidth</h3>
           <DailyGraph
-            data={usage.map((u) => ({
-              ts: new Date(u.date),
-              v: u.bandwidth,
-            }))}
+            data={getStackedData(usage, visibleRows, series, "bandwidth")}
+            series={series}
             // Wrapped, not by reference: visx calls tickFormat as (value, index)
             formatValue={(v) => formatBandwidth(v)}
             formatTooltipValue={(v) => formatBandwidth(v, 2)}
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnBandwidth === "unlimited" ? null : limits.cdnBandwidth
+              limits.cdnBandwidth === "unlimited" || selectedKeys.length
+                ? null
+                : limits.cdnBandwidth
             }
           />
         </Box>
       )}
+      {visibleTotals.length > 0 && (
+        <UsageByKeyTable
+          totals={visibleTotals}
+          series={series}
+          connections={connections}
+          getKeyLabel={getKeyLabel}
+          totalBandwidth={keyTotals.reduce((sum, t) => sum + t.bandwidth, 0)}
+        />
+      )}
       {totalManagedClickhouseEvents > 0 && (
-        <Box>
+        <Box mt="5">
           <h3>Managed Clickhouse Events</h3>
           <DailyGraph
             data={usage.map((u) => ({
               ts: new Date(u.date),
-              v: u.managedClickhouseEvents,
+              v: { [TOTAL_KEY]: u.managedClickhouseEvents },
             }))}
+            series={[
+              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+            ]}
             formatValue={(v) => requestsFormatter.format(v)}
             formatTooltipValue={(v) => v.toLocaleString()}
             start={startDate}
@@ -308,18 +409,31 @@ export default function CloudUsage() {
   );
 }
 
-type CumulativePoint = { ts: Date; v: number; daily: number };
+type CumulativePoint = {
+  ts: Date;
+  v: Record<string, number>;
+  daily: Record<string, number>;
+  total: number;
+  dailyTotal: number;
+};
 
-function useCumulativeData(data: { ts: Date; v: number }[]): CumulativePoint[] {
-  let sum = 0;
+function useCumulativeData(data: StackedPoint[]): CumulativePoint[] {
+  const sums: Record<string, number> = {};
+  let total = 0;
   return data.map((d) => {
-    sum += d.v;
-    return { ts: d.ts, v: sum, daily: d.v };
+    let dailyTotal = 0;
+    Object.entries(d.v).forEach(([k, v]) => {
+      sums[k] = (sums[k] ?? 0) + v;
+      dailyTotal += v;
+    });
+    total += dailyTotal;
+    return { ts: d.ts, v: { ...sums }, daily: d.v, total, dailyTotal };
   });
 }
 
 function DailyGraph({
   data,
+  series,
   width = "auto",
   height = 250,
   limitLine = null,
@@ -328,7 +442,9 @@ function DailyGraph({
   start,
   end,
 }: {
-  data: { ts: Date; v: number }[];
+  data: StackedPoint[];
+  // Bottom of the stack first
+  series: Series[];
   width?: "auto" | string;
   height?: number;
   limitLine?: null | number;
@@ -352,7 +468,7 @@ function DailyGraph({
   } = useTooltip<CumulativePoint>();
 
   const margin = [15, 15, 30, 60];
-  const yDomain = [0, Math.max(...points.map((d) => d.v), limitLine || 0)];
+  const yDomain = [0, Math.max(...points.map((d) => d.total), limitLine || 0)];
 
   return (
     <div>
@@ -383,16 +499,25 @@ function DailyGraph({
               >
                 <svg width={width} height={height}>
                   <Group left={margin[3]} top={margin[0]}>
-                    <AreaClosed
+                    <AreaStack<CumulativePoint, string>
+                      keys={series.map((s) => s.key)}
                       data={points}
-                      x={(d) => xScale(d.ts)}
-                      y={(d) => yScale(d.v)}
-                      yScale={yScale}
-                      strokeWidth={1}
-                      stroke="url(#area-gradient)"
-                      fill="var(--violet-9)"
+                      value={(d, key) => d.v[key] ?? 0}
+                      x={(d) => xScale(d.data.ts)}
+                      y0={(d) => yScale(d[0])}
+                      y1={(d) => yScale(d[1])}
                       curve={curveLinear}
-                    />
+                    >
+                      {({ stacks, path }) =>
+                        stacks.map((stack, i) => (
+                          <path
+                            key={stack.key}
+                            d={path(stack) || ""}
+                            fill={series[i].color}
+                          />
+                        ))
+                      }
+                    </AreaStack>
                     {limitLine && (
                       <line
                         x1={0}
@@ -448,9 +573,9 @@ function DailyGraph({
                         />
                         <circle
                           cx={xScale(tooltipData.ts)}
-                          cy={yScale(tooltipData.v)}
+                          cy={yScale(tooltipData.total)}
                           r={4}
-                          fill="var(--violet-9)"
+                          fill="var(--slate-12)"
                           stroke="var(--slate-1)"
                           strokeWidth={2}
                         />
@@ -478,7 +603,7 @@ function DailyGraph({
                         showTooltip({
                           tooltipData: closest,
                           tooltipLeft: xScale(closest.ts) + margin[3],
-                          tooltipTop: yScale(closest.v) + margin[0],
+                          tooltipTop: yScale(closest.total) + margin[0],
                         });
                       }}
                     />
@@ -507,14 +632,42 @@ function DailyGraph({
                         timeZone: "UTC",
                       })}
                     </Text>
-                    <Flex justify="between" gap="4">
-                      <span>This day</span>
-                      <strong>{formatTooltip(tooltipData.daily)}</strong>
-                    </Flex>
-                    <Flex justify="between" gap="4">
-                      <span>Month to date</span>
-                      <strong>{formatTooltip(tooltipData.v)}</strong>
-                    </Flex>
+                    <Grid
+                      columns="auto auto auto"
+                      gapX="4"
+                      gapY="1"
+                      align="center"
+                    >
+                      <span />
+                      <Text color="text-low" align="right">
+                        This day
+                      </Text>
+                      <Text color="text-low" align="right">
+                        Month to date
+                      </Text>
+                      {series.length > 1 &&
+                        [...series].reverse().map((s) => (
+                          <Fragment key={s.key}>
+                            <Flex align="center" gap="2">
+                              <SeriesSwatch color={s.color} />
+                              {s.label}
+                            </Flex>
+                            <Text align="right">
+                              {formatTooltip(tooltipData.daily[s.key] ?? 0)}
+                            </Text>
+                            <Text align="right">
+                              {formatTooltip(tooltipData.v[s.key] ?? 0)}
+                            </Text>
+                          </Fragment>
+                        ))}
+                      <strong>Total</strong>
+                      <Text align="right" weight="semibold">
+                        {formatTooltip(tooltipData.dailyTotal)}
+                      </Text>
+                      <Text align="right" weight="semibold">
+                        {formatTooltip(tooltipData.total)}
+                      </Text>
+                    </Grid>
                   </TooltipWithBounds>
                 )}
               </div>
@@ -523,5 +676,192 @@ function DailyGraph({
         </ParentSizeModern>
       </div>
     </div>
+  );
+}
+
+function SeriesSwatch({ color }: { color: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 10,
+        height: 10,
+        borderRadius: 2,
+        background: color,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function UsageByKeyTable({
+  totals,
+  series,
+  connections,
+  getKeyLabel,
+  totalBandwidth,
+}: {
+  totals: KeyTotals[];
+  series: Series[];
+  connections: SDKConnectionInterface[];
+  getKeyLabel: (key: string) => string;
+  // Across all keys, so a share doesn't change with the filter
+  totalBandwidth: number;
+}) {
+  return (
+    <Box mt="5">
+      <h3>Usage by Source</h3>
+      <Table variant="list" stickyHeader={false} roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Source</TableColumnHeader>
+            <TableColumnHeader>Environment</TableColumnHeader>
+            <TableColumnHeader justify="end">Requests</TableColumnHeader>
+            <TableColumnHeader justify="end">Bandwidth</TableColumnHeader>
+            <TableColumnHeader justify="end">
+              Share of bandwidth
+            </TableColumnHeader>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {totals.map((t) => {
+            const connection = connections.find((c) => c.key === t.key);
+            const color =
+              series.find((s) => s.key === t.key)?.color ?? OTHER_COLOR;
+            return (
+              <TableRow key={t.key}>
+                <TableCell>
+                  <Flex align="center" gap="2">
+                    <SeriesSwatch color={color} />
+                    {connection ? (
+                      <Link href={`/sdks/${connection.id}`}>
+                        {connection.name}
+                      </Link>
+                    ) : t.key === IMAGES_KEY ? (
+                      getKeyLabel(t.key)
+                    ) : (
+                      <span>
+                        <code>{t.key}</code>{" "}
+                        <Text color="text-low">(deleted or unknown)</Text>
+                      </span>
+                    )}
+                  </Flex>
+                </TableCell>
+                <TableCell>{connection?.environment ?? ""}</TableCell>
+                <TableCell justify="end">
+                  {requestsFormatter.format(t.requests)}
+                </TableCell>
+                <TableCell justify="end">
+                  {formatBandwidth(t.bandwidth)}
+                </TableCell>
+                <TableCell justify="end">
+                  {totalBandwidth
+                    ? `${((t.bandwidth / totalBandwidth) * 100).toFixed(1)}%`
+                    : "-"}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
+function getKeyTotals(rows: DailyUsageByKey[]): KeyTotals[] {
+  const byKey = new Map<string, KeyTotals>();
+  rows.forEach((r) => {
+    const t = byKey.get(r.key) ?? { key: r.key, requests: 0, bandwidth: 0 };
+    t.requests += r.requests;
+    t.bandwidth += r.bandwidth;
+    byKey.set(r.key, t);
+  });
+  return [...byKey.values()].sort((a, b) => b.bandwidth - a.bandwidth);
+}
+
+// Past the palette, the smallest keys share one "Other" series
+function getShownTotals(totals: KeyTotals[]): KeyTotals[] {
+  return totals.length > seriesColors.length
+    ? totals.slice(0, seriesColors.length - 1)
+    : totals;
+}
+
+// Colors follow the unfiltered ranking, so filtering doesn't recolor a key
+function getSeries(
+  totals: KeyTotals[],
+  allTotals: KeyTotals[],
+  getKeyLabel: (key: string) => string,
+): Series[] {
+  const rankColors = new Map(
+    getShownTotals(allTotals).map((t, i) => [t.key, seriesColors[i]]),
+  );
+  const shown = getShownTotals(totals);
+  const freeColors = seriesColors.filter(
+    (c) => !shown.some((t) => rankColors.get(t.key) === c),
+  );
+  const series = shown.map((t) => ({
+    key: t.key,
+    label: getKeyLabel(t.key),
+    color: rankColors.get(t.key) ?? freeColors.shift() ?? OTHER_COLOR,
+  }));
+  if (shown.length < totals.length) {
+    series.push({
+      key: OTHER_KEY,
+      label: `Other (${totals.length - shown.length})`,
+      color: OTHER_COLOR,
+    });
+  }
+  return series;
+}
+
+function getStackedData(
+  usage: DailyUsage[],
+  // Already filtered to the visible keys; undefined falls back to totals
+  rows: DailyUsageByKey[] | undefined,
+  series: Series[],
+  metric: "requests" | "bandwidth",
+): StackedPoint[] {
+  if (!rows) {
+    return usage.map((u) => ({
+      ts: new Date(u.date),
+      v: { [TOTAL_KEY]: u[metric] },
+    }));
+  }
+  const seriesKeys = new Set(series.map((s) => s.key));
+  const byDay = new Map<string, Record<string, number>>();
+  rows.forEach((r) => {
+    const day = r.date.substring(0, 10);
+    const v = byDay.get(day) ?? {};
+    const key = seriesKeys.has(r.key) ? r.key : OTHER_KEY;
+    v[key] = (v[key] ?? 0) + r[metric];
+    byDay.set(day, v);
+  });
+  // By-key rows skip days without traffic, so the daily totals set the days
+  return usage.map((u) => ({
+    ts: new Date(u.date),
+    v: byDay.get(u.date.substring(0, 10)) ?? {},
+  }));
+}
+
+// Splits each dummy day's totals across keys, so the stacks add up to the totals
+function getDummyRows(
+  usage: DailyUsage[],
+  connections: SDKConnectionInterface[],
+): DailyUsageByKey[] {
+  const keys = [
+    ...connections.slice(0, 6).map((c) => c.key),
+    ...[1, 2, 3, 4].map((i) => `sdk-deletedConnection${i}`),
+    "",
+  ];
+  const weights = keys.map((_, i) => 1 / (i + 1));
+  const weightSum = weights.reduce((sum, w) => sum + w, 0);
+  return usage.flatMap((u) =>
+    keys.map((key, i) => ({
+      date: u.date,
+      key,
+      type: key ? "json" : "image",
+      requests: Math.round((u.requests * weights[i]) / weightSum),
+      bandwidth: Math.round((u.bandwidth * weights[i]) / weightSum),
+    })),
   );
 }
