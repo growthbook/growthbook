@@ -54,7 +54,12 @@ type IdentifierRow = {
 // Open the attribute modal to create a new identifier or edit an existing one.
 type AttributeModalState = { attribute: string | null } | null;
 
-type QueryModal = { identifierType: string; index: number | null } | null;
+// Index of the exposure query being edited, or null to add a new one that
+// starts with the given identifier types.
+type QueryModal =
+  | { index: number; identifierTypes?: never }
+  | { index: null; identifierTypes: string[] }
+  | null;
 
 const EXPANDABLE_STEPS: StepId[] = ["identifiers", "queries"];
 
@@ -190,6 +195,16 @@ export default function FinishSettingUp({
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
   const hasIdentifiers = identifierTypes.length > 0;
+  // Identifier types no exposure query returns yet. A new query starts with
+  // these so one query can cover everything.
+  const uncoveredIdentifierTypes = identifierTypes
+    .map(({ userIdType }) => userIdType)
+    .filter(
+      (userIdType) =>
+        !exposureQueries.some((query) =>
+          getExposureQueryIdentifierTypes(query).includes(userIdType),
+        ),
+    );
 
   const identifierRows: IdentifierRow[] = [
     ...hashAttributes.map(({ property, description }) => {
@@ -621,8 +636,8 @@ export default function FinishSettingUp({
         complete={completion.queries}
         current={currentStep === "queries"}
         expanded={expandedStep === "queries"}
-        title="Add exposure queries"
-        description="SQL that tells GrowthBook who saw which variation, and when. Add one for each identifier you run experiments on. Most teams start with one."
+        title="Add an exposure query"
+        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. One query can cover every identifier type."
         actions={
           expandedStep === "queries"
             ? null
@@ -630,7 +645,7 @@ export default function FinishSettingUp({
               ? doneActions(() => setExpandedStep("queries"))
               : stepCta(
                   "queries",
-                  "Write queries",
+                  "Write query",
                   () => setExpandedStep("queries"),
                   true,
                 )
@@ -645,66 +660,85 @@ export default function FinishSettingUp({
                 overflow: "hidden",
               }}
             >
-              {identifierTypes.map(({ userIdType }, i) => {
-                const index = exposureQueries.findIndex((query) =>
-                  getExposureQueryIdentifierTypes(query).includes(userIdType),
-                );
-                const query = index === -1 ? null : exposureQueries[index];
-                return (
-                  <Flex
-                    key={userIdType}
-                    align="center"
-                    justify="between"
-                    gap="3"
-                    px="4"
-                    py="3"
-                    style={
-                      i > 0
-                        ? { borderTop: "1px solid var(--gray-a5)" }
-                        : undefined
-                    }
-                  >
-                    <Flex align="center" gap="2">
-                      <Text mono>{userIdType}</Text>
-                      {query ? (
-                        <Text size="sm" color="text-mid">
-                          {query.name}
-                        </Text>
-                      ) : (
-                        <Badge label="No query yet" color="gray" />
-                      )}
-                    </Flex>
-                    {canEdit && (
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          setQueryModal({
-                            identifierType: userIdType,
-                            index: query ? index : null,
-                          })
-                        }
-                      >
-                        {query ? "Edit query" : "Write query"}
-                      </Button>
+              {exposureQueries.length === 0 && (
+                <Box px="4" py="3">
+                  <Text as="p" color="text-mid" mb="0">
+                    No exposure queries yet. Write one that covers{" "}
+                    {identifierTypes.length === 1
+                      ? "your identifier type"
+                      : "all of your identifier types"}{" "}
+                    to start running experiments.
+                  </Text>
+                </Box>
+              )}
+              {exposureQueries.map((query, index) => (
+                <Flex
+                  key={query.id}
+                  align="center"
+                  justify="between"
+                  gap="3"
+                  px="4"
+                  py="3"
+                  style={index > 0 ? IDENTIFIER_ROW_BORDER : undefined}
+                >
+                  <Flex align="center" gap="2" wrap="wrap" minWidth="0">
+                    <Text weight="medium">{query.name}</Text>
+                    {getExposureQueryIdentifierTypes(query).map(
+                      (userIdType) => (
+                        <Badge
+                          key={userIdType}
+                          label={<Text mono>{userIdType}</Text>}
+                          color="gray"
+                        />
+                      ),
                     )}
                   </Flex>
-                );
-              })}
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setQueryModal({ index })}
+                    >
+                      Edit query
+                    </Button>
+                  )}
+                </Flex>
+              ))}
             </Box>
+            {canEdit && (
+              <Box mt="2">
+                <Button
+                  variant="ghost"
+                  icon={<PiPlus />}
+                  onClick={() =>
+                    setQueryModal({
+                      index: null,
+                      identifierTypes: uncoveredIdentifierTypes.length
+                        ? uncoveredIdentifierTypes
+                        : identifierTypes.map((t) => t.userIdType),
+                    })
+                  }
+                >
+                  {exposureQueries.length ? "Add query" : "Write query"}
+                </Button>
+              </Box>
+            )}
             <Flex align="center" justify="between" gap="3" mt="3">
               <Box>
-                {!completion.queries && (
-                  <HelperText status="warning" icon={null}>
-                    {exposureQueries.length ? (
-                      "Every identifier type needs an exposure query before you can run experiments on it."
-                    ) : (
-                      <>
-                        Add at least one exposure query to run experiments. Most
-                        teams start with <Text mono>user_id</Text>.
-                      </>
-                    )}
-                  </HelperText>
-                )}
+                {exposureQueries.length > 0 &&
+                  uncoveredIdentifierTypes.length > 0 && (
+                    <HelperText status="warning" icon={null}>
+                      No query returns{" "}
+                      {uncoveredIdentifierTypes.map((userIdType, i) => (
+                        <span key={userIdType}>
+                          {i > 0 && ", "}
+                          <Text mono>{userIdType}</Text>
+                        </span>
+                      ))}{" "}
+                      yet. Add{" "}
+                      {uncoveredIdentifierTypes.length === 1 ? "it" : "them"} to
+                      an existing query or write a new one.
+                    </HelperText>
+                  )}
               </Box>
               <Flex align="center" gap="3" flexShrink="0">
                 <Button variant="ghost" onClick={() => setExpandedStep(null)}>
@@ -750,7 +784,7 @@ export default function FinishSettingUp({
               ? undefined
               : exposureQueries[queryModal.index]
           }
-          defaultIdentifierType={queryModal.identifierType}
+          defaultIdentifierTypes={queryModal.identifierTypes}
           onCancel={() => setQueryModal(null)}
           onSave={saveQuery}
         />

@@ -25,8 +25,8 @@ type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  /** Identifier the new query should start on. Falls back to the first type. */
-  defaultIdentifierType?: string;
+  /** Identifiers the new query should start with. Falls back to the first type. */
+  defaultIdentifierTypes?: string[];
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
 };
@@ -37,7 +37,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   exposureQuery,
   dataSource,
   mode,
-  defaultIdentifierType,
+  defaultIdentifierTypes,
   onSave,
   onCancel,
 }) => {
@@ -59,18 +59,21 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const knownIdentifierTypes = new Set(
     userIdTypeOptions?.map((option) => option.value) ?? [],
   );
-  const defaultUserId =
-    (defaultIdentifierType && knownIdentifierTypes.has(defaultIdentifierType)
-      ? defaultIdentifierType
-      : userIdTypeOptions?.[0]?.value) || "user_id";
+  const requestedUserIds = (defaultIdentifierTypes ?? []).filter((id) =>
+    knownIdentifierTypes.has(id),
+  );
+  const defaultUserIds = requestedUserIds.length
+    ? requestedUserIds
+    : [userIdTypeOptions?.[0]?.value || "user_id"];
+  const defaultUserId = defaultUserIds[0];
 
   /** Each selected identifier must come back as a same-named column. */
   const buildDefaultQuery = (userIdTypes: string[]) => {
-    const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
+    const ids = userIdTypes.length ? userIdTypes : defaultUserIds;
     const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
     return `SELECT\n${idColumns}\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
   };
-  const defaultQuery = buildDefaultQuery(defaultUserId ? [defaultUserId] : []);
+  const defaultQuery = buildDefaultQuery(defaultUserIds);
 
   const form = useForm<ExposureQuery>({
     defaultValues:
@@ -85,8 +88,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             name: "",
             dimensions: [],
             query: defaultQuery,
-            userIdType: defaultUserId ?? "",
-            userIdTypes: defaultUserId ? [defaultUserId] : [],
+            userIdType: defaultUserId,
+            userIdTypes: defaultUserIds,
           },
   });
 
