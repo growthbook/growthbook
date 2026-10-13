@@ -45,7 +45,7 @@ export function getPopulationStepsLabel(
     .map((step) => {
       const name =
         getFactTableName(step.source.factTableId) || step.source.factTableId;
-      return step.negate ? `no ${name}` : name;
+      return step.negation ? `no ${name}` : name;
     })
     .join(" → ");
 }
@@ -53,11 +53,11 @@ export function getPopulationStepsLabel(
 // The step a conversion window is measured from. Negated steps have no date,
 // so they are skipped. Returns null for the first step.
 export function getPopulationStepAnchorIndex(
-  steps: Pick<PopulationStep, "negate">[],
+  steps: Pick<PopulationStep, "negation">[],
   stepIndex: number,
 ): number | null {
   for (let i = stepIndex - 1; i >= 0; i--) {
-    if (!steps[i].negate) return i;
+    if (!steps[i].negation) return i;
   }
   return null;
 }
@@ -93,7 +93,7 @@ export function describePopulationStep({
   const step = steps[index];
   const article = /^[aeiou]/i.test(factTableName) ? "an" : "a";
   const parts = [
-    `${step.negate ? "Doesn't have" : "Has"} ${article} ${factTableName} row`,
+    `${step.negation ? "Doesn't have" : "Has"} ${article} ${factTableName} row`,
   ];
 
   if (step.rowFilters.length) {
@@ -159,7 +159,7 @@ export function getPopulationRuleViolations({
   if (steps[0]?.windowSettings.type === "conversion") {
     violations.push("The first step cannot use a conversion window.");
   }
-  if (steps[0]?.negate) {
+  if (steps[0]?.negation) {
     violations.push(`The first step cannot be a "doesn't have" step.`);
   }
 

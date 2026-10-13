@@ -121,7 +121,7 @@ describe("getPopulationStepsLabel", () => {
   it("prefixes negated steps with no", () => {
     expect(
       getPopulationStepsLabel(
-        [step("ftb_events"), { ...step("ftb_orders"), negate: true }],
+        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
         getName,
       ),
     ).toBe("Events → no Orders");
@@ -140,7 +140,7 @@ describe("getPopulationStepAnchorIndex", () => {
   it("skips negated steps", () => {
     expect(
       getPopulationStepAnchorIndex(
-        [{}, { negate: true }, { negate: true }, {}],
+        [{}, { negation: true }, { negation: true }, {}],
         3,
       ),
     ).toBe(0);
@@ -171,7 +171,7 @@ describe("describePopulationStep", () => {
   it("uses an before a vowel and describes negated steps", () => {
     expect(
       describe1(
-        [step("ftb_events"), { ...step("ftb_orders"), negate: true }],
+        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
         1,
         "Orders",
       ),
@@ -268,7 +268,7 @@ describe("describePopulationStep", () => {
       describe1(
         [
           step("ftb_events"),
-          { ...step("ftb_events"), negate: true },
+          { ...step("ftb_events"), negation: true },
           conversion,
         ],
         2,
@@ -335,11 +335,11 @@ describe("getPopulationRuleViolations", () => {
         factTables: [events, orders],
       });
 
-    expect(run([{ ...step("ftb_events"), negate: true }])).toEqual([
+    expect(run([{ ...step("ftb_events"), negation: true }])).toEqual([
       `The first step cannot be a "doesn't have" step.`,
     ]);
     expect(
-      run([step("ftb_events"), { ...step("ftb_orders"), negate: true }]),
+      run([step("ftb_events"), { ...step("ftb_orders"), negation: true }]),
     ).toEqual([]);
   });
 

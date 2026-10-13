@@ -62080,12 +62080,13 @@ paths:
                               - type
                               - factTableId
                             additionalProperties: false
-                      negate:
+                      negation:
                         description: >-
-                          When true, a unit matches this step only if it has no
-                          matching row. The first step cannot be negated, and a
-                          later step's conversion window starts from the nearest
-                          earlier step that is not negated
+                          When true, a unit matches this step only if it would
+                          not match the step without negation, including the
+                          step's aggregate filter. The first step cannot be a
+                          negation, and a later step's conversion window starts
+                          from the nearest earlier step that is not a negation
                         type: boolean
                       rowFilters:
                         type: array
@@ -62292,12 +62293,13 @@ paths:
                               - type
                               - factTableId
                             additionalProperties: false
-                      negate:
+                      negation:
                         description: >-
-                          When true, a unit matches this step only if it has no
-                          matching row. The first step cannot be negated, and a
-                          later step's conversion window starts from the nearest
-                          earlier step that is not negated
+                          When true, a unit matches this step only if it would
+                          not match the step without negation, including the
+                          step's aggregate filter. The first step cannot be a
+                          negation, and a later step's conversion window starts
+                          from the nearest earlier step that is not a negation
                         type: boolean
                       rowFilters:
                         type: array
@@ -81789,12 +81791,13 @@ components:
                       - type
                       - factTableId
                     additionalProperties: false
-              negate:
+              negation:
                 description: >-
-                  When true, a unit matches this step only if it has no matching
-                  row. The first step cannot be negated, and a later step's
-                  conversion window starts from the nearest earlier step that is
-                  not negated
+                  When true, a unit matches this step only if it would not match
+                  the step without negation, including the step's aggregate
+                  filter. The first step cannot be a negation, and a later
+                  step's conversion window starts from the nearest earlier step
+                  that is not a negation
                 type: boolean
               rowFilters:
                 type: array

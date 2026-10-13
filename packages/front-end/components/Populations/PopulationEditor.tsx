@@ -124,10 +124,10 @@ export default function PopulationEditor({
     : "/populations";
 
   const title = population ? "Edit Population" : "New Population";
-  const addStep = (negate: boolean) =>
+  const addStep = (negation: boolean) =>
     setSteps([
       ...draft.steps,
-      newPopulationStep({ isFirst: draft.steps.length === 0, negate }),
+      newPopulationStep({ isFirst: draft.steps.length === 0, negation }),
     ]);
   const atStepLimit = draft.steps.length >= MAX_POPULATION_STEPS;
 

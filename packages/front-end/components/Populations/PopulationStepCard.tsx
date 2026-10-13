@@ -103,8 +103,8 @@ export default function PopulationStepCard({
         ) : (
           <SegmentedControl.Root
             size={radixSize("sm")}
-            value={step.negate ? "doesNotHave" : "has"}
-            onValueChange={(v) => update({ negate: v === "doesNotHave" })}
+            value={step.negation ? "doesNotHave" : "has"}
+            onValueChange={(v) => update({ negation: v === "doesNotHave" })}
             aria-label={`Step ${index + 1} match type`}
           >
             <SegmentedControl.Item value="has">Has</SegmentedControl.Item>

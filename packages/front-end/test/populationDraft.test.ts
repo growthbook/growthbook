@@ -64,8 +64,8 @@ describe("newPopulationStep", () => {
   });
 
   it("starts later steps within 7 days of the previous step", () => {
-    const s = newPopulationStep({ isFirst: false, negate: true });
-    expect(s.negate).toBe(true);
+    const s = newPopulationStep({ isFirst: false, negation: true });
+    expect(s.negation).toBe(true);
     expect(s.windowSettings).toMatchObject({
       type: "conversion",
       windowValue: 7,
@@ -82,14 +82,14 @@ describe("movePopulationStep", () => {
     ).toEqual(["b", "a"]);
   });
 
-  it("clears negate and a conversion window on the new first step", () => {
+  it("clears negation and a conversion window on the new first step", () => {
     const steps = [
       step("a", { windowSettings: anyTime }),
-      step("b", { negate: true }),
+      step("b", { negation: true }),
     ];
     const [first, second] = movePopulationStep(steps, 1, 0);
     expect(first.source.factTableId).toBe("b");
-    expect(first.negate).toBeUndefined();
+    expect(first.negation).toBeUndefined();
     expect(first.windowSettings).toEqual(anyTime);
     expect(second.source.factTableId).toBe("a");
   });

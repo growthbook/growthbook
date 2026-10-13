@@ -12,14 +12,14 @@ export type PopulationDraft = {
 
 export function newPopulationStep({
   isFirst,
-  negate = false,
+  negation = false,
 }: {
   isFirst: boolean;
-  negate?: boolean;
+  negation?: boolean;
 }): PopulationStep {
   return {
     source: { type: "factTable", factTableId: "" },
-    ...(negate && { negate: true }),
+    ...(negation && { negation: true }),
     rowFilters: [],
     windowSettings: {
       type: isFirst ? "" : "conversion",
@@ -52,19 +52,19 @@ export function getDefaultPopulationUserIdType(
   return best;
 }
 
-// The first step can't be negated or use a conversion window, so reordering
+// The first step can't be negationd or use a conversion window, so reordering
 // or deleting steps has to clear both on whichever step lands first.
 export function normalizePopulationSteps(
   steps: PopulationStep[],
 ): PopulationStep[] {
   if (!steps.length) return steps;
   const [first, ...rest] = steps;
-  if (!first.negate && first.windowSettings.type !== "conversion") {
+  if (!first.negation && first.windowSettings.type !== "conversion") {
     return steps;
   }
   return [
     {
-      ...omit(first, "negate"),
+      ...omit(first, "negation"),
       windowSettings:
         first.windowSettings.type === "conversion"
           ? { ...first.windowSettings, type: "", windowValue: 0 }
