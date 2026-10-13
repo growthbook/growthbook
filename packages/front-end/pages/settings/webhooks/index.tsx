@@ -50,6 +50,12 @@ const WebhooksPage: FC = () => {
             endpoints or headers. Simply reference them using Handlebars syntax.
             For example, <code>{"{{ MY_SECRET }}"}</code>.
           </p>
+          {!canManageSecrets && (
+            <Callout status="info" mb="3">
+              Webhook secrets are shared by every webhook, so managing them
+              requires access that is not limited by environment or Project.
+            </Callout>
+          )}
           <table className="table gbtable appbox">
             <thead>
               <tr>

@@ -30,6 +30,8 @@ import {
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
 import { DocLink } from "@/components/DocLink";
@@ -43,6 +45,9 @@ type EventWebHookAddEditModalProps = {
 };
 
 const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
+
+const scopeMessage =
+  "You can only save webhooks filtered to environments and Projects you have access to.";
 
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
@@ -139,12 +144,14 @@ const FilterLabel = ({
   allLabel,
   isAll,
   disabled,
+  disabledMessage,
   onSelectAll,
 }: {
   name: string;
   allLabel: string;
   isAll: boolean;
   disabled: boolean;
+  disabledMessage?: string;
   onSelectAll: () => void;
 }) => (
   <Flex align="center" justify="between" gap="4" style={{ width: "100%" }}>
@@ -152,6 +159,7 @@ const FilterLabel = ({
     <Checkbox
       value={isAll}
       disabled={disabled}
+      disabledMessage={disabledMessage}
       setValue={onSelectAll}
       label={allLabel}
       weight="regular"
@@ -181,18 +189,31 @@ const EventWebHookAddEditSettings = ({
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
 
+  const allEnvironments = useEnvironments().map((env) => env.id);
+  const canUse = (projects: string[], environments: string[]) =>
+    permissionsUtil.canCreateEventWebhook({ projects, environments });
   const canUseEnvironments = (environments: string[]) =>
-    permissionsUtil.canCreateEventWebhook({
-      projects: selectedProjects,
-      environments,
-    });
-  const environments = useEnvironments()
-    .map((env) => env.id)
-    .filter((env) => canUseEnvironments([env]));
+    canUse(selectedProjects, environments);
+  // With no environments chosen yet, any single usable environment is enough.
+  const canUseProjects = (projects: string[]) =>
+    selectedEnvironments.length
+      ? canUse(projects, selectedEnvironments)
+      : allEnvironments.some((env) => canUse(projects, [env]));
+
+  // Selected environments stay listed so they remain removable once disallowed.
+  const environments = allEnvironments.filter(
+    (env) => canUseEnvironments([env]) || selectedEnvironments.includes(env),
+  );
+  const canUseAllEnvironments = canUseEnvironments([]);
+  const canUseAllProjects = canUseProjects([]);
+  const projectOptions = useProjectOptions(
+    (project) => canUseProjects([project]),
+    selectedProjects,
+  );
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
 
-  const { projects, tags } = useDefinitions();
+  const { tags } = useDefinitions();
 
   return (
     <>
@@ -354,7 +375,12 @@ const EventWebHookAddEditSettings = ({
                   allLabel="Receive notifications for all Environments"
                   isAll={!selectedEnvironments.length}
                   disabled={
-                    !selectedEnvironments.length || !canUseEnvironments([])
+                    !selectedEnvironments.length || !canUseAllEnvironments
+                  }
+                  disabledMessage={
+                    canUseAllEnvironments
+                      ? undefined
+                      : "You don't have access to every environment. Choose the environments this webhook should notify."
                   }
                   onSelectAll={() => form.setValue("environments", [])}
                 />
@@ -366,11 +392,19 @@ const EventWebHookAddEditSettings = ({
                 label: env,
                 value: env,
               }))}
+              isOptionDisabled={(option) =>
+                "value" in option && !canUseEnvironments([option.value])
+              }
               onChange={(value: string[]) => {
                 form.setValue("environments", value);
                 handleFormValidation();
               }}
             />
+            {!environments.length && (
+              <HelperText status="info" mt="1">
+                Choose a Project you have access to first.
+              </HelperText>
+            )}
           </Box>
 
           <Box
@@ -385,17 +419,19 @@ const EventWebHookAddEditSettings = ({
                   name="Projects"
                   allLabel="Receive notifications for all Projects"
                   isAll={!selectedProjects.length}
-                  disabled={!selectedProjects.length}
+                  disabled={!selectedProjects.length || !canUseAllProjects}
+                  disabledMessage={
+                    canUseAllProjects
+                      ? undefined
+                      : "You don't have access to every Project. Choose the Projects this webhook should notify."
+                  }
                   onSelectAll={() => form.setValue("projects", [])}
                 />
               }
               labelClassName="w-100"
               sort={false}
               value={form.watch("projects")}
-              options={projects.map(({ name, id }) => ({
-                label: name,
-                value: id,
-              }))}
+              options={projectOptions}
               onChange={(value: string[]) => {
                 form.setValue("projects", value);
                 handleFormValidation();
@@ -583,6 +619,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
       ctaEnabled={submitEnabled && permitted}
+      disabledMessage={permitted ? undefined : scopeMessage}
       submit={async () => {
         await handleSubmit();
       }}
@@ -609,8 +646,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         <>
           {!permitted && (
             <Callout status="warning" mb="4">
-              You can only save webhooks filtered to environments and Projects
-              you have access to.
+              {scopeMessage}
             </Callout>
           )}
           <EventWebHookAddEditSettings
