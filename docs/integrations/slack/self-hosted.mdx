@@ -66,6 +66,8 @@ The **Set up Slack app** button only appears while `SLACK_CLIENT_ID` and `SLACK_
 - **OAuth redirect URL:** `https://YOUR_APP_ORIGIN/integrations/slack`
 - **Event Subscriptions request URL:** `https://YOUR_API_HOST/integrations/slack/events`
 - **Interactivity request URL:** `https://YOUR_API_HOST/integrations/slack/interactions`
+- **Messages tab:** turned on, with users allowed to send messages (`app_home.messages_tab_enabled: true` and `messages_tab_read_only_enabled: false` in the manifest). This is where the assistant's starter prompts appear.
+- **Agent view:** `features.agent_view` with an `agent_description`, such as `Ask questions about experiments and Feature Flags in GrowthBook.` Set this on the **App Manifest** page.
 - **Bot events:** `app_mention`, `message.im`, `app_home_opened`, `link_shared`. If the app still has the old `assistant_thread_started` event, remove it.
 - **Bot scopes:**
 
