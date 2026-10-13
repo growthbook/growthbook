@@ -541,7 +541,8 @@ const ExperimentsPage = (): React.ReactElement => {
               // ones first (hiddenLast, above).
               title="Columns"
               plainRows
-              contentClassName={listTableStyles.menuShadow}
+              // With the light grey outline (set in review).
+              contentClassName={`${listTableStyles.menuShadow} ${listTableStyles.menuOutline}`}
               // 12px all round, as the filter menus (set in
               // review; was 16px).
               contentPadding="var(--space-3)"

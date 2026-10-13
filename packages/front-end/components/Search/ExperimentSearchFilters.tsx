@@ -94,7 +94,8 @@ const ExperimentSearchFilters: FC<
   // chips: Add Filter's menu and each filter's menu styled as the column
   // menu (set in review): its shadow (.menuShadow) and rows (.menu).
   const menuClassName = chips
-    ? `${listTableStyles.menuShadow} ${styles.menu}`
+    ? // With the light grey outline (set in review).
+      `${listTableStyles.menuShadow} ${listTableStyles.menuOutline} ${styles.menu}`
     : undefined;
 
   // Every filter, in the bar's order. Project only without a project
@@ -545,7 +546,8 @@ const ExperimentSearchFilters: FC<
             align="start"
             // .chips too, so its chips hover as the bar's (set in review):
             // the outline, and the remove button's darker ×.
-            contentClassName={`${listTableStyles.menuShadow} ${styles.chips}`}
+            // With the light grey outline (set in review).
+            contentClassName={`${listTableStyles.menuShadow} ${listTableStyles.menuOutline} ${styles.chips}`}
             contentStyle={{ padding: "var(--space-3)" }}
             trigger={
               <button

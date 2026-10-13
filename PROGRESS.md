@@ -110,6 +110,17 @@ motion, and neutral styling.
   and the Create Experiment and Edit Variation modals): hover is a 1px
   `--slate-9` outline; focus is a 1px `--slate-11` outline instead of the
   violet ring.
+- **Setup motion** (`SetupPage/AutoHeight.tsx`, `.revealInline` and
+  `.revealRow` in `AnalysisPlan.module.scss`): Timing's and Decision's
+  boxes ease to their new height as controls come and go. Controls that
+  appear beside a select slide in, new rows fade down, Timing's Edit grows
+  the box into the controls, and the "If no clear winner" select narrows
+  smoothly. Fade only for reduced motion.
+- **Unsaved Changes modal** (`UnsavedChangesGuard.tsx`): the redesigned
+  modal chrome, with a close X that keeps editing.
+- **List menus**: the Columns menu, filter menus and More Filters popover
+  get Radix's light grey outline back over the soft shadow
+  (`.menuOutline`).
 
 ### Half-built or faked (looks real, isn't)
 

@@ -22,3 +22,12 @@
     transition: none;
   }
 }
+
+// The heading's Reset link (ColumnSettingsButton, with a title): --gray-12,
+// as the redesign's other links (set in review), in place of the link's
+// violet; still underlined on hover. Doubled to outrank @/ui/Link's hover
+// colour.
+.neutralLink.neutralLink,
+.neutralLink.neutralLink:hover {
+  color: var(--gray-12);
+}

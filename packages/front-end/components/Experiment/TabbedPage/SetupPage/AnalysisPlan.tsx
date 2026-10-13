@@ -31,9 +31,10 @@ import planStyles from "./AnalysisPlan.module.scss";
 import GreyContainer from "./GreyContainer";
 import GoalMetricPopover from "./GoalMetricPopover";
 import SetupDateField, { SETUP_DATE_FIELD_PX } from "./SetupDateField";
-import { EditButton } from "./SetupFunnel";
+import { EditButton, ValueDot } from "./SetupFunnel";
 import DecisionRulesPopover from "./DecisionRulesPopover";
 import StatsSettingsFields from "./StatsSettingsFields";
+import AutoHeight from "./AutoHeight";
 import Collapse from "./Collapse";
 import AdvancedAnalysisFields, {
   AdvancedAnalysisState,
@@ -489,167 +490,188 @@ export default function AnalysisPlan({
                 16 + ((canOpenTiming ? 32 : 16) - 20) / 2
           }
         >
-          {!timingOpen ? (
-            // Collapsed: the settings in a sentence, and an Edit button,
-            // pencil first, always shown, to open the controls below (set in
-            // review). Read-only, just the sentence.
-            <GreyContainer>
-              {/* The sentence on the left, the Edit button at the far right
+          {/* The box's height eases between the summary and the controls
+            as Edit opens them, and as controls come and go (set in
+            review). */}
+          <AutoHeight>
+            {!timingOpen ? (
+              // Collapsed: the settings in a sentence, and an Edit button,
+              // pencil first, always shown, to open the controls below (set in
+              // review). Read-only, just the sentence.
+              <GreyContainer>
+                {/* The sentence on the left, the Edit button at the far right
                 (set in review; tried it 12px after the sentence), at least
                 12px apart. */}
-              <Flex align="center" justify="between" gap="3">
-                {/* 12px, as the inner rows' labels (e.g. Decision Criteria),
+                <Flex align="center" justify="between" gap="3">
+                  {/* 12px, as the inner rows' labels (e.g. Decision Criteria),
                   in --slate-11 (set in review; tried --slate-10, below 4.5:1
                   here), set on a wrapper that Text inherits from (Text takes
                   only its preset colours): 5.65:1 on the grey box. Wraps if
                   long. */}
-                <Box style={{ color: "var(--slate-11)" }}>
-                  <Text size="sm">{timingSummary}</Text>
-                </Box>
-                {canOpenTiming ? (
-                  // An outline button styled as the header's "Test" (set in
-                  // review; was a ghost button): grey outline, --slate-6
-                  // darkening to --slate-9 on hover (.outlineButton), text
-                  // and icon in --slate-12. Medium, the default.
-                  <Button
-                    variant="outline"
-                    color="gray"
-                    className={clsx(
-                      headerStyles.outlineButton,
-                      planStyles.timingEdit,
-                    )}
-                    style={{ color: "var(--slate-12)" }}
-                    icon={<PiPencilSimpleBold size={14} />}
-                    aria-label="Edit timing"
-                    onClick={() => setTimingOpen(true)}
-                  >
-                    Edit
-                  </Button>
-                ) : null}
-              </Flex>
-            </GreyContainer>
-          ) : (
-            <GreyContainer>
-              <Flex direction="column" gap="3">
-                {/* With a locked schedule, hovering anywhere on the row shows
+                  <Box style={{ color: "var(--slate-11)" }}>
+                    <Text size="sm">{timingSummary}</Text>
+                  </Box>
+                  {canOpenTiming ? (
+                    // An outline button styled as the header's "Test" (set in
+                    // review; was a ghost button): grey outline, --slate-6
+                    // darkening to --slate-9 on hover (.outlineButton), text
+                    // and icon in --slate-12. Medium, the default.
+                    <Button
+                      variant="outline"
+                      color="gray"
+                      className={clsx(
+                        headerStyles.outlineButton,
+                        planStyles.timingEdit,
+                      )}
+                      style={{ color: "var(--slate-12)" }}
+                      icon={<PiPencilSimpleBold size={14} />}
+                      aria-label="Edit timing"
+                      onClick={() => setTimingOpen(true)}
+                    >
+                      Edit
+                    </Button>
+                  ) : null}
+                </Flex>
+              </GreyContainer>
+            ) : (
+              // Timing's controls fade in as Edit opens them (set in review).
+              <GreyContainer className={planStyles.revealRow}>
+                <Flex direction="column" gap="3">
+                  {/* With a locked schedule, hovering anywhere on the row shows
                 the value's pencil (set in review; .hoverEdit). */}
-                <InnerRow
-                  label="Starts"
-                  className={
-                    startLocked && onEditSchedule
-                      ? planStyles.hoverEdit
-                      : undefined
-                  }
-                >
-                  {editable && !startLocked ? (
-                    <>
-                      <Select
-                        value={draft.startMode}
-                        setValue={(v) =>
-                          update({ startMode: v as SetupDraft["startMode"] })
-                        }
-                        // The same width as Ends' mode select.
-                        style={{ width: ENDS_MODE_PX }}
-                        // --slate-3 hover in the menu (set in review; see .menu).
-                        contentClassName={planStyles.menu}
-                      >
-                        <SelectItem value="manual">Manually</SelectItem>
-                        <SelectItem value="date">On Date</SelectItem>
-                      </Select>
-                      {draft.startMode === "date" ? (
-                        <SetupDateField
-                          date={draft.startAt ?? undefined}
-                          disableBefore={new Date()}
-                          setDate={(d) =>
-                            update({ startAt: d ? d.toISOString() : null })
+                  <InnerRow
+                    label="Starts"
+                    className={
+                      startLocked && onEditSchedule
+                        ? planStyles.hoverEdit
+                        : undefined
+                    }
+                  >
+                    {editable && !startLocked ? (
+                      <>
+                        <Select
+                          value={draft.startMode}
+                          setValue={(v) =>
+                            update({ startMode: v as SetupDraft["startMode"] })
                           }
+                          // The same width as Ends' mode select.
+                          style={{ width: ENDS_MODE_PX }}
+                          // --slate-3 hover in the menu (set in review; see .menu).
+                          contentClassName={planStyles.menu}
+                        >
+                          <SelectItem value="manual">Manually</SelectItem>
+                          <SelectItem value="date">On Date</SelectItem>
+                        </Select>
+                        {draft.startMode === "date" ? (
+                          // Slides in beside the select (set in review).
+                          <Flex className={planStyles.revealInline}>
+                            <SetupDateField
+                              date={draft.startAt ?? undefined}
+                              disableBefore={new Date()}
+                              setDate={(d) =>
+                                update({ startAt: d ? d.toISOString() : null })
+                              }
+                            />
+                          </Flex>
+                        ) : null}
+                      </>
+                    ) : startLocked && onEditSchedule ? (
+                      // The page's pencil (EditButton), shown on hover or focus
+                      // of the whole row (.hoverEdit on the InnerRow), 8px after
+                      // the value (set in review; was 4px).
+                      <Flex align="center" gap="2">
+                        <Text>{startDisplay}</Text>
+                        <EditButton
+                          label="Edit schedule"
+                          onClick={onEditSchedule}
                         />
-                      ) : null}
-                    </>
-                  ) : startLocked && onEditSchedule ? (
-                    // The page's pencil (EditButton), shown on hover or focus
-                    // of the whole row (.hoverEdit on the InnerRow), 8px after
-                    // the value (set in review; was 4px).
-                    <Flex align="center" gap="2">
+                      </Flex>
+                    ) : (
                       <Text>{startDisplay}</Text>
-                      <EditButton
-                        label="Edit schedule"
-                        onClick={onEditSchedule}
-                      />
-                    </Flex>
-                  ) : (
-                    <Text>{startDisplay}</Text>
-                  )}
-                </InnerRow>
-                {/* STUBBED: the experiment model has no end schedule. These
+                    )}
+                  </InnerRow>
+                  {/* STUBBED: the experiment model has no end schedule. These
                 controls edit the local draft only and are never saved — see
                 STUBBED_FIELDS in setupDraft.ts. */}
-                <InnerRow label="Ends">
-                  {editable ? (
-                    <>
-                      <Select
-                        value={draft.endMode}
-                        setValue={(v) =>
-                          update({ endMode: v as SetupDraft["endMode"] })
-                        }
-                        style={{ width: ENDS_MODE_PX }}
-                        // --slate-3 hover in the menu (set in review; see .menu).
-                        contentClassName={planStyles.menu}
-                      >
-                        <SelectItem value="after">After</SelectItem>
-                        <SelectItem value="stopped">Manually</SelectItem>
-                        <SelectItem value="date">On Date</SelectItem>
-                      </Select>
-                      {draft.endMode === "after" ? (
-                        <>
-                          <TextField
-                            type="number"
-                            min={1}
-                            value={String(draft.endAfter)}
-                            onChange={(e) =>
-                              update({
-                                endAfter: Math.max(1, Number(e.target.value)),
-                              })
-                            }
-                            style={{ width: ENDS_NUMBER_PX }}
-                          />
-                          <Select
-                            value={draft.endUnit}
-                            setValue={(v) =>
-                              update({ endUnit: v as SetupDraft["endUnit"] })
-                            }
-                            style={{ width: ENDS_UNIT_PX }}
-                            // --slate-3 hover in the menu (set in review; see .menu).
-                            contentClassName={planStyles.menu}
-                          >
-                            <SelectItem value="days">Days</SelectItem>
-                            <SelectItem value="weeks">Weeks</SelectItem>
-                          </Select>
-                          {/* No colour: --gray-12, the same as the selects'
-                          text beside it (set in review). */}
-                          <Text>from start</Text>
-                        </>
-                      ) : draft.endMode === "date" ? (
-                        <SetupDateField
-                          date={draft.endAt ?? undefined}
-                          disableBefore={draft.startAt ?? new Date()}
-                          setDate={(d) =>
-                            update({ endAt: d ? d.toISOString() : null })
+                  <InnerRow label="Ends">
+                    {editable ? (
+                      <>
+                        <Select
+                          value={draft.endMode}
+                          setValue={(v) =>
+                            update({ endMode: v as SetupDraft["endMode"] })
                           }
-                        />
-                      ) : null}
-                    </>
-                  ) : (
-                    <Text>
-                      {draft.endMode === "after"
-                        ? `After ${draft.endAfter} ${draft.endUnit} from start`
-                        : draft.endMode === "date" && draft.endAt
-                          ? format(new Date(draft.endAt), "MMM d, yyyy h:mm a")
-                          : END_LABELS[draft.endMode]}
-                    </Text>
-                  )}
-                </InnerRow>
-                {/* Under the Ends controls, when the end is scheduled
+                          style={{ width: ENDS_MODE_PX }}
+                          // --slate-3 hover in the menu (set in review; see .menu).
+                          contentClassName={planStyles.menu}
+                        >
+                          {/* Manually first (set in review), as Starts'. */}
+                          <SelectItem value="stopped">Manually</SelectItem>
+                          <SelectItem value="after">After</SelectItem>
+                          <SelectItem value="date">On Date</SelectItem>
+                        </Select>
+                        {/* Each mode's controls slide in beside the select
+                        (set in review). */}
+                        {draft.endMode === "after" ? (
+                          <Flex
+                            key="after"
+                            align="center"
+                            gap="3"
+                            className={planStyles.revealInline}
+                          >
+                            <TextField
+                              type="number"
+                              min={1}
+                              value={String(draft.endAfter)}
+                              onChange={(e) =>
+                                update({
+                                  endAfter: Math.max(1, Number(e.target.value)),
+                                })
+                              }
+                              style={{ width: ENDS_NUMBER_PX }}
+                            />
+                            <Select
+                              value={draft.endUnit}
+                              setValue={(v) =>
+                                update({ endUnit: v as SetupDraft["endUnit"] })
+                              }
+                              style={{ width: ENDS_UNIT_PX }}
+                              // --slate-3 hover in the menu (set in review; see .menu).
+                              contentClassName={planStyles.menu}
+                            >
+                              <SelectItem value="days">Days</SelectItem>
+                              <SelectItem value="weeks">Weeks</SelectItem>
+                            </Select>
+                            {/* No colour: --gray-12, the same as the selects'
+                          text beside it (set in review). */}
+                            <Text>from start</Text>
+                          </Flex>
+                        ) : draft.endMode === "date" ? (
+                          <Flex key="date" className={planStyles.revealInline}>
+                            <SetupDateField
+                              date={draft.endAt ?? undefined}
+                              disableBefore={draft.startAt ?? new Date()}
+                              setDate={(d) =>
+                                update({ endAt: d ? d.toISOString() : null })
+                              }
+                            />
+                          </Flex>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text>
+                        {draft.endMode === "after"
+                          ? `After ${draft.endAfter} ${draft.endUnit} from start`
+                          : draft.endMode === "date" && draft.endAt
+                            ? format(
+                                new Date(draft.endAt),
+                                "MMM d, yyyy h:mm a",
+                              )
+                            : END_LABELS[draft.endMode]}
+                      </Text>
+                    )}
+                  </InnerRow>
+                  {/* Under the Ends controls, when the end is scheduled
                   ("After…" or "On date"; none for Manually): what actually
                   happens at the end, from the At End settings (set in
                   review; replaces "May end sooner if …", which was wrong:
@@ -660,60 +682,63 @@ export default function AnalysisPlan({
                   label column plus the 12px gap) and 4px under them (the
                   rows' 12px gap, less 8px). As the page's other small helper
                   text: 12px, --slate-11. */}
-                {editable && draft.endMode !== "stopped" ? (
-                  <Box
-                    style={{
-                      paddingLeft: INNER_LABEL_PX + CONTROL_GAP_PX,
-                      marginTop: "calc(var(--space-1) - var(--space-3))",
-                      color: "var(--slate-11)",
-                    }}
-                  >
-                    <Text size="sm">
-                      {scheduledEndHelperText(
-                        // The variation select's own default (the first
-                        // variation) when none is chosen.
-                        scheduledStopPlanFromDraft(draft, variations[0]?.id),
-                      )}
-                    </Text>
-                  </Box>
-                ) : null}
-                {/* STUBBED: the prototype has no power analysis yet (set in
+                  {editable && draft.endMode !== "stopped" ? (
+                    <Box
+                      // Fades in as its own row (set in review).
+                      className={planStyles.revealRow}
+                      style={{
+                        paddingLeft: INNER_LABEL_PX + CONTROL_GAP_PX,
+                        marginTop: "calc(var(--space-1) - var(--space-3))",
+                        color: "var(--slate-11)",
+                      }}
+                    >
+                      <Text size="sm">
+                        {scheduledEndHelperText(
+                          // The variation select's own default (the first
+                          // variation) when none is chosen.
+                          scheduledStopPlanFromDraft(draft, variations[0]?.id),
+                        )}
+                      </Text>
+                    </Box>
+                  ) : null}
+                  {/* STUBBED: the prototype has no power analysis yet (set in
                   review: a representation is coming). The button does
                   nothing for now; read-only shows "None", as the summary's
                   "No power analysis attached." */}
-                {/* The description in the label's info icon (set in review;
+                  {/* The description in the label's info icon (set in review;
                   tried it as text beside the button). Not when read-only,
                   which has no button to run. */}
-                <InnerRow
-                  label="Power"
-                  info={editable ? "See how long it needs to run" : undefined}
-                >
-                  {editable ? (
-                    // Styled as Timing's Edit button (set in review): the
-                    // header's outline button, --slate-12, label at 400,
-                    // icon first; one size down, small (24px, 12px label).
-                    <Button
-                      variant="outline"
-                      color="gray"
-                      size="sm"
-                      className={clsx(
-                        headerStyles.outlineButton,
-                        planStyles.timingEdit,
-                      )}
-                      style={{ color: "var(--slate-12)" }}
-                      // Phosphor's lightning, bold, as the page's other icons
-                      // (set in review; tried a bar chart).
-                      icon={<PiLightningBold size={12} />}
-                    >
-                      Run Power Analysis
-                    </Button>
-                  ) : (
-                    <Text>None</Text>
-                  )}
-                </InnerRow>
-              </Flex>
-            </GreyContainer>
-          )}
+                  <InnerRow
+                    label="Power"
+                    info={editable ? "See how long it needs to run" : undefined}
+                  >
+                    {editable ? (
+                      // Styled as Timing's Edit button (set in review): the
+                      // header's outline button, --slate-12, label at 400,
+                      // icon first; one size down, small (24px, 12px label).
+                      <Button
+                        variant="outline"
+                        color="gray"
+                        size="sm"
+                        className={clsx(
+                          headerStyles.outlineButton,
+                          planStyles.timingEdit,
+                        )}
+                        style={{ color: "var(--slate-12)" }}
+                        // Phosphor's lightning, bold, as the page's other icons
+                        // (set in review; tried a bar chart).
+                        icon={<PiLightningBold size={12} />}
+                      >
+                        Run Power Analysis
+                      </Button>
+                    ) : (
+                      <Text>None</Text>
+                    )}
+                  </InnerRow>
+                </Flex>
+              </GreyContainer>
+            )}
+          </AutoHeight>
         </Row>
 
         {hasDecisionFramework ? (
@@ -721,160 +746,179 @@ export default function AnalysisPlan({
             label="Decision"
             labelPaddingTop={firstInnerRowLabelTop(editable)}
           >
-            <GreyContainer>
-              <Flex direction="column" gap="3">
-                <InnerRow label="Decision Criteria">
-                  {editable ? (
-                    <Select
-                      value={selectedCriteria.id}
-                      setValue={(decisionCriteriaId) =>
-                        update({ decisionCriteriaId })
-                      }
-                      style={{ width: CONTROLS_PX }}
-                      // The menu shows each criteria's description under its
-                      // name (set in review); the closed field shows just the
-                      // name.
-                      valueLabel={selectedCriteria.name}
-                      contentClassName={clsx(
-                        planStyles.menu,
-                        planStyles.describedMenu,
-                        criteriaTwoLine && planStyles.describedMenuTwoLine,
-                      )}
-                    >
-                      {criteriaOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          <div>{c.name}</div>
-                          {c.description ? (
-                            <div
-                              ref={measureDescription}
-                              className={planStyles.optionDescription}
-                              title={c.description}
-                            >
-                              {c.description}
-                            </div>
-                          ) : (
-                            // Empty state, a step lighter (set in review).
-                            <div
-                              className={clsx(
-                                planStyles.optionDescription,
-                                planStyles.optionDescriptionEmpty,
-                              )}
-                            >
-                              No description
-                            </div>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  ) : (
-                    <Text>{selectedCriteria.name}</Text>
-                  )}
-                  {/* Opens the rules in a popover (set in review), not the
+            {/* The height eases as "If no clear winner" comes and goes
+              (set in review). */}
+            <AutoHeight>
+              <GreyContainer>
+                <Flex direction="column" gap="3">
+                  <InnerRow label="Decision Criteria">
+                    {editable ? (
+                      <Select
+                        value={selectedCriteria.id}
+                        setValue={(decisionCriteriaId) =>
+                          update({ decisionCriteriaId })
+                        }
+                        style={{ width: CONTROLS_PX }}
+                        // The menu shows each criteria's description under its
+                        // name (set in review); the closed field shows just the
+                        // name.
+                        valueLabel={selectedCriteria.name}
+                        contentClassName={clsx(
+                          planStyles.menu,
+                          planStyles.describedMenu,
+                          criteriaTwoLine && planStyles.describedMenuTwoLine,
+                        )}
+                      >
+                        {criteriaOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <div>{c.name}</div>
+                            {c.description ? (
+                              <div
+                                ref={measureDescription}
+                                className={planStyles.optionDescription}
+                                title={c.description}
+                              >
+                                {c.description}
+                              </div>
+                            ) : (
+                              // Empty state, a step lighter (set in review).
+                              <div
+                                className={clsx(
+                                  planStyles.optionDescription,
+                                  planStyles.optionDescriptionEmpty,
+                                )}
+                              >
+                                No description
+                              </div>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    ) : (
+                      <Text>{selectedCriteria.name}</Text>
+                    )}
+                    {/* Opens the rules in a popover (set in review), not the
                     read-only Decision Criteria modal. */}
-                  <DecisionRulesPopover criteria={selectedCriteria} />
-                </InnerRow>
-                {/* STUBBED: no product field for either outcome below. Local
+                    <DecisionRulesPopover criteria={selectedCriteria} />
+                  </InnerRow>
+                  {/* STUBBED: no product field for either outcome below. Local
                   draft only; never saved. */}
-                <InnerRow
-                  label="At End"
-                  info="What happens when the experiment reaches its end."
-                >
-                  {editable ? (
-                    <Select
-                      value={draft.atEnd}
-                      setValue={(v) =>
-                        update({ atEnd: v as SetupDraft["atEnd"] })
-                      }
-                      style={{ width: CONTROLS_PX }}
-                      // --slate-3 hover in the menu (set in review; see .menu).
-                      contentClassName={planStyles.menu}
-                    >
-                      <SelectItem value="notify">
-                        {AT_END_LABELS.notify}
-                      </SelectItem>
-                      <SelectItem value="ship-winner">
-                        {AT_END_LABELS["ship-winner"]}
-                      </SelectItem>
-                    </Select>
-                  ) : (
-                    <Text>{AT_END_LABELS[draft.atEnd]}</Text>
-                  )}
-                </InnerRow>
-                {/* Only meaningful when the end action ships something; with
-                  "notify only" there's no winner to fall back from. */}
-                {draft.atEnd === "ship-winner" ? (
                   <InnerRow
-                    label="If no clear winner"
-                    info="What ships when no variation clearly wins."
+                    label="At End"
+                    info="What happens when the experiment reaches its end."
                   >
                     {editable ? (
-                      <>
-                        <Select
-                          value={draft.noClearWinner}
-                          setValue={(v) =>
-                            update({
-                              noClearWinner: v as SetupDraft["noClearWinner"],
-                            })
-                          }
-                          style={{
-                            width:
-                              draft.noClearWinner === "ship-variation"
-                                ? NO_WINNER_PX
-                                : CONTROLS_PX,
-                          }}
-                          // --slate-3 hover in the menu (set in review; see .menu).
-                          contentClassName={planStyles.menu}
-                        >
-                          <SelectItem value="keep-running">
-                            {NO_WINNER_LABELS["keep-running"]}
-                          </SelectItem>
-                          <SelectItem value="ship-variation">
-                            {NO_WINNER_LABELS["ship-variation"]}
-                          </SelectItem>
-                        </Select>
-                        {draft.noClearWinner === "ship-variation" ? (
+                      <Select
+                        value={draft.atEnd}
+                        setValue={(v) =>
+                          update({ atEnd: v as SetupDraft["atEnd"] })
+                        }
+                        style={{ width: CONTROLS_PX }}
+                        // --slate-3 hover in the menu (set in review; see .menu).
+                        contentClassName={planStyles.menu}
+                      >
+                        <SelectItem value="notify">
+                          {AT_END_LABELS.notify}
+                        </SelectItem>
+                        <SelectItem value="ship-winner">
+                          {AT_END_LABELS["ship-winner"]}
+                        </SelectItem>
+                      </Select>
+                    ) : (
+                      <Text>{AT_END_LABELS[draft.atEnd]}</Text>
+                    )}
+                  </InnerRow>
+                  {/* Only meaningful when the end action ships something; with
+                  "notify only" there's no winner to fall back from. */}
+                  {draft.atEnd === "ship-winner" ? (
+                    // Fades in as its own row (set in review).
+                    <InnerRow
+                      className={planStyles.revealRow}
+                      label="If no clear winner"
+                      info="What ships when no variation clearly wins."
+                    >
+                      {editable ? (
+                        <>
                           <Select
-                            value={
-                              draft.noClearWinnerVariationId ??
-                              variations[0]?.id
-                            }
-                            setValue={(noClearWinnerVariationId) =>
-                              update({ noClearWinnerVariationId })
+                            value={draft.noClearWinner}
+                            setValue={(v) =>
+                              update({
+                                noClearWinner: v as SetupDraft["noClearWinner"],
+                              })
                             }
                             style={{
                               width:
-                                CONTROLS_PX - CONTROL_GAP_PX - NO_WINNER_PX,
+                                draft.noClearWinner === "ship-variation"
+                                  ? NO_WINNER_PX
+                                  : CONTROLS_PX,
+                              // Narrows smoothly to make room for the
+                              // variation select, and widens back (set in
+                              // review).
+                              transition: "width 250ms ease",
                             }}
                             // --slate-3 hover in the menu (set in review; see .menu).
                             contentClassName={planStyles.menu}
                           >
-                            {variations.map((v) => (
-                              <SelectItem key={v.id} value={v.id}>
-                                {v.name}
-                              </SelectItem>
-                            ))}
+                            <SelectItem value="keep-running">
+                              {NO_WINNER_LABELS["keep-running"]}
+                            </SelectItem>
+                            <SelectItem value="ship-variation">
+                              {NO_WINNER_LABELS["ship-variation"]}
+                            </SelectItem>
                           </Select>
-                        ) : null}
-                      </>
-                    ) : (
-                      <Text>
-                        {NO_WINNER_LABELS[draft.noClearWinner]}
-                        {draft.noClearWinner === "ship-variation"
-                          ? `: ${
-                              variations.find(
-                                (v) =>
-                                  v.id ===
-                                  (draft.noClearWinnerVariationId ??
-                                    variations[0]?.id),
-                              )?.name ?? ""
-                            }`
-                          : ""}
-                      </Text>
-                    )}
-                  </InnerRow>
-                ) : null}
-              </Flex>
-            </GreyContainer>
+                          {draft.noClearWinner === "ship-variation" ? (
+                            // Slides in beside it (set in review).
+                            <Flex className={planStyles.revealInline}>
+                              <Select
+                                value={
+                                  draft.noClearWinnerVariationId ??
+                                  variations[0]?.id
+                                }
+                                setValue={(noClearWinnerVariationId) =>
+                                  update({ noClearWinnerVariationId })
+                                }
+                                style={{
+                                  width:
+                                    CONTROLS_PX - CONTROL_GAP_PX - NO_WINNER_PX,
+                                }}
+                                // --slate-3 hover in the menu (set in review; see .menu).
+                                contentClassName={planStyles.menu}
+                              >
+                                {/* Each variation with its dot, as its value
+                              in the funnel (set in review); the closed
+                              field shows it too. */}
+                                {variations.map((v, i) => (
+                                  <SelectItem key={v.id} value={v.id}>
+                                    <Flex as="span" align="center" gap="2">
+                                      <ValueDot index={i} />
+                                      {v.name}
+                                    </Flex>
+                                  </SelectItem>
+                                ))}
+                              </Select>
+                            </Flex>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Text>
+                          {NO_WINNER_LABELS[draft.noClearWinner]}
+                          {draft.noClearWinner === "ship-variation"
+                            ? `: ${
+                                variations.find(
+                                  (v) =>
+                                    v.id ===
+                                    (draft.noClearWinnerVariationId ??
+                                      variations[0]?.id),
+                                )?.name ?? ""
+                              }`
+                            : ""}
+                        </Text>
+                      )}
+                    </InnerRow>
+                  ) : null}
+                </Flex>
+              </GreyContainer>
+            </AutoHeight>
           </Row>
         ) : null}
       </Flex>

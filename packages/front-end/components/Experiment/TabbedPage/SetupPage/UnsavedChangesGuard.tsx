@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiXBold } from "react-icons/pi";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 
 // While the Setup page has unsaved changes, leaving it asks first (set in
 // review): an "Unsaved Changes" modal to leave without saving or keep
@@ -90,12 +94,14 @@ export default function UnsavedChangesGuard({
   };
 
   if (!pendingUrl) return null;
-  // The app's modal (@/ui/Modal's parts, as the variation modal), so it has
-  // the standard header, body, and footer with its divider (set in review;
-  // it was ConfirmDialog, a plain Radix AlertDialog without them). Keep
-  // Editing is the primary button. The modal isn't dismissible (no ×, and
-  // Escape or a click outside does nothing), so one of the two buttons
-  // decides.
+  // The app's modal (@/ui/Modal's parts), with the redesigned experiment
+  // pages' modal chrome (set in review), as Edit Split % and the Create
+  // Experiment modal: a divider under the header, the title as a page
+  // heading, a close button at its right, the message in the body in
+  // --slate-11, lighter dividers, 32px at the sides, a grey Leave Without
+  // Saving, and a soft fade in and out. Keep Editing is the primary button.
+  // Escape and a click outside still do nothing; the close button keeps
+  // editing, as Keep Editing does.
   return (
     <Modal.Root
       open
@@ -103,18 +109,54 @@ export default function UnsavedChangesGuard({
         if (!open) setPendingUrl(null);
       }}
       size="md"
-      hasDescription
       trackingEventModalType=""
+      dividerColor="var(--gray-a5)"
+      paddingX="var(--space-6)"
+      fadeIn
     >
-      <Modal.Header>
-        <Modal.Title>Unsaved Changes</Modal.Title>
+      {/* FALLBACK: Radix IconButton; @/ui/ has no icon button. No height of
+        its own, so the trimmed title sets the header's height. */}
+      <Modal.Header divider>
+        <Modal.Title pageHeading>Unsaved Changes</Modal.Title>
+        <Flex align="center" style={{ height: 0, marginLeft: "auto" }}>
+          <Modal.Close>
+            <IconButton
+              type="button"
+              variant="ghost"
+              color="gray"
+              size="1"
+              aria-label="Close"
+            >
+              <PiXBold size={16} style={{ color: "var(--slate-10)" }} />
+            </IconButton>
+          </Modal.Close>
+        </Flex>
       </Modal.Header>
-      <Modal.Description>
-        You have unsaved changes to this experiment.
-      </Modal.Description>
-      <Modal.Footer>
+      <Modal.Body scrollToEdges>
+        {/* Centred between the dividers (set in review): the body's 40px
+          below brought up to its 28px above. */}
+        <Box
+          style={{
+            color: "var(--slate-11)",
+            marginBottom: "calc(28px - var(--space-7))",
+          }}
+        >
+          <Text as="div" size="md">
+            You have unsaved changes to this experiment.
+          </Text>
+        </Box>
+      </Modal.Body>
+      <Modal.Footer flushTop>
+        {/* As the Create Experiment modal's Cancel: grey, --slate-12 text
+          at 400, 6px corners on its hover fill. Leaves straight away. */}
         <Button
           variant="ghost"
+          color="gray"
+          className={modalStandardStyles.ghostButton}
+          style={{
+            borderRadius: "var(--radius-3)",
+            color: "var(--slate-12)",
+          }}
           onClick={() => {
             discard();
             leave(pendingUrl);
@@ -122,7 +164,11 @@ export default function UnsavedChangesGuard({
         >
           Leave Without Saving
         </Button>
-        <Button onClick={() => setPendingUrl(null)}>Keep Editing</Button>
+        {/* Closes through Modal.Close, so the fade-out plays; @/ui/Button's
+          default preventDefault would cancel that click. */}
+        <Modal.Close>
+          <Button preventDefault={false}>Keep Editing</Button>
+        </Modal.Close>
       </Modal.Footer>
     </Modal.Root>
   );

@@ -1,0 +1,17 @@
+// AutoHeight.tsx (set in review): the height eases over 250ms, as Collapse.
+// Off for reduced motion.
+.autoHeight {
+  transition: height 250ms ease;
+
+  &[data-animating="true"] {
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &[data-animating="true"] {
+      overflow: visible;
+    }
+  }
+}

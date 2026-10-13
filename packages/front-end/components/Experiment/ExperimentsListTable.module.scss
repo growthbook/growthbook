@@ -56,6 +56,13 @@
   color: var(--gray-12) !important;
 }
 
+// The description in --slate-11, as the Setup rail's comments empty state's
+// (set in review; was --gray-12, the title's colour). Same !important as
+// above.
+.emptyPlaceholder :global(.rt-Text.rt-r-size-3) {
+  color: var(--slate-11) !important;
+}
+
 // attachedFooter (set in review; the experiments list): the pagination as
 // the table's footer. The table's outline carries on around it: the table's
 // bottom corners go square and its bottom edge becomes a --gray-a4 divider,
@@ -229,6 +236,26 @@
     0 0 3px var(--black-a2),
     0 1px 2px var(--black-a2),
     0 4px 8px -2px var(--black-a3);
+}
+
+// With .menuShadow, Radix's light grey 1px outline back around the menu
+// (set in review): the experiments list's column menu, filter menus and
+// More Filters popover. --gray-a3, as Radix's menus, --gray-a6 in dark mode.
+// Opt-in; the details page's kebab menu keeps the shadow alone.
+.menuShadow.menuOutline {
+  box-shadow:
+    0 0 0 1px var(--gray-a3),
+    0 0 3px var(--black-a2),
+    0 1px 2px var(--black-a2),
+    0 4px 8px -2px var(--black-a3);
+
+  :global(.dark-theme) & {
+    box-shadow:
+      0 0 0 1px var(--gray-a6),
+      0 0 3px var(--black-a2),
+      0 1px 2px var(--black-a2),
+      0 4px 8px -2px var(--black-a3);
+  }
 }
 
 // scrollOnOverflow (set in review; the experiments list): while the columns

@@ -260,3 +260,43 @@
 .timingEdit :global(.rt-Text) {
   font-weight: var(--font-weight-regular);
 }
+
+// Timing's and Decision's controls as they appear (set in review): fading
+// in over 200ms, sliding 6px in from the left (.revealInline: a control
+// beside the one that opened it) or 4px down (.revealRow: a new row, and
+// Timing's controls as Edit opens them), while the box's height eases
+// (AutoHeight). Opacity only for reduced motion.
+.revealInline {
+  animation: planRevealInline 200ms ease-out backwards;
+}
+
+.revealRow {
+  animation: planRevealRow 200ms ease-out backwards;
+}
+
+@keyframes planRevealInline {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+@keyframes planRevealRow {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revealInline,
+  .revealRow {
+    animation-name: planRevealFade;
+  }
+}
+
+@keyframes planRevealFade {
+  from {
+    opacity: 0;
+  }
+}

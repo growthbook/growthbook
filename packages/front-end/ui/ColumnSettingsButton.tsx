@@ -5,6 +5,7 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import ColumnSettings, { ManagedColumn } from "@/ui/ColumnSettings";
+import columnStyles from "@/ui/ColumnSettings.module.scss";
 
 export default function ColumnSettingsButton({
   columns,
@@ -105,7 +106,9 @@ export default function ColumnSettingsButton({
                 {title}
               </Text>
               {onReset && canReset ? (
-                <Link onClick={onReset}>
+                // --gray-12, as the redesign's other links (View Rules, the
+                // rail's Holdout; set in review), underlined on hover.
+                <Link onClick={onReset} className={columnStyles.neutralLink}>
                   <Text size="sm">Reset</Text>
                 </Link>
               ) : null}
