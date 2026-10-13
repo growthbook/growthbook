@@ -462,13 +462,14 @@ export default function ImportFromEppo() {
               isSelected(category, i.key),
             ).length;
             const href = HREFS[category];
+            const unchanged = items.filter((item) =>
+              untouched(category, item),
+            ).length;
             return (
               <Frame key={category}>
                 <Checkbox
                   label={`${label} (${ids.length})${
-                    items.length - ids.length > 0
-                      ? ` · ${items.length - ids.length} unchanged`
-                      : ""
+                    unchanged > 0 ? ` · ${unchanged} unchanged` : ""
                   }`}
                   value={
                     selected === ids.length && selected > 0

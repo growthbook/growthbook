@@ -71,22 +71,34 @@ const KIND: Record<
 };
 
 // Named resources stay Title Case; experiment, environment and tag are plain
-const PLURAL: Record<ArtifactKind, string> = {
-  "sdk-connection": "SDK Connections",
-  feature: "Feature Flags",
-  experiment: "experiments",
-  attribute: "attributes",
-  metric: "Fact Metrics",
-  "fact-table": "Fact Tables",
-  "saved-group": "Saved Groups",
-  environment: "environments",
-  tag: "tags",
+const NOUN: Record<ArtifactKind, [string, string]> = {
+  "sdk-connection": ["SDK Connection", "SDK Connections"],
+  feature: ["Feature Flag", "Feature Flags"],
+  experiment: ["experiment", "experiments"],
+  attribute: ["attribute", "attributes"],
+  metric: ["Fact Metric", "Fact Metrics"],
+  "fact-table": ["Fact Table", "Fact Tables"],
+  "saved-group": ["Saved Group", "Saved Groups"],
+  environment: ["environment", "environments"],
+  tag: ["tag", "tags"],
 };
 
+// Legacy SQL metrics and Fact Metrics share a kind; the id tells them apart
+const typeLabel = (a: Pick<Artifact, "kind" | "id">) =>
+  a.kind === "metric" && !a.id.startsWith("fact__")
+    ? "Metric"
+    : NOUN[a.kind][0];
+
 function kindList(artifacts: Artifact[]): string {
-  const names = [...new Set(artifacts.map((a) => PLURAL[a.kind]))];
-  if (names.length <= 1) return names[0] ?? "Items";
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const counts = new Map<ArtifactKind, number>();
+  artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) ?? 0) + 1));
+  const names = [...counts].map(([kind, n]) => NOUN[kind][n === 1 ? 0 : 1]);
+  if (!names.length) return "Items";
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return artifacts.length === 1 ? `The ${list}` : list;
 }
 
 function NameCell({
@@ -214,16 +226,16 @@ function SetUpTable({
         {artifacts.map((a) => (
           <TableRow key={`${a.kind}:${a.id}`}>
             <TableCell>
-              <Text color="text-mid">
-                {a.kind === "metric" && a.id.startsWith("fact__")
-                  ? "Fact Metric"
-                  : KIND[a.kind].label}
-              </Text>
+              <Text color="text-mid">{typeLabel(a)}</Text>
             </TableCell>
             <TableRowHeaderCell style={{ verticalAlign: "middle" }}>
               <NameCell
                 name={a.label}
-                subtitle={a.detail === "Deleted" ? null : a.detail}
+                subtitle={
+                  a.detail === "Deleted" || a.action === "existing"
+                    ? null
+                    : a.detail
+                }
                 error={a.action === "failed"}
               />
             </TableRowHeaderCell>
@@ -283,7 +295,7 @@ function DeleteRunButton({
             <>
               {`${kindList(created)} created by this import will be deleted. Items this run only updated are kept.`}
               {updatedLater.length > 0 &&
-                ` A later import has since updated ${updatedLater.map((a) => `${KIND[a.kind].label} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it" : "they"} will be deleted too.`}{" "}
+                ` A later import has since updated ${updatedLater.map((a) => `${typeLabel(a)} ${a.label}`).join(", ")}; ${updatedLater.length === 1 ? "it" : "they"} will be deleted too.`}{" "}
               This can&apos;t be undone.
             </>
           }
@@ -401,7 +413,9 @@ export default function AutoRunPage() {
             <SetUpTable artifacts={imported} />
           </Section>
         ) : (
-          <Callout status="info">Nothing was imported in this run.</Callout>
+          <Callout status="info" mb="5">
+            Nothing was imported in this run.
+          </Callout>
         )}
         {existingItems.length > 0 && (
           <Section
@@ -441,7 +455,7 @@ export default function AutoRunPage() {
                   size="sm"
                   key={`${artifact.kind}:${artifact.id}`}
                 >
-                  {KIND[artifact.kind].label} {artifact.label}: {error}
+                  {typeLabel(artifact)} {artifact.label}: {error}
                 </Text>
               ))}
             </Box>
