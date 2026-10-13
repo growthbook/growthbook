@@ -22,6 +22,7 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import Owner from "@/components/Avatar/Owner";
+import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -83,6 +84,7 @@ export default function PopulationsPage() {
       "identifierLabel",
       "stepsLabel",
       "ownerName",
+      "datasourceName",
     ],
     filterResults,
   });
@@ -193,6 +195,10 @@ export default function PopulationsPage() {
                 <SortableTableColumnHeader field="name">
                   Name
                 </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="datasourceName">
+                  Data Source
+                </SortableTableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
                 <SortableTableColumnHeader field="identifierLabel">
                   Identifier Types
                 </SortableTableColumnHeader>
@@ -221,6 +227,15 @@ export default function PopulationsPage() {
                       )}
                     </Flex>
                   </TableCell>
+                  <TableCell>{p.datasourceName}</TableCell>
+                  <TableCell>
+                    <ProjectBadges
+                      resourceType="population"
+                      projectIds={
+                        p.projects.length > 0 ? p.projects : undefined
+                      }
+                    />
+                  </TableCell>
                   <TableCell>
                     <Text size="sm" color="text-mid" mono>
                       {p.identifierLabel}
@@ -244,7 +259,7 @@ export default function PopulationsPage() {
               ))}
               {!items.length && isFiltered && (
                 <TableRow>
-                  <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                  <TableCell colSpan={8} style={{ textAlign: "center" }}>
                     No matching populations.{" "}
                     <a
                       href="#"
