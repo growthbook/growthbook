@@ -424,7 +424,7 @@ export function ClusterExperimentFields({
           <SelectField
             label={
               <>
-                Subunit identifier type{" "}
+                Subunit Identifier Type{" "}
                 <Tooltip body="The smaller unit inside each cluster that metrics are analyzed on." />
               </>
             }
