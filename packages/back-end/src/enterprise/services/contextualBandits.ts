@@ -2034,16 +2034,14 @@ export function buildSnapshotSettingsForCb(
 }
 
 export function getContextualBanditSettingsForStatsEngine(
-  cb: ContextualBanditInterface,
+  snapshotSettings: ContextualBanditSnapshotSettings,
   variations: { id: string; key: string }[],
-  contextualAttributes: string[],
-  priorSampleSize: number,
 ): ContextualBanditStatsSettings {
   return {
     variations,
-    contextualAttributes,
-    maxLeaves: cb.maxLeaves,
-    minUsersPerLeaf: cb.minUsersPerLeaf,
-    priorSampleSize,
+    contextualAttributes: snapshotSettings.contextualAttributes,
+    maxLeaves: snapshotSettings.maxLeaves,
+    minUsersPerLeaf: snapshotSettings.minUsersPerLeaf,
+    priorSampleSize: snapshotSettings.priorSampleSize ?? 0,
   };
 }
