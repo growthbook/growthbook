@@ -92,8 +92,9 @@ export function mergePastExperimentResults({
     exposureQueries,
   );
 
-  // Results stored before per-query refreshes have no assignment query and
-  // are dropped; the next refresh reruns those queries.
+  // A query result from before per-query refreshes has no
+  // exposureQueryId, so it can't be attributed and is ignored;
+  // previous rows are kept and the next refresh recounts
   const perQueryResults = results.filter((r) => r.exposureQueryId);
   const ran = new Set(perQueryResults.map((r) => r.exposureQueryId));
   const merged = perQueryResults.flatMap((result) =>
