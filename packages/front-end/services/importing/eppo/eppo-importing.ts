@@ -385,10 +385,10 @@ export function widenValues(values: string[]): (string | number | boolean)[] {
   const out = new Set<string | number | boolean>();
   for (const v of values) {
     out.add(v);
-    const t = v.trim();
-    if (t !== "" && String(Number(t)) === t) out.add(Number(t));
-    if (t === "true") out.add(true);
-    if (t === "false") out.add(false);
+    // Only a value whose string form is exactly the source, as Eppo would cast it
+    if (v !== "" && String(Number(v)) === v) out.add(Number(v));
+    if (v === "true") out.add(true);
+    if (v === "false") out.add(false);
   }
   return [...out];
 }

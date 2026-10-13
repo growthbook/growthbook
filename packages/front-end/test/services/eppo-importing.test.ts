@@ -10,6 +10,9 @@ import {
   getCappingSettings,
   getImportedIds,
   getVariationValue,
+  runEppoImport,
+  EppoImportData,
+  ExistingIds,
   teardownRun,
   mergePhase,
   rulesToCondition,
@@ -217,6 +220,7 @@ describe("widenValues", () => {
     expect(widenValues(["true"])).toEqual(["true", true]);
     expect(widenValues(["US"])).toEqual(["US"]);
     expect(widenValues(["001"])).toEqual(["001"]);
+    expect(widenValues([" 2", "1.0", " true"])).toEqual([" 2", "1.0", " true"]);
   });
 });
 
@@ -1178,6 +1182,34 @@ describe("getImportedIds", () => {
     expect(ids.audiences.size).toBe(0);
     expect(ids.flags).toEqual(new Map([[3, "flag-a"]]));
   });
+
+  it("forgets what a teardown deleted so the next import creates it", () => {
+    const ids = getImportedIds(
+      [
+        run("2024-01-01", [
+          { kind: "feature", id: "flag-a", externalId: "flags:3" },
+          { kind: "feature", id: "flag-b", externalId: "flags:4" },
+        ]),
+        run("2024-01-02", [
+          {
+            kind: "feature",
+            id: "flag-a",
+            externalId: "flags:3",
+            action: "deleted",
+          },
+          {
+            kind: "feature",
+            id: "flag-b",
+            externalId: "flags:4",
+            action: "failed",
+          },
+        ]),
+      ],
+      () => true,
+    );
+    // A failed update doesn't disown the item; a delete does
+    expect(ids.flags).toEqual(new Map([[4, "flag-b"]]));
+  });
 });
 
 describe("updatedByLaterRuns", () => {
@@ -1326,5 +1358,128 @@ describe("teardownRun", () => {
     ).toHaveLength(2);
     expect(calls).not.toContain("DELETE /fact-tables/ftb_1");
     expect(calls).toContain("DELETE /tag");
+  });
+});
+
+describe("runEppoImport", () => {
+  const emptyExisting = (): ExistingIds => ({
+    environments: new Set(),
+    tags: new Set(),
+    imported: {
+      audiences: new Map(),
+      factSources: new Map(),
+      metrics: new Map(),
+      experiments: new Map(),
+      flags: new Map(),
+    },
+    savedGroups: new Map(),
+    features: new Set(),
+    factTables: new Map(),
+    factMetrics: new Map(),
+    experiments: new Map(),
+    experimentRefs: new Map(),
+    factTableColumns: new Map(),
+  });
+  const data = (): EppoImportData => ({
+    environments: [],
+    tags: [],
+    audiences: EPPO.audiences.map((a) => ({
+      key: String(a.id),
+      name: a.name,
+      eppo: a,
+      status: "pending",
+    })),
+    factSources: [],
+    metrics: [],
+    experiments: [],
+    flags: [],
+  });
+
+  // Routes the importer's requests; `onRecord` decides what the run's
+  // artifact endpoint does
+  const mockApi = (onRecord: () => unknown) => {
+    const calls: { method: string; url: string; body?: unknown }[] = [];
+    const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
+      const method = options?.method ?? "GET";
+      const body =
+        typeof options?.body === "string"
+          ? JSON.parse(options.body)
+          : undefined;
+      calls.push({ method, url, body });
+      if (url === "/auto-runs") return { autoRun: { id: "arun_1" } };
+      if (url === "/auto-runs/arun_1/artifacts") return onRecord();
+      if (url === "/saved-groups") {
+        return { savedGroup: { id: `grp_${body.groupName}` } };
+      }
+      return {};
+    });
+    return { calls, apiCall: apiCall as never };
+  };
+
+  const run = (apiCall: never) => {
+    const results: Record<string, { status: string; error?: string }> = {};
+    return runEppoImport({
+      data: data(),
+      eppo: EPPO,
+      isSelected: () => true,
+      existing: emptyExisting(),
+      project: "",
+      datasource: null,
+      attributeSchema: [{ property: "id", datatype: "string" }],
+      apiCall,
+      setItem: (category, key, update) => {
+        results[`${category}:${key}`] = {
+          ...results[`${category}:${key}`],
+          ...update,
+        };
+      },
+    }).then((outcome) => ({ outcome, results }));
+  };
+
+  it("records what it created on the run and reports the outcome", async () => {
+    const { calls, apiCall } = mockApi(() => ({}));
+    const { outcome, results } = await run(apiCall);
+    expect(outcome).toEqual({ runId: "arun_1", completed: 1, failed: 0 });
+    expect(results["audiences:7"]).toEqual({
+      status: "completed",
+      error: undefined,
+    });
+    const recorded = calls.find((c) => c.url === "/auto-runs/arun_1/artifacts");
+    expect(recorded?.body).toEqual({
+      artifacts: [
+        expect.objectContaining({
+          kind: "saved-group",
+          id: "grp_Beta users",
+          externalId: "audiences:7",
+          action: "created",
+        }),
+      ],
+    });
+    expect(calls.at(-1)).toMatchObject({
+      method: "PUT",
+      url: "/auto-runs/arun_1",
+      body: { outcome: "completed" },
+    });
+  });
+
+  // The object exists but would be created again next time, so the item is
+  // marked failed rather than quietly dropped from the report
+  it("marks an import failed when the run rejects its record", async () => {
+    const { calls, apiCall } = mockApi(() => {
+      throw new Error("Label too long");
+    });
+    const { outcome, results } = await run(apiCall);
+    expect(
+      calls.some((c) => c.method === "POST" && c.url === "/saved-groups"),
+    ).toBe(true);
+    expect(outcome).toEqual({ runId: "arun_1", completed: 0, failed: 1 });
+    expect(results["audiences:7"]).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("couldn't be recorded"),
+    });
+    expect(calls.at(-1)).toMatchObject({
+      url: "/auto-runs/arun_1",
+      body: { outcome: "failed" },
+    });
   });
 });
