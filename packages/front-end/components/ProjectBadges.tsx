@@ -22,7 +22,8 @@ export interface Props {
     | "custom field"
     | "experiment"
     | "contextual bandit"
-    | "constant";
+    | "constant"
+    | "population";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
