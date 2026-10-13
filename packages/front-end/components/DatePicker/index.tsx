@@ -51,6 +51,7 @@ type Props = {
   compact?: boolean;
   size?: "md" | "legacy";
   disabled?: boolean;
+  required?: boolean;
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -128,6 +129,7 @@ export default function DatePicker({
   compact = false,
   size = "legacy",
   disabled,
+  required,
   fixedSpanMode,
 }: Props) {
   const fixedHeight = compact || size === "md";
@@ -420,6 +422,7 @@ export default function DatePicker({
                     id={id ?? ""}
                     size={size}
                     disabled={disabled}
+                    required={required}
                     readOnly={!!fixedSpanMode}
                     style={{
                       border: 0,
