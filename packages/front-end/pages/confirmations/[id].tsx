@@ -30,7 +30,11 @@ type ConfirmationResponse = {
     query: Record<string, unknown>;
     body: unknown;
   };
-  requester: string;
+  requester: {
+    personal: boolean;
+    name: string | null;
+    keyDescription: string | null;
+  };
   forEmail: string | null;
   canDecide: boolean;
 };
@@ -176,9 +180,23 @@ export default function ConfirmationPage() {
   return (
     <Wrapper>
       <Flex direction="column" align="center" mb="5">
+        {/* The key leads: an agent driving it is why this is held. */}
         <Heading as="h1" size="xl" align="center" mb="1">
-          {requester}
+          {requester.keyDescription ??
+            (requester.personal ? "A Personal Access Token" : "An API key")}
         </Heading>
+        <Text as="div" size="lg" color="text-mid" align="center" mb="3">
+          {requester.personal ? (
+            <>
+              Personal Access Token for{" "}
+              <Text size="inherit" weight="semibold" color="text-high">
+                {requester.name ?? "a former member"}
+              </Text>
+            </>
+          ) : (
+            "API Key"
+          )}
+        </Text>
         <Text as="div" size="lg" color="text-mid" align="center">
           wants to make a change that needs your confirmation.
         </Text>
