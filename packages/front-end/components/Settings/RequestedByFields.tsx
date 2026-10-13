@@ -3,12 +3,17 @@ import { Box, Grid } from "@radix-ui/themes";
 import { ApiKeyInterface } from "shared/types/apikey";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import HelperText from "@/ui/HelperText";
-import { Select, SelectItem } from "@/ui/Select";
+import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 
 type HeaderPolicy = NonNullable<ApiKeyInterface["requesterHeader"]>;
 type PermissionsMode = NonNullable<ApiKeyInterface["requesterPermissions"]>;
+
+const HEADER_HELP: Record<HeaderPolicy, string> = {
+  optional: "Used when a request sends this header.",
+  required: "Requests without this header are rejected.",
+  rejected: "Requests with this header are rejected.",
+};
 
 const RequestedByFields: FC<{
   header: HeaderPolicy;
@@ -35,32 +40,44 @@ const RequestedByFields: FC<{
         <Text as="label" weight="semibold" mb="0">
           Header
         </Text>
-        <Select
+        <SelectField
+          aria-label="Header"
+          size="small"
+          sort={false}
+          isSearchable={false}
           value={header}
-          setValue={(value) => setHeader(value as HeaderPolicy)}
-        >
-          <SelectItem value="optional">Optional</SelectItem>
-          <SelectItem value="required">Required</SelectItem>
-          <SelectItem value="rejected">Rejected</SelectItem>
-        </Select>
-        <Box />
+          onChange={(value) => setHeader(value as HeaderPolicy)}
+          options={[
+            { label: "Optional", value: "optional" },
+            { label: "Required", value: "required" },
+            { label: "Rejected", value: "rejected" },
+          ]}
+        />
+        <Text size="sm" color="text-mid">
+          {HEADER_HELP[header]}
+        </Text>
         {header !== "rejected" && (
           <>
             <Text as="label" weight="semibold" mb="0">
               Permissions
             </Text>
-            <Select
+            <SelectField
+              aria-label="Permissions"
+              size="small"
+              sort={false}
+              isSearchable={false}
               value={permissions}
-              setValue={(value) => setPermissions(value as PermissionsMode)}
-            >
-              <SelectItem value="assume">Assume member&apos;s role</SelectItem>
-              <SelectItem value="key">Use key&apos;s role</SelectItem>
-            </Select>
-            <HelperText status="info">
+              onChange={(value) => setPermissions(value as PermissionsMode)}
+              options={[
+                { label: "Assume member's role", value: "assume" },
+                { label: "Use key's role", value: "key" },
+              ]}
+            />
+            <Text size="sm" color="text-mid">
               {permissions === "assume"
-                ? "Acts as the member, with only what both this key and the member can do."
-                : "Acts as the key itself. The member's name is only recorded in history."}
-            </HelperText>
+                ? "Acts as the member, limited to what this key can also do."
+                : "Acts as the key. The name is only logged."}
+            </Text>
           </>
         )}
       </Grid>

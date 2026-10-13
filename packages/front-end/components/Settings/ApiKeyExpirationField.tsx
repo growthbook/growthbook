@@ -17,10 +17,10 @@ import DatePicker from "@/components/DatePicker";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
+import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 
-const CUSTOM = "custom";
+const DATE = "date";
 const NEVER = "never";
 // Nothing selected, which only a policy change can put the field into.
 const UNSET = "";
@@ -57,7 +57,7 @@ const ApiKeyExpirationField: FC<{
     : allowedExpirationPresets(maxLifetimeDays);
   const longest = presets[presets.length - 1];
   const [selection, setSelection] = useState<string>(() =>
-    value ? CUSTOM : required && !existing ? String(longest) : NEVER,
+    value ? DATE : required && !existing ? String(longest) : NEVER,
   );
 
   const appliedPolicy = useRef(maxLifetimeDays);
@@ -80,7 +80,7 @@ const ApiKeyExpirationField: FC<{
       setValue(null);
       return;
     }
-    if (value || selection === CUSTOM || selection === UNSET) return;
+    if (value || selection === DATE || selection === UNSET) return;
     // A policy turning on strands a selection the select no longer offers —
     // converting that one gives an invalid date.
     const days = selection === NEVER ? longest : Number(selection);
@@ -112,9 +112,11 @@ const ApiKeyExpirationField: FC<{
       : problem === "too-late" && latest
         ? `Enter or select a date on or before ${date(latest)}.`
         : undefined;
+  const picksDate = selection === DATE;
+  // A preset only says how long; this turns it into the date it lands on.
   const expiresNote =
-    value && !problem ? (
-      <HelperText status="info">{`Expires ${datetimeAt(value)}.`}</HelperText>
+    value && !problem && !picksDate ? (
+      <Text size="sm" color="text-mid">{`Expires ${datetimeAt(value)}.`}</Text>
     ) : null;
 
   return (
@@ -129,7 +131,7 @@ const ApiKeyExpirationField: FC<{
         </HelperText>
       ) : (
         <>
-          {/* Day precision to match the picker; the exact moment shows beside it once chosen. */}
+          {/* Day precision to match the picker. */}
           {required && latest && (
             <HelperText status={cleared ? "warning" : "info"} mb="3">
               {cleared
@@ -149,32 +151,39 @@ const ApiKeyExpirationField: FC<{
               <Text as="label" weight="semibold" mb="0">
                 Expires
               </Text>
-              <Select
+              <SelectField
+                aria-label="Expires"
+                size="small"
+                maxMenuHeight={360}
+                sort={false}
+                isSearchable={false}
                 placeholder="Choose an expiration"
                 value={selection}
-                setValue={(next) => {
+                onChange={(next) => {
                   setSelection(next);
                   if (next === NEVER) {
                     setValue(null);
-                  } else if (next !== CUSTOM) {
+                  } else if (next !== DATE) {
                     setValue(addDays(new Date(), Number(next)));
                   }
                 }}
-              >
-                {presets.map((days) => (
-                  <SelectItem key={days} value={String(days)}>
-                    {presetLabel(days)}
-                  </SelectItem>
-                ))}
-                <SelectSeparator />
-                <SelectItem value={CUSTOM}>Custom</SelectItem>
-                {/* Offered under a policy only as the edited key's unchanged state. */}
-                {(!required || (existing && !existing.expiresAt)) && (
-                  <SelectItem value={NEVER}>No expiration</SelectItem>
-                )}
-              </Select>
-              <Box>{selection !== CUSTOM && expiresNote}</Box>
-              {selection === CUSTOM && (
+                options={[
+                  ...presets.map((days) => ({
+                    label: presetLabel(days),
+                    value: String(days),
+                  })),
+                  { label: "Expires on date", value: DATE },
+                  // Offered under a policy only as the edited key's unchanged state.
+                  ...(!required || (existing && !existing.expiresAt)
+                    ? [{ label: "No expiration", value: NEVER }]
+                    : []),
+                ]}
+                formatOptionLabel={({ label, value }, { context }) =>
+                  context === "value" && value === DATE ? "Expires on" : label
+                }
+              />
+              <Box>{expiresNote}</Box>
+              {picksDate && (
                 <>
                   <Text as="label" weight="semibold" mb="0">
                     Date
@@ -190,7 +199,7 @@ const ApiKeyExpirationField: FC<{
                     error={dateError}
                     containerClassName=""
                   />
-                  <Box>{expiresNote}</Box>
+                  <Box />
                 </>
               )}
             </Grid>
