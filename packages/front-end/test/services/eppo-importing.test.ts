@@ -526,6 +526,32 @@ describe("transformFlag", () => {
     });
   });
 
+  it("keeps a default allocation that splits traffic as an experiment rule", () => {
+    const feature = transformFlag(
+      mkFlag([
+        mkAllocation({
+          id: 1,
+          key: "holdback",
+          type: "EXPERIMENT",
+          is_default: true,
+          variation_weight: [
+            { variation_id: 1, weight: 50 },
+            { variation_id: 2, weight: 50 },
+          ],
+        }),
+      ]),
+      mkCtx(),
+    );
+    expect(feature.defaultValue).toBe("false");
+    expect(feature.rules).toEqual([
+      expect.objectContaining({
+        id: "fr_eppo_1",
+        type: "experiment",
+        trackingKey: "new-checkout-holdback",
+      }),
+    ]);
+  });
+
   it("keeps another environment's default where it serves something else", () => {
     const feature = transformFlag(
       mkFlag([

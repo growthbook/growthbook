@@ -638,8 +638,9 @@ export function transformFlag(
     if (!served.length) return;
     // Eppo evaluates allocations top-down and each environment's default comes
     // last. The one defaultValue came from is redundant; another environment's
-    // default becomes a rule there unless it serves the same thing.
-    if (a === defaultAllocation) return;
+    // default becomes a rule there unless it serves the same thing. A default
+    // that splits traffic gave no defaultValue, so it stays as a rule.
+    if (a === defaultAllocation && defaultServed?.length === 1) return;
     const coverage = allocationCoverage(a);
     if (
       a.is_default &&
