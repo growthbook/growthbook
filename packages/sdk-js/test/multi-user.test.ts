@@ -480,24 +480,6 @@ describe("GrowthBookClient", () => {
   });
 
   describe("reducePayload", () => {
-    // `key` for `user`, from the full payload and from one reduced with `known`
-    const compare = (
-      payload: FeatureApiResponse,
-      known: UserContext,
-      user: UserContext,
-      key = "child",
-    ) => {
-      const full = new GrowthBookClient().initSync({ payload });
-      const reduced = new GrowthBookClient().initSync({
-        payload: full.reducePayload({ userContext: known }),
-      });
-      const values = [full, reduced].map(
-        (gb) => gb.evalFeature(key, user).value,
-      );
-      full.destroy();
-      reduced.destroy();
-      return values;
-    };
     it("Keeps experiments that no longer match, for sticky buckets", () => {
       const user: UserContext = {
         attributes: { id: "u", country: "US" },
@@ -516,13 +498,18 @@ describe("GrowthBookClient", () => {
         meta: [{ key: "a" }, { key: "b" }],
         condition: { country: "CA" },
       };
-      const [full, reduced] = compare(
-        { features: { child: { defaultValue: "default", rules: [rule] } } },
-        user,
-        user,
-      );
-      expect(full).toEqual("B");
-      expect(reduced).toEqual(full);
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: { f: { defaultValue: "default", rules: [rule] } },
+        },
+      });
+      const reduced = new GrowthBookClient().initSync({
+        payload: full.reducePayload({ userContext: user }),
+      });
+      expect(full.evalFeature("f", user).value).toEqual("B");
+      expect(reduced.evalFeature("f", user).value).toEqual("B");
+      full.destroy();
+      reduced.destroy();
     });
 
     it("Reduces payloads with the saved groups and bandits it evaluates with", () => {

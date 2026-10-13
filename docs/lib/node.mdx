@@ -404,7 +404,7 @@ const payload = gbClient.reducePayload({ userContext });
 
 You don't need to know every attribute. Rules that depend on attributes you didn't pass stay in the payload, and the front-end SDK evaluates them as usual. Global attributes are used too.
 
-It helps the most when your rules target long lists of ids, since those rules can usually be removed entirely.
+It helps the most when your rules target long lists of ids, since those lists can usually be removed entirely.
 
 A scoped instance already has a user context, so you can call it without one:
 
@@ -428,6 +428,7 @@ Experiment tracking and feature usage callbacks fire the same as they would with
 There are a few things to keep in mind:
 
 - The front-end must use the same attribute values you passed on the server, with the same types. For example, `123` and `"123"` don't match each other in a list of ids.
+- Only pass attributes that won't change while the page is open. If the front-end changes one later, for example `url` after a client-side navigation or `id` after the user logs in, rules that were removed for the old value won't come back.
 - If your SDK Connection encrypts the payload, the reduced payload is not encrypted. Anyone who can see the page can read it.
 - Treat the returned payload as read-only. It shares objects with the GrowthBookClient's own copy of the payload.
 

@@ -474,64 +474,175 @@ If none of the entries failed their checks, `evalCondition` returns true
 
 ### public pruneCondition(attributes: Attributes, condition: Condition): Condition|boolean
 
-Partially evaluates a condition when only some attributes are known, for example on a server that knows the user's id and nothing else. An attribute is known when its top-level key is present in `attributes`, even with a `null` value, and every path under that key is known too. All other attributes are unknown.
+Partially evaluates a condition when only some attributes are known, for example on a server that knows the user's id and nothing else. It returns `true` or `false` once the result no longer depends on unknown attributes, and otherwise the condition with every decided part removed. For any full set of attributes that agrees with the known ones, `evalCondition` must return the same result for the pruned condition as for the original.
 
-It returns `true` or `false` once the result no longer depends on unknown attributes, and otherwise the condition with every decided branch removed. For any full set of attributes that agrees with the known ones, `evalCondition` must return the same result for the pruned condition as for the original.
+```ts
+function pruneCondition(attributes, condition) {
+  const out = {};
+  for (const [key, value] of Object.entries(condition)) {
+    // true or false once decided, null to keep the entry as written, or what
+    // is left of a list or condition that is only partly decided
+    let result;
+    if (key === "$or" || key === "$nor") result = pruneList(attributes, value, true);
+    else if (key === "$and") result = pruneList(attributes, value, false);
+    else if (key === "$not") result = pruneCondition(attributes, value);
+    else if (key === "$savedGroup") result = pruneSavedGroup(attributes, value);
+    else if (!isKnown(attributes, key)) result = null;
+    else {
+      result = evalConditionValue(value, getPath(attributes, key));
+      // The client's SDK may be newer and support an operator this one doesn't
+      if (evaluationMetAnUnsupportedOperator) result = null;
+    }
 
-Loop through the condition key/value pairs and get a result for each entry, which is either true, false, or undecided with a remaining value:
+    // $not and $nor pass when what they hold fails
+    if ((key === "$not" || key === "$nor") && typeof result === "boolean") {
+      result = !result;
+    }
 
-1. If key is `$or` or `$nor`, use `pruneList(attributes, value, true)`. If key is `$and`, use `pruneList(attributes, value, false)`. An array result is undecided, and the array is the remaining value
-2. If key is `$not`, use `pruneCondition(attributes, value)`. A condition result is undecided, and the condition is the remaining value
-3. If key is `$savedGroup`, resolve the reference the same way `evalCondition` does, except that a `list` entry is undecided while its attribute is unknown, and a `condition` entry is undecided unless `pruneCondition` on its condition returns a boolean. An undecided reference stays exactly as written. Never inline the group
-4. Otherwise, if the attribute for the key is known, use `evalConditionValue(value, getPath(attributes, key))`. If it is unknown, or evaluating it runs into an operator this SDK doesn't support, the entry is undecided and stays exactly as written. The client's SDK may be newer and support that operator
-5. For `$not` and `$nor`, flip a true/false result
-6. If the result is false, break out of the loop and return false. If it is true, drop the entry. If it is undecided, keep the key with its remaining value
+    // One failing entry fails the whole condition, and a passing one is dropped
+    if (result === false) return false;
+    if (result === null) out[key] = value;
+    else if (result !== true) out[key] = result;
+  }
+  return Object.keys(out).length ? out : true;
+}
 
-After the loop:
-
-1. If no entries are left, return true
-2. Otherwise, return the remaining entries as a condition
+// Present, even with a null value. A nested path such as `father.age` is
+// unknown, since the server may only have part of the object.
+function isKnown(attributes, key) {
+  return !key.includes(".") && key in attributes;
+}
+```
 
 ### private pruneList(attributes: Attributes, conditions: Condition[], or: boolean): Condition[]|boolean
 
-`or` is true for an `$or` list and false for an `$and` list
+```ts
+// `or` is true for an $or or $nor list, and false for an $and list
+function pruneList(attributes, conditions, or) {
+  const out = [];
+  for (const condition of conditions) {
+    const result = pruneCondition(attributes, condition);
+    // One passing condition decides an $or, and one failing condition an $and
+    if (or && result === true) return true;
+    if (!or && result === false) return false;
+    if (typeof result !== "boolean") out.push(result);
+  }
+  if (out.length) return out;
+  // Every condition failed an $or, or passed an $and. Like evalOr, an empty
+  // $or passes.
+  return or ? conditions.length === 0 : true;
+}
+```
 
-1. Loop through conditions
-   1. If `pruneCondition(attributes, conditions[i])` equals `or`, return `or`. One passing condition decides an `$or`, and one failing condition decides an `$and`
-   2. If it is not a boolean, add it to a list of remaining conditions
-2. If any conditions remain, return them
-3. Otherwise, return true for an `$and`. For an `$or`, return true if `conditions` is empty and false if not, the same as `evalOr`
+### private pruneSavedGroup(attributes: Attributes, reference): boolean|null
+
+Resolves a `$savedGroup` reference like `evalCondition` does, but returns `null` while the result depends on unknown attributes. An undecided reference stays as written: never inline the group.
+
+```ts
+function pruneSavedGroup(attributes, { id, attributeKey }) {
+  const entry = savedGroups[id];
+  // A missing, malformed, or cyclic reference fails, as in evalCondition
+  if (entry.type === "list") {
+    const key = attributeKey ?? entry.attributeKey;
+    return isKnown(attributes, key) ? isIn(entry.values, getPath(attributes, key)) : null;
+  }
+  if (entry.type === "condition") {
+    const result = pruneCondition(attributes, entry.condition);
+    return typeof result === "boolean" ? result : null;
+  }
+  // A type this SDK doesn't support. The client's SDK may.
+  return null;
+}
+```
 
 ### public reducePayload(payload, attributes, filters): Payload
 
-Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
+Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. For that user, the client evaluates the result the same as the full payload. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
 
-`filters` is optional and can have `projects`, `tags`, and `customFields` (an object of field id -> array of values). Each filter is an array, and any one of its values is enough. A feature or auto experiment has to pass every filter given:
+`filters` is optional. It can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. They read the `metadata` that SDK Connections can include for features, rules, and auto experiments.
 
-- `projects`: `metadata.projects` contains one of the values. An absent `metadata.projects` means all projects, so it passes
-- `tags`: `metadata.tags` contains one of the values
-- `customFields`: for each field, `metadata.customFields[field]` is one of the values, or contains one if it is an array
+```ts
+function reducePayload(payload, attributes, filters = {}) {
+  const { projects, tags, customFields = {} } = filters;
 
-`projects` also applies to rules. In a feature whose own `metadata.projects` passes, remove each rule whose `metadata.projects` doesn't contain one of the values, before reducing its rules. A feature that is only added as another feature's prerequisite, because its own projects don't pass, keeps all of its rules.
+  // Only an array counts, as with $in, and any one of its values is enough
+  const has = (actual, want) => Array.isArray(want) && isIn(want, actual);
+  // An absent metadata.projects means all projects, unlike absent tags or custom fields
+  const inProjects = (meta = {}) =>
+    !projects || !meta.projects || has(meta.projects, projects);
+  const matches = (meta = {}) =>
+    inProjects(meta) &&
+    (!tags || has(meta.tags, tags)) &&
+    Object.keys(customFields).every((field) =>
+      has(meta.customFields?.[field], customFields[field]),
+    );
 
-`parentConditions` are never evaluated, and every one stays as written. Evaluating a prerequisite records usage for the parent feature, so the client has to run each check for that usage to be counted.
+  // Reduces a rule or an auto experiment
+  const prune = (item) => {
+    const result = item.condition ? pruneCondition(attributes, item.condition) : null;
+    item = { ...item };
+    if (result === true) delete item.condition;
+    else if (result === false) {
+      // Kept, since sticky bucketing and forced variations skip an
+      // experiment's condition, and a rule's parentConditions are checked
+      // before it
+      item.condition = { $not: {} };
+      // Never returned
+      if ("force" in item) item.force = null;
+    } else if (result) item.condition = result;
+    return item;
+  };
 
-To reduce a rule or auto experiment:
+  // Adds a feature, then the prerequisites the client evaluates for it, even
+  // when the filters drop them
+  const features = {};
+  const addParents = (item) => {
+    for (const parent of item.parentConditions ?? []) add(parent.id);
+  };
+  const add = (id) => {
+    const feature = payload.features[id];
+    if (!feature || features[id]) return;
+    // Rules scoped to other projects aren't served. A prerequisite from
+    // another project keeps all of its rules.
+    const scoped = inProjects(feature.metadata);
+    const rules = feature.rules
+      ?.filter((rule) => !scoped || inProjects(rule.metadata))
+      .map(prune);
+    // Stored before its parents are added, so a prerequisite cycle ends
+    features[id] = rules ? { ...feature, rules } : feature;
+    rules?.forEach(addParents);
+  };
 
-1. Use `pruneCondition(attributes, condition, savedGroups)` on the `condition`:
-   - `true`: remove the `condition` key
-   - `false`: an experiment, either a rule with `variations` or an auto experiment, stays with the condition `{"$not": {}}`, which never passes. Sticky bucketing and forced variations skip an experiment's condition, so removing it would change what those users see. An auto experiment that never matches also loses its `parentConditions`, since they are only checked after the condition
-   - a condition: use it as the new `condition`
-2. A rule that never returns a value keeps only its `parentConditions`, so the client still checks them, or is removed if it has none. That is the case when it has no `force`, `variations`, or `contextualVariations`, or when it is a `force` rule whose condition never passes
+  for (const [id, feature] of Object.entries(payload.features)) {
+    if (matches(feature.metadata)) add(id);
+  }
+  const experiments = payload.experiments
+    .filter((e) => matches(e.metadata))
+    .map(prune);
+  experiments.forEach(addParents);
 
-To reduce a feature, reduce its rules in order, and stop after a rule that applies to everyone, since nothing after it runs. That is a `force` rule left with no `condition`, `parentConditions`, `filters`, `range`, or `coverage`.
+  // Keep each saved group whose id appears as a string anywhere. This also
+  // keeps groups that an operator this SDK doesn't support refers to.
+  const savedGroups = {};
+  const keep = (value) => {
+    if (typeof value === "string") {
+      const entry = payload.savedGroups[value];
+      if (!entry || savedGroups[value]) return;
+      // A condition group is reduced, with its own id counted as visited
+      const result =
+        entry.type === "condition" ? pruneCondition(attributes, entry.condition) : null;
+      savedGroups[value] =
+        result && typeof result === "object" ? { ...entry, condition: result } : entry;
+      keep(savedGroups[value]);
+    } else if (value && typeof value === "object") {
+      Object.values(value).forEach(keep);
+    }
+  };
+  keep([features, experiments, payload.contextualBandits]);
 
-Steps:
-
-1. Add each feature that passes the filters, reduced. Then add each feature named in the `parentConditions` of a remaining rule, and so on for that feature's rules, whether or not it passes the filters
-2. Keep the auto experiments that pass the filters, reduced. Add the features named in their remaining `parentConditions` the same way
-3. Keep the saved groups that are still referenced: each `$savedGroup` id, `$inGroup` value, and `$notInGroup` value anywhere in the remaining features, auto experiments, and contextual bandits. For a `condition` entry, store the result of `pruneCondition` on its condition (with its own id already visited) if that is a condition. Look for references in each stored condition too. Drop all other saved groups
-4. Return the payload with `features`, `experiments`, and `savedGroups` replaced. Other keys stay as they are
+  return { ...payload, features, experiments, savedGroups };
+}
+```
 
 ### private isOperatorObject(obj): boolean
 

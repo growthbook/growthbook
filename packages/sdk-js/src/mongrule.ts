@@ -104,10 +104,14 @@ export function pruneCondition(
         // SDK may be newer
         if (unknownOperator) r = null;
     }
+    // $not and $nor pass when what they hold fails
+    if ((k === "$not" || k === "$nor") && typeof r === "boolean") r = !r;
+
+    // One failing entry fails the whole condition, and a passing one is dropped
+    if (r === false) return false;
     // null is an undecided leaf, which stays as written
-    if (typeof r !== "boolean") out[k] = r === null ? v : r;
-    // $not and $nor fail when what they hold passes
-    else if (r === (k === "$not" || k === "$nor")) return false;
+    if (r === null) out[k] = v;
+    else if (r !== true) out[k] = r;
   }
   return Object.keys(out).length ? out : true;
 }
@@ -122,19 +126,22 @@ function pruneList(
   or: boolean,
 ): ConditionInterface[] | boolean {
   const out: ConditionInterface[] = [];
-  for (let i = 0; i < conditions.length; i++) {
-    const r = pruneCondition(obj, conditions[i], savedGroups, visited);
-    // One passing condition decides an $or, one failing condition an $and
-    if (r === or) return or;
-    if (r !== !or) out.push(r as ConditionInterface);
+  for (const condition of conditions) {
+    const r = pruneCondition(obj, condition, savedGroups, visited);
+    // One passing condition decides an $or, and one failing condition an $and
+    if (or && r === true) return true;
+    if (!or && r === false) return false;
+    if (typeof r !== "boolean") out.push(r);
   }
-  // Like evalOr, an empty $or passes
-  return out.length ? out : !or || !conditions.length;
+  if (out.length) return out;
+  // Every condition failed an $or, or passed an $and. Like evalOr, an empty
+  // $or passes.
+  return or ? !conditions.length : true;
 }
 
-// A top-level attribute that is present is known in full, nested paths too
+// A nested path is unknown, since the server may only have part of the object
 function isKnown(obj: TestedObj, path: string) {
-  return hasOwn(obj, path.split(".")[0]);
+  return !path.includes(".") && hasOwn(obj, path);
 }
 
 /** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
@@ -181,8 +188,8 @@ export function evalSavedGroup(
     );
   }
 
-  // A group type added after this SDK was built
-  return false;
+  // A group type added after this SDK was built. The client SDK may support it.
+  return prune ? null : false;
 }
 
 // Return value at dot-separated path of an object

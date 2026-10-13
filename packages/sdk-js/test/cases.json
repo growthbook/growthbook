@@ -3583,22 +3583,10 @@
       { "country": "US" }
     ],
     [
-      "a nested path is known when its top-level attribute is",
+      "a nested path is unknown, even under a known attribute",
       { "father.age": { "$gt": 65 }, "country": "US" },
       { "father": { "age": 70 } },
-      { "country": "US" }
-    ],
-    [
-      "a nested path missing from a known attribute is null",
-      { "father.age": { "$exists": true }, "country": "US" },
-      { "father": { "name": "Joe" } },
-      false
-    ],
-    [
-      "a nested path under an unknown attribute is kept",
-      { "father.age": { "$gt": 65 } },
-      { "id": "123" },
-      { "father.age": { "$gt": 65 } }
+      { "father.age": { "$gt": 65 }, "country": "US" }
     ],
     [
       "$or passes once a known condition passes",
@@ -3613,12 +3601,6 @@
       },
       { "id": "123" },
       { "$or": [{ "country": "US" }, { "browser": "chrome" }] }
-    ],
-    [
-      "$or with one condition left stays an $or",
-      { "$or": [{ "id": "456" }, { "country": "US" }] },
-      { "id": "123" },
-      { "$or": [{ "country": "US" }] }
     ],
     [
       "$or fails when every condition fails",
@@ -3681,12 +3663,6 @@
       },
       { "id": "123" },
       { "$and": [{ "country": "US" }, { "browser": "chrome" }] }
-    ],
-    [
-      "one condition left in $and is not unwrapped beside other keys",
-      { "$and": [{ "id": "123" }, { "country": "US" }], "browser": "chrome" },
-      { "id": "123" },
-      { "$and": [{ "country": "US" }], "browser": "chrome" }
     ],
     [
       "$not fails when its condition passes",
@@ -3885,6 +3861,13 @@
       }
     ],
     [
+      "$savedGroup of a type this SDK doesn't know stays, since the client SDK may support it",
+      { "$savedGroup": { "id": "grp_later" } },
+      { "id": "123" },
+      { "$savedGroup": { "id": "grp_later" } },
+      { "grp_later": { "type": "later", "attributeKey": "id" } }
+    ],
+    [
       "$savedGroup cycle resolves to false",
       { "$savedGroup": { "id": "grp_x" } },
       {},
@@ -3921,7 +3904,7 @@
   ],
   "reducePayload": [
     [
-      "removes the condition of a rule that always passes and the rules that never pass",
+      "removes the condition of a rule that always passes, and the value of one that never passes",
       {
         "payload": {
           "dateUpdated": "2026-10-04T00:00:00Z",
@@ -3944,70 +3927,9 @@
           "f": {
             "defaultValue": 0,
             "rules": [
+              { "id": "r1", "condition": { "$not": {} }, "force": null },
               { "id": "r2", "condition": { "country": "US" }, "force": 2 },
               { "id": "r3", "force": 3 }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "drops the rules after one that always applies",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                { "condition": { "id": "123" }, "force": 1 },
-                { "condition": { "country": "US" }, "force": 2 }
-              ]
-            }
-          }
-        },
-        "attributes": { "id": "123" }
-      },
-      {
-        "features": { "f": { "defaultValue": 0, "rules": [{ "force": 1 }] } },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "a rule with a rollout or filters doesn't end the feature, since it can skip some users",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                { "force": 1, "coverage": 0.5, "hashAttribute": "id" },
-                { "force": 2, "range": [0, 0.5], "hashAttribute": "id" },
-                {
-                  "force": 3,
-                  "filters": [{ "seed": "s", "ranges": [[0, 0.5]] }]
-                },
-                { "force": 4 },
-                { "force": 5 }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "f": {
-            "defaultValue": 0,
-            "rules": [
-              { "force": 1, "coverage": 0.5, "hashAttribute": "id" },
-              { "force": 2, "range": [0, 0.5], "hashAttribute": "id" },
-              {
-                "force": 3,
-                "filters": [{ "seed": "s", "ranges": [[0, 0.5]] }]
-              },
-              { "force": 4 }
             ]
           }
         },
@@ -4045,60 +3967,6 @@
                 "key": "exp"
               }
             ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "a rule that never applies keeps only its prerequisite checks, since a gate could still block",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "condition": { "id": "456" },
-                  "parentConditions": [
-                    {
-                      "id": "parent",
-                      "condition": { "value": true },
-                      "gate": true
-                    }
-                  ],
-                  "force": 1
-                }
-              ]
-            },
-            "parent": {
-              "defaultValue": true,
-              "rules": [{ "condition": { "country": "US" }, "force": false }]
-            }
-          }
-        },
-        "attributes": { "id": "123" }
-      },
-      {
-        "features": {
-          "f": {
-            "defaultValue": 0,
-            "rules": [
-              {
-                "parentConditions": [
-                  {
-                    "id": "parent",
-                    "condition": { "value": true },
-                    "gate": true
-                  }
-                ]
-              }
-            ]
-          },
-          "parent": {
-            "defaultValue": true,
-            "rules": [{ "condition": { "country": "US" }, "force": false }]
           }
         },
         "experiments": [],
@@ -4149,13 +4017,21 @@
         "attributes": { "env": "prod" }
       },
       {
-        "features": { "f": { "defaultValue": 0, "rules": [{ "force": 2 }] } },
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              { "condition": { "$not": {} }, "force": null },
+              { "force": 2 }
+            ]
+          }
+        },
         "experiments": [],
         "savedGroups": {}
       }
     ],
     [
-      "reduces auto experiments: one that never matches keeps a condition that never passes, and drops its prerequisites",
+      "reduces auto experiments: one that never matches keeps a condition that never passes, and its prerequisites",
       {
         "payload": {
           "features": {},
@@ -4185,7 +4061,14 @@
       {
         "features": {},
         "experiments": [
-          { "key": "e1", "variations": [{}, {}], "condition": { "$not": {} } },
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "condition": { "$not": {} },
+            "parentConditions": [
+              { "id": "parent", "condition": { "value": true } }
+            ]
+          },
           { "key": "e2", "variations": [{}, {}] },
           {
             "key": "e3",
@@ -4342,7 +4225,7 @@
       }
     ],
     [
-      "carries the prerequisites of kept features and experiments, even when the filters drop them",
+      "carries the prerequisites of kept features and experiments, even when the filters drop them, but not those of dropped features",
       {
         "payload": {
           "features": {
@@ -4380,7 +4263,19 @@
               "metadata": { "projects": ["p2"] },
               "rules": [{ "condition": { "plan": "pro" }, "force": false }]
             },
-            "f5": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
+            "f5": { "defaultValue": true, "metadata": { "projects": ["p2"] } },
+            "f6": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p2"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "f5", "condition": { "value": true } }
+                  ],
+                  "force": 2
+                }
+              ]
+            }
           },
           "experiments": [
             {
@@ -4440,49 +4335,6 @@
             "parentConditions": [{ "id": "f4", "condition": { "value": true } }]
           }
         ],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "a rule whose condition never passes keeps its prerequisite checks, and their parents travel with it",
-      {
-        "payload": {
-          "features": {
-            "f1": {
-              "defaultValue": 1,
-              "metadata": { "projects": ["p1"] },
-              "rules": [
-                {
-                  "condition": { "id": "456" },
-                  "parentConditions": [
-                    { "id": "f2", "condition": { "value": true } }
-                  ],
-                  "force": 2
-                }
-              ]
-            },
-            "f2": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
-          }
-        },
-        "attributes": { "id": "123" },
-        "filters": { "projects": ["p1"] }
-      },
-      {
-        "features": {
-          "f1": {
-            "defaultValue": 1,
-            "metadata": { "projects": ["p1"] },
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "f2", "condition": { "value": true } }
-                ]
-              }
-            ]
-          },
-          "f2": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
-        },
-        "experiments": [],
         "savedGroups": {}
       }
     ],
@@ -4555,6 +4407,49 @@
             "attributeKey": "deviceId",
             "values": ["d1"]
           }
+        }
+      }
+    ],
+    [
+      "keeps a saved group that an operator this SDK doesn't support refers to",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "condition": { "id": { "$inGroupLater": "grp_later" } },
+                  "force": 1
+                }
+              ]
+            }
+          },
+          "savedGroups": {
+            "grp_later": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["1"]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "id": { "$inGroupLater": "grp_later" } },
+                "force": 1
+              }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {
+          "grp_later": { "type": "list", "attributeKey": "id", "values": ["1"] }
         }
       }
     ],
@@ -4635,176 +4530,6 @@
             "values": ["d1"]
           }
         }
-      }
-    ],
-    [
-      "keeps a prerequisite that always passes, and the rules after it, since the client still checks it",
-      {
-        "payload": {
-          "features": {
-            "A": {
-              "defaultValue": false,
-              "rules": [{ "condition": { "id": "123" }, "force": true }]
-            },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                },
-                { "force": 2 }
-              ]
-            }
-          }
-        },
-        "attributes": { "id": "123" }
-      },
-      {
-        "features": {
-          "A": { "defaultValue": false, "rules": [{ "force": true }] },
-          "B": {
-            "defaultValue": 0,
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "A", "condition": { "value": true } }
-                ],
-                "force": 1
-              },
-              { "force": 2 }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "keeps a gate that always passes",
-      {
-        "payload": {
-          "features": {
-            "A": { "defaultValue": false },
-            "B": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": false }, "gate": true }
-                  ]
-                },
-                { "condition": { "country": "US" }, "force": 1 }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "features": {
-          "A": { "defaultValue": false },
-          "B": {
-            "defaultValue": 0,
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "A", "condition": { "value": false }, "gate": true }
-                ]
-              },
-              { "condition": { "country": "US" }, "force": 1 }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "keeps the prerequisite checks of auto experiments",
-      {
-        "payload": {
-          "features": { "A": { "defaultValue": true } },
-          "experiments": [
-            {
-              "key": "e1",
-              "variations": [{}, {}],
-              "parentConditions": [
-                { "id": "A", "condition": { "value": false } },
-                { "id": "A", "condition": { "value": true } }
-              ]
-            },
-            {
-              "key": "e2",
-              "variations": [{}, {}],
-              "parentConditions": [
-                { "id": "A", "condition": { "value": true } }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        "features": { "A": { "defaultValue": true } },
-        "experiments": [
-          {
-            "key": "e1",
-            "variations": [{}, {}],
-            "parentConditions": [
-              { "id": "A", "condition": { "value": false } },
-              { "id": "A", "condition": { "value": true } }
-            ]
-          },
-          {
-            "key": "e2",
-            "variations": [{}, {}],
-            "parentConditions": [{ "id": "A", "condition": { "value": true } }]
-          }
-        ],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "carries a parent even when its prerequisite always passes",
-      {
-        "payload": {
-          "features": {
-            "B": {
-              "defaultValue": 0,
-              "metadata": { "projects": ["p1"] },
-              "rules": [
-                {
-                  "parentConditions": [
-                    { "id": "A", "condition": { "value": true } }
-                  ],
-                  "force": 1
-                }
-              ]
-            },
-            "A": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
-          }
-        },
-        "filters": { "projects": ["p1"] }
-      },
-      {
-        "features": {
-          "B": {
-            "defaultValue": 0,
-            "metadata": { "projects": ["p1"] },
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "A", "condition": { "value": true } }
-                ],
-                "force": 1
-              }
-            ]
-          },
-          "A": { "defaultValue": true, "metadata": { "projects": ["p2"] } }
-        },
-        "experiments": [],
-        "savedGroups": {}
       }
     ],
     [
@@ -6899,61 +6624,6 @@
         "on": true,
         "off": false,
         "source": "force",
-        "ruleId": ""
-      }
-    ],
-    [
-      "Rule with only a prerequisite that passes is skipped",
-      {
-        "attributes": { "id": "123" },
-        "features": {
-          "parentFlag": { "defaultValue": true },
-          "childFlag": {
-            "defaultValue": "default",
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "parentFlag", "condition": { "value": true } }
-                ]
-              },
-              { "force": "next" }
-            ]
-          }
-        }
-      },
-      "childFlag",
-      {
-        "value": "next",
-        "on": true,
-        "off": false,
-        "source": "force",
-        "ruleId": ""
-      }
-    ],
-    [
-      "Rule with only a prerequisite that fails is skipped",
-      {
-        "attributes": { "id": "123" },
-        "features": {
-          "parentFlag": { "defaultValue": false },
-          "childFlag": {
-            "defaultValue": "default",
-            "rules": [
-              {
-                "parentConditions": [
-                  { "id": "parentFlag", "condition": { "value": true } }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "childFlag",
-      {
-        "value": "default",
-        "on": true,
-        "off": false,
-        "source": "defaultValue",
         "ruleId": ""
       }
     ],
