@@ -1993,6 +1993,7 @@ export function buildContextualBanditSnapshotSettings(
 
     minUsersPerLeaf: cb.minUsersPerLeaf,
     maxLeaves: cb.maxLeaves,
+    priorSampleSize: cb.priorSampleSize ?? 0,
     banditModelVersion: cb.banditModelVersion,
 
     startDate,
@@ -2048,14 +2049,14 @@ export function buildSnapshotSettingsForCb(
 }
 
 export function getContextualBanditSettingsForStatsEngine(
-  cb: ContextualBanditInterface,
+  snapshotSettings: ContextualBanditSnapshotSettings,
   variations: { id: string; key: string }[],
-  contextualAttributes: string[],
 ): ContextualBanditStatsSettings {
   return {
     variations,
-    contextualAttributes,
-    maxLeaves: cb.maxLeaves,
-    minUsersPerLeaf: cb.minUsersPerLeaf,
+    contextualAttributes: snapshotSettings.contextualAttributes,
+    maxLeaves: snapshotSettings.maxLeaves,
+    minUsersPerLeaf: snapshotSettings.minUsersPerLeaf,
+    priorSampleSize: snapshotSettings.priorSampleSize ?? 0,
   };
 }

@@ -31,6 +31,7 @@ export const contextualBanditSnapshotSettingsValidator = z
 
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
+    priorSampleSize: z.number().int().nonnegative().optional(),
     banditModelVersion: z.number().int().nonnegative(),
 
     startDate: z.date(),
