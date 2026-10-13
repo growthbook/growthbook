@@ -10,6 +10,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createCompletedQuery,
+  getLatestQueryByCacheKey,
   getRecentQuery,
 } from "back-end/src/models/QueryModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
@@ -17,7 +18,10 @@ import {
   getSourceIntegrationObject,
   runExperimentExposuresQuery,
 } from "back-end/src/services/datasource";
-import { shapeExposureRows } from "back-end/src/services/experiment-exposures";
+import {
+  getExposuresCacheKey,
+  shapeExposureRows,
+} from "back-end/src/services/experiment-exposures";
 import { logger } from "back-end/src/util/logger";
 
 type ExposuresResponse = {
@@ -30,6 +34,8 @@ type ExposuresResponse = {
   cached?: boolean;
   /** When the query actually ran — the cached run's time on a cache hit. */
   ranAt?: string;
+  /** A `cache: "required"` read found nothing, and nothing was run. */
+  noCachedResult?: boolean;
 };
 
 const BUFFER_SIZE = SQL_ROW_LIMIT;
@@ -40,6 +46,7 @@ export async function postExposures(
       startDate: string;
       endDate: string;
       rowFilters?: RowFilter[];
+      cache?: "preferred" | "required" | "never";
     },
     { id: string }
   >,
@@ -84,15 +91,19 @@ export async function postExposures(
     return;
   }
 
-  const startDate = snapToMinuteStart(new Date(req.body.startDate));
-  const endDate = snapToMinuteEnd(new Date(req.body.endDate));
-  const windowMs = endDate.getTime() - startDate.getTime();
+  const windowMs =
+    new Date(req.body.endDate).getTime() -
+    new Date(req.body.startDate).getTime();
   if (windowMs <= 0) {
     context.throwBadRequestError("End date must be after start date.");
   }
+
+  const startDate = snapToMinuteStart(new Date(req.body.startDate));
+  const endDate = snapToMinuteEnd(new Date(req.body.endDate));
   const dimensions = exposureQuery.dimensions || [];
 
   const rowFilters = req.body.rowFilters ?? [];
+  const cache = req.body.cache ?? "preferred";
 
   const integration = getSourceIntegrationObject(context, datasource);
 
@@ -132,20 +143,51 @@ export async function postExposures(
     return;
   }
 
+  const cacheKey = getExposuresCacheKey({
+    experimentId: experiment.id,
+    experimentTrackingKey: experiment.trackingKey,
+    exposureQueryId: exposureQuery.id,
+    exposureQuerySql: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+    dimensions,
+    windowMs,
+    rowFilters,
+    limit: BUFFER_SIZE,
+  });
+  const cacheTTLMins = parseOptionalInt(datasource.settings?.queryCacheTTLMins);
+
   let rawRows: Record<string, unknown>[];
   let cached = false;
   let ranAt = new Date();
   try {
-    const recent = await getRecentQuery(
-      context.org.id,
-      datasource.id,
-      sql,
-      parseOptionalInt(datasource.settings?.queryCacheTTLMins),
-    );
+    const recent =
+      cache === "required"
+        ? await getLatestQueryByCacheKey(
+            context,
+            datasource.id,
+            "experimentExposures",
+            cacheKey,
+            cacheTTLMins,
+          )
+        : cache === "preferred"
+          ? await getRecentQuery(
+              context.org.id,
+              datasource.id,
+              sql,
+              cacheTTLMins,
+            )
+          : null;
+
+    if (cache === "preferred" && recent?.hasChunkedResults) {
+      await context.models.sqlResultChunks.addResultsToQueries([recent]);
+    }
     if (recent?.status === "succeeded" && recent.rawResult) {
       rawRows = recent.rawResult;
       cached = true;
       if (recent.createdAt) ranAt = recent.createdAt;
+    } else if (cache === "required") {
+      res.status(200).json({ ...emptyBody, sql, noCachedResult: true });
+      return;
     } else {
       const result = await runExperimentExposuresQuery(integration, {
         experimentId: experiment.id,
@@ -160,8 +202,7 @@ export async function postExposures(
       });
       rawRows = result.rows;
       try {
-        await createCompletedQuery({
-          organization: context.org.id,
+        await createCompletedQuery(context, {
           datasource: datasource.id,
           language: "sql",
           query: sql,
@@ -169,6 +210,7 @@ export async function postExposures(
           queryType: "experimentExposures",
           rawResult: rawRows,
           statistics: result.statistics,
+          cacheKey,
         });
       } catch (e) {
         // Caching is best-effort; never fail the request because of it.

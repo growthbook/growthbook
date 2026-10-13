@@ -1,8 +1,10 @@
 import { RowFilter } from "shared/types/fact-table";
 import {
   applyRowFilters,
+  canNarrowLoadedRows,
   compileRowFilter,
   matchesRowFilter,
+  rowFilterIsLocallyEvaluable,
 } from "@/components/FactTables/rowFilterMatch";
 
 type Row = { browser: string | null; user: string | null };
@@ -349,5 +351,203 @@ describe("compileRowFilter", () => {
     );
     expect([chrome, safari, nullBrowser].filter(matches)).toHaveLength(3);
     expect(lookups).toBe(3);
+  });
+});
+
+describe("matches_pattern performance", () => {
+  it("does not blow up on a pattern of alternating wildcards and literals", () => {
+    const pattern = "*a*a*a*a*a*a*a*a*a*a*b";
+    const value = "a".repeat(20000);
+    const started = Date.now();
+    expect(
+      match(
+        { browser: value, user: null },
+        { column: "browser", operator: "matches_pattern", values: [pattern] },
+      ),
+    ).toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
+
+describe("glob anchoring edge cases", () => {
+  const matchesPattern = (value: string, pattern: string) =>
+    match(
+      { browser: value, user: null },
+      { column: "browser", operator: "matches_pattern", values: [pattern] },
+    );
+
+  it("anchors a trailing ?", () => {
+    expect(matchesPattern("ab", "a?")).toBe(true);
+    expect(matchesPattern("abc", "a?")).toBe(false);
+    expect(matchesPattern("a", "a?")).toBe(false);
+  });
+
+  it("anchors a pattern with no wildcard at all", () => {
+    expect(matchesPattern("ab", "ab")).toBe(true);
+    expect(matchesPattern("abab", "ab")).toBe(false);
+    expect(matchesPattern("xab", "ab")).toBe(false);
+  });
+
+  it("requires a single segment to reach both ends when both are anchored", () => {
+    expect(matchesPattern("ab", "a*b")).toBe(true);
+    expect(matchesPattern("axxb", "a*b")).toBe(true);
+    expect(matchesPattern("a", "a*b")).toBe(false);
+    expect(matchesPattern("ba", "a*b")).toBe(false);
+  });
+
+  it("handles stars at one end only", () => {
+    expect(matchesPattern("abc", "a*")).toBe(true);
+    expect(matchesPattern("bac", "a*")).toBe(false);
+    expect(matchesPattern("xa", "*a")).toBe(true);
+    expect(matchesPattern("ax", "*a")).toBe(false);
+  });
+
+  it("treats a bare star as match-all and an empty pattern as match-empty", () => {
+    expect(matchesPattern("anything", "*")).toBe(true);
+    expect(matchesPattern("", "*")).toBe(true);
+    expect(matchesPattern("", "")).toBe(true);
+    expect(matchesPattern("x", "")).toBe(false);
+  });
+});
+
+describe("canNarrowLoadedRows", () => {
+  const browserIsChrome: RowFilter = {
+    column: "browser",
+    operator: "=",
+    values: ["chrome"],
+  };
+  const userHas000: RowFilter = {
+    column: "user",
+    operator: "contains",
+    values: ["000"],
+  };
+
+  it("refuses when nothing is loaded", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: null,
+        nextFilters: [],
+        truncated: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows an added filter over a complete buffer", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome],
+        nextFilters: [browserIsChrome, userHas000],
+        truncated: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows the unchanged set", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome],
+        nextFilters: [browserIsChrome],
+        truncated: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses a truncated buffer, because narrowing could surface cut-off rows", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome],
+        nextFilters: [browserIsChrome, userHas000],
+        truncated: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses a removed filter", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome, userHas000],
+        nextFilters: [browserIsChrome],
+        truncated: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses a changed value", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome],
+        nextFilters: [{ ...browserIsChrome, values: ["safari"] }],
+        truncated: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores the order the filters are listed in", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome, userHas000],
+        nextFilters: [userHas000, browserIsChrome],
+        truncated: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("matches duplicates as a multiset, not a set", () => {
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [browserIsChrome, browserIsChrome],
+        nextFilters: [browserIsChrome],
+        truncated: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses an added filter the client cannot evaluate", () => {
+    // compileRowFilter treats these as match-everything and match-nothing
+    // respectively, so narrowing locally would be wrong in both directions.
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [],
+        nextFilters: [{ operator: "sql_expr", values: ["1 = 1"] }],
+        truncated: false,
+      }),
+    ).toBe(false);
+    expect(
+      canNarrowLoadedRows({
+        loadedFilters: [],
+        nextFilters: [{ column: "user", operator: ">", values: ["5"] }],
+        truncated: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("rowFilterIsLocallyEvaluable", () => {
+  it("accepts the string operators the panel offers", () => {
+    expect(
+      rowFilterIsLocallyEvaluable({
+        column: "browser",
+        operator: "contains",
+        values: ["a"],
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects operators whose value reaches the warehouse as raw SQL", () => {
+    expect(
+      rowFilterIsLocallyEvaluable({ operator: "sql_expr", values: ["1 = 1"] }),
+    ).toBe(false);
+    expect(
+      rowFilterIsLocallyEvaluable({
+        operator: "saved_filter",
+        values: ["f_1"],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a filter with no column", () => {
+    expect(rowFilterIsLocallyEvaluable({ operator: "=", values: ["a"] })).toBe(
+      false,
+    );
   });
 });

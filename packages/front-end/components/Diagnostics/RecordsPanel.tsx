@@ -22,6 +22,7 @@ import Tooltip from "@/ui/Tooltip";
 import CollapsibleSidePanel from "./CollapsibleSidePanel";
 import ExpandableTable from "./ExpandableTable";
 import RowsPerPageSelect from "./RowsPerPageSelect";
+import { rowsWithinWindow } from "./recordsWindow";
 import { RecordsColumn } from "./types";
 import { UseRecordsQueryResult } from "./useRecordsQuery";
 
@@ -37,6 +38,7 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
   getSearchText: (row: TRow) => string;
   /** Reads the value a filter's column names out of a row. */
   getFilterValue: RowValueAccessor<TRow>;
+  timestampColumn?: string;
   /** Columns and their values, for the filter panel's pickers. */
   columnSource: FilterColumnSource;
 
@@ -45,10 +47,6 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
   detailTitle?: string;
 
   searchPlaceholder?: string;
-  /** When the displayed results were produced. */
-  lastUpdated?: string | Date | null;
-  /** The window held more rows than the query returned. */
-  truncated?: boolean;
 
   emptyMessage?: string;
   /** Shown before the first run when the caller waits for an explicit Refresh. */
@@ -70,13 +68,12 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   getRowId,
   getSearchText,
   getFilterValue,
+  timestampColumn = "timestamp",
   columnSource,
   renderDetail,
   detailFlattenKeys,
   detailTitle,
   searchPlaceholder = "Search...",
-  lastUpdated,
-  truncated,
   emptyMessage = "No records found for this time range.",
   idleMessage = "Click Refresh to load records.",
   warning,
@@ -88,41 +85,55 @@ export default function RecordsPanel<TRow extends object, TResponse>({
     error,
     isLoading,
     isRefreshing,
-    hasRun,
-    autoRun,
+    isIdle,
+    localNarrowingIsLossy,
+    truncated,
+    ranAt,
     submit,
     hasPendingChanges,
     dateRange,
-    setDateRange,
     rowFilters,
-    setRowFilters,
-    submittedRowFilters,
+    applyControls,
+    appliedRowFilters,
+    visibleWindow,
   } = query;
 
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
   const [page, setPage] = useState(1);
 
-  const filtersAreServerApplied = isEqual(rowFilters, submittedRowFilters);
+  // Compared against the filters the loaded rows were fetched with, not the
+  // ones a request was sent with: during an in-flight refresh, and after a
+  // failed one, the rows on screen are still the old ones.
+  const filtersAreServerApplied = isEqual(rowFilters, appliedRowFilters);
 
-  // Search and filters narrow what is already loaded, so neither costs a query.
+  // Set only when Apply shortened the timeframe without re-querying, so the
+  // buffer covers more than the controls now ask for.
+  const windowedRows = useMemo(
+    () =>
+      visibleWindow
+        ? rowsWithinWindow(rows, visibleWindow, (row) =>
+            getFilterValue(row, timestampColumn),
+          )
+        : rows,
+    [rows, visibleWindow, getFilterValue, timestampColumn],
+  );
+
+  const filteredRows = useMemo(
+    () =>
+      filtersAreServerApplied
+        ? windowedRows
+        : applyRowFilters(windowedRows, rowFilters, getFilterValue),
+    [windowedRows, rowFilters, filtersAreServerApplied, getFilterValue],
+  );
+
   const visibleRows = useMemo(() => {
-    const filtered = filtersAreServerApplied
-      ? rows
-      : applyRowFilters(rows, rowFilters, getFilterValue);
     const term = search.trim().toLowerCase();
-    if (!term) return filtered;
-    return filtered.filter((row) =>
+    if (!term) return filteredRows;
+    return filteredRows.filter((row) =>
       getSearchText(row).toLowerCase().includes(term),
     );
-  }, [
-    rows,
-    rowFilters,
-    filtersAreServerApplied,
-    search,
-    getFilterValue,
-    getSearchText,
-  ]);
+  }, [filteredRows, search, getSearchText]);
 
   // Narrowing the results can leave the current page past the end.
   useEffect(() => setPage(1), [visibleRows.length, rowsPerPage]);
@@ -132,22 +143,22 @@ export default function RecordsPanel<TRow extends object, TResponse>({
     [visibleRows, page, rowsPerPage],
   );
 
-  const narrowedLocally = !filtersAreServerApplied || search.trim().length > 0;
-
   const filterPanel = (
     <Flex direction="column" gap="4" height="100%">
       <Flex direction="column" gap="2">
         <Text weight="medium">Timeframe</Text>
         <DateRangeCompareDropdown
           value={{ dateRange, comparison: null }}
-          onChange={(next) => setDateRange(next.dateRange)}
+          onChange={(next) => applyControls({ dateRange: next.dateRange })}
+          disabled={isRefreshing}
           fullWidth
         />
       </Flex>
       <RowFilterPanel
         value={rowFilters}
-        setValue={setRowFilters}
+        setValue={(filters) => applyControls({ rowFilters: filters })}
         columnSource={columnSource}
+        disabled={isRefreshing}
       />
     </Flex>
   );
@@ -162,24 +173,18 @@ export default function RecordsPanel<TRow extends object, TResponse>({
         </Heading>
         <Flex gap="3" align="center" wrap="wrap">
           {headerActions}
-          {lastUpdated && (
-            <Tooltip content={datetime(lastUpdated)}>
-              <Text
-                size="sm"
-                color={hasPendingChanges ? "text-mid" : "text-low"}
-              >
-                {hasPendingChanges
-                  ? "Changes not applied"
-                  : `Updated ${ago(lastUpdated).replace("about ", "")}`}
+          {ranAt && (
+            <Tooltip content={datetime(ranAt)}>
+              <Text size="sm" color="text-low">
+                {`Updated ${ago(ranAt).replace("about ", "")}`}
               </Text>
             </Tooltip>
           )}
           <Button
-            // Solid while staged changes are unapplied, so the control that
-            // runs the query is the one that looks pending.
             variant={hasPendingChanges ? "solid" : "soft"}
             size="sm"
             loading={isRefreshing}
+            disabled={isRefreshing}
             onClick={submit}
             icon={<PiArrowsClockwise />}
           >
@@ -210,13 +215,18 @@ export default function RecordsPanel<TRow extends object, TResponse>({
             This range holds more rows than were loaded, so counts and pages
             cover the most recent ones only. Narrow the timeframe to see the
             rest.
-            {narrowedLocally
-              ? " Search and unapplied filters look at the loaded rows alone — refresh to apply filters across the whole timeframe."
-              : ""}
+            {search.trim() ? " Search looks at the loaded rows alone." : ""}
           </Callout>
         )}
 
-        {!hasRun && !autoRun && !isRefreshing ? (
+        {localNarrowingIsLossy && (
+          <Callout status="warning" size="sm" mb="3">
+            These rows were loaded with different filters. Refresh to apply the
+            current ones.
+          </Callout>
+        )}
+
+        {isIdle ? (
           <Text size="sm" color="text-low">
             {idleMessage}
           </Text>

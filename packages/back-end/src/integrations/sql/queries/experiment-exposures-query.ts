@@ -1,4 +1,4 @@
-import { format, SQL_ROW_LIMIT } from "shared/sql";
+import { format, quoteIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
 import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
@@ -16,6 +16,21 @@ export function isSafeIdentifier(name: string): boolean {
   return SAFE_IDENTIFIER.test(name);
 }
 
+function filterColumnExpr(column: string, dialect: SqlDialect): string {
+  const cast = dialect.castToFilterString ?? dialect.castToString;
+  return dialect.lowerString(cast(quoteColumnIdentifier(column, dialect)));
+}
+
+function quoteColumnIdentifier(name: string, dialect: SqlDialect): string {
+  const folded =
+    dialect.unquotedIdentifierFold === "upper"
+      ? name.toUpperCase()
+      : dialect.unquotedIdentifierFold === "lower"
+        ? name.toLowerCase()
+        : name;
+  return quoteIdentifier(folded, dialect.identifierQuote);
+}
+
 function exposureColumnsAsFactTable(
   columns: string[],
   dialect: SqlDialect,
@@ -28,7 +43,7 @@ function exposureColumnsAsFactTable(
       name: column,
       datatype: "string" as const,
       isVirtual: true,
-      sql: dialect.castToString(column),
+      sql: filterColumnExpr(column, dialect),
       description: "",
       numberFormat: "" as const,
       deleted: false,
@@ -107,7 +122,10 @@ export function getExperimentExposuresQuery(
   });
   const rowFilterWhere = rowFilters.length
     ? buildRowFilterWhereClause({
-        rowFilters,
+        rowFilters: rowFilters.map((f) => ({
+          ...f,
+          values: f.values?.map((v) => v.toLowerCase()),
+        })),
         factTable: exposureColumnsAsFactTable(filterableColumns, dialect),
         dialect,
       })
@@ -127,10 +145,10 @@ export function getExperimentExposuresQuery(
       ${compiledExposureQuery}
     )
     SELECT * FROM __exposureQuery
-    WHERE experiment_id = '${trackingKey}'
-      AND timestamp >= ${dialect.toTimestamp(params.startDate)}
-      AND timestamp < ${dialect.toTimestamp(params.endDate)}${extraWhere}
-    ORDER BY ${orderColumns.map((column) => `${column} DESC`).join(", ")}
+    WHERE ${quoteColumnIdentifier("experiment_id", dialect)} = '${trackingKey}'
+      AND ${quoteColumnIdentifier("timestamp", dialect)} >= ${dialect.toTimestamp(params.startDate)}
+      AND ${quoteColumnIdentifier("timestamp", dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
+    ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}
     ${dialect.paginate(limit, 0)}
     `,
     dialect.formatDialect,

@@ -1,4 +1,6 @@
+import { isEqual } from "lodash";
 import { RowFilter } from "shared/types/fact-table";
+import { stringRowFilterOperators } from "shared/validators";
 import { isRowFilterComplete } from "./rowFilterUtils";
 
 /**
@@ -40,7 +42,7 @@ export function compileRowFilter<T>(
   const first = values[0] ?? "";
   const pattern =
     operator === "matches_pattern" || operator === "not_matches_pattern"
-      ? globToRegExp(first)
+      ? parseGlob(first)
       : null;
 
   return (row: T) => {
@@ -71,9 +73,9 @@ export function compileRowFilter<T>(
       case "not_contains":
         return !value.includes(first);
       case "matches_pattern":
-        return !!pattern?.test(value);
+        return !!pattern && matchesGlob(value, pattern);
       case "not_matches_pattern":
-        return !pattern?.test(value);
+        return !pattern || !matchesGlob(value, pattern);
 
       // Numeric, date and boolean operators. Reachable only if a caller offers
       // columns typed as something other than string, which no surface does
@@ -111,22 +113,112 @@ function fold(value: string): string {
   return value.toLowerCase();
 }
 
+interface Glob {
+  segments: string[];
+  leadingStar: boolean;
+  trailingStar: boolean;
+}
+
+function parseGlob(glob: string): Glob {
+  return {
+    segments: glob.split("*").filter((seg) => seg !== ""),
+    leadingStar: glob.startsWith("*"),
+    trailingStar: glob.endsWith("*"),
+  };
+}
+
+function segmentMatchesAt(value: string, segment: string, at: number): boolean {
+  if (at < 0 || at + segment.length > value.length) return false;
+  for (let i = 0; i < segment.length; i++) {
+    const c = segment[i];
+    if (c !== "?" && c !== value[at + i]) return false;
+  }
+  return true;
+}
+
+function indexOfSegment(
+  value: string,
+  segment: string,
+  from: number,
+  to: number,
+): number {
+  for (let at = from; at + segment.length <= to; at++) {
+    if (segmentMatchesAt(value, segment, at)) return at;
+  }
+  return -1;
+}
+
 /**
- * The user-facing wildcard pattern, as a RegExp. Mirrors `globToLikePattern`
- * in shared/sql.ts: `*` matches any run, `?` exactly one, everything else is
- * literal. Anchored, because LIKE matches the whole value.
+ * Anchored glob match, because LIKE matches the whole value.
  */
-function globToRegExp(glob: string): RegExp {
-  const source = glob
-    .split(/([*?])/)
-    .map((chunk) => {
-      if (chunk === "*") return ".*";
-      if (chunk === "?") return ".";
-      return chunk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    })
-    .join("")
-    // A run of `*` means the same as one, but each extra `.*` multiplies the
-    // backtracking the engine does against a long non-matching value.
-    .replace(/(?:\.\*)+/g, ".*");
-  return new RegExp(`^${source}$`, "s");
+function matchesGlob(value: string, glob: Glob): boolean {
+  const { segments, leadingStar, trailingStar } = glob;
+
+  // "" matches only the empty string; "*", "**", ... match anything.
+  if (!segments.length) return leadingStar || value.length === 0;
+
+  // No wildcard at all: the segment is the entire value. Handled up front
+  // because the loop below would otherwise anchor the same segment twice.
+  if (!leadingStar && !trailingStar && segments.length === 1) {
+    return (
+      value.length === segments[0].length &&
+      segmentMatchesAt(value, segments[0], 0)
+    );
+  }
+
+  let from = 0;
+  let to = value.length;
+  let firstFloating = 0;
+  let endFloating = segments.length;
+
+  if (!leadingStar) {
+    const segment = segments[0];
+    if (!segmentMatchesAt(value, segment, 0)) return false;
+    from = segment.length;
+    firstFloating = 1;
+  }
+  if (!trailingStar) {
+    const segment = segments[segments.length - 1];
+    const at = to - segment.length;
+    if (at < from || !segmentMatchesAt(value, segment, at)) return false;
+    to = at;
+    endFloating = segments.length - 1;
+  }
+
+  for (let i = firstFloating; i < endFloating; i++) {
+    const segment = segments[i];
+    const found = indexOfSegment(value, segment, from, to);
+    if (found === -1) return false;
+    from = found + segment.length;
+  }
+  return true;
+}
+
+export function rowFilterIsLocallyEvaluable(filter: RowFilter): boolean {
+  return (
+    !!filter.column &&
+    (stringRowFilterOperators as readonly string[]).includes(filter.operator)
+  );
+}
+
+export function canNarrowLoadedRows({
+  loadedFilters,
+  nextFilters,
+  truncated,
+}: {
+  loadedFilters: RowFilter[] | null;
+  nextFilters: RowFilter[];
+  truncated: boolean;
+}): boolean {
+  if (loadedFilters === null) return false;
+  if (truncated) return false;
+
+  const remaining = [...nextFilters];
+  for (const filter of loadedFilters) {
+    const i = remaining.findIndex((next) => isEqual(next, filter));
+    if (i === -1) return false;
+    remaining.splice(i, 1);
+  }
+
+  return remaining.every(rowFilterIsLocallyEvaluable);
 }

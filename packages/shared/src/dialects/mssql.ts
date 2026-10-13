@@ -33,6 +33,7 @@ export const mssqlDialect: SqlDialect = {
   castToFloat: (col: string) => `CAST(${col} as FLOAT)`,
   formatDate: (col: string) => `FORMAT(${col}, 'yyyy-MM-dd')`,
   castToString: (col: string) => `cast(${col} as varchar(256))`,
+  castToFilterString: (col: string) => `cast(${col} as varchar(8000))`,
   formatDateTimeString: (col: string) => `CONVERT(VARCHAR(25), ${col}, 121)`,
   percentileApprox: (value: string, quantile: string | number) =>
     `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`,

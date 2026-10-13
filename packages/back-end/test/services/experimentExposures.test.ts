@@ -3,6 +3,7 @@ import { experimentExposureRecordValidator } from "shared/validators";
 import {
   coerceValue,
   getColumn,
+  getExposuresCacheKey,
   MAX_EXTRA_COLUMNS,
   MAX_VALUE_LENGTH,
   normalizeTimestamp,
@@ -167,5 +168,69 @@ describe("shapeExposureRows", () => {
       z.array(experimentExposureRecordValidator).parse(records),
     ).not.toThrow();
     expect(records[0].userId).toBeNull();
+  });
+});
+
+describe("getExposuresCacheKey", () => {
+  const base = {
+    experimentId: "exp_123",
+    experimentTrackingKey: "my-experiment",
+    exposureQueryId: "eq_1",
+    exposureQuerySql: "SELECT * FROM exposures",
+    userIdType: "user_id",
+    dimensions: ["country"],
+    windowMs: 24 * 60 * 60 * 1000,
+    rowFilters: [],
+    limit: 1000,
+  };
+
+  it("ignores where the window sits, which is the whole point", () => {
+    // The generated SQL embeds minute-snapped dates, so a rolling 24h window
+    // produces a different string every minute and never hits the cache twice.
+    expect(getExposuresCacheKey(base)).toBe(getExposuresCacheKey({ ...base }));
+  });
+
+  it("ignores sub-minute jitter in the window length", () => {
+    expect(
+      getExposuresCacheKey({ ...base, windowMs: base.windowMs + 400 }),
+    ).toBe(getExposuresCacheKey(base));
+  });
+
+  it("separates windows of different lengths", () => {
+    expect(
+      getExposuresCacheKey({ ...base, windowMs: 7 * 24 * 60 * 60 * 1000 }),
+    ).not.toBe(getExposuresCacheKey(base));
+  });
+
+  it("separates a filtered run from an unfiltered one", () => {
+    // This is what lets the panel show cached rows beside an empty filter
+    // panel: an unfiltered probe can only ever match an unfiltered run.
+    expect(
+      getExposuresCacheKey({
+        ...base,
+        rowFilters: [{ column: "country", operator: "=", values: ["US"] }],
+      }),
+    ).not.toBe(getExposuresCacheKey(base));
+  });
+
+  it("separates runs differing only in filter value", () => {
+    const withValue = (v: string) =>
+      getExposuresCacheKey({
+        ...base,
+        rowFilters: [{ column: "country", operator: "=", values: [v] }],
+      });
+    expect(withValue("US")).not.toBe(withValue("GB"));
+  });
+
+  it("separates experiments, dimensions, and an edited exposure query", () => {
+    expect(getExposuresCacheKey({ ...base, experimentId: "exp_456" })).not.toBe(
+      getExposuresCacheKey(base),
+    );
+    expect(
+      getExposuresCacheKey({ ...base, dimensions: ["country", "browser"] }),
+    ).not.toBe(getExposuresCacheKey(base));
+    expect(
+      getExposuresCacheKey({ ...base, exposureQuerySql: "SELECT 1" }),
+    ).not.toBe(getExposuresCacheKey(base));
   });
 });

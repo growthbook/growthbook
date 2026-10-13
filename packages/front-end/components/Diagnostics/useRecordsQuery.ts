@@ -3,7 +3,9 @@ import { isEqual } from "lodash";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import type { ExplorationDateRange } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
+import { canNarrowLoadedRows } from "@/components/FactTables/rowFilterMatch";
 import { useAuth } from "@/services/auth";
+import { type ResolvedWindow, windowIsWithinLoaded } from "./recordsWindow";
 
 /** 24 hours back, matching the window these panels opened on before. */
 export const DEFAULT_RECORDS_DATE_RANGE: ExplorationDateRange = {
@@ -12,16 +14,26 @@ export const DEFAULT_RECORDS_DATE_RANGE: ExplorationDateRange = {
   lookbackUnit: "hour",
 };
 
+export type RecordsCacheOption = "preferred" | "required" | "never";
+
 export interface BuildParamsInput {
   startDate: string;
   endDate: string;
   rowFilters: RowFilter[];
+  cache: RecordsCacheOption;
+}
+
+export interface RecordsQueryMeta {
+  truncated: boolean;
+  ranAt?: string;
 }
 
 export interface RecordsQueryConfig<TRow, TResponse> {
   endpoint: string;
   buildParams: (input: BuildParamsInput) => Record<string, unknown>;
   selectRows: (data: TResponse) => TRow[];
+  selectMeta?: (data: TResponse) => RecordsQueryMeta;
+  selectNoCachedResult?: (data: TResponse) => boolean;
   /** Datasource present and supported, and the user may run queries. */
   canRun: boolean;
   /** Run without an explicit Refresh. True for managed warehouses. */
@@ -38,31 +50,38 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
   error: Error | undefined;
   isLoading: boolean;
   isRefreshing: boolean;
-  hasRun: boolean;
-  canRun: boolean;
-  autoRun: boolean;
-  /** Re-queries the warehouse with the staged range and the applied filters. */
+  /** Nothing is loaded, nothing is running, and the cache had nothing. */
+  isIdle: boolean;
+  localNarrowingIsLossy: boolean;
+  truncated: boolean;
+  ranAt: string | undefined;
+  /** Re-runs the query, bypassing the cache, with the current controls. */
   submit: () => void;
-  /** Staged edits the last query did not see. */
   hasPendingChanges: boolean;
 
-  /** Staged: takes effect on the next submit, not on selection. */
   dateRange: ExplorationDateRange;
-  setDateRange: (range: ExplorationDateRange) => void;
-
-  /**
-   * Applied filters. They narrow the loaded rows immediately; the warehouse
-   * only sees them on the next submit.
-   */
   rowFilters: RowFilter[];
-  setRowFilters: (filters: RowFilter[]) => void;
-  submittedRowFilters: RowFilter[];
+
+  applyControls: (next: {
+    rowFilters?: RowFilter[];
+    dateRange?: ExplorationDateRange;
+  }) => void;
+  appliedRowFilters: RowFilter[] | null;
+  visibleWindow: ResolvedWindow | null;
+}
+
+interface RunArgs {
+  filters: RowFilter[];
+  range: ExplorationDateRange;
+  cache: RecordsCacheOption;
 }
 
 export default function useRecordsQuery<TRow, TResponse>({
   endpoint,
   buildParams,
   selectRows,
+  selectMeta,
+  selectNoCachedResult,
   canRun,
   autoRun,
   isActive = true,
@@ -72,102 +91,141 @@ export default function useRecordsQuery<TRow, TResponse>({
   TResponse
 > {
   const { apiCall } = useAuth();
-  // Every control is staged: what the controls show, vs. what the query
-  // actually ran with. Only submit closes the gap, so a customer's warehouse is
-  // never billed for a dropdown pick.
   const [dateRange, setDateRange] =
     useState<ExplorationDateRange>(defaultDateRange);
-  const [submittedDateRange, setSubmittedDateRange] =
-    useState<ExplorationDateRange>(defaultDateRange);
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
-  const [submittedRowFilters, setSubmittedRowFilters] = useState<RowFilter[]>(
-    [],
+
+  const [appliedDateRange, setAppliedDateRange] =
+    useState<ExplorationDateRange | null>(null);
+  const [appliedRowFilters, setAppliedRowFilters] = useState<
+    RowFilter[] | null
+  >(null);
+  const [appliedWindow, setAppliedWindow] = useState<ResolvedWindow | null>(
+    null,
   );
+  const [visibleWindow, setVisibleWindow] = useState<ResolvedWindow | null>(
+    null,
+  );
+
   const [data, setData] = useState<TResponse>();
   const [error, setError] = useState<Error>();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [inFlight, setInFlight] = useState<null | "cache" | "query">(null);
+  const [cacheProbe, setCacheProbe] = useState<"pending" | "done">("pending");
   const [stateEndpoint, setStateEndpoint] = useState(endpoint);
   const requestVersion = useRef(0);
   const endpointIsCurrent = stateEndpoint === endpoint;
+
+  const configRef = useRef({
+    buildParams,
+    selectRows,
+    selectMeta,
+    selectNoCachedResult,
+  });
+  configRef.current = {
+    buildParams,
+    selectRows,
+    selectMeta,
+    selectNoCachedResult,
+  };
 
   useEffect(() => {
     if (endpointIsCurrent) return;
     requestVersion.current++;
     setStateEndpoint(endpoint);
     setDateRange(defaultDateRange);
-    setSubmittedDateRange(defaultDateRange);
     setRowFilters([]);
-    setSubmittedRowFilters([]);
+    setAppliedDateRange(null);
+    setAppliedRowFilters(null);
+    setAppliedWindow(null);
+    setVisibleWindow(null);
     setData(undefined);
     setError(undefined);
-    setIsRefreshing(false);
+    setInFlight(null);
+    setCacheProbe("pending");
   }, [defaultDateRange, endpoint, endpointIsCurrent]);
 
-  const submit = useCallback(() => {
+  const run = useCallback(
+    ({ filters, range, cache }: RunArgs) => {
+      if (!canRun || !isActive || !endpointIsCurrent) return;
+
+      const resolvedRange = calculateProductAnalyticsDateRange(range);
+      const resolved: ResolvedWindow = {
+        startDate: resolvedRange.startDate.toISOString(),
+        endDate: resolvedRange.endDate.toISOString(),
+      };
+      const version = ++requestVersion.current;
+
+      setError(undefined);
+      setInFlight(cache === "required" ? "cache" : "query");
+
+      apiCall<TResponse>(endpoint, {
+        method: "POST",
+        body: JSON.stringify(
+          configRef.current.buildParams({
+            startDate: resolved.startDate,
+            endDate: resolved.endDate,
+            rowFilters: filters,
+            cache,
+          }),
+        ),
+      })
+        .then((response) => {
+          if (requestVersion.current !== version) return;
+          if (configRef.current.selectNoCachedResult?.(response)) return;
+          setData(response);
+          setAppliedDateRange(range);
+          setAppliedRowFilters(filters);
+          setAppliedWindow(resolved);
+          setVisibleWindow(null);
+        })
+        .catch((e: unknown) => {
+          if (requestVersion.current !== version) return;
+          setError(
+            e instanceof Error ? e : new Error("Could not load records."),
+          );
+        })
+        .finally(() => {
+          if (requestVersion.current !== version) return;
+          setInFlight(null);
+          // Unconditional, including for a request that raced ahead of the
+          // probe — otherwise the probe effect fires once this one lands.
+          setCacheProbe("done");
+        });
+    },
+    [apiCall, canRun, endpoint, endpointIsCurrent, isActive],
+  );
+
+  useEffect(() => {
     if (!canRun || !isActive || !endpointIsCurrent) return;
-
-    const resolved = calculateProductAnalyticsDateRange(dateRange);
-    const window = {
-      startDate: resolved.startDate.toISOString(),
-      endDate: resolved.endDate.toISOString(),
-    };
-    const filters = rowFilters;
-    const version = ++requestVersion.current;
-
-    setSubmittedDateRange(dateRange);
-    setSubmittedRowFilters(filters);
-    setError(undefined);
-    setIsRefreshing(true);
-
-    apiCall<TResponse>(endpoint, {
-      method: "POST",
-      body: JSON.stringify(
-        buildParams({
-          startDate: window.startDate,
-          endDate: window.endDate,
-          rowFilters: filters,
-        }),
-      ),
-    })
-      .then((response) => {
-        if (requestVersion.current !== version) return;
-        setData(response);
-      })
-      .catch((e: unknown) => {
-        if (requestVersion.current !== version) return;
-        setError(e instanceof Error ? e : new Error("Could not load records."));
-      })
-      .finally(() => {
-        if (requestVersion.current !== version) return;
-        setIsRefreshing(false);
-      });
+    if (cacheProbe !== "pending" || inFlight !== null) return;
+    run({ filters: [], range: defaultDateRange, cache: "required" });
   }, [
-    apiCall,
-    buildParams,
     canRun,
-    dateRange,
-    endpoint,
-    endpointIsCurrent,
     isActive,
-    rowFilters,
+    endpointIsCurrent,
+    cacheProbe,
+    inFlight,
+    defaultDateRange,
+    run,
   ]);
 
-  // Only the first load is automatic, and only where compute is ours, so a
-  // customer's warehouse is never hit just by opening the tab. Goes through
-  // submit so the window is resolved in exactly one place.
   useEffect(() => {
     if (!canRun || !isActive || !autoRun || !endpointIsCurrent) return;
-    if (data !== undefined || error !== undefined || isRefreshing) return;
-    submit();
+    if (cacheProbe !== "done" || inFlight !== null) return;
+    if (data !== undefined || error !== undefined) return;
+    run({ filters: rowFilters, range: dateRange, cache: "preferred" });
   }, [
     canRun,
     isActive,
     autoRun,
     endpointIsCurrent,
+    cacheProbe,
+    inFlight,
     data,
     error,
-    isRefreshing,
-    submit,
+    rowFilters,
+    dateRange,
+    run,
   ]);
 
   useEffect(
@@ -178,32 +236,104 @@ export default function useRecordsQuery<TRow, TResponse>({
   );
 
   const rows = useMemo(
-    () => (data ? selectRows(data) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => (data ? configRef.current.selectRows(data) : []),
     [data],
+  );
+  const meta = useMemo(
+    () => (data ? configRef.current.selectMeta?.(data) : undefined),
+    [data],
+  );
+  const truncated = meta?.truncated ?? false;
+
+  const submit = useCallback(() => {
+    if (inFlight !== null) return;
+    run({ filters: rowFilters, range: dateRange, cache: "never" });
+  }, [dateRange, inFlight, rowFilters, run]);
+
+  const filtersCanNarrow = canNarrowLoadedRows({
+    loadedFilters: appliedRowFilters,
+    nextFilters: rowFilters,
+    truncated,
+  });
+
+  const applyControls = useCallback(
+    (next: { rowFilters?: RowFilter[]; dateRange?: ExplorationDateRange }) => {
+      const filters = next.rowFilters ?? rowFilters;
+      const range = next.dateRange ?? dateRange;
+      if (next.rowFilters) setRowFilters(next.rowFilters);
+      if (next.dateRange) setDateRange(next.dateRange);
+      if (inFlight !== null) return;
+
+      const sameRange = isEqual(range, appliedDateRange);
+      let nextWindow: ResolvedWindow | null = visibleWindow;
+      let rangeCanNarrow = sameRange;
+      if (!sameRange && appliedWindow !== null && !truncated) {
+        const resolvedRange = calculateProductAnalyticsDateRange(range);
+        const candidate: ResolvedWindow = {
+          startDate: resolvedRange.startDate.toISOString(),
+          endDate: resolvedRange.endDate.toISOString(),
+        };
+        if (
+          windowIsWithinLoaded(candidate, appliedWindow, {
+            allowStaleEnd: range.predefined !== "customDateRange",
+          })
+        ) {
+          nextWindow = candidate;
+          rangeCanNarrow = true;
+        }
+      }
+
+      const canNarrow =
+        rangeCanNarrow &&
+        canNarrowLoadedRows({
+          loadedFilters: appliedRowFilters,
+          nextFilters: filters,
+          truncated,
+        });
+
+      if (canNarrow) {
+        setAppliedDateRange(range);
+        setVisibleWindow(nextWindow);
+        return;
+      }
+      if (appliedRowFilters !== null) {
+        run({ filters, range, cache: "preferred" });
+      }
+    },
+    [
+      appliedDateRange,
+      appliedRowFilters,
+      appliedWindow,
+      dateRange,
+      inFlight,
+      rowFilters,
+      run,
+      truncated,
+      visibleWindow,
+    ],
   );
 
   const hasRun = data !== undefined || error !== undefined;
-  const hasPendingChanges =
-    !isEqual(dateRange, submittedDateRange) ||
-    !isEqual(rowFilters, submittedRowFilters);
 
   return {
     rows,
     data,
     error,
-    isLoading: isRefreshing && !hasRun,
-    isRefreshing,
-    hasRun,
-    canRun,
-    autoRun,
+    isLoading: inFlight !== null && !hasRun,
+    isRefreshing: inFlight !== null,
+    isIdle: (cacheProbe === "done" || !canRun) && inFlight === null && !hasRun,
+    localNarrowingIsLossy:
+      inFlight === null && appliedRowFilters !== null && !filtersCanNarrow,
+    truncated,
+    ranAt: meta?.ranAt,
     submit,
-    hasPendingChanges,
+    hasPendingChanges:
+      appliedDateRange !== null && !isEqual(dateRange, appliedDateRange),
 
     dateRange,
-    setDateRange,
     rowFilters,
-    setRowFilters,
-    submittedRowFilters,
+    applyControls,
+    appliedRowFilters,
+    visibleWindow,
   };
 }

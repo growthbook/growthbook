@@ -16,6 +16,7 @@ router.post(
         startDate: z.string().datetime(),
         endDate: z.string().datetime(),
         rowFilters: z.array(stringRowFilterValidator).optional(),
+        cache: z.enum(["preferred", "required", "never"]).optional(),
       })
       .strict(),
   }),

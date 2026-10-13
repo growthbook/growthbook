@@ -1,9 +1,45 @@
+import { createHash } from "crypto";
 import type { ExperimentExposureRecord } from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import { columnNamesMatch } from "back-end/src/util/sql";
 
 // 100 rows x 40 columns x 1000 chars caps a page at roughly 4MB of JSON.
 export const MAX_EXTRA_COLUMNS = 40;
 export const MAX_VALUE_LENGTH = 1000;
+
+export interface ExposuresCacheKeyParams {
+  experimentId: string;
+  experimentTrackingKey: string;
+  exposureQueryId: string;
+  exposureQuerySql: string;
+  userIdType: string;
+  dimensions: string[];
+  windowMs: number;
+  rowFilters: RowFilter[];
+  limit: number;
+}
+
+export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        params.experimentId,
+        params.experimentTrackingKey,
+        params.exposureQueryId,
+        params.exposureQuerySql,
+        params.userIdType,
+        params.dimensions,
+        Math.round(params.windowMs / 60000),
+        params.rowFilters.map((f) => [
+          f.operator,
+          f.column ?? "",
+          f.values ?? [],
+        ]),
+        params.limit,
+      ]),
+    )
+    .digest("hex");
+}
 
 export interface ShapeExposureRowsParams {
   rows: Record<string, unknown>[];

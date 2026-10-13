@@ -29,6 +29,7 @@ interface ExposuresResponse {
   error?: string;
   cached?: boolean;
   ranAt?: string;
+  noCachedResult?: boolean;
 }
 
 const VARIATION_COLUMN = "variation_id";
@@ -80,10 +81,13 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     autoRun,
     isActive: isTabActive,
     selectRows: (data) => data.records,
-    buildParams: ({ startDate, endDate, rowFilters }) => ({
+    selectMeta: (data) => ({ truncated: data.truncated, ranAt: data.ranAt }),
+    selectNoCachedResult: (data) => data.noCachedResult === true,
+    buildParams: ({ startDate, endDate, rowFilters, cache }) => ({
       startDate,
       endDate,
       rowFilters,
+      cache,
     }),
   });
 
@@ -237,11 +241,9 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       columnSource={columnSource}
       detailFlattenKeys={["dimensions", "extra"]}
       detailTitle="Full exposure record"
-      lastUpdated={query.data?.ranAt}
-      truncated={query.data?.truncated}
       searchPlaceholder="Search exposures..."
       emptyMessage="No exposures found for this time range."
-      idleMessage="Click Refresh to load exposure records."
+      idleMessage="No recent results. Click Refresh to load exposure records."
       warning={warning}
     />
   );

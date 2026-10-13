@@ -1968,7 +1968,7 @@ describe("getExperimentExposuresQuery", () => {
   it("uses deterministic tie-breakers for pagination", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, params);
     expect(sql).toMatch(
-      /ORDER BY\s+timestamp DESC,\s+user_id DESC,\s+variation_id DESC,\s+country DESC/,
+      /ORDER BY\s+`timestamp` DESC,\s+`user_id` DESC,\s+`variation_id` DESC,\s+`country` DESC/,
     );
   });
 
@@ -1999,10 +1999,10 @@ describe("getExperimentExposuresQuery", () => {
         { column: "country", operator: "in", values: ["US", "GB"] },
       ],
     });
-    expect(sql).toContain("cast(variation_id as string)) = '0'");
-    expect(sql).toMatch(/cast\(country as string\)\) IN/);
-    expect(sql).toContain("'US'");
-    expect(sql).toContain("'GB'");
+    expect(sql).toContain("LOWER(cast(`variation_id` as string))) = '0'");
+    expect(sql).toMatch(/LOWER\(cast\(`country` as string\)\)\) IN/);
+    expect(sql).toContain("'us'");
+    expect(sql).toContain("'gb'");
   });
 
   it("supports the string operators the filter panel offers", () => {
@@ -2013,8 +2013,8 @@ describe("getExperimentExposuresQuery", () => {
         { column: "country", operator: "not_null", values: [] },
       ],
     });
-    expect(sql).toMatch(/cast\(user_id as string\)\) LIKE '%abc%'/);
-    expect(sql).toContain("cast(country as string)) IS NOT NULL");
+    expect(sql).toMatch(/LOWER\(cast\(`user_id` as string\)\)\) LIKE '%abc%'/);
+    expect(sql).toContain("LOWER(cast(`country` as string))) IS NOT NULL");
   });
 
   it("casts filtered columns to string so INT64 columns compare", () => {
@@ -2028,8 +2028,8 @@ describe("getExperimentExposuresQuery", () => {
         { column: "user_id", operator: "contains", values: ["abc"] },
       ],
     });
-    expect(sql).toContain("cast(variation_id as string)");
-    expect(sql).toContain("cast(user_id as string)");
+    expect(sql).toContain("cast(`variation_id` as string)");
+    expect(sql).toContain("cast(`user_id` as string)");
   });
 
   it("casts with the dialect's own spelling", () => {
@@ -2037,7 +2037,49 @@ describe("getExperimentExposuresQuery", () => {
       ...params,
       rowFilters: [{ column: "variation_id", operator: "=", values: ["0"] }],
     });
-    expect(sql).toContain("cast(variation_id as varchar(256))");
+    expect(sql).toContain('cast("variation_id" as varchar(8000))');
+  });
+
+  it("does not cap a SQL Server filter at the castToString width", () => {
+    // castToString is varchar(256), sized for GROUP BY and sort keys. Using
+    // it here would compare only the first 256 characters of a value the
+    // table displays in full, so a filter could miss its own row.
+    const sql = getExperimentExposuresQuery(mssqlDialect, {
+      ...params,
+      rowFilters: [{ column: "user_id", operator: "=", values: ["x"] }],
+    });
+    expect(sql).not.toContain("varchar(256)");
+  });
+
+  it("lowercases both sides so the warehouse matches like the client does", () => {
+    // The panel narrows loaded rows case-insensitively. Without this the same
+    // filter returns a different set before and after a Refresh.
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      rowFilters: [{ column: "country", operator: "=", values: ["US"] }],
+    });
+    expect(sql).toContain("LOWER(cast(`country` as string))) = 'us'");
+    expect(sql).not.toContain("'US'");
+  });
+
+  it("lowercases a pattern's value too", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      rowFilters: [
+        { column: "user_id", operator: "matches_pattern", values: ["USR*"] },
+      ],
+    });
+    expect(sql).toContain("LIKE 'usr%'");
+  });
+
+  it("folds case with ClickHouse's unicode-aware function", () => {
+    // ClickHouse's lower() is ASCII only, while the client's toLowerCase()
+    // is not, so lower() would disagree on non-ASCII dimension values.
+    const sql = getExperimentExposuresQuery(clickHouseDialect, {
+      ...params,
+      rowFilters: [{ column: "country", operator: "=", values: ["US"] }],
+    });
+    expect(sql).toContain("lowerUTF8(toString(\"country\"))) = 'us'");
   });
 
   it("does not cast the ORDER BY columns", () => {
@@ -2048,15 +2090,41 @@ describe("getExperimentExposuresQuery", () => {
       rowFilters: [{ column: "variation_id", operator: "=", values: ["0"] }],
     });
     expect(sql).toMatch(
-      /ORDER BY\s+timestamp DESC,\s+user_id DESC,\s+variation_id DESC/,
+      /ORDER BY\s+`timestamp` DESC,\s+`user_id` DESC,\s+`variation_id` DESC/,
     );
   });
 
-  it("leaves experiment_id bare", () => {
+  it("quotes the required columns", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, params);
     // The tracking key is always a string, and it is the predicate most likely
     // to drive partition pruning.
-    expect(sql).toContain("experiment_id = 'my-experiment'");
+    expect(sql).toContain("`experiment_id` = 'my-experiment'");
+    expect(sql).toContain("`timestamp` >=");
+  });
+
+  it("quotes reserved-word columns", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      dimensions: ["order"],
+      rowFilters: [{ column: "order", operator: "=", values: ["first"] }],
+    });
+    expect(sql).toContain("LOWER(cast(`order` as string))) = 'first'");
+    expect(sql).toContain("`order` DESC");
+  });
+
+  it("folds quoted identifiers the way the warehouse folds bare aliases", () => {
+    expect(
+      getExperimentExposuresQuery(snowflakeDialect, {
+        ...params,
+        userIdType: "userId",
+      }),
+    ).toContain('"USERID" DESC');
+    expect(
+      getExperimentExposuresQuery(postgresDialect, {
+        ...params,
+        userIdType: "userId",
+      }),
+    ).toContain('"userid" DESC');
   });
 
   it("rejects dimension names that are not identifier-shaped", () => {
