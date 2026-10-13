@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { eventReviewer } from "./event-user";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
+import { revisionWebhookReview } from "./revision-webhook-reference";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
@@ -37,7 +37,7 @@ export type FeatureRevisionUpdatedPayload = z.infer<
   typeof featureRevisionUpdatedPayload
 >;
 
-// `reviewComment` is the reviewer's prose; `comment` is the revision's own saved comment.
+// `reviewComment` is the requester's note.
 export const featureRevisionReviewRequestedPayload =
   featureRevisionWebhookPayload
     .extend({
@@ -49,32 +49,19 @@ export type FeatureRevisionReviewRequestedPayload = z.infer<
 >;
 
 export const featureRevisionReviewApprovedPayload =
-  featureRevisionWebhookPayload
-    .extend({
-      reviewer: eventReviewer,
-      reviewComment: z.string().nullable(),
-    })
-    .strict();
+  featureRevisionWebhookPayload.extend(revisionWebhookReview).strict();
 export type FeatureRevisionReviewApprovedPayload = z.infer<
   typeof featureRevisionReviewApprovedPayload
 >;
 
 export const featureRevisionChangesRequestedPayload =
-  featureRevisionWebhookPayload
-    .extend({
-      reviewer: eventReviewer,
-      reviewComment: z.string().nullable(),
-    })
-    .strict();
+  featureRevisionWebhookPayload.extend(revisionWebhookReview).strict();
 export type FeatureRevisionChangesRequestedPayload = z.infer<
   typeof featureRevisionChangesRequestedPayload
 >;
 
 export const featureRevisionCommentedPayload = featureRevisionWebhookPayload
-  .extend({
-    reviewer: eventReviewer,
-    reviewComment: z.string(),
-  })
+  .extend({ ...revisionWebhookReview, reviewComment: z.string() })
   .strict();
 export type FeatureRevisionCommentedPayload = z.infer<
   typeof featureRevisionCommentedPayload

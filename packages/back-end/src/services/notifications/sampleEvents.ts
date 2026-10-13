@@ -191,28 +191,18 @@ const sampleExperimentDiff: DiffResult = {
 };
 
 const sampleRevision = (): FeatureRevisionWebhookPayload => ({
-  featureId: "checkout-banner",
-  baseVersion: 2,
+  id: "frev_notification_test",
   version: 3,
-  comment: "Adjust checkout banner copy",
-  date: nowIso(),
   status: "draft",
-  createdBy: "Notification Test User",
-  publishedBy: "Notification Test User",
-  defaultValue: "false",
-  rules: {
-    [TEST_ENVIRONMENT]: [
-      {
-        id: "rule-rollout",
-        type: "rollout",
-        value: "true",
-        coverage: 0.5,
-      },
-    ],
+  title: "Adjust checkout banner copy",
+  authorId: "u_notification_test",
+  author: {
+    type: "dashboard",
+    id: "u_notification_test",
+    name: "Notification Test User",
+    email: "notifications@example.com",
   },
-  definitions: { [TEST_ENVIRONMENT]: "false" },
-  environmentsEnabled: { [TEST_ENVIRONMENT]: true },
-  prerequisites: [],
+  feature: { id: "checkout-banner" },
 });
 
 const sampleRamp = (): RampScheduleStartedPayload => ({
@@ -422,6 +412,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",
@@ -437,6 +428,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",
@@ -452,6 +444,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",

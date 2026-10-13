@@ -128,7 +128,6 @@ export {
   apiEventUser,
   assumingKeyOf,
   auditUserToEventUser,
-  eventReviewer,
   eventUserLabel,
   eventUserPerson,
   eventUserPersonId,

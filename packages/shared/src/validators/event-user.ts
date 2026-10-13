@@ -227,27 +227,13 @@ export function eventUserLabel(
   return keyName ? `${keyName} (API)` : "API key";
 }
 
-export const eventReviewer = z
-  .object({
-    id: z
-      .string()
-      .describe("The reviewer's user ID. Absent when a key reviewed as itself")
-      .optional(),
-    name: z
-      .string()
-      .describe(
-        "The reviewer's name, or the key's name when an organization API key reviewed as itself",
-      )
-      .optional(),
-    email: z.string().describe("The reviewer's email").optional(),
-  })
-  .strict();
-
 // Who an action is credited to: the person, or the key's name when an org
 // key named no one.
-export function eventUserCredit(
-  user: EventUser,
-): z.infer<typeof eventReviewer> {
+export function eventUserCredit(user: EventUser): {
+  id?: string;
+  name?: string;
+  email?: string;
+} {
   const person = eventUserPerson(user);
   if (person) return person;
   return user?.type === "api_key" && user.name ? { name: user.name } : {};

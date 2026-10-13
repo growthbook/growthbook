@@ -746,10 +746,9 @@ const buildSlackMessageForRampScheduleEvent = (
 // region Event-specific messages -> Feature Revision
 
 type RevisionSlackData = {
-  featureId: string;
-  version: number;
+  feature: { id: string };
+  version?: number;
   reviewComment?: string | null;
-  reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
   failureReason?: string;
   terminal?: boolean;
@@ -775,9 +774,9 @@ const buildSlackMessageForRevisionEvent = (
   data: RevisionSlackData,
   event: StoredEvent,
 ): SlackMessage => {
-  const feature = `*${data.featureId}*`;
-  const version = `v${data.version}`;
-  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const feature = `*${data.feature.id}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = eventUserLabel(event.data.user ?? null) || "someone";
   const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
 
   let text: string;
@@ -840,7 +839,7 @@ const buildSlackMessageForRevisionEvent = (
           type: "mrkdwn",
           text:
             text +
-            getFeatureUrlFormatted(data.featureId) +
+            getFeatureUrlFormatted(data.feature.id) +
             getEventUrlFormatted(event.id),
         },
       },
@@ -957,10 +956,9 @@ const buildSlackMessageForSavedGroupDeletedEvent = (
 
 type SavedGroupRevisionSlackData = {
   version?: number;
-  baseSavedGroup: { id: string; name: string };
+  savedGroup: { id: string; name: string };
   change?: string;
   reviewComment?: string | null;
-  reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
   failureReason?: string;
   terminal?: boolean;
@@ -972,9 +970,9 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
   data: SavedGroupRevisionSlackData,
   event: StoredEvent,
 ): SlackMessage => {
-  const group = `*${data.baseSavedGroup.name}*`;
+  const group = `*${data.savedGroup.name}*`;
   const version = `v${data.version ?? "?"}`;
-  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const reviewerName = eventUserLabel(event.data.user ?? null) || "someone";
   const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
 
   let text: string;
@@ -1037,7 +1035,7 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
           type: "mrkdwn",
           text:
             text +
-            getSavedGroupUrlFormatted(data.baseSavedGroup.id) +
+            getSavedGroupUrlFormatted(data.savedGroup.id) +
             getEventUrlFormatted(event.id),
         },
       },
@@ -1154,10 +1152,9 @@ const buildSlackMessageForConstantDeletedEvent = (
 
 type ConstantRevisionSlackData = {
   version?: number;
-  baseConstant: { id: string; name: string; key: string };
+  constant: { id: string; name: string; key: string };
   change?: string;
   reviewComment?: string | null;
-  reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
   failureReason?: string;
   terminal?: boolean;
@@ -1169,9 +1166,9 @@ const buildSlackMessageForConstantRevisionEvent = (
   data: ConstantRevisionSlackData,
   event: StoredEvent,
 ): SlackMessage => {
-  const name = `*${data.baseConstant.name}*`;
+  const name = `*${data.constant.name}*`;
   const version = `v${data.version ?? "?"}`;
-  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const reviewerName = eventUserLabel(event.data.user ?? null) || "someone";
   const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
 
   let text: string;
@@ -1234,7 +1231,7 @@ const buildSlackMessageForConstantRevisionEvent = (
           type: "mrkdwn",
           text:
             text +
-            getConstantUrlFormatted(data.baseConstant.key) +
+            getConstantUrlFormatted(data.constant.key) +
             getEventUrlFormatted(event.id),
         },
       },
@@ -1383,10 +1380,9 @@ const buildSlackMessageForConfigDeletedEvent = (
 
 type ConfigRevisionSlackData = {
   version?: number;
-  baseConfig: { id: string; name: string; key: string };
+  config: { id: string; name: string; key: string };
   change?: string;
   reviewComment?: string | null;
-  reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
   failureReason?: string;
   terminal?: boolean;
@@ -1398,9 +1394,9 @@ const buildSlackMessageForConfigRevisionEvent = (
   data: ConfigRevisionSlackData,
   event: StoredEvent,
 ): SlackMessage => {
-  const name = `*${data.baseConfig.name}*`;
+  const name = `*${data.config.name}*`;
   const version = `v${data.version ?? "?"}`;
-  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const reviewerName = eventUserLabel(event.data.user ?? null) || "someone";
   const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
 
   let text: string;
@@ -1463,7 +1459,7 @@ const buildSlackMessageForConfigRevisionEvent = (
           type: "mrkdwn",
           text:
             text +
-            getConfigUrlFormatted(data.baseConfig.key) +
+            getConfigUrlFormatted(data.config.key) +
             getEventUrlFormatted(event.id),
         },
       },

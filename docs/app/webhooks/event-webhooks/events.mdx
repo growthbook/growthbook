@@ -6,6 +6,8 @@ sidebarTitle: Events List
 
 import EventWebhookList from '/snippets/partials/event-webhook/_event-webhook-list.mdx';
 
-We currently support the following event types:
+We currently support the following event types.
+
+Revision events (`*.revision.*`) carry a reference to the revision: its ID, version, status, author and the entity it belongs to, plus the event's own fields such as the reviewer. Fetch the full revision, with its changes, reviews and history, from the [REST API](/api).
 
 <EventWebhookList />

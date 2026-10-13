@@ -74,7 +74,8 @@ type Actor = (typeof ACTORS)[number];
 
 // What each caller should be credited with, for Dana: the person, the
 // identity drafts and verdicts record (the key itself unless it assumes her
-// role), and the member a key records as having asked.
+// role), the member a key records as having asked, and the actor webhooks
+// report.
 const EXPECT: Record<
   Actor,
   {
@@ -83,6 +84,7 @@ const EXPECT: Record<
     armer: string;
     hasPerson: boolean;
     requestedBy?: string;
+    webhookActor: Record<string, unknown>;
   }
 > = {
   "a personal token": {
@@ -90,6 +92,7 @@ const EXPECT: Record<
     actorId: dana.id,
     armer: dana.id,
     hasPerson: true,
+    webhookActor: { type: "api_key", apiKey: "key_pat", id: dana.id },
   },
   "a key naming the member": {
     personId: dana.id,
@@ -97,6 +100,12 @@ const EXPECT: Record<
     armer: `${KEY.id}:${dana.id}`,
     hasPerson: true,
     requestedBy: dana.id,
+    webhookActor: {
+      type: "api_key",
+      apiKey: KEY.id,
+      requestedBy: { id: dana.id },
+      assumedRole: true,
+    },
   },
   "a key naming the member as itself": {
     personId: "",
@@ -104,12 +113,19 @@ const EXPECT: Record<
     armer: KEY.id,
     hasPerson: false,
     requestedBy: dana.id,
+    webhookActor: {
+      type: "api_key",
+      apiKey: KEY.id,
+      name: KEY.description,
+      requestedBy: { id: dana.id },
+    },
   },
   "a key naming no one": {
     personId: "",
     actorId: KEY.id,
     armer: KEY.id,
     hasPerson: false,
+    webhookActor: { type: "api_key", apiKey: KEY.id, name: KEY.description },
   },
 };
 
@@ -343,7 +359,17 @@ describe("attribution across callers", () => {
         organizationId: ORG_ID,
         event: `${cfg.event}.revision.approved`,
       });
-      expect(approvedEvent?.data?.data?.object?.reviewer?.id).toBe(bob.id);
+      // A reference to the revision with who authored and reviewed it, not
+      // the revision itself.
+      const approvedObject = approvedEvent?.data?.data?.object;
+      expect(approvedObject).toMatchObject({
+        id,
+        authorId: actorId,
+        author: EXPECT[actor].webhookActor,
+        [cfg.event]: { id: entity?.id, name: cfg.create().name },
+        reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+      });
+      expect(approvedObject).not.toHaveProperty("activityLog");
       expect(approvedEvent?.data?.user?.requestedBy?.id).toBe(bob.id);
 
       // Bob withdraws it with his own token; the history keeps the key as the
@@ -469,7 +495,7 @@ describe("attribution across callers", () => {
     });
 
     it.each(ACTORS)("credits %s through a reviewed draft", async (actor) => {
-      const { personId, hasPerson, requestedBy } = EXPECT[actor];
+      const { personId, actorId, hasPerson, requestedBy } = EXPECT[actor];
       const id = await createFlag(actor);
       const flag = await collection("features").findOne({ id });
       expect(flag?.owner).toBe(dana.id);
@@ -527,7 +553,15 @@ describe("attribution across callers", () => {
         organizationId: ORG_ID,
         event: "feature.revision.approved",
       });
-      expect(approvedEvent?.data?.data?.object?.reviewer?.id).toBe(bob.id);
+      const approvedObject = approvedEvent?.data?.data?.object;
+      expect(approvedObject).toMatchObject({
+        version,
+        authorId: actorId,
+        author: EXPECT[actor].webhookActor,
+        feature: { id },
+        reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+      });
+      expect(approvedObject).not.toHaveProperty("rules");
 
       const log = await as(actor).get(`${path}/log`);
       const commentEntry = log.body.log.find(

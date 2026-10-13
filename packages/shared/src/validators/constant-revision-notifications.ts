@@ -1,34 +1,19 @@
-// Webhook payload schemas for constant revision events (`constant.revision.*`).
-// Modeled on saved-group-revision-notifications.ts. The base shape is the API
-// revision projection, but the JSON-Patch–typed fields (`proposedChanges` and
-// the activity-log snapshots) are loosened to render-safe supersets so the docs
-// generator can emit them.
+// Webhook payload schemas for constant revision events (`constant.revision.*`): a
+// reference to the revision plus each event's own fields.
 
 import { z } from "zod";
-import { eventReviewer } from "./event-user";
-import { apiConstantRevisionValidator } from "./constant-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
+import {
+  keyedEntityReference,
+  revisionWebhookReference,
+  revisionWebhookReview,
+} from "./revision-webhook-reference";
 
-const webhookProposedChanges = z.array(
-  z.object({ op: z.string(), path: z.string() }).passthrough(),
-);
-const webhookActivityLog = z.array(
-  z
-    .object({
-      id: z.string(),
-      userId: z.string(),
-      action: z.string(),
-      dateCreated: z.string(),
-    })
-    .passthrough(),
-);
-
-const constantRevisionWebhookPayload = apiConstantRevisionValidator.extend({
-  proposedChanges: webhookProposedChanges,
-  activityLog: webhookActivityLog,
+const constantRevisionWebhookPayload = revisionWebhookReference.extend({
+  constant: keyedEntityReference,
 });
 
 export const constantRevisionCreatedPayload = constantRevisionWebhookPayload;
@@ -93,22 +78,20 @@ export type ConstantRevisionUpdatedPayload = z.infer<
 >;
 
 export const constantRevisionApprovedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
+  .extend(revisionWebhookReview)
   .strict();
 export type ConstantRevisionApprovedPayload = z.infer<
   typeof constantRevisionApprovedPayload
 >;
 
 export const constantRevisionChangesRequestedPayload =
-  constantRevisionWebhookPayload
-    .extend({ reviewer: eventReviewer, reviewComment: z.string().nullable() })
-    .strict();
+  constantRevisionWebhookPayload.extend(revisionWebhookReview).strict();
 export type ConstantRevisionChangesRequestedPayload = z.infer<
   typeof constantRevisionChangesRequestedPayload
 >;
 
 export const constantRevisionCommentedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer: eventReviewer, reviewComment: z.string() })
+  .extend({ ...revisionWebhookReview, reviewComment: z.string() })
   .strict();
 export type ConstantRevisionCommentedPayload = z.infer<
   typeof constantRevisionCommentedPayload
