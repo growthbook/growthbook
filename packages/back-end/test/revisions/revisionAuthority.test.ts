@@ -465,10 +465,11 @@ describe("isOwnRevision", () => {
   });
   const revision = (authorId: string, activityLog: object[] = []) =>
     ({ authorId, activityLog }) as unknown as Revision;
-  const entry = (action: string, user?: object) => ({
+  // `null` is a system entry; leaving `user` out is a pre-actor legacy one.
+  const entry = (action: string, user?: object | null) => ({
     action,
     userId: "",
-    ...(user && { user }),
+    ...(user !== undefined && { user }),
   });
   const keyItself = caller("key_1", "key_1");
 
@@ -495,6 +496,24 @@ describe("isOwnRevision", () => {
       false,
     ],
     ["a key on an authorless draft", keyItself, revision(""), true],
+    [
+      "a key on an authorless draft created before actors were recorded",
+      keyItself,
+      revision("", [entry("created")]),
+      true,
+    ],
+    [
+      "a key on a draft the system created",
+      keyItself,
+      revision("", [entry("created", null)]),
+      false,
+    ],
+    [
+      "a key on a draft the system edited",
+      keyItself,
+      revision("u_dana", [entry("updated", null)]),
+      false,
+    ],
     [
       "a key on a draft with an edit recorded without its author",
       keyItself,

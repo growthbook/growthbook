@@ -48,7 +48,7 @@ import {
   featureForSavedGroupValidation,
   Feature as SavedGroupScopeFeature,
 } from "back-end/src/util/savedGroupProjectScope.util";
-import { ConflictError } from "back-end/src/util/errors";
+import { BadRequestError, ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
   normalizeFeatureJSONValues,
@@ -2781,12 +2781,17 @@ export async function submitReviewAndComments(
         }
 
         // Against the row this write is conditioned on, not the caller's stale
-        // copy (see the `blockSelfApproval` param).
-        if (
-          verdict === "approved" &&
-          blockSelfApproval &&
-          (current.contributors ?? []).includes(newReview.userId)
-        ) {
+        // copy (see the `blockSelfApproval` param). A key acting as itself never
+        // rules on a draft it edited.
+        const contributed = (current.contributors ?? []).includes(
+          newReview.userId,
+        );
+        if (contributed && context.keyActingAsItself) {
+          throw new BadRequestError(
+            "Cannot submit a review on a draft you created",
+          );
+        }
+        if (contributed && verdict === "approved" && blockSelfApproval) {
           throw new Error("You cannot approve a draft you contributed to.");
         }
 

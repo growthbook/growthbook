@@ -862,9 +862,23 @@ describe("attribution across callers", () => {
 
     it("can't rule on a draft with no recorded author, which any key may have made", async () => {
       const { path, revisionId } = await draftSavedGroup();
+      // As main stored a key's draft: no author and no actors on its entries.
+      const stored = await collection("revisions").findOne({ id: revisionId });
       await collection("revisions").updateOne(
         { id: revisionId },
-        { $set: { authorId: "" } },
+        {
+          $set: {
+            authorId: "",
+            activityLog: (stored?.activityLog ?? []).map(
+              (e: Record<string, unknown>) => ({
+                ...Object.fromEntries(
+                  Object.entries(e).filter(([field]) => field !== "user"),
+                ),
+                userId: "",
+              }),
+            ),
+          },
+        },
       );
       const approve = (actor: Actor, person: Person = dana) =>
         as(actor, person).post(`${path}/submit-review`, {

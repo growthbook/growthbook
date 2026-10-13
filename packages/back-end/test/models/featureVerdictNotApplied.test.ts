@@ -116,6 +116,44 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     expect((row?.reviews as unknown[]).length).toBe(1);
   });
 
+  it("refuses a key acting as itself once its edit lands on the row", async () => {
+    // The caller checked a copy the key hadn't edited yet.
+    const revision = await seed("pending-review");
+    const keyContext = {
+      ...(context as object),
+      userId: "",
+      keyActingAsItself: "key_bot",
+    } as never;
+    const keyUser = {
+      type: "api_key" as const,
+      apiKey: "key_bot",
+      name: "Bot",
+    };
+    const setContributors = (contributors: string[]) =>
+      mongoose.connection
+        .collection("featurerevisions")
+        .updateOne(
+          { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+          { $set: { contributors } },
+        );
+    const review = () =>
+      submitReviewAndComments(
+        keyContext,
+        revision,
+        keyUser,
+        "Approved",
+        undefined,
+        1,
+      );
+
+    await setContributors(["key_bot"]);
+    await expect(review()).rejects.toThrow("draft you created");
+    expect((await stored())?.reviews).toEqual([]);
+
+    await setContributors(["u_other"]);
+    expect((await review()).applied).toBe(true);
+  });
+
   it("refuses a verdict formed against a superseded review cycle", async () => {
     // The feature engine's half of the same ABA. Recall-and-resubmit puts the row
     // back at `pending-review` — the value it held when the reviewer opened it — so

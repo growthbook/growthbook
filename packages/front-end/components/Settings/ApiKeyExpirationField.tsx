@@ -41,7 +41,9 @@ const ApiKeyExpirationField: FC<{
   setValue: (date: Date | null) => void;
   /** The key being edited, whose policy maximum runs from its creation. */
   existing?: { expiresAt?: ExpiresAt; dateCreated: ExpiresAt };
-}> = ({ maxLifetimeDays, value, setValue, existing }) => {
+  /** Whether "Expires on date" is chosen without a date, so it can't save. */
+  setDateMissing: (missing: boolean) => void;
+}> = ({ maxLifetimeDays, value, setValue, existing, setDateMissing }) => {
   const required = (maxLifetimeDays ?? null) !== null;
   const latest = existing
     ? latestEditedExpiration(
@@ -113,6 +115,8 @@ const ApiKeyExpirationField: FC<{
         ? `Enter or select a date on or before ${date(latest)}.`
         : undefined;
   const picksDate = selection === DATE;
+  const dateMissing = picksDate && !value;
+  useEffect(() => setDateMissing(dateMissing), [dateMissing, setDateMissing]);
   const dateId = useId();
   // A preset only says how long; this turns it into the date it lands on.
   const expiresNote =
@@ -198,7 +202,9 @@ const ApiKeyExpirationField: FC<{
                     disableBefore={addDays(new Date(), 1)}
                     disableAfter={latest ?? undefined}
                     clampInput={false}
-                    error={dateError}
+                    error={
+                      dateError ?? (dateMissing ? "Pick a date." : undefined)
+                    }
                     containerClassName=""
                   />
                   <Box />

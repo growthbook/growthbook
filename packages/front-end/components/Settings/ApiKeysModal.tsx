@@ -54,6 +54,7 @@ const ApiKeysModal: FC<{
   const [expiresAt, setExpiresAt] = useState<Date | null>(() =>
     existingKey?.expiresAt ? new Date(existingKey.expiresAt) : null,
   );
+  const [dateMissing, setDateMissing] = useState(false);
   // An edit sends the expiry only when it moved, so a permissions-only save
   // never trips over a key that predates the policy.
   const expirationChanged =
@@ -198,7 +199,9 @@ const ApiKeysModal: FC<{
       open={true}
       submit={onSubmit}
       cta={editMode ? "Save" : "Create"}
-      ctaEnabled={!expirationProblem || (editMode && !expirationChanged)}
+      ctaEnabled={
+        !dateMissing && (!expirationProblem || (editMode && !expirationChanged))
+      }
     >
       <TextField
         label="Description"
@@ -212,6 +215,7 @@ const ApiKeysModal: FC<{
         value={expiresAt}
         setValue={setExpiresAt}
         existing={existingKey}
+        setDateMissing={setDateMissing}
       />
       {canDeleteSource && (
         <Box mt="3">
