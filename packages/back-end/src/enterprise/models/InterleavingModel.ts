@@ -9,10 +9,17 @@ import {
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
 import { isFactMetricId } from "shared/experiments";
+import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getSDKPayloadKeys } from "back-end/src/util/features";
+
+function servesPayload(doc: InterleavingInterface): boolean {
+  return !doc.archived && doc.status !== "draft";
+}
 
 const BaseClass = MakeModelClass({
   schema: interleavingValidator,
@@ -33,7 +40,17 @@ const BaseClass = MakeModelClass({
     updateEvent: "interleaving.update",
     deleteEvent: "interleaving.delete",
   },
+  // The key is code-facing (customers pass it to `interleave()`), so it
+  // can't change once created, just like a feature key.
+  readonlyFields: ["key"],
   additionalIndexes: [
+    {
+      fields: {
+        organization: 1,
+        key: 1,
+      },
+      unique: true,
+    },
     {
       fields: {
         organization: 1,
@@ -54,6 +71,16 @@ export class InterleavingModel extends BaseClass {
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
+    // The unique index is the backstop; this gives a readable error.
+    if (!previousDoc) {
+      const clash = await this._findOne({ key: doc.key });
+      if (clash && clash.id !== doc.id) {
+        throw new Error(
+          `An interleaving experiment with the key "${doc.key}" already exists.`,
+        );
+      }
+    }
+
     if (
       doc.trackingKey !== previousDoc?.trackingKey &&
       !doc.trackingKey.trim()
@@ -161,6 +188,44 @@ export class InterleavingModel extends BaseClass {
     );
   }
 
+  protected async afterCreate(doc: InterleavingInterface) {
+    this.refreshSDKPayload([doc], "created");
+  }
+
+  protected async afterUpdate(
+    existing: InterleavingInterface,
+    _updates: UpdateProps<InterleavingInterface>,
+    newDoc: InterleavingInterface,
+  ) {
+    this.refreshSDKPayload([existing, newDoc], "updated");
+  }
+
+  protected async afterDelete(doc: InterleavingInterface) {
+    this.refreshSDKPayload([doc], "deleted");
+  }
+
+  private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
+    const serving = docs.filter(servesPayload);
+    if (!serving.length) return;
+    const environments = new Set(
+      serving.flatMap((doc) =>
+        interleavingEnvsForChange({
+          existing: doc,
+          environmentIds: this.context.environments,
+        }),
+      ),
+    );
+    if (!environments.size) return;
+    queueSDKPayloadRefresh({
+      context: this.context,
+      payloadKeys: getSDKPayloadKeys(
+        environments,
+        new Set(serving.map((doc) => doc.project || "")),
+      ),
+      auditContext: { event, model: "interleaving", id: docs[0].id },
+    });
+  }
+
   protected canRead(doc: InterleavingInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -210,9 +275,21 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
+  public getAllPayloadInterleavings(): Promise<InterleavingInterface[]> {
+    return this._find({
+      archived: false,
+      status: { $in: ["running", "stopped"] },
+    });
+  }
+
   public getByInterleavingQueryId(
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
+  }
+
+  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
+  public getByKey(key: string): Promise<InterleavingInterface | null> {
+    return this._findOne({ key });
   }
 }

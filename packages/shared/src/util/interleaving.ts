@@ -1,6 +1,11 @@
 import type { InterleavingInterface } from "../validators/interleaving";
 import { getValidation, validateJSONFeatureValue } from "./features";
 
+// Key of the pseudo feature generated into SDK payloads for an interleaving.
+export function getInterleavingFeatureDefId(key: string): string {
+  return `$interleave:${key}`;
+}
+
 // `getValidation` turns an unparseable schema into "validation disabled", so an
 // enabled schema that doesn't parse would silently accept every config.
 export function assertUsableRankerSchema(

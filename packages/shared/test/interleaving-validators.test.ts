@@ -2,7 +2,10 @@ import {
   interleavingMetricConfigValidator,
   interleavingValidator,
 } from "../src/validators/interleaving";
-import { parseInterleavingRankerConfig } from "../src/util/interleaving";
+import {
+  getInterleavingFeatureDefId,
+  parseInterleavingRankerConfig,
+} from "../src/util/interleaving";
 
 const ranker = (id: string, key: string, config = "{}") => ({
   id,
@@ -37,6 +40,7 @@ const baseDoc = {
   tags: [],
   archived: false,
   status: "draft" as const,
+  key: "featured-products-ranker",
   trackingKey: "featured-products-ranker",
   hashAttribute: "id",
   seed: "seed",
@@ -82,6 +86,34 @@ describe("interleavingValidator", () => {
         measurementArmPercent: 0.1,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("interleaving key", () => {
+  it.each(["featured-products-ranker", "search_v2", "a.b:c|d"])(
+    "accepts %j",
+    (key) => {
+      expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+        true,
+      );
+    },
+  );
+
+  it.each(["", "has space", "slash/key", "emoji🙂"])("rejects %j", (key) => {
+    expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+      false,
+    );
+  });
+
+  it("is required", () => {
+    const { key: _key, ...rest } = baseDoc;
+    expect(interleavingValidator.safeParse(rest).success).toBe(false);
+  });
+});
+
+describe("getInterleavingFeatureDefId", () => {
+  it("prefixes the key", () => {
+    expect(getInterleavingFeatureDefId("search")).toBe("$interleave:search");
   });
 });
 

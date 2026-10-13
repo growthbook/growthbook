@@ -940,7 +940,7 @@ export function applyNamespaceToPayload(
 
 // Prerequisites become parentConditions, saved groups resolved the way the
 // rule's own condition is; one that no longer parses is dropped.
-function prerequisiteParentConditions(
+export function prerequisiteParentConditions(
   prerequisites: { id: string; condition: string }[],
   savedGroupStrategy: SavedGroupPayloadStrategy,
 ): ParentConditionInterface[] {
