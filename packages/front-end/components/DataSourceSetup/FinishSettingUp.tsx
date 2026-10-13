@@ -621,7 +621,7 @@ export default function FinishSettingUp({
                   <Text size="sm" color="text-mid">
                     Shared across all Data Sources.{" "}
                     <Link size="sm" href="/attributes">
-                      Manage identifier types
+                      Manage Attributes
                     </Link>
                   </Text>
                 </>
@@ -636,8 +636,8 @@ export default function FinishSettingUp({
         complete={completion.queries}
         current={currentStep === "queries"}
         expanded={expandedStep === "queries"}
-        title="Add an exposure query"
-        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. One query can cover every identifier type."
+        title="Add exposure queries"
+        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. Every identifier type needs to be in at least one query; a single query can cover several."
         actions={
           expandedStep === "queries"
             ? null
@@ -663,11 +663,10 @@ export default function FinishSettingUp({
               {exposureQueries.length === 0 && (
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
-                    No exposure queries yet. Write one that covers{" "}
-                    {identifierTypes.length === 1
-                      ? "your identifier type"
-                      : "all of your identifier types"}{" "}
-                    to start running experiments.
+                    No exposure queries yet.{" "}
+                    {identifierTypes.length > 1
+                      ? "Write one query that returns every identifier type, or split them across queries if they live in different tables."
+                      : "Write one to start running experiments."}
                   </Text>
                 </Box>
               )}
