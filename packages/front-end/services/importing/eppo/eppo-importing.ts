@@ -200,7 +200,9 @@ export type EppoExperiment = {
   metrics?: {
     metric_id: number;
     is_primary: boolean;
+    // Deprecated in Eppo's API; guardrails are now defined by a cutoff
     is_guardrail?: boolean;
+    guardrail_cutoff?: number | null;
   }[];
   variations: {
     name: string;
@@ -750,11 +752,14 @@ export function transformFactSource(
   ctx: TransformContext,
 ): FactTablePayload {
   const datasource = requireDatasource(ctx);
+  // Snowflake reports unquoted identifiers in lower case
+  const fold = (column: string) =>
+    datasource.type === "snowflake" ? column.toLowerCase() : column;
   const userIdColumns: Record<string, string> = {};
   factSource.entities.forEach(({ id, entity_join_column_name }) => {
     const entity = ctx.eppo.entities.find((e) => e.id === id);
     const idType = getIdentifierType(entity?.name ?? String(id), datasource);
-    userIdColumns[idType] = entity_join_column_name;
+    userIdColumns[idType] = fold(entity_join_column_name);
   });
 
   return {
@@ -768,7 +773,7 @@ export function transformFactSource(
     columns: [],
     userIdTypes: Object.keys(userIdColumns),
     userIdColumns,
-    timestampColumn: factSource.timestamp_column,
+    timestampColumn: fold(factSource.timestamp_column),
   };
 }
 
@@ -1138,6 +1143,22 @@ export function toMetricUpdate(metric: FactMetricPayload) {
   };
 }
 
+const isGuardrail = (m: NonNullable<EppoExperiment["metrics"]>[number]) =>
+  !!m.is_guardrail || (m.guardrail_cutoff ?? null) !== null;
+
+// READY ("Ready for Review") still assigns until its end date passes
+export function eppoStatus(
+  experiment: Pick<EppoExperiment, "status" | "assignments_end_date">,
+): ExperimentInterfaceStringDates["status"] {
+  if (experiment.status === "DRAFT") return "draft";
+  if (experiment.status === "RUNNING") return "running";
+  if (experiment.status === "READY") {
+    const end = experiment.assignments_end_date;
+    return !end || new Date(end) > new Date() ? "running" : "stopped";
+  }
+  return "stopped";
+}
+
 const RESULTS: Record<
   NonNullable<EppoExperiment["outcome"]>,
   ExperimentInterfaceStringDates["results"]
@@ -1186,12 +1207,7 @@ export function transformExperiment(
   const variationId = (v: EppoExperiment["variations"][number]) =>
     existingIds.get(v.variant_key) ?? `var_eppo_${v.variation_id}`;
 
-  const status =
-    experiment.status === "DRAFT"
-      ? "draft"
-      : experiment.status === "RUNNING"
-        ? "running"
-        : "stopped";
+  const status = eppoStatus(experiment);
 
   const metrics = (experiment.metrics ?? []).flatMap((m) => {
     const id = ctx.metricIds.get(m.metric_id);
@@ -1242,13 +1258,17 @@ export function transformExperiment(
     ...(ctx.datasource
       ? {
           datasource: ctx.datasource.id,
-          exposureQueryId: "",
+          ...(ctx.datasource.settings?.queries?.exposure?.[0]?.id
+            ? {
+                exposureQueryId: ctx.datasource.settings.queries.exposure[0].id,
+              }
+            : {}),
           goalMetrics: metrics.filter((m) => m.is_primary).map((m) => m.id),
           secondaryMetrics: metrics
-            .filter((m) => !m.is_primary && !m.is_guardrail)
+            .filter((m) => !m.is_primary && !isGuardrail(m))
             .map((m) => m.id),
           guardrailMetrics: metrics
-            .filter((m) => !m.is_primary && m.is_guardrail)
+            .filter((m) => !m.is_primary && isGuardrail(m))
             .map((m) => m.id),
         }
       : {}),
@@ -1280,9 +1300,7 @@ export function toExperimentUpdate(
     update: {
       ...copy,
       ...pick(rest, [
-        "status",
         "datasource",
-        "exposureQueryId",
         "variations",
         "goalMetrics",
         "secondaryMetrics",
@@ -1305,6 +1323,8 @@ export function toPhaseDate(date?: string): string {
 export function mergePhase(
   existing: ExperimentPhaseStringDates,
   incoming: ExperimentPhaseStringDates,
+  // A phase that is live again must not keep an old end date
+  running = false,
 ) {
   const targeted = !!incoming.condition || !!incoming.savedGroups?.length;
   return {
@@ -1316,7 +1336,9 @@ export function mergePhase(
     variationWeights: incoming.variationWeights,
     variations: incoming.variations,
     dateStarted: toPhaseDate(incoming.dateStarted || existing.dateStarted),
-    dateEnded: toPhaseDate(incoming.dateEnded || existing.dateEnded),
+    dateEnded: running
+      ? ""
+      : toPhaseDate(incoming.dateEnded || existing.dateEnded),
   };
 }
 
@@ -1452,9 +1474,21 @@ async function deleteArtifact(
       }
       return;
     }
-    case "experiment":
+    case "experiment": {
+      // A flag this run didn't create may still reference it
+      const { linkedFeatures } = await apiCall<{
+        linkedFeatures: { feature: { id: string } }[];
+      }>(`/experiment/${id}`);
+      if (linkedFeatures.length) {
+        throw new Error(
+          `Still used by Feature Flag ${linkedFeatures
+            .map((f) => f.feature.id)
+            .join(", ")}`,
+        );
+      }
       await apiCall(`/experiment/${id}`, { method: "DELETE" });
       return;
+    }
     case "metric":
       await apiCall(`/fact-metrics/${id}`, { method: "DELETE" });
       return;
@@ -1465,11 +1499,17 @@ async function deleteArtifact(
       const { savedGroup } = await apiCall<{
         savedGroup: { archived?: boolean };
       }>(`/saved-groups/${id}`);
-      const archive = (archived: boolean) =>
-        apiCall(`/saved-groups/${id}`, {
-          method: "PUT",
-          body: JSON.stringify({ archived }),
-        });
+      const archive = async (archived: boolean) => {
+        const res = await apiCall<{ requiresApproval?: boolean }>(
+          `/saved-groups/${id}`,
+          { method: "PUT", body: JSON.stringify({ archived }) },
+        );
+        if (res.requiresApproval) {
+          throw new Error(
+            "Archiving needs approval in this org, so it can't be deleted here",
+          );
+        }
+      };
       if (!savedGroup.archived) await archive(true);
       try {
         await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
@@ -1507,13 +1547,21 @@ const KEPT_WHEN_FAILED: Partial<
   metric: ["fact-table"],
 };
 
+// Something already removed by hand counts as deleted
+const isGone = (e: Error) => /not found|could not find/i.test(e.message);
+
 export async function teardownRun(
   run: ApiAutoRun,
   apiCall: ApiCall,
 ): Promise<{ deleted: number; failures: TeardownFailure[] }> {
   const failures: TeardownFailure[] = [];
   const kept = new Set<AutoRunArtifact["kind"]>();
-  let deleted = 0;
+  const keep = (kind: AutoRunArtifact["kind"]) => {
+    if (kept.has(kind)) return;
+    kept.add(kind);
+    KEPT_WHEN_FAILED[kind]?.forEach(keep);
+  };
+  const deletedArtifacts: ApiAutoRun["artifacts"] = [];
   for (const artifact of createdByRun(run)) {
     if (kept.has(artifact.kind)) {
       failures.push({
@@ -1524,29 +1572,43 @@ export async function teardownRun(
     }
     try {
       await deleteArtifact(artifact, apiCall);
+      deletedArtifacts.push(artifact);
+    } catch (e) {
+      if (isGone(e)) {
+        deletedArtifacts.push(artifact);
+        continue;
+      }
+      failures.push({ artifact, error: e.message });
+      KEPT_WHEN_FAILED[artifact.kind]?.forEach(keep);
+    }
+  }
+  for (let i = 0; i < deletedArtifacts.length; i += RECORD_CHUNK) {
+    const chunk = deletedArtifacts.slice(i, i + RECORD_CHUNK);
+    try {
       await apiCall(`/auto-runs/${run.id}/artifacts`, {
         method: "POST",
         body: JSON.stringify({
-          artifacts: [
-            {
-              kind: artifact.kind,
-              id: artifact.id,
-              label: artifact.label,
-              by: artifact.by,
-              detail: artifact.detail,
-              externalId: artifact.externalId ?? null,
-              action: "deleted",
-            },
-          ],
+          artifacts: chunk.map((artifact) => ({
+            kind: artifact.kind,
+            id: artifact.id,
+            label: artifact.label,
+            by: artifact.by,
+            detail: artifact.detail,
+            externalId: artifact.externalId ?? null,
+            action: "deleted",
+          })),
         }),
       });
-      deleted++;
     } catch (e) {
-      failures.push({ artifact, error: e.message });
-      KEPT_WHEN_FAILED[artifact.kind]?.forEach((k) => kept.add(k));
+      chunk.forEach((artifact) =>
+        failures.push({
+          artifact,
+          error: `Deleted, but couldn't be recorded on the run: ${e.message}`,
+        }),
+      );
     }
   }
-  return { deleted, failures };
+  return { deleted: deletedArtifacts.length, failures };
 }
 
 export type ImportedIds = Record<
@@ -1597,7 +1659,10 @@ export type ExistingIds = {
   factTables: Map<string, string>;
   factMetrics: Map<string, string>;
   experiments: Map<string, string>;
-  experimentRefs: Map<string, Pick<GBExperimentRef, "variations" | "status">>; // id
+  experimentRefs: Map<
+    string,
+    Pick<GBExperimentRef, "variations" | "status" | "phase">
+  >; // id
   factTableColumns: Map<string, string[]>;
 };
 
@@ -1755,6 +1820,7 @@ function getInitialContext(
         id: existingId,
         status: ref?.status,
         variations: ref?.variations ?? variations,
+        phase: ref?.phase,
       });
     } else if (placeholder && isSelected("experiments", String(e.id))) {
       const active = e.variations
@@ -2108,10 +2174,18 @@ export async function runEppoImport({
         const group = transformAudience(item.eppo, project);
         let id = item.existingId;
         if (id) {
-          await apiCall(`/saved-groups/${id}`, {
-            method: "PUT",
-            body: JSON.stringify(pick(group, ["groupName", "condition"])),
-          });
+          const res = await apiCall<{ requiresApproval?: boolean }>(
+            `/saved-groups/${id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(pick(group, ["groupName", "condition"])),
+            },
+          );
+          if (res.requiresApproval) {
+            throw new Error(
+              "Saved Group changes need approval in this org. Approve the draft, then import again.",
+            );
+          }
         } else {
           const res = await apiCall<{ savedGroup: SavedGroupInterface }>(
             "/saved-groups",
@@ -2174,7 +2248,12 @@ export async function runEppoImport({
     );
 
     await importEach("experiments", data.experiments, (item) =>
-      dropOnFailure(ctx.experiments, item.eppo.id, async () => {
+      // A failed update keeps the reference flags already have; a failed
+      // create has nothing to point at
+      (item.existingId
+        ? (run: () => Promise<void>) => run()
+        : (run: () => Promise<void>) =>
+            dropOnFailure(ctx.experiments, item.eppo.id, run))(async () => {
         let id = item.existingId;
         let current: ExperimentInterfaceStringDates | null = null;
         if (id) {
@@ -2218,6 +2297,17 @@ export async function runEppoImport({
             body: JSON.stringify(update),
           });
           current = res.experiment ?? current;
+          if (
+            experiment.status &&
+            experiment.status !== "stopped" &&
+            current.status !== experiment.status
+          ) {
+            await apiCall(`/experiment/${id}/status`, {
+              method: "POST",
+              body: JSON.stringify({ status: experiment.status }),
+            });
+            current = { ...current, status: experiment.status };
+          }
           if (current.status === "running" && experiment.status === "stopped") {
             await apiCall(`/experiment/${id}/stop`, {
               method: "POST",
@@ -2236,7 +2326,11 @@ export async function runEppoImport({
           }
           const last = current.phases.length - 1;
           if (phase && last >= 0) {
-            const merged = mergePhase(current.phases[last], phase);
+            const merged = mergePhase(
+              current.phases[last],
+              phase,
+              current.status === "running",
+            );
             await apiCall(`/experiment/${id}/phase/${last}`, {
               method: "PUT",
               body: JSON.stringify(merged),

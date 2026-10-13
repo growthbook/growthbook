@@ -1061,6 +1061,25 @@ describe("transformExperiment", () => {
     ]);
   });
 
+  it("keeps a READY experiment running until its end date passes", () => {
+    const future = new Date(Date.now() + 86400000).toISOString();
+    expect(
+      transformExperiment(
+        { ...experiment, status: "READY", assignments_end_date: future },
+        mkCtx(),
+      ).status,
+    ).toBe("running");
+    expect(
+      transformExperiment(
+        { ...experiment, status: "READY", assignments_end_date: undefined },
+        mkCtx(),
+      ).status,
+    ).toBe("running");
+    expect(
+      transformExperiment({ ...experiment, status: "READY" }, mkCtx()).status,
+    ).toBe("stopped");
+  });
+
   it("rejects experiments GrowthBook can't model", () => {
     expect(() =>
       transformExperiment(
@@ -1285,6 +1304,13 @@ describe("teardownRun", () => {
       if (method === "GET" && url.startsWith("/saved-groups/")) {
         return { savedGroup: { archived: true } };
       }
+      if (method === "GET" && url.startsWith("/experiment/")) {
+        return {
+          linkedFeatures: url.endsWith("exp_linked")
+            ? [{ feature: { id: "flag-kept" } }]
+            : [],
+        };
+      }
       return {};
     };
     const apiCall = <T>(url: string, options?: RequestInit) =>
@@ -1313,7 +1339,33 @@ describe("teardownRun", () => {
       "GET /saved-groups/grp_1",
       "DELETE /saved-groups/grp_1",
     ]);
-    expect(calls.filter((c) => c.includes("/auto-runs/"))).toHaveLength(4);
+    // One record for the whole run, not one per item
+    expect(calls.filter((c) => c.includes("/auto-runs/"))).toHaveLength(1);
+  });
+
+  it("treats something already removed as deleted and keeps experiments flags still use", async () => {
+    const { apiCall } = mockApi((url, method) =>
+      method === "DELETE" && url === "/fact-metrics/fact__gone"
+        ? "Could not find metric"
+        : undefined,
+    );
+    const linked = await teardownRun(
+      run([artifact("experiment", "exp_linked")]),
+      apiCall,
+    );
+    expect(linked.deleted).toBe(0);
+    expect(linked.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["exp_linked", "Still used by Feature Flag flag-kept"],
+    ]);
+
+    const gone = await teardownRun(
+      run([
+        artifact("experiment", "exp_free"),
+        artifact("metric", "fact__gone"),
+      ]),
+      apiCall,
+    );
+    expect(gone).toEqual({ deleted: 2, failures: [] });
   });
 
   it("restores the archive state when a delete fails and keeps what a failure still uses", async () => {
@@ -1335,9 +1387,10 @@ describe("teardownRun", () => {
       apiCall,
     );
     expect(result.deleted).toBe(1);
+    // A kept experiment keeps its metrics, which keep their fact table
     expect(result.failures.map((f) => [f.artifact.id, f.error])).toEqual([
       ["flag-a", "Still a prerequisite"],
-      ["fact__1", "Metric is in use"],
+      ["fact__1", "Kept because something that uses it couldn't be deleted"],
       ["ftb_1", "Kept because something that uses it couldn't be deleted"],
       ["grp_1", "Kept because something that uses it couldn't be deleted"],
     ]);

@@ -98,6 +98,9 @@ export default function ImportFromEppo() {
     savedGroups,
     factTables,
     factMetrics,
+    _savedGroupsIncludingArchived,
+    _factTablesIncludingArchived,
+    _factMetricsIncludingArchived,
     mutateDefinitions,
   } = useDefinitions();
   const environments = useEnvironments();
@@ -124,9 +127,10 @@ export default function ImportFromEppo() {
 
   const existing: ExistingIds = useMemo(() => {
     const ids = {
-      "saved-group": new Set(savedGroups.map((sg) => sg.id)),
-      "fact-table": new Set(factTables.map((ft) => ft.id)),
-      metric: new Set(factMetrics.map((m) => m.id)),
+      // Archived objects still exist; only deleted ones should be re-created
+      "saved-group": new Set(_savedGroupsIncludingArchived.map((sg) => sg.id)),
+      "fact-table": new Set(_factTablesIncludingArchived.map((ft) => ft.id)),
+      metric: new Set(_factMetricsIncludingArchived.map((m) => m.id)),
       experiment: new Set(experiments.map((e) => e.id)),
       feature: new Set(features.map((f) => f.id)),
     };
@@ -137,9 +141,12 @@ export default function ImportFromEppo() {
         runsData?.autoRuns ?? [],
         (kind, id) => kind in ids && ids[kind as keyof typeof ids].has(id),
       ),
+      // Only condition groups can take an audience's rules
       savedGroups: new Map(
         savedGroups
-          .filter((sg) => inProject(project, sg.projects))
+          .filter(
+            (sg) => sg.type === "condition" && inProject(project, sg.projects),
+          )
           .map((sg) => [sg.groupName, sg.id]),
       ),
       features: new Set(features.map((f) => f.id)),
@@ -171,13 +178,22 @@ export default function ImportFromEppo() {
           .map((e) => [e.trackingKey, e.id]),
       ),
       experimentRefs: new Map(
-        experiments.map((e) => [
-          e.id,
-          {
-            status: e.status,
-            variations: e.variations.map((v) => ({ id: v.id, key: v.key })),
-          },
-        ]),
+        experiments.map((e) => {
+          const phase = e.phases[e.phases.length - 1];
+          return [
+            e.id,
+            {
+              status: e.status,
+              variations: e.variations.map((v) => ({ id: v.id, key: v.key })),
+              phase: phase && {
+                condition: phase.condition ?? "",
+                savedGroups: phase.savedGroups ?? [],
+                coverage: phase.coverage ?? 1,
+                variationWeights: phase.variationWeights,
+              },
+            },
+          ];
+        }),
       ),
     };
   }, [
@@ -188,6 +204,9 @@ export default function ImportFromEppo() {
     factTables,
     factMetrics,
     experiments,
+    _savedGroupsIncludingArchived,
+    _factTablesIncludingArchived,
+    _factMetricsIncludingArchived,
     datasourceId,
     project,
     runsData,

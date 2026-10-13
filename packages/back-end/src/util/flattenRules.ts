@@ -465,11 +465,15 @@ export function mergeSyncRules({
   environments,
   envSettings,
   rules,
+  knownEnvironments,
 }: {
   liveRules: FeatureRule[];
   environments: string[];
   envSettings?: Record<string, { rules?: FeatureRule[] }>;
   rules?: FeatureRule[];
+  // Environments the caller knows about; live rules in any other environment
+  // are kept when `rules` replaces the rest
+  knownEnvironments?: string[];
 }): { rules: FeatureRule[]; replacedAll: boolean } {
   const inboundEnvs = new Set(
     environments.filter((e) => envSettings?.[e]?.rules !== undefined),
@@ -479,7 +483,18 @@ export function mergeSyncRules({
       "Feature Flag sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
     );
   }
-  if (rules && !inboundEnvs.size) return { rules, replacedAll: true };
+  if (rules && !inboundEnvs.size) {
+    const known = new Set(knownEnvironments ?? environments);
+    const unknown = environments.filter((e) => !known.has(e));
+    const kept: FeatureRule[] = [];
+    for (const r of liveRules) {
+      const envs = r.allEnvironments ? environments : (r.environments ?? []);
+      const remaining = envs.filter((e) => unknown.includes(e));
+      if (!remaining.length) continue;
+      kept.push({ ...r, allEnvironments: false, environments: remaining });
+    }
+    return { rules: [...rules, ...kept], replacedAll: true };
+  }
 
   const result: FeatureRule[] = [];
   for (const r of liveRules) {

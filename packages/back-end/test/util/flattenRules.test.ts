@@ -1686,6 +1686,35 @@ describe("mergeSyncRules", () => {
     ).toEqual({ rules: [], replacedAll: true });
   });
 
+  it("keeps live rules in environments the caller doesn't know", () => {
+    const qaOnly = forceRule("fr_qa", {
+      allEnvironments: false,
+      environments: ["qa"],
+    }) as FeatureRule;
+    const everywhere = forceRule("fr_all", {
+      allEnvironments: true,
+    }) as FeatureRule;
+    const inbound = forceRule("fr_new", {
+      allEnvironments: false,
+      environments: ["production"],
+    }) as FeatureRule;
+    expect(
+      mergeSyncRules({
+        liveRules: [qaOnly, everywhere],
+        environments: ["production", "qa"],
+        rules: [inbound],
+        knownEnvironments: ["production"],
+      }),
+    ).toEqual({
+      rules: [
+        inbound,
+        qaOnly,
+        { ...everywhere, allEnvironments: false, environments: ["qa"] },
+      ],
+      replacedAll: true,
+    });
+  });
+
   it("replaces only the environments sent per environment", () => {
     const { rules, replacedAll } = mergeSyncRules({
       liveRules: live,

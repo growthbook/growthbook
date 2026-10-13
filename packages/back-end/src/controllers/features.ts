@@ -3769,6 +3769,7 @@ export async function postFeatureSync(
     environments,
     envSettings: envSettingsIn,
     rules: flatRulesIn,
+    knownEnvironments: Object.keys(data.environmentSettings ?? {}),
   });
   const changes: Partial<FeatureRevisionInterface> = {
     rules: nextFlatRules,
