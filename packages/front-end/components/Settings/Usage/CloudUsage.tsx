@@ -20,7 +20,7 @@ import {
   PiArrowSquareOut,
   PiCaretLeft,
   PiCaretRight,
-  PiDownloadSimple,
+  PiCaretDown,
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -41,6 +41,7 @@ import { isCloud } from "@/services/env";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 
@@ -249,7 +250,8 @@ export default function CloudUsage() {
             trigger={
               <Button
                 variant="ghost"
-                icon={<PiDownloadSimple />}
+                icon={<PiCaretDown />}
+                iconPosition="right"
                 disabled={!usage.length}
               >
                 Export CSV
@@ -321,6 +323,7 @@ export default function CloudUsage() {
           <strong>Total managed Clickhouse events: </strong>
           <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
         </div>
+        {isFiltered && <Text color="text-low">Totals include all sources</Text>}
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
         <Flex className="ml-auto" gap="2">
           <Button
@@ -355,7 +358,7 @@ export default function CloudUsage() {
         </Callout>
       ) : (
         keyTotals.length > 0 && (
-          <Box mb="5" style={{ maxWidth: 600 }}>
+          <Box mb="5" maxWidth="600px">
             <MultiSelectField
               label="Sources"
               placeholder="All sources"
@@ -369,7 +372,9 @@ export default function CloudUsage() {
       )}
       {totalRequests > 0 && (
         <Box mb="5">
-          <h3>CDN Requests</h3>
+          <Heading as="h3" size="sm" mb="2">
+            CDN Requests
+          </Heading>
           <DailyGraph
             data={getStackedData(usage, visibleRows, series, "requests")}
             series={series}
@@ -387,7 +392,9 @@ export default function CloudUsage() {
       )}
       {totalBandwidth > 0 && (
         <Box>
-          <h3>CDN Bandwidth</h3>
+          <Heading as="h3" size="sm" mb="2">
+            CDN Bandwidth
+          </Heading>
           <DailyGraph
             data={getStackedData(usage, visibleRows, series, "bandwidth")}
             series={series}
@@ -415,7 +422,9 @@ export default function CloudUsage() {
       )}
       {totalManagedClickhouseEvents > 0 && (
         <Box mt="5">
-          <h3>Managed Clickhouse Events</h3>
+          <Heading as="h3" size="sm" mb="2">
+            Managed Clickhouse Events
+          </Heading>
           <DailyGraph
             data={usage.map((u) => ({
               ts: new Date(u.date),
@@ -697,7 +706,7 @@ function DailyGraph({
                           <Fragment key={s.key}>
                             <Flex align="center" gap="2">
                               <SeriesSwatch color={s.color} />
-                              {s.label}
+                              <Text>{s.label}</Text>
                             </Flex>
                             <Text align="right">
                               {formatTooltip(tooltipData.daily[s.key] ?? 0)}
@@ -707,7 +716,7 @@ function DailyGraph({
                             </Text>
                           </Fragment>
                         ))}
-                      <strong>Total</strong>
+                      <Text weight="semibold">Total</Text>
                       <Text align="right" weight="semibold">
                         {formatTooltip(tooltipData.dailyTotal)}
                       </Text>
@@ -757,7 +766,9 @@ function UsageByKeyTable({
 }) {
   return (
     <Box mt="5">
-      <h3>Usage by Source</h3>
+      <Heading as="h3" size="sm" mb="2">
+        Usage by Source
+      </Heading>
       <Table variant="list" stickyHeader={false} roundedCorners>
         <TableHeader>
           <TableRow>
@@ -765,9 +776,7 @@ function UsageByKeyTable({
             <TableColumnHeader>Environment</TableColumnHeader>
             <TableColumnHeader justify="end">Requests</TableColumnHeader>
             <TableColumnHeader justify="end">Bandwidth</TableColumnHeader>
-            <TableColumnHeader justify="end">
-              Share of bandwidth
-            </TableColumnHeader>
+            <TableColumnHeader justify="end">Share of total</TableColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -778,7 +787,7 @@ function UsageByKeyTable({
             return (
               <TableRow key={t.key}>
                 <TableCell>
-                  <Flex align="center" gap="2">
+                  <Flex align="center" gap="2" wrap="wrap">
                     <SeriesSwatch color={color} />
                     {connection ? (
                       <Link href={`/sdks/${connection.id}`}>
@@ -787,16 +796,20 @@ function UsageByKeyTable({
                     ) : t.key === IMAGES_KEY ? (
                       getKeyLabel(t.key)
                     ) : (
-                      <span>
-                        <code>{t.key}</code>{" "}
+                      <Text>
+                        <Text mono overflowWrap="anywhere">
+                          {t.key}
+                        </Text>{" "}
                         <Text color="text-low">
                           (deleted or not visible to you)
                         </Text>
-                      </span>
+                      </Text>
                     )}
                   </Flex>
                 </TableCell>
-                <TableCell>{connection?.environment ?? ""}</TableCell>
+                <TableCell>
+                  {connection?.environment ?? <Text color="text-low">—</Text>}
+                </TableCell>
                 <TableCell justify="end">
                   {requestsFormatter.format(t.requests)}
                 </TableCell>
