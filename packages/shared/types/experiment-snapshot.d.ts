@@ -209,6 +209,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryIdentifierType?: string;
   isClusterExperiment?: boolean;
   clusterSubUnitIdentifier?: string;
+  /** Cluster experiment metrics joined on the cluster id instead of the sub-unit. */
+  clusterLevelMetricIds?: string[];
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;

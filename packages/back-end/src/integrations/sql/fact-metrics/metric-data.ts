@@ -1,5 +1,6 @@
 import {
   analyzeClusterMetricAsRatio,
+  isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
@@ -57,6 +58,7 @@ export function getMetricData(
     | "startDate"
     | "isClusterExperiment"
     | "clusterSubUnitIdentifier"
+    | "clusterLevelMetricIds"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
   factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
@@ -69,13 +71,10 @@ export function getMetricData(
   flattenSources: boolean = false,
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
   const isClusterRatioConversion = analyzeClusterMetricAsRatio(metric, {
-    isClusterExperiment: settings.isClusterExperiment,
+    isClusterExperiment: isClusterMetric,
   });
-  const isClusterMetric =
-    !!settings.isClusterExperiment &&
-    !!settings.clusterSubUnitIdentifier &&
-    isFactMetric(metric);
   const ratioMetric = isRatioMetric(metric) || isClusterRatioConversion;
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);

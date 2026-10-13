@@ -54,6 +54,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
+  getClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -663,10 +664,29 @@ export function getSnapshotSettings({
     experiment.exposureQueryIdentifierType,
   );
 
+  const clusterSubUnitIdentifier = experiment.isClusterExperiment
+    ? experiment.clusterSubUnitIdentifier
+    : undefined;
   const metricJoinIdentifierType =
-    experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier
-      ? experiment.clusterSubUnitIdentifier
-      : exposureQueryIdentifierType;
+    clusterSubUnitIdentifier ?? exposureQueryIdentifierType;
+  // In a cluster experiment, metrics that can't reach the sub-unit are analyzed
+  // per cluster instead.
+  const isJoinable = (metricId: string) =>
+    isJoinableMetric({
+      metricId,
+      metricMap,
+      factTableMap,
+      identifierType: metricJoinIdentifierType,
+      datasource,
+    }) ||
+    (!!clusterSubUnitIdentifier &&
+      isJoinableMetric({
+        metricId,
+        metricMap,
+        factTableMap,
+        identifierType: exposureQueryIdentifierType,
+        datasource,
+      }));
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -713,39 +733,15 @@ export function getSnapshotSettings({
   let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: metricJoinIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
   let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: metricJoinIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
   let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: metricJoinIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
 
   // filter invalid metrics (holdouts)
   if (experiment.type === "holdout") {
@@ -830,6 +826,25 @@ export function getSnapshotSettings({
       }),
     )
     .filter(isDefined);
+
+  const clusterLevelMetricIds =
+    clusterSubUnitIdentifier && datasource
+      ? metricSettings
+          .map((m) => m.id)
+          .filter((id) => {
+            const metric = metricMap.get(id);
+            return (
+              !!metric &&
+              isFactMetric(metric) &&
+              getClusterMetricAnalysisLevel(metric, {
+                clusterIdentifier: exposureQueryIdentifierType,
+                clusterSubUnitIdentifier,
+                getFactTable: (factTableId) => factTableMap.get(factTableId),
+                datasourceSettings: datasource.settings,
+              }) === "cluster"
+            );
+          })
+      : [];
 
   // JIT initialize banditEvents in memory if missing
   if (
@@ -922,6 +937,7 @@ export function getSnapshotSettings({
     exposureQueryIdentifierType,
     isClusterExperiment: experiment.isClusterExperiment,
     clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+    ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -4761,6 +4777,7 @@ export function assertClusterExperimentMetricsSupported({
   guardrailMetrics,
   metricMap,
   metricGroups,
+  clusterIdentifier,
   clusterSubUnitIdentifier,
   factTableMap,
   datasource,
@@ -4770,6 +4787,7 @@ export function assertClusterExperimentMetricsSupported({
   guardrailMetrics?: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
+  clusterIdentifier?: string | null;
   clusterSubUnitIdentifier?: string | null;
   factTableMap?: FactTableMap;
   datasource?: DataSourceInterface | null;
@@ -4784,6 +4802,7 @@ export function assertClusterExperimentMetricsSupported({
     // Existence/datasource are validated separately; only check known metrics.
     if (!metric) continue;
     const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterIdentifier,
       clusterSubUnitIdentifier,
       getFactTable: factTableMap
         ? (factTableId) => factTableMap.get(factTableId)

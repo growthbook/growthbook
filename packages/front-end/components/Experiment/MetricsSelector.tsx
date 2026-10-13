@@ -175,14 +175,18 @@ const MetricsSelector: FC<{
   const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
   );
-  const userIdType = exposureQuery
-    ? isClusterExperiment && clusterSubUnitIdentifier
-      ? clusterSubUnitIdentifier
-      : resolveAnalysisIdentifierType(
-          exposureQuery,
-          exposureQueryIdentifierType,
-        )
+  const assignmentIdType = exposureQuery
+    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
+  const userIdType =
+    exposureQuery && isClusterExperiment && clusterSubUnitIdentifier
+      ? clusterSubUnitIdentifier
+      : assignmentIdType;
+  // Fact metrics that can't reach the sub-unit are analyzed per cluster.
+  const clusterIdType =
+    isClusterExperiment && clusterSubUnitIdentifier
+      ? assignmentIdType
+      : undefined;
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
@@ -253,14 +257,21 @@ const MetricsSelector: FC<{
                 managedBy: m.managedBy,
                 factTables: getFactMetricFactTableIds(m),
                 joinable:
-                  !datasourceSettings || !userIdType
-                    ? true
-                    : isFactMetricJoinable(
-                        m,
-                        userIdType,
-                        getFactTableById,
-                        datasourceSettings,
-                      ),
+                  !datasourceSettings ||
+                  !userIdType ||
+                  isFactMetricJoinable(
+                    m,
+                    userIdType,
+                    getFactTableById,
+                    datasourceSettings,
+                  ) ||
+                  (!!clusterIdType &&
+                    isFactMetricJoinable(
+                      m,
+                      clusterIdType,
+                      getFactTableById,
+                      datasourceSettings,
+                    )),
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
@@ -306,6 +317,7 @@ const MetricsSelector: FC<{
     datasource,
     datasourceSettings,
     userIdType,
+    clusterIdType,
     project,
     noLegacyMetrics,
     noManual,
@@ -376,14 +388,21 @@ const MetricsSelector: FC<{
           if (isFactMetric(metric)) {
             return {
               metric,
-              joinable: userIdType
-                ? isFactMetricJoinable(
+              joinable:
+                !userIdType ||
+                isFactMetricJoinable(
+                  metric,
+                  userIdType,
+                  getFactTableById,
+                  datasourceSettings,
+                ) ||
+                (!!clusterIdType &&
+                  isFactMetricJoinable(
                     metric,
-                    userIdType,
+                    clusterIdType,
                     getFactTableById,
                     datasourceSettings,
-                  )
-                : true,
+                  )),
             };
           }
           const userIdTypes = metric.userIdTypes || [];
@@ -403,6 +422,7 @@ const MetricsSelector: FC<{
     getExperimentMetricById,
     getFactTableById,
     userIdType,
+    clusterIdType,
     datasourceSettings,
   ]);
 

@@ -48,7 +48,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
@@ -1374,6 +1377,73 @@ export function analyzeClusterMetricAsRatio(
   return ["mean", "proportion", "retention"].includes(m.metricType);
 }
 
+/**
+ * Whether a metric in a cluster experiment is analyzed per sub-unit and rolled
+ * up to the cluster. Metrics in `clusterLevelMetricIds` instead join on the
+ * cluster id directly and are analyzed with the cluster as the unit.
+ */
+export function isSubUnitClusterMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    !!settings.isClusterExperiment &&
+    !!settings.clusterSubUnitIdentifier &&
+    isFactMetric(m) &&
+    !settings.clusterLevelMetricIds?.includes(m.id)
+  );
+}
+
+export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
+
+/**
+ * A metric is analyzed per sub-unit whenever every fact table it reads can be
+ * joined on the sub-unit id, otherwise per cluster if they can all be joined on
+ * the cluster id. Null means it can't be analyzed in the cluster experiment.
+ */
+export function getClusterMetricAnalysisLevel(
+  metric: FactMetricInterface,
+  {
+    clusterIdentifier,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings,
+  }: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier: string;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricAnalysisLevel | null {
+  if (
+    isFactMetricJoinable(
+      metric,
+      clusterSubUnitIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "subunit";
+  }
+  if (
+    clusterIdentifier &&
+    isFactMetricJoinable(
+      metric,
+      clusterIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "cluster";
+  }
+  return null;
+}
+
 export function quantileMetricType(
   m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
@@ -1404,6 +1474,7 @@ export type ClusterMetricEligibility =
 export function getClusterExperimentMetricEligibility(
   metric: ExperimentMetricDefinition,
   options?: {
+    clusterIdentifier?: string | null;
     clusterSubUnitIdentifier?: string | null;
     getFactTable?: (
       id: string,
@@ -1449,16 +1520,18 @@ export function getClusterExperimentMetricEligibility(
   if (
     options?.clusterSubUnitIdentifier &&
     options.getFactTable &&
-    !isFactMetricJoinable(
-      metric,
-      options.clusterSubUnitIdentifier,
-      options.getFactTable,
-      options.datasourceSettings,
-    )
+    !getClusterMetricAnalysisLevel(metric, {
+      clusterIdentifier: options.clusterIdentifier,
+      clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
+      getFactTable: options.getFactTable,
+      datasourceSettings: options.datasourceSettings,
+    })
   ) {
     return {
       allowed: false,
-      reason: `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}", so it cannot be analyzed at the sub-unit level. Cluster experiments require each metric's fact table to include the sub-unit identifier.`,
+      reason: options.clusterIdentifier
+        ? `this metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
+        : `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
     };
   }
   return { allowed: true };

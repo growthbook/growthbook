@@ -124,10 +124,20 @@ export default function ExperimentMetricsSelector({
               metricGroups,
             )
           : [metricId];
+        const exposureQuery = getExposureQuery(
+          datasourceObj?.settings,
+          exposureQueryId,
+        );
         for (const id of ids) {
           const metric = getExperimentMetricById(id);
           if (!metric) continue;
           const eligibility = getClusterExperimentMetricEligibility(metric, {
+            clusterIdentifier: exposureQuery
+              ? resolveAnalysisIdentifierType(
+                  exposureQuery,
+                  exposureQueryIdentifierType,
+                )
+              : undefined,
             clusterSubUnitIdentifier,
             getFactTable: (factTableId) =>
               factTables.find((ft) => ft.id === factTableId),
@@ -215,6 +225,8 @@ export default function ExperimentMetricsSelector({
     },
     [
       datasource,
+      exposureQueryId,
+      exposureQueryIdentifierType,
       experimentId,
       experimentType,
       isClusterExperiment,

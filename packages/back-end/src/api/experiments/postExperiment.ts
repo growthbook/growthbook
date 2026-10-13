@@ -333,6 +333,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           guardrailMetrics: payload.guardrailMetrics,
           metricMap: map,
           metricGroups,
+          clusterIdentifier: payload.assignmentQueryIdentifierType,
           clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
           factTableMap: clusterFactTableMap,
           datasource,

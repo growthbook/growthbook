@@ -34,6 +34,7 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
   analyzeClusterMetricAsRatio,
+  getClusterMetricAnalysisLevel,
   getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
   withScheduledBy,
@@ -3150,14 +3151,32 @@ describe("getClusterExperimentMetricEligibility", () => {
     ).toEqual({ allowed: true });
   });
 
-  it("rejects metrics whose fact table only has the cluster identifier", () => {
+  it("allows metrics whose fact table only has the cluster identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true });
+  });
+
+  it("rejects metrics whose fact table has neither identifier", () => {
     const result = getClusterExperimentMetricEligibility(
-      factMetric("mean", "ft_cluster_only"),
-      { clusterSubUnitIdentifier: "user_id", getFactTable },
+      factMetric("mean", "ft_anon"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
     );
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
       expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
     }
   });
 
@@ -3173,6 +3192,56 @@ describe("getClusterExperimentMetricEligibility", () => {
         } as never,
       }),
     ).toEqual({ allowed: true });
+  });
+});
+
+describe("getClusterMetricAnalysisLevel", () => {
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_both: { userIdTypes: ["user_id", "region_id"] },
+    ft_user_only: { userIdTypes: ["user_id"] },
+    ft_region_only: { userIdTypes: ["region_id"] },
+  };
+  const options = {
+    clusterIdentifier: "region_id",
+    clusterSubUnitIdentifier: "user_id",
+    getFactTable: (id: string) => factTables[id],
+  };
+  const ratio = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "value" },
+      denominator: { factTableId: denominator, column: "value" },
+    }) as unknown as FactMetricInterface;
+
+  it("prefers the sub-unit when the metric is joinable at both levels", () => {
+    expect(
+      getClusterMetricAnalysisLevel(ratio("ft_both", "ft_both"), options),
+    ).toBe("subunit");
+  });
+
+  it("falls back to the cluster when a fact table lacks the sub-unit", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_region_only", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+    // Mixed ratio: the numerator reaches user_id, the denominator only region_id.
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_both", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+  });
+
+  it("returns null when no single identifier reaches every fact table", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_user_only", "ft_region_only"),
+        options,
+      ),
+    ).toBeNull();
   });
 });
 
