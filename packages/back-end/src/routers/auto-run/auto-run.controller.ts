@@ -81,8 +81,7 @@ export const getAutoRuns = async (
   });
 };
 
-// The app's own writers (the Eppo importer) record runs through these, with the
-// same bodies the REST API takes so one report page serves both.
+// Same bodies as the REST API, for the app's own writers (the Eppo importer)
 export const postAutoRun = async (
   req: AuthRequest<z.infer<typeof apiCreateAutoRunBody>>,
   res: Response<{ status: 200; autoRun: ApiAutoRun }>,

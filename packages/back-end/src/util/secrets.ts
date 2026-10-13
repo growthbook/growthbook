@@ -445,8 +445,7 @@ try {
 export const WEBHOOKS = webhooks;
 export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
-// Where the Eppo importer's proxy sends requests. Overridable so a local mock
-// of Eppo's API can stand in during development and testing.
+// Overridable so a local mock can stand in for Eppo
 export const EPPO_API_BASE_URL =
   process.env.EPPO_API_BASE_URL || "https://eppo.cloud/api/v1/";
 

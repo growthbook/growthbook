@@ -11,7 +11,7 @@ export default function AutoRunCallout() {
   const { userId } = useUser();
   const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs");
 
-  // Importer runs have their own report link on the importer page
+  // Importer runs are reported from the importer page
   const mine = (data?.autoRuns || [])
     .filter((r) => r.createdBy === userId && r.source !== "eppo-import")
     .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));

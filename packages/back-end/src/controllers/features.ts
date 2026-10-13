@@ -3701,14 +3701,9 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  // `?mirror=true` makes an existing feature match the payload: flat `rules`
-  // replace its rules and on/off toggles land, so a re-sync carries a kill
-  // switch flipped in the source system. Other callers keep the older
-  // behavior, which ignores both on update.
+  // mirror=true replaces rules and lands env toggles; other callers keep the old update behavior
   const mirror = req.query?.mirror === "true";
 
-  // Only envs that actually change are sent, keeping unchanged envs out of
-  // the revision and the permission check.
   const environmentsEnabled: Record<string, boolean> = {};
   const envEnabledIn = data.environmentSettings as
     | Record<string, { enabled?: boolean }>

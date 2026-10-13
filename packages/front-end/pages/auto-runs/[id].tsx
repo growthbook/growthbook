@@ -313,7 +313,7 @@ export default function AutoRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const environment = autoRunMetaString(run.metadata, "environment");
 
-  // An importer run is a record of what it created, not a setup to finish
+  // Importer runs have their own report
   if (run.source === "eppo-import") {
     const failed = run.metadata.failed;
     const failedItems = run.artifacts.filter((a) => a.action === "failed");

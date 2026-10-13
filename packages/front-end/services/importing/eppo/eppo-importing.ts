@@ -63,7 +63,7 @@ export type EppoAudience = {
   targeting_rules?: EppoTargetingRule[];
 };
 
-// Eppo's API returns a variation's key and name, but not the value it serves
+// Eppo's API has no variation value
 export type EppoVariation = {
   id: number;
   name: string;
@@ -265,7 +265,7 @@ async function getAllPages<T>(
 ): Promise<T[]> {
   const all: T[] = [];
   const separator = endpoint.includes("?") ? "&" : "?";
-  // The page cap guards against an API that ignores offset
+  // Page cap guards against an API that ignores offset
   for (let page = 0; page < 200; page++) {
     const items = await getFromEppo<T>(
       `${endpoint}${separator}limit=${pageSize}&offset=${page * pageSize}`,
@@ -316,7 +316,6 @@ export async function fetchEppoData(
   };
 }
 
-// An experiment GrowthBook has, so flags can reference it and re-imports keep its ids
 export type PhaseTargeting = {
   condition: string;
   savedGroups: NonNullable<FeatureRule["savedGroups"]>;
@@ -326,8 +325,7 @@ export type PhaseTargeting = {
 export type GBExperimentRef = {
   id: string;
   variations: { id: string; key: string }[];
-  // Who the GrowthBook experiment's phase includes, once known. An
-  // experiment-ref rule serves the phase's targeting, not its own.
+  // An experiment-ref rule serves the phase's targeting, not its own
   phase?: PhaseTargeting;
 };
 
@@ -335,7 +333,7 @@ export type TransformContext = {
   eppo: EppoData;
   project: string;
   datasource: DataSourceInterfaceWithParams | null;
-  // Environment ids rules may reference: the org's plus the ones being created
+  // Env ids rules may reference: existing plus the ones being created
   environmentIds: Set<string>;
   // Eppo id -> GrowthBook id
   savedGroupIds: Map<number, string>;
@@ -357,8 +355,7 @@ export function toEnvironmentId(name: string): string {
 
 type Condition = Record<string, unknown>;
 
-// Eppo casts number and boolean attributes to strings before comparing, while
-// the GrowthBook SDK compares strictly, so list both forms
+// Eppo compares as strings; the SDK compares strictly, so list both forms
 export function widenValues(values: string[]): (string | number | boolean)[] {
   const out = new Set<string | number | boolean>();
   for (const v of values) {
@@ -371,8 +368,7 @@ export function widenValues(values: string[]): (string | number | boolean)[] {
   return [...out];
 }
 
-// Eppo never matches a user who doesn't send the attribute, while the SDK
-// treats a missing value as null (or "0" for versions) and can match it
+// Eppo never matches a missing attribute; the SDK can
 function conditionToGB({ attribute, operator, values }: EppoCondition) {
   switch (operator) {
     case "ONE_OF":
@@ -454,8 +450,7 @@ const EMPTY_VALUES: Record<FeatureValueType, string> = {
 
 // Eppo's REST API documents variant keys but not variation values, so fall
 // back to the key when no value is sent (they match for most string flags).
-// A key that isn't a value of the flag's type is an error rather than a guess,
-// since "0" or "false" for every variation would import cleanly and serve wrong.
+// A key that isn't a value of the type is an error, not a guess
 export function getVariationValue(
   type: FeatureValueType,
   variation: EppoVariation,
@@ -522,8 +517,7 @@ function getAllocationTargeting(
 const allocationCoverage = (a: EppoAllocation) =>
   Math.min(1, Math.max(0, a.percent_exposure ?? 1));
 
-// Who the flag allocations an Eppo experiment analyzes include, when they all
-// agree, so the GrowthBook experiment's phase can carry it
+// Targeting shared by the allocations an experiment analyzes, for its phase
 export function getLinkedTargeting(
   experimentId: number,
   ctx: TransformContext,
@@ -567,7 +561,7 @@ export function getFlagAttributes(flag: EppoFlag, eppo: EppoData): string[] {
   ]);
 }
 
-// Owner is left to the server, which defaults it to whoever runs the import
+// Owner is set by the server
 export type FeaturePayload = Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version" | "owner"
@@ -636,10 +630,7 @@ export function transformFlag(
     }
     const served = servedVariations(a);
     if (!served.length) return;
-    // Eppo evaluates allocations top-down and each environment's default comes
-    // last. The one defaultValue came from is redundant; another environment's
-    // default becomes a rule there unless it serves the same thing. A default
-    // that splits traffic gave no defaultValue, so it stays as a rule.
+    // The default that gave defaultValue is redundant; a split default or another env's default stays a rule
     if (a === defaultAllocation && defaultServed?.length === 1) return;
     const coverage = allocationCoverage(a);
     if (
@@ -669,9 +660,7 @@ export function transformFlag(
     };
 
     if (served.length > 1) {
-      // Link the imported experiment when its variations line up with the flag's
-      // and its phase targets the same users, since the rule serves the phase's
-      // targeting and coverage rather than its own
+      // experiment-ref only when variations and targeting match, since the rule serves the phase's
       const linked = a.experiment && ctx.experiments.get(a.experiment.id);
       const byKey = new Map([...variations.values()].map((v) => [v.key, v]));
       const phase =
@@ -731,8 +720,7 @@ export function transformFlag(
   };
 }
 
-// What a re-sync may change on a flag this importer created. Description,
-// tags and project stay as the team left them.
+// Description, tags and project stay as the team left them
 export function toFlagUpdate(flag: FeaturePayload) {
   return pick(flag, [
     "id",
@@ -841,10 +829,7 @@ function toColumnRef(
   };
 }
 
-// A column GrowthBook can't query (e.g. an Eppo "Each Record" fact has none)
-// would save fine and only fail once an analysis runs. Returns the Fact
-// Table's own spelling, since warehouses fold case differently and the
-// metric endpoints look columns up exactly.
+// Returns the Fact Table's spelling; warehouses fold case and the metric endpoints match exactly
 function requireColumn(
   factSourceId: number,
   column: FactColumn,
@@ -856,7 +841,7 @@ function requireColumn(
   const columns = ctx.factTableColumns.get(
     ctx.factTableIds.get(factSourceId) ?? "",
   );
-  // No columns yet means detection hasn't run, not that the table is empty
+  // No columns means detection hasn't run
   if (!columns?.length) return column;
   const match = columns.find((c) => c.toLowerCase() === column.toLowerCase());
   if (!match) {
@@ -875,8 +860,7 @@ const THRESHOLD_OPERATORS = {
   neq: "!=",
 };
 
-// Eppo drops rows whose fact value is NULL, but count-style aggregations count
-// every row, so a nullable fact column overcounts slightly after import.
+// Eppo drops NULL fact rows; count aggregations here don't
 function aggregationToColumnRef(
   agg: EppoAggregation,
   ctx: TransformContext,
@@ -981,8 +965,7 @@ function secondsToWindow(seconds: number) {
 
 const NO_CAP: MetricCappingSettings = { type: "", value: 0 };
 
-// Eppo winsorizes both tails; "positiveOnly" computes the percentile from
-// positive values, which GrowthBook approximates by ignoring zeros
+// positiveOnly is approximated by ignoring zeros
 export function getCappingSettings(agg: EppoAggregation): {
   cappingSettings: MetricCappingSettings;
   lowerCappingSettings: MetricCappingSettings;
@@ -1155,8 +1138,7 @@ export function transformMetric(
   };
 }
 
-// The definition Eppo owns. Thresholds, priors, tags and projects are the
-// team's to tune in GrowthBook, so a re-import leaves them alone.
+// Only the definition; thresholds, priors, tags and projects stay as set in GrowthBook
 export function toMetricUpdate(metric: FactMetricPayload) {
   return {
     ...pick(metric, [
@@ -1190,7 +1172,7 @@ const RESULTS: Record<
 export function transformExperiment(
   experiment: EppoExperiment,
   ctx: TransformContext,
-  // Variations of the GrowthBook experiment being updated, to keep their ids
+  // Keeps the ids of an experiment being updated
   existing?: GBExperimentRef,
 ): Partial<ExperimentInterfaceStringDates> {
   if (
@@ -1280,8 +1262,7 @@ export function transformExperiment(
         })),
       },
     ],
-    // Without a Data Source there is nothing to analyze, so leave the metric
-    // fields for the team to fill in rather than clearing them
+    // No Data Source: leave the metric fields alone
     ...(ctx.datasource
       ? {
           datasource: ctx.datasource.id,
@@ -1302,9 +1283,7 @@ export function transformExperiment(
         }
       : {}),
     analysis: experiment.key_takeaways ?? "",
-    // Only an explicit analysis plan overrides the org's defaults. Eppo's
-    // sequential methods, including the fixed/sequential hybrid, map to
-    // sequential testing.
+    // Org defaults apply unless Eppo has a plan; Sequential* maps to sequential testing
     ...(plan
       ? {
           statsEngine: method === "Bayesian" ? "bayesian" : "frequentist",
@@ -1315,9 +1294,7 @@ export function transformExperiment(
   };
 }
 
-// What a re-import may change on an experiment. Tags and project stay as the
-// team left them; a running experiment only takes copy changes since its
-// variations and phase are live.
+// Tags and project stay; a running experiment only takes copy changes
 export function toExperimentUpdate(
   experiment: Partial<ExperimentInterfaceStringDates>,
   running: boolean,
@@ -1350,8 +1327,7 @@ export function toPhaseDate(date?: string): string {
   return date ? new Date(date).toISOString().slice(0, 16) : "";
 }
 
-// Lays Eppo's phase settings over the existing phase so targeting and dates
-// set in GrowthBook survive when Eppo has nothing to say about them
+// Eppo's settings over the existing phase, so GrowthBook-only targeting and dates survive
 export function mergePhase(
   existing: ExperimentPhaseStringDates,
   incoming: ExperimentPhaseStringDates,
@@ -1374,8 +1350,7 @@ export function mergePhase(
 
 export type ImportStatus = "pending" | "invalid" | "completed" | "failed";
 
-// How an Eppo item was matched to something GrowthBook already has: created
-// by a previous import run, or merely sharing a name or key with it
+// Matched via a previous run, or only by name/key
 export type ImportMatch = "run" | "name";
 
 export type ImportItem<T> = {
@@ -1404,8 +1379,7 @@ export type EppoImportData = {
 
 export type EppoCategory = keyof EppoImportData;
 
-// Import order: later categories reference earlier ones. Experiments come
-// before flags so experiment allocations can link to them.
+// Import order: later categories reference earlier ones
 export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "environments", label: "Environments" },
   { key: "tags", label: "Tags" },
@@ -1443,8 +1417,7 @@ function artifactAction(
   return { action: "updated", detail: "Updated from Eppo" };
 }
 
-// Objects a run created, in the reverse of import order so nothing is
-// deleted while something later still references it
+// Reverse import order so references are deleted first
 const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
   "feature",
   "experiment",
@@ -1455,7 +1428,7 @@ const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
   "tag",
 ];
 
-// Runs recorded before `action` existed carry the same fact in `detail`
+// Runs recorded before `action` carry it in `detail`
 export const wasCreated = (a: ApiAutoRun["artifacts"][number]) =>
   a.action === "created" || (!a.action && a.detail === "Created from Eppo");
 
@@ -1470,8 +1443,7 @@ export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
 const wasUpdated = (a: ApiAutoRun["artifacts"][number]) =>
   a.action === "updated" || (!a.action && a.detail === "Updated from Eppo");
 
-// What this run created that a later import of the same source has since
-// updated; tearing this run down deletes those too
+// Created here and updated by a later run; teardown deletes these too
 export function updatedByLaterRuns(
   run: ApiAutoRun,
   runs: ApiAutoRun[],
@@ -1492,8 +1464,7 @@ async function deleteArtifact(
   const id = encodeURIComponent(artifact.id);
   switch (artifact.kind) {
     case "feature": {
-      // Delete requires the archive step first; autoPublish lands it now
-      // rather than opening a draft
+      // Archive first (autoPublish lands it now); roll back if the delete fails
       const archive = (archived: boolean) =>
         apiCall(`/feature/${id}/archive`, {
           method: "POST",
@@ -1507,7 +1478,6 @@ async function deleteArtifact(
       try {
         await apiCall(`/feature/${id}`, { method: "DELETE" });
       } catch (e) {
-        // Leave the flag as it was, not archived and invisible
         await archive(false).catch(() => undefined);
         throw e;
       }
@@ -1532,8 +1502,7 @@ async function deleteArtifact(
       try {
         await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
       } catch (e) {
-        // An archived group drops out of the lists the next import matches
-        // against, so a half-done delete would make it import twice
+        // Roll back, or the archived group would import twice
         await archive(false).catch(() => undefined);
         throw e;
       }
@@ -1559,8 +1528,7 @@ export type TeardownFailure = {
   error: string;
 };
 
-// Removes everything a run created, one object at a time so a reference that
-// blocks one delete doesn't stop the rest, and records each removal on the run
+// One at a time so one blocked delete doesn't stop the rest
 export async function teardownRun(
   run: ApiAutoRun,
   apiCall: ApiCall,
@@ -1594,7 +1562,7 @@ export async function teardownRun(
   return { deleted, failures };
 }
 
-// Eppo id -> GrowthBook id, as recorded by previous import runs
+// Eppo id -> GrowthBook id, from previous runs
 export type ImportedIds = Record<
   Exclude<EppoCategory, "environments" | "tags">,
   Map<number, string>
@@ -1604,8 +1572,7 @@ export function externalId(category: EppoCategory, eppoId: number): string {
   return `${category}:${eppoId}`;
 }
 
-// Reads what earlier runs created. Later runs win, and anything since deleted
-// in GrowthBook is dropped so the next run creates it again.
+// Later runs win; deleted objects drop out so they're created again
 export function getImportedIds(
   runs: ApiAutoRun[],
   exists: (kind: AutoRunArtifact["kind"], id: string) => boolean,
@@ -1640,8 +1607,7 @@ export type ExistingIds = {
   environments: Set<string>;
   tags: Set<string>;
   imported: ImportedIds;
-  // Same-named entities in the selected project (and Data Source) that an
-  // import did not create. Offered as updates, not applied by default.
+  // Name matches in scope that no run created; never applied by default
   savedGroups: Map<string, string>; // name
   features: Set<string>; // key, in any project
   factTables: Map<string, string>; // name, on the selected Data Source
@@ -1673,9 +1639,7 @@ function findMatch(
 export const experimentTrackingKey = (e: EppoExperiment) =>
   e.experiment_key || `eppo_${e.id}`;
 
-// How each Eppo item lines up with GrowthBook, keyed by category then item key.
-// Computed before transforms so the selection can default from it: items a run
-// created are updated; items that only share a name wait for the user.
+// Computed before transforms so the selection can default from it
 export function matchItems(
   eppo: EppoData,
   existing: ExistingIds,
@@ -1749,7 +1713,6 @@ function buildItem<T>(
   }
 }
 
-// Which items the import will touch, so previews and the import agree
 export type Selection = (category: EppoCategory, key: string) => boolean;
 
 function getEnvironmentIds(
@@ -1943,8 +1906,7 @@ export async function runEppoImport({
     0,
   );
 
-  // The run is the record of what this import created. A re-run reads it to
-  // update those objects instead of creating them again.
+  // The run is what a re-run reads to update instead of re-create
   const { autoRun } = await apiCall<{ autoRun: ApiAutoRun }>("/auto-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -1959,8 +1921,7 @@ export async function runEppoImport({
   const runId = autoRun.id;
   const outcome: EppoImportOutcome = { runId, completed: 0, failed: 0 };
 
-  // What each category created, sent to the run in one append once the
-  // category finishes so concurrent items never race on the run document
+  // One append per category, so items don't race on the run document
   type Recorded = {
     item: ImportItem<{ id: number }>;
     id: string;
@@ -1995,8 +1956,7 @@ export async function runEppoImport({
         }),
       });
     } catch (e) {
-      // The objects exist; without the record a re-run would create them
-      // again, so say so on each one
+      // The objects exist but aren't recorded, so say so
       batch.forEach(({ item, error }) => {
         if (error) return;
         outcome.completed--;
@@ -2009,15 +1969,14 @@ export async function runEppoImport({
     }
   };
 
-  // The create endpoints require an owner; an empty one becomes whoever runs
-  // the import. Updates never send it, so a later owner change sticks.
+  // Create requires an owner (empty = importer); updates never send it
   const created = <T extends object>(payload: T) => ({ ...payload, owner: "" });
 
   const importEach = async <T extends { id: number }>(
     category: EppoCategory,
     items: ImportItem<T>[],
     importItem: (item: ImportItem<T>) => Promise<unknown>,
-    // Writes that read-modify-write one shared document can't overlap
+    // Serial for writes that rewrite one shared document
     { serial = false } = {},
   ) => {
     const queue = serial ? new PQueue({ concurrency: 1 }) : parallel;
@@ -2031,8 +1990,7 @@ export async function runEppoImport({
         } catch (e) {
           outcome.failed++;
           setItem(category, item.key, { status: "failed", error: e.message });
-          // Failures go on the run too, so the report says what and why. The
-          // id is the Eppo reference since nothing was created in GrowthBook.
+          // Recorded as failed; the id is the Eppo reference
           recorded.push({
             item,
             id: item.existingId ?? externalId(category, item.eppo.id),
@@ -2060,8 +2018,7 @@ export async function runEppoImport({
       await ensureAttributeExists(attribute, attributeSchema, apiCall);
     }
 
-    // One call per environment so a plan that disallows one name doesn't
-    // block the rest. Serial, since each call rewrites the org's whole list.
+    // One serial call per env: a refused name shouldn't block the rest, and each call rewrites the org list
     const createdEnvs = new Set<string>();
     await importEach(
       "environments",
@@ -2080,8 +2037,7 @@ export async function runEppoImport({
       },
       { serial: true },
     );
-    // An environment the plan refused is dropped from every flag's rules
-    // rather than failing the flag
+    // Envs the plan refused drop out of the rules
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     await importEach("tags", data.tags, async (item) => {
@@ -2098,8 +2054,7 @@ export async function runEppoImport({
       record(item, item.key);
     });
 
-    // A reference to something that failed to import must not survive into
-    // the items that depend on it; flags then inline the audience instead
+    // Drop references to items that failed, so dependents fall back
     const dropOnFailure = async <K>(
       refs: Map<K, unknown>,
       key: K,

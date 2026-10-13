@@ -2,11 +2,7 @@ import { z } from "zod";
 import { baseSchema, apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
-// One automated pass that creates GrowthBook objects on a user's behalf: the SDK
-// onboarding wizard, or an importer such as Eppo. Deliberately holds nothing about the
-// customer's codebase — no file contents, and paths only where they are shown back
-// to the user as evidence for a claim. Created objects are not modified to point
-// back here, so `artifacts` is the only record of what a run built.
+// One automated pass (SDK wizard or an importer) that creates GrowthBook objects. Holds nothing about the customer's codebase; created objects don't point back here, so `artifacts` is the only record.
 
 export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
 export const MAX_AUTO_RUN_ARTIFACTS = 2000;
@@ -60,12 +56,9 @@ export const autoRunArtifact = z
       .max(500)
       .nullable()
       .describe("Evidence or summary, e.g. 'boolean, off in dev'"),
-    // Id of the object this was created from in another system, e.g. Eppo. An
-    // importer re-run looks this up to update what it created instead of creating
-    // it again.
+    // Id in the source system, so an importer re-run updates instead of re-creating
     externalId: z.string().max(200).nullable().optional(),
-    // What the run did to this object. Only "created" objects belong to the
-    // run, so teardown removes those and leaves updated ones alone.
+    // Only "created" objects belong to the run (teardown)
     action: z.enum(autoRunArtifactActions).optional(),
     dateCreated: z.date(),
   })
@@ -79,11 +72,7 @@ export const autoRunCheck = z
   })
   .strict();
 
-// The arrays are embedded, which is right — a run is read whole and an idempotent
-// append is one document update. They are capped because an unbounded array inside
-// a document is a 16MB ceiling nobody is watching, and the writer is a loop. An
-// import run records one artifact per object it creates, so the cap is sized for
-// an account's worth of flags, metrics and experiments rather than a wizard's few.
+// Embedded and capped: a run is read whole, and an unbounded array is a 16MB ceiling. Sized for an import, not a wizard.
 export const autoRunValidator = baseSchema
   .extend({
     source: z.enum(autoRunSources),

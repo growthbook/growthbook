@@ -144,8 +144,7 @@ export default function ImportFromEppo() {
           .filter((sg) => inProject(project, sg.projects))
           .map((sg) => [sg.groupName, sg.id]),
       ),
-      // Feature keys are unique across the org, and syncing a key updates
-      // whichever Project's flag owns it
+      // Feature keys are org-unique
       features: new Set(features.map((f) => f.id)),
       factTables: new Map(
         factTables
@@ -199,8 +198,7 @@ export default function ImportFromEppo() {
     [eppo, existing],
   );
 
-  // Items a previous run created update by default; items that merely share a
-  // name with something in GrowthBook wait for an explicit choice
+  // Run-created items update by default; name matches wait for a tick
   const isSelected = (category: EppoCategory, key: string) => {
     const match: ItemMatch = matches?.[category].get(key) ?? {};
     return selection[itemId(category, key)] ?? match.match !== "name";
@@ -257,8 +255,7 @@ export default function ImportFromEppo() {
     setBusy("fetching");
     setError(null);
     try {
-      // What exists may have changed since the page loaded (e.g. a run was
-      // deleted), and matching is only as good as this list
+      // Refresh so a run deleted since page load isn't matched
       const [data] = await Promise.all([
         fetchEppoData(apiKey, apiCall),
         mutateDefinitions(),
