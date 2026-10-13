@@ -200,7 +200,6 @@ describe("getVariationValue", () => {
     expect(getVariationValue("json", v('{"a":1}'))).toBe('{"a":1}');
   });
 
-  // A key that isn't a value of the type is an error, not a guess
   it("rejects keys that aren't values of the flag's type", () => {
     const v = (variant_key: string) => ({ id: 1, name: "", variant_key });
     expect(() => getVariationValue("number", v("control"))).toThrow(
@@ -214,7 +213,6 @@ describe("getVariationValue", () => {
 });
 
 describe("widenValues", () => {
-  // Eppo compares as strings; the SDK compares strictly
   it("lists number and boolean forms alongside the string", () => {
     expect(widenValues(["2", "3"])).toEqual(["2", 2, "3", 3]);
     expect(widenValues(["true"])).toEqual(["true", true]);
@@ -258,7 +256,6 @@ describe("transformFlag", () => {
           ],
         }),
         mkAllocation({ id: 3, name: "Rollout", percent_exposure: 0.2 }),
-        // Only the default allocation is redundant with defaultValue
         mkAllocation({
           id: 4,
           name: "Default",
@@ -373,7 +370,6 @@ describe("transformFlag", () => {
     ).toThrow("Switchback");
   });
 
-  // Eppo evaluates top-down; a rule-less 100% allocation shadows later ones
   it("keeps a non-default catch-all that serves the default value", () => {
     const { rules } = transformFlag(
       mkFlag([
@@ -507,7 +503,6 @@ describe("transformFlag", () => {
       savedGroups: [],
       coverage: 0.5,
     };
-    // The new experiment's phase carries the allocation's targeting
     expect(
       transformExperiment(eppo.experiments[0], mkCtx({ eppo })).phases?.[0],
     ).toMatchObject(targeting);
@@ -531,13 +526,11 @@ describe("transformFlag", () => {
       ).rules[0];
     const live = { ...targeting, variationWeights: [0.5, 0.5] };
     expect(ruleFor(live)).toMatchObject({ type: "experiment-ref" });
-    // Unknown phase, stopped experiment, or different weights: keep the inline rule
     expect(ruleFor()).toMatchObject({ type: "experiment" });
     expect(ruleFor(live, "stopped")).toMatchObject({ type: "experiment" });
     expect(
       ruleFor({ ...targeting, variationWeights: [0.9, 0.1] }),
     ).toMatchObject({ type: "experiment" });
-    // A wider live phase would widen the test, so keep an inline rule
     expect(
       ruleFor({ condition: "", savedGroups: [], coverage: 1 }),
     ).toMatchObject({
@@ -868,7 +861,6 @@ describe("transformMetric", () => {
         ctx,
       );
 
-    // The Fact Table's spelling is what the metric endpoints look up
     expect(sum("revenue").numerator).toMatchObject({ column: "REVENUE" });
     expect(
       transformMetric(
@@ -915,14 +907,12 @@ describe("transformMetric", () => {
       ),
     ).toThrow('Column "__count__"');
 
-    // Counts don't read the column
     expect(
       transformMetric(
         mkMetric({ numerator_aggregation: agg("count", { column: null }) }),
         ctx,
       ).numerator,
     ).toMatchObject({ column: "$$count" });
-    // Columns unknown until the Fact Table exists and detection has run
     expect(
       transformMetric(
         mkMetric({ numerator_aggregation: agg("sum", { column: "anything" }) }),
@@ -1034,7 +1024,6 @@ describe("transformExperiment", () => {
       variationWeights: [0.25, 0.75],
       dateEnded: "2024-02-01T00:00:00Z",
     });
-    // Org analysis defaults apply unless Eppo has an explicit plan
     expect(result).not.toHaveProperty("statsEngine");
     expect(
       transformExperiment(
@@ -1128,7 +1117,6 @@ describe("transformExperiment", () => {
       dateStarted: "2024-01-01T00:00",
       dateEnded: "2024-02-01T00:00",
     });
-    // Dates GrowthBook has and Eppo lacks survive
     expect(
       mergePhase(existing, {
         ...incoming,
@@ -1207,7 +1195,6 @@ describe("getImportedIds", () => {
       ],
       () => true,
     );
-    // A failed update doesn't disown the item; a delete does
     expect(ids.flags).toEqual(new Map([[4, "flag-b"]]));
   });
 });
@@ -1280,7 +1267,6 @@ describe("teardownRun", () => {
   const run = (artifacts: ApiAutoRun["artifacts"]): ApiAutoRun =>
     ({ id: "arun_1", source: "eppo-import", artifacts }) as ApiAutoRun;
 
-  // Records every request; `fail` makes matching requests throw
   const mockApi = (
     fail: (url: string, method: string) => string | undefined = () => undefined,
   ) => {
@@ -1320,7 +1306,6 @@ describe("teardownRun", () => {
       "DELETE /fact-metrics/fact__1",
       "DELETE /fact-tables/ftb_1",
       "GET /saved-groups/grp_1",
-      // Already archived, so no archive step and nothing to restore
       "DELETE /saved-groups/grp_1",
     ]);
     expect(calls.filter((c) => c.includes("/auto-runs/"))).toHaveLength(4);
@@ -1351,7 +1336,6 @@ describe("teardownRun", () => {
       ["ftb_1", "Kept because something that uses it couldn't be deleted"],
       ["grp_1", "Kept because something that uses it couldn't be deleted"],
     ]);
-    // The flag was live before, so it is un-archived again
     expect(calls).toContain("POST /feature/flag-a/archive");
     expect(
       calls.filter((c) => c === "POST /feature/flag-a/archive"),
@@ -1395,8 +1379,6 @@ describe("runEppoImport", () => {
     flags: [],
   });
 
-  // Routes the importer's requests; `onRecord` decides what the run's
-  // artifact endpoint does
   const mockApi = (onRecord: () => unknown) => {
     const calls: { method: string; url: string; body?: unknown }[] = [];
     const apiCall = vi.fn(async (url: string, options?: RequestInit) => {
@@ -1462,8 +1444,6 @@ describe("runEppoImport", () => {
     });
   });
 
-  // The object exists but would be created again next time, so the item is
-  // marked failed rather than quietly dropped from the report
   it("marks an import failed when the run rejects its record", async () => {
     const { calls, apiCall } = mockApi(() => {
       throw new Error("Label too long");

@@ -60,7 +60,6 @@ const KIND: Record<
   },
   "fact-table": { label: "Fact Table", href: (id) => `/fact-tables/${id}` },
   "saved-group": { label: "Saved Group", href: (id) => `/saved-groups/${id}` },
-  // No detail page; the link opens the list, and says so
   environment: {
     label: "Environment",
     href: () => "/environments",
@@ -219,7 +218,6 @@ function DeleteRunButton({
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [confirming, setConfirming] = useState(false);
-  // Deletions are recorded on the run, which only its creator or an admin may update
   const canRecord =
     !run.createdBy ||
     run.createdBy === userId ||
@@ -327,7 +325,6 @@ export default function AutoRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const environment = autoRunMetaString(run.metadata, "environment");
 
-  // Importer runs have their own report
   if (run.source === "eppo-import") {
     const failed = run.metadata.failed;
     const failedItems = run.artifacts.filter((a) => a.action === "failed");

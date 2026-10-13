@@ -2,8 +2,6 @@ import { z } from "zod";
 import { baseSchema, apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
-// One automated pass (SDK wizard or importer); `artifacts` is its only record
-
 export const autoRunSources = ["cli-wizard", "skill", "eppo-import"] as const;
 export const MAX_AUTO_RUN_ARTIFACTS = 5000;
 export const autoRunArtifactActions = [
@@ -56,9 +54,7 @@ export const autoRunArtifact = z
       .max(500)
       .nullable()
       .describe("Evidence or summary, e.g. 'boolean, off in dev'"),
-    // Source-system id, so an importer re-run updates instead of re-creating
     externalId: z.string().max(200).nullable().optional(),
-    // Only "created" objects belong to the run (teardown)
     action: z.enum(autoRunArtifactActions).optional(),
     dateCreated: z.date(),
   })
@@ -72,7 +68,6 @@ export const autoRunCheck = z
   })
   .strict();
 
-// Embedded and capped (16MB document ceiling); sized for an import, not a wizard
 export const autoRunValidator = baseSchema
   .extend({
     source: z.enum(autoRunSources),

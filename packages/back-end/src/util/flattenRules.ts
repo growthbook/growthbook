@@ -460,14 +460,6 @@ export function flattenV1ToV2Rules(
   return output;
 }
 
-// The rules a sync (`POST /feature/:id/sync`) lands on an existing feature.
-// v2 callers (the importers) send the whole flat `rules` array, which replaces
-// the feature's rules so a sync lands the same rules whether or not the feature
-// already exists. v1 callers send `environmentSettings[env].rules`, which
-// replace only those envs: live rules are narrowed to the envs the caller did
-// NOT override, then the inbound rules are appended stamped per env (a naive
-// per-env fan-out would duplicate `allEnvironments: true` rules across envs).
-// Like create, the two shapes can't be mixed.
 export function mergeSyncRules({
   liveRules,
   environments,
@@ -491,7 +483,6 @@ export function mergeSyncRules({
 
   const result: FeatureRule[] = [];
   for (const r of liveRules) {
-    // Env subset of this rule NOT replaced by an inbound per-env override.
     let remainingEnvs: string[];
     if (r.allEnvironments) {
       remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));

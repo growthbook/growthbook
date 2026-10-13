@@ -38,8 +38,6 @@ import {
 } from "shared/constants";
 import { ensureAttributeExists } from "@/services/importing/statsig/transformers/attributeCreator";
 
-// Eppo REST API shapes (https://eppo.cloud/api/docs), limited to the fields we use
-
 export type EppoEnvironment = { id: number; name: string };
 
 export type EppoTag = { id: number; name: string; description?: string };
@@ -67,7 +65,6 @@ export type EppoAudience = {
   targeting_rules?: EppoTargetingRule[];
 };
 
-// Eppo's API has no variation value
 export type EppoVariation = {
   id: number;
   name: string;
@@ -84,11 +81,9 @@ export type EppoAllocation = {
   variation_weight: { variation_id: number; weight: number }[];
   targeting_rules: EppoTargetingRule[];
   audiences: { audience_id: number; type: "IS_IN" | "IS_NOT_IN" }[];
-  // 0-1
   percent_exposure: number;
   is_default: boolean;
   environment_id?: number;
-  // The Eppo experiment analyzing an EXPERIMENT allocation
   experiment?: { id: number; name: string; status: string } | null;
 };
 
@@ -127,7 +122,6 @@ type EppoMetricFilter = {
   values: string[];
 };
 
-// Documented as a string, but Eppo stores "Each Record" facts with a null column
 type FactColumn = string | null;
 
 type EppoAggregation = {
@@ -139,10 +133,8 @@ type EppoAggregation = {
   aggregation_timeframe_unit?: string | null;
   aggregation_timeframe_start_value?: number | null;
   aggregation_timeframe_end_value?: number | null;
-  // 0.8-0.9999
   winsor_upper_percentile?: number | null;
   winsor_upper_fixed_value?: number | null;
-  // 0.0001-0.2
   winsor_lower_percentile?: number | null;
   winsor_lower_fixed_value?: number | null;
   winsor_basis_filter?: "positiveOnly" | string | null;
@@ -165,7 +157,6 @@ export type EppoMetric = {
   percentile?: {
     metric_event_source_id: number;
     column: FactColumn;
-    // 0.01-0.99
     percentile_value: number;
     filters?: EppoMetricFilter[];
   } | null;
@@ -197,7 +188,6 @@ export type EppoExperiment = {
   hypothesis?: string;
   assignments_start_date?: string;
   assignments_end_date?: string;
-  // 0-1
   traffic_allocation?: number;
   winning_variant_key?: string;
   outcome?:
@@ -240,7 +230,6 @@ export type EppoData = {
 
 type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
 
-// Eppo doesn't send CORS headers, so every request goes through our back-end
 async function getFromEppo<T>(
   endpoint: string,
   apiKey: string,
@@ -269,7 +258,6 @@ async function getAllPages<T>(
 ): Promise<T[]> {
   const all: T[] = [];
   const separator = endpoint.includes("?") ? "&" : "?";
-  // Page cap guards against an API that ignores offset
   for (let page = 0; page < 200; page++) {
     const items = await getFromEppo<T>(
       `${endpoint}${separator}limit=${pageSize}&offset=${page * pageSize}`,
@@ -304,7 +292,6 @@ export async function fetchEppoData(
     get<EppoFlag>("feature-flags?include_detailed_allocations=true"),
     get<EppoEntity>("definitions/entities"),
     get<EppoFactSource>("definitions/facts"),
-    // Metrics document a page size of 50; experiments allow up to 250
     getAllPages<EppoMetric>("metrics", 50, apiKey, apiCall),
     getAllPages<EppoExperiment>("experiments", 250, apiKey, apiCall),
   ]);
@@ -330,11 +317,9 @@ export type GBExperimentRef = {
   id: string;
   status?: ExperimentInterfaceStringDates["status"];
   variations: { id: string; key: string }[];
-  // An experiment-ref rule serves the phase's targeting and weights, not its own
   phase?: PhaseTargeting & { variationWeights?: number[] };
 };
 
-// Whether an experiment-ref rule would serve exactly what the allocation does
 export function servesLikeAllocation(
   linked: GBExperimentRef,
   served: { key: string; weight: number }[],
@@ -358,18 +343,14 @@ export type TransformContext = {
   eppo: EppoData;
   project: string;
   datasource: DataSourceInterfaceWithParams | null;
-  // Env ids rules may reference: existing plus the ones being created
   environmentIds: Set<string>;
-  // Eppo id -> GrowthBook id
   savedGroupIds: Map<number, string>;
   factTableIds: Map<number, string>;
   metricIds: Map<number, string>;
   experiments: Map<number, GBExperimentRef>;
-  // GrowthBook Fact Table id -> its columns, once the Fact Table exists
   factTableColumns: Map<string, string[]>;
 };
 
-// "Production" -> "production" so it lines up with GrowthBook's defaults
 export function toEnvironmentId(name: string): string {
   return name
     .trim()
@@ -380,12 +361,10 @@ export function toEnvironmentId(name: string): string {
 
 type Condition = Record<string, unknown>;
 
-// Eppo compares as strings; the SDK compares strictly, so list both forms
 export function widenValues(values: string[]): (string | number | boolean)[] {
   const out = new Set<string | number | boolean>();
   for (const v of values) {
     out.add(v);
-    // Only a value whose string form is exactly the source, as Eppo would cast it
     if (v !== "" && String(Number(v)) === v) out.add(Number(v));
     if (v === "true") out.add(true);
     if (v === "false") out.add(false);
@@ -393,7 +372,6 @@ export function widenValues(values: string[]): (string | number | boolean)[] {
   return [...out];
 }
 
-// Eppo never matches a missing attribute; the SDK can
 function conditionToGB({ attribute, operator, values }: EppoCondition) {
   switch (operator) {
     case "ONE_OF":
@@ -410,7 +388,6 @@ function conditionToGB({ attribute, operator, values }: EppoCondition) {
     case "LTE":
     case "GT":
     case "GTE": {
-      // Eppo compares numerically when it can, otherwise as semantic versions
       const value = values[0] ?? "";
       const op = operator.toLowerCase();
       return value.trim() !== "" && !isNaN(Number(value))
@@ -425,11 +402,9 @@ function conditionToGB({ attribute, operator, values }: EppoCondition) {
 function ruleToCondition(rule: EppoTargetingRule): Condition {
   const conds: Condition[] = (rule.conditions ?? []).map(conditionToGB);
   const merged = Object.assign({}, ...conds);
-  // One object reads better, but only works when no attribute repeats
   return Object.keys(merged).length === conds.length ? merged : { $and: conds };
 }
 
-// Eppo targeting rules are OR'd together; conditions within a rule are AND'd
 export function rulesToCondition(rules: EppoTargetingRule[]): Condition | null {
   const ors = rules.map(ruleToCondition);
   if (!ors.length) return null;
@@ -440,7 +415,6 @@ export function getTargetingAttributes(rules: EppoTargetingRule[]): string[] {
   return rules.flatMap((r) => (r.conditions ?? []).map((c) => c.attribute));
 }
 
-// The Saved Group endpoints reject longer descriptions
 const SAVED_GROUP_DESCRIPTION_LENGTH = 100;
 
 export function transformAudience(audience: EppoAudience, project: string) {
@@ -473,9 +447,6 @@ const EMPTY_VALUES: Record<FeatureValueType, string> = {
   json: "{}",
 };
 
-// Eppo's REST API documents variant keys but not variation values, so fall
-// back to the key when no value is sent (they match for most string flags).
-// A key that isn't a value of the type is an error, not a guess
 export function getVariationValue(
   type: FeatureValueType,
   variation: EppoVariation,
@@ -505,7 +476,6 @@ export function getVariationValue(
   return String(raw);
 }
 
-// Allocation targeting matches when ANY rule or audience matches
 function getAllocationTargeting(
   allocation: EppoAllocation,
   ctx: TransformContext,
@@ -513,7 +483,6 @@ function getAllocationTargeting(
   const rules = allocation.targeting_rules ?? [];
   const audiences = allocation.audiences ?? [];
 
-  // Reference imported Saved Groups when that preserves the OR semantics
   const groupIds = audiences.map((a) =>
     a.type === "IS_IN" ? ctx.savedGroupIds.get(a.audience_id) : undefined,
   );
@@ -524,7 +493,6 @@ function getAllocationTargeting(
     };
   }
 
-  // Otherwise inline each audience's targeting
   const ors = rules.map(ruleToCondition);
   audiences.forEach(({ audience_id, type }) => {
     const audience = ctx.eppo.audiences.find((a) => a.id === audience_id);
@@ -542,7 +510,6 @@ function getAllocationTargeting(
 const allocationCoverage = (a: EppoAllocation) =>
   Math.min(1, Math.max(0, a.percent_exposure ?? 1));
 
-// Targeting shared by the allocations an experiment analyzes, for its phase
 export function getLinkedTargeting(
   experimentId: number,
   ctx: TransformContext,
@@ -586,7 +553,6 @@ export function getFlagAttributes(flag: EppoFlag, eppo: EppoData): string[] {
   ]);
 }
 
-// Owner is set by the server
 export type FeaturePayload = Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version" | "owner"
@@ -631,7 +597,6 @@ export function transformFlag(
   const servedVariations = (a: EppoAllocation) =>
     (a.variation_weight ?? []).filter((w) => w.weight > 0);
 
-  // Eppo has no flag-level default; use what production serves to everyone else
   const prodEnvId = (flagEnvs.find((e) => e.is_production) ?? flagEnvs[0])?.id;
   const defaultAllocation =
     allocations.find((a) => a.is_default && a.environment_id === prodEnvId) ??
@@ -655,7 +620,6 @@ export function transformFlag(
     }
     const served = servedVariations(a);
     if (!served.length) return;
-    // The default behind defaultValue is redundant; other defaults stay rules
     if (a === defaultAllocation && defaultServed?.length === 1) return;
     const coverage = allocationCoverage(a);
     if (
@@ -669,7 +633,6 @@ export function transformFlag(
 
     const targeting = getAllocationTargeting(a, ctx);
 
-    // Allocations without an environment apply to all of them
     const environments = flagEnvs
       .filter((e) => !a.environment_id || e.id === a.environment_id)
       .map((e) => toEnvironmentId(e.name));
@@ -713,7 +676,6 @@ export function transformFlag(
       rules.push({
         ...base,
         type: "experiment",
-        // Matches the experiment key Eppo SDKs log for assignments
         trackingKey: `${flag.key}-${a.key}`,
         hashAttribute: "id",
         coverage,
@@ -746,7 +708,6 @@ export function transformFlag(
   };
 }
 
-// Description, tags and project stay as the team left them
 export function toFlagUpdate(flag: FeaturePayload) {
   return pick(flag, [
     "id",
@@ -764,7 +725,6 @@ function requireDatasource(ctx: TransformContext) {
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// Eppo entities ("User") map to the identifier type with a matching name ("user_id")
 function getIdentifierType(
   entityName: string,
   datasource: DataSourceInterfaceWithParams,
@@ -855,7 +815,6 @@ function toColumnRef(
   };
 }
 
-// Returns the Fact Table's spelling; the metric endpoints match exactly
 function requireColumn(
   factSourceId: number,
   column: FactColumn,
@@ -867,7 +826,6 @@ function requireColumn(
   const columns = ctx.factTableColumns.get(
     ctx.factTableIds.get(factSourceId) ?? "",
   );
-  // No columns means detection hasn't run
   if (!columns?.length) return column;
   const match =
     columns.find((c) => c === column) ??
@@ -888,7 +846,6 @@ const THRESHOLD_OPERATORS = {
   neq: "!=",
 };
 
-// Eppo drops NULL fact rows; count aggregations here don't
 function aggregationToColumnRef(
   agg: EppoAggregation,
   ctx: TransformContext,
@@ -912,7 +869,6 @@ function aggregationToColumnRef(
       const op = t?.comparison_operator
         ? THRESHOLD_OPERATORS[t.comparison_operator]
         : undefined;
-      // GrowthBook's aggregate filter only takes non-negative numbers
       if (!t || !op || t.breach_value === null || t.breach_value < 0) {
         throw new Error("Unsupported threshold settings");
       }
@@ -993,7 +949,6 @@ function secondsToWindow(seconds: number) {
 
 const NO_CAP: MetricCappingSettings = { type: "", value: 0 };
 
-// positiveOnly is approximated by ignoring zeros
 export function getCappingSettings(agg: EppoAggregation): {
   cappingSettings: MetricCappingSettings;
   lowerCappingSettings: MetricCappingSettings;
@@ -1064,8 +1019,6 @@ function getMetricDefinition(
       if (funnel.conversion_time_from !== "firstEvent") {
         windowSettings = conversionWindow(value, unit);
       } else if (steps.length === 2) {
-        // Step windows count from the previous step, which only matches
-        // "from the first event" when there are two steps
         steps[1].conversionWindow = { value, unit };
       } else {
         throw new Error(
@@ -1166,7 +1119,6 @@ export function transformMetric(
   };
 }
 
-// Only the definition; thresholds, priors, tags and projects stay
 export function toMetricUpdate(metric: FactMetricPayload) {
   return {
     ...pick(metric, [
@@ -1200,7 +1152,6 @@ const RESULTS: Record<
 export function transformExperiment(
   experiment: EppoExperiment,
   ctx: TransformContext,
-  // Keeps the ids of an experiment being updated
   existing?: GBExperimentRef,
 ): Partial<ExperimentInterfaceStringDates> {
   if (
@@ -1214,7 +1165,6 @@ export function transformExperiment(
   if (experiment.is_holdout_analysis) {
     throw new Error("Holdout analyses aren't supported");
   }
-  // GrowthBook treats the first variation as the control
   const variations = experiment.variations
     .filter((v) => v.is_active)
     .sort((a, b) => Number(b.is_control) - Number(a.is_control));
@@ -1243,7 +1193,6 @@ export function transformExperiment(
         ? "running"
         : "stopped";
 
-  // Metrics that weren't imported are left off
   const metrics = (experiment.metrics ?? []).flatMap((m) => {
     const id = ctx.metricIds.get(m.metric_id);
     return id ? [{ ...m, id }] : [];
@@ -1290,7 +1239,6 @@ export function transformExperiment(
         })),
       },
     ],
-    // No Data Source: leave the metric fields alone
     ...(ctx.datasource
       ? {
           datasource: ctx.datasource.id,
@@ -1311,7 +1259,6 @@ export function transformExperiment(
         }
       : {}),
     analysis: experiment.key_takeaways ?? "",
-    // Org defaults unless Eppo has a plan; Sequential* means sequential
     ...(plan
       ? {
           statsEngine: method === "Bayesian" ? "bayesian" : "frequentist",
@@ -1322,7 +1269,6 @@ export function transformExperiment(
   };
 }
 
-// Tags and project stay; a running experiment only takes copy changes
 export function toExperimentUpdate(
   experiment: Partial<ExperimentInterfaceStringDates>,
   running: boolean,
@@ -1352,12 +1298,10 @@ export function toExperimentUpdate(
   };
 }
 
-// The phase endpoint takes UTC dates as "yyyy-MM-ddTHH:mm"
 export function toPhaseDate(date?: string): string {
   return date ? new Date(date).toISOString().slice(0, 16) : "";
 }
 
-// Eppo's settings over the existing phase; GrowthBook-only fields survive
 export function mergePhase(
   existing: ExperimentPhaseStringDates,
   incoming: ExperimentPhaseStringDates,
@@ -1376,18 +1320,14 @@ export function mergePhase(
   };
 }
 
-// region Import
-
 export type ImportStatus = "pending" | "invalid" | "completed" | "failed";
 
-// Matched via a previous run, or only by name/key
 export type ImportMatch = "run" | "name";
 
 export type ImportItem<T> = {
   key: string;
   name: string;
   eppo: T;
-  // GrowthBook id when it already exists
   existingId?: string;
   match?: ImportMatch;
   status: ImportStatus;
@@ -1409,7 +1349,6 @@ export type EppoImportData = {
 
 export type EppoCategory = keyof EppoImportData;
 
-// Import order: later categories reference earlier ones
 export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "environments", label: "Environments" },
   { key: "tags", label: "Tags" },
@@ -1448,7 +1387,6 @@ function artifactAction(
   return { action: "updated", detail: "Updated from Eppo" };
 }
 
-// Reverse import order so references are deleted first
 const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
   "feature",
   "experiment",
@@ -1459,7 +1397,6 @@ const TEARDOWN_ORDER: AutoRunArtifact["kind"][] = [
   "tag",
 ];
 
-// Runs recorded before `action` carry it in `detail`
 export const wasCreated = (a: ApiAutoRun["artifacts"][number]) =>
   a.action === "created" || (!a.action && a.detail === "Created from Eppo");
 
@@ -1474,7 +1411,6 @@ export function createdByRun(run: ApiAutoRun): ApiAutoRun["artifacts"] {
 const wasUpdated = (a: ApiAutoRun["artifacts"][number]) =>
   a.action === "updated" || (!a.action && a.detail === "Updated from Eppo");
 
-// Created here and updated by a later run; teardown deletes these too
 export function updatedByLaterRuns(
   run: ApiAutoRun,
   runs: ApiAutoRun[],
@@ -1495,7 +1431,6 @@ async function deleteArtifact(
   const id = encodeURIComponent(artifact.id);
   switch (artifact.kind) {
     case "feature": {
-      // Archive first (autoPublish lands it now); restore the original state if the delete fails
       const { feature } = await apiCall<{ feature: { archived?: boolean } }>(
         `/feature/${id}`,
       );
@@ -1539,7 +1474,6 @@ async function deleteArtifact(
       try {
         await apiCall(`/saved-groups/${id}`, { method: "DELETE" });
       } catch (e) {
-        // Restore, or the archived group would import twice
         if (!savedGroup.archived) await archive(false).catch(() => undefined);
         throw e;
       }
@@ -1565,7 +1499,6 @@ export type TeardownFailure = {
   error: string;
 };
 
-// Kinds that must stay when something referencing them couldn't be deleted
 const KEPT_WHEN_FAILED: Partial<
   Record<AutoRunArtifact["kind"], AutoRunArtifact["kind"][]>
 > = {
@@ -1574,7 +1507,6 @@ const KEPT_WHEN_FAILED: Partial<
   metric: ["fact-table"],
 };
 
-// One at a time so one blocked delete doesn't stop the rest
 export async function teardownRun(
   run: ApiAutoRun,
   apiCall: ApiCall,
@@ -1617,7 +1549,6 @@ export async function teardownRun(
   return { deleted, failures };
 }
 
-// Eppo id -> GrowthBook id, from previous runs
 export type ImportedIds = Record<
   Exclude<EppoCategory, "environments" | "tags">,
   Map<number, string>
@@ -1627,7 +1558,6 @@ export function externalId(category: EppoCategory, eppoId: number): string {
   return `${category}:${eppoId}`;
 }
 
-// Later runs win; deleted objects drop out so they're created again
 export function getImportedIds(
   runs: ApiAutoRun[],
   exists: (kind: AutoRunArtifact["kind"], id: string) => boolean,
@@ -1662,14 +1592,13 @@ export type ExistingIds = {
   environments: Set<string>;
   tags: Set<string>;
   imported: ImportedIds;
-  // Name matches in scope that no run created; never applied by default
-  savedGroups: Map<string, string>; // name
-  features: Set<string>; // key, in any project
-  factTables: Map<string, string>; // name, on the selected Data Source
-  factMetrics: Map<string, string>; // name, on the selected Data Source
-  experiments: Map<string, string>; // tracking key
+  savedGroups: Map<string, string>;
+  features: Set<string>;
+  factTables: Map<string, string>;
+  factMetrics: Map<string, string>;
+  experiments: Map<string, string>;
   experimentRefs: Map<string, Pick<GBExperimentRef, "variations" | "status">>; // id
-  factTableColumns: Map<string, string[]>; // Fact Table id
+  factTableColumns: Map<string, string[]>;
 };
 
 export function getColumnNames(
@@ -1694,7 +1623,6 @@ function findMatch(
 export const experimentTrackingKey = (e: EppoExperiment) =>
   e.experiment_key || `eppo_${e.id}`;
 
-// Computed before transforms so the selection can default from it
 export function matchItems(
   eppo: EppoData,
   existing: ExistingIds,
@@ -1783,8 +1711,6 @@ function getEnvironmentIds(
   return ids;
 }
 
-// Ids for matching existing GrowthBook entities, with placeholders for ones the
-// import would create so previews can resolve references
 function getInitialContext(
   eppo: EppoData,
   existing: ExistingIds,
@@ -2009,7 +1935,6 @@ export async function runEppoImport({
     );
   }
 
-  // The run is what a re-run reads to update instead of re-create
   const { autoRun } = await apiCall<{ autoRun: ApiAutoRun }>("/auto-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -2024,12 +1949,10 @@ export async function runEppoImport({
   const runId = autoRun.id;
   const outcome: EppoImportOutcome = { runId, completed: 0, failed: 0 };
 
-  // One append per category, so items don't race on the run document
   type Recorded = {
     item: ImportItem<{ id: number }>;
     id: string;
     error?: string;
-    // Whether the item counted toward `completed`
     imported?: boolean;
   };
   let recorded: Recorded[] = [];
@@ -2063,7 +1986,6 @@ export async function runEppoImport({
           }),
         });
       } catch (e) {
-        // The objects exist but aren't recorded, so say so
         chunk.forEach(({ item, error, imported }) => {
           if (error || !imported) return;
           outcome.completed--;
@@ -2077,14 +1999,12 @@ export async function runEppoImport({
     }
   };
 
-  // Create requires an owner (empty = importer); updates never send it
   const created = <T extends object>(payload: T) => ({ ...payload, owner: "" });
 
   const importEach = async <T extends { id: number }>(
     category: EppoCategory,
     items: ImportItem<T>[],
     importItem: (item: ImportItem<T>) => Promise<unknown>,
-    // Serial for writes that rewrite one shared document
     { serial = false } = {},
   ) => {
     const queue = serial ? new PQueue({ concurrency: 1 }) : parallel;
@@ -2098,7 +2018,6 @@ export async function runEppoImport({
         } catch (e) {
           outcome.failed++;
           setItem(category, item.key, { status: "failed", error: e.message });
-          // Recorded as failed; the id is the Eppo reference
           recorded.push({
             item,
             id: item.existingId ?? externalId(category, item.eppo.id),
@@ -2112,7 +2031,6 @@ export async function runEppoImport({
   };
 
   try {
-    // Rules can't reference attributes that don't exist yet
     const attributes = new Set([
       "id",
       ...selected("audiences", data.audiences).flatMap((a) =>
@@ -2133,14 +2051,12 @@ export async function runEppoImport({
       await ensureAttributeExists(attribute, attributeSchema, apiCall);
     }
 
-    // Existing environments and tags are left alone but still go on the run
     const recordExisting = (category: "environments" | "tags") =>
       existingUntouched(category).forEach((i) =>
         recorded.push({ item: i, id: i.key }),
       );
 
     recordExisting("environments");
-    // Serial, one env per call: each rewrites the org list
     const createdEnvs = new Set<string>();
     await importEach(
       "environments",
@@ -2158,7 +2074,6 @@ export async function runEppoImport({
       },
       { serial: true },
     );
-    // Envs the plan refused drop out of the rules
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     recordExisting("tags");
@@ -2175,7 +2090,6 @@ export async function runEppoImport({
       record(item, item.key);
     });
 
-    // Drop references to items that failed, so dependents fall back
     const dropOnFailure = async <K>(
       refs: Map<K, unknown>,
       key: K,
@@ -2219,7 +2133,6 @@ export async function runEppoImport({
             method: "PUT",
             body: JSON.stringify(toFactTableUpdate(factTable)),
           });
-          // Fetched again since a SQL change re-detects the columns
           saved = (
             await apiCall<{ factTable: FactTableInterface }>(
               `/fact-tables/${item.existingId}`,
@@ -2305,7 +2218,6 @@ export async function runEppoImport({
             body: JSON.stringify(update),
           });
           current = res.experiment ?? current;
-          // Stopping is its own endpoint; it lands the outcome and end date
           if (current.status === "running" && experiment.status === "stopped") {
             await apiCall(`/experiment/${id}/stop`, {
               method: "POST",
@@ -2384,5 +2296,3 @@ export async function runEppoImport({
 
   return outcome;
 }
-
-// endregion Import

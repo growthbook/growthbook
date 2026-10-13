@@ -56,7 +56,6 @@ const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   flags: (id) => `/features/${id}`,
 };
 
-// Existing environments and tags are left as they are
 const UNTOUCHED: EppoCategory[] = ["environments", "tags"];
 
 function StatusBadge({
@@ -111,7 +110,6 @@ export default function ImportFromEppo() {
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
   const [project, setProject] = useState("");
-  // Only preselected when there's a single one; null until someone picks
   const [pickedDatasourceId, setDatasourceId] = useState<string | null>(null);
   const datasourceId =
     pickedDatasourceId ?? (datasources.length === 1 ? datasources[0].id : "");
@@ -121,7 +119,6 @@ export default function ImportFromEppo() {
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
-  // Explicit (de)selections; everything else follows its default
   const [selection, setSelection] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -145,7 +142,6 @@ export default function ImportFromEppo() {
           .filter((sg) => inProject(project, sg.projects))
           .map((sg) => [sg.groupName, sg.id]),
       ),
-      // Feature keys are org-unique
       features: new Set(features.map((f) => f.id)),
       factTables: new Map(
         factTables
@@ -202,7 +198,6 @@ export default function ImportFromEppo() {
     [eppo, existing],
   );
 
-  // Run-created items update by default; name matches wait for a tick
   const untouched = (category: EppoCategory, match: ItemMatch) =>
     UNTOUCHED.includes(category) && !!match.existingId;
   const isSelected = (category: EppoCategory, key: string) => {
@@ -264,7 +259,6 @@ export default function ImportFromEppo() {
     setBusy("fetching");
     setError(null);
     try {
-      // Refresh so a run deleted since page load isn't matched
       const [data] = await Promise.all([
         fetchEppoData(apiKey, apiCall),
         mutateDefinitions(),
@@ -287,8 +281,6 @@ export default function ImportFromEppo() {
     setBusy("importing");
     setError(null);
 
-    // Apply progress a few times a second; re-rendering every table once per
-    // finished item can't keep up on large imports
     let pending: Record<string, ImportResult> = {};
     const flush = () => {
       if (!Object.keys(pending).length) return;
@@ -331,7 +323,6 @@ export default function ImportFromEppo() {
     }
     window.clearInterval(timer);
     flush();
-    // Refresh what exists so a re-run updates instead of duplicating
     await Promise.all([
       mutateDefinitions(),
       mutateFeatures(),

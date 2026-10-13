@@ -1681,7 +1681,6 @@ describe("mergeSyncRules", () => {
     expect(
       mergeSyncRules({ liveRules: live, environments, rules: inbound }),
     ).toEqual({ rules: inbound, replacedAll: true });
-    // An empty array clears them
     expect(
       mergeSyncRules({ liveRules: live, environments, rules: [] }),
     ).toEqual({ rules: [], replacedAll: true });
@@ -1694,7 +1693,6 @@ describe("mergeSyncRules", () => {
       envSettings: {
         production: { rules: [forceRule("fr_new")] as FeatureRule[] },
       },
-      // Empty flat rules alongside per-env rules are ignored
       rules: [],
     });
     expect(replacedAll).toBe(false);

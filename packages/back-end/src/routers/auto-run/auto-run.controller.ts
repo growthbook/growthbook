@@ -81,7 +81,6 @@ export const getAutoRuns = async (
   });
 };
 
-// Same bodies as the REST API, for the app's own writers (the Eppo importer)
 export const postAutoRun = async (
   req: AuthRequest<z.infer<typeof apiCreateAutoRunBody>>,
   res: Response<{ status: 200; autoRun: ApiAutoRun }>,

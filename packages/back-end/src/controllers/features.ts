@@ -3701,7 +3701,6 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  // mirror=true: rules replace and env toggles land; others keep the old update
   const mirror = req.query?.mirror === "true";
 
   const environmentsEnabled: Record<string, boolean> = {};
@@ -3762,7 +3761,6 @@ export async function postFeatureSync(
   const flatRulesIn =
     mirror && Array.isArray(data.rules) ? data.rules : undefined;
   if (flatRulesIn) {
-    // Keep stored seeds for rules echoed by id so a re-sync doesn't re-bucket
     inheritStoredRolloutSeeds(flatRulesIn, liveFeatureRules);
     addIdsToFlatRules(flatRulesIn, feature.id);
   }
