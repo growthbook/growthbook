@@ -186,14 +186,15 @@ export default function CloudUsage() {
       ? "Visual Editor images"
       : (connections.find((c) => c.key === key)?.name ?? key);
 
-  // Undefined while loading or on error: the graphs then show totals only
-  const byKeyRows = (
-    useDummyData
-      ? getDummyRows(usage, connections)
-      : byKeyError
-        ? undefined
-        : byKeyData?.rows
-  )?.map((r) => (r.key ? r : { ...r, key: IMAGES_KEY }));
+  const rawByKeyRows = useDummyData
+    ? getDummyRows(usage, connections)
+    : byKeyError
+      ? undefined
+      : byKeyData?.rows;
+  // Undefined while loading, on error or when empty: the graphs then show totals only
+  const byKeyRows = rawByKeyRows?.length
+    ? rawByKeyRows.map((r) => (r.key ? r : { ...r, key: IMAGES_KEY }))
+    : undefined;
   const keyTotals = getKeyTotals(byKeyRows ?? []);
   // A selection only applies while by-key rows are shown
   const isFiltered = !!byKeyRows && selectedKeys.length > 0;
@@ -366,6 +367,9 @@ export default function CloudUsage() {
               onChange={setSelectedKeys}
               options={keyOptions}
               sort={false}
+              size="md"
+              legacyLabelFormatting={false}
+              showCopyButton={false}
             />
           </Box>
         )
