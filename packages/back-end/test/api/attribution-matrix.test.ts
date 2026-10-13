@@ -900,7 +900,18 @@ describe("attribution across callers", () => {
         "/api/v2/features/checkout-flow/revisions/new/metadata",
         { description: "Updated" },
       );
-      const path = `/api/v2/features/checkout-flow/revisions/${draft.body.revision.version}`;
+      const version = draft.body.revision.version;
+      const path = `/api/v2/features/checkout-flow/revisions/${version}`;
+      // Written with the edit, so the verdict write can recheck it.
+      expect(
+        (
+          await collection("featurerevisions").findOne({
+            organization: ORG_ID,
+            featureId: "checkout-flow",
+            version,
+          })
+        )?.editorKeys,
+      ).toEqual([KEY.id]);
       expect(
         (await as("a key naming the member").post(`${path}/request-review`))
           .status,

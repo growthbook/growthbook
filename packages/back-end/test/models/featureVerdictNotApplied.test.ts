@@ -129,12 +129,12 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
       apiKey: "key_bot",
       name: "Bot",
     };
-    const setContributors = (contributors: string[]) =>
+    const setEdits = (contributors: string[], editorKeys: string[]) =>
       mongoose.connection
         .collection("featurerevisions")
         .updateOne(
           { organization: ORG_ID, featureId: "feat_applied", version: 2 },
-          { $set: { contributors } },
+          { $set: { contributors, editorKeys } },
         );
     const review = () =>
       submitReviewAndComments(
@@ -146,11 +146,17 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
         1,
       );
 
-    await setContributors(["key_bot"]);
-    await expect(review()).rejects.toThrow("draft you created");
-    expect((await stored())?.reviews).toEqual([]);
+    // Edited as itself, then while assuming a member.
+    for (const [contributors, editorKeys] of [
+      [["key_bot"], []],
+      [["u_dana"], ["key_bot"]],
+    ]) {
+      await setEdits(contributors, editorKeys);
+      await expect(review()).rejects.toThrow("draft you created");
+      expect((await stored())?.reviews).toEqual([]);
+    }
 
-    await setContributors(["u_other"]);
+    await setEdits(["u_dana"], ["key_other"]);
     expect((await review()).applied).toBe(true);
   });
 

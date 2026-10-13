@@ -164,6 +164,7 @@ const featureRevisionSchema = new mongoose.Schema({
   },
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
+  editorKeys: [String],
   // Active reviewer verdicts for the current review cycle. Maintained by the
   // review lifecycle mutations; cleared when a new review cycle starts.
   reviews: [
@@ -1623,10 +1624,14 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors by identity via atomic $addToSet.
+  // Track contributors by identity, and the key behind an edit in either mode,
+  // via atomic $addToSet.
   const contributorId = eventUserIdentity(log.user);
-  const contributorUpdate =
-    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
+  const editorKey = log.user?.type === "api_key" ? log.user.apiKey : "";
+  const addToSet = {
+    ...(contributorId != null ? { contributors: contributorId } : {}),
+    ...(editorKey ? { editorKeys: editorKey } : {}),
+  };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
   // caller's copy (an edit can demote an approval), so a status that moved
@@ -1661,7 +1666,7 @@ export async function updateRevision(
       // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
-      ...contributorUpdate,
+      ...(Object.keys(addToSet).length ? { $addToSet: addToSet } : {}),
     },
     { new: true },
   );
@@ -2767,7 +2772,7 @@ export async function submitReviewAndComments(
     };
     const outcome = await casUpdate(
       cycleFilter,
-      ["reviews", "status", "reviewCycle", "contributors"],
+      ["reviews", "status", "reviewCycle", "contributors", "editorKeys"],
       async (current) => {
         // Re-asked on every retry: the re-read row may have crossed a recall
         // AND a resubmit since the first attempt.
@@ -2782,11 +2787,12 @@ export async function submitReviewAndComments(
 
         // Against the row this write is conditioned on, not the caller's stale
         // copy (see the `blockSelfApproval` param). A key acting as itself never
-        // rules on a draft it edited.
+        // rules on a draft it edited in either mode.
         const contributed = (current.contributors ?? []).includes(
           newReview.userId,
         );
-        if (contributed && context.keyActingAsItself) {
+        const key = context.keyActingAsItself;
+        if (key && (contributed || (current.editorKeys ?? []).includes(key))) {
           throw new BadRequestError(
             "Cannot submit a review on a draft you created",
           );
