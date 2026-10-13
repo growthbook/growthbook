@@ -308,7 +308,8 @@ export default function ConfigureReport({
                     Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
-                      {date(experiment?.phases?.[0]?.dateStarted ?? "", "UTC")}
+                      {date(experiment?.phases?.[0]?.dateStarted ?? "", "UTC")}{" "}
+                      UTC
                     </small>
                   </div>
                 </Button>
@@ -338,7 +339,8 @@ export default function ConfigureReport({
                             experiment?.phases?.[latestPhaseIndex]
                               ?.dateStarted ?? "",
                             "UTC",
-                          )}
+                          )}{" "}
+                          UTC
                         </small>
                       </div>
                     </Button>
@@ -401,7 +403,8 @@ export default function ConfigureReport({
                               experiment?.phases?.[latestPhaseIndex]
                                 ?.dateEnded ?? "",
                               "UTC",
-                            )}
+                            )}{" "}
+                            UTC
                           </small>
                         </div>
                       </Button>

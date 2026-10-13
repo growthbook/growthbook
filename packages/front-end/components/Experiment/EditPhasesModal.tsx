@@ -104,7 +104,7 @@ export default function EditPhasesModal({
             <TableRow>
               <TableColumnHeader></TableColumnHeader>
               <TableColumnHeader>Name</TableColumnHeader>
-              <TableColumnHeader>Dates</TableColumnHeader>
+              <TableColumnHeader>Dates (UTC)</TableColumnHeader>
               {!isHoldout ? (
                 <TableColumnHeader>Traffic</TableColumnHeader>
               ) : null}

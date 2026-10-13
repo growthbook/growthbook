@@ -7,12 +7,13 @@ import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
-import { Flex } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
@@ -151,11 +152,21 @@ export default function DatePicker({
   const scheduleEndDate = toPicker(scheduleEndDateProp);
   const activeDates = activeDatesProp?.map((d) => toPicker(d) ?? d);
   const fromCalendar = (d: Date) => (isUtc ? pickerDateToUtcInstant(d) : d);
+  const zoneDate = date ? getValidDate(date) : new Date();
   const zone = isUtc
     ? "UTC"
     : timeZone === "local"
-      ? formatTimeZone(date ? getValidDate(date) : new Date(), "z")
+      ? formatTimeZone(zoneDate, "z")
       : null;
+  // Short abbreviations can be ambiguous ("IST"), so the long name goes to the tooltip and screen readers.
+  const zoneName = isUtc
+    ? "Coordinated Universal Time"
+    : zone
+      ? formatTimeZone(zoneDate, "zzzz")
+      : null;
+  const autoId = useId();
+  const fieldId = id || autoId;
+  const zoneId = `${fieldId}-zone`;
 
   const inputHeight = compact ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
@@ -439,24 +450,17 @@ export default function DatePicker({
               }}
             >
               {fieldLabel ? (
-                // Associated with the input when the caller supplies an `id`;
-                // without it the label is visible but has no accessible name.
-                <Text as="label" htmlFor={id || undefined} weight="semibold">
+                <Text as="label" htmlFor={fieldId} weight="semibold">
                   {fieldLabel}
-                  {zone ? ` (${zone})` : null}
+                  {zone ? (
+                    <span title={zoneName ?? undefined}> ({zone})</span>
+                  ) : null}
                 </Text>
               ) : null}
-              <div
-                style={
-                  (clearButton && !isRange) || inlineZone
-                    ? {
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }
-                    : {}
-                }
-              >
+              {zoneName ? (
+                <VisuallyHidden id={zoneId}>{zoneName}</VisuallyHidden>
+              ) : null}
+              <Flex align="center" gap="2">
                 <div
                   className={clsx("form-control p-0", {
                     "form-control--error": !!error,
@@ -470,7 +474,8 @@ export default function DatePicker({
                   }}
                 >
                   <Field
-                    id={id ?? ""}
+                    id={fieldId}
+                    aria-describedby={zoneName ? zoneId : undefined}
                     disabled={disabled}
                     readOnly={!!fixedSpanMode}
                     style={{
@@ -536,8 +541,8 @@ export default function DatePicker({
                   />
                 </div>
                 {inlineZone ? (
-                  <Text size="sm" color="text-low" whiteSpace="nowrap">
-                    {inlineZone}
+                  <Text whiteSpace="nowrap" title={zoneName ?? undefined}>
+                    ({inlineZone})
                   </Text>
                 ) : null}
                 {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
@@ -555,7 +560,7 @@ export default function DatePicker({
                     Clear
                   </Button>
                 )}
-              </div>
+              </Flex>
             </div>
           </Flex>
         </Popover.Trigger>
