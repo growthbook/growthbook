@@ -3,6 +3,7 @@ import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "shared/types/integrations";
+import type { TestQueryType } from "shared/types/query";
 import { parseIntWithDefault } from "shared/util";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -41,6 +42,15 @@ type Props = {
   showHeadline?: boolean;
 };
 
+// Each editor's test runs get their own query type in the query log
+const TEST_QUERY_TYPES: Record<Props["queryType"], TestQueryType> = {
+  segment: "segmentTest",
+  dimension: "dimensionTest",
+  metric: "metricTest",
+  "experiment-assignment": "exposureQueryTest",
+  factTable: "factTableTest",
+};
+
 export default function SQLInputField({
   userEnteredQuery,
   datasourceId,
@@ -76,6 +86,7 @@ export default function SQLInputField({
           timestampColumn: requiredColumns.has("timestamp")
             ? "timestamp"
             : undefined,
+          queryType: TEST_QUERY_TYPES[queryType],
         }),
       });
 

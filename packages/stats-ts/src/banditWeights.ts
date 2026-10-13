@@ -199,22 +199,59 @@ function thompsonWeightsForSubset(
   stats: BanditArmStatistic[],
   indices: number[],
   inverse: boolean,
+  priorSampleSize: number = 0,
 ): SubsetThompsonResult {
   const subset = indices.map((i) => stats[i]);
 
   const dataPrecision = subset.map(
     (s) => s.n / Math.max(s.variance, BANDIT_MIN_VARIANCE),
   );
-  const posteriorVariance = dataPrecision.map(
-    (dp) => 1 / (BANDIT_PRIOR_PRECISION + dp),
-  );
-  const posteriorMean = posteriorVariance.map(
-    (pv, i) =>
-      pv *
-      (BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN +
-        dataPrecision[i] * subset[i].mean),
-  );
-  const posteriorStd = posteriorVariance.map((pv) => Math.sqrt(pv));
+
+  let posteriorMean: number[];
+  let posteriorStd: number[];
+
+  if (priorSampleSize > 0) {
+    const n0 = priorSampleSize;
+    const shrinkage = subset.map((s) => n0 / (s.n + n0));
+    const poolPrecision = subset.map(
+      (s) => n0 / Math.max(s.variance, BANDIT_MIN_VARIANCE),
+    );
+
+    let muNumerator = BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN;
+    let muDenominator = BANDIT_PRIOR_PRECISION;
+    subset.forEach((s, i) => {
+      const w = dataPrecision[i] * shrinkage[i];
+      muNumerator += w * s.mean;
+      muDenominator += w;
+    });
+    const commonMean = muNumerator / muDenominator;
+    const commonMeanVariance = 1 / muDenominator;
+
+    // Shrink toward the common mean; inflate the variance by the uncertainty
+    // inherited from the shared common mean (B_k^2 * Var(mu)).
+    posteriorMean = subset.map(
+      (s, i) => (1 - shrinkage[i]) * s.mean + shrinkage[i] * commonMean,
+    );
+    posteriorStd = subset.map((_, i) => {
+      const armPrecision = dataPrecision[i] + poolPrecision[i];
+      const armVariance =
+        armPrecision > 0 ? 1 / armPrecision : 1 / BANDIT_PRIOR_PRECISION;
+      return Math.sqrt(armVariance + shrinkage[i] ** 2 * commonMeanVariance);
+    });
+  } else {
+    // Default Thompson setup: shrink each arm to BANDIT_PRIOR_MEAN under the
+    // diffuse N(0, BANDIT_PRIOR_VARIANCE) prior.
+    const posteriorVariance = dataPrecision.map(
+      (dp) => 1 / (BANDIT_PRIOR_PRECISION + dp),
+    );
+    posteriorMean = posteriorVariance.map(
+      (pv, i) =>
+        pv *
+        (BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN +
+          dataPrecision[i] * subset[i].mean),
+    );
+    posteriorStd = posteriorVariance.map((pv) => Math.sqrt(pv));
+  }
 
   const bestArmProbabilities = thompsonSampler(
     posteriorMean,
@@ -236,6 +273,7 @@ export function updateVariationWeights(
   stats: BanditArmStatistic[],
   currentWeights: number[],
   inverse: boolean = false,
+  priorSampleSize: number = 0,
 ): VariationWeightResult {
   const numStats = stats.length;
   const statsWithEnoughUsers: number[] = [];
@@ -261,7 +299,12 @@ export function updateVariationWeights(
   }
 
   const { weights: subsetWeights, bestArmProbabilities: subsetProbs } =
-    thompsonWeightsForSubset(stats, statsWithEnoughUsers, inverse);
+    thompsonWeightsForSubset(
+      stats,
+      statsWithEnoughUsers,
+      inverse,
+      priorSampleSize,
+    );
 
   // Mass reserved for the variations that have enough users. The remaining
   // variations each keep the fixed 1 / numStats exploration weight set below.
