@@ -23,6 +23,10 @@ export type SetupInstructionStep = {
 };
 
 const CLOUD_EGRESS_IP = "52.70.79.40";
+// Event Forwarder ingestors write from the egress IP, plus this one when the
+// eu-west-1 region is selected.
+const EU_INGESTOR_IP = "54.74.233.97";
+const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if your Event Forwarder data region is eu-west-1.`;
 
 type ParamsBag = Partial<Record<string, unknown>>;
 
@@ -262,18 +266,16 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
         },
         {
           title: "Allow network access",
-          description: isEventForwarder
-            ? "If a network policy restricts IPs, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
-            : "Only if a network policy restricts IPs.",
-          code: isEventForwarder
-            ? undefined
-            : `CREATE NETWORK POLICY GROWTHBOOK_POLICY
-  ALLOWED_IP_LIST = ('${CLOUD_EGRESS_IP}');
+          description: "Only if a network policy restricts IPs.",
+          code: `CREATE NETWORK POLICY GROWTHBOOK_POLICY
+  ALLOWED_IP_LIST = (${
+    isEventForwarder
+      ? `'${CLOUD_EGRESS_IP}', '${EU_INGESTOR_IP}'`
+      : `'${CLOUD_EGRESS_IP}'`
+  });
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
-          docLink: isEventForwarder
-            ? { section: "ipAddresses", label: "IP addresses guide" }
-            : undefined,
+          codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -336,16 +338,15 @@ GRANT USE SCHEMA, CREATE TABLE
 
       steps.push({
         title: "Allow network access",
-        description: isEventForwarder
-          ? "If IP access lists are on, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
-          : "Only if IP access lists are on.",
+        description: "Only if IP access lists are on.",
         code: isEventForwarder
-          ? undefined
+          ? `# GrowthBook Cloud egress IP
+${CLOUD_EGRESS_IP}/32
+# Event Forwarder eu-west-1 ingestor
+${EU_INGESTOR_IP}/32`
           : `# GrowthBook Cloud egress IP
 ${CLOUD_EGRESS_IP}/32`,
-        docLink: isEventForwarder
-          ? { section: "ipAddresses", label: "IP addresses guide" }
-          : undefined,
+        codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
       });
 
       steps.push({
