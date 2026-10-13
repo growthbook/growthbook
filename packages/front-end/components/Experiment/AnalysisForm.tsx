@@ -781,7 +781,7 @@ const AnalysisForm: FC<{
             <div className="row">
               <div className="col">
                 <DatePicker
-                  label="Start Time"
+                  label="Start time"
                   timeZone="utc"
                   helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
@@ -795,7 +795,7 @@ const AnalysisForm: FC<{
               {experiment.status === "stopped" && (
                 <div className="col">
                   <DatePicker
-                    label="End Time"
+                    label="End time"
                     timeZone="utc"
                     helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}

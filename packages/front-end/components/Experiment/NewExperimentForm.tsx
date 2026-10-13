@@ -1342,7 +1342,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time"
+                    label="Start time"
                     timeZone="utc"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
@@ -1357,7 +1357,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time"
+                    label="End time"
                     timeZone="utc"
                     date={form.watch("phases.0.dateEnded")}
                     setDate={(v) => {

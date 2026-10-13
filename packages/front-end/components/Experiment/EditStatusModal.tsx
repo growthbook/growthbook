@@ -157,7 +157,7 @@ export default function EditStatusModal({
               placeholder="(optional)"
             />
             <DatePicker
-              label="Stop Time"
+              label="Stop time"
               timeZone="utc"
               date={form.watch("dateEnded")}
               setDate={(v) => {

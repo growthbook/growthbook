@@ -70,7 +70,7 @@ export default function EditPhaseModal({
         required
       />
       <DatePicker
-        label="Start Time"
+        label="Start time"
         timeZone="utc"
         date={form.watch("dateStarted")}
         setDate={(v) => {
@@ -82,7 +82,7 @@ export default function EditPhaseModal({
       {!(isDraft && !isMultiPhase) ? (
         <>
           <DatePicker
-            label="End Time"
+            label="End time"
             timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {

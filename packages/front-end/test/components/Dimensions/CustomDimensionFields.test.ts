@@ -36,6 +36,13 @@ describe("UTC picker conversions", () => {
     expect(back.getTime()).toBe(picked.getTime());
   });
 
+  it("keeps seconds and milliseconds so bounds stay exact", () => {
+    const instant = new Date("2026-06-30T12:30:45.123Z");
+    expect(
+      pickerDateToUtcInstant(utcInstantToPickerDate(instant)).toISOString(),
+    ).toBe(instant.toISOString());
+  });
+
   it("crosses the UTC date boundary rather than the local one", () => {
     // 5pm Jan 14 PST is Jan 15 01:00 UTC, so the picker must read Jan 15
     const instant = new Date("2026-01-15T01:00:00.000Z");

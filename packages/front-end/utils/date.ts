@@ -6,6 +6,8 @@ export function utcInstantToPickerDate(instant: Date): Date {
     instant.getUTCDate(),
     instant.getUTCHours(),
     instant.getUTCMinutes(),
+    instant.getUTCSeconds(),
+    instant.getUTCMilliseconds(),
   );
 }
 
@@ -17,6 +19,8 @@ export function pickerDateToUtcInstant(picked: Date): Date {
       picked.getDate(),
       picked.getHours(),
       picked.getMinutes(),
+      picked.getSeconds(),
+      picked.getMilliseconds(),
     ),
   );
 }

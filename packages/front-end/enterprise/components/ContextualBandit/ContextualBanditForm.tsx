@@ -608,7 +608,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time"
+                    label="Start time"
                     timeZone="utc"
                     date={form.watch("dateStarted")}
                     setDate={(v) => {
@@ -620,7 +620,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time"
+                    label="End time"
                     timeZone="utc"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {

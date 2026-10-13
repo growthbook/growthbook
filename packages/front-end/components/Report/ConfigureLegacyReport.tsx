@@ -316,7 +316,7 @@ export default function ConfigureLegacyReport({
       <div className="row">
         <div className="col">
           <DatePicker
-            label="Start Date"
+            label="Start date"
             timeZone="utc"
             date={form.watch("startDate")}
             setDate={(v) => {
@@ -328,7 +328,7 @@ export default function ConfigureLegacyReport({
         </div>
         <div className="col">
           <DatePicker
-            label="End Date"
+            label="End date"
             timeZone="utc"
             date={form.watch("endDate")}
             setDate={(v) => {

@@ -280,7 +280,7 @@ export default function ConfigureReport({
               <div style={{ width: "50%" }}>
                 <DatePicker
                   key={`${datePickerKey}_date1`}
-                  label="Analysis Start"
+                  label="Analysis start"
                   timeZone="utc"
                   containerClassName="mb-2"
                   date={form.watch("experimentAnalysisSettings.dateStarted")}

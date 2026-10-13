@@ -176,7 +176,7 @@ const NewPhaseForm: FC<{
       )}
       {!hasLinkedChanges && (
         <DatePicker
-          label="Start Time"
+          label="Start time"
           timeZone="utc"
           date={form.watch("dateStarted")}
           setDate={(v) => {

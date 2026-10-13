@@ -306,7 +306,7 @@ const StopExperimentForm: FC<{
         </Flex>
         {!isStopped && !hasLinkedChanges && (
           <DatePicker
-            label="End Time"
+            label="End time"
             timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {

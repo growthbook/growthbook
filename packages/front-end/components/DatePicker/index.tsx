@@ -2,7 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { endOfDay, format, startOfDay } from "date-fns";
-import { format as formatTimeZone } from "date-fns-tz";
+import { format as formatTimeZone, formatInTimeZone } from "date-fns-tz";
 import React, {
   ReactNode,
   useCallback,
@@ -113,9 +113,9 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
 export default function DatePicker({
   id,
   date: dateProp,
-  setDate: setDateProp,
+  setDate,
   date2: date2Prop,
-  setDate2: setDate2Prop,
+  setDate2,
   label,
   label2,
   helpText,
@@ -136,38 +136,21 @@ export default function DatePicker({
   timeZone,
   fixedSpanMode,
 }: Props) {
-  // Everything below works in the picker's local frame; UTC mode converts at the props boundary.
+  // Calendar days use the picker's local frame; the text field and clamping use true instants.
   const isUtc = timeZone === "utc";
   const toPicker = useCallback(
     (v: Date | string | undefined) =>
       v && isUtc ? utcInstantToPickerDate(getValidDate(v)) : v,
     [isUtc],
   );
-  const date = useMemo(() => toPicker(dateProp), [toPicker, dateProp]);
-  const date2 = useMemo(() => toPicker(date2Prop), [toPicker, date2Prop]);
-  const disableBefore = useMemo(
-    () => toPicker(disableBeforeProp),
-    [toPicker, disableBeforeProp],
-  );
-  const disableAfter = useMemo(
-    () => toPicker(disableAfterProp),
-    [toPicker, disableAfterProp],
-  );
+  const date = toPicker(dateProp);
+  const date2 = toPicker(date2Prop);
+  const disableBefore = toPicker(disableBeforeProp);
+  const disableAfter = toPicker(disableAfterProp);
   const scheduleStartDate = toPicker(scheduleStartDateProp);
   const scheduleEndDate = toPicker(scheduleEndDateProp);
   const activeDates = activeDatesProp?.map((d) => toPicker(d) ?? d);
-  const setDate = useCallback(
-    (d: Date | undefined) =>
-      setDateProp(d && isUtc ? pickerDateToUtcInstant(d) : d),
-    [setDateProp, isUtc],
-  );
-  const setDate2 = useMemo(
-    () =>
-      setDate2Prop &&
-      ((d: Date | undefined) =>
-        setDate2Prop(d && isUtc ? pickerDateToUtcInstant(d) : d)),
-    [setDate2Prop, isUtc],
-  );
+  const fromCalendar = (d: Date) => (isUtc ? pickerDateToUtcInstant(d) : d);
   const zone = isUtc
     ? "UTC"
     : timeZone === "local"
@@ -206,11 +189,38 @@ export default function DatePicker({
         : getValidDateOffsetByUTC(value),
     [precision],
   );
+  const toInstant = useCallback(
+    (value: Date | string): Date =>
+      isUtc ? getValidDate(value) : parseDateInput(value),
+    [isUtc, parseDateInput],
+  );
+  const formatField = useCallback(
+    (value: Date | string): string =>
+      isUtc
+        ? formatInTimeZone(getValidDate(value), "UTC", dateFormat)
+        : format(parseDateInput(value), dateFormat),
+    [isUtc, dateFormat, parseDateInput],
+  );
+  // A typed UTC wall-clock is read as UTC directly, never via a local Date that can't hold DST-gap times.
+  const parseField = useCallback(
+    (value: string): Date =>
+      isUtc
+        ? getValidDate(precision === "datetime" ? `${value}Z` : value)
+        : parseDateInput(value),
+    [isUtc, precision, parseDateInput],
+  );
+  const calendarMonthOf = useCallback(
+    (instant: Date) => {
+      const d = isUtc ? utcInstantToPickerDate(instant) : instant;
+      return new Date(d.getFullYear(), d.getMonth());
+    },
+    [isUtc],
+  );
   const [bufferedDate, setBufferedDate] = useState(
-    date ? format(parseDateInput(date), dateFormat) : "",
+    dateProp ? formatField(dateProp) : "",
   );
   const [bufferedDate2, setBufferedDate2] = useState(
-    date2 ? format(parseDateInput(date2), dateFormat) : "",
+    date2Prop ? formatField(date2Prop) : "",
   );
 
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -222,17 +232,9 @@ export default function DatePicker({
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
-    if (date) {
-      setBufferedDate(format(parseDateInput(date), dateFormat));
-    } else {
-      setBufferedDate("");
-    }
-    if (date2) {
-      setBufferedDate2(format(parseDateInput(date2), dateFormat));
-    } else {
-      setBufferedDate2("");
-    }
-  }, [date, date2, dateFormat, parseDateInput]);
+    setBufferedDate(dateProp ? formatField(dateProp) : "");
+    setBufferedDate2(date2Prop ? formatField(date2Prop) : "");
+  }, [dateProp, date2Prop, formatField]);
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
@@ -330,44 +332,45 @@ export default function DatePicker({
   const clampParsedDate = useCallback(
     (parsedDate: Date) => {
       let finalDate = parsedDate;
-      if (disableBefore && parsedDate < parseDateInput(disableBefore)) {
-        finalDate = parseDateInput(disableBefore);
-      } else if (disableAfter && parsedDate > parseDateInput(disableAfter)) {
-        finalDate = parseDateInput(disableAfter);
+      if (disableBeforeProp && parsedDate < toInstant(disableBeforeProp)) {
+        finalDate = toInstant(disableBeforeProp);
+      } else if (disableAfterProp && parsedDate > toInstant(disableAfterProp)) {
+        finalDate = toInstant(disableAfterProp);
       }
       return finalDate;
     },
-    [disableBefore, disableAfter, parseDateInput],
+    [disableBeforeProp, disableAfterProp, toInstant],
   );
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
-      const parsedDate = parseDateInput(value);
+      const parsedDate = parseField(value);
       const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
-      setBufferedDate(format(finalDate, dateFormat));
-      setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
+      setBufferedDate(formatField(finalDate));
+      setCalendarMonth(calendarMonthOf(finalDate));
     }, 500);
   }, [
     clampInput,
     clampParsedDate,
     setDate,
     setCalendarMonth,
-    dateFormat,
-    parseDateInput,
+    formatField,
+    parseField,
+    calendarMonthOf,
   ]);
 
   const debouncedApplyRange = useMemo(() => {
     return debounce((startStr: string, endStr: string) => {
       const startTrim = startStr.trim();
       const endTrim = endStr.trim();
-      let anchor = date ? parseDateInput(date) : new Date();
+      let anchor = dateProp ? toInstant(dateProp) : new Date();
 
       if (startTrim) {
-        const parsedDate = parseDateInput(startTrim);
+        const parsedDate = parseField(startTrim);
         const finalDate = clampParsedDate(parsedDate);
         setDate(finalDate);
-        setBufferedDate(format(finalDate, dateFormat));
+        setBufferedDate(formatField(finalDate));
         anchor = finalDate;
       } else {
         setDate(undefined);
@@ -375,23 +378,25 @@ export default function DatePicker({
       }
 
       if (endTrim) {
-        const parsedDate2 = parseDateInput(endTrim);
+        const parsedDate2 = parseField(endTrim);
         const finalDate2 = clampParsedDate(parsedDate2);
         setDate2?.(finalDate2);
-        setBufferedDate2(format(finalDate2, dateFormat));
+        setBufferedDate2(formatField(finalDate2));
         anchor = finalDate2;
       } else {
         setDate2?.(undefined);
         setBufferedDate2("");
       }
 
-      setCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth()));
+      setCalendarMonth(calendarMonthOf(anchor));
     }, 500);
   }, [
     clampParsedDate,
-    date,
-    dateFormat,
-    parseDateInput,
+    dateProp,
+    toInstant,
+    formatField,
+    parseField,
+    calendarMonthOf,
     setCalendarMonth,
     setDate,
     setDate2,
@@ -508,13 +513,9 @@ export default function DatePicker({
                     onFocus={() => {
                       if (!isRange) return;
                       setRangeFieldFocused(true);
-                      if (date && date2) {
-                        setBufferedDate(
-                          format(parseDateInput(date), dateFormat),
-                        );
-                        setBufferedDate2(
-                          format(parseDateInput(date2), dateFormat),
-                        );
+                      if (dateProp && date2Prop) {
+                        setBufferedDate(formatField(dateProp));
+                        setBufferedDate2(formatField(date2Prop));
                       }
                     }}
                     onBlur={() => {
@@ -602,20 +603,12 @@ export default function DatePicker({
                   }
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
-                    const from = daterange.from;
-                    const to = daterange.to;
+                    const from = daterange.from && fromCalendar(daterange.from);
+                    const to = daterange.to && fromCalendar(daterange.to);
                     setDate(from);
                     setDate2?.(to);
-                    if (from) {
-                      setBufferedDate(format(from, dateFormat));
-                    } else {
-                      setBufferedDate("");
-                    }
-                    if (to) {
-                      setBufferedDate2(format(to, dateFormat));
-                    } else {
-                      setBufferedDate2("");
-                    }
+                    setBufferedDate(from ? formatField(from) : "");
+                    setBufferedDate2(to ? formatField(to) : "");
                   }}
                   disabled={disabledMatchers}
                   modifiers={markedDays}
@@ -635,9 +628,10 @@ export default function DatePicker({
                   // `getValidDate`'s "today" fallback highlighting a day the
                   // caller never set (the range branch above already does this).
                   selected={date ? parseDateInput(date) : undefined}
-                  onSelect={(selectedDate: Date) => {
+                  onSelect={(day: Date) => {
+                    const selectedDate = fromCalendar(day);
                     setDate(selectedDate);
-                    setBufferedDate(format(selectedDate, dateFormat));
+                    setBufferedDate(formatField(selectedDate));
                     // A day is the whole choice at date precision; datetime
                     // still needs the time typed into the field.
                     if (precision === "date") setOpen(false);
