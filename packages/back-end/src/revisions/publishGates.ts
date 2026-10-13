@@ -398,7 +398,7 @@ export function evaluatePublishGates(
 }
 
 function formatGateLine(gate: PublishGate): string {
-  const summary = gate.messages[0] ?? "";
+  const summary = gate.messages.join(" ");
   if (!gate.override) return `- [${gate.type}] ${summary}`;
   const permissionNote = gate.requiresPermission
     ? `, requires the ${gate.requiresPermission} permission`

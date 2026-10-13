@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
+import { LOOPBACK_HOSTS } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { allowSelfOrgCreation } from "@/services/env";
@@ -26,10 +27,6 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
-// Loopback hosts are the OS itself, so a code delivered here never leaves the
-// user's machine.
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 // Where the authorization code will be delivered. This is the one signal on
 // this page the app cannot fake: the code always goes to a redirect_uri
 // pre-registered by the client.
@@ -45,7 +42,7 @@ function describeRedirectTarget(
   try {
     const url = new URL(redirectUri);
     if (url.protocol === "http:" || url.protocol === "https:") {
-      return { host: url.host, isLocal: LOOPBACK_HOSTS.has(url.hostname) };
+      return { host: url.host, isLocal: LOOPBACK_HOSTS.includes(url.hostname) };
     }
     // Custom schemes (cursor://, etc.) hand off to a locally installed app.
     return { host: url.protocol.replace(":", "") + "://", isLocal: true };
@@ -277,25 +274,23 @@ export default function OAuthAuthorizePage() {
       ? info.message || "Failed to load authorization request"
       : "");
   const error = actionError || missingParamsError || infoError;
+  // Never redirect to a redirect_uri the server hasn't matched to the client (RFC 6749 §4.1.2.1).
+  const verifiedRedirectUri =
+    !infoFetchError && info?.status === 200 && info.client
+      ? info.redirectUri
+      : undefined;
 
   const deny = useCallback(() => {
-    if (!query.redirect_uri) {
-      setActionError("Cannot deny: missing redirect_uri");
-      return;
-    }
-    try {
-      const url = new URL(query.redirect_uri);
-      url.searchParams.set("error", "access_denied");
-      url.searchParams.set(
-        "error_description",
-        "The user denied the authorization request",
-      );
-      if (query.state) url.searchParams.set("state", query.state);
-      window.location.assign(url.toString());
-    } catch {
-      setActionError("Invalid redirect_uri");
-    }
-  }, [query.redirect_uri, query.state]);
+    if (!verifiedRedirectUri) return;
+    const url = new URL(verifiedRedirectUri);
+    url.searchParams.set("error", "access_denied");
+    url.searchParams.set(
+      "error_description",
+      "The user denied the authorization request",
+    );
+    if (query.state) url.searchParams.set("state", query.state);
+    window.location.assign(url.toString());
+  }, [verifiedRedirectUri, query.state]);
 
   const approve = useCallback(async () => {
     if (!orgId) {
@@ -389,7 +384,7 @@ export default function OAuthAuthorizePage() {
           </Text>
           {redirectTarget && !redirectTarget.isLocal ? (
             <HelperText status="info" size="sm" mt="2">
-              Your authorization code will be sent to {redirectTarget.host}
+              Authorizing or denying will return you to {redirectTarget.host}.
             </HelperText>
           ) : null}
         </Flex>
@@ -402,6 +397,12 @@ export default function OAuthAuthorizePage() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
+          {!verifiedRedirectUri ? (
+            <Text as="div" mt="1">
+              Close this page and start the connection again from the
+              application.
+            </Text>
+          ) : null}
         </Callout>
       ) : null}
 
@@ -483,50 +484,54 @@ export default function OAuthAuthorizePage() {
         </Frame>
       ) : null}
 
-      <Frame>
-        <Text as="div" size="md" weight="semibold" mb="3">
-          What this allows
-        </Text>
-        <Flex direction="column" gap="3">
-          <AccessItem icon={<PiUserCircle size={16} />}>
-            Acting as you in the selected organization, with the same
-            permissions you have in GrowthBook.
-          </AccessItem>
-          <AccessItem icon={<PiKey size={16} />}>
-            Access through the GrowthBook API on your behalf. Your password is
-            never shared.
-          </AccessItem>
-          <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
-            Access continues until you revoke it from{" "}
-            <Link href="/account/personal-access-tokens">
-              Personal Access Tokens
-            </Link>
-            .
-          </AccessItem>
-        </Flex>
-      </Frame>
+      {verifiedRedirectUri ? (
+        <>
+          <Frame>
+            <Text as="div" size="md" weight="semibold" mb="3">
+              What this allows
+            </Text>
+            <Flex direction="column" gap="3">
+              <AccessItem icon={<PiUserCircle size={16} />}>
+                Acting as you in the selected organization, with the same
+                permissions you have in GrowthBook.
+              </AccessItem>
+              <AccessItem icon={<PiKey size={16} />}>
+                Access through the GrowthBook API on your behalf. Your password
+                is never shared.
+              </AccessItem>
+              <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
+                Access continues until you revoke it from{" "}
+                <Link href="/account/personal-access-tokens">
+                  Personal Access Tokens
+                </Link>
+                .
+              </AccessItem>
+            </Flex>
+          </Frame>
 
-      <Flex gap="3">
-        <Button
-          variant="soft"
-          color="gray"
-          size="lg"
-          onClick={deny}
-          disabled={submitting}
-          style={{ flex: 1 }}
-        >
-          Deny
-        </Button>
-        <Button
-          size="lg"
-          onClick={approve}
-          disabled={submitting || !orgId || !!error}
-          loading={submitting}
-          style={{ flex: 1 }}
-        >
-          Authorize
-        </Button>
-      </Flex>
+          <Flex gap="3">
+            <Button
+              variant="soft"
+              color="gray"
+              size="lg"
+              onClick={deny}
+              disabled={submitting || !verifiedRedirectUri}
+              style={{ flex: 1 }}
+            >
+              Deny
+            </Button>
+            <Button
+              size="lg"
+              onClick={approve}
+              disabled={submitting || !orgId || !!error}
+              loading={submitting}
+              style={{ flex: 1 }}
+            >
+              Authorize
+            </Button>
+          </Flex>
+        </>
+      ) : null}
     </ConsentPageWrapper>
   );
 }

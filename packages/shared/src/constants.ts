@@ -289,6 +289,7 @@ export const entityEvents = {
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],
   populationData: ["create", "delete", "update"],
+  population: ["create", "update", "delete"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
@@ -333,6 +334,7 @@ export const entityEvents = {
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
+  interleaving: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
