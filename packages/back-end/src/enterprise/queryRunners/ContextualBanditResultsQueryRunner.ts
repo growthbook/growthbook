@@ -9,7 +9,11 @@ import {
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getFactMetricFactTableIds,
+  isFactMetric,
+} from "shared/experiments";
 import {
   ContextualBanditSrmQueryResponseRows,
   ExperimentAggregateUnitsQueryResponseRows,
@@ -89,6 +93,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   ): Promise<Queries> {
     this.snapshotSettings = params.snapshotSettings;
     this.variationNames = params.variationNames;
+    this.integration.setAdditionalQueryMetadata?.({
+      experimentId: params.snapshotSettings.experimentId,
+    });
 
     const cb = await this.loadCbDoc();
 
@@ -164,6 +171,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           );
           return { rows: res.rows as ExperimentMetricQueryResponseRows };
         },
+        metadata: { factTableIds: getFactMetricFactTableIds(decisionMetric) },
         queryType: "experimentResults",
       }),
     ];
