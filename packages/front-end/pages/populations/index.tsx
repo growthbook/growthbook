@@ -9,6 +9,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Table, {
   TableBody,
@@ -27,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { usePopulations } from "@/hooks/usePopulations";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -44,6 +46,10 @@ export default function PopulationsPage() {
     enabled: populationsEnabled,
   });
   const [datasourceFilter, setDatasourceFilter] = useState(ALL_DATASOURCES);
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreatePopulation({
+    projects: project ? [project] : [],
+  });
 
   const populationsWithLabels = useAddComputedFields(
     populations,
@@ -113,18 +119,23 @@ export default function PopulationsPage() {
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
       <PageHead breadcrumb={[{ display: "Populations" }]} />
-      <Box mb="4">
-        <Heading as="h1" size="xl" mb="1">
-          Populations
-        </Heading>
-        <Box style={{ maxWidth: 640 }}>
-          <Text color="text-mid">
-            Groups of users defined by steps against your fact tables. Use them
-            to filter and compare charts in Product Analytics. Membership is
-            recalculated each time a population refreshes.
-          </Text>
+      <Flex justify="between" align="start" gap="3" mb="4">
+        <Box>
+          <Heading as="h1" size="xl" mb="1">
+            Populations
+          </Heading>
+          <Box style={{ maxWidth: 640 }}>
+            <Text color="text-mid">
+              Groups of users defined by steps against your fact tables. Use
+              them to filter and compare charts in Product Analytics. Membership
+              is recalculated each time a population refreshes.
+            </Text>
+          </Box>
         </Box>
-      </Box>
+        {canCreate && (
+          <LinkButton href="/populations/new">New population</LinkButton>
+        )}
+      </Flex>
 
       {error ? (
         <Callout
@@ -145,7 +156,7 @@ export default function PopulationsPage() {
       ) : !populations.length ? (
         <EmptyState
           title="No populations yet"
-          description="Populations are created with the REST API for now. Creating them here is coming soon."
+          description="Define a group of users by the steps they take in your fact tables."
           leftButton={
             <LinkButton
               href={CREATE_POPULATION_DOCS}
@@ -155,7 +166,11 @@ export default function PopulationsPage() {
               View the API docs
             </LinkButton>
           }
-          rightButton={null}
+          rightButton={
+            canCreate ? (
+              <LinkButton href="/populations/new">New population</LinkButton>
+            ) : null
+          }
         />
       ) : (
         <>
@@ -219,7 +234,9 @@ export default function PopulationsPage() {
                 <TableRow key={p.id}>
                   <TableCell>
                     <Flex direction="column">
-                      <Text weight="medium">{p.name}</Text>
+                      <Link href={`/populations/${p.id}`} weight="medium">
+                        {p.name}
+                      </Link>
                       {p.description && (
                         <Text size="sm" color="text-low">
                           {p.description}

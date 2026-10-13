@@ -24,6 +24,12 @@ export const populationStepSourceValidator = z.discriminatedUnion("type", [
 
 export const populationStepValidator = z.strictObject({
   source: populationStepSourceValidator,
+  negate: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, a unit matches this step only if it has no matching row. The first step cannot be negated, and a later step's conversion window starts from the nearest earlier step that is not negated",
+    ),
   rowFilters: z.array(rowFilterValidator),
   aggregateFilter: z
     .string()

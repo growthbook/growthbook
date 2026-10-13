@@ -62080,6 +62080,13 @@ paths:
                               - type
                               - factTableId
                             additionalProperties: false
+                      negate:
+                        description: >-
+                          When true, a unit matches this step only if it has no
+                          matching row. The first step cannot be negated, and a
+                          later step's conversion window starts from the nearest
+                          earlier step that is not negated
+                        type: boolean
                       rowFilters:
                         type: array
                         items:
@@ -62285,6 +62292,13 @@ paths:
                               - type
                               - factTableId
                             additionalProperties: false
+                      negate:
+                        description: >-
+                          When true, a unit matches this step only if it has no
+                          matching row. The first step cannot be negated, and a
+                          later step's conversion window starts from the nearest
+                          earlier step that is not negated
+                        type: boolean
                       rowFilters:
                         type: array
                         items:
@@ -81775,6 +81789,13 @@ components:
                       - type
                       - factTableId
                     additionalProperties: false
+              negate:
+                description: >-
+                  When true, a unit matches this step only if it has no matching
+                  row. The first step cannot be negated, and a later step's
+                  conversion window starts from the nearest earlier step that is
+                  not negated
+                type: boolean
               rowFilters:
                 type: array
                 items:
