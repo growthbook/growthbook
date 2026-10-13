@@ -24,6 +24,7 @@ import {
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
@@ -42,6 +43,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 
@@ -70,6 +72,9 @@ const TOTAL_KEY = "__total__";
 // By-key rows give image traffic an empty key
 const IMAGES_KEY = "__images__";
 const OTHER_KEY = "__other__";
+// Keys whose SDK Connection isn't in the viewer's list, under Project or Environment
+const UNKNOWN_KEY = "__unknown__";
+const ALL_PROJECTS_KEY = "__all_projects__";
 const SINGLE_SERIES_COLOR = "var(--violet-9)";
 const OTHER_COLOR = "var(--slate-8)";
 const seriesColors = [
@@ -82,6 +87,55 @@ const seriesColors = [
   "var(--orange-9)",
   "var(--lime-10)",
 ];
+
+type Breakdown = "none" | "source" | "project" | "environment" | "type";
+const breakdowns: Record<
+  Breakdown,
+  {
+    label: string;
+    heading: string;
+    filterLabel: string;
+    allLabel: string;
+    noun: string;
+  }
+> = {
+  none: { label: "None", heading: "", filterLabel: "", allLabel: "", noun: "" },
+  source: {
+    label: "Source",
+    heading: "Usage by Source",
+    filterLabel: "Sources",
+    allLabel: "All sources",
+    noun: "sources",
+  },
+  project: {
+    label: "Project",
+    heading: "Usage by Project",
+    filterLabel: "Projects",
+    allLabel: "All Projects",
+    noun: "Projects",
+  },
+  environment: {
+    label: "Environment",
+    heading: "Usage by Environment",
+    filterLabel: "Environments",
+    allLabel: "All Environments",
+    noun: "environments",
+  },
+  type: {
+    label: "Request type",
+    heading: "Usage by Request Type",
+    filterLabel: "Request types",
+    allLabel: "All request types",
+    noun: "request types",
+  },
+};
+const requestTypeLabels: Record<string, string> = {
+  json: "Standard (JSON)",
+  sse: "Streaming (SSE)",
+  image: "Visual Editor images",
+  // Rows from before the CDN pipeline recorded a type
+  unknown: "Unknown",
+};
 
 type Series = { key: string; label: string; color: string };
 type StackedPoint = { ts: Date; v: Record<string, number> };
@@ -105,7 +159,8 @@ function downloadCsv(
 
 export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
-  // Empty means all keys
+  const [breakdown, setBreakdown] = useState<Breakdown>("source");
+  // Groups under the current breakdown; empty means all
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
   const router = useRouter();
@@ -123,6 +178,7 @@ export default function CloudUsage() {
     shouldRun: () => !useDummyData,
   });
   const { data: sdkData } = useSDKConnections();
+  const { getProjectById } = useDefinitions();
 
   if (!isCloud() && !useDummyData) {
     return (
@@ -181,20 +237,45 @@ export default function CloudUsage() {
   }
 
   const connections = sdkData?.connections ?? [];
-  const getKeyLabel = (key: string) =>
-    key === IMAGES_KEY
-      ? "Visual Editor images"
-      : (connections.find((c) => c.key === key)?.name ?? key);
+  const connectionsByKey = new Map(connections.map((c) => [c.key, c]));
+  const getProjectNames = (ids: string[]) =>
+    ids.map((id) => getProjectById(id)?.name ?? id);
+
+  // Maps a source row to its group under the current breakdown
+  const getGroup = (r: DailyUsageByKey): string => {
+    if (breakdown === "type") return r.type;
+    if (breakdown === "source" || r.key === IMAGES_KEY) return r.key;
+    const connection = connectionsByKey.get(r.key);
+    if (!connection) return UNKNOWN_KEY;
+    if (breakdown === "environment") return connection.environment;
+    return connection.projects.length
+      ? [...connection.projects].sort().join(",")
+      : ALL_PROJECTS_KEY;
+  };
+  const getKeyLabel = (key: string) => {
+    if (key === IMAGES_KEY) return "Visual Editor images";
+    if (key === UNKNOWN_KEY) return "Deleted or not visible to you";
+    if (key === ALL_PROJECTS_KEY) return "All Projects";
+    if (breakdown === "type") return requestTypeLabels[key] ?? key;
+    if (breakdown === "project")
+      return getProjectNames(key.split(",")).join(" + ");
+    return connectionsByKey.get(key)?.name ?? key;
+  };
 
   const rawByKeyRows = useDummyData
     ? getDummyRows(usage, connections)
     : byKeyError
       ? undefined
       : byKeyData?.rows;
-  // Undefined while loading, on error or when empty: the graphs then show totals only
-  const byKeyRows = rawByKeyRows?.length
+  // Undefined while loading, on error or when empty
+  const sourceRows = rawByKeyRows?.length
     ? rawByKeyRows.map((r) => (r.key ? r : { ...r, key: IMAGES_KEY }))
     : undefined;
+  // Undefined means the graphs show totals only, which is also what None asks for
+  const byKeyRows =
+    breakdown === "none"
+      ? undefined
+      : sourceRows?.map((r) => ({ ...r, key: getGroup(r) }));
   const keyTotals = getKeyTotals(byKeyRows ?? []);
   // A selection only applies while by-key rows are shown
   const isFiltered = !!byKeyRows && selectedKeys.length > 0;
@@ -202,6 +283,10 @@ export default function CloudUsage() {
     !selectedKeys.length || selectedKeys.includes(key);
   const visibleTotals = keyTotals.filter((t) => isVisible(t.key));
   const visibleRows = byKeyRows?.filter((r) => isVisible(r.key));
+  // Per source whatever the breakdown, but still respecting the filter
+  const csvRows = sourceRows?.filter(
+    (r) => !isFiltered || isVisible(getGroup(r)),
+  );
   // A selection carried over from another month can match nothing in this one
   const selectionIsEmpty = isFiltered && !visibleTotals.length;
   const series = byKeyRows
@@ -280,22 +365,30 @@ export default function CloudUsage() {
               Daily totals
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!visibleRows?.length}
+              disabled={!csvRows?.length}
               onClick={() => {
-                if (!visibleRows) return;
-                // Respects the sources filter, like the graphs
+                if (!csvRows) return;
                 downloadCsv(
-                  visibleRows.map((r) => ({
-                    date: r.date.substring(0, 10),
-                    source: getKeyLabel(r.key),
-                    sdk_key: r.key === IMAGES_KEY ? "" : r.key,
-                    environment:
-                      connections.find((c) => c.key === r.key)?.environment ??
-                      "",
-                    type: r.type,
-                    requests: r.requests,
-                    bandwidth_bytes: r.bandwidth,
-                  })),
+                  csvRows.map((r) => {
+                    const connection = connectionsByKey.get(r.key);
+                    return {
+                      date: r.date.substring(0, 10),
+                      source:
+                        r.key === IMAGES_KEY
+                          ? "Visual Editor images"
+                          : (connection?.name ?? r.key),
+                      sdk_key: r.key === IMAGES_KEY ? "" : r.key,
+                      environment: connection?.environment ?? "",
+                      projects: !connection
+                        ? ""
+                        : connection.projects.length
+                          ? getProjectNames(connection.projects).join("; ")
+                          : "All Projects",
+                      type: r.type,
+                      requests: r.requests,
+                      bandwidth_bytes: r.bandwidth,
+                    };
+                  }),
                   `cdn-usage-by-source-${month}.csv`,
                 );
                 track("Exported CDN Usage CSV", { breakdown: "source" });
@@ -326,7 +419,11 @@ export default function CloudUsage() {
           <strong>Total managed Clickhouse events: </strong>
           <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
         </div>
-        {isFiltered && <Text color="text-low">Totals include all sources</Text>}
+        {isFiltered && (
+          <Text color="text-low">
+            Totals include all {breakdowns[breakdown].noun}
+          </Text>
+        )}
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
         <Flex className="ml-auto" gap="2">
           <Button
@@ -360,25 +457,46 @@ export default function CloudUsage() {
           Failed to get usage by source: {byKeyError.message}
         </Callout>
       ) : (
-        keyTotals.length > 0 && (
-          <Box mb="5" maxWidth="600px">
-            <MultiSelectField
-              label="Sources"
-              placeholder="All sources"
-              value={selectedKeys}
-              onChange={setSelectedKeys}
-              options={keyOptions}
-              sort={false}
-              size="md"
-              legacyLabelFormatting={false}
-              showCopyButton={false}
-            />
-          </Box>
+        sourceRows && (
+          <Flex gap="4" align="end" wrap="wrap" mb="5">
+            <Box width="200px">
+              <Select
+                label="Break down by"
+                size="md"
+                value={breakdown}
+                setValue={(value) => {
+                  setBreakdown(value as Breakdown);
+                  setSelectedKeys([]);
+                }}
+              >
+                {Object.entries(breakdowns).map(([value, b]) => (
+                  <SelectItem key={value} value={value}>
+                    {b.label}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Box>
+            {breakdown !== "none" && (
+              <Box flexGrow="1" maxWidth="600px">
+                <MultiSelectField
+                  label={breakdowns[breakdown].filterLabel}
+                  placeholder={breakdowns[breakdown].allLabel}
+                  value={selectedKeys}
+                  onChange={setSelectedKeys}
+                  options={keyOptions}
+                  sort={false}
+                  size="md"
+                  legacyLabelFormatting={false}
+                  showCopyButton={false}
+                />
+              </Box>
+            )}
+          </Flex>
         )
       )}
       {selectionIsEmpty && (
         <Callout status="info" mb="5">
-          No usage for the selected sources this month.
+          No usage for the selected {breakdowns[breakdown].noun} this month.
         </Callout>
       )}
       {totalRequests > 0 && !selectionIsEmpty && (
@@ -424,6 +542,7 @@ export default function CloudUsage() {
       )}
       {visibleTotals.length > 0 && (
         <UsageByKeyTable
+          breakdown={breakdown}
           totals={visibleTotals}
           series={series}
           connections={connections}
@@ -762,12 +881,14 @@ function SeriesSwatch({ color }: { color: string }) {
 }
 
 function UsageByKeyTable({
+  breakdown,
   totals,
   series,
   connections,
   getKeyLabel,
   totalBandwidth,
 }: {
+  breakdown: Breakdown;
   totals: KeyTotals[];
   series: Series[];
   connections: SDKConnectionInterface[];
@@ -775,16 +896,18 @@ function UsageByKeyTable({
   // Across all keys, so a share doesn't change with the filter
   totalBandwidth: number;
 }) {
+  // Only source rows map to one SDK Connection, with its link and environment
+  const isSource = breakdown === "source";
   return (
     <Box mt="5">
       <Heading as="h3" size="sm" mb="2">
-        Usage by Source
+        {breakdowns[breakdown].heading}
       </Heading>
       <Table variant="list" stickyHeader={false} roundedCorners>
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Source</TableColumnHeader>
-            <TableColumnHeader>Environment</TableColumnHeader>
+            <TableColumnHeader>{breakdowns[breakdown].label}</TableColumnHeader>
+            {isSource && <TableColumnHeader>Environment</TableColumnHeader>}
             <TableColumnHeader justify="end">Requests</TableColumnHeader>
             <TableColumnHeader justify="end">Bandwidth</TableColumnHeader>
             <TableColumnHeader justify="end">Share of total</TableColumnHeader>
@@ -792,7 +915,9 @@ function UsageByKeyTable({
         </TableHeader>
         <TableBody>
           {totals.map((t) => {
-            const connection = connections.find((c) => c.key === t.key);
+            const connection = isSource
+              ? connections.find((c) => c.key === t.key)
+              : undefined;
             const color =
               series.find((s) => s.key === t.key)?.color ?? OTHER_COLOR;
             return (
@@ -804,7 +929,7 @@ function UsageByKeyTable({
                       <Link href={`/sdks/${connection.id}`}>
                         {connection.name}
                       </Link>
-                    ) : t.key === IMAGES_KEY ? (
+                    ) : !isSource || t.key === IMAGES_KEY ? (
                       getKeyLabel(t.key)
                     ) : (
                       <Text>
@@ -818,9 +943,11 @@ function UsageByKeyTable({
                     )}
                   </Flex>
                 </TableCell>
-                <TableCell>
-                  {connection?.environment ?? <Text color="text-low">—</Text>}
-                </TableCell>
+                {isSource && (
+                  <TableCell>
+                    {connection?.environment ?? <Text color="text-low">—</Text>}
+                  </TableCell>
+                )}
                 <TableCell justify="end">
                   {requestsFormatter.format(t.requests)}
                 </TableCell>
@@ -928,13 +1055,22 @@ function getDummyRows(
   ];
   const weights = keys.map((_, i) => 1 / (i + 1));
   const weightSum = weights.reduce((sum, w) => sum + w, 0);
+  // Each key's share split across types, so the Request type breakdown has more than one
+  const types: [string, number][] = [
+    ["json", 0.7],
+    ["sse", 0.3],
+  ];
   return usage.flatMap((u) =>
-    keys.map((key, i) => ({
-      date: u.date,
-      key,
-      type: key ? "json" : "image",
-      requests: Math.round((u.requests * weights[i]) / weightSum),
-      bandwidth: Math.round((u.bandwidth * weights[i]) / weightSum),
-    })),
+    keys.flatMap((key, i) =>
+      (key ? types : [["image", 1] as [string, number]]).map(
+        ([type, split]) => ({
+          date: u.date,
+          key,
+          type,
+          requests: Math.round((u.requests * weights[i] * split) / weightSum),
+          bandwidth: Math.round((u.bandwidth * weights[i] * split) / weightSum),
+        }),
+      ),
+    ),
   );
 }
