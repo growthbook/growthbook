@@ -5,8 +5,6 @@ import {
   ResourceEvents,
 } from "shared/types/events/base-types";
 import {
-  eventUserIdentity,
-  eventUserToApiEventUser,
   FeatureRevisionUpdatedPayload,
   FeatureRevisionWebhookPayload,
 } from "shared/validators";
@@ -16,7 +14,10 @@ import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
-import { webhookActor } from "back-end/src/events/revisionReference";
+import {
+  featureRevisionReference,
+  webhookActor,
+} from "back-end/src/events/revisionReference";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -93,14 +94,8 @@ export async function dispatchFeatureRevisionEvent<
       opts.environments,
     );
 
-    const author = eventUserToApiEventUser(revision.createdBy);
     const object: FeatureRevisionWebhookPayload = {
-      ...(revision.id ? { id: revision.id } : {}),
-      version: revision.version,
-      status: revision.status,
-      ...(revision.title ? { title: revision.title } : {}),
-      authorId: eventUserIdentity(revision.createdBy) ?? "",
-      ...(author && { author }),
+      ...featureRevisionReference(revision),
       feature: { id: feature.id },
     };
 
