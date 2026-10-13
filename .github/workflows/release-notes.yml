@@ -52,6 +52,6 @@ jobs:
             exit 0
           fi
 
-          printf '%s\n\n## Self-hosted build changes\n\nChanges since %s that affect building the Docker image from source.\n\n%s' \
+          printf '%s\n\n## Self-hosted build changes\n\nChanges since %s that affect building the Docker image from source:\n\n%s' \
             "$body" "$prev" "$notes" > notes.md
           gh release edit "$TAG" --notes-file notes.md
