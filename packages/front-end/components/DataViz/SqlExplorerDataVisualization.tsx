@@ -774,9 +774,11 @@ export function DataVisualizationDisplay({
         : null),
       xAxis: {
         name:
-          xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
-            ? `${xConfig?.dateAggregationUnit} (${xField})`
-            : xField,
+          xConfig?.type !== "date"
+            ? xField
+            : xConfig.dateAggregationUnit !== "none"
+              ? `${xConfig.dateAggregationUnit} (${xField}) (UTC)`
+              : `${xField} (UTC)`,
         nameLocation: "middle",
         nameTextStyle: {
           fontSize: 14,

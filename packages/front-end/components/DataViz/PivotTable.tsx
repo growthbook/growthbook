@@ -71,9 +71,11 @@ function formatXValue(
       const d = xVal;
       // UTC, like the chart and the buckets these rows were grouped into.
       const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
-        new Intl.DateTimeFormat(undefined, { ...opts, timeZone: "UTC" }).format(
-          date,
-        );
+        new Intl.DateTimeFormat(undefined, {
+          ...opts,
+          timeZone: "UTC",
+          timeZoneName: "short",
+        }).format(date);
       switch (unit) {
         case "second":
           return fmt(d, {

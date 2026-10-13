@@ -600,7 +600,7 @@ export default function ExplorerChart({
               typeof params.value === "number"
                 ? new Date(params.value)
                 : parseUtcBucketDate(String(params.value));
-            return formatDateByGranularity(date, resolvedGranularity);
+            return `${formatDateByGranularity(date, resolvedGranularity)} UTC`;
           }
         : undefined;
 
