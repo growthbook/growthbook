@@ -57,6 +57,7 @@ import {
   getExperimentAffectedEnvs,
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
+  assertCanEnableClusterExperiment,
   assertCanRunExperimentChanges,
   assertClusterExperimentMetricsSupported,
   assertExperimentKeyFormat,
@@ -1407,6 +1408,7 @@ export async function postExperiments(
     }
 
     if (obj.isClusterExperiment) {
+      assertCanEnableClusterExperiment(context);
       const clusterMetricGroups = await context.models.metricGroups.getAll();
       const clusterMetricMap = await getMetricMap(context);
       const clusterFactTableMap = await getFactTableMap(context);
@@ -2071,6 +2073,9 @@ export async function postExperiment(
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
+  if (changes.isClusterExperiment) {
+    assertCanEnableClusterExperiment(context);
+  }
   const effectiveIsClusterExperiment =
     changes.isClusterExperiment ?? experiment.isClusterExperiment;
   if (effectiveIsClusterExperiment) {

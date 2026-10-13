@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Cloud Proxy",
   },
+  "cluster-experiments": {
+    plan: "enterprise",
+    displayName: "Cluster Experiments",
+  },
   "code-references": {
     plan: "pro",
     displayName: "Code References",

@@ -88,7 +88,8 @@ export type CommercialFeature =
   | "feature-configs"
   | "releases"
   | "contextual-bandits"
-  | "interleaving";
+  | "interleaving"
+  | "cluster-experiments";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -293,6 +294,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "adv-presentations",
   "contextual-bandits",
   "interleaving",
+  "cluster-experiments",
   "scheduled-revisions",
   "feature-configs",
   "releases",
