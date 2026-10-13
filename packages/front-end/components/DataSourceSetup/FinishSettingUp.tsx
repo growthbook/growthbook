@@ -1,48 +1,58 @@
-import { ReactNode, useMemo, useState } from "react";
+import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton, Progress } from "@radix-ui/themes";
-import { PiCheck, PiPlus, PiX } from "react-icons/pi";
+import { PiCheck, PiMinus, PiPencilSimple, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
   UserIdType,
 } from "shared/types/datasource";
+import { SDKAttribute } from "shared/types/organization";
 import {
   attributeMatchesDatasourceProjects,
   getExposureQueryIdentifierTypes,
   isEventForwarderManaged,
 } from "shared/util";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
-import Modal from "@/ui/Modal";
-import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import Link from "@/ui/Link";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import { TextField } from "@/ui/TextField";
 
 type StepId = "connect" | "identifiers" | "queries" | "factTable";
 
-// One row per attribute the org marked as a unique identifier. The user maps
-// each to the column that holds it in this Data Source.
+type IdentifierMode = "view" | "edit";
+
+// One row per identifier type this Data Source could use: every attribute the
+// org marked as a unique identifier, plus any saved type with no linked
+// attribute (legacy or Event Forwarder managed).
 type IdentifierRow = {
-  attribute: string;
-  // The identifier type already linked to this attribute, if any. Its column
-  // can't be renamed because assignment queries reference it.
+  key: string;
+  // Null for saved types that aren't linked to an attribute.
+  attribute: string | null;
+  // The identifier type already saved on this Data Source, if any. Its name
+  // can't change because assignment queries reference it.
   saved: UserIdType | null;
+  name: string;
+  description: string;
+  // Whether this Data Source has (or will have, once confirmed) the type.
+  included: boolean;
+  managed: boolean;
+  // Created from this page and not saved yet.
+  isNew: boolean;
 };
+
+// Open the attribute modal to create a new identifier or edit an existing one.
+type AttributeModalState = { attribute: string | null } | null;
 
 type QueryModal = { identifierType: string; index: number | null } | null;
 
@@ -50,8 +60,13 @@ const EXPANDABLE_STEPS: StepId[] = ["identifiers", "queries"];
 
 const IDENTIFIER_PATTERN = /^[a-z_]+$/;
 
-// Attribute name, column input, remove button.
-const IDENTIFIER_COLUMNS = "minmax(0, 1fr) minmax(0, 2fr) 32px";
+// Status icon or checkbox, identifier type, description, row actions.
+const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
+
+const IDENTIFIER_ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+
+const attributeKey = (property: string) => `attribute:${property}`;
+const savedTypeKey = (userIdType: string) => `type:${userIdType}`;
 
 // Only the identifier types GrowthBook defaults to get a suggested description.
 const DEFAULT_IDENTIFIER_DESCRIPTIONS: Record<string, string> = {
@@ -89,17 +104,20 @@ function defaultColumnName(attribute: string): string {
 }
 
 // On a Data Source that already has identifiers, attributes it never mapped
-// stay out of the table until the user adds them back.
-function getUnmappedAttributes(
+// are listed under "Not in this Data Source" until the user checks them. A
+// Data Source with none yet starts with every attribute checked.
+function getExcludedKeys(
   dataSource: DataSourceInterfaceWithParams,
   hashAttributes: string[],
 ): string[] {
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   if (!identifierTypes.length) return [];
-  return hashAttributes.filter(
-    (attribute) =>
-      !identifierTypes.some((type) => type.attributes?.includes(attribute)),
-  );
+  return hashAttributes
+    .filter(
+      (attribute) =>
+        !identifierTypes.some((type) => type.attributes?.includes(attribute)),
+    )
+    .map(attributeKey);
 }
 
 export function isDataSourceSetupComplete(
@@ -132,16 +150,18 @@ export default function FinishSettingUp({
 
   const { attributeSchema } = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
-  const hashAttributes = useMemo(
+  const hashAttributes = useMemo<SDKAttribute[]>(
     () =>
-      (attributeSchema ?? [])
-        .filter(
-          (attribute) =>
-            attribute.hashAttribute &&
-            attributeMatchesDatasourceProjects(attribute, dataSource.projects),
-        )
-        .map(({ property }) => property),
+      (attributeSchema ?? []).filter(
+        (attribute) =>
+          attribute.hashAttribute &&
+          attributeMatchesDatasourceProjects(attribute, dataSource.projects),
+      ),
     [attributeSchema, dataSource.projects],
+  );
+  const hashAttributeNames = useMemo(
+    () => hashAttributes.map(({ property }) => property),
+    [hashAttributes],
   );
   const canCreateAttribute = permissionsUtil.canCreateAttribute({
     projects: dataSource.projects ?? [],
@@ -150,16 +170,20 @@ export default function FinishSettingUp({
   const [expandedStep, setExpandedStep] = useState<StepId | null>(() =>
     currentStep && EXPANDABLE_STEPS.includes(currentStep) ? currentStep : null,
   );
-  // Column names typed per attribute; anything not typed yet falls back to the
-  // saved identifier type or the attribute's own name.
-  const [columnDrafts, setColumnDrafts] = useState<Record<string, string>>({});
-  // Attributes the org tracks but doesn't want as identifiers in this Data Source.
-  const [removedAttributes, setRemovedAttributes] = useState<string[]>(() =>
-    getUnmappedAttributes(dataSource, hashAttributes),
+  const [identifierMode, setIdentifierMode] = useState<IdentifierMode>("view");
+  // Rows the user has left out of this Data Source.
+  const [excludedKeys, setExcludedKeys] = useState<string[]>(() =>
+    getExcludedKeys(dataSource, hashAttributeNames),
   );
+  // Checkbox state while editing; discarded on cancel.
+  const [editSelection, setEditSelection] = useState<Record<string, boolean>>(
+    {},
+  );
+  // Attributes created from this page get a "New" badge until saved.
+  const [initialAttributes] = useState(() => hashAttributeNames);
   const [identifierError, setIdentifierError] = useState<string | null>(null);
-  const [attributeModalOpen, setAttributeModalOpen] = useState(false);
-  const [schemaBrowserOpen, setSchemaBrowserOpen] = useState(false);
+  const [attributeModal, setAttributeModal] =
+    useState<AttributeModalState>(null);
   const [queryModal, setQueryModal] = useState<QueryModal>(null);
   const [factTableOpen, setFactTableOpen] = useState(false);
 
@@ -167,108 +191,142 @@ export default function FinishSettingUp({
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
   const hasIdentifiers = identifierTypes.length > 0;
 
-  const identifierRows: IdentifierRow[] = hashAttributes
-    .filter((attribute) => !removedAttributes.includes(attribute))
-    .map((attribute) => ({
-      attribute,
-      saved:
-        identifierTypes.find((type) => type.attributes?.includes(attribute)) ??
-        null,
-    }));
-  // Identifier types with no linked attribute (legacy or Event Forwarder
-  // managed) are kept as-is on save.
-  const unlinkedIdentifierTypes = identifierTypes.filter(
-    (type) => !type.attributes?.some((a) => hashAttributes.includes(a)),
-  );
+  const identifierRows: IdentifierRow[] = [
+    ...hashAttributes.map(({ property, description }) => {
+      const key = attributeKey(property);
+      const saved =
+        identifierTypes.find((type) => type.attributes?.includes(property)) ??
+        null;
+      const name = saved?.userIdType ?? defaultColumnName(property);
+      return {
+        key,
+        attribute: property,
+        saved,
+        name,
+        description: saved
+          ? (saved.description ?? "")
+          : (description ?? DEFAULT_IDENTIFIER_DESCRIPTIONS[name] ?? ""),
+        included: !excludedKeys.includes(key),
+        managed: !!saved && isEventForwarderManaged(saved),
+        isNew: !saved && !initialAttributes.includes(property),
+      };
+    }),
+    // Saved types with no linked attribute (legacy or Event Forwarder managed).
+    ...identifierTypes
+      .filter(
+        (type) => !type.attributes?.some((a) => hashAttributeNames.includes(a)),
+      )
+      .map((type) => {
+        const key = savedTypeKey(type.userIdType);
+        return {
+          key,
+          attribute: null,
+          saved: type,
+          name: type.userIdType,
+          description: type.description ?? "",
+          included: !excludedKeys.includes(key),
+          managed: isEventForwarderManaged(type),
+          isNew: false,
+        };
+      }),
+  ];
+  const includedRows = identifierRows.filter((row) => row.included);
+  const excludedRows = identifierRows.filter((row) => !row.included);
+  const selectedCount = identifierRows.filter(
+    (row) => editSelection[row.key],
+  ).length;
 
   const dataSourceName =
     dataSourceConnections.find((c) => c.type === dataSource.type)?.display ??
     "Data Source";
 
-  // Lets the user check real table and column names while filling in a step.
-  const browseTablesLink = dataSource.properties?.supportsInformationSchema ? (
-    <Text size="sm" color="text-mid">
-      Not sure about table or column names?{" "}
-      <Link size="sm" onClick={() => setSchemaBrowserOpen(true)}>
-        Browse data source
-      </Link>
-    </Text>
-  ) : null;
-
   const openIdentifiers = () => {
-    setColumnDrafts({});
-    setRemovedAttributes(getUnmappedAttributes(dataSource, hashAttributes));
+    setExcludedKeys(getExcludedKeys(dataSource, hashAttributeNames));
+    setIdentifierMode("view");
     setIdentifierError(null);
     setExpandedStep("identifiers");
   };
 
-  const removeAttribute = (attribute: string) => {
+  const startEditing = () => {
     setIdentifierError(null);
-    setRemovedAttributes((prev) => [...prev, attribute]);
+    setEditSelection(
+      Object.fromEntries(identifierRows.map((row) => [row.key, row.included])),
+    );
+    setIdentifierMode("edit");
   };
 
-  const restoreAttribute = (attribute: string) => {
-    setIdentifierError(null);
-    setRemovedAttributes((prev) => prev.filter((a) => a !== attribute));
+  const applySelection = () => {
+    setExcludedKeys(
+      identifierRows
+        .filter((row) => !editSelection[row.key])
+        .map((row) => row.key),
+    );
+    setIdentifierMode("view");
   };
 
-  const getColumn = ({ attribute, saved }: IdentifierRow) =>
-    columnDrafts[attribute] ?? saved?.userIdType ?? "";
-
-  const saveIdentifiers = async () => {
-    if (!identifierRows.length) {
-      throw new Error("Add at least one identifier");
+  const buildIdentifierTypes = (): UserIdType[] => {
+    if (!includedRows.length) {
+      throw new Error("Select at least one identifier type");
     }
 
-    // Several attributes may point at the same column; they share one
-    // identifier type with every attribute linked.
-    const byColumn = new Map<string, UserIdType>();
-    for (const row of identifierRows) {
-      const column = getColumn(row).trim() || defaultColumnName(row.attribute);
-      if (!IDENTIFIER_PATTERN.test(column)) {
+    // Several attributes may share one column; they share one identifier
+    // type with every attribute linked.
+    const byName = new Map<string, UserIdType>();
+    for (const row of includedRows) {
+      if (!IDENTIFIER_PATTERN.test(row.name)) {
         throw new Error(
-          `The column for "${row.attribute}" can only contain lowercase letters and underscores`,
+          `"${row.name}" can only contain lowercase letters and underscores`,
         );
       }
-      const existing = byColumn.get(column);
+      const existing = byName.get(row.name);
+      if (row.attribute === null) {
+        if (!existing && row.saved) byName.set(row.name, { ...row.saved });
+        continue;
+      }
       if (existing) {
         existing.attributes = [...(existing.attributes ?? []), row.attribute];
         continue;
       }
       const saved =
         row.saved ??
-        identifierTypes.find((type) => type.userIdType === column) ??
+        identifierTypes.find((type) => type.userIdType === row.name) ??
         null;
-      byColumn.set(column, {
+      byName.set(row.name, {
         ...saved,
-        userIdType: column,
-        description:
-          saved?.description ?? DEFAULT_IDENTIFIER_DESCRIPTIONS[column] ?? "",
+        userIdType: row.name,
+        description: saved?.description ?? row.description,
         // Keep links to attributes outside this Data Source's projects.
         attributes: [
           ...(saved?.attributes ?? []).filter(
-            (a) => !hashAttributes.includes(a),
+            (a) => !hashAttributeNames.includes(a),
           ),
           row.attribute,
         ],
       });
     }
-    for (const type of unlinkedIdentifierTypes) {
-      if (!byColumn.has(type.userIdType)) byColumn.set(type.userIdType, type);
-    }
+    return Array.from(byName.values());
+  };
 
+  const confirmIdentifiers = async () => {
+    const userIdTypes = buildIdentifierTypes();
     const copy = cloneDeep(dataSource);
-    copy.settings = {
-      ...copy.settings,
-      userIdTypes: Array.from(byColumn.values()),
-    };
-    await onSave(copy);
-    setColumnDrafts({});
-    setRemovedAttributes(getUnmappedAttributes(copy, hashAttributes));
+    copy.settings = { ...copy.settings, userIdTypes };
+    // Confirming an unchanged list just closes the step.
+    if (!isEqual(userIdTypes, identifierTypes)) {
+      await onSave(copy);
+    }
+    setExcludedKeys(getExcludedKeys(copy, hashAttributeNames));
     setExpandedStep(
       getCompletion(copy, factTableCount).queries ? null : "queries",
     );
   };
+
+  const identifierDescription =
+    expandedStep === "identifiers"
+      ? "Identifier types let allow you to split traffic in an experiment and track metric conversions. Click `Edit` to uncheck any that aren't relevant for this Data Source."
+      : hasIdentifiers
+        ? identifierTypes.map((t) => t.userIdType).join(", ")
+        : "Tell us how you identify your users, such as user_id or anonymous_id. You can add several identifier types, but you need at least one.";
 
   const saveQuery = async (exposureQuery: ExposureQuery) => {
     if (!queryModal) return;
@@ -365,12 +423,8 @@ export default function FinishSettingUp({
         complete={completion.identifiers}
         current={currentStep === "identifiers"}
         expanded={expandedStep === "identifiers"}
-        title="Add identifier types"
-        description={
-          expandedStep !== "identifiers" && hasIdentifiers
-            ? identifierTypes.map((t) => t.userIdType).join(", ")
-            : "Tell us how you identify your users. E.G. Do you use userid or user_id? You can add multiple identifiers, but you must add atleast one."
-        }
+        title="Identifier types"
+        description={identifierDescription}
         actions={
           expandedStep === "identifiers"
             ? null
@@ -378,7 +432,7 @@ export default function FinishSettingUp({
               ? doneActions(openIdentifiers)
               : stepCta(
                   "identifiers",
-                  "Add identifiers",
+                  "Add identifier types",
                   openIdentifiers,
                   false,
                 )
@@ -393,144 +447,171 @@ export default function FinishSettingUp({
                 overflow: "hidden",
               }}
             >
-              <Grid
-                columns={IDENTIFIER_COLUMNS}
-                gapX="4"
-                px="4"
-                py="3"
-                style={{ background: "var(--gray-a2)" }}
-              >
-                <Text size="sm" color="text-mid">
-                  Identifier
-                </Text>
-                <Text size="sm" color="text-mid">
-                  Column in this data source
-                </Text>
-                <Box />
-              </Grid>
+              {identifierMode === "edit" && (
+                <Grid
+                  columns={IDENTIFIER_COLUMNS}
+                  gapX="4"
+                  px="4"
+                  py="2"
+                  style={{ background: "var(--gray-a2)" }}
+                >
+                  <Box />
+                  <Text size="sm" weight="medium" color="text-mid">
+                    Identifier type
+                  </Text>
+                  <Text size="sm" weight="medium" color="text-mid">
+                    Description
+                  </Text>
+                  <Box />
+                </Grid>
+              )}
               {identifierRows.length === 0 && (
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
-                    {hashAttributes.length
-                      ? "No identifiers in this Data Source. Add one to map it to a column."
-                      : "No attributes are marked as unique identifiers yet. Add one to map it to a column."}
+                    No attributes are marked as unique identifiers yet. Add one
+                    to use it as an identifier type.
                   </Text>
                 </Box>
               )}
-              {identifierRows.map((row) => {
-                const managed =
-                  !!row.saved && isEventForwarderManaged(row.saved);
-                return (
-                  <Grid
-                    key={row.attribute}
-                    columns={IDENTIFIER_COLUMNS}
-                    gapX="4"
-                    align="center"
-                    px="4"
-                    py="3"
-                    style={{ borderTop: "1px solid var(--gray-a5)" }}
-                  >
-                    <Text mono>{row.attribute}</Text>
-                    <TextField
-                      value={getColumn(row)}
-                      placeholder={defaultColumnName(row.attribute)}
-                      readOnly={!!row.saved}
-                      disabled={!canEdit}
-                      style={{ fontFamily: "var(--code-font-family)" }}
-                      aria-label={`Column for ${row.attribute}`}
-                      onChange={(e) => {
-                        setIdentifierError(null);
-                        setColumnDrafts((prev) => ({
-                          ...prev,
-                          [row.attribute]: e.target.value,
-                        }));
-                      }}
-                    />
-                    {canEdit && !managed && identifierRows.length > 1 ? (
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        aria-label={`Remove ${row.attribute}`}
-                        onClick={() => removeAttribute(row.attribute)}
-                      >
-                        <PiX />
-                      </IconButton>
-                    ) : (
-                      <Box />
-                    )}
-                  </Grid>
-                );
-              })}
-            </Box>
-            <Flex align="center" justify="between" gap="3" mt="2">
-              {canEdit &&
-              (canCreateAttribute || removedAttributes.length > 0) ? (
-                <Box>
-                  {removedAttributes.length > 0 ? (
-                    <DropdownMenu
-                      trigger={
-                        <Button variant="ghost" icon={<PiPlus />}>
-                          Add identifier
-                        </Button>
-                      }
-                    >
-                      {removedAttributes.map((attribute) => (
-                        <DropdownMenuItem
-                          key={attribute}
-                          onClick={() => restoreAttribute(attribute)}
+              {identifierMode === "edit" ? (
+                identifierRows.map((row, i) => (
+                  <IdentifierTableRow
+                    key={row.key}
+                    row={row}
+                    muted={false}
+                    style={i > 0 ? IDENTIFIER_ROW_BORDER : undefined}
+                    leading={
+                      <Checkbox
+                        size="sm"
+                        value={!!editSelection[row.key]}
+                        disabled={row.managed}
+                        setValue={(checked) =>
+                          setEditSelection((prev) => ({
+                            ...prev,
+                            [row.key]: checked,
+                          }))
+                        }
+                      />
+                    }
+                    actions={
+                      // Only types created from this page are editable here.
+                      row.isNew && row.attribute !== null ? (
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          size="1"
+                          aria-label={`Edit ${row.name}`}
+                          onClick={() =>
+                            setAttributeModal({ attribute: row.attribute })
+                          }
                         >
-                          <Text mono>{attribute}</Text>
-                        </DropdownMenuItem>
-                      ))}
-                      {canCreateAttribute && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setAttributeModalOpen(true)}
-                          >
-                            Create new
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenu>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      icon={<PiPlus />}
-                      onClick={() => setAttributeModalOpen(true)}
-                    >
-                      Add identifier
-                    </Button>
-                  )}
-                </Box>
+                          <PiPencilSimple />
+                        </IconButton>
+                      ) : null
+                    }
+                  />
+                ))
               ) : (
-                <Box />
+                <>
+                  {includedRows.map((row, i) => (
+                    <IdentifierTableRow
+                      key={row.key}
+                      row={row}
+                      muted={false}
+                      style={i > 0 ? IDENTIFIER_ROW_BORDER : undefined}
+                      leading={<PiCheck color="var(--green-11)" />}
+                    />
+                  ))}
+                  {excludedRows.length > 0 && (
+                    <>
+                      <Box
+                        px="4"
+                        py="2"
+                        style={{
+                          background: "var(--gray-a2)",
+                          ...(includedRows.length > 0
+                            ? IDENTIFIER_ROW_BORDER
+                            : {}),
+                        }}
+                      >
+                        <Text size="sm" weight="medium" color="text-mid">
+                          Not used by this Data Source
+                        </Text>
+                      </Box>
+                      {excludedRows.map((row) => (
+                        <IdentifierTableRow
+                          key={row.key}
+                          row={row}
+                          muted
+                          style={IDENTIFIER_ROW_BORDER}
+                          leading={<PiMinus color="var(--gray-9)" />}
+                        />
+                      ))}
+                    </>
+                  )}
+                </>
               )}
-              {browseTablesLink}
-            </Flex>
+            </Box>
+            {canEdit && canCreateAttribute && (
+              <Box mt="2">
+                <Button
+                  variant="ghost"
+                  icon={<PiPlus />}
+                  onClick={() => setAttributeModal({ attribute: null })}
+                >
+                  Add identifier type
+                </Button>
+              </Box>
+            )}
             {identifierError && (
               <HelperText status="error" mt="2">
                 {identifierError}
               </HelperText>
             )}
-            {canEdit && (
-              <Flex mt="3" gap="3" align="center">
-                <Button onClick={saveIdentifiers} setError={setIdentifierError}>
-                  Save and continue
-                </Button>
-                {hasIdentifiers && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setIdentifierError(null);
-                      setExpandedStep(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </Flex>
-            )}
+            <Flex mt="3" gap="3" align="center" justify="between">
+              {identifierMode === "edit" ? (
+                <>
+                  <Flex gap="3" align="center">
+                    <Button onClick={applySelection}>Save</Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIdentifierMode("view")}
+                    >
+                      Cancel
+                    </Button>
+                  </Flex>
+                  <Text size="sm" color="text-mid">
+                    {selectedCount} of {identifierRows.length} selected
+                  </Text>
+                </>
+              ) : (
+                <>
+                  {canEdit ? (
+                    <Flex gap="3" align="center">
+                      <Button
+                        onClick={confirmIdentifiers}
+                        setError={setIdentifierError}
+                      >
+                        Confirm and continue
+                      </Button>
+                      {identifierRows.length > 0 && (
+                        <Button variant="ghost" onClick={startEditing}>
+                          Edit
+                        </Button>
+                      )}
+                    </Flex>
+                  ) : (
+                    <Box />
+                  )}
+                  <Text size="sm" color="text-mid">
+                    Shared across all Data Sources.{" "}
+                    <Link size="sm" href="/attributes">
+                      Manage identifier types
+                    </Link>
+                  </Text>
+                </>
+              )}
+            </Flex>
           </Box>
         )}
       </SetupStepRow>
@@ -610,11 +691,6 @@ export default function FinishSettingUp({
                 );
               })}
             </Box>
-            {browseTablesLink && (
-              <Flex justify="end" mt="2">
-                {browseTablesLink}
-              </Flex>
-            )}
             <Flex align="center" justify="between" gap="3" mt="3">
               <Box>
                 {!completion.queries && (
@@ -685,38 +761,56 @@ export default function FinishSettingUp({
           close={() => setFactTableOpen(false)}
         />
       )}
-      {attributeModalOpen && (
+      {attributeModal && (
         <AttributeModal
+          attribute={attributeModal.attribute ?? undefined}
           initialValues={{ hashAttribute: true }}
-          close={() => setAttributeModalOpen(false)}
+          close={() => setAttributeModal(null)}
         />
       )}
-      {schemaBrowserOpen && (
-        <Modal.Root
-          open
-          onOpenChange={(open) => {
-            if (!open) setSchemaBrowserOpen(false);
-          }}
-          size="lg"
-          dismissible
-          trackingEventModalType="finish-setting-up-schema-browser"
-        >
-          <Modal.Header>
-            <Modal.Title>Browse Data Source</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Box height="600px" style={{ maxHeight: "calc(100vh - 240px)" }}>
-              <SchemaBrowser datasource={dataSource} />
-            </Box>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="ghost" onClick={() => setSchemaBrowserOpen(false)}>
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal.Root>
-      )}
     </>
+  );
+}
+
+function IdentifierTableRow({
+  row,
+  muted,
+  leading,
+  actions,
+  style,
+}: {
+  row: IdentifierRow;
+  // Rows not in this Data Source read as unavailable.
+  muted: boolean;
+  leading: ReactNode;
+  actions?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <Grid
+      columns={IDENTIFIER_COLUMNS}
+      gapX="4"
+      align="center"
+      px="4"
+      py="3"
+      style={style}
+    >
+      <Flex align="center" justify="center">
+        {leading}
+      </Flex>
+      <Flex align="center" gap="2" minWidth="0">
+        <Text mono truncate color={muted ? "text-low" : undefined}>
+          {row.name}
+        </Text>
+        {row.isNew && <Badge label="New" color="violet" />}
+      </Flex>
+      <Text truncate color={muted ? "text-low" : "text-mid"}>
+        {row.description}
+      </Text>
+      <Flex align="center" justify="end" gap="1">
+        {actions}
+      </Flex>
+    </Grid>
   );
 }
 
