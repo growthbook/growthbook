@@ -21,6 +21,7 @@ import {
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
+  dailyUsageByKeyValidator,
   environment,
   expandedMember,
   expandedMemberInfo,
@@ -592,13 +593,7 @@ export type DailyUsage = {
 };
 
 // One row per day, SDK key and request type; empty key is image traffic.
-export type DailyUsageByKey = {
-  date: string;
-  key: string;
-  type: string;
-  requests: number;
-  bandwidth: number;
-};
+export type DailyUsageByKey = z.infer<typeof dailyUsageByKeyValidator>;
 
 type UsageLimit = number | "unlimited";
 

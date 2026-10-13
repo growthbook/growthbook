@@ -187,9 +187,15 @@ export default function CloudUsage() {
 
   // Undefined while loading or on error: the graphs then show totals only
   const byKeyRows = (
-    useDummyData ? getDummyRows(usage, connections) : byKeyData?.rows
+    useDummyData
+      ? getDummyRows(usage, connections)
+      : byKeyError
+        ? undefined
+        : byKeyData?.rows
   )?.map((r) => (r.key ? r : { ...r, key: IMAGES_KEY }));
   const keyTotals = getKeyTotals(byKeyRows ?? []);
+  // A selection only applies while by-key rows are shown
+  const isFiltered = !!byKeyRows && selectedKeys.length > 0;
   const isVisible = (key: string) =>
     !selectedKeys.length || selectedKeys.includes(key);
   const visibleTotals = keyTotals.filter((t) => isVisible(t.key));
@@ -372,7 +378,7 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnRequests === "unlimited" || selectedKeys.length
+              limits.cdnRequests === "unlimited" || isFiltered
                 ? null
                 : limits.cdnRequests
             }
@@ -391,7 +397,7 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnBandwidth === "unlimited" || selectedKeys.length
+              limits.cdnBandwidth === "unlimited" || isFiltered
                 ? null
                 : limits.cdnBandwidth
             }
@@ -783,7 +789,9 @@ function UsageByKeyTable({
                     ) : (
                       <span>
                         <code>{t.key}</code>{" "}
-                        <Text color="text-low">(deleted or unknown)</Text>
+                        <Text color="text-low">
+                          (deleted or not visible to you)
+                        </Text>
                       </span>
                     )}
                   </Flex>
