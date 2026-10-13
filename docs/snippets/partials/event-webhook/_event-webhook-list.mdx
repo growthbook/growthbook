@@ -1316,6 +1316,7 @@ Triggered when a new draft revision is created for a feature
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1341,6 +1342,36 @@ Triggered when a new draft revision is created for a feature
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1395,6 +1426,7 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1420,6 +1452,36 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1476,6 +1538,7 @@ Triggered when a draft revision is submitted for review
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1501,6 +1564,36 @@ Triggered when a draft revision is submitted for review
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1556,6 +1649,7 @@ Triggered when a draft revision is approved by a reviewer
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1581,6 +1675,36 @@ Triggered when a draft revision is approved by a reviewer
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1657,6 +1781,7 @@ Triggered when a reviewer requests changes on a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1682,6 +1807,36 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1758,6 +1913,7 @@ Triggered when a comment is added to a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1783,6 +1939,36 @@ Triggered when a comment is added to a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1859,6 +2045,7 @@ Triggered when a draft revision is discarded
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1884,6 +2071,36 @@ Triggered when a draft revision is discarded
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -1938,6 +2155,7 @@ Triggered when a discarded draft revision is reopened as a draft
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -1963,6 +2181,36 @@ Triggered when a discarded draft revision is reopened as a draft
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2017,6 +2265,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2042,6 +2291,36 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2096,6 +2375,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2121,6 +2401,36 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2175,6 +2485,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2200,6 +2511,36 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2254,6 +2595,7 @@ Triggered when a draft revision is rebased onto the latest published version
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2279,6 +2621,36 @@ Triggered when a draft revision is rebased onto the latest published version
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2333,6 +2705,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2358,6 +2731,36 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2413,6 +2816,7 @@ Triggered when a feature is reverted to a previous published revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2438,6 +2842,36 @@ Triggered when a feature is reverted to a previous published revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -2494,6 +2928,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -2519,6 +2954,36 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             feature: {
                 id: string;
             };
@@ -4886,6 +5351,7 @@ Triggered when a new draft revision is created for a saved group
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -4911,6 +5377,36 @@ Triggered when a new draft revision is created for a saved group
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -4966,6 +5462,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -4991,6 +5488,36 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5047,6 +5574,7 @@ Triggered when a draft revision is submitted for review
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5072,6 +5600,36 @@ Triggered when a draft revision is submitted for review
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5127,6 +5685,7 @@ Triggered when a draft revision is approved by a reviewer
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5152,6 +5711,36 @@ Triggered when a draft revision is approved by a reviewer
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5229,6 +5818,7 @@ Triggered when a reviewer requests changes on a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5254,6 +5844,36 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5331,6 +5951,7 @@ Triggered when a comment is added to a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5356,6 +5977,36 @@ Triggered when a comment is added to a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5433,6 +6084,7 @@ Triggered when a draft revision is discarded
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5458,6 +6110,36 @@ Triggered when a draft revision is discarded
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5513,6 +6195,7 @@ Triggered when a draft revision is rebased onto the latest live state
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5538,6 +6221,36 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5593,6 +6306,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5618,6 +6332,36 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5674,6 +6418,7 @@ Triggered when a saved group is reverted to a previous published revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5699,6 +6444,36 @@ Triggered when a saved group is reverted to a previous published revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5756,6 +6531,7 @@ Triggered when a discarded revision is reopened
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5781,6 +6557,36 @@ Triggered when a discarded revision is reopened
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5836,6 +6642,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5861,6 +6668,36 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5916,6 +6753,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -5941,6 +6779,36 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -5996,6 +6864,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6021,6 +6890,36 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -6076,6 +6975,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6101,6 +7001,36 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             savedGroup: {
                 id: string;
                 name: string;
@@ -6386,6 +7316,7 @@ Triggered when a new draft revision is created for a constant
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6411,6 +7342,36 @@ Triggered when a new draft revision is created for a constant
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6467,6 +7428,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6492,6 +7454,36 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6549,6 +7541,7 @@ Triggered when a draft revision is submitted for review
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6574,6 +7567,36 @@ Triggered when a draft revision is submitted for review
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6630,6 +7653,7 @@ Triggered when a draft revision is approved by a reviewer
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6655,6 +7679,36 @@ Triggered when a draft revision is approved by a reviewer
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6733,6 +7787,7 @@ Triggered when a reviewer requests changes on a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6758,6 +7813,36 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6836,6 +7921,7 @@ Triggered when a comment is added to a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6861,6 +7947,36 @@ Triggered when a comment is added to a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -6939,6 +8055,7 @@ Triggered when a draft revision is discarded
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -6964,6 +8081,36 @@ Triggered when a draft revision is discarded
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7020,6 +8167,7 @@ Triggered when a draft revision is rebased onto the latest live state
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7045,6 +8193,36 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7101,6 +8279,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7126,6 +8305,36 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7183,6 +8392,7 @@ Triggered when a constant is reverted to a previous published revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7208,6 +8418,36 @@ Triggered when a constant is reverted to a previous published revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7266,6 +8506,7 @@ Triggered when a discarded revision is reopened
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7291,6 +8532,36 @@ Triggered when a discarded revision is reopened
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7347,6 +8618,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7372,6 +8644,36 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7428,6 +8730,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7453,6 +8756,36 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7509,6 +8842,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7534,6 +8868,36 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -7590,6 +8954,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -7615,6 +8980,36 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             constant: {
                 id: string;
                 key: string;
@@ -8097,6 +9492,7 @@ Triggered when a new draft revision is created for a config
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8122,6 +9518,36 @@ Triggered when a new draft revision is created for a config
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8178,6 +9604,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8203,6 +9630,36 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8260,6 +9717,7 @@ Triggered when a draft revision is submitted for review
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8285,6 +9743,36 @@ Triggered when a draft revision is submitted for review
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8341,6 +9829,7 @@ Triggered when a draft revision is approved by a reviewer
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8366,6 +9855,36 @@ Triggered when a draft revision is approved by a reviewer
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8444,6 +9963,7 @@ Triggered when a reviewer requests changes on a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8469,6 +9989,36 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8547,6 +10097,7 @@ Triggered when a comment is added to a draft revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8572,6 +10123,36 @@ Triggered when a comment is added to a draft revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8650,6 +10231,7 @@ Triggered when a draft revision is discarded
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8675,6 +10257,36 @@ Triggered when a draft revision is discarded
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8731,6 +10343,7 @@ Triggered when a draft revision is rebased onto the latest live state
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8756,6 +10369,36 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8812,6 +10455,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8837,6 +10481,36 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8894,6 +10568,7 @@ Triggered when a config is reverted to a previous published revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -8919,6 +10594,36 @@ Triggered when a config is reverted to a previous published revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -8977,6 +10682,7 @@ Triggered when a discarded revision is reopened
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -9002,6 +10708,36 @@ Triggered when a discarded revision is reopened
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -9058,6 +10794,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -9083,6 +10820,36 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -9139,6 +10906,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -9164,6 +10932,36 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -9220,6 +11018,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -9245,6 +11044,36 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;
@@ -9301,6 +11130,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         object: {
             id?: string | undefined;
             version?: number | undefined;
+            baseVersion?: number | undefined;
             status: string;
             title?: string | undefined;
             /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
@@ -9326,6 +11156,36 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Whether the key assumed the named member's role */
                 assumedRole?: boolean | undefined;
             } | undefined;
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            /** Who performed an action */
+            autoPublishEnabledByUser?: {
+                /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                type: "dashboard" | "api_key" | "system";
+                /** The member's user ID. Absent for an organization API key */
+                id?: string | undefined;
+                /** The API key's ID, when the action came through one */
+                apiKey?: string | undefined;
+                /** The member's name, or the organization API key's name */
+                name?: string | undefined;
+                /** The member's email. Absent for an organization API key */
+                email?: string | undefined;
+                /** The member named with `X-GrowthBook-Requested-By` */
+                requestedBy?: {
+                    id: string;
+                    name: string;
+                    email: string;
+                } | undefined;
+                /** Whether the key assumed the named member's role */
+                assumedRole?: boolean | undefined;
+            } | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             config: {
                 id: string;
                 key: string;

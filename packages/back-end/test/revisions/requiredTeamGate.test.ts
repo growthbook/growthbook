@@ -100,6 +100,19 @@ describe("revisionRequiredApproverTeams", () => {
     expect(result.satisfied).toBe(false);
   });
 
+  it("counts only the approver's latest verdict", () => {
+    const result = revisionRequiredApproverTeams(
+      makeContext([{ id: "u1", teams: ["team_fin"] }]),
+      buildRevision([
+        { userId: "u1", decision: "approve" },
+        { userId: "u1", decision: "request-changes" },
+      ]),
+      noneUncovered,
+    );
+
+    expect(result.satisfied).toBe(false);
+  });
+
   it("is unsatisfied when nobody has approved yet", () => {
     const result = revisionRequiredApproverTeams(
       makeContext([{ id: "u1", teams: ["team_fin"] }]),

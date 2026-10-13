@@ -1,6 +1,7 @@
 import { Revision } from "shared/enterprise";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { eventUserToApiEventUser } from "shared/validators";
-import { armerActor } from "back-end/src/util/api-key.util";
+import { armerActor } from "back-end/src/util/armingApiKeyId";
 
 function serializeDate(
   date: Date | string | null | undefined,
@@ -10,7 +11,9 @@ function serializeDate(
 }
 
 /** Serializes deferred-publish fields, omitting absent values across revision APIs. */
-export function revisionScheduleApiFields(revision: Revision) {
+export function revisionScheduleApiFields(
+  revision: Revision | FeatureRevisionInterface,
+) {
   const scheduledPublishAt = serializeDate(revision.scheduledPublishAt);
   const scheduledPublishGaveUpAt = serializeDate(
     revision.scheduledPublishGaveUpAt,

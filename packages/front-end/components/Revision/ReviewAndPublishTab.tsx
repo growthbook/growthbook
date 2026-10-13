@@ -21,6 +21,7 @@ import {
   entityPublishFootprint,
   entityReviewFootprint,
   isInReviewCycle,
+  standingReviews,
 } from "shared/enterprise";
 import { serveFootprint } from "shared/permissions";
 import {
@@ -492,35 +493,23 @@ function ReviewAndPublishRevision<T>({
         lastContentEditAt = t;
       }
     }
-    const byUser = new Map<
-      string,
-      {
-        status: "approved" | "changes-requested";
-        timestamp: string;
-        user: Revision["reviews"][number]["user"];
-      }
-    >();
     const sorted = [...revision.reviews].sort(
       (a, b) =>
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
     );
-    for (const r of sorted) {
-      if (r.decision === "comment" || r.stale) continue;
-      byUser.set(r.userId, {
-        status: r.decision === "approve" ? "approved" : "changes-requested",
-        timestamp: new Date(r.dateCreated).toISOString(),
+    return standingReviews(sorted).map((r) => {
+      const at = new Date(r.dateCreated);
+      return {
+        id: r.userId,
+        status:
+          r.decision === "approve"
+            ? ("approved" as const)
+            : ("changes-requested" as const),
+        timestamp: at.toISOString(),
         user: r.user,
-      });
-    }
-    return Array.from(byUser, ([id, v]) => ({
-      id,
-      status: v.status,
-      timestamp: v.timestamp,
-      user: v.user,
-      stale:
-        lastContentEditAt !== null &&
-        new Date(v.timestamp).getTime() < lastContentEditAt,
-    }));
+        stale: lastContentEditAt !== null && at.getTime() < lastContentEditAt,
+      };
+    });
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 

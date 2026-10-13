@@ -127,13 +127,12 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
+import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
 import {
-  apiKeyEventUser,
   decodeArmingApiKeyId,
   isArmingApiKeyId,
-  migrateApiKey,
   SECRET_API_KEY_ID,
-} from "back-end/src/util/api-key.util";
+} from "back-end/src/util/armingApiKeyId";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";

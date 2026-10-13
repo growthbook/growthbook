@@ -135,7 +135,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
-import { armerActor } from "back-end/src/util/api-key.util";
+import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,

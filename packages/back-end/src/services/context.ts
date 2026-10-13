@@ -50,7 +50,7 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
-import { encodeArmingApiKeyId } from "back-end/src/util/api-key.util";
+import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {

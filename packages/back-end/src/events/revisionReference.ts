@@ -7,8 +7,10 @@ import {
   eventUserToApiEventUser,
   revisionActor,
 } from "shared/validators";
+import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 
-// What a revision event carries about its revision; the rest is a REST lookup.
+// What a revision event carries about its revision: who wrote it and its review
+// and schedule state. The content is a REST lookup.
 function reference({
   id,
   version,
@@ -36,20 +38,29 @@ function reference({
 }
 
 export function revisionReference(revision: Revision) {
-  return reference({
-    ...revision,
-    author: revision.authorId
-      ? revisionActor(revision, revision.authorId)
-      : undefined,
-  });
+  return {
+    ...reference({
+      ...revision,
+      author: revision.authorId
+        ? revisionActor(revision, revision.authorId)
+        : undefined,
+    }),
+    ...revisionScheduleApiFields(revision),
+  };
 }
 
 export function featureRevisionReference(revision: FeatureRevisionInterface) {
-  return reference({
-    ...revision,
-    authorId: eventUserIdentity(revision.createdBy) ?? "",
-    author: revision.createdBy,
-  });
+  return {
+    ...reference({
+      ...revision,
+      authorId: eventUserIdentity(revision.createdBy) ?? "",
+      author: revision.createdBy,
+    }),
+    ...(revision.baseVersion !== undefined && {
+      baseVersion: revision.baseVersion,
+    }),
+    ...revisionScheduleApiFields(revision),
+  };
 }
 
 export function webhookActor(user: EventUser): ApiEventUser {

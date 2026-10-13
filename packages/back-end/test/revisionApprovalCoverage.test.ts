@@ -152,6 +152,18 @@ describe("standing approvals on a generic revision", () => {
     ).toBe(false);
   });
 
+  it("counts only the reviewer's latest verdict", async () => {
+    const r = revision({ dev: "5", production: "2" }, [
+      { userId: "u_rev", decision: "approve" },
+      { userId: "u_rev", decision: "request-changes" },
+    ]);
+
+    expect(
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
+    ).toBe(false);
+  });
+
   it("ignores a change-request verdict", async () => {
     const r = revision({ dev: "5", production: "2" }, [
       { userId: "u_rev", decision: "requestChanges" },

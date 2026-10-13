@@ -13,6 +13,7 @@ import {
   ReviewDecision,
   JsonPatchOperation,
   REVIEW_CYCLE_STATUSES,
+  standingReviews,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
@@ -642,8 +643,8 @@ export function revisionRequiredApproverTeams(
   if (!requirement?.rules.length) return { satisfied: true, unmet: [] };
   return assessRequiredApproverTeams({
     rules: requirement.rules,
-    coveringApproverIds: (revision.reviews ?? [])
-      .filter((r) => r.decision === "approve" && !r.stale)
+    coveringApproverIds: standingReviews(revision.reviews ?? [])
+      .filter((r) => r.decision === "approve")
       .map((r) => r.userId)
       .filter((id) => !coverage.uncoveredApprovers.includes(id)),
     org: context.org,
@@ -666,8 +667,8 @@ export async function revisionApprovalsCoverChange(
     : snapshot.project
       ? [snapshot.project]
       : [];
-  const approvals = (revision.reviews ?? []).filter(
-    (r) => r.decision === "approve" && !r.stale,
+  const approvals = standingReviews(revision.reviews ?? []).filter(
+    (r) => r.decision === "approve",
   );
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
   return assessApprovalCoverage({

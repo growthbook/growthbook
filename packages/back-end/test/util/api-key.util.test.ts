@@ -6,11 +6,13 @@ import {
   roleForApiKey,
   resolveRequestedBy,
   resolveRequestedByFor,
+  apiKeyEventUser,
+} from "back-end/src/util/api-key.util";
+import {
   encodeArmingApiKeyId,
   decodeArmingApiKeyId,
-  apiKeyEventUser,
   armerActor,
-} from "back-end/src/util/api-key.util";
+} from "back-end/src/util/armingApiKeyId";
 
 describe("api key utils", () => {
   describe("isApiKeyForUserInOrganization", () => {

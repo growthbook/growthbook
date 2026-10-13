@@ -14,6 +14,7 @@ import {
   REVIEW_CYCLE_STATUSES,
   reviewCycleOf,
   reviewCycleSupersededMessage,
+  standingReviews,
   statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
@@ -233,12 +234,12 @@ const BaseClass = MakeModelClass({
 // speaks in the resulting statuses. One place to translate, so the precedence
 // itself is not restated.
 function standingVerdicts(
-  byReviewer: Map<string, ReviewDecision>,
+  reviews: Revision["reviews"],
 ): ("approved" | "changes-requested")[] {
-  return Array.from(byReviewer.values()).flatMap((d) =>
-    d === "approve"
+  return standingReviews(reviews).flatMap(({ decision }) =>
+    decision === "approve"
       ? (["approved"] as const)
-      : d === "request-changes"
+      : decision === "request-changes"
         ? (["changes-requested"] as const)
         : [],
   );
@@ -1244,21 +1245,14 @@ export class RevisionModel extends BaseClass {
           );
         }
 
-        // Latest active (non-stale) verdict per reviewer; comments carry none.
-        // Prior cycles' verdicts were demoted to stale at the reset (see
-        // staleVerdicts), so they're history, not active approvals/blocks.
-        const verdictByReviewer = new Map<string, ReviewDecision>();
-        for (const r of [...existing.reviews, review]) {
-          if (r.decision === "comment" || r.stale) continue;
-          verdictByReviewer.set(r.userId, r.decision);
-        }
         // Comments leave the status alone; otherwise the shared precedence rule
-        // decides, with the row's current status as the fallback.
+        // decides, with the row's current status as the fallback. Prior cycles'
+        // verdicts were demoted to stale at the reset (see staleVerdicts).
         const newStatus =
           decision === "comment"
             ? existing.status
             : statusFromStandingVerdicts(
-                standingVerdicts(verdictByReviewer),
+                standingVerdicts([...existing.reviews, review]),
                 existing.status,
               );
 
@@ -1419,13 +1413,8 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         };
 
-        const verdictByReviewer = new Map<string, ReviewDecision>();
-        for (const r of newReviews) {
-          if (r.decision === "comment" || r.stale) continue;
-          verdictByReviewer.set(r.userId, r.decision);
-        }
         const newStatus = statusFromStandingVerdicts(
-          standingVerdicts(verdictByReviewer),
+          standingVerdicts(newReviews),
           "pending-review",
         );
 
