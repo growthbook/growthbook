@@ -7,7 +7,10 @@ import {
 } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { ReqContext } from "back-end/types/request";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
@@ -419,10 +422,12 @@ export const postAutocomplete = async (
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 
+  const { autocompleteAIModel } = await getAISettingsForOrg(context);
   const raw = await simpleCompletion({
     context,
     type: "chat-autocomplete",
     isDefaultPrompt: true,
+    resolvedModel: autocompleteAIModel,
     temperature: 0.2,
     // Room to echo the draft (~3 chars per token, generous) plus a short
     // phrase; anything longer is the model rambling.

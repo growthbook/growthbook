@@ -9,6 +9,7 @@ import {
   AIPromptInterface,
   AIModel,
   AIProvider,
+  AUTOCOMPLETE_AI_MODEL,
   formatAIRateLimitRetryMessage,
   getProviderForAIModel,
   resolveDefaultSTTModel,
@@ -144,6 +145,10 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
   ];
 }
+
+/** Empty when the id was dropped from the registry, so the save falls back to the default. */
+const knownTextModel = (model: string | undefined) =>
+  model && getProviderForAIModel("text", model) ? model : "";
 
 const ApiKeyWarning: React.FC<{
   model?: string;
@@ -311,7 +316,7 @@ export default function AISettings({
         promptForm.setValue(prompt.promptType, prompt.promptValue);
         promptForm.setValue(
           `${prompt.promptType}-model`,
-          prompt.overrideModel || "",
+          knownTextModel(prompt.overrideModel),
         );
       });
     }
@@ -395,6 +400,44 @@ export default function AISettings({
                   mb="4"
                 />
               )}
+              {form.watch("aiEnabled") &&
+                aiAgreedTo &&
+                canChooseModels &&
+                (form.watch("aiAutocompleteEnabled") ?? true) && (
+                  <Box mb="4" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="aiAutocompleteModel"
+                      size="2"
+                      className="font-weight-semibold"
+                    >
+                      Autocomplete model
+                    </Text>
+                    <SelectField
+                      size="medium"
+                      id="aiAutocompleteModel"
+                      disabled={!canEdit}
+                      helpText="A small, fast model keeps suggestions cheap and quick."
+                      value={form.watch("aiAutocompleteModel") || ""}
+                      onChange={(v) => form.setValue("aiAutocompleteModel", v)}
+                      sort={false}
+                      options={[
+                        {
+                          value: "",
+                          label: `Use default (${getModelDisplayLabel(AUTOCOMPLETE_AI_MODEL)})`,
+                        },
+                        ...getAvailableAIModelOptions(
+                          availableProviders,
+                          form.watch("aiAutocompleteModel"),
+                        ),
+                      ]}
+                    />
+                    <ApiKeyWarning
+                      model={form.watch("aiAutocompleteModel")}
+                      hasKey={hasKeyForModel}
+                    />
+                  </Box>
+                )}
               {form.watch("aiEnabled") && aiAgreedTo && (
                 <AgentSkillsSettings canEdit={canEdit} />
               )}
