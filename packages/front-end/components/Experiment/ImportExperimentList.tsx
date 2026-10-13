@@ -39,6 +39,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import UITooltip from "@/ui/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -298,24 +299,40 @@ const ImportExperimentList: FC<{
                 r.status === "succeeded",
             ),
         );
-  const staleLastRunAt =
-    staleQueries.length === 1
-      ? data.experiments.exposureQueryRuns?.find(
-          (r) => r.exposureQueryId === staleQueries[0].id,
-        )?.lastRunAt
-      : undefined;
-  // How far back every query in view has data
-  const lookbackStart = inScopeQueries.reduce<Date | null>((latest, q) => {
-    const start = data.experiments.exposureQueryRuns?.find(
-      (r) => r.exposureQueryId === q.id,
-    )?.start;
-    if (!start) return latest;
-    const d = getValidDate(start);
-    return !latest || d > latest ? d : latest;
-  }, null);
+  const failedQueries = staleQueries.filter((q) =>
+    lastRunQueries.some(
+      (r) =>
+        r.name === getPastExperimentQueryName(q.id) && r.status === "failed",
+    ),
+  );
+  const skippedQueries = staleQueries.filter((q) => !failedQueries.includes(q));
+  const describeStaleResults = (queries: { id: string }[]) => {
+    if (queries.length > 1) return "their results may be out of date";
+    const lastRunAt = data.experiments.exposureQueryRuns?.find(
+      (r) => r.exposureQueryId === queries[0].id,
+    )?.lastRunAt;
+    return lastRunAt
+      ? `its results are from ${date(lastRunAt)}`
+      : "its results may be out of date";
+  };
+  // The earliest data any row on screen can come from
+  const lookbackStart = inScopeQueries
+    .filter(
+      (q) =>
+        identifierType === null ||
+        inScopeIdentifierTypes.get(q.id)?.includes(identifierType),
+    )
+    .reduce<Date | null>((earliest, q) => {
+      const start = data.experiments.exposureQueryRuns?.find(
+        (r) => r.exposureQueryId === q.id,
+      )?.start;
+      if (!start) return earliest;
+      const d = getValidDate(start);
+      return !earliest || d < earliest ? d : earliest;
+    }, null);
 
   const staleQueriesUserCantRun = datasource
-    ? staleQueries.filter(
+    ? skippedQueries.filter(
         (q) => !permissionsUtil.canRunPastExperimentQuery(q, datasource),
       )
     : [];
@@ -442,24 +459,21 @@ const ImportExperimentList: FC<{
       )}
       {staleQueries.length > 0 && (
         <Callout status="warning" my="3">
-          <QueryNames queries={staleQueries} />{" "}
-          {staleQueries.length === 1 ? (
+          {failedQueries.length > 0 && (
             <>
-              wasn&apos;t included in the last refresh, so its results{" "}
-              {staleLastRunAt
-                ? `are from ${date(staleLastRunAt)}`
-                : "may be out of date"}
-              .
+              <QueryNames queries={failedQueries} /> failed on the last refresh,
+              so {describeStaleResults(failedQueries)}.{" "}
             </>
-          ) : (
+          )}
+          {skippedQueries.length > 0 && (
             <>
-              weren&apos;t included in the last refresh, so their results may be
-              out of date.
+              <QueryNames queries={skippedQueries} />{" "}
+              {skippedQueries.length === 1 ? "wasn't" : "weren't"} included in
+              the last refresh, so {describeStaleResults(skippedQueries)}.{" "}
             </>
           )}
           {staleQueriesUserCantRun.length > 0 && (
             <>
-              {" "}
               Refreshing <QueryNames queries={staleQueriesUserCantRun} />{" "}
               requires permission to run queries in{" "}
               {staleQueriesUserCantRun.length === 1 ? "its" : "their"} Projects.
@@ -719,9 +733,11 @@ const ImportExperimentList: FC<{
                       {existingId ? (
                         <Link href={`/experiment/${existingId}`}>imported</Link>
                       ) : existingId === null ? (
-                        <Tooltip body="Imported into a Project you don't have access to">
-                          <Text color="text-mid">imported</Text>
-                        </Tooltip>
+                        <UITooltip content="Imported into a Project you don't have access to">
+                          <span tabIndex={0}>
+                            <Text color="text-mid">imported</Text>
+                          </span>
+                        </UITooltip>
                       ) : (
                         <button
                           className={`btn btn-primary`}
@@ -801,18 +817,23 @@ const ImportExperimentList: FC<{
                 <tr>
                   <td colSpan={8}>
                     <Callout status="info">
-                      <em>
-                        No experiments match your current filters.{" "}
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            clearFilters();
-                          }}
-                        >
-                          Clear all filters
-                        </a>
-                      </em>
+                      {identifierType !== null &&
+                      !identifiersWithRows.has(identifierType) ? (
+                        <em>No experiments found for {identifierType}.</em>
+                      ) : (
+                        <em>
+                          No experiments match your current filters.{" "}
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              clearFilters();
+                            }}
+                          >
+                            Clear all filters
+                          </a>
+                        </em>
+                      )}
                     </Callout>
                   </td>
                 </tr>
