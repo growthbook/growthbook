@@ -56,7 +56,11 @@
             "pages": [
               "index",
               "overview",
-              "quick-start",
+              {
+                "group": "Quickstart",
+                "root": "quick-start",
+                "pages": ["quick-start/wizard"]
+              },
               "command-palette",
               {
                 "group": "Feature Flags",
@@ -291,7 +295,6 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
-                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills"
                     ]
@@ -1323,6 +1326,10 @@
     "indexing": "navigable"
   },
   "redirects": [
+    {
+      "source": "/integrations/ai-agents/wizard",
+      "destination": "/quick-start/wizard"
+    },
     {
       "source": "/app/fact-tables",
       "destination": "/app/metrics"
