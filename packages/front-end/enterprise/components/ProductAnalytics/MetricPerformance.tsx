@@ -23,7 +23,7 @@ import {
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
-import ExplorerChart from "./MainSection/ExplorerChart";
+import MetricPreviewChart from "./MainSection/MetricPreviewChart";
 
 const EMPTY_CONFIG: ExplorationConfig = {
   ...DEFAULT_EXPLORE_STATE,
@@ -103,8 +103,7 @@ function PerformanceChart({
         </Flex>
       )}
       {exploration || loading ? (
-        <ExplorerChart
-          compact
+        <MetricPreviewChart
           exploration={exploration}
           submittedExploreState={submittedExploreState ?? draftExploreState}
           loading={loading}
@@ -119,7 +118,7 @@ function PerformanceChart({
           }
         />
       )}
-      {/* ExplorerChart renders nothing for an error, so show it here. */}
+      {/* MetricPreviewChart renders nothing for an error, so show it here. */}
       {error && !loading && <Callout status="error">{error}</Callout>}
       <Box className={styles.footer}>
         {exploration && !outdated ? (
