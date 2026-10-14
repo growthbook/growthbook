@@ -22,6 +22,7 @@ import {
 import { windowTypeValidator } from "./fact-table";
 import {
   ownerEmailField,
+  ownerNameField,
   ownerField,
   ownerInputField,
   optionalOwnerInputField,
@@ -969,6 +970,7 @@ const apiExperimentShape = z.object({
   tags: z.array(z.string()),
   owner: ownerField,
   ownerEmail: ownerEmailField,
+  ownerName: ownerNameField,
   archived: z.boolean(),
   status: z.string(),
   autoRefresh: z.boolean(),
