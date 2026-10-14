@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { DataSourceType } from "shared/types/datasource";
-import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import { isTestableDataSourceType } from "shared/validators";
+import { dataSourceConnections } from "@/services/eventSchema";
+import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
+import { DATA_SOURCE_TYPE_AVATAR } from "./dataSourceTypeAvatar";
+
+// The connect page only handles warehouses with credentials to test, and
+// Mixpanel is deprecated for new connections.
+const warehouses = dataSourceConnections.filter(
+  (connection) =>
+    isTestableDataSourceType(connection.type) && connection.type !== "mixpanel",
+);
 
 export default function CustomDataSourceModal({
   close,
@@ -14,7 +25,7 @@ export default function CustomDataSourceModal({
   source: string;
 }) {
   const router = useRouter();
-  const [type, setType] = useState<DataSourceType | "">("");
+  const [type, setType] = useState<DataSourceType | null>(null);
 
   const continueToConnect = async () => {
     if (!type) return;
@@ -25,12 +36,12 @@ export default function CustomDataSourceModal({
   return (
     <ModalStandard
       open={true}
-      header="Set Up Custom Data Source"
+      header="Connect Your Warehouse"
       cta="Continue to connect"
       ctaEnabled={!!type}
       submit={continueToConnect}
       close={close}
-      size="xl"
+      size="lg"
       trackingEventModalType="custom-data-source-setup"
       trackingEventModalSource={source}
     >
@@ -41,7 +52,29 @@ export default function CustomDataSourceModal({
       <Heading as="h3" size="sm" mb="3">
         Choose Your Warehouse
       </Heading>
-      <DataSourceTypeSelector value={type} setValue={setType} columns="2" />
+      <RadioCards
+        columns="3"
+        width="100%"
+        align="center"
+        labelSize="md"
+        labelWeight="medium"
+        value={type ?? ""}
+        setValue={(value) => setType(value as DataSourceType)}
+        options={warehouses.map((connection) => ({
+          value: connection.type,
+          label: connection.display,
+          avatar: (
+            <Avatar
+              size="sm"
+              variant="soft"
+              radius="small"
+              color={DATA_SOURCE_TYPE_AVATAR[connection.type].color}
+            >
+              {DATA_SOURCE_TYPE_AVATAR[connection.type].abbr}
+            </Avatar>
+          ),
+        }))}
+      />
     </ModalStandard>
   );
 }

@@ -6,14 +6,9 @@ import RadioCards from "@/ui/RadioCards";
 export interface Props {
   value: DataSourceType | "";
   setValue: (value: DataSourceType) => void;
-  columns?: "2" | "3";
 }
 
-export default function DataSourceTypeSelector({
-  value,
-  setValue,
-  columns = "3",
-}: Props) {
+export default function DataSourceTypeSelector({ value, setValue }: Props) {
   return (
     <RadioCards
       options={dataSourceConnections
@@ -33,7 +28,7 @@ export default function DataSourceTypeSelector({
       setValue={(value) => {
         setValue(value as DataSourceType);
       }}
-      columns={columns}
+      columns={"3"}
       align="center"
       width="100%"
     />
