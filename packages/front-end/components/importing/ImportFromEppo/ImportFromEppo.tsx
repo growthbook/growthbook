@@ -126,11 +126,17 @@ export default function ImportFromEppo() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const existing: ExistingIds = useMemo(() => {
+    const inDatasource = <T extends { id: string; datasource: string }>(
+      items: T[],
+    ) =>
+      new Set(
+        items.filter((i) => i.datasource === datasourceId).map((i) => i.id),
+      );
     const ids = {
       // Archived objects still exist; only deleted ones should be re-created
       "saved-group": new Set(_savedGroupsIncludingArchived.map((sg) => sg.id)),
-      "fact-table": new Set(_factTablesIncludingArchived.map((ft) => ft.id)),
-      metric: new Set(_factMetricsIncludingArchived.map((m) => m.id)),
+      "fact-table": inDatasource(_factTablesIncludingArchived),
+      metric: inDatasource(_factMetricsIncludingArchived),
       experiment: new Set(experiments.map((e) => e.id)),
       feature: new Set(features.map((f) => f.id)),
     };

@@ -1,4 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiAutoRun } from "shared/validators";
 import {
   EppoAllocation,
@@ -1288,6 +1290,10 @@ describe("teardownRun", () => {
 
   const mockApi = (
     fail: (url: string, method: string) => string | undefined = () => undefined,
+    usage: {
+      experiments?: Partial<ExperimentInterfaceStringDates>[];
+      factMetrics?: Partial<FactMetricInterface>[];
+    } = {},
   ) => {
     const calls: string[] = [];
     const respond = async (
@@ -1303,6 +1309,12 @@ describe("teardownRun", () => {
       }
       if (method === "GET" && url.startsWith("/saved-groups/")) {
         return { savedGroup: { archived: true } };
+      }
+      if (method === "GET" && url.startsWith("/experiments?")) {
+        return { experiments: usage.experiments ?? [] };
+      }
+      if (method === "GET" && url === "/organization/definitions") {
+        return { factMetrics: usage.factMetrics ?? [] };
       }
       if (method === "GET" && url.startsWith("/experiment/")) {
         return {
@@ -1334,7 +1346,9 @@ describe("teardownRun", () => {
       "GET /feature/flag-a",
       "POST /feature/flag-a/archive",
       "DELETE /feature/flag-a",
+      "GET /experiments?includeArchived=1",
       "DELETE /fact-metrics/fact__1",
+      "GET /organization/definitions",
       "DELETE /fact-tables/ftb_1",
       "GET /saved-groups/grp_1",
       "DELETE /saved-groups/grp_1",
@@ -1366,6 +1380,53 @@ describe("teardownRun", () => {
       apiCall,
     );
     expect(gone).toEqual({ deleted: 2, failures: [] });
+  });
+
+  it("keeps metrics and Fact Tables that something outside the run still uses", async () => {
+    const { calls, apiCall } = mockApi(undefined, {
+      experiments: [
+        { id: "exp_run", name: "Run", goalMetrics: ["fact__1"] },
+        { id: "exp_kept", name: "Kept", secondaryMetrics: ["fact__2"] },
+      ],
+      factMetrics: [
+        { id: "fact__3", name: "Revenue", numerator: { factTableId: "ftb_1" } },
+        {
+          id: "fact__updated",
+          name: "Orders",
+          numerator: { factTableId: "ftb_2" },
+        },
+      ] as Partial<FactMetricInterface>[],
+    });
+    const metrics = await teardownRun(
+      run([
+        artifact("experiment", "exp_run"),
+        artifact("metric", "fact__1"),
+        artifact("metric", "fact__2"),
+      ]),
+      apiCall,
+    );
+    expect(metrics.deleted).toBe(2);
+    expect(metrics.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["fact__2", "Still used by experiment Kept"],
+    ]);
+    expect(
+      calls.filter((c) => c === "GET /experiments?includeArchived=1"),
+    ).toHaveLength(1);
+
+    const tables = await teardownRun(
+      run([
+        artifact("metric", "fact__3"),
+        artifact("fact-table", "ftb_1"),
+        artifact("fact-table", "ftb_2"),
+      ]),
+      apiCall,
+    );
+    expect(tables.deleted).toBe(2);
+    expect(tables.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["ftb_2", "Still used by Fact Metric Orders"],
+    ]);
+    expect(calls).not.toContain("DELETE /fact-metrics/fact__2");
+    expect(calls).not.toContain("DELETE /fact-tables/ftb_2");
   });
 
   it("restores the archive state when a delete fails and keeps what a failure still uses", async () => {
@@ -1437,7 +1498,10 @@ describe("runEppoImport", () => {
     flags: [],
   });
 
-  const mockApi = (onRecord: () => unknown) => {
+  const mockApi = (
+    onRecord: () => unknown,
+    get: (url: string) => unknown = () => ({}),
+  ) => {
     const calls: { method: string; url: string; body?: unknown }[] = [];
     const respond = async (
       url: string,
@@ -1454,17 +1518,17 @@ describe("runEppoImport", () => {
       if (url === "/saved-groups") {
         return { savedGroup: { id: `grp_${body.groupName}` } };
       }
-      return {};
+      return method === "GET" ? get(url) : {};
     };
     const apiCall = <T>(url: string, options?: RequestInit) =>
       respond(url, options) as Promise<T>;
     return { calls, apiCall };
   };
 
-  const run = (apiCall: ApiCall) => {
+  const run = (apiCall: ApiCall, importData: EppoImportData = data()) => {
     const results: Record<string, { status: string; error?: string }> = {};
     return runEppoImport({
-      data: data(),
+      data: importData,
       eppo: EPPO,
       isSelected: () => true,
       existing: emptyExisting(),
@@ -1505,6 +1569,89 @@ describe("runEppoImport", () => {
       url: "/auto-runs/arun_1",
       body: { outcome: "completed" },
     });
+  });
+
+  it("stops an experiment that was a draft when Eppo has since completed it", async () => {
+    const eppoExperiment: EppoExperiment = {
+      id: 5,
+      name: "Checkout test",
+      status: "COMPLETED",
+      experiment_key: "checkout-test",
+      assignments_start_date: "2024-01-01T00:00:00Z",
+      assignments_end_date: "2024-02-01T00:00:00Z",
+      outcome: "POSITIVE",
+      winning_variant_key: "on",
+      variations: [
+        {
+          name: "Off",
+          variant_key: "off",
+          is_control: true,
+          weighted_expected_traffic: 1,
+          is_active: true,
+          variation_id: 12,
+        },
+        {
+          name: "On",
+          variant_key: "on",
+          is_control: false,
+          weighted_expected_traffic: 1,
+          is_active: true,
+          variation_id: 11,
+        },
+      ],
+    };
+    const { calls, apiCall } = mockApi(
+      () => ({}),
+      (url) =>
+        url === "/experiment/exp_1"
+          ? {
+              experiment: {
+                id: "exp_1",
+                status: "draft",
+                variations: [
+                  { id: "var_off", key: "off" },
+                  { id: "var_on", key: "on" },
+                ],
+                phases: [
+                  {
+                    name: "Main",
+                    dateStarted: "2024-01-01T00:00:00Z",
+                    coverage: 1,
+                    condition: "",
+                    savedGroups: [],
+                  },
+                ],
+              },
+            }
+          : {},
+    );
+    const { results } = await run(apiCall, {
+      ...data(),
+      audiences: [],
+      experiments: [
+        {
+          key: "5",
+          name: eppoExperiment.name,
+          eppo: eppoExperiment,
+          existingId: "exp_1",
+          status: "pending",
+        },
+      ],
+    });
+    expect(results["experiments:5"]).toMatchObject({ status: "completed" });
+    expect(calls).toContainEqual({
+      method: "POST",
+      url: "/experiment/exp_1/status",
+      body: { status: "stopped" },
+    });
+    expect(calls.some((c) => c.url === "/experiment/exp_1/stop")).toBe(false);
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        method: "PUT",
+        url: "/experiment/exp_1/phase/0",
+        body: expect.objectContaining({ dateEnded: "2024-02-01T00:00" }),
+      }),
+    );
   });
 
   it("marks an import failed when the run rejects its record", async () => {

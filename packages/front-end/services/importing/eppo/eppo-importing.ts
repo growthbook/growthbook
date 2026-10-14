@@ -1449,8 +1449,13 @@ export function updatedByLaterRuns(
 async function deleteArtifact(
   artifact: ApiAutoRun["artifacts"][number],
   apiCall: ApiCall,
+  stillUsedBy: (
+    artifact: ApiAutoRun["artifacts"][number],
+  ) => Promise<string | null>,
 ) {
   const id = encodeURIComponent(artifact.id);
+  const user = await stillUsedBy(artifact);
+  if (user) throw new Error(`Still used by ${user}`);
   switch (artifact.kind) {
     case "feature": {
       const { feature } = await apiCall<{ feature: { archived?: boolean } }>(
@@ -1562,6 +1567,47 @@ export async function teardownRun(
     KEPT_WHEN_FAILED[kind]?.forEach(keep);
   };
   const deletedArtifacts: ApiAutoRun["artifacts"] = [];
+  const isDeleted = (kind: AutoRunArtifact["kind"], id: string) =>
+    deletedArtifacts.some((a) => a.kind === kind && a.id === id);
+  let experiments: Promise<ExperimentInterfaceStringDates[]> | null = null;
+  let factMetrics: Promise<FactMetricInterface[]> | null = null;
+  const stillUsedBy = async (
+    artifact: ApiAutoRun["artifacts"][number],
+  ): Promise<string | null> => {
+    if (artifact.kind === "metric") {
+      experiments ??= apiCall<{
+        experiments: ExperimentInterfaceStringDates[];
+      }>("/experiments?includeArchived=1").then((r) => r.experiments);
+      const users = (await experiments).filter(
+        (e) =>
+          !isDeleted("experiment", e.id) &&
+          [
+            ...(e.goalMetrics ?? []),
+            ...(e.secondaryMetrics ?? []),
+            ...(e.guardrailMetrics ?? []),
+            e.activationMetric,
+          ].includes(artifact.id),
+      );
+      return users.length
+        ? `experiment ${users.map((e) => e.name).join(", ")}`
+        : null;
+    }
+    if (artifact.kind === "fact-table") {
+      factMetrics ??= apiCall<{ factMetrics: FactMetricInterface[] }>(
+        "/organization/definitions",
+      ).then((r) => r.factMetrics);
+      const users = (await factMetrics).filter(
+        (m) =>
+          !isDeleted("metric", m.id) &&
+          (m.numerator?.factTableId === artifact.id ||
+            m.denominator?.factTableId === artifact.id),
+      );
+      return users.length
+        ? `Fact Metric ${users.map((m) => m.name).join(", ")}`
+        : null;
+    }
+    return null;
+  };
   for (const artifact of createdByRun(run)) {
     if (kept.has(artifact.kind)) {
       failures.push({
@@ -1571,7 +1617,7 @@ export async function teardownRun(
       continue;
     }
     try {
-      await deleteArtifact(artifact, apiCall);
+      await deleteArtifact(artifact, apiCall, stillUsedBy);
       deletedArtifacts.push(artifact);
     } catch (e) {
       if (isGone(e)) {
@@ -2299,8 +2345,8 @@ export async function runEppoImport({
           current = res.experiment ?? current;
           if (
             experiment.status &&
-            experiment.status !== "stopped" &&
-            current.status !== experiment.status
+            current.status !== experiment.status &&
+            !(current.status === "running" && experiment.status === "stopped")
           ) {
             await apiCall(`/experiment/${id}/status`, {
               method: "POST",
