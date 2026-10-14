@@ -1,6 +1,5 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
-import { getGuardedAgent, guardedAgents } from "./egressGuard";
 import { logger } from "./logger";
 import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
@@ -24,13 +23,12 @@ export function fetch(url: string, init?: RequestInit) {
 
 export function getHttpOptions(
   getProxyForUrl: (url: string) => string = () => WEBHOOK_PROXY,
-  directAgents?: typeof guardedAgents,
 ) {
   if (WEBHOOK_PROXY) {
-    return { agent: new ProxyAgent({ getProxyForUrl, ...directAgents }) };
+    return { agent: new ProxyAgent({ getProxyForUrl }) };
   }
   if (USE_PROXY) {
-    return { agent: new ProxyAgent({ ...directAgents }) };
+    return { agent: new ProxyAgent() };
   }
   return {};
 }
@@ -94,13 +92,10 @@ export const cancellableFetch = async (
   let response: Response | null = null;
   let stringBody = "";
 
-  // Only proxied connections skip the guard, since the proxy filters those itself.
-  const httpOptions = getHttpOptions(undefined, guardedAgents);
-
   try {
     response = await fetch(url, {
       signal: abortController.signal as RequestInit["signal"],
-      ...(httpOptions.agent ? httpOptions : { agent: getGuardedAgent }),
+      ...getHttpOptions(),
       ...fetchOptions,
     });
 
