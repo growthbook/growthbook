@@ -20,8 +20,7 @@ import {
   confirmationLink,
   gateNotices,
   rampScheduleAction,
-  REVISION_ARCHIVE_ACTION,
-  REVISION_PUBLISH_ACTION,
+  REVISION_MODEL,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -202,7 +201,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   // One confirmation covers the whole release.
   const links = plan.items.map(({ ref }) =>
     confirmationLink(
-      ref.entityType === "saved-group" ? "savedGroup" : ref.entityType,
+      REVISION_MODEL[ref.entityType],
       callerIdFor(ref.entityType, ref.entityId),
     ),
   );
@@ -210,9 +209,9 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     // Each item as its own publish would hold it.
     actions: plan.items.flatMap(
       ({ ref, revision, desiredState, entityPreImage }) => [
-        REVISION_PUBLISH_ACTION[ref.entityType],
+        `${REVISION_MODEL[ref.entityType]}.publish` as const,
         ...(desiredState.archived === true && entityPreImage.archived !== true
-          ? [REVISION_ARCHIVE_ACTION[ref.entityType]]
+          ? [`${REVISION_MODEL[ref.entityType]}.archive` as const]
           : []),
         ...(ref.entityType === "feature"
           ? ((revision.raw as FeatureRevisionInterface).rampActions ?? []).map(

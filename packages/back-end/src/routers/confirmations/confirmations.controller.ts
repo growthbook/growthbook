@@ -65,30 +65,20 @@ export const getConfirmation = async (
   });
 };
 
-export const postConfirm = async (
-  req: AuthRequest<{ note?: string }, { id: string }>,
-  res: Response,
-) => {
-  const context = getContextFromReq(req);
-  const confirmation = await decideConfirmation(
-    context,
-    req.params.id,
-    "confirm",
-    req.body.note,
-  );
-  res.status(200).json({ status: 200, confirmation });
-};
+const decide =
+  (decision: "confirm" | "reject") =>
+  async (
+    req: AuthRequest<{ note?: string }, { id: string }>,
+    res: Response,
+  ) => {
+    const confirmation = await decideConfirmation(
+      getContextFromReq(req),
+      req.params.id,
+      decision,
+      req.body.note,
+    );
+    res.status(200).json({ status: 200, confirmation });
+  };
 
-export const postReject = async (
-  req: AuthRequest<{ note?: string }, { id: string }>,
-  res: Response,
-) => {
-  const context = getContextFromReq(req);
-  const confirmation = await decideConfirmation(
-    context,
-    req.params.id,
-    "reject",
-    req.body.note,
-  );
-  res.status(200).json({ status: 200, confirmation });
-};
+export const postConfirm = decide("confirm");
+export const postReject = decide("reject");

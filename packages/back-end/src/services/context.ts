@@ -364,7 +364,7 @@ export class ReqContextClass {
 
   /**
    * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
-   * Set by the agent while it replays a confirmed call: the flags belong to
+   * Set while a confirmed call replays (by the agent or decideConfirmation): the flags belong to
    * that call, not to the chat request (web) or to its absence (Slack, which
    * would otherwise read as a background job that ignores every warning).
    */

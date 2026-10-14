@@ -1,3 +1,4 @@
+import type { HttpVerb } from "../api-spec";
 import {
   CONFIRM_ACTIONS,
   CONFIRM_MODEL_BY_TAG,
@@ -6,9 +7,6 @@ import {
   type ConfirmRule,
 } from "../validators/confirmations";
 
-// The actions any rule holds. A rule names an action, a whole category
-// ("override.*") or everything ("*"); an action with no environments matches
-// any environment list.
 // Whether a rule's action ("*", a whole category like "feature.*", or one
 // action) covers this action.
 export const actionCovers = (ruleAction: string, action: string) =>
@@ -16,6 +14,7 @@ export const actionCovers = (ruleAction: string, action: string) =>
   ruleAction === action ||
   (ruleAction.endsWith(".*") && action.startsWith(ruleAction.slice(0, -1)));
 
+// An action with no environments matches any environment list.
 export function matchConfirmRules(
   rules: ConfirmRule[],
   actions: HeldAction[],
@@ -31,8 +30,7 @@ export function matchConfirmRules(
   );
 }
 
-// The live model a route writes to, from its API tags.
-export function routeModel(tags: readonly string[] | undefined) {
+function routeModel(tags: readonly string[] | undefined) {
   return (
     tags
       ?.map(
@@ -45,12 +43,12 @@ export function routeModel(tags: readonly string[] | undefined) {
 // The actions a route may hold for: its own, or `<model>.other` for a write to a
 // live model that declares none.
 export function routeConfirmation(
-  method: string,
+  method: HttpVerb,
   tags: readonly string[] | undefined,
   declared: readonly ConfirmAction[] | undefined,
 ): readonly ConfirmAction[] {
   if (declared) return declared;
-  if (method.toLowerCase() === "get") return [];
+  if (method === "get") return [];
   const model = routeModel(tags);
   return model ? [`${model}.other`] : [];
 }
@@ -59,6 +57,16 @@ export function routeConfirmation(
 const ARMING_FIELDS = ["autoPublishOnApproval", "scheduledPublishAt"];
 // An experiment's schedule arms a start or stop the same way.
 const SCHEDULE_FIELD = "statusUpdateSchedule";
+
+// A scheduled start or stop happens later with no one present.
+export const scheduleActions = (
+  schedule: { startAt?: unknown; stopAt?: unknown; stopAfter?: unknown } | null,
+): ConfirmAction[] => [
+  ...(schedule?.startAt ? (["experiment.start"] as const) : []),
+  ...(schedule?.stopAt || schedule?.stopAfter
+    ? (["experiment.stop"] as const)
+    : []),
+];
 
 const knownActions = (actions: string[]) =>
   actions.filter((a): a is ConfirmAction =>
@@ -77,14 +85,10 @@ export function armedActions(
     ...(ARMING_FIELDS.some((field) => !!body[field])
       ? [`${model}.publish`]
       : []),
-    ...(model === "experiment" && schedule.startAt ? ["experiment.start"] : []),
-    ...(model === "experiment" && (schedule.stopAt || schedule.stopAfter)
-      ? ["experiment.stop"]
-      : []),
+    ...(model === "experiment" ? scheduleActions(schedule) : []),
   ]);
 }
 
-// What a route can arm, from the request fields it accepts.
 export function armableActions(
   tags: readonly string[] | undefined,
   fields: string[],

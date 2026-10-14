@@ -6,7 +6,6 @@ import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import NoticeStack from "@/components/Notices/NoticeStack";
-import { rankNotices } from "@/components/Notices/notices";
 import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -18,7 +17,7 @@ const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
   const { accountPlan, license, refreshOrganization, subscription } = useUser();
-  const planNotices = rankNotices(useAccountPlanNotices());
+  const planNotices = useAccountPlanNotices();
   const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 

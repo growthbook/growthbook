@@ -173,15 +173,7 @@ export async function toggleFeatureCore(
   await holdFeatureUpdate(
     context,
     feature,
-    {
-      archived: null,
-      envEnabled: changedToggles,
-      defaultValue: false,
-      rules: false,
-      metadata: [],
-      prerequisites: false,
-      holdout: false,
-    },
+    { envEnabled: changedToggles },
     bypassedGates,
     Object.keys(changedToggles),
   );

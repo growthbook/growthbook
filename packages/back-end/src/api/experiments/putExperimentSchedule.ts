@@ -3,6 +3,7 @@ import {
   putExperimentScheduleValidator,
 } from "shared/validators";
 import { scheduleWriteNeedsRunPermission } from "shared/experiments";
+import { scheduleActions } from "shared/util";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
@@ -31,14 +32,8 @@ export const putExperimentSchedule = createApiRequestHandler(
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
 
-  // A scheduled start or stop happens later with no one present, so it's held now.
   await requireConfirmation(req.context, {
-    actions: [
-      ...(req.body.startAt ? (["experiment.start"] as const) : []),
-      ...(req.body.stopAt || req.body.stopAfter
-        ? (["experiment.stop"] as const)
-        : []),
-    ],
+    actions: scheduleActions(req.body),
     project: experiment.project,
     summary: `Schedule ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],

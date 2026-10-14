@@ -3,6 +3,7 @@ import { ago } from "shared/dates";
 import { isExpired } from "shared/api-key-expiration";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
+import { capitalizeFirstLetter } from "@/services/utils";
 import { AppNotice } from "./notices";
 
 type ExpiringKey = ReturnType<typeof useUser>["expiringApiKeys"][number];
@@ -48,7 +49,7 @@ function expiryNotice(
     severity: severe ? "error" : "warning",
     title:
       count === 1
-        ? `${state[0].toUpperCase()}${state.slice(1)} ${noun}`
+        ? `${capitalizeFirstLetter(state)} ${noun}`
         : `${count} ${state} ${noun}s`,
     href,
     details: (

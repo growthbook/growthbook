@@ -90,8 +90,8 @@ export const CONFIRM_MODEL_BY_TAG = {
   "ramp-schedules": "rampSchedule",
 } as const satisfies Record<string, ConfirmModel>;
 
-// What a rule can name: everything ("*"), a whole model ("override.*"), or one
-// action.
+// What a rule can name: everything ("*"), a whole category ("override.*"), or
+// one action.
 const RULE_ACTIONS = new Set<string>([
   "*",
   ...CONFIRM_ACTIONS.map((action) => `${action.split(".")[0]}.*`),

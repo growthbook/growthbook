@@ -4,6 +4,7 @@ import {
   ApiPaginationFields,
   ApiErrorCode,
   ConfirmAction,
+  type ConfirmationNotice,
 } from "shared/validators";
 import { routeConfirmation } from "shared/util";
 import { UserInterface } from "shared/types/user";
@@ -14,7 +15,6 @@ import {
   HttpVerb,
   RequestSchemas,
 } from "shared/api-spec";
-import type { ConfirmationNotice } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import {

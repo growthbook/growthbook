@@ -97,7 +97,6 @@ export default function ConfirmActionCard({
   );
 }
 
-/** The gated call's method and path on one tinted line. */
 export function RequestLine({
   method,
   path,

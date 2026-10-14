@@ -468,7 +468,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     updates.defaultValue !== undefined &&
     updates.defaultValue !== feature.defaultValue;
   const rulesChanged =
-    inboundFlatRules != null &&
+    inboundFlatRules !== null &&
     !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []);
   const hasRuleChanges = defaultValueChanged || rulesChanged;
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;

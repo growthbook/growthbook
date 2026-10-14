@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
@@ -7,11 +7,11 @@ import MultiSelectField from "@/ui/MultiSelectField";
 
 const ALL_ENVIRONMENTS = "__all_environments__";
 
-// Reads as text until the pencil opens the picker. Null means every environment.
+// Null means every environment.
 export default function EnvironmentScopeCell({
   environments,
   onChange,
-  noneLabel = null,
+  noneLabel,
 }: {
   environments: string[] | null;
   onChange?: (environments: string[] | null) => void;
@@ -50,33 +50,31 @@ export default function EnvironmentScopeCell({
   }
 
   return (
-    <Box>
-      <MultiSelectField
-        aria-label="Environments"
-        showCopyButton={false}
-        value={environments ?? [ALL_ENVIRONMENTS]}
-        options={[
-          { label: "All Environments", value: ALL_ENVIRONMENTS },
-          ...envOptions,
-        ]}
-        onChange={(next) =>
-          onChange?.(
-            next.includes(ALL_ENVIRONMENTS) && environments !== null
-              ? null
-              : next.filter((e) => e !== ALL_ENVIRONMENTS),
-          )
-        }
-        sort={false}
-        formatOptionLabel={(option) =>
-          option.value === ALL_ENVIRONMENTS ? (
-            <em>{option.label}</em>
-          ) : (
-            option.label
-          )
-        }
-        placeholder="No environments"
-        autoFocus
-      />
-    </Box>
+    <MultiSelectField
+      aria-label="Environments"
+      showCopyButton={false}
+      value={environments ?? [ALL_ENVIRONMENTS]}
+      options={[
+        { label: "All Environments", value: ALL_ENVIRONMENTS },
+        ...envOptions,
+      ]}
+      onChange={(next) =>
+        onChange?.(
+          next.includes(ALL_ENVIRONMENTS) && environments !== null
+            ? null
+            : next.filter((e) => e !== ALL_ENVIRONMENTS),
+        )
+      }
+      sort={false}
+      formatOptionLabel={(option) =>
+        option.value === ALL_ENVIRONMENTS ? (
+          <em>{option.label}</em>
+        ) : (
+          option.label
+        )
+      }
+      placeholder="No environments"
+      autoFocus
+    />
   );
 }

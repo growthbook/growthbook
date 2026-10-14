@@ -88,7 +88,7 @@ export type OpenApiEndpointSpec = {
   version?: "v1" | "v2";
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
-  /** Labels a person may have to confirm before this request runs. */
+  /** Actions a person may have to confirm before this request runs. */
   confirmation?: readonly ConfirmAction[];
 };
 
@@ -128,7 +128,7 @@ export type OpenApiModelSpec<
   crudDeprecations?: Partial<Record<CrudAction, string>>;
   /** Error codes that may be thrown by CRUD actions, used to generate OpenAPI error response schemas. */
   possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
-  /** Labels a person may have to confirm before each CRUD action runs. */
+  /** Actions a person may have to confirm before each CRUD action runs. */
   confirmation?: Partial<Record<CrudAction, readonly ConfirmAction[]>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
@@ -218,6 +218,7 @@ export type CrudEndpoint<S extends OpenApiModelSpec, A extends CrudAction> = {
   deprecationDate?: string;
   tags: string[];
   possibleErrors?: readonly ApiErrorCode[];
+  confirmation?: readonly ConfirmAction[];
 };
 
 function getFullPath(basePath: string, pathFragment: string): string {
@@ -285,6 +286,7 @@ export function crudEndpoint<
     deprecationDate,
     tags: [getApiModelTag(spec)],
     possibleErrors: spec.possibleErrors?.[action],
+    confirmation: spec.confirmation?.[action],
   } as CrudEndpoint<S, A>;
 }
 

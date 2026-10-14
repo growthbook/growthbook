@@ -44,7 +44,7 @@ export type ApiEndpointSpec<
   excludeFromSpec?: boolean;
   /** API version prefix for the route path (default: "v1"). */
   version?: "v1" | "v2";
-  /** Labels a person may have to confirm before this request runs. */
+  /** Actions a person may have to confirm before this request runs. */
   confirmation?: readonly ConfirmAction[];
   /** The handler holds the request itself, once it knows what changes. */
   confirmationInHandler?: boolean;

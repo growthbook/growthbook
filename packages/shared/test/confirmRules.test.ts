@@ -11,7 +11,7 @@ const publishProd = {
 const startAnywhere = { action: "experiment.start" as const, environments: [] };
 
 describe("matchConfirmRules", () => {
-  it("matches a label, or its category, in an overlapping environment", () => {
+  it("matches an action, or its category, in an overlapping environment", () => {
     expect(
       matchConfirmRules([{ actions: ["feature.publish"] }], [publishProd]),
     ).toEqual([publishProd]);

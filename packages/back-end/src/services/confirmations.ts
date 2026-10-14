@@ -13,7 +13,13 @@ import type {
 } from "shared/validators";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
-import { armedActions, matchConfirmRules, stringToBoolean } from "shared/util";
+import {
+  armedActions,
+  capitalizeFirstCharacter,
+  matchConfirmRules,
+  scheduleActions,
+  stringToBoolean,
+} from "shared/util";
 import { CONFIRM_OVERRIDE_FLAGS } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
@@ -54,25 +60,15 @@ function rulesFor(context: ReqContext): ConfirmRule[] {
   return key.confirmRules ?? [];
 }
 
-export const REVISION_PUBLISH_ACTION: Record<
+export const REVISION_MODEL = {
+  feature: "feature",
+  "saved-group": "savedGroup",
+  constant: "constant",
+  config: "config",
+} as const satisfies Record<
   RevisionTargetType | "feature",
-  ConfirmAction
-> = {
-  feature: "feature.publish",
-  "saved-group": "savedGroup.publish",
-  constant: "constant.publish",
-  config: "config.publish",
-};
-
-export const REVISION_ARCHIVE_ACTION: Record<
-  RevisionTargetType | "feature",
-  ConfirmAction
-> = {
-  feature: "feature.archive",
-  "saved-group": "savedGroup.archive",
-  constant: "constant.archive",
-  config: "config.archive",
-};
+  ConfirmationLink["type"]
+>;
 
 // A ramp plan staged on a draft starts a schedule or edits one when it lands.
 export const rampScheduleAction = (mode: string): ConfirmAction =>
@@ -200,11 +196,8 @@ export async function requireConfirmation(
       ),
       ...requestedOverrides(context),
     ]),
-  ];
-  const held = matchConfirmRules(
-    rulesFor(context),
-    requested.map((action) => ({ action, environments })),
-  );
+  ].map((action) => ({ action, environments }));
+  const held = matchConfirmRules(rulesFor(context), requested);
   if (!held.length) return;
 
   const fingerprint = hash([held, opts.summary, opts.pin]);
@@ -261,7 +254,7 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
-      requested: requested.map((action) => ({ action, environments })),
+      requested,
       summary: opts.summary,
       links: opts.links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
@@ -334,34 +327,37 @@ export async function holdAtRoute(
 export function featureUpdateSummary(
   id: string,
   change: {
-    archived: boolean | null;
-    envEnabled: Record<string, boolean>;
-    defaultValue: boolean;
-    rules: boolean;
-    metadata: string[];
-    prerequisites: boolean;
-    holdout: boolean;
+    archived?: boolean | null;
+    envEnabled?: Record<string, boolean>;
+    defaultValue?: boolean;
+    rules?: boolean;
+    metadata?: string[];
+    prerequisites?: boolean;
+    holdout?: boolean;
   },
 ): string {
   const archive =
-    change.archived === null ? null : change.archived ? "archive" : "unarchive";
+    change.archived === true
+      ? "archive"
+      : change.archived === false
+        ? "unarchive"
+        : null;
   const parts = [
-    ...Object.entries(change.envEnabled).map(
+    ...Object.entries(change.envEnabled ?? {}).map(
       ([env, on]) => `turn ${on ? "on" : "off"} in ${env}`,
     ),
     change.defaultValue && "change the default value",
     change.rules && "change rules",
-    change.metadata.length > 0 && `change ${change.metadata.join(", ")}`,
+    !!change.metadata?.length && `change ${change.metadata.join(", ")}`,
     change.prerequisites && "change prerequisites",
     change.holdout && "change the holdout",
   ].filter((part): part is string => !!part);
   if (archive && !parts.length) {
-    return `${archive[0].toUpperCase()}${archive.slice(1)} ${id}`;
+    return `${capitalizeFirstCharacter(archive)} ${id}`;
   }
   return `Update ${id}: ${[archive, ...parts].filter(Boolean).join(", ")}`;
 }
 
-// A direct flag update lands as a publish, and an archive when it archives.
 export function holdFeatureUpdate(
   context: ReqContext,
   feature: FeatureInterface,
@@ -435,11 +431,9 @@ export function experimentChangeActions(
   if (changes.status === "stopped" && existing.status !== "stopped") {
     actions.add("experiment.stop");
   }
-  // A scheduled start or stop happens later with no one present.
   const schedule = changes.statusUpdateSchedule;
   if (schedule && !isEqual(schedule, existing.statusUpdateSchedule)) {
-    if (schedule.startAt) actions.add("experiment.start");
-    if (schedule.stopAt || schedule.stopAfter) actions.add("experiment.stop");
+    scheduleActions(schedule).forEach((action) => actions.add(action));
   }
   if (existing.status === "draft") return [...actions];
 

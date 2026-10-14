@@ -10,7 +10,7 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppNotice } from "./notices";
+import { AppNotice, rankNotices } from "./notices";
 import styles from "./NoticeStack.module.scss";
 
 type Upgrade = NonNullable<AppNotice["upgrade"]>;
@@ -28,7 +28,8 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
     return () => router.events.off("routeChangeStart", close);
   }, [router.events]);
   if (!notices.length) return null;
-  const [top, ...rest] = notices;
+  const ranked = rankNotices(notices);
+  const [top, ...rest] = ranked;
 
   return (
     <Flex align="center" gap="2" flexShrink="0">
@@ -61,7 +62,7 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
           }
           content={
             <Flex direction="column" gap="2">
-              {notices.map((notice) => (
+              {ranked.map((notice) => (
                 <NoticeCallout
                   key={notice.id}
                   notice={notice}
@@ -83,6 +84,13 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   );
 }
 
+function noticeLink(notice: AppNotice, onUpgrade: (upgrade: Upgrade) => void) {
+  const { href, upgrade } = notice;
+  if (href) return { href };
+  if (upgrade) return { onClick: () => onUpgrade(upgrade) };
+  return null;
+}
+
 function NoticePill({
   notice,
   onUpgrade,
@@ -94,39 +102,25 @@ function NoticePill({
     styles.pill,
     styles[`${notice.severity}-notification`],
   );
-  const color = notice.severity === "error" ? "red" : "amber";
+  const link = noticeLink(notice, onUpgrade);
   const content = (
     <>
       <PiWarningFill size={15} />
       {notice.title}
     </>
   );
-  if (notice.href) {
-    return (
-      <Link
-        href={notice.href}
-        color={color}
-        underline="hover"
-        className={className}
-      >
-        {content}
-      </Link>
-    );
-  }
-  if (notice.upgrade) {
-    const upgrade = notice.upgrade;
-    return (
-      <Link
-        color={color}
-        underline="hover"
-        className={className}
-        onClick={() => onUpgrade(upgrade)}
-      >
-        {content}
-      </Link>
-    );
-  }
-  return <Box className={className}>{content}</Box>;
+  return link ? (
+    <Link
+      {...link}
+      color={notice.severity === "error" ? "red" : "amber"}
+      underline="hover"
+      className={className}
+    >
+      {content}
+    </Link>
+  ) : (
+    <Box className={className}>{content}</Box>
+  );
 }
 
 function NoticeCallout({
@@ -136,20 +130,12 @@ function NoticeCallout({
   notice: AppNotice;
   onUpgrade: (upgrade: Upgrade) => void;
 }) {
-  const { href, upgrade } = notice;
+  const link = noticeLink(notice, onUpgrade);
   return (
     <Callout status={notice.severity} size="sm">
       <Text size="inherit" weight="semibold">
-        {href ? (
-          <Link href={href} underline="always" className={styles.title}>
-            {notice.title}
-          </Link>
-        ) : upgrade ? (
-          <Link
-            onClick={() => onUpgrade(upgrade)}
-            underline="always"
-            className={styles.title}
-          >
+        {link ? (
+          <Link {...link} underline="always" className={styles.title}>
             {notice.title}
           </Link>
         ) : (

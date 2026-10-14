@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import type { CommercialFeature } from "shared/enterprise";
 
-export type NoticeSeverity = "error" | "warning";
+type NoticeSeverity = "error" | "warning";
 
-// Something a person should know about, independent of where it's shown.
 export type AppNotice = {
   id: string;
   severity: NoticeSeverity;

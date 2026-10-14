@@ -7,7 +7,6 @@ import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { toApiConfirmation } from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 const REVISION_MODELS = {
   feature: "feature",
@@ -15,15 +14,6 @@ const REVISION_MODELS = {
   constant: "constant",
   config: "config",
 } as const;
-
-// The model whose bypass rights an override needs: what the request changes.
-const BYPASS_MODELS: Record<string, "feature" | "config" | "constant"> = {
-  feature: "feature",
-  experiment: "feature",
-  rampSchedule: "feature",
-  constant: "constant",
-  config: "config",
-};
 
 // For keys that name no one: the decider must be allowed to do the action
 // themselves, in each of these environments.
@@ -48,14 +38,15 @@ function deciderCan(
   }
   if (model === "experiment") return p.canRunExperiment({ project }, envs);
   // Overrides: warnings need no authority; the rest need bypass rights on
-  // whatever the request changes.
+  // whatever the request changes, with experiments and ramps going by the flag.
   if (verb === "ignoreWarnings") return true;
-  return changes === "savedGroup"
-    ? p.canRevisionAction("saved-group", "bypass", { project })
-    : p.canBypassFlagApprovalChecks(
-        { project },
-        BYPASS_MODELS[changes] ?? "feature",
-      );
+  if (changes === "savedGroup") {
+    return p.canRevisionAction("saved-group", "bypass", { project });
+  }
+  return p.canBypassFlagApprovalChecks(
+    { project },
+    changes === "constant" || changes === "config" ? changes : "feature",
+  );
 }
 
 export async function canDecide(
@@ -68,7 +59,7 @@ export async function canDecide(
   const projects = c.project
     ? [c.project]
     : ["", ...(await context.models.projects.getAllIdsForOrg())];
-  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
+  const allEnvironments = context.environments;
   const actions = c.requested ?? c.actions;
   const changes =
     actions

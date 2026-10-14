@@ -62,9 +62,8 @@ const POLICY_VIAS = new Set<ConfirmationNotice["via"]>([
   "restApiBypassesReviews",
   "revertsBypassApproval",
 ]);
-const isPolicy = (via: ConfirmationNotice["via"]) => POLICY_VIAS.has(via);
 
-function policyReason(
+function bypassReason(
   via: ConfirmationNotice["via"],
   requester: ConfirmationResponse["requester"],
 ) {
@@ -82,30 +81,16 @@ function policyReason(
     case "revertsBypassApproval":
       return "Confirming reverts without approval because your organization lets reverts skip approval.";
     case "ignoreWarnings":
-    case "skipSchemaValidation":
-    case "skipHooks":
-    case null:
-      return null;
-  }
-}
-
-function flagReason(via: ConfirmationNotice["via"]) {
-  switch (via) {
-    case "ignoreWarnings":
       return "Confirming ignores this warning.";
     case "skipSchemaValidation":
       return "Confirming skips schema validation.";
     case "skipHooks":
       return "Confirming skips the custom validation hooks.";
-    case "bypassApprovalPermission":
-    case "restApiBypassesReviews":
-    case "revertsBypassApproval":
     case null:
       return null;
   }
 }
 
-// A check or policy in the server's words, and how the request gets past it.
 function NoticeCallout({
   notice,
   status,
@@ -236,8 +221,8 @@ export default function ConfirmationPage() {
   const environments = [
     ...new Set(confirmation.actions.flatMap((a) => a.environments)),
   ];
-  const checks = notices.filter((n) => !isPolicy(n.via));
-  const policies = notices.filter((n) => isPolicy(n.via));
+  const checks = notices.filter((n) => !POLICY_VIAS.has(n.via));
+  const policies = notices.filter((n) => POLICY_VIAS.has(n.via));
   // A confirmed request can still fail when it runs, e.g. a check it now fails.
   const failure =
     confirmation.status === "completed" &&
@@ -346,7 +331,7 @@ export default function ConfirmationPage() {
                   key={i}
                   notice={notice}
                   status={notice.severity}
-                  reason={flagReason(notice.via)}
+                  reason={bypassReason(notice.via, requester)}
                 />
               ))}
             </Flex>
@@ -361,7 +346,7 @@ export default function ConfirmationPage() {
                   key={i}
                   notice={notice}
                   status="info"
-                  reason={policyReason(notice.via, requester)}
+                  reason={bypassReason(notice.via, requester)}
                 />
               ))}
             </Flex>
