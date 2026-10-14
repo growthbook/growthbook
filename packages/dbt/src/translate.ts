@@ -1,0 +1,1050 @@
+// Structural subset of dbt's manifest.json that the translator reads. Both the
+// legacy YAML spec (measures + type_params.measure) and the v1.12 spec
+// (metric_aggregation_params) land in this shape after `dbt parse`.
+export interface DbtConfig {
+  meta?: Record<string, unknown> | null;
+  tags?: string[] | null;
+}
+export interface DbtEntity {
+  name: string;
+  type: string;
+  expr?: string | null;
+}
+export interface DbtDimension {
+  name: string;
+  type: string;
+  expr?: string | null;
+}
+export interface DbtAggParams {
+  percentile?: number | null;
+  use_discrete_percentile?: boolean | null;
+}
+export interface DbtMeasure {
+  name: string;
+  agg: string;
+  expr?: string | null;
+  label?: string | null;
+  agg_params?: DbtAggParams | null;
+  agg_time_dimension?: string | null;
+  non_additive_dimension?: unknown;
+}
+export interface DbtSemanticModel {
+  name: string;
+  label?: string | null;
+  description?: string | null;
+  node_relation?: { relation_name?: string | null } | null;
+  defaults?: { agg_time_dimension?: string | null } | null;
+  primary_entity?: string | null;
+  entities?: DbtEntity[] | null;
+  dimensions?: DbtDimension[] | null;
+  measures?: DbtMeasure[] | null;
+  config?: DbtConfig | null;
+  tags?: string[] | null;
+}
+export interface DbtFilter {
+  where_filters?: { where_sql_template: string }[] | null;
+}
+export interface DbtInput {
+  name: string;
+  filter?: DbtFilter | null;
+  alias?: string | null;
+}
+export interface DbtWindow {
+  count: number;
+  granularity: string;
+}
+export interface DbtMetricTypeParams {
+  measure?: DbtInput | null;
+  numerator?: DbtInput | null;
+  denominator?: DbtInput | null;
+  expr?: string | null;
+  window?: DbtWindow | null;
+  grain_to_date?: string | null;
+  metrics?: DbtInput[] | null;
+  conversion_type_params?: {
+    base_measure?: DbtInput | null;
+    base_metric?: DbtInput | null;
+    conversion_measure?: DbtInput | null;
+    conversion_metric?: DbtInput | null;
+    entity: string;
+    calculation?: string | null;
+    window?: DbtWindow | null;
+    constant_properties?: unknown[] | null;
+  } | null;
+  cumulative_type_params?: {
+    window?: DbtWindow | null;
+    grain_to_date?: string | null;
+    metric?: DbtInput | null;
+  } | null;
+  metric_aggregation_params?: {
+    semantic_model: string;
+    agg: string;
+    agg_params?: DbtAggParams | null;
+    agg_time_dimension?: string | null;
+    non_additive_dimension?: unknown;
+  } | null;
+}
+export interface DbtMetric {
+  name: string;
+  label?: string | null;
+  description?: string | null;
+  type: string;
+  type_params?: DbtMetricTypeParams | null;
+  filter?: DbtFilter | null;
+  config?: DbtConfig | null;
+  meta?: Record<string, unknown> | null;
+  tags?: string[] | null;
+}
+export interface DbtNode {
+  name: string;
+  resource_type: string;
+  relation_name?: string | null;
+  config?: DbtConfig | null;
+  meta?: Record<string, unknown> | null;
+  tags?: string[] | null;
+}
+export interface DbtManifest {
+  nodes?: Record<string, DbtNode> | DbtNode[] | null;
+  semantic_models?:
+    | Record<string, DbtSemanticModel>
+    | DbtSemanticModel[]
+    | null;
+  metrics?: Record<string, DbtMetric> | DbtMetric[] | null;
+}
+
+// Subset of the /bulk-import/facts payload this tool emits. The API validates
+// the full shape; these types only keep the translator honest.
+export type WindowUnit = "minutes" | "hours" | "days" | "weeks";
+export interface RowFilter {
+  operator: "sql_expr";
+  values: string[];
+}
+export interface ColumnRef {
+  factTableId: string;
+  column?: string;
+  aggregation?: "max" | "count distinct";
+  rowFilters?: RowFilter[];
+}
+export interface FunnelStep {
+  name: string;
+  factTableId: string;
+  rowFilters: RowFilter[];
+  optional: boolean;
+  conversionWindow?: { unit: WindowUnit; value: number };
+}
+export interface FactTableColumn {
+  column: string;
+  datatype: "" | "number" | "string" | "date";
+  isVirtual?: boolean;
+  sql?: string;
+}
+export interface FactTableData {
+  name: string;
+  description?: string;
+  tags?: string[];
+  datasource: string;
+  userIdTypes: string[];
+  userIdColumns?: Record<string, string>;
+  sql: string;
+  timestampColumn: string;
+  columns: FactTableColumn[];
+  [key: string]: unknown;
+}
+export interface FactMetricData {
+  name: string;
+  description?: string;
+  tags?: string[];
+  metricType: string;
+  numerator?: ColumnRef;
+  denominator?: ColumnRef;
+  windowSettings?: {
+    type: "lookback";
+    windowValue: number;
+    windowUnit: WindowUnit;
+  };
+  quantileSettings?: { type: "event"; quantile: number; ignoreZeros: boolean };
+  funnelSettings?: { steps: FunnelStep[] };
+  [key: string]: unknown;
+}
+export interface BulkImportPayload {
+  defaultManagedBy: "api";
+  factTables: { id: string; data: FactTableData }[];
+  factMetrics: { id: string; data: FactMetricData }[];
+}
+export interface TranslateWarning {
+  level: "skipped" | "note";
+  resource: string;
+  message: string;
+}
+export interface TranslateOptions {
+  datasource: string;
+  // dbt entity name -> GrowthBook identifier type. Unmapped entities keep their name.
+  entities?: Record<string, string>;
+  // Identifier types the Data Source defines. When given, entities that don't map to one are ignored.
+  idTypes?: string[];
+  // Name globs or `tag:<tag>` matched against metrics and semantic models.
+  select?: string[];
+  exclude?: string[];
+}
+export interface TranslateResult {
+  payload: BulkImportPayload;
+  warnings: TranslateWarning[];
+}
+
+class Unsupported extends Error {}
+
+const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const isIdent = (s: string) => IDENT.test(s);
+const sqlExpr = (expr: string) => (isIdent(expr) ? expr : `(${expr})`);
+const qualify = (alias: string, expr: string) =>
+  isIdent(expr) ? `${alias}.${expr}` : expr;
+
+const values = <T>(x: Record<string, T> | T[] | null | undefined): T[] =>
+  x ? Object.values(x) : [];
+
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === "object" && x !== null && !Array.isArray(x);
+
+function omit(obj: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([k]) => !keys.includes(k)),
+  );
+}
+
+type WithMeta = {
+  config?: DbtConfig | null;
+  meta?: Record<string, unknown> | null;
+  tags?: string[] | null;
+};
+function gbMeta(x: WithMeta): Record<string, unknown> {
+  const gb = (x.config?.meta ?? x.meta)?.growthbook;
+  return isRecord(gb) ? gb : {};
+}
+const tagsOf = (x: WithMeta): string[] => x.tags ?? x.config?.tags ?? [];
+const filtersOf = (f?: DbtFilter | null): string[] =>
+  (f?.where_filters ?? []).map((w) => w.where_sql_template);
+
+function toWindow(w: DbtWindow): { value: number; unit: WindowUnit } {
+  const days = (n: number) => ({ value: w.count * n, unit: "days" as const });
+  switch (w.granularity.toLowerCase().replace(/s$/, "")) {
+    case "minute":
+      return { value: w.count, unit: "minutes" };
+    case "hour":
+      return { value: w.count, unit: "hours" };
+    case "day":
+      return days(1);
+    case "week":
+      return { value: w.count, unit: "weeks" };
+    case "month":
+      return days(30);
+    case "quarter":
+      return days(91);
+    case "year":
+      return days(365);
+    default:
+      throw new Unsupported(`unknown window granularity "${w.granularity}"`);
+  }
+}
+
+function matches(
+  patterns: string[] | undefined,
+  name: string,
+  tags: string[],
+): boolean {
+  return (patterns ?? []).some((p) => {
+    if (p.startsWith("tag:")) return tags.includes(p.slice(4));
+    const re = p
+      .split("*")
+      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".*");
+    return new RegExp(`^${re}$`).test(name);
+  });
+}
+
+interface MeasureDef {
+  model: DbtSemanticModel;
+  name: string;
+  label: string;
+  agg: string;
+  expr: string;
+  aggParams?: DbtAggParams | null;
+  timeDim: string;
+  nonAdditive: boolean;
+  filters: string[];
+}
+
+interface Join {
+  target: DbtSemanticModel;
+  fk: DbtEntity;
+  pk: DbtEntity;
+  dims: Set<string>;
+}
+
+// One measure read by one metric. Several usages collapse into one fact table.
+interface Usage {
+  model: DbtSemanticModel;
+  timeDim: string;
+  joins: Map<string, Join>;
+  columns: FactTableColumn[];
+  factTableId: string;
+}
+
+interface Ref {
+  ref: { factTableId: string };
+  usage: Usage;
+}
+
+interface Draft {
+  metric: DbtMetric;
+  data: FactMetricData;
+  refs: Ref[];
+}
+
+interface TableDraft {
+  id: string;
+  model: DbtSemanticModel;
+  timeDim: string;
+  joins: Map<string, Join>;
+  columns: Map<string, FactTableColumn>;
+}
+
+const NESTED_AGGS = ["average", "median", "percentile"];
+
+export function translate(
+  manifest: DbtManifest,
+  opts: TranslateOptions,
+): TranslateResult {
+  const warnings: TranslateWarning[] = [];
+  const models = values(manifest.semantic_models);
+  const modelsByName = new Map(models.map((m) => [m.name, m]));
+  const metrics = values(manifest.metrics);
+  const metricsByName = new Map(metrics.map((m) => [m.name, m]));
+  const measureIndex = new Map<
+    string,
+    { model: DbtSemanticModel; measure: DbtMeasure }
+  >();
+  for (const model of models) {
+    for (const measure of model.measures ?? []) {
+      measureIndex.set(measure.name, { model, measure });
+    }
+  }
+
+  const modelBlocked = (m: DbtSemanticModel) =>
+    gbMeta(m).enabled === false || matches(opts.exclude, m.name, tagsOf(m));
+
+  const findEntity = (model: DbtSemanticModel, name: string) =>
+    (model.entities ?? []).find((e) => e.name === name);
+  const findDim = (model: DbtSemanticModel, name: string) =>
+    (model.dimensions ?? []).find((d) => d.name === name);
+  const ownsEntity = (model: DbtSemanticModel, entity: string) =>
+    model.primary_entity === entity ||
+    (model.entities ?? []).some(
+      (e) => e.name === entity && e.type !== "foreign",
+    );
+  const dimSql = (d: DbtDimension) => sqlExpr(d.expr ?? d.name);
+
+  function measureDef(
+    model: DbtSemanticModel,
+    measure: DbtMeasure,
+    filters: string[],
+  ): MeasureDef {
+    const timeDim =
+      measure.agg_time_dimension ?? model.defaults?.agg_time_dimension;
+    if (!timeDim) {
+      throw new Unsupported(
+        `semantic model "${model.name}" has no agg_time_dimension`,
+      );
+    }
+    return {
+      model,
+      name: measure.name,
+      label: measure.label ?? measure.name,
+      agg: measure.agg,
+      expr: measure.expr ?? measure.name,
+      aggParams: measure.agg_params,
+      timeDim,
+      nonAdditive: (measure.non_additive_dimension ?? null) !== null,
+      filters,
+    };
+  }
+
+  function resolveMeasure(input: DbtInput): MeasureDef {
+    const found = measureIndex.get(input.name);
+    if (!found) throw new Unsupported(`measure "${input.name}" not found`);
+    return measureDef(found.model, found.measure, filtersOf(input.filter));
+  }
+
+  function resolveSimple(name: string, extraFilters: string[]): MeasureDef {
+    const metric = metricsByName.get(name);
+    if (!metric) throw new Unsupported(`metric "${name}" not found`);
+    if (metric.type !== "simple") {
+      throw new Unsupported(
+        `input metric "${name}" is a ${metric.type} metric; only simple metrics can be inputs`,
+      );
+    }
+    const tp = metric.type_params ?? {};
+    const filters = [...filtersOf(metric.filter), ...extraFilters];
+    const p = tp.metric_aggregation_params;
+    if (p) {
+      const model = modelsByName.get(p.semantic_model);
+      if (!model) {
+        throw new Unsupported(`semantic model "${p.semantic_model}" not found`);
+      }
+      return measureDef(
+        model,
+        {
+          name: metric.name,
+          agg: p.agg,
+          expr: tp.expr,
+          label: metric.label,
+          agg_params: p.agg_params,
+          agg_time_dimension: p.agg_time_dimension,
+          non_additive_dimension: p.non_additive_dimension,
+        },
+        filters,
+      );
+    }
+    if (tp.measure) {
+      const def = resolveMeasure(tp.measure);
+      return {
+        ...def,
+        label: metric.label ?? def.label,
+        filters: [...def.filters, ...filters],
+      };
+    }
+    throw new Unsupported(
+      `simple metric "${name}" has neither a measure nor aggregation params`,
+    );
+  }
+
+  // Legacy cumulative/conversion inputs name a measure; everything else names a metric.
+  const resolveInput = (input: DbtInput): MeasureDef =>
+    metricsByName.has(input.name)
+      ? resolveSimple(input.name, filtersOf(input.filter))
+      : resolveMeasure(input);
+
+  const withFilters = (def: MeasureDef, filters: string[]): MeasureDef => ({
+    ...def,
+    filters: [...def.filters, ...filters],
+  });
+
+  const JINJA =
+    /\{\{\s*(Dimension|TimeDimension|Entity|Metric)\s*\(\s*(['"])([^'"]+)\2[^}]*\)\s*\}\}/g;
+
+  function renderFilter(template: string, usage: Usage): string {
+    const model = usage.model;
+    const sql = template.replace(
+      JINJA,
+      (match, kind: string, quote: string, ref: string) => {
+        if (kind === "Entity") {
+          const e = findEntity(model, ref);
+          if (!e) {
+            throw new Unsupported(
+              `filter references entity "${ref}", which is not on "${model.name}"`,
+            );
+          }
+          return sqlExpr(e.expr ?? e.name);
+        }
+        if (kind !== "Dimension") {
+          throw new Unsupported(
+            `filter uses ${kind}(), which has no GrowthBook equivalent`,
+          );
+        }
+        const i = ref.indexOf("__");
+        const entity =
+          i === -1 ? (model.primary_entity ?? "") : ref.slice(0, i);
+        const dim = i === -1 ? ref : ref.slice(i + 2);
+        if (i === -1 || ownsEntity(model, entity)) {
+          const d = findDim(model, dim);
+          if (!d) {
+            throw new Unsupported(
+              `dimension "${ref}" not found on "${model.name}"`,
+            );
+          }
+          return dimSql(d);
+        }
+        const fk = findEntity(model, entity);
+        if (!fk) {
+          throw new Unsupported(
+            `filter on "${ref}" needs entity "${entity}", which "${model.name}" does not have (multi-hop joins are not supported)`,
+          );
+        }
+        const target = models.find(
+          (m) => m !== model && ownsEntity(m, entity) && findDim(m, dim),
+        );
+        const pk = target && findEntity(target, entity);
+        if (!target || !pk) {
+          throw new Unsupported(
+            `no semantic model with primary entity "${entity}" defines dimension "${dim}"`,
+          );
+        }
+        const join = usage.joins.get(entity) ?? {
+          target,
+          fk,
+          pk,
+          dims: new Set<string>(),
+        };
+        join.dims.add(dim);
+        usage.joins.set(entity, join);
+        return `${entity}__${dim}`;
+      },
+    );
+    if (sql.includes("{{")) {
+      throw new Unsupported(`filter "${template}" could not be translated`);
+    }
+    return sql;
+  }
+
+  function measureRef(def: MeasureDef): { usage: Usage; ref: ColumnRef } {
+    if (def.nonAdditive) {
+      throw new Unsupported(
+        `measure "${def.name}" uses non_additive_dimension, which has no GrowthBook equivalent`,
+      );
+    }
+    const usage: Usage = {
+      model: def.model,
+      timeDim: def.timeDim,
+      joins: new Map(),
+      columns: [],
+      factTableId: "",
+    };
+    const rowFilters = def.filters.map(
+      (f): RowFilter => ({
+        operator: "sql_expr",
+        values: [renderFilter(f, usage)],
+      }),
+    );
+    const ref: ColumnRef = { factTableId: "" };
+    if (rowFilters.length) ref.rowFilters = rowFilters;
+
+    const column = (datatype: FactTableColumn["datatype"]) => {
+      if (isIdent(def.expr)) {
+        usage.columns.push({ column: def.expr, datatype });
+        return def.expr;
+      }
+      usage.columns.push({
+        column: def.name,
+        datatype,
+        isVirtual: true,
+        sql: def.expr,
+      });
+      return def.name;
+    };
+
+    switch (def.agg) {
+      case "count":
+        ref.column = "$$count";
+        break;
+      case "sum":
+      case "average":
+      case "median":
+      case "percentile":
+        ref.column = column("number");
+        break;
+      case "max":
+        ref.column = column("number");
+        ref.aggregation = "max";
+        break;
+      case "count_distinct":
+        ref.column = column("string");
+        ref.aggregation = "count distinct";
+        break;
+      case "sum_boolean": {
+        const name = def.expr === def.name ? `${def.name}_value` : def.name;
+        usage.columns.push({
+          column: name,
+          datatype: "number",
+          isVirtual: true,
+          sql: `CASE WHEN ${def.expr} THEN 1 ELSE 0 END`,
+        });
+        ref.column = name;
+        break;
+      }
+      case "min":
+        throw new Unsupported(`agg "min" has no GrowthBook aggregation`);
+      default:
+        throw new Unsupported(`unknown agg "${def.agg}"`);
+    }
+    return { usage, ref };
+  }
+
+  function simpleData(def: MeasureDef): Omit<Draft, "metric"> {
+    const { usage, ref } = measureRef(def);
+    const data: FactMetricData = {
+      name: def.label,
+      metricType: "mean",
+      numerator: ref,
+    };
+    const refs: Ref[] = [{ ref, usage }];
+    if (def.agg === "average") {
+      const den: ColumnRef = { factTableId: "", column: "$$count" };
+      if (ref.rowFilters) den.rowFilters = ref.rowFilters;
+      refs.push({ ref: den, usage });
+      return { data: { ...data, metricType: "ratio", denominator: den }, refs };
+    }
+    if (def.agg === "median" || def.agg === "percentile") {
+      const q =
+        def.agg === "median" ? 0.5 : (def.aggParams?.percentile ?? null);
+      if (q === null) {
+        throw new Unsupported(
+          `percentile measure "${def.name}" has no percentile`,
+        );
+      }
+      if (def.aggParams?.use_discrete_percentile) {
+        warnings.push({
+          level: "note",
+          resource: `metric ${def.name}`,
+          message: "discrete percentile is computed as a continuous quantile",
+        });
+      }
+      return {
+        data: {
+          ...data,
+          metricType: "quantile",
+          quantileSettings: {
+            type: "event",
+            quantile: Math.round(q * 1000) / 1000,
+            ignoreZeros: false,
+          },
+        },
+        refs,
+      };
+    }
+    return { data, refs };
+  }
+
+  function ratioData(
+    name: string,
+    num: MeasureDef,
+    den: MeasureDef,
+  ): Omit<Draft, "metric"> {
+    for (const d of [num, den]) {
+      if (NESTED_AGGS.includes(d.agg)) {
+        throw new Unsupported(
+          `ratio input "${d.name}" is itself a ${d.agg}; nested ratios are not supported`,
+        );
+      }
+    }
+    const n = measureRef(num);
+    const d = measureRef(den);
+    return {
+      data: { name, metricType: "ratio", numerator: n.ref, denominator: d.ref },
+      refs: [n, d],
+    };
+  }
+
+  function metricDraft(metric: DbtMetric): Omit<Draft, "metric"> {
+    const tp = metric.type_params ?? {};
+    const name = metric.label ?? metric.name;
+    const filters = filtersOf(metric.filter);
+    const required = (input: DbtInput | null | undefined, what: string) => {
+      if (!input) throw new Unsupported(`${metric.type} metric has no ${what}`);
+      return input;
+    };
+    switch (metric.type) {
+      case "simple":
+        return simpleData(resolveSimple(metric.name, []));
+      case "ratio":
+        return ratioData(
+          name,
+          withFilters(
+            resolveInput(required(tp.numerator, "numerator")),
+            filters,
+          ),
+          withFilters(
+            resolveInput(required(tp.denominator, "denominator")),
+            filters,
+          ),
+        );
+      case "cumulative": {
+        const ctp = tp.cumulative_type_params;
+        if (ctp?.grain_to_date ?? tp.grain_to_date) {
+          throw new Unsupported(
+            "grain_to_date (period-to-date) has no GrowthBook equivalent",
+          );
+        }
+        const def = withFilters(
+          resolveInput(required(ctp?.metric ?? tp.measure, "input metric")),
+          filters,
+        );
+        const out = simpleData({ ...def, label: name });
+        const window = ctp?.window ?? tp.window;
+        if (window) {
+          const w = toWindow(window);
+          out.data.windowSettings = {
+            type: "lookback",
+            windowValue: w.value,
+            windowUnit: w.unit,
+          };
+        }
+        return out;
+      }
+      case "conversion": {
+        const c = tp.conversion_type_params;
+        if (!c) throw new Unsupported("conversion metric has no parameters");
+        if (c.constant_properties?.length) {
+          throw new Unsupported(
+            "constant_properties cannot be expressed as a funnel",
+          );
+        }
+        if (c.calculation === "conversions") {
+          throw new Unsupported(
+            "calculation: conversions is not supported (funnels report a rate)",
+          );
+        }
+        const base = withFilters(
+          resolveInput(required(c.base_metric ?? c.base_measure, "base")),
+          filters,
+        );
+        const conv = withFilters(
+          resolveInput(
+            required(c.conversion_metric ?? c.conversion_measure, "conversion"),
+          ),
+          filters,
+        );
+        for (const d of [base, conv]) {
+          if (!findEntity(d.model, c.entity)) {
+            throw new Unsupported(
+              `entity "${c.entity}" is not an entity of "${d.model.name}"`,
+            );
+          }
+        }
+        const b = measureRef(base);
+        const v = measureRef(conv);
+        const step = (r: ColumnRef, label: string): FunnelStep => ({
+          name: label,
+          factTableId: "",
+          rowFilters: r.rowFilters ?? [],
+          optional: false,
+        });
+        const s1 = step(b.ref, base.label);
+        const s2 = step(v.ref, conv.label);
+        if (c.window) s2.conversionWindow = toWindow(c.window);
+        return {
+          data: {
+            name,
+            metricType: "funnel",
+            funnelSettings: { steps: [s1, s2] },
+          },
+          refs: [
+            { ref: s1, usage: b.usage },
+            { ref: s2, usage: v.usage },
+          ],
+        };
+      }
+      case "derived": {
+        const m = /^\s*([A-Za-z_]\w*)\s*\/\s*([A-Za-z_]\w*)\s*$/.exec(
+          tp.expr ?? "",
+        );
+        if (!m) {
+          throw new Unsupported(
+            'derived metrics are not supported (only "a / b" maps to a ratio)',
+          );
+        }
+        const input = (alias: string) => {
+          const found = (tp.metrics ?? []).find(
+            (i) => (i.alias ?? i.name) === alias,
+          );
+          if (!found) throw new Unsupported(`unknown derived input "${alias}"`);
+          return withFilters(resolveInput(found), filters);
+        };
+        return ratioData(name, input(m[1]), input(m[2]));
+      }
+      default:
+        throw new Unsupported(`unknown metric type "${metric.type}"`);
+    }
+  }
+
+  const drafts: Draft[] = [];
+  for (const metric of metrics) {
+    if (gbMeta(metric).enabled === false) continue;
+    try {
+      const out = metricDraft(metric);
+      if (metric.description) out.data.description = metric.description;
+      const tags = tagsOf(metric);
+      if (tags.length) out.data.tags = tags;
+      Object.assign(out.data, omit(gbMeta(metric), ["enabled"]));
+      drafts.push({ metric, ...out });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw e;
+      warnings.push({
+        level: "skipped",
+        resource: `metric ${metric.name}`,
+        message: e.message,
+      });
+    }
+  }
+
+  // Group usages by (model, time dimension); within a group, keep only the
+  // maximal join sets and put each usage on the smallest table that covers it.
+  const groups = new Map<string, Usage[]>();
+  for (const d of drafts) {
+    for (const r of d.refs) {
+      const key = `${r.usage.model.name}\n${r.usage.timeDim}`;
+      groups.set(key, [...(groups.get(key) ?? []), r.usage]);
+    }
+  }
+  const tables = new Map<string, TableDraft>();
+  for (const group of groups.values()) {
+    const { model, timeDim } = group[0];
+    const sets = [
+      ...new Set(
+        group.map((u) => [...u.joins.keys()].sort().join(",")).filter((s) => s),
+      ),
+    ].map((s) => s.split(","));
+    const maximal = sets.filter(
+      (s) =>
+        !sets.some((o) => o.length > s.length && s.every((e) => o.includes(e))),
+    );
+    for (const u of group) {
+      const own = [...u.joins.keys()];
+      const chosen = own.length
+        ? maximal
+            .filter((m) => own.every((e) => m.includes(e)))
+            .sort((a, b) => a.length - b.length)[0]
+        : [];
+      const parts = [model.name];
+      if (timeDim !== model.defaults?.agg_time_dimension) parts.push(timeDim);
+      u.factTableId = [...parts, ...chosen].join("__");
+      let t = tables.get(u.factTableId);
+      if (!t) {
+        t = {
+          id: u.factTableId,
+          model,
+          timeDim,
+          joins: new Map(),
+          columns: new Map(),
+        };
+        tables.set(u.factTableId, t);
+      }
+      for (const [entity, j] of u.joins) {
+        const tj = t.joins.get(entity) ?? { ...j, dims: new Set<string>() };
+        j.dims.forEach((dim) => tj.dims.add(dim));
+        t.joins.set(entity, tj);
+      }
+      for (const c of u.columns) {
+        if (!t.columns.has(c.column)) t.columns.set(c.column, c);
+      }
+    }
+  }
+
+  const factTables: BulkImportPayload["factTables"] = [];
+  const blockedTables = new Set<string>();
+  const failedTables = new Set<string>();
+  for (const t of tables.values()) {
+    const model = t.model;
+    if (modelBlocked(model)) {
+      blockedTables.add(t.id);
+      continue;
+    }
+    try {
+      const rel = model.node_relation?.relation_name;
+      if (!rel) {
+        throw new Unsupported(
+          `semantic model "${model.name}" has no relation_name (is it materialized?)`,
+        );
+      }
+      const td = findDim(model, t.timeDim);
+      const tsCol = td?.expr ?? t.timeDim;
+      if (!td || td.type !== "time" || !isIdent(tsCol)) {
+        throw new Unsupported(
+          `agg_time_dimension "${t.timeDim}" must be a time dimension on a plain column`,
+        );
+      }
+      // Measure columns carry inferred types; everything else is left for detection.
+      const columns = new Map(t.columns);
+      const declare = (
+        column: string,
+        datatype: FactTableColumn["datatype"],
+      ) => {
+        if (!columns.has(column)) columns.set(column, { column, datatype });
+      };
+      declare(tsCol, "date");
+      const userIdTypes: string[] = [];
+      const userIdColumns: Record<string, string> = {};
+      for (const e of model.entities ?? []) {
+        const idType = opts.entities?.[e.name] ?? e.name;
+        if (opts.idTypes && !opts.idTypes.includes(idType)) continue;
+        const col = e.expr ?? e.name;
+        if (!isIdent(col)) {
+          warnings.push({
+            level: "note",
+            resource: `fact table ${t.id}`,
+            message: `entity "${e.name}" is an expression and cannot be an identifier column`,
+          });
+          continue;
+        }
+        userIdTypes.push(idType);
+        if (col !== idType) userIdColumns[idType] = col;
+        declare(col, "");
+      }
+      if (!userIdTypes.length) {
+        throw new Unsupported(
+          `no entity on "${model.name}" maps to a Data Source identifier type (use --entities)`,
+        );
+      }
+      for (const d of model.dimensions ?? []) {
+        const col = d.expr ?? d.name;
+        if (isIdent(col)) declare(col, "");
+      }
+
+      let sql = `SELECT * FROM ${rel}`;
+      const joined = [...t.joins.keys()].sort();
+      if (joined.length) {
+        const selects = ["t.*"];
+        const joins: string[] = [];
+        for (const entity of joined) {
+          const j = t.joins.get(entity);
+          const rel2 = j?.target.node_relation?.relation_name;
+          if (!j || !rel2) {
+            throw new Unsupported(
+              `semantic model "${j?.target.name}" has no relation_name`,
+            );
+          }
+          const alias = `j_${entity}`;
+          for (const dim of [...j.dims].sort()) {
+            const d = findDim(j.target, dim);
+            if (!d) continue;
+            selects.push(
+              `${qualify(alias, d.expr ?? d.name)} AS ${entity}__${dim}`,
+            );
+            declare(`${entity}__${dim}`, "");
+          }
+          joins.push(
+            `LEFT JOIN ${rel2} ${alias} ON ${qualify("t", j.fk.expr ?? j.fk.name)} = ${qualify(alias, j.pk.expr ?? j.pk.name)}`,
+          );
+        }
+        sql = `SELECT ${selects.join(", ")} FROM ${rel} t ${joins.join(" ")}`;
+      }
+
+      const label = model.label ?? model.name;
+      const data: FactTableData = {
+        name: joined.length ? `${label} + ${joined.join(" + ")}` : label,
+        datasource: opts.datasource,
+        userIdTypes,
+        sql,
+        timestampColumn: tsCol,
+        columns: [...columns.values()],
+      };
+      if (Object.keys(userIdColumns).length) data.userIdColumns = userIdColumns;
+      if (model.description) data.description = model.description;
+      const tags = tagsOf(model);
+      if (tags.length) data.tags = tags;
+      Object.assign(data, omit(gbMeta(model), ["enabled"]));
+      factTables.push({ id: t.id, data });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw e;
+      failedTables.add(t.id);
+      warnings.push({
+        level: "skipped",
+        resource: `fact table ${t.id}`,
+        message: e.message,
+      });
+    }
+  }
+
+  const factMetrics: BulkImportPayload["factMetrics"] = [];
+  const usedTables = new Set<string>();
+  for (const d of drafts) {
+    const name = d.metric.name;
+    const tags = tagsOf(d.metric);
+    const usedModels = [...new Set(d.refs.map((r) => r.usage.model))];
+    if (matches(opts.exclude, name, tags)) continue;
+    if (
+      opts.select?.length &&
+      !matches(opts.select, name, tags) &&
+      !usedModels.some((m) => matches(opts.select, m.name, tagsOf(m)))
+    ) {
+      continue;
+    }
+    const ids = d.refs.map((r) => r.usage.factTableId);
+    if (ids.every((id) => blockedTables.has(id))) continue;
+    const bad = ids.find((id) => blockedTables.has(id) || failedTables.has(id));
+    if (bad) {
+      warnings.push({
+        level: "skipped",
+        resource: `metric ${name}`,
+        message: `depends on fact table "${bad}", which was ${
+          blockedTables.has(bad) ? "excluded" : "skipped"
+        }`,
+      });
+      continue;
+    }
+    for (const r of d.refs) {
+      r.ref.factTableId = r.usage.factTableId;
+      usedTables.add(r.usage.factTableId);
+    }
+    factMetrics.push({ id: name, data: d.data });
+  }
+
+  // Plain dbt models annotated with meta.growthbook in GrowthBook's own vocabulary.
+  const plainTables = new Set<string>();
+  for (const node of values(manifest.nodes)) {
+    if (node.resource_type !== "model" || modelsByName.has(node.name)) continue;
+    const meta = gbMeta(node);
+    if (!Array.isArray(meta.userIdTypes)) continue;
+    const tags = tagsOf(node);
+    if (meta.enabled === false || matches(opts.exclude, node.name, tags))
+      continue;
+    if (opts.select?.length && !matches(opts.select, node.name, tags)) continue;
+    if (!node.relation_name) {
+      warnings.push({
+        level: "skipped",
+        resource: `fact table ${node.name}`,
+        message: "model has no relation_name (is it materialized?)",
+      });
+      continue;
+    }
+    const data: FactTableData = {
+      name: node.name,
+      datasource: opts.datasource,
+      userIdTypes: meta.userIdTypes.filter(
+        (t): t is string => typeof t === "string",
+      ),
+      sql: `SELECT * FROM ${node.relation_name}`,
+      timestampColumn: "timestamp",
+      columns: [],
+    };
+    Object.assign(data, omit(meta, ["enabled", "metrics", "userIdTypes"]));
+    factTables.push({ id: node.name, data });
+    plainTables.add(node.name);
+    for (const m of Array.isArray(meta.metrics) ? meta.metrics : []) {
+      if (
+        !isRecord(m) ||
+        typeof m.id !== "string" ||
+        typeof m.name !== "string" ||
+        typeof m.metricType !== "string"
+      ) {
+        warnings.push({
+          level: "skipped",
+          resource: `fact table ${node.name}`,
+          message:
+            "a meta.growthbook.metrics entry needs id, name and metricType",
+        });
+        continue;
+      }
+      const metric: FactMetricData = { name: m.name, metricType: m.metricType };
+      Object.assign(metric, omit(m, ["id"]));
+      for (const side of ["numerator", "denominator"] as const) {
+        const ref = metric[side];
+        if (isRecord(ref) && typeof ref.factTableId !== "string") {
+          metric[side] = { ...ref, factTableId: node.name };
+        }
+      }
+      factMetrics.push({ id: m.id, data: metric });
+    }
+  }
+
+  const byId = (a: { id: string }, b: { id: string }) =>
+    a.id.localeCompare(b.id);
+  return {
+    payload: {
+      defaultManagedBy: "api",
+      factTables: factTables
+        .filter((t) => usedTables.has(t.id) || plainTables.has(t.id))
+        .sort(byId),
+      factMetrics: factMetrics.sort(byId),
+    },
+    warnings,
+  };
+}
