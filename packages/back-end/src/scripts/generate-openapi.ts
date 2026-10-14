@@ -8,7 +8,11 @@ import {
   ApiErrorCode,
   CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
-import { routeConfirmation } from "shared/util";
+import {
+  ARMING_FIELDS,
+  armedPublishLabel,
+  routeConfirmation,
+} from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
@@ -919,7 +923,8 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
-    // Its own labels, plus an override for each skip flag it accepts.
+    // Its own labels, an override for each skip flag it accepts, and the publish
+    // it can arm.
     const accepted = [
       // Shared parameters are refs keyed by their name.
       ...parameters.map((p) =>
@@ -933,6 +938,9 @@ curl https://api.growthbook.io/api/v1/features \
         ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, label]) =>
           accepted.includes(flag) ? [label] : [],
         ),
+        ...(ARMING_FIELDS.some((field) => accepted.includes(field))
+          ? [armedPublishLabel(tags)].filter((label) => label !== null)
+          : []),
       ]),
     ];
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};

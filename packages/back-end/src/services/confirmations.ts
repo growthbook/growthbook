@@ -81,17 +81,6 @@ export function confirmationLink(
   return { type, label, url: `${APP_ORIGIN}/${LINK_PATHS[type]}/${id}` };
 }
 
-// Whether a person would have to confirm these, e.g. to skip work that can't be held.
-export function wouldHold(context: ReqContext, labels: ConfirmLabel[]) {
-  return (
-    !context.confirmationId &&
-    matchConfirmRules(
-      rulesFor(context),
-      labels.map((action) => ({ action, environments: [] })),
-    ).length > 0
-  );
-}
-
 export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   return {
     id: c.id,
@@ -305,14 +294,24 @@ function requestedOverrides(context: ReqContext): ConfirmLabel[] {
 export async function holdAtRoute(
   context: ReqContext,
   labels: readonly ConfirmLabel[],
+  // Held when the request arms a publish to run later: confirming the arming
+  // confirms the publish, which then runs unheld.
+  armedPublish: ConfirmLabel | null,
   method: string,
   path: string,
   req: { params?: unknown; body?: unknown; query?: unknown },
   summary?: string,
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
+  const body = asRecord(req.body);
+  const arms =
+    body.autoPublishOnApproval === true ||
+    (body.scheduledPublishAt ?? null) !== null;
   await requireConfirmation(context, {
-    labels: labels.filter((label) => !label.startsWith("override.")),
+    labels: [
+      ...labels.filter((label) => !label.startsWith("override.")),
+      ...(arms && armedPublish ? [armedPublish] : []),
+    ],
     summary:
       summary ||
       `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,

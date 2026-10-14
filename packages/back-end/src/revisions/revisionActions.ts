@@ -69,10 +69,6 @@ import {
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
 import {
-  REVISION_PUBLISH_LABEL,
-  wouldHold,
-} from "back-end/src/services/confirmations";
-import {
   assertLandingBaseline,
   assertLandingStillOwned,
   liveMatchesDesiredState,
@@ -1136,12 +1132,6 @@ export async function maybeAutoPublishRevision(
   // A future-dated schedule defers the publish to the poller — don't fire early
   // just because approval landed.
   if (isScheduledPublishPending(revision) && !isScheduledPublishDue(revision)) {
-    return revision;
-  }
-
-  // Left approved when this key's publishes need a person's confirmation; the
-  // publish request then holds like any other.
-  if (wouldHold(context, [REVISION_PUBLISH_LABEL[revision.target.type]])) {
     return revision;
   }
 

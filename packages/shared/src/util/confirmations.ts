@@ -1,4 +1,5 @@
 import {
+  CONFIRM_LABELS,
   CONFIRM_MODEL_BY_TAG,
   type ConfirmAction,
   type ConfirmLabel,
@@ -28,6 +29,17 @@ export function matchConfirmRules(
   );
 }
 
+// The live model a route writes to, from its API tags.
+export function routeModel(tags: readonly string[] | undefined) {
+  return (
+    tags
+      ?.map(
+        (tag) => CONFIRM_MODEL_BY_TAG[tag as keyof typeof CONFIRM_MODEL_BY_TAG],
+      )
+      .find(Boolean) ?? null
+  );
+}
+
 // The labels a route may hold for: its own, or `<model>.other` for a write to a
 // live model that declares none.
 export function routeConfirmation(
@@ -37,10 +49,19 @@ export function routeConfirmation(
 ): readonly ConfirmLabel[] {
   if (declared) return declared;
   if (method.toLowerCase() === "get") return [];
-  const model = tags
-    ?.map(
-      (tag) => CONFIRM_MODEL_BY_TAG[tag as keyof typeof CONFIRM_MODEL_BY_TAG],
-    )
-    .find(Boolean);
+  const model = routeModel(tags);
   return model ? [`${model}.other`] : [];
+}
+
+// Request fields that arm a publish to run later, without anyone present.
+export const ARMING_FIELDS = ["autoPublishOnApproval", "scheduledPublishAt"];
+
+// What arming a publish on this route holds as: the publish itself.
+export function armedPublishLabel(
+  tags: readonly string[] | undefined,
+): ConfirmLabel | null {
+  const label = `${routeModel(tags)}.publish`;
+  return (CONFIRM_LABELS as readonly string[]).includes(label)
+    ? (label as ConfirmLabel)
+    : null;
 }

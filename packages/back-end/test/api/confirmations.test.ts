@@ -378,7 +378,19 @@ describe("confirmations", () => {
     expect(done.response?.status).toBe(200);
   });
 
-  it("leaves an approved draft for a confirmable publish instead of auto-publishing it", async () => {
+  it("holds arming a publish as the publish itself", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const held = await auth(
+      request(app).post(`/api/v2/features/${FLAG}/revisions/2/request-review`),
+    ).send({ autoPublishOnApproval: true });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
+    ]);
+  });
+
+  it("runs an armed publish unheld when it fires, confirmed when it was armed", async () => {
     const { maybeAutoPublishFeatureRevision } = await import(
       "back-end/src/api/features/autoPublishOnApproval"
     );
@@ -392,16 +404,16 @@ describe("confirmations", () => {
         .findOne({ organization: ORG_ID, featureId: FLAG, version: 2 })),
       status: "approved",
       autoPublishOnApproval: true,
+      autoPublishEnabledBy: "u_torres",
     } as unknown as FeatureRevisionInterface;
 
-    expect(
-      await maybeAutoPublishFeatureRevision(
-        asKey(pat),
-        feature as unknown as FeatureInterface,
-        revision,
-      ),
-    ).toBe(revision);
-    expect(await featureVersion()).toBe(1);
+    // Approved by a key whose own publishes would hold.
+    await maybeAutoPublishFeatureRevision(
+      asKey(pat),
+      feature as unknown as FeatureInterface,
+      revision,
+    );
+    expect(await featureVersion()).toBe(2);
   });
 
   it("declares what every write to a live model may hold for", async () => {

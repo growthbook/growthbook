@@ -5,7 +5,7 @@ import {
   ApiErrorCode,
   ConfirmLabel,
 } from "shared/validators";
-import { routeConfirmation } from "shared/util";
+import { armedPublishLabel, routeConfirmation } from "shared/util";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -416,7 +416,15 @@ export function createApiRequestHandler<
     if (method !== "get" && !confirmationInHandler) {
       const inner = handler;
       handler = async (req) => {
-        await holdAtRoute(req.context, labels, method, path, req, summary);
+        await holdAtRoute(
+          req.context,
+          labels,
+          armedPublishLabel(tags),
+          method,
+          path,
+          req,
+          summary,
+        );
         return inner(req);
       };
     }
