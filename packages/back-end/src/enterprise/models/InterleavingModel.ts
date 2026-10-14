@@ -94,10 +94,6 @@ export class InterleavingModel extends BaseClass {
       doc.datasource !== previousDoc.datasource ||
       doc.userIdType !== previousDoc.userIdType
     ) {
-      const ids = doc.metrics.map((m) => m.id);
-      if (new Set(ids).size !== ids.length) {
-        throw new Error("Each metric can only be added once.");
-      }
       await resolveInterleavingMetrics(this.context, {
         datasourceId: doc.datasource,
         userIdType: doc.userIdType,

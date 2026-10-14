@@ -83,6 +83,14 @@ describe("interleavingValidator", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("rejects the same metric added twice", () => {
+    const metric = { id: "fact__clicks", analyses: [{ type: "paired" }] };
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, metrics: [metric, metric] })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("interleavingMetricConfigValidator", () => {

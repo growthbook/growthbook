@@ -1058,14 +1058,14 @@ export interface FeatureUsageAggregateRow {
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 
-// One (metric, analysis) pair; a metric with two analyses appears twice
+// One (metric, analysis) pair; a metric with two analyses appears twice.
+// The metric's numerator (column, aggregation, row filters) is resolved with
+// the same helpers as experiment fact metrics.
 export interface InterleavingMetricQueryMetric {
   // "paired" needs interleave_id on the metric's fact table; ownership only
   // needs item_id.
   analysis: InterleavingAnalysis;
-  metricType: "mean" | "proportion";
-  // Numerator column for mean metrics; null means count rows / existence
-  valueColumn: string | null;
+  metric: FactMetricInterface;
 }
 
 export interface InterleavingMetricQueryParams {
@@ -1077,15 +1077,15 @@ export interface InterleavingMetricQueryParams {
   // Control first; matched against the exposure items' `variation` values
   variationKeys: [string, string];
   startDate: Date;
-  endDate?: Date | null;
-  // One query analyzes all metrics sharing this fact table; output columns
-  // are prefixed m{i}_ by array index. Paired/ownership CTEs are only
-  // included when at least one metric requests them.
-  factTableSql: string;
+  endDate: Date | null;
+  // One query analyzes all metrics whose numerator reads this fact table;
+  // output columns are prefixed m{i}_ by array index. Paired/ownership CTEs
+  // are only included when at least one metric requests them.
+  factTable: FactTableInterface;
   metrics: InterleavingMetricQueryMetric[];
-  // Fact table SQL for each engagement signal metric referenced by `metrics`
-  // (keyed by signal metric id). Signal tables need item_id and interleave_id.
-  signals: { id: string; factTableSql: string }[];
+  // Each engagement signal metric referenced by `metrics`, with its fact
+  // table. Signal tables need item_id and interleave_id.
+  signals: { metric: FactMetricInterface; factTable: FactTableInterface }[];
 }
 
 // One row of numeric aggregates; the column set depends on the attribution type

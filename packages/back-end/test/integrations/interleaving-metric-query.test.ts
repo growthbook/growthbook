@@ -1,11 +1,11 @@
-import fs from "fs";
-import path from "path";
 import { postgresDialect } from "shared/dialects";
 import type { InterleavingAnalysis } from "shared/validators";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { getInterleavingMetricQuery } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
+import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
+import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 
-// The demo storefront's telemetry schema (local-groceries-international):
-// one row per impression, item detail in the nested `items` JSON column
+// One row per impression, item detail in the nested `items` JSON column
 // (GrowthBook's generated SQL does the unnesting)
 const EXPOSURE_QUERY = `SELECT
   user_id,
@@ -16,14 +16,40 @@ const EXPOSURE_QUERY = `SELECT
 FROM events
 WHERE event_name = 'Interleave Exposure'`;
 
-const FACT_TABLE_SQL = `SELECT
-  user_id,
-  received_at as timestamp,
-  properties->>'item_id' as item_id,
-  properties->>'interleave_id' as interleave_id,
-  (properties->>'value')::float as value
-FROM events
-WHERE event_name = 'Add to Cart'`;
+const cartTable = factTableFactory.build({
+  id: "ft_cart",
+  sql: "SELECT user_id, timestamp, item_id, interleave_id, value, event_name FROM events",
+  columns: [
+    {
+      column: "event_name",
+      datatype: "string",
+      name: "",
+      description: "",
+      numberFormat: "",
+      deleted: false,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      alwaysInlineFilter: false,
+    },
+  ],
+});
+const clickTable = factTableFactory.build({
+  id: "ft_click",
+  sql: "SELECT 1 AS click",
+});
+
+const metricOn = (
+  factTableId: string,
+  overrides: Partial<FactMetricInterface["numerator"]> & {
+    metricType?: FactMetricInterface["metricType"];
+  } = {},
+) => {
+  const { metricType, ...numerator } = overrides;
+  return factMetricFactory.build({
+    metricType: metricType ?? "proportion",
+    numerator: { factTableId, column: "$$count", ...numerator },
+  });
+};
 
 const baseParams = {
   exposureQuery: EXPOSURE_QUERY,
@@ -32,7 +58,7 @@ const baseParams = {
   variationKeys: ["buyers-picks", "price-low"] as [string, string],
   startDate: new Date("2020-01-01"),
   endDate: null,
-  factTableSql: FACT_TABLE_SQL,
+  factTable: cartTable,
   signals: [],
 };
 const PAIRED: InterleavingAnalysis = { type: "paired" };
@@ -40,29 +66,26 @@ const OWNERSHIP: InterleavingAnalysis = {
   type: "ownership",
   attribution: "exposureCount",
 };
-const proportionMetric = (analysis: InterleavingAnalysis) => ({
-  analysis,
-  metricType: "proportion" as const,
-  valueColumn: null,
-});
+const proportion = metricOn("ft_cart");
 
 describe("getInterleavingMetricQuery", () => {
-  it("generates paired and ownership SQL and (optionally) writes them for live execution", () => {
+  it("emits paired and ownership CTEs only when requested", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric(PAIRED)],
+      metrics: [{ analysis: PAIRED, metric: proportion }],
     });
     const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric(OWNERSHIP)],
+      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
     });
     const both = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric(PAIRED), proportionMetric(OWNERSHIP)],
+      metrics: [
+        { analysis: PAIRED, metric: proportion },
+        { analysis: OWNERSHIP, metric: proportion },
+      ],
     });
 
-    // Structural assertions on both variants
-    // Paired-only: no ownership CTEs; ownership-only: no paired CTEs
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
@@ -71,50 +94,101 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toContain("'featured-products-ranker'");
     expect(ownership).toContain("m0_users_pref_treatment");
     expect(ownership).not.toContain("__credited");
-    // Mixed: both logics in one query, single events scan
+    // Mixed: both logics in one query, single events scan rolled up
     expect(both).toContain("m0_sum_xy");
     expect(both).toContain("m1_users_pref_treatment");
     expect(both).toContain("__eventsAll");
 
-    // Escapes quotes in variation names
+    // Duplicate impression rows are dropped before unnesting
+    expect(paired).toMatch(
+      /ROW_NUMBER\(\) OVER \(\s*PARTITION BY\s+e\.user_id,\s+e\.interleave_id\s+ORDER BY\s+e\.timestamp\s*\) AS rn/,
+    );
+    expect(paired).toContain("e.rn = 1");
+
+    // Variation keys are escaped through the dialect
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric(OWNERSHIP)],
+      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
       variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
   });
 
+  it("resolves numerators like experiment fact metrics", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [
+        // proportion: existence per group
+        { analysis: PAIRED, metric: proportion },
+        // mean of a row count: COUNT, not existence
+        {
+          analysis: PAIRED,
+          metric: metricOn("ft_cart", { metricType: "mean" }),
+        },
+        // mean of a column, with a row filter
+        {
+          analysis: OWNERSHIP,
+          metric: metricOn("ft_cart", {
+            metricType: "mean",
+            column: "value",
+            rowFilters: [
+              { column: "event_name", operator: "=", values: ["purchase"] },
+            ],
+          }),
+        },
+      ],
+    });
+    expect(sql).toMatch(/COALESCE\(MAX\(1\), 0\) AS value_0/);
+    expect(sql).toMatch(/COUNT\(1\) AS value_1/);
+    expect(sql).toMatch(
+      /SUM\(\s*COALESCE\(\s*CASE\s+WHEN \(\(event_name = 'purchase'\)\) THEN m\.value\s+ELSE NULL\s+END,\s*0\s*\)\s*\) AS value_2/,
+    );
+    // Rows matching no metric's filters are dropped; metric 0/1 have none, so
+    // nothing can be filtered from the events scan
+    expect(sql).toMatch(
+      /WHERE\s+m\.timestamp >= '2020-01-01 00:00:00'\s+GROUP BY/,
+    );
+    // Rolled up to user x item for ownership with the re-aggregation function
+    expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
+  });
+
   it("generates one signal share CTE per distinct engagement signal", () => {
+    const click = metricOn("ft_click", {
+      rowFilters: [{ column: "event_name", operator: "=", values: ["click"] }],
+    });
+    const cart = metricOn("ft_cart");
     const byClick: InterleavingAnalysis = {
       type: "ownership",
       attribution: "engagementSignal",
-      signalMetricId: "fact__click",
+      signalMetricId: click.id,
     };
     const byCart: InterleavingAnalysis = {
       type: "ownership",
       attribution: "engagementSignal",
-      signalMetricId: "fact__cart",
+      signalMetricId: cart.id,
     };
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
       // Same signal twice (shared CTE) plus a second signal
       metrics: [
-        proportionMetric(byClick),
-        proportionMetric(byClick),
-        proportionMetric(byCart),
-        proportionMetric(OWNERSHIP),
+        { analysis: byClick, metric: proportion },
+        { analysis: byClick, metric: proportion },
+        { analysis: byCart, metric: proportion },
+        { analysis: OWNERSHIP, metric: proportion },
       ],
       signals: [
-        { id: "fact__click", factTableSql: "SELECT 1 AS click" },
-        { id: "fact__cart", factTableSql: "SELECT 2 AS cart" },
+        { metric: click, factTable: clickTable },
+        { metric: cart, factTable: cartTable },
       ],
     });
     expect(sql).toContain("__signalShare_0");
     expect(sql).toContain("__signalShare_1");
     expect(sql).not.toContain("__signalShare_2");
     expect(sql).toMatch(/SELECT\s+1 AS click/);
-    expect(sql).toMatch(/SELECT\s+2 AS cart/);
+    // The signal metric's row filters restrict its events
+    expect(sql).toMatch(
+      /__signalEvents_0 AS \([\s\S]*?WHERE[\s\S]*?\(event_name = 'click'\)[\s\S]*?GROUP BY/,
+    );
     // Signal joins need interleave_id on exposures even without paired
     expect(sql).toContain("e.interleave_id AS interleave_id");
     expect(sql).not.toContain("__credited");
@@ -126,17 +200,8 @@ describe("getInterleavingMetricQuery", () => {
     expect(() =>
       getInterleavingMetricQuery(postgresDialect, {
         ...baseParams,
-        metrics: [proportionMetric(byClick)],
+        metrics: [{ analysis: byClick, metric: proportion }],
       }),
-    ).toThrow("Missing fact table SQL for signal metric fact__click");
-
-    // Optionally dump to disk so the SQL can be executed against the demo
-    // telemetry database (set INTERLEAVING_SQL_OUT to a directory)
-    const outDir = process.env.INTERLEAVING_SQL_OUT;
-    if (outDir) {
-      fs.writeFileSync(path.join(outDir, "paired.sql"), paired);
-      fs.writeFileSync(path.join(outDir, "ownership.sql"), ownership);
-      fs.writeFileSync(path.join(outDir, "both.sql"), both);
-    }
+    ).toThrow(`Missing fact table for signal metric ${click.id}`);
   });
 });

@@ -9,8 +9,10 @@ import {
 } from "shared/validators";
 import type {
   InterleavingMetricQueryMetric,
+  InterleavingMetricQueryParams,
   InterleavingMetricQueryResponseRows,
 } from "shared/types/integrations";
+import type { FactTableInterface } from "shared/types/fact-table";
 import { ownershipSignTest, pairedDeltaTest } from "stats-ts";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
@@ -28,10 +30,10 @@ type AnalysisEntry = { metricId: string; analysis: InterleavingAnalysis };
 
 // One query per fact table, keyed by the fact table id (also the query name)
 type FactTableGroup = {
-  factTableSql: string;
+  factTable: FactTableInterface;
   entries: AnalysisEntry[];
   queryMetrics: InterleavingMetricQueryMetric[];
-  signals: { id: string; factTableSql: string }[];
+  signals: InterleavingMetricQueryParams["signals"];
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -55,9 +57,9 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       settings,
     );
     const groups = new Map<string, FactTableGroup>();
-    for (const { config, metricType, valueColumn, factTable } of metrics) {
+    for (const { config, metric, factTable } of metrics) {
       const group = groups.get(factTable.id) ?? {
-        factTableSql: factTable.sql,
+        factTable,
         entries: [],
         queryMetrics: [],
         signals: [],
@@ -65,16 +67,14 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       groups.set(factTable.id, group);
       for (const analysis of config.analyses) {
         group.entries.push({ metricId: config.id, analysis });
-        group.queryMetrics.push({ analysis, metricType, valueColumn });
+        group.queryMetrics.push({ analysis, metric });
       }
     }
     for (const group of groups.values()) {
       const signalIds = new Set(
         interleavingSignalMetricIds(group.entries.map((e) => e.analysis)),
       );
-      group.signals = signals
-        .filter((s) => signalIds.has(s.id))
-        .map((s) => ({ id: s.id, factTableSql: s.factTable.sql }));
+      group.signals = signals.filter((s) => signalIds.has(s.metric.id));
     }
     return groups;
   }
@@ -104,7 +104,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         variationKeys: [settings.variations[0].key, settings.variations[1].key],
         startDate: settings.startDate,
         endDate: settings.endDate,
-        factTableSql: group.factTableSql,
+        factTable: group.factTable,
         metrics: group.queryMetrics,
         signals: group.signals,
       });
@@ -147,7 +147,15 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       }
 
       entries.forEach(({ metricId, analysis }, i) => {
-        const col = (name: string) => row[`m${i}_${name}`];
+        const col = (name: string) => {
+          const value = row[`m${i}_${name}`];
+          if (value === undefined) {
+            throw new Error(
+              `Interleaving query for fact table ${factTableId} is missing column m${i}_${name}`,
+            );
+          }
+          return value;
+        };
         switch (analysis.type) {
           case "paired": {
             const stats = {

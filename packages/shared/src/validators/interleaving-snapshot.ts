@@ -28,7 +28,7 @@ export const interleavingSnapshotSettingsValidator = z
     ]),
     metrics: z.array(interleavingMetricConfigValidator),
     startDate: z.date(),
-    endDate: z.date().nullable().optional(),
+    endDate: z.date().nullable(),
   })
   .strict();
 
@@ -36,8 +36,10 @@ export type InterleavingSnapshotSettings = z.infer<
   typeof interleavingSnapshotSettingsValidator
 >;
 
-// One ranker's side of a result. `cr` is per engaged impression for the
-// paired analysis and per exposed user for ownership analyses.
+// One ranker's side of a result. `cr` is the value per treatment-drafted
+// competitive exposure in engaged impressions (paired analysis; both sides
+// share that denominator, which a fair team draft balances in expectation)
+// or per exposed user (ownership analyses).
 const interleavingResultSideValidator = z
   .object({ value: z.number(), cr: z.number() })
   .strict();

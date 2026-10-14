@@ -132,7 +132,11 @@ export const interleavingValidator = baseSchema
     datasource: z.string(),
     interleavingQueryId: z.string(),
     userIdType: z.string(),
-    metrics: z.array(interleavingMetricConfigValidator),
+    metrics: z
+      .array(interleavingMetricConfigValidator)
+      .refine((ms) => new Set(ms.map((m) => m.id)).size === ms.length, {
+        message: "Each metric can only be added once.",
+      }),
 
     // Targeting, validated and served like a feature rule's (CB pattern).
     coverage: z.number().min(0).max(1).optional(),

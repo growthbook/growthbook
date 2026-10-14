@@ -1,5 +1,8 @@
 import { isFactMetric } from "shared/experiments";
-import type { FactTableInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import {
   InterleavingMetricConfig,
   interleavingSignalMetricIds,
@@ -21,16 +24,22 @@ export type InterleavingAnalysisInputs = {
 
 export type ResolvedInterleavingMetric = {
   config: InterleavingMetricConfig;
-  metricType: "mean" | "proportion";
-  // Numerator column for mean metrics; null means count rows / existence
-  valueColumn: string | null;
+  metric: FactMetricInterface;
   factTable: FactTableInterface;
 };
 
 export type ResolvedInterleavingSignal = {
-  id: string;
+  metric: FactMetricInterface;
   factTable: FactTableInterface;
 };
+
+// Per-item values are summed/maxed again across impressions, which sketch
+// and distinct-count aggregations don't support
+const UNSUPPORTED_AGGREGATIONS = new Set([
+  "count distinct",
+  "hll merge",
+  "kll merge",
+]);
 
 /**
  * Load and validate the fact metrics an interleaving analysis reads. Used
@@ -99,27 +108,25 @@ export async function resolveInterleavingMetrics(
         "Interleaving metric",
         config.analyses.some((a) => a.type === "paired"),
       );
-      const { metricType } = metric;
+      const { metricType, numerator } = metric;
       if (metricType !== "mean" && metricType !== "proportion") {
         throw new Error(
           `Interleaving metrics must be mean or proportion metrics: ${config.id} is a ${metricType} metric`,
         );
       }
-      const column = metric.numerator.column;
-      return {
-        config,
-        metricType,
-        valueColumn:
-          metricType === "mean" && !column.startsWith("$$") ? column : null,
-        factTable,
-      };
+      if (
+        numerator.column === "$$distinctDates" ||
+        UNSUPPORTED_AGGREGATIONS.has(numerator.aggregation ?? "")
+      ) {
+        throw new Error(
+          `Interleaving metrics must use sum, max, or count aggregations: ${config.id}`,
+        );
+      }
+      return { config, metric, factTable };
     }),
     // Signal tables are joined per impression, so they always need interleave_id
     signals: interleavingSignalMetricIds(
       metrics.flatMap((m) => m.analyses),
-    ).map((id) => ({
-      id,
-      factTable: resolve(id, "Engagement signal metric", true).factTable,
-    })),
+    ).map((id) => resolve(id, "Engagement signal metric", true)),
   };
 }
