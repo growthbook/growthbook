@@ -444,6 +444,7 @@ const INTERNAL_API_ALLOWED_HEADERS = [
   "Authorization",
   "X-Organization",
   "X-SSO-Connection-ID",
+  "X-GrowthBook-Requested-By",
   "x-no-compression",
   ...GROWTHBOOK_TRACKING_HEADERS,
 ];

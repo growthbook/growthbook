@@ -1,40 +1,25 @@
-// Webhook payload schemas for feature and feature-revision events.
-// Intentionally loosely typed (z.any() for nested rules/environments) — the
+// Webhook payload schemas for feature and feature-revision events. Feature
+// payloads are loosely typed (z.any() for nested rules/environments); the
 // strict API-response versions live in features.ts. Kept as a leaf file to
 // avoid circular imports with the broader validator graph.
 
 import { z } from "zod";
 import { ownerField } from "./owner-field";
+import { revisionWebhookReference } from "./revision-webhook-reference";
 
-const revisionPrerequisite = z.object({
-  id: z.string().describe("Feature ID"),
-  condition: z.string(),
-});
+const deprecated = <T extends z.ZodType>(schema: T, instead: string) =>
+  schema.describe(`Deprecated: use ${instead}.`).meta({ deprecated: true });
 
-export const featureRevisionWebhookPayload = z
-  .object({
-    id: z.string().optional().describe("Revision ID"),
-    featureId: z.string().describe("The feature this revision belongs to"),
-    baseVersion: z.number().int(),
-    version: z.number().int(),
-    comment: z.string(),
-    date: z.string(),
-    status: z.string(),
-    createdBy: z.string().optional(),
-    publishedBy: z.string().optional(),
-    defaultValue: z
-      .string()
-      .describe("The default value at the time this revision was created")
-      .optional(),
-    // Rules are typed loosely — consumers should use the REST API for full detail.
-    rules: z.record(z.string(), z.array(z.any())),
-    definitions: z.record(z.string(), z.string()).optional(),
-    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
-    envPrerequisites: z
-      .record(z.string(), z.array(revisionPrerequisite))
-      .optional(),
-    prerequisites: z.array(revisionPrerequisite).optional(),
-    metadata: z.object({}).passthrough().optional(),
+export const featureRevisionWebhookPayload = revisionWebhookReference
+  .extend({
+    feature: z.object({ id: z.string() }),
+    featureId: deprecated(z.string(), "`feature.id`"),
+    date: deprecated(z.string(), "`dateCreated`"),
+    createdBy: deprecated(z.string().optional(), "`author`"),
+    publishedBy: deprecated(
+      z.string().optional(),
+      "the `user` on `feature.revision.published`",
+    ),
   })
   .strict();
 

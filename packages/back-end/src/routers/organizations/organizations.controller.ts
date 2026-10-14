@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -32,6 +33,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
@@ -1858,6 +1860,27 @@ export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
   });
 }
 
+// The current role of each key that approved as itself, so the review panel
+// judges a key's approval the way publishing does. Members' roles are already
+// on the client.
+// The roles of org keys that approved, for the review panel. Like members'
+// roles, they're visible to every member.
+export async function getApproverKeyRoles(
+  req: AuthRequest<null, null, { ids?: unknown }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const ids = z
+    .string()
+    .catch("")
+    .parse(req.query.ids)
+    .split(",")
+    .filter((id) => id && !context.org.members.some((m) => m.id === id))
+    .slice(0, 100);
+  const roles = await getApproverRoles(context, ids);
+  res.status(200).json({ status: 200, roles: Object.fromEntries(roles) });
+}
+
 // Rejects a malformed date rather than letting `new Date()` yield Invalid Date,
 // which would persist as null and silently read as "never expires".
 function parseExpiresAt(input: string | null | undefined): Date | null {
@@ -1912,7 +1935,9 @@ export async function postApiKey(
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
-    projectRoles?: ProjectMemberRole[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: string | null;
   }>,
   res: Response,
@@ -1927,6 +1952,8 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt: expiresAtInput,
   } = req.body;
 
@@ -1960,6 +1987,8 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
     });
   }
@@ -1989,7 +2018,9 @@ export async function putApiKey(
       limitAccessByEnvironment?: boolean;
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
-      projectRoles?: ProjectMemberRole[];
+      projectRoles?: ApiKeyInterface["projectRoles"];
+      requesterHeader?: ApiKeyInterface["requesterHeader"];
+      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       expiresAt?: string | null;
     },
     { id: string }
@@ -2006,6 +2037,8 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
   } = req.body;
 
@@ -2021,6 +2054,8 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      requesterHeader,
+      requesterPermissions,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
     });

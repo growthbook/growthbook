@@ -4,7 +4,10 @@ import {
   NotificationEventPayloadSchemaType,
   ResourceEvents,
 } from "shared/types/events/base-types";
-import { FeatureRevisionUpdatedPayload } from "shared/validators";
+import {
+  FeatureRevisionUpdatedPayload,
+  FeatureRevisionWebhookPayload,
+} from "shared/validators";
 import { resolveTargetingProjectIds } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -12,9 +15,9 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
 import {
-  revisionToApiInterface,
-  toApiRevision,
-} from "back-end/src/services/features";
+  featureRevisionReference,
+  webhookActor,
+} from "back-end/src/events/revisionReference";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -26,13 +29,9 @@ type FeatureRevisionEvent = Extract<
   `revision.${string}`
 >;
 
-// Callers supply the event-specific fields. The dispatcher itself fills in
-// the revision snapshot (from revisionToApiInterface) plus routing fields.
-type RevisionBaseKeys =
-  | "featureId"
-  | "version"
-  | "status"
-  | keyof ReturnType<typeof revisionToApiInterface>;
+// Callers supply the event-specific fields; the dispatcher fills in the
+// revision reference.
+type RevisionBaseKeys = keyof FeatureRevisionWebhookPayload;
 
 type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
   NotificationEventPayloadSchemaType<"feature", T>,
@@ -85,7 +84,6 @@ export async function dispatchFeatureRevisionEvent<
   opts: { environments?: string[] } = {},
 ): Promise<void> {
   try {
-    const apiRevision = toApiRevision(revision, ctx, feature);
     const allProjectIds = await ctx.getAllProjectIds();
     const projects = resolveTargetingProjectIds(feature, allProjectIds);
     const tags = feature.tags ?? [];
@@ -96,12 +94,9 @@ export async function dispatchFeatureRevisionEvent<
       opts.environments,
     );
 
-    const object = {
-      ...apiRevision,
-      featureId: feature.id,
-      version: revision.version,
-      status: revision.status,
-      ...extra,
+    const object: FeatureRevisionWebhookPayload = {
+      ...featureRevisionReference(revision),
+      feature: { id: feature.id },
     };
 
     await createEvent({
@@ -109,7 +104,10 @@ export async function dispatchFeatureRevisionEvent<
       object: "feature",
       objectId: feature.id,
       event,
-      data: { object } as CreateEventData<"feature", T>,
+      data: { object: { ...object, ...extra } } as CreateEventData<
+        "feature",
+        T
+      >,
       projects,
       tags,
       environments,
@@ -130,8 +128,8 @@ export async function dispatchRevisionReviewEvent(
   finalRevision: FeatureRevisionInterface,
   review: "Approved" | "Requested Changes" | "Comment",
   comment: string | undefined,
-  reviewer: { id?: string; name?: string; email?: string },
 ): Promise<void> {
+  const reviewer = webhookActor(ctx.auditUser);
   switch (review) {
     case "Approved":
       await ctx.auditLog({

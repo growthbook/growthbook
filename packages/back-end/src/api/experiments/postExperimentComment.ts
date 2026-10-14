@@ -8,11 +8,11 @@ export const postExperimentComment = createApiRequestHandler(
   postExperimentCommentValidator,
 )(async (req) => {
   const context = req.context as ReqContext;
-  const { org, userId, email, userName } = context;
+  const person = context.actingPerson;
 
-  if (!userId || !email) {
+  if (!person?.email) {
     throw new Error(
-      "This endpoint requires a Personal Access Token (not a generic API key) so the comment can be attributed to a user.",
+      "Commenting needs a member: use a personal access token, or an organization API key that assumes a named member's role.",
     );
   }
 
@@ -27,10 +27,10 @@ export const postExperimentComment = createApiRequestHandler(
   }
 
   await addComment(
-    org.id,
+    context.org.id,
     "experiment",
     req.params.id,
-    { id: userId, email, name: userName || email },
+    { id: person.id, email: person.email, name: person.name || person.email },
     req.body.comment,
   );
 
