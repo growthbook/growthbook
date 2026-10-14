@@ -123,7 +123,7 @@ export default function SRMCardShell({
   );
 
   return (
-    <Box className={className} my="5" pl="4" py="4">
+    <Box className={className} my="5" px="4" py="4">
       <div style={{ overflow: "auto" }}>
         {headerRight ? (
           <Flex justify="between" align="start" gap="2">
