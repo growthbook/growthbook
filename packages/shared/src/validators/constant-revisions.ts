@@ -328,6 +328,7 @@ export const postConstantRevisionPublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/publish",
   confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmationInHandler: true,
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:

@@ -31,6 +31,11 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
+import {
+  confirmationLink,
+  gateNotices,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -106,7 +111,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
-  const { bypassed } = resolveEntityPublishGates({
+  const { bypassed, skipped } = resolveEntityPublishGates({
     entityType: "constant",
     req,
     gates,
@@ -201,6 +206,16 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // Experiment/lock/schema-break guards were enforced above via the adapter's
   // collectPublishGates + evaluatePublishGates (the collector also records any
   // synchronous override in the logs), so no separate assert runs here.
+
+  await requireConfirmation(req.context, {
+    labels: ["constant.publish"],
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    project: constant.project,
+    summary: `Publish revision ${revision.version} of ${constant.key}`,
+    links: [confirmationLink("constant", constant.key)],
+    pin: revision.dateUpdated,
+  });
 
   // Keep no-op publishes on the shared gated path.
   const merged = await publishRevision(

@@ -189,8 +189,13 @@ export async function requireConfirmation(
 ): Promise<void> {
   const environments = opts.environments ?? [];
   const labels = [
-    ...opts.labels,
-    ...(opts.bypassing ?? []).flatMap(({ via }) => OVERRIDE_LABELS[via] ?? []),
+    ...new Set([
+      ...opts.labels,
+      ...(opts.bypassing ?? []).flatMap(
+        ({ via }) => OVERRIDE_LABELS[via] ?? [],
+      ),
+      ...requestedOverrides(context),
+    ]),
   ];
   const actions = matchConfirmRules(
     rulesFor(context),
@@ -283,6 +288,17 @@ export async function requireConfirmation(
 const asks = (v: unknown) =>
   v === true || (typeof v === "string" && stringToBoolean(v));
 
+// Skip flags the request sends hold wherever it is checked, needed or not.
+// Reads the replayed request on a confirmed run, so both see the same flags.
+function requestedOverrides(context: ReqContext): ConfirmLabel[] {
+  const source = context.dispatchedRequest ?? context.req;
+  const query = asRecord(source?.query);
+  const body = asRecord(source?.body);
+  return Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, label]) =>
+    asks(query[flag]) || asks(body[flag]) ? [label] : [],
+  );
+}
+
 // The route-level hold: the endpoint's labels, with no environments, before the
 // handler loads anything. Nothing has run, so replay is always safe.
 export async function holdAtRoute(
@@ -294,16 +310,8 @@ export async function holdAtRoute(
   summary?: string,
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
-  const query = asRecord(req.query);
-  const body = asRecord(req.body);
-  const requested = Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(
-    ([flag, label]) => (asks(query[flag]) || asks(body[flag]) ? [label] : []),
-  );
   await requireConfirmation(context, {
-    labels: [
-      ...labels.filter((label) => !label.startsWith("override.")),
-      ...requested,
-    ],
+    labels: labels.filter((label) => !label.startsWith("override.")),
     summary:
       summary ||
       `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,

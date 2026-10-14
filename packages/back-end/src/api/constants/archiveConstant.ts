@@ -26,6 +26,11 @@ import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import {
+  confirmationLink,
+  gateNotices,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -119,7 +124,7 @@ async function setArchivedState(
     )) ?? []),
   );
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
     skipSchemaValidation: context.canSkipSchemaValidationFor("constant"),
     skipHooks: context.canSkipHooksFor("constant"),
@@ -143,6 +148,16 @@ async function setArchivedState(
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
+
+  await requireConfirmation(context, {
+    labels: ["constant.archive"],
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    project: constant.project,
+    summary: `${archived ? "Archive" : "Unarchive"} ${constant.key}`,
+    links: [confirmationLink("constant", constant.key)],
+    pin: constant.dateUpdated,
+  });
 
   // One recorded, guarded landing whether or not approval was bypassed.
   await ensureLiveRevisionExists(

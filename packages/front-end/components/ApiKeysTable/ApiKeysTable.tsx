@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCard, PiShieldCheck } from "react-icons/pi";
+import { PiIdentificationCard } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   apiKeyToggleRequiresAdmin,
@@ -9,6 +9,7 @@ import {
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import {
@@ -184,7 +185,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 )}
                 {key.confirmRules && (
                   <KeyTrait
-                    icon={<PiShieldCheck size={18} />}
+                    icon={<HumanInTheLoopIcon size={18} />}
                     color="var(--violet-11)"
                     tooltip="Risky actions made with this key wait for a person to confirm them."
                   >

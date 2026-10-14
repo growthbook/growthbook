@@ -351,6 +351,7 @@ export const postSavedGroupRevisionPublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/publish",
   confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmationInHandler: true,
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:

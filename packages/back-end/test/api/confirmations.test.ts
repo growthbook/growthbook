@@ -438,6 +438,20 @@ describe("confirmations", () => {
     expect((await createDraft("")).status).toBe(200);
   });
 
+  it("holds a skip flag on a direct update, where the handler holds", async () => {
+    await seed("production");
+    setReqContext(
+      asKey({ ...pat, confirmRules: [{ actions: ["override.*"] }] }),
+    );
+    const held = await auth(
+      request(app).post(`/api/v2/features/${FLAG}?skipSchemaValidation=true`),
+    ).send({ archived: true });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "override.skipSchemaValidation", environments: [] },
+    ]);
+  });
+
   it("shows the checks a publish skips, in their own words", async () => {
     await seed("production");
     setReqContext(asKey({ ...pat, ...everything }, reviews));
@@ -456,6 +470,42 @@ describe("confirmations", () => {
         },
       ],
       lastAttemptAt: null,
+    });
+  });
+
+  it("holds a saved group archive after its checks, with what it skips", async () => {
+    await seed("production");
+    await mongoose.connection.collection("savedgroups").insertMany(
+      ["grp_beta", "grp_parent"].map((id) => ({
+        id,
+        organization: ORG_ID,
+        groupName: id,
+        owner: "",
+        type: "condition",
+        condition:
+          id === "grp_parent"
+            ? '{"$savedGroups": ["grp_beta"]}'
+            : '{"id": {"$in": ["a"]}}',
+        dateCreated: now,
+        dateUpdated: now,
+      })),
+    );
+    setReqContext(asKey({ ...pat, ...everything }));
+
+    const held = await auth(
+      request(app).post("/api/v1/saved-groups/grp_beta/archive"),
+    ).send({ ignoreWarnings: true });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "savedGroup.archive", environments: [] },
+      { action: "override.ignoreWarnings", environments: [] },
+    ]);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [{ severity: "warning", via: "ignoreWarnings" }],
     });
   });
 

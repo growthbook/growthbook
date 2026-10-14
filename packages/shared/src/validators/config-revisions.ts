@@ -327,6 +327,7 @@ export const postConfigRevisionPublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/publish",
   confirmation: ["config.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmationInHandler: true,
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
   description:

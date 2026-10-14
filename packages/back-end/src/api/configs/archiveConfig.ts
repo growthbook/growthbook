@@ -33,6 +33,11 @@ import {
   configPublishEnvironments,
 } from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import {
+  confirmationLink,
+  gateNotices,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -133,7 +138,7 @@ async function setArchivedState(
     )) ?? []),
   );
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
     skipSchemaValidation: context.canSkipSchemaValidationFor("config"),
     skipHooks: context.canSkipHooksFor("config"),
@@ -158,6 +163,16 @@ async function setArchivedState(
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
+
+  await requireConfirmation(context, {
+    labels: ["config.archive"],
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    project: config.project,
+    summary: `${archived ? "Archive" : "Unarchive"} ${config.key}`,
+    links: [confirmationLink("config", config.key)],
+    pin: config.dateUpdated,
+  });
 
   // One recorded, guarded landing whether or not approval was bypassed.
   await ensureLiveRevisionExists(
