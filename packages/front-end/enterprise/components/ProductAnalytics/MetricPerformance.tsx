@@ -296,14 +296,7 @@ export default function MetricPerformance({
                         className={styles.unitItem}
                       >
                         <span className={styles.unitOption}>
-                          <span>
-                            <Text color="text-mid">
-                              {metric?.metricType === "funnel"
-                                ? "Shared unit "
-                                : "Unit "}
-                            </Text>
-                            {label}
-                          </span>
+                          <span>{label}</span>
                           <span className={styles.unitDescriptor}>
                             {column}
                           </span>
@@ -357,10 +350,7 @@ export default function MetricPerformance({
                         className={styles.unitItem}
                       >
                         <span className={styles.unitOption}>
-                          <span>
-                            <Text color="text-mid">Unit </Text>
-                            {label}
-                          </span>
+                          <span>{label}</span>
                           <span className={styles.unitDescriptor}>
                             {column}
                           </span>
