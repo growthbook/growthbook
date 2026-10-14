@@ -161,6 +161,7 @@ export default function PopulationEditor({
     setStepKeys((keys) => keys.filter((_, i) => i !== index));
   };
   const atStepLimit = draft.steps.length >= MAX_POPULATION_STEPS;
+  const stepLimitMessage = `Populations can have at most ${MAX_POPULATION_STEPS} steps.`;
 
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
@@ -313,24 +314,32 @@ export default function PopulationEditor({
             ))}
 
             <Flex gap="3" mt="3">
-              <Button
-                variant="soft"
-                size="sm"
-                icon={<PiPlus size={14} />}
-                disabled={atStepLimit}
-                onClick={() => addStep(false)}
-              >
-                Add step
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<PiPlus size={14} />}
-                disabled={atStepLimit || draft.steps.length === 0}
-                onClick={() => addStep(true)}
-              >
-                Add &quot;doesn&apos;t have&quot; step
-              </Button>
+              <Tooltip content={stepLimitMessage} enabled={atStepLimit}>
+                <span>
+                  <Button
+                    variant="soft"
+                    size="sm"
+                    icon={<PiPlus size={14} />}
+                    disabled={atStepLimit}
+                    onClick={() => addStep(false)}
+                  >
+                    Add step
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip content={stepLimitMessage} enabled={atStepLimit}>
+                <span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<PiPlus size={14} />}
+                    disabled={atStepLimit || draft.steps.length === 0}
+                    onClick={() => addStep(true)}
+                  >
+                    Add &quot;doesn&apos;t have&quot; step
+                  </Button>
+                </span>
+              </Tooltip>
             </Flex>
           </Box>
         </Box>
