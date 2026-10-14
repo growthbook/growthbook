@@ -1513,11 +1513,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/DataSourceMetrics.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline.tsx": {
     "no-restricted-imports": {
       "count": 2
