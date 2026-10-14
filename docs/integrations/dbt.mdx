@@ -105,7 +105,7 @@ npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
 npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
 ```
 
-By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive API-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt.
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive API-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
 
 ## Overrides
 
