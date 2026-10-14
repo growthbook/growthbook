@@ -17,6 +17,10 @@ describe("webhook timeout form helpers", () => {
     expect(timeoutError(120)).toBeUndefined();
   });
 
+  it("leaves the cap to the server when self-hosted", () => {
+    expect(timeoutError(500)).toBeUndefined();
+  });
+
   it("rejects zero, fractions, and non-numbers", () => {
     expect(timeoutError(0)).toBeDefined();
     expect(timeoutError(1.5)).toBeDefined();

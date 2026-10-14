@@ -6,6 +6,7 @@ import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
 } from "shared/constants";
 import { z } from "zod";
 
@@ -236,7 +237,7 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
 // Upper bound for the per-webhook request timeout users can configure
 export const MAX_WEBHOOK_TIMEOUT_SECONDS = parseEnvInt(
   process.env.MAX_WEBHOOK_TIMEOUT_SECONDS,
-  120,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
   { min: 1, name: "MAX_WEBHOOK_TIMEOUT_SECONDS" },
 );
 

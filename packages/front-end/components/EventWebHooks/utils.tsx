@@ -1,5 +1,6 @@
 import { publicNotificationEventNames } from "shared/notifications";
 import { NotificationEventNameOrWildcard } from "shared/validators";
+import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
@@ -14,6 +15,7 @@ import {
 import { VscJson } from "react-icons/vsc";
 import { FormatOptionLabelMeta } from "react-select";
 import { SingleValue } from "@/components/Forms/SelectField";
+import { isCloud } from "@/services/env";
 
 export type {
   EventWebHookPayloadType,
@@ -47,10 +49,17 @@ export type EventWebHookEditParams = {
 export const timeoutSecondsFromInput = (v: string) =>
   v === "" ? null : Number(v);
 
-export const timeoutError = (n?: number | null) =>
-  n === null || n === undefined || (Number.isInteger(n) && n >= 1)
-    ? undefined
-    : "Enter a whole number of seconds, at least 1.";
+// Self-hosted caps are only known to the server, which rejects the save
+export const timeoutError = (n?: number | null) => {
+  if (n === null || n === undefined) return undefined;
+  if (!Number.isInteger(n) || n < 1) {
+    return "Enter a whole number of seconds, at least 1.";
+  }
+  if (isCloud() && n > DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS) {
+    return `Enter at most ${DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS} seconds.`;
+  }
+  return undefined;
+};
 
 export const notificationEventNames = publicNotificationEventNames;
 

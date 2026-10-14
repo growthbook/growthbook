@@ -341,6 +341,8 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+// Default for MAX_WEBHOOK_TIMEOUT_SECONDS; Cloud uses it as is
+export const DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS = 120;
 
 // SDK Connection settings that add optional data to the SDK payload
 export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [

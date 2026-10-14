@@ -231,6 +231,7 @@ export function CreateSDKWebhookModal({
         header="Create New SDK Webhook"
         open={true}
         size="lg"
+        ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
         submit={form.handleSubmit(async (inputs) => {
           if (!webhookType) {
             throw new Error("Please select a Webhook type");
