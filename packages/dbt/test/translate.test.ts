@@ -84,19 +84,46 @@ describe("translate (legacy spec)", () => {
       expect(metric(id).numerator?.factTableId).toBe("orders__customer");
     }
     expect(metric("west_food_revenue").numerator?.rowFilters).toEqual([
-      { operator: "sql_expr", values: ["customer__region = 'west'"] },
-      { operator: "sql_expr", values: ["is_food_order = true"] },
+      { operator: "=", column: "customer__region", values: ["west"] },
+      { operator: "is_true", column: "is_food_order" },
     ]);
   });
 
-  it("renders own-model filters against the dimension expression", () => {
+  it("parses simple comparisons into structured row filters", () => {
     expect(metric("food_orders").numerator).toEqual({
       factTableId: "orders",
       column: "$$count",
-      rowFilters: [{ operator: "sql_expr", values: ["is_food_order = true"] }],
+      rowFilters: [{ operator: "is_true", column: "is_food_order" }],
     });
     expect(metric("completed_orders").numerator?.rowFilters).toEqual([
-      { operator: "sql_expr", values: ["status = 'completed'"] },
+      { operator: "=", column: "status", values: ["completed"] },
+    ]);
+    expect(metric("multi_item_orders").numerator?.rowFilters).toEqual([
+      { operator: ">", column: "item_count", values: ["1"] },
+    ]);
+    expect(metric("priority_orders").numerator?.rowFilters).toEqual([
+      { operator: "in", column: "status", values: ["rush", "it's urgent"] },
+      { operator: "is_false", column: "is_food_order" },
+    ]);
+    expect(metric("unshipped_orders").numerator?.rowFilters).toEqual([
+      { operator: "is_null", column: "delivered_at" },
+    ]);
+    // Numeric and boolean literals type the column so values aren't quoted.
+    expect(table("orders").columns).toEqual(
+      expect.arrayContaining([
+        { column: "item_count", datatype: "number" },
+        { column: "is_food_order", datatype: "boolean" },
+      ]),
+    );
+  });
+
+  it("falls back to sql_expr for anything else", () => {
+    expect(metric("web_or_food_orders").numerator?.rowFilters).toEqual([
+      {
+        operator: "sql_expr",
+        values: ["(lower(source)) = 'web' OR is_food_order = true"],
+      },
+      { operator: "sql_expr", values: ["(lower(source)) = 'web'"] },
     ]);
   });
 
@@ -135,9 +162,7 @@ describe("translate (legacy spec)", () => {
       metricType: "ratio",
       numerator: {
         column: "$$count",
-        rowFilters: [
-          { operator: "sql_expr", values: ["is_food_order = true"] },
-        ],
+        rowFilters: [{ operator: "is_true", column: "is_food_order" }],
       },
       denominator: { column: "$$count" },
     });
@@ -160,7 +185,7 @@ describe("translate (legacy spec)", () => {
             name: "visits",
             factTableId: "visits",
             rowFilters: [
-              { operator: "sql_expr", values: ["referrer = 'facebook'"] },
+              { operator: "=", column: "referrer", values: ["facebook"] },
             ],
             optional: false,
           },
@@ -289,7 +314,7 @@ describe("translate (v1.12 spec)", () => {
       column: "order_total",
     });
     expect(metric("food_orders").numerator?.rowFilters).toEqual([
-      { operator: "sql_expr", values: ["is_food_order = true"] },
+      { operator: "is_true", column: "is_food_order" },
     ]);
     expect(metric("aov")).toMatchObject({
       metricType: "ratio",

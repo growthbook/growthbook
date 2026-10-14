@@ -83,7 +83,9 @@
           "type_params": { "time_granularity": "day" }
         },
         { "name": "is_food_order", "type": "categorical", "expr": null },
-        { "name": "order_status", "type": "categorical", "expr": "status" }
+        { "name": "order_status", "type": "categorical", "expr": "status" },
+        { "name": "item_count", "type": "categorical", "expr": null },
+        { "name": "channel", "type": "categorical", "expr": "lower(source)" }
       ],
       "measures": [
         {
@@ -592,6 +594,68 @@
       "type_params": { "measure": { "name": "order_count" } },
       "filter": null,
       "config": { "meta": { "growthbook": { "enabled": false } } },
+      "tags": []
+    },
+    "metric.jaffle.multi_item_orders": {
+      "name": "multi_item_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__item_count') }} > 1"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.priority_orders": {
+      "name": "priority_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__order_status') }} IN ('rush', 'it''s urgent')"
+          },
+          {
+            "where_sql_template": "{{ Dimension('order_id__is_food_order') }} != true"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.unshipped_orders": {
+      "name": "unshipped_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__delivered_at') }} IS NULL"
+          }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.web_or_food_orders": {
+      "name": "web_or_food_orders",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_count" } },
+      "filter": {
+        "where_filters": [
+          {
+            "where_sql_template": "{{ Dimension('order_id__channel') }} = 'web' OR {{ Dimension('order_id__is_food_order') }} = true"
+          },
+          {
+            "where_sql_template": "{{ Dimension('order_id__channel') }} = 'web'"
+          }
+        ]
+      },
+      "config": { "meta": {} },
       "tags": []
     },
     "metric.jaffle.tagged_metric": {
