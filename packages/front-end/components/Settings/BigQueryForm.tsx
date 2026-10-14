@@ -32,8 +32,6 @@ export function BigQueryAdvancedSettings({
   );
 }
 
-export type BigQueryTestStatus = "success" | "warning" | "danger";
-
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
@@ -41,8 +39,12 @@ const BigQueryForm: FC<{
   projects?: string[];
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-  /** Reports the in-form connection test. `null` means untested or credentials changed since. */
-  onTestResult?: (status: BigQueryTestStatus | null) => void;
+  /**
+   * Hide Default Dataset and the inline Test Connection button. The dataset
+   * only seeds generated SQL, and the inline test exists to list datasets for
+   * it, so neither applies when the caller tests the connection itself.
+   */
+  connectionOnly?: boolean;
 }> = ({
   params,
   setParams,
@@ -50,7 +52,7 @@ const BigQueryForm: FC<{
   datasourceId,
   projects,
   onParamChange,
-  onTestResult,
+  connectionOnly = false,
 }) => {
   const cloud = isCloud();
   const authType = cloud ? "json" : (params.authType ?? "json");
@@ -59,14 +61,10 @@ const BigQueryForm: FC<{
     authType,
   );
   const [testConnectionResults, setTestConnectionResults] = useState<{
-    status: BigQueryTestStatus;
+    status: "success" | "warning" | "danger";
     message: string;
     datasetOptions: string[];
   } | null>(null);
-
-  useEffect(() => {
-    onTestResult?.(testConnectionResults?.status ?? null);
-  }, [testConnectionResults, onTestResult]);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   // Without a saved Data Source, testing requires permission to create one in these projects.
@@ -249,25 +247,29 @@ const BigQueryForm: FC<{
                 JSON key file.
               </Callout>
             )}
-            <Button
-              disabled={
-                !canTestConnection ||
-                !params.projectId ||
-                !params.clientEmail ||
-                (!params.privateKey && !datasourceId)
-              }
-              color="primary"
-              className="mt-2"
-              onClick={async () => {
-                await testConnection();
-              }}
-            >
-              Test Connection
-            </Button>
+            {!connectionOnly && (
+              <Button
+                disabled={
+                  !canTestConnection ||
+                  !params.projectId ||
+                  !params.clientEmail ||
+                  (!params.privateKey && !datasourceId)
+                }
+                color="primary"
+                className="mt-2"
+                onClick={async () => {
+                  await testConnection();
+                }}
+              >
+                Test Connection
+              </Button>
+            )}
           </div>
         </>
       )}
-      <div className="form-group col-md-6">
+      <div
+        className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
+      >
         <label>BigQuery Project ID</label>
         <Field
           size="legacy"
@@ -279,48 +281,50 @@ const BigQueryForm: FC<{
           placeholder=""
         />
       </div>
-      <div className="form-group col-md-6">
-        <label>
-          Default Dataset{" "}
-          <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
-        </label>
-        {testConnectionResults &&
-        testConnectionResults?.datasetOptions.length > 0 ? (
-          <SelectField
-            size="legacy"
-            placeholder="Choose a dataset or create a new one..."
-            name="defaultDataset"
-            autoComplete="off"
-            sort={false}
-            options={testConnectionResults.datasetOptions.map((option) => ({
-              label: option,
-              value: option,
-            }))}
-            createable
-            required
-            isClearable
-            value={params.defaultDataset || ""}
-            onChange={(value) => setParams({ ["defaultDataset"]: value })}
-            helpText="Select the dataset where your experiment assignments are or will be stored."
-          />
-        ) : (
-          <Field
-            size="legacy"
-            type="text"
-            className="form-control"
-            name="defaultDataset"
-            value={params.defaultDataset || ""}
-            onChange={onParamChange}
-            placeholder=""
-            helpText={
-              authType !== "auto"
-                ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
-                : ""
-            }
-            required
-          />
-        )}
-      </div>
+      {!connectionOnly && (
+        <div className="form-group col-md-6">
+          <label>
+            Default Dataset{" "}
+            <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
+          </label>
+          {testConnectionResults &&
+          testConnectionResults?.datasetOptions.length > 0 ? (
+            <SelectField
+              size="legacy"
+              placeholder="Choose a dataset or create a new one..."
+              name="defaultDataset"
+              autoComplete="off"
+              sort={false}
+              options={testConnectionResults.datasetOptions.map((option) => ({
+                label: option,
+                value: option,
+              }))}
+              createable
+              required
+              isClearable
+              value={params.defaultDataset || ""}
+              onChange={(value) => setParams({ ["defaultDataset"]: value })}
+              helpText="Select the dataset where your experiment assignments are or will be stored."
+            />
+          ) : (
+            <Field
+              size="legacy"
+              type="text"
+              className="form-control"
+              name="defaultDataset"
+              value={params.defaultDataset || ""}
+              onChange={onParamChange}
+              placeholder=""
+              helpText={
+                authType !== "auto"
+                  ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
+                  : ""
+              }
+              required
+            />
+          )}
+        </div>
+      )}
       <div className="form-group col-md-12">
         <label>
           Reservation (optional){" "}
