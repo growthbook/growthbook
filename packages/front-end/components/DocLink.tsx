@@ -148,12 +148,16 @@ export function getDocSectionsForCommandPalette(): {
   url: string;
   tags: string;
 }[] {
-  return (Object.keys(docSections) as DocSection[]).map((section) => ({
-    section,
-    title: docTitleForSection(section),
-    url: docUrl(section),
-    tags: `${section} documentation`,
-  }));
+  // The remote groups page is unlisted while the feature is behind a flag
+  const unlisted: DocSection[] = ["remoteSavedGroups"];
+  return (Object.keys(docSections) as DocSection[])
+    .filter((section) => !unlisted.includes(section))
+    .map((section) => ({
+      section,
+      title: docTitleForSection(section),
+      url: docUrl(section),
+      tags: `${section} documentation`,
+    }));
 }
 
 export function DocLink({

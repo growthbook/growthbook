@@ -146,7 +146,7 @@ export const docSections = {
   apiPostEnvironment: "/api/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   // The saved groups section until a remote saved groups page is written
-  remoteSavedGroups: "/features/targeting#saved-groups",
+  remoteSavedGroups: "/features/remote-saved-groups",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
