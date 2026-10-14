@@ -168,7 +168,7 @@ export function createPropsToInterface(
 ): FactTableInterface {
   const props = {
     ...rawProps,
-    owner: rawProps.owner || context.userId,
+    owner: rawProps.owner || context.actingUserId,
   };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {

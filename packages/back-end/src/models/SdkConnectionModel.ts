@@ -654,7 +654,6 @@ export async function testProxyConnection(
   if (!proxy) {
     return {
       status: 0,
-      body: "",
       error: "Proxy connection is not enabled",
       version: "",
       url: "",
@@ -666,8 +665,7 @@ export async function testProxyConnection(
   }
 
   const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
-  let statusCode = 0,
-    body = "";
+  let statusCode = 0;
   try {
     const { responseWithoutBody, stringBody } = await cancellableFetch(
       url,
@@ -680,22 +678,28 @@ export async function testProxyConnection(
       },
     );
     statusCode = responseWithoutBody.status;
-    body = stringBody;
 
     if (!responseWithoutBody.ok || !stringBody) {
       return {
         status: statusCode,
-        body: body,
         error: "Proxy healthcheck returned a non-successful status code",
         version: "",
         url,
       };
     }
 
+    let json: unknown;
+    try {
+      json = JSON.parse(stringBody);
+    } catch {
+      // JSON.parse's message quotes the body, which must not reach the caller.
+      throw new Error("Proxy healthcheck did not return valid JSON");
+    }
+
     const validator = z.object({
       proxyVersion: z.string(),
     });
-    const res = validator.safeParse(JSON.parse(stringBody));
+    const res = validator.safeParse(json);
     if (!res.success) {
       throw new Error(errorStringFromZodResult(res));
     }
@@ -722,7 +726,6 @@ export async function testProxyConnection(
 
     return {
       status: statusCode,
-      body: body,
       error: "",
       version,
       url,
@@ -730,7 +733,6 @@ export async function testProxyConnection(
   } catch (e) {
     return {
       status: statusCode || 0,
-      body: body || "",
       error:
         e?.code === "ECONNREFUSED"
           ? "Failed to connect to proxy server (ECONNREFUSED)"
