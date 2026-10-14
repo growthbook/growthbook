@@ -15,6 +15,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
+import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { DataListItem } from "@/ui/DataList";
 import Field from "@/components/Forms/Field";
@@ -129,6 +130,16 @@ export default function AdvancedSettings({
       ? form.watch("regressionAdjustmentDays")
       : orgSettings.regressionAdjustmentDays;
     const items: DataListItem[] = [
+      ...(formType !== "funnel"
+        ? [
+            {
+              label: "Metric goal",
+              value: form.watch("inverse")
+                ? "Decrease the metric value"
+                : "Increase the metric value",
+            },
+          ]
+        : []),
       {
         label: "Target MDE",
         value: `${form.watch("targetMDE") ?? metricDefaults.targetMDE * 100}%`,
@@ -187,7 +198,7 @@ export default function AdvancedSettings({
     return (
       <Frame px="5" py="5" mb="0">
         <details open>
-          <Summary subtitle="Metric delay, decision framework, thresholds, priors, CUPED" />
+          <Summary subtitle="Metric goal, metric delay, decision framework, thresholds, priors, CUPED" />
           <Grid
             asChild
             columns={{ initial: "1", sm: "2" }}
@@ -223,7 +234,7 @@ export default function AdvancedSettings({
   return (
     <Frame px="5" py="5" mb="0">
       <details>
-        <Summary subtitle="Metric delay, decision framework, thresholds, priors, CUPED" />
+        <Summary subtitle="Metric goal, metric delay, decision framework, thresholds, priors, CUPED" />
         <Flex direction="column" gap="3" mt="4">
           <Tabs defaultValue="analysis">
             <TabsList mb="3" aria-label="Advanced settings">
@@ -234,6 +245,22 @@ export default function AdvancedSettings({
               <Flex direction="column" gap="3">
                 {
                   <>
+                    {formType !== "funnel" && (
+                      <div className={styles.setting}>
+                        <Select
+                          label="Metric goal"
+                          value={form.watch("inverse") ? "1" : "0"}
+                          setValue={(v) => form.setValue("inverse", v === "1")}
+                        >
+                          <SelectItem value="0">
+                            Increase the metric value
+                          </SelectItem>
+                          <SelectItem value="1">
+                            Decrease the metric value
+                          </SelectItem>
+                        </Select>
+                      </div>
+                    )}
                     {windowOk(formType) && (
                       <div className={styles.setting}>
                         <MetricDelaySettings form={form} />

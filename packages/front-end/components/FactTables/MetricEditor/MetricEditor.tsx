@@ -473,29 +473,6 @@ export default function MetricEditor({
                 />
               ))}
 
-            {!isFunnel &&
-              (canEdit ? (
-                <Select
-                  label="Metric goal"
-                  value={form.watch("inverse") ? "1" : "0"}
-                  setValue={(v) => form.setValue("inverse", v === "1")}
-                >
-                  <SelectItem value="0">Increase the metric value</SelectItem>
-                  <SelectItem value="1">Decrease the metric value</SelectItem>
-                </Select>
-              ) : (
-                <DataList
-                  data={[
-                    {
-                      label: "Metric goal",
-                      value: form.watch("inverse")
-                        ? "Decrease the metric value"
-                        : "Increase the metric value",
-                    },
-                  ]}
-                />
-              ))}
-
             {windowOk(formType) &&
               (canEdit ? (
                 <MetricWindowSettingsForm
