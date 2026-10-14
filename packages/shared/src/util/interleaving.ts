@@ -6,6 +6,15 @@ export function getInterleavingFeatureDefId(key: string): string {
   return `$interleave:${key}`;
 }
 
+// Whether the interleaving's targeting is (or can start) being served by its
+// pseudo flag. Stopped and archived interleavings ship no flag.
+export function interleavingTargetingServes(il: {
+  status: string;
+  archived: boolean;
+}): boolean {
+  return il.status !== "stopped" && !il.archived;
+}
+
 // `getValidation` turns an unparseable schema into "validation disabled", so an
 // enabled schema that doesn't parse would silently accept every config.
 export function assertUsableRankerSchema(

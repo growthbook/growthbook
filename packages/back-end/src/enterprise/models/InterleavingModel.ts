@@ -15,7 +15,7 @@ import { validateChangedRuleReferences } from "back-end/src/api/features/validat
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getSDKPayloadKeys } from "back-end/src/util/features";
+import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
 
 function servesPayload(doc: InterleavingInterface): boolean {
   return !doc.archived && doc.status !== "draft";
@@ -205,23 +205,14 @@ export class InterleavingModel extends BaseClass {
   }
 
   private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
-    const serving = docs.filter(servesPayload);
-    if (!serving.length) return;
-    const environments = new Set(
-      serving.flatMap((doc) =>
-        interleavingEnvsForChange({
-          existing: doc,
-          environmentIds: this.context.environments,
-        }),
-      ),
+    const payloadKeys = getInterleavingPayloadKeys(
+      docs.filter(servesPayload),
+      this.context.environments,
     );
-    if (!environments.size) return;
+    if (!payloadKeys.length) return;
     queueSDKPayloadRefresh({
       context: this.context,
-      payloadKeys: getSDKPayloadKeys(
-        environments,
-        new Set(serving.map((doc) => doc.project || "")),
-      ),
+      payloadKeys,
       auditContext: { event, model: "interleaving", id: docs[0].id },
     });
   }

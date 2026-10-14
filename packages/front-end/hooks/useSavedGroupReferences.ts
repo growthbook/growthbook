@@ -20,10 +20,17 @@ export type ContextualBanditRef = {
   project?: string;
 };
 
+export type InterleavingRef = {
+  id: string;
+  name: string;
+  project?: string;
+};
+
 export type SavedGroupReferences = {
   features: SavedGroupRef[];
   experiments: ExperimentRef[];
   contextualBandits: ContextualBanditRef[];
+  interleavings: InterleavingRef[];
   savedGroups: SavedGroupGroupRef[];
 };
 
