@@ -67,6 +67,7 @@ export default function ContextualBanditHealthTab({
         variations={variations}
         isBandit
         disableDimensions
+        overTimeTitle="Traffic Over Time"
       />
 
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
