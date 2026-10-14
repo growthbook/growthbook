@@ -101,7 +101,7 @@ export const apiCreatePopulationBody = z
       .array(z.string())
       .min(1)
       .describe(
-        "Identifier types the population can be joined on. Every step's fact table must support all of them",
+        "Identifier types the Population can be joined on. Every step's fact table must support all of them",
       ),
     steps: z
       .array(apiPopulationStepInput)
@@ -111,10 +111,10 @@ export const apiCreatePopulationBody = z
         `Steps a unit must complete, in order, to be included. The steps can read from at most ${MAX_POPULATION_FACT_TABLES} distinct fact tables`,
       ),
   })
-  .describe("Create a population");
+  .describe("Create a Population");
 
 export const apiUpdatePopulationBody = apiCreatePopulationBody
   .omit({ datasource: true, owner: true })
   .partial()
   .extend({ owner: ownerInputField.optional() })
-  .describe("Update a population");
+  .describe("Update a Population");

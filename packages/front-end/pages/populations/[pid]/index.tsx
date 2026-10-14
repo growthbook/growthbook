@@ -227,7 +227,7 @@ export default function PopulationPage() {
           </Heading>
           <Text size="sm" color="text-mid">
             Member counts and the membership chart are coming soon. Membership
-            is calculated when the population refreshes.
+            is calculated when the Population refreshes.
           </Text>
         </Box>
         <Box className="appbox" p="5" mb="0" style={{ flex: "1 1 280px" }}>

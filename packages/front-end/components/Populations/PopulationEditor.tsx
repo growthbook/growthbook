@@ -87,7 +87,7 @@ export default function PopulationEditor({
     : permissionsUtil.canCreatePopulation({ projects });
   const issue = canSave
     ? getPopulationDraftIssue(draft)
-    : "You don't have permission to save this population.";
+    : "You don't have permission to save this Population.";
 
   const userIdTypeOptions =
     getDatasourceById(draft.datasource)?.settings.userIdTypes?.map(
@@ -145,7 +145,7 @@ export default function PopulationEditor({
                 { display: population.name, href: cancelHref },
                 { display: "Edit" },
               ]
-            : [{ display: "New population" }]),
+            : [{ display: "New Population" }]),
         ]}
       />
       <Flex justify="between" align="center" gap="3" mb="4" wrap="wrap">
@@ -159,7 +159,7 @@ export default function PopulationEditor({
           <Tooltip content={issue ?? ""} enabled={!!issue}>
             <span>
               <Button onClick={save} setError={setError} disabled={!!issue}>
-                Save population
+                Save Population
               </Button>
             </span>
           </Tooltip>
@@ -237,7 +237,7 @@ export default function PopulationEditor({
                 setValue={(description) =>
                   setDraft((d) => ({ ...d, description }))
                 }
-                placeholder="Who is in this population, and what is it used for?"
+                placeholder="Who is in this Population, and what is it used for?"
                 hidePreview
                 maxRows={6}
               />
@@ -316,7 +316,7 @@ export default function PopulationEditor({
           </Heading>
           <Text size="sm" color="text-mid">
             A live size preview is coming soon. Membership is calculated when
-            the population refreshes.
+            the Population refreshes.
           </Text>
         </Box>
       </Flex>

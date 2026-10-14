@@ -125,7 +125,7 @@ export default function PopulationsPage() {
             <Text color="text-mid">
               Groups of users defined by steps against your fact tables. Use
               them to filter and compare charts in Product Analytics. Membership
-              is recalculated each time a population refreshes.
+              is recalculated each time a Population refreshes.
             </Text>
           </Box>
         </Box>
@@ -150,7 +150,7 @@ export default function PopulationsPage() {
         </Callout>
       ) : !populations.length ? (
         <EmptyState
-          title="No populations yet"
+          title="No Populations yet"
           description="Define a group of users by the steps they take in your fact tables."
           leftButton={
             <LinkButton
@@ -170,7 +170,7 @@ export default function PopulationsPage() {
               <TextField
                 type="search"
                 placeholder="Search..."
-                aria-label="Search populations"
+                aria-label="Search Populations"
                 {...searchInputProps}
               />
             </Box>
@@ -290,7 +290,7 @@ export default function PopulationsPage() {
               {!items.length && isFiltered && (
                 <TableRow>
                   <TableCell colSpan={8} style={{ textAlign: "center" }}>
-                    No matching populations.{" "}
+                    No matching Populations.{" "}
                     <a
                       href="#"
                       onClick={(e) => {
