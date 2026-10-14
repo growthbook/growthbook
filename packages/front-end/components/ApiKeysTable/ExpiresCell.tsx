@@ -53,14 +53,13 @@ const ExpiryText: FC<{ expiresAt: ExpiresAt }> = ({ expiresAt }) => {
       </Tooltip>
     );
   }
+  const relative = ago(expiresAt as string | Date);
   return (
     <Tooltip content={datetime(expiresAt as string | Date)}>
       {status === "expiring-soon" ? (
-        <HelperText status="warning">
-          {ago(expiresAt as string | Date)}
-        </HelperText>
+        <HelperText status="warning">{relative}</HelperText>
       ) : (
-        <span>{ago(expiresAt as string | Date)}</span>
+        <span>{relative}</span>
       )}
     </Tooltip>
   );

@@ -631,6 +631,11 @@ export async function approveRevision(
   return updated;
 }
 
+const standingApprovals = (revision: Revision) =>
+  standingReviews(revision.reviews ?? []).filter(
+    (r) => r.decision === "approve",
+  );
+
 // `approved` was decided when given; a later edit can widen past its approver.
 // Only covering approvals count toward a team requirement.
 export function revisionRequiredApproverTeams(
@@ -643,8 +648,7 @@ export function revisionRequiredApproverTeams(
   if (!requirement?.rules.length) return { satisfied: true, unmet: [] };
   return assessRequiredApproverTeams({
     rules: requirement.rules,
-    coveringApproverIds: standingReviews(revision.reviews ?? [])
-      .filter((r) => r.decision === "approve")
+    coveringApproverIds: standingApprovals(revision)
       .map((r) => r.userId)
       .filter((id) => !coverage.uncoveredApprovers.includes(id)),
     org: context.org,
@@ -667,9 +671,7 @@ export async function revisionApprovalsCoverChange(
     : snapshot.project
       ? [snapshot.project]
       : [];
-  const approvals = standingReviews(revision.reviews ?? []).filter(
-    (r) => r.decision === "approve",
-  );
+  const approvals = standingApprovals(revision);
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
   return assessApprovalCoverage({
     org: context.org,
