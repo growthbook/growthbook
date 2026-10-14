@@ -444,6 +444,9 @@ try {
 }
 export const WEBHOOKS = webhooks;
 export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
+export const WEBHOOK_BLOCK_PRIVATE_NETWORKS = stringToBoolean(
+  process.env.WEBHOOK_BLOCK_PRIVATE_NETWORKS,
+);
 
 /**
  * Allows custom configuration of the trust proxy settings as

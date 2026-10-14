@@ -1,5 +1,6 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
+import { getGuardedAgent } from "./egressGuard";
 import { logger } from "./logger";
 import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
@@ -92,10 +93,13 @@ export const cancellableFetch = async (
   let response: Response | null = null;
   let stringBody = "";
 
+  // With an egress proxy configured, filtering destinations is the proxy's job.
+  const httpOptions = getHttpOptions();
+
   try {
     response = await fetch(url, {
       signal: abortController.signal as RequestInit["signal"],
-      ...getHttpOptions(),
+      ...(httpOptions.agent ? httpOptions : { agent: getGuardedAgent }),
       ...fetchOptions,
     });
 
