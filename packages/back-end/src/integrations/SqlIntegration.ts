@@ -1742,6 +1742,9 @@ export default abstract class SqlIntegration
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
+    clusterSubUnit: string | null;
+    clusterIdColumn: string | null;
+    effectiveBaseIdType: string;
   } {
     const {
       settings,
@@ -1761,25 +1764,46 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
+    const clusterSubUnit =
+      settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+        ? settings.clusterSubUnitIdentifier
+        : null;
+    const clusterIdColumn = clusterSubUnit
+      ? exposureQuery.identifierType
+      : null;
+    const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
     return {
       activationMetric,
       experimentDimensions,
       exposureQuery,
       unitDimensions: params.dimensions,
+      clusterSubUnit,
+      clusterIdColumn,
+      effectiveBaseIdType,
     };
   }
 
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      activationMetric,
+      experimentDimensions,
+      clusterIdColumn,
+      effectiveBaseIdType,
+    } = this.parseExperimentParams(params);
 
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.identifierType} ${this.getSqlDialect().getDataType("string")}
+      ${effectiveBaseIdType} ${this.getSqlDialect().getDataType("string")}
+      ${
+        clusterIdColumn
+          ? `, ${clusterIdColumn} ${this.getSqlDialect().getDataType("string")}`
+          : ""
+      }
       , variation ${this.getSqlDialect().getDataType("string")}
       , first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
       ${
@@ -1805,21 +1829,26 @@ export default abstract class SqlIntegration
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
     const { settings, segment, factTableMap } = params;
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+      clusterIdColumn,
+      effectiveBaseIdType,
+    } = this.parseExperimentParams(params);
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: [
-          [exposureQuery.identifierType],
+          [effectiveBaseIdType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
           segment ? [segment.userIdType || "user_id"] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: effectiveBaseIdType,
         experimentId: settings.experimentId,
       },
     );
@@ -1847,6 +1876,7 @@ export default abstract class SqlIntegration
         __existingUnits AS (
           SELECT 
             ${baseIdType}
+            ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
             , variation
             , first_exposure_timestamp AS timestamp
             , max_timestamp
@@ -1893,6 +1923,11 @@ export default abstract class SqlIntegration
         , __filteredNewExposures AS (
           SELECT 
             ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
+            ${
+              clusterIdColumn
+                ? `, ${this.getSqlDialect().castToString(`e.${clusterIdColumn}`)} AS ${clusterIdColumn}`
+                : ""
+            }
             , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
             , e.timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
@@ -1919,6 +1954,7 @@ export default abstract class SqlIntegration
           (
             SELECT
               e.${baseIdType}
+              ${clusterIdColumn ? `, e.${clusterIdColumn}` : ""}
               , e.variation
               , e.timestamp
               , MAX(e.timestamp) OVER () AS max_timestamp
@@ -1936,6 +1972,11 @@ export default abstract class SqlIntegration
         , __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
+            ${
+              clusterIdColumn
+                ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+                : ""
+            }
             , ${this.getSqlDialect().ifElse(
               "COUNT(DISTINCT e.variation) > 1",
               "'__multiple__'",
@@ -1955,6 +1996,7 @@ export default abstract class SqlIntegration
         )
         SELECT 
           ${baseIdType}
+          ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
           , variation
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
