@@ -33,6 +33,7 @@ const baseParams = {
   startDate: new Date("2020-01-01"),
   endDate: null,
   factTableSql: FACT_TABLE_SQL,
+  signals: [],
 };
 const PAIRED: InterleavingAnalysis = { type: "paired" };
 const OWNERSHIP: InterleavingAnalysis = {
@@ -82,6 +83,52 @@ describe("getInterleavingMetricQuery", () => {
       variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
+  });
+
+  it("generates one signal share CTE per distinct engagement signal", () => {
+    const byClick: InterleavingAnalysis = {
+      type: "ownership",
+      attribution: "engagementSignal",
+      signalMetricId: "fact__click",
+    };
+    const byCart: InterleavingAnalysis = {
+      type: "ownership",
+      attribution: "engagementSignal",
+      signalMetricId: "fact__cart",
+    };
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      // Same signal twice (shared CTE) plus a second signal
+      metrics: [
+        proportionMetric(byClick),
+        proportionMetric(byClick),
+        proportionMetric(byCart),
+        proportionMetric(OWNERSHIP),
+      ],
+      signals: [
+        { id: "fact__click", factTableSql: "SELECT 1 AS click" },
+        { id: "fact__cart", factTableSql: "SELECT 2 AS cart" },
+      ],
+    });
+    expect(sql).toContain("__signalShare_0");
+    expect(sql).toContain("__signalShare_1");
+    expect(sql).not.toContain("__signalShare_2");
+    expect(sql).toMatch(/SELECT\s+1 AS click/);
+    expect(sql).toMatch(/SELECT\s+2 AS cart/);
+    // Signal joins need interleave_id on exposures even without paired
+    expect(sql).toContain("e.interleave_id AS interleave_id");
+    expect(sql).not.toContain("__credited");
+    expect(sql).toMatch(/COALESCE\(ss_0\.share_t, 0\)\s*\) AS wins_t_1/);
+    expect(sql).toMatch(/COALESCE\(ss_1\.share_t, 0\)\s*\) AS wins_t_2/);
+    expect(sql).toMatch(/\* ui\.share_t\) AS wins_t_3/);
+    expect(sql).toContain("m3_users_pref_treatment");
+
+    expect(() =>
+      getInterleavingMetricQuery(postgresDialect, {
+        ...baseParams,
+        metrics: [proportionMetric(byClick)],
+      }),
+    ).toThrow("Missing fact table SQL for signal metric fact__click");
 
     // Optionally dump to disk so the SQL can be executed against the demo
     // telemetry database (set INTERLEAVING_SQL_OUT to a directory)

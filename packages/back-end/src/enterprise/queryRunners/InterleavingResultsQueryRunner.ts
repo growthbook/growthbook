@@ -3,6 +3,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   InterleavingAnalysis,
   interleavingResultKey,
+  interleavingSignalMetricIds,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
@@ -87,6 +88,54 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     const factTableMap = await getFactTableMap(this.context);
 
     // Validate each metric and group by fact table
+    // Resolve a metric's fact table and check the columns interleaving needs
+    const getFactTable = (
+      metricId: string,
+      label: string,
+      requireInterleaveId: boolean,
+    ) => {
+      const metric = metricMap.get(metricId);
+      if (!metric || !isFactMetric(metric)) {
+        throw new Error(`${label} not found: ${metricId}`);
+      }
+      const factTable = metric.numerator
+        ? factTableMap.get(metric.numerator.factTableId)
+        : null;
+      if (!factTable) {
+        throw new Error(`Fact table not found for ${label} ${metricId}`);
+      }
+      if (!factTable.userIdTypes.includes(settings.userIdType)) {
+        throw new Error(
+          `${label} ${metricId} requires the '${settings.userIdType}' identifier type on its fact table`,
+        );
+      }
+      const hasColumn = (column: string) =>
+        factTable.columns.some((c) => c.column === column && !c.deleted);
+      if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
+        throw new Error(
+          `${label} ${metricId} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
+        );
+      }
+      if (
+        requireInterleaveId &&
+        !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
+      ) {
+        throw new Error(
+          `${label} ${metricId} needs an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on its fact table to be joined per impression`,
+        );
+      }
+      return { metric, factTable };
+    };
+
+    // Signal tables are joined per impression, so they always need interleave_id
+    const signals = interleavingSignalMetricIds(
+      settings.metrics.flatMap((m) => m.analyses),
+    ).map((id) => ({
+      id,
+      factTableSql: getFactTable(id, "Engagement signal metric", true).factTable
+        .sql,
+    }));
+
     const groups: Record<
       string,
       MetricGroup & {
@@ -96,39 +145,14 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     > = {};
     for (const config of settings.metrics) {
       const kinds = config.analyses.map(sqlAnalysisKind);
-      const metric = metricMap.get(config.id);
-      if (!metric || !isFactMetric(metric)) {
-        throw new Error(`Interleaving metric not found: ${config.id}`);
-      }
+      const { metric, factTable } = getFactTable(
+        config.id,
+        "Interleaving metric",
+        kinds.includes("paired"),
+      );
       if (metric.metricType !== "mean" && metric.metricType !== "proportion") {
         throw new Error(
           `Interleaving metrics must be mean or proportion metrics: ${config.id}`,
-        );
-      }
-      const factTable = metric.numerator
-        ? factTableMap.get(metric.numerator.factTableId)
-        : null;
-      if (!factTable) {
-        throw new Error(`Fact table not found for metric ${config.id}`);
-      }
-      if (!factTable.userIdTypes.includes(settings.userIdType)) {
-        throw new Error(
-          `Interleaving metric ${config.id} requires the '${settings.userIdType}' identifier type on its fact table`,
-        );
-      }
-      const hasColumn = (column: string) =>
-        factTable.columns.some((c) => c.column === column && !c.deleted);
-      if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
-        throw new Error(
-          `Interleaving metric ${config.id} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
-        );
-      }
-      if (
-        kinds.includes("paired") &&
-        !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
-      ) {
-        throw new Error(
-          `Interleaving metric ${config.id} is configured for the paired analysis but its fact table has no '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column`,
         );
       }
 
@@ -173,6 +197,14 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         endDate: settings.endDate,
         factTableSql: group.factTableSql,
         metrics: group.queryMetrics,
+        signals: signals.filter((s) =>
+          group.entries.some(
+            (e) =>
+              e.analysis.type === "ownership" &&
+              e.analysis.attribution === "engagementSignal" &&
+              e.analysis.signalMetricId === s.id,
+          ),
+        ),
       });
 
       queries.push(
@@ -267,7 +299,8 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             };
             return;
           }
-          case "ownership": {
+          case "ownership":
+          case "signal": {
             const prefT = col("users_pref_treatment");
             const prefC = col("users_pref_control");
             const usersExposed = row.users_exposed || 0;

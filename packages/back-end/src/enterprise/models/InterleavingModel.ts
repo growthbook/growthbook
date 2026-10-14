@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   InterleavingInterface,
+  interleavingSignalMetricIds,
   interleavingValidator,
 } from "shared/validators";
 import {
@@ -116,6 +117,25 @@ export class InterleavingModel extends BaseClass {
         ) {
           throw new Error(
             `Interleaving metrics must be mean or proportion metrics: ${id} is a ${metric.metricType} metric`,
+          );
+        }
+      }
+      // Only the signal's events matter, so any fact metric type works
+      for (const id of interleavingSignalMetricIds(
+        doc.metrics.flatMap((m) => m.analyses),
+      )) {
+        if (!isFactMetricId(id)) {
+          throw new Error(
+            `Engagement signal metrics must be fact metrics: ${id}`,
+          );
+        }
+        const metric = await this.context.models.factMetrics.getById(id);
+        if (!metric) {
+          throw new Error(`Engagement signal metric not found: ${id}`);
+        }
+        if (metric.datasource !== doc.datasource) {
+          throw new Error(
+            `Engagement signal metric ${id} must belong to datasource ${doc.datasource}`,
           );
         }
       }

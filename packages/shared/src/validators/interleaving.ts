@@ -19,12 +19,23 @@ export type InterleavingOwnershipAttribution =
 
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
-  z
-    .object({
-      type: z.literal("ownership"),
-      attribution: z.enum(interleavingOwnershipAttribution),
-    })
-    .strict(),
+  z.discriminatedUnion("attribution", [
+    z
+      .object({
+        type: z.literal("ownership"),
+        attribution: z.literal("exposureCount"),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("ownership"),
+        attribution: z.literal("engagementSignal"),
+        // Fact metric whose events (e.g. clicks) decide which ranker owns an
+        // item for a user. A metric can use several different signals.
+        signalMetricId: z.string().min(1),
+      })
+      .strict(),
+  ]),
 ]);
 export type InterleavingAnalysis = z.infer<
   typeof interleavingAnalysisValidator
@@ -33,7 +44,33 @@ export type InterleavingAnalysis = z.infer<
 // Identity of an analysis within a metric. Results are keyed by (metric id,
 // analysis key), so this has to stay stable.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
-  return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
+  switch (a.type) {
+    case "paired":
+      return "paired";
+    case "ownership":
+      return a.attribution === "engagementSignal"
+        ? `ownership:engagementSignal:${a.signalMetricId}`
+        : `ownership:${a.attribution}`;
+    default: {
+      const unknown: never = a;
+      throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
+    }
+  }
+}
+
+// Distinct engagement-signal metric ids used by a list of analyses.
+export function interleavingSignalMetricIds(
+  analyses: InterleavingAnalysis[],
+): string[] {
+  return [
+    ...new Set(
+      analyses.flatMap((a) =>
+        a.type === "ownership" && a.attribution === "engagementSignal"
+          ? [a.signalMetricId]
+          : [],
+      ),
+    ),
+  ];
 }
 
 // Key of one (metric, analysis) pair in snapshot results.

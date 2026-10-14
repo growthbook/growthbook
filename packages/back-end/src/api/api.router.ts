@@ -64,7 +64,6 @@ import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
-import { interleavingDevRoutes } from "./interleaving/interleaving-dev.router";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -208,7 +207,6 @@ export const allRoutes = [
   ...namespacesRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
-  ...interleavingDevRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */

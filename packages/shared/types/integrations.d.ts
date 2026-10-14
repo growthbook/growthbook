@@ -1083,6 +1083,9 @@ export interface InterleavingMetricQueryParams {
   // included when at least one metric requests them.
   factTableSql: string;
   metrics: InterleavingMetricQueryMetric[];
+  // Fact table SQL for each engagement signal metric referenced by `metrics`
+  // (keyed by signal metric id). Signal tables need item_id and interleave_id.
+  signals: { id: string; factTableSql: string }[];
 }
 
 // One row of numeric aggregates; the column set depends on the attribution type
