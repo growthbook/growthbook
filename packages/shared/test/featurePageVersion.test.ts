@@ -7,7 +7,6 @@ const revisionList = [
     version: 11,
     status: "draft",
     createdBy: { type: "api_key", id: "u_pat" },
-    contributors: ["u_pat"],
   },
   {
     version: 10,

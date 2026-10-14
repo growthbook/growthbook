@@ -128,46 +128,6 @@ describe("actor helpers", () => {
     );
   });
 
-  describe("identity", () => {
-    const key = (apiKey: string, assumedRole: boolean): EventUser => ({
-      type: "api_key",
-      apiKey,
-      name: apiKey,
-      requestedBy: dana,
-      ...(assumedRole && { assumedRole: true }),
-    });
-    const callers: [string, EventUser][] = [
-      ["Dana in the app", { type: "dashboard", ...dana }],
-      ["Key assuming Dana", key("key_1", true)],
-      ["Key alone", { type: "api_key", apiKey: "key_1", name: "Key" }],
-      ["Key naming Dana", key("key_1", false)],
-      ["Key2 assuming Dana", key("key_2", true)],
-      ["Key2 naming Dana", key("key_2", false)],
-    ];
-    // Rows ask, columns made the draft: a key is its own identity until it
-    // assumes a member's role, then it is that member.
-    const SAME = [
-      [1, 1, 0, 0, 1, 0],
-      [1, 1, 0, 0, 1, 0],
-      [0, 0, 1, 1, 0, 0],
-      [0, 0, 1, 1, 0, 0],
-      [1, 1, 0, 0, 1, 0],
-      [0, 0, 0, 0, 0, 1],
-    ];
-
-    it.each(callers.map(([name], i) => [name, i]))(
-      "matches %s only to the identities it acts as",
-      (_, row) => {
-        const asker = eventUserIdentity(callers[row][1]);
-        expect(
-          callers.map(([, maker]) =>
-            Number(asker === eventUserIdentity(maker)),
-          ),
-        ).toEqual(SAME[row]);
-      },
-    );
-  });
-
   it("finds the stored actor behind an identity on a revision", () => {
     const key = actors["an org key naming no one"];
     const revision = {

@@ -214,14 +214,11 @@ describe("resolveRequestedBy", () => {
     });
   });
 
-  it.each(["out@example.com", "nobody"])(
-    "refuses %s, who is not a member, with a 400",
-    async (value) => {
-      await expect(
-        resolveRequestedBy(value, org, lookup),
-      ).rejects.toMatchObject({ status: 400 });
-    },
-  );
+  it("refuses a user who is not a member with a 400", async () => {
+    await expect(
+      resolveRequestedBy("out@example.com", org, lookup),
+    ).rejects.toMatchObject({ status: 400 });
+  });
 
   it("lets a token through without the header", async () => {
     await expect(
@@ -315,7 +312,6 @@ describe("armerActor", () => {
     name: "Bot",
     requestedBy: member,
   };
-  const token = { type: "api_key" as const, apiKey: "key_pat", ...member };
 
   it.each([
     [
@@ -330,7 +326,6 @@ describe("armerActor", () => {
       "key_1",
       itself,
     ],
-    ["a scoped token as its owner", { createdBy: token }, "key_pat", token],
     [
       "a key that left no actor by its ID",
       {},

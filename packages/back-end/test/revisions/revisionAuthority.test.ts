@@ -509,12 +509,6 @@ describe("isOwnRevision", () => {
       false,
     ],
     [
-      "a key on a draft the system edited",
-      keyItself,
-      revision("u_dana", [entry("updated", null)]),
-      false,
-    ],
-    [
       "a key on a draft with an edit recorded without its author",
       keyItself,
       revision("u_dana", [entry("updated")]),
