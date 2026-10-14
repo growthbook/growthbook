@@ -11,6 +11,7 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -175,7 +176,7 @@ export const postFeatureRevisionValidator = {
   querySchema: z
     .object({
       overrideDraftLimit: booleanQueryField.describe(
-        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
       ),
     })
     .strict(),

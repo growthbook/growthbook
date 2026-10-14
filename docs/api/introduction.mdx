@@ -71,6 +71,7 @@ People review what the API creates in the GrowthBook UI.
 - Group with tags and Projects (`tags`, `project` or `projects`, depending on the endpoint), not name prefixes.
 - To create a Feature Flag disabled, list every environment in `environments` with `enabled: false`. An environment you leave out uses its default state, which may be enabled.
 - Leave publishing and production changes to a person unless asked.
+- If a request is blocked (an approval requirement, a warning, a Custom Hook, schema validation or a permission error), stop and ask a person. Don't retry with an override field, a different key or another workaround unless a person asked you to.
 
 ## Errors
 
@@ -90,6 +91,8 @@ The response body will be a JSON object with the following properties:
 - **message** - Information about the error
 
 ### Publishing gates
+
+Automated callers, including AI agents, should report a blocked response to a person instead of retrying with an override. Use an override only when a person has explicitly asked for it.
 
 Publish responses include a `gates` array that explains every blocker:
 

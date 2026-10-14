@@ -160,6 +160,11 @@ info:
 
     - Leave publishing and production changes to a person unless asked.
 
+    - If a request is blocked (an approval requirement, a warning, a Custom
+    Hook, schema validation or a permission error), stop and ask a person. Don't
+    retry with an override field, a different key or another workaround unless a
+    person asked you to.
+
 
     ## Errors
 
@@ -196,6 +201,11 @@ info:
 
 
     ### Publishing gates
+
+
+    Automated callers, including AI agents, should report a blocked response to
+    a person instead of retrying with an override. Use an override only when a
+    person has explicitly asked for it.
 
 
     Publish responses include a `gates` array that explains every blocker:
@@ -2444,7 +2454,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -2454,7 +2466,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -2463,7 +2477,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - id
@@ -4036,7 +4052,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -4046,7 +4064,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -4055,7 +4075,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4258,7 +4280,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -4268,7 +4292,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -4277,7 +4303,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - revision
@@ -4534,7 +4562,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4855,7 +4885,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4933,7 +4965,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -4943,7 +4977,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -4952,7 +4988,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - defaultValue
@@ -5043,7 +5081,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - prerequisites
@@ -5133,7 +5173,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - holdout
@@ -5211,7 +5253,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -5291,7 +5335,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -6224,7 +6270,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -6234,7 +6282,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -6243,7 +6293,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - environment
@@ -6934,7 +6986,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -6944,7 +6998,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -6953,7 +7009,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - environment
@@ -7033,7 +7091,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -7117,7 +7177,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -7673,7 +7735,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -7758,7 +7822,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8034,7 +8100,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8108,7 +8176,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -8118,7 +8188,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -8127,7 +8199,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8258,7 +8332,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -8268,7 +8344,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -8277,7 +8355,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -9232,7 +9312,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -9242,7 +9324,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -9251,7 +9335,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - id
@@ -10143,7 +10229,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -10153,7 +10241,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -10162,7 +10252,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -10348,7 +10440,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -10358,7 +10452,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -10367,7 +10463,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - revision
@@ -10711,7 +10809,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -11184,7 +11284,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -11274,7 +11376,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -11284,7 +11388,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -11293,7 +11399,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - defaultValue
@@ -11386,7 +11494,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - prerequisites
@@ -11472,7 +11582,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - holdout
@@ -11547,7 +11659,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -11624,7 +11738,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -12232,7 +12348,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -12242,7 +12360,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -12251,7 +12371,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - rule
@@ -12968,7 +13090,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -12978,7 +13102,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -12987,7 +13113,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - rule
@@ -13063,7 +13191,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13142,7 +13272,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - ruleIds
@@ -13820,7 +13952,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13903,7 +14037,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14054,7 +14190,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -14064,7 +14202,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -14073,7 +14213,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 lockEdits:
                   type: boolean
@@ -14608,7 +14750,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14773,7 +14917,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14850,7 +14996,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -14860,7 +15008,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -14869,7 +15019,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -15029,7 +15181,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -15039,7 +15193,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -15048,7 +15204,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -15430,7 +15588,9 @@ paths:
                     If true, allow creating an experiment even if another
                     experiment with the same tracking key already exists. This
                     is ignored if the organization requires unique tracking keys
-                    as a rule.
+                    as a rule. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 name:
                   description: >-
@@ -16018,7 +16178,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - trackingKey
@@ -16195,7 +16357,9 @@ paths:
                     If true, allow updating the tracking key even if another
                     experiment with the same tracking key already exist. This is
                     ignored if the organization requires unique tracking keys as
-                    a rule.
+                    a rule. Only set this when a person has explicitly asked you
+                    to. If a check blocks you, stop and ask a person instead of
+                    working around it.
                   type: boolean
                 name:
                   description: >-
@@ -16796,7 +16960,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -16927,7 +17093,9 @@ paths:
                 skipChecklist:
                   description: >-
                     If true, skips validating the experiment satisfies all
-                    pre-launch checklist items
+                    pre-launch checklist items. Only set this when a person has
+                    explicitly asked you to. If a check blocks you, stop and ask
+                    a person instead of working around it.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -16938,7 +17106,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -17141,7 +17311,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - results
@@ -17331,7 +17503,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - enableTemporaryRollout
@@ -22497,7 +22671,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23149,7 +23325,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -23356,7 +23534,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23595,7 +23775,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -23846,7 +24028,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23974,7 +24158,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24369,7 +24555,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24379,7 +24567,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24388,7 +24578,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24482,7 +24674,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24492,7 +24686,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24501,7 +24697,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24562,7 +24760,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24572,7 +24772,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24581,7 +24783,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -25061,7 +25265,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25071,7 +25277,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25080,7 +25288,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - archived
@@ -25146,7 +25356,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25156,7 +25368,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25165,7 +25379,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -25404,7 +25620,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25414,7 +25632,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25423,7 +25643,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -25661,7 +25883,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25671,7 +25895,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25680,7 +25906,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -25808,7 +26036,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25818,7 +26048,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25827,7 +26059,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -26066,7 +26300,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26076,7 +26312,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26085,7 +26323,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - key
@@ -26760,7 +27000,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26770,7 +27012,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26779,7 +27023,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -26895,7 +27141,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26905,7 +27153,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26914,7 +27164,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -26974,7 +27226,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26984,7 +27238,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26993,7 +27249,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27433,7 +27691,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27443,7 +27703,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27452,7 +27714,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27559,7 +27823,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27569,7 +27835,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27578,7 +27846,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27670,7 +27940,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27680,7 +27952,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27689,7 +27963,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - property
@@ -27854,7 +28130,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27864,7 +28142,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27873,7 +28153,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27976,7 +28258,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27986,7 +28270,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27995,7 +28281,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - source
@@ -28131,7 +28419,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28141,7 +28431,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28150,7 +28442,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - archived
@@ -28216,7 +28510,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28226,7 +28522,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28235,7 +28533,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -28524,7 +28824,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28534,7 +28836,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28543,7 +28847,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -28748,7 +29054,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28758,7 +29066,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28767,7 +29077,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -28897,7 +29209,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28907,7 +29221,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28916,7 +29232,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -29006,7 +29324,9 @@ paths:
                     Set to true to acknowledge warnings from experiment guards,
                     schema changes, or archives. It can also force-publish an
                     out-of-date draft when the caller has Bypass draft approvals
-                    access for that resource.
+                    access for that resource. Only set this when a person has
+                    explicitly asked you to. If a check blocks you, stop and ask
+                    a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -29014,12 +29334,18 @@ paths:
                     Validation still runs and the response still reports each
                     failure. The caller must have Bypass draft approvals access
                     for Feature Flags, Configs, and Constants in every Project.
+                    Only set this when a person has explicitly asked you to. If
+                    a check blocks you, stop and ask a person instead of working
+                    around it.
                   type: boolean
                 skipHooks:
                   description: >-
                     Set to true to publish despite Custom Hook rejections. The
                     caller must have Bypass draft approvals access for Feature
-                    Flags, Configs, and Constants in every Project.
+                    Flags, Configs, and Constants in every Project. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 comment:
                   description: >-
@@ -34976,7 +35302,10 @@ paths:
                     Bypass a pending approval gate on the current step. Requires
                     admin-level (`FlagsBypassApprovals`) permission. When
                     omitted or `false`, a 409 is returned if the step has an
-                    unsatisfied `holdConditions.requiresApproval` gate.
+                    unsatisfied `holdConditions.requiresApproval` gate. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -63214,12 +63543,16 @@ components:
       description: >-
         If the organization caps concurrent drafts per feature
         (`maxConcurrentDrafts` setting), requests at or over the cap are
-        rejected with a 409. Pass `true` to create the draft anyway.
+        rejected with a 409. Pass `true` to create the draft anyway. Only set
+        this when a person has explicitly asked you to. If a check blocks you,
+        stop and ask a person instead of working around it.
       schema:
         description: >-
           If the organization caps concurrent drafts per feature
           (`maxConcurrentDrafts` setting), requests at or over the cap are
-          rejected with a 409. Pass `true` to create the draft anyway.
+          rejected with a 409. Pass `true` to create the draft anyway. Only set
+          this when a person has explicitly asked you to. If a check blocks you,
+          stop and ask a person instead of working around it.
         anyOf:
           - type: string
             const: 'true'

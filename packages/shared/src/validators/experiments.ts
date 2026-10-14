@@ -18,6 +18,7 @@ import {
   ignoreWarningsBodyField,
   booleanQueryField,
   csvQueryField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -1452,7 +1453,7 @@ const postExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
     name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
@@ -1593,7 +1594,7 @@ const updateExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
     name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION).optional(),
@@ -1807,7 +1808,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisfies all pre-launch checklist items",
+        `If true, skips validating the experiment satisfies all pre-launch checklist items. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
