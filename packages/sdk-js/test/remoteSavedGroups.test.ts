@@ -101,12 +101,34 @@ describe("GrowthBookClient.addRemoteSavedGroups", () => {
     expect(resolved).toBe(user);
   });
 
-  it("doesn't call the resolver when the payload has no remote groups", async () => {
+  it("leaves remoteGroupIds unset when the payload has no remote groups", async () => {
+    // Payloads for SDKs without remote support check __gb_remoteGroupIds
+    // directly, with no remote entries.
+    const notInVip = {
+      "not-vip": {
+        defaultValue: false,
+        rules: [
+          {
+            condition: {
+              __gb_remoteGroupIds: { $nin: ["grp_vip"], $exists: true },
+            },
+            force: true,
+          },
+        ],
+      },
+    };
     const resolver = jest.fn(async () => ["grp_vip"]);
-    const gb = new GrowthBookClient().initSync({ payload: { features } });
-    const resolved = await gb.addRemoteSavedGroups({}, resolver);
+    const gb = new GrowthBookClient().initSync({
+      payload: { features: notInVip },
+    });
+    const user = { attributes: { account_id: "a1" } };
+
+    const resolved = await gb.addRemoteSavedGroups(user, resolver);
+
     expect(resolver).not.toHaveBeenCalled();
-    expect(resolved).toEqual({ remoteGroupIds: [] });
+    expect(resolved).toBe(user);
+    // Unresolved, so the "not in group" rule fails closed
+    expect(gb.isOn("not-vip", resolved)).toBe(false);
   });
 });
 

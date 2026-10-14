@@ -500,6 +500,7 @@ export async function toApiSavedGroupsWithUploads(
           ? {
               version: upload.version,
               dateCreated: upload.dateCreated.toISOString(),
+              numeric: getCsvOptions(context, g).numeric,
             }
           : null,
       };

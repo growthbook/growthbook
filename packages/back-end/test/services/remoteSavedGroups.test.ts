@@ -892,9 +892,11 @@ describe("toApiSavedGroupsWithUploads", () => {
       { ...group, id: "grp_list", type: "list" },
     ]);
 
+    // user_id is a string attribute
     expect(current.currentUpload).toEqual({
       version: 1,
       dateCreated: expect.any(String),
+      numeric: false,
     });
     expect(none.currentUpload).toBeNull();
     expect(list).not.toHaveProperty("currentUpload");

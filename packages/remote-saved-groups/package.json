@@ -19,6 +19,7 @@
     "directory": "packages/remote-saved-groups"
   },
   "scripts": {
+    "prepare": "tsc",
     "build:clean": "rimraf dist tsconfig.tsbuildinfo",
     "build:typescript": "tsc",
     "build": "pnpm build:clean && pnpm build:typescript",

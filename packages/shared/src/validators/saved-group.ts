@@ -175,6 +175,11 @@ export const apiSavedGroupValidator = namedSchema(
         .object({
           version: z.number().int(),
           dateCreated: z.string().meta({ format: "date-time" }),
+          numeric: z
+            .boolean()
+            .describe(
+              "Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)).",
+            ),
         })
         .nullable()
         .describe(

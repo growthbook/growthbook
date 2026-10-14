@@ -70102,9 +70102,15 @@ components:
                 dateCreated:
                   format: date-time
                   type: string
+                numeric:
+                  description: >-
+                    Whether the group's attribute is a number. Loaders store
+                    number IDs in their shortest form, String(Number(id)).
+                  type: boolean
               required:
                 - version
                 - dateCreated
+                - numeric
               additionalProperties: false
             - type: 'null'
       required:

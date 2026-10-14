@@ -46,6 +46,7 @@ import {
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 import {
+  getRemoteSavedGroups,
   isMissingRemoteGroupIds,
   resolveRemoteGroupIds,
 } from "./remoteSavedGroups";
@@ -290,6 +291,13 @@ export class GrowthBookClient<
     userContext: UserContext,
     resolver: SavedGroupResolver,
   ): Promise<UserContext> {
+    // No remote entries doesn't mean no remote rules: payloads for SDKs
+    // without remote support check __gb_remoteGroupIds directly. Leaving it
+    // unset makes those rules fail closed; [] would let every "not in group"
+    // rule match.
+    if (!getRemoteSavedGroups(this._options.savedGroups).length) {
+      return userContext;
+    }
     try {
       const remoteGroupIds = await resolveRemoteGroupIds(
         {

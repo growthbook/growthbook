@@ -113,6 +113,7 @@ export { evalCondition } from "./mongrule";
 export {
   getRemoteSavedGroups,
   redisResolver,
+  resolveRemoteGroupIds,
   REMOTE_GROUP_IDS_ATTRIBUTE,
 } from "./remoteSavedGroups";
 export type { RedisSetClient } from "./remoteSavedGroups";

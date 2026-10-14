@@ -12851,6 +12851,27 @@
             "valuesFrom": "grp_vip"
           }
         }
+      ],
+      [
+        "attribute form, not in group: fails closed while unresolved",
+        { "__gb_remoteGroupIds": { "$nin": ["grp_vip"], "$exists": true } },
+        { "account_id": "a1" },
+        false,
+        {}
+      ],
+      [
+        "attribute form, not in group: resolved to no groups",
+        { "__gb_remoteGroupIds": { "$nin": ["grp_vip"], "$exists": true } },
+        { "account_id": "a2", "__gb_remoteGroupIds": [] },
+        true,
+        {}
+      ],
+      [
+        "attribute form, not in group: a member",
+        { "__gb_remoteGroupIds": { "$nin": ["grp_vip"], "$exists": true } },
+        { "account_id": "a1", "__gb_remoteGroupIds": ["grp_vip"] },
+        false,
+        {}
       ]
     ],
     "feature": [

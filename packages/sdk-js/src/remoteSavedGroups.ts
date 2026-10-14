@@ -46,6 +46,10 @@ export function getRemoteSavedGroups(
  * Asks `resolver` which of the payload's remote groups the user is in. Only
  * the attributes those groups use are passed. Throws what the resolver
  * throws.
+ *
+ * Returns [] when the payload lists no remote groups. Don't set that as
+ * `__gb_remoteGroupIds`: the payload may still check it directly, and [] makes
+ * "not in group" rules match. Check `getRemoteSavedGroups` first.
  */
 export async function resolveRemoteGroupIds(
   attributes: Attributes,
