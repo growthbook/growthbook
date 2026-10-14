@@ -8,7 +8,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { Popover } from "@/ui/Popover";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 
 export default function RoleRuleLabel({
   role,
@@ -33,7 +33,7 @@ export default function RoleRuleLabel({
   return (
     <>
       {sources ? (
-        <Tooltip body={sources}>
+        <Tooltip content={sources}>
           <span style={{ textDecoration: "underline dotted" }}>{name}</span>
         </Tooltip>
       ) : (

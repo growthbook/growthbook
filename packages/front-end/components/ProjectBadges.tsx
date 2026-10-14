@@ -23,7 +23,8 @@ export interface Props {
     | "experiment"
     | "contextual bandit"
     | "interleaving"
-    | "constant";
+    | "constant"
+    | "population";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
