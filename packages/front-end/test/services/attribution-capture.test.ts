@@ -97,6 +97,34 @@ describe("captureAttribution", () => {
     expect(cookie).not.toHaveProperty("li_fat_id");
   });
 
+  it("does not let a docs link overwrite an earlier campaign or ad click", () => {
+    visit("/?utm_source=google&utm_campaign=brand&gclid=click");
+    captureAttribution();
+
+    visit("/?utm_source=docs&utm_medium=navbar&utm_content=start-for-free");
+    captureAttribution();
+
+    const cookie = readGbAttr();
+    expect(cookie?.utm_source).toBe("google");
+    expect(cookie?.utm_campaign).toBe("brand");
+    expect(cookie?.gclid).toBe("click");
+  });
+
+  it("lets a docs link overwrite an earlier touch with no campaign or ad click", () => {
+    setReferrer("https://news.ycombinator.com/");
+    visit("/getstarted");
+    captureAttribution();
+
+    visit("/?utm_source=docs&utm_medium=navbar&utm_content=start-for-free");
+    captureAttribution();
+
+    expect(readGbAttr()).toMatchObject({
+      utm_source: "docs",
+      utm_medium: "navbar",
+      utm_content: "start-for-free",
+    });
+  });
+
   it("keeps the existing cookie on a direct visit with no attribution params (first-touch)", () => {
     visit("/signup?utm_source=ads");
     captureAttribution();
