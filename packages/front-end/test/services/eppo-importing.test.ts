@@ -1395,6 +1395,11 @@ describe("teardownRun", () => {
           name: "Orders",
           numerator: { factTableId: "ftb_2" },
         },
+        {
+          id: "fact__funnel",
+          name: "Checkout funnel",
+          funnelSettings: { steps: [{ factTableId: "ftb_3" }] },
+        },
       ] as Partial<FactMetricInterface>[],
     });
     const metrics = await teardownRun(
@@ -1418,12 +1423,15 @@ describe("teardownRun", () => {
         artifact("metric", "fact__3"),
         artifact("fact-table", "ftb_1"),
         artifact("fact-table", "ftb_2"),
+        artifact("fact-table", "ftb_3"),
       ]),
       apiCall,
     );
     expect(tables.deleted).toBe(2);
+    // A funnel metric uses its tables through its steps
     expect(tables.failures.map((f) => [f.artifact.id, f.error])).toEqual([
       ["ftb_2", "Still used by Fact Metric Orders"],
+      ["ftb_3", "Still used by Fact Metric Checkout funnel"],
     ]);
     expect(calls).not.toContain("DELETE /fact-metrics/fact__2");
     expect(calls).not.toContain("DELETE /fact-tables/ftb_2");

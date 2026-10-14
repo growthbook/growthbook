@@ -1600,7 +1600,10 @@ export async function teardownRun(
         (m) =>
           !isDeleted("metric", m.id) &&
           (m.numerator?.factTableId === artifact.id ||
-            m.denominator?.factTableId === artifact.id),
+            m.denominator?.factTableId === artifact.id ||
+            m.funnelSettings?.steps.some(
+              (step) => step.factTableId === artifact.id,
+            )),
       );
       return users.length
         ? `Fact Metric ${users.map((m) => m.name).join(", ")}`
