@@ -78,7 +78,6 @@ export async function assertIncrementalRefreshPrerequisites({
     activationMetric: experiment.activationMetric,
     metrics: selectedMetrics,
     experimentType: experiment.type,
-    isClusterExperiment: experiment.isClusterExperiment,
   });
 
   if (unsupportedReason) {

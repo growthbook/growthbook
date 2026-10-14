@@ -48,7 +48,6 @@ export function useIncrementalPipelineUnsupportedReason(
         activationMetric: experiment.activationMetric,
         metrics,
         experimentType: experiment.type,
-        isClusterExperiment: experiment.isClusterExperiment,
       }) ?? undefined
     );
   }, [
