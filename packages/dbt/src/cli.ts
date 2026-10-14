@@ -84,6 +84,11 @@ async function main() {
   if (!apiKey && !args.out) {
     throw new Error("An API key is required (--api-key or GROWTHBOOK_API_KEY)");
   }
+  // A selected subset isn't the full picture of dbt, so pruning against it
+  // would archive everything outside the selection.
+  if (args.prune && (args.select || args.exclude)) {
+    throw new Error("--prune cannot be combined with --select or --exclude");
+  }
 
   const api = async (path: string, init?: RequestInit): Promise<ApiResult> => {
     const res = await fetch(`${host}/api/v1${path}`, {
