@@ -507,7 +507,7 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
 }
 
 /* "Start for free" navbar CTA: a quick light sweep across the button every
-   5s, followed by a sparkle twinkling in the top-right corner. */
+   5s, followed by a sparkle twinkling over the end of "free". */
 #topbar-cta-button > a {
   overflow: hidden;
 }
@@ -533,8 +533,9 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
 #topbar-cta-button > a::before {
   content: "";
   position: absolute;
-  top: 4px;
-  right: 6px;
+  top: 7px;
+  right: 11px;
+  z-index: 20;
   width: 9px;
   height: 9px;
   background: #fff;
