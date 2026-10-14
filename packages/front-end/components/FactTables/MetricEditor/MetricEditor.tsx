@@ -21,6 +21,8 @@ import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/Metric
 import Field from "@/components/Forms/Field";
 import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
+import Checkbox from "@/ui/Checkbox";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
@@ -93,6 +95,16 @@ export default function MetricEditor({
     project,
   } = useDefinitions();
   const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  // Official status changes who can edit the metric, so it sits with the
+  // name and its OfficialBadge rather than in Advanced Settings.
+  const canEditOfficial =
+    canEdit &&
+    permissionsUtil.canUpdateOfficialResources(
+      { projects: form.watch("projects") },
+      {},
+    ) &&
+    hasCommercialFeature("manage-official-resources");
   const [showDescription, setShowDescription] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showCappingConversionNotice, setShowCappingConversionNotice] =
@@ -410,6 +422,18 @@ export default function MetricEditor({
                   )}
                 </div>
               </Grid>
+              {canEditOfficial && (
+                <Checkbox
+                  label="Mark as official metric"
+                  disabled={form.watch("managedBy") === "api"}
+                  disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
+                  description="Official metrics can only be modified by admins or users with the ManageOfficialResources policy."
+                  value={form.watch("managedBy") === "admin"}
+                  setValue={(value) =>
+                    form.setValue("managedBy", value ? "admin" : "")
+                  }
+                />
+              )}
             </Flex>
           ) : (
             <Flex direction="column" gap="6">
