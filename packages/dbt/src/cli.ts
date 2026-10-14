@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+import { readFileSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import {
+  BulkImportPayload,
+  DbtManifest,
+  TranslateWarning,
+  translate,
+} from "./translate";
+
+const HELP = `Usage: growthbook-dbt sync --datasource <ds_id> [options]
+
+Translates the semantic models and metrics in a dbt manifest into GrowthBook
+Fact Tables and Fact Metrics and upserts them through the bulk import API.
+
+Options:
+  --manifest <path>     dbt manifest (default: target/manifest.json)
+  --datasource <id>     GrowthBook Data Source id (required)
+  --api-host <url>      default: $GROWTHBOOK_API_HOST or https://api.growthbook.io
+  --api-key <key>       default: $GROWTHBOOK_API_KEY
+  --entities <map>      dbt entity -> identifier type, e.g. customer=user_id,visitor=anonymous_id
+  --select <list>       only sync these metrics/models (name globs or tag:<tag>)
+  --exclude <list>      never sync these metrics/models (name globs or tag:<tag>)
+  --dry-run             validate against the API without writing
+  --strict              exit 1 if anything was skipped
+  --prune               delete api-managed Fact Tables/Metrics on the Data Source that are no longer in dbt
+  --out <path>          write the payload to a file instead of calling the API
+  -h, --help
+`;
+
+interface ApiResult {
+  ok: boolean;
+  status: number;
+  body: unknown;
+}
+
+interface BulkImportResponse {
+  factTablesAdded?: number;
+  factTablesUpdated?: number;
+  factMetricsAdded?: number;
+  factMetricsUpdated?: number;
+  errors?: { resourceType: string; id: string; message: string }[];
+}
+
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === "object" && x !== null;
+
+function printWarnings(warnings: TranslateWarning[]) {
+  for (const w of warnings) {
+    console.log(`[${w.level}] ${w.resource}: ${w.message}`);
+  }
+}
+
+async function main() {
+  const { values: args, positionals } = parseArgs({
+    allowPositionals: true,
+    options: {
+      manifest: { type: "string", default: "target/manifest.json" },
+      datasource: { type: "string" },
+      "api-host": { type: "string" },
+      "api-key": { type: "string" },
+      entities: { type: "string" },
+      select: { type: "string" },
+      exclude: { type: "string" },
+      "dry-run": { type: "boolean", default: false },
+      strict: { type: "boolean", default: false },
+      prune: { type: "boolean", default: false },
+      out: { type: "string" },
+      help: { type: "boolean", short: "h", default: false },
+    },
+  });
+  if (args.help || positionals[0] !== "sync" || !args.datasource) {
+    console.log(HELP);
+    process.exit(args.help ? 0 : 1);
+  }
+
+  const host = (
+    args["api-host"] ??
+    process.env.GROWTHBOOK_API_HOST ??
+    "https://api.growthbook.io"
+  ).replace(/\/$/, "");
+  const apiKey = args["api-key"] ?? process.env.GROWTHBOOK_API_KEY;
+  if (!apiKey && !args.out) {
+    throw new Error("An API key is required (--api-key or GROWTHBOOK_API_KEY)");
+  }
+
+  const api = async (path: string, init?: RequestInit): Promise<ApiResult> => {
+    const res = await fetch(`${host}/api/v1${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    const body: unknown = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, body };
+  };
+  const apiError = (what: string, r: ApiResult) =>
+    new Error(
+      `${what} failed (${r.status}): ${
+        isRecord(r.body) && typeof r.body.message === "string"
+          ? r.body.message
+          : JSON.stringify(r.body)
+      }`,
+    );
+
+  const list = (s?: string) =>
+    s
+      ?.split(",")
+      .map((x) => x.trim())
+      .filter((x) => x);
+  const entities = Object.fromEntries(
+    (list(args.entities) ?? []).map((pair) => {
+      const [from, to] = pair.split("=");
+      if (!from || !to) throw new Error(`Invalid --entities entry "${pair}"`);
+      return [from, to];
+    }),
+  );
+
+  let idTypes: string[] | undefined;
+  if (apiKey) {
+    const r = await api(`/data-sources/${args.datasource}`);
+    if (!r.ok) throw apiError("Fetching the Data Source", r);
+    const ds =
+      isRecord(r.body) && isRecord(r.body.dataSource) ? r.body.dataSource : {};
+    idTypes = (Array.isArray(ds.identifierTypes) ? ds.identifierTypes : [])
+      .map((t: unknown) => (isRecord(t) ? t.id : null))
+      .filter((id): id is string => typeof id === "string");
+  }
+
+  const manifest: unknown = JSON.parse(readFileSync(args.manifest, "utf8"));
+  if (!isRecord(manifest))
+    throw new Error(`${args.manifest} is not a dbt manifest`);
+  const { payload, warnings } = translate(manifest as DbtManifest, {
+    datasource: args.datasource,
+    entities,
+    idTypes,
+    select: list(args.select),
+    exclude: list(args.exclude),
+  });
+  printWarnings(warnings);
+  console.log(
+    `Translated ${payload.factTables.length} fact table(s) and ${payload.factMetrics.length} metric(s)`,
+  );
+  const skipped = warnings.filter((w) => w.level === "skipped").length;
+  if (args.strict && skipped) {
+    throw new Error(`${skipped} resource(s) were skipped (--strict)`);
+  }
+
+  if (args.out) {
+    writeFileSync(args.out, JSON.stringify(payload, null, 2) + "\n");
+    console.log(`Wrote ${args.out}`);
+    return;
+  }
+
+  const bulk = async (dryRun: boolean) => {
+    const r = await api("/bulk-import/facts", {
+      method: "POST",
+      body: JSON.stringify({ ...payload, dryRun }),
+    });
+    const body: BulkImportResponse = isRecord(r.body) ? r.body : {};
+    for (const e of body.errors ?? []) {
+      console.log(`[error] ${e.resourceType} ${e.id}: ${e.message}`);
+    }
+    if (!r.ok || body.errors?.length) {
+      throw apiError(dryRun ? "Validation" : "Import", r);
+    }
+    return body;
+  };
+  await bulk(true);
+  console.log("Validation passed");
+  if (args["dry-run"]) return;
+  const res = await bulk(false);
+  console.log(
+    `Fact tables: ${res.factTablesAdded ?? 0} added, ${res.factTablesUpdated ?? 0} updated. ` +
+      `Metrics: ${res.factMetricsAdded ?? 0} added, ${res.factMetricsUpdated ?? 0} updated.`,
+  );
+
+  if (args.prune) await prune(api, apiError, args.datasource, payload);
+}
+
+async function prune(
+  api: (path: string, init?: RequestInit) => Promise<ApiResult>,
+  apiError: (what: string, r: ApiResult) => Error,
+  datasource: string,
+  payload: BulkImportPayload,
+) {
+  const listAll = async (path: string, key: string) => {
+    const items: { id: string; managedBy?: string }[] = [];
+    let offset = 0;
+    for (;;) {
+      const r = await api(
+        `${path}?datasourceId=${datasource}&limit=100&offset=${offset}`,
+      );
+      if (!r.ok || !isRecord(r.body)) throw apiError(`Listing ${key}`, r);
+      const page = r.body[key];
+      for (const item of Array.isArray(page) ? page : []) {
+        if (isRecord(item) && typeof item.id === "string") {
+          items.push({
+            id: item.id,
+            managedBy: typeof item.managedBy === "string" ? item.managedBy : "",
+          });
+        }
+      }
+      if (!r.body.hasMore || typeof r.body.nextOffset !== "number") break;
+      offset = r.body.nextOffset;
+    }
+    return items.filter((i) => i.managedBy === "api");
+  };
+  const remove = async (path: string, id: string) => {
+    const r = await api(`${path}/${id}`, { method: "DELETE" });
+    if (!r.ok) throw apiError(`Deleting ${id}`, r);
+    console.log(`Deleted ${id}`);
+  };
+
+  const keepMetrics = new Set(payload.factMetrics.map((m) => `fact__${m.id}`));
+  for (const m of await listAll("/fact-metrics", "factMetrics")) {
+    if (!keepMetrics.has(m.id)) await remove("/fact-metrics", m.id);
+  }
+  const keepTables = new Set(payload.factTables.map((t) => t.id));
+  for (const t of await listAll("/fact-tables", "factTables")) {
+    if (!keepTables.has(t.id)) await remove("/fact-tables", t.id);
+  }
+}
+
+main().catch((e: unknown) => {
+  console.error(e instanceof Error ? e.message : e);
+  process.exit(1);
+});

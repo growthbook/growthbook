@@ -307,6 +307,7 @@
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
+                  "integrations/dbt",
                   "tools/chrome-extension",
                   "tools/vscode-extension",
                   "tools/cli",
