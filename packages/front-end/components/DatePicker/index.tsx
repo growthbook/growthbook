@@ -52,7 +52,9 @@ type Props = {
   clearButton?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
+  size?: "md" | "legacy";
   disabled?: boolean;
+  required?: boolean;
   /**
    * Clock the user picks on, shown beside the field. "utc" takes and returns
    * true instants while editing their UTC wall-clock.
@@ -133,7 +135,9 @@ export default function DatePicker({
   clearButton = false,
   wrapRangeInputs = false,
   compact = false,
+  size = "legacy",
   disabled,
+  required,
   timeZone,
   fixedSpanMode,
 }: Props) {
@@ -168,7 +172,8 @@ export default function DatePicker({
   const fieldId = id || autoId;
   const zoneId = `${fieldId}-zone`;
 
-  const inputHeight = compact ? 32 : 38;
+  const fixedHeight = compact || size === "md";
+  const inputHeight = fixedHeight ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
     ? {
         height: 32,
@@ -444,7 +449,7 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: compact ? inputHeight : undefined,
+                height: fixedHeight ? inputHeight : undefined,
                 minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
@@ -468,15 +473,18 @@ export default function DatePicker({
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    height: compact ? inputHeight : undefined,
+                    height: fixedHeight ? inputHeight : undefined,
                     minHeight: inputHeight,
+                    borderRadius: size === "md" ? "var(--radius-2)" : undefined,
                     overflow: "clip",
                   }}
                 >
                   <Field
                     id={fieldId}
                     aria-describedby={zoneName ? zoneId : undefined}
+                    size={size}
                     disabled={disabled}
+                    required={required}
                     readOnly={!!fixedSpanMode}
                     style={{
                       border: 0,

@@ -81,7 +81,6 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  ApiEventUser,
   ApiFeatureEnvironment,
   ApiFeatureEnvironmentV2,
   apiFeatureRevisionV2Validator,
@@ -92,9 +91,11 @@ import {
   ApiFeatureWithRevisionsV2,
   ContextualBanditInterface,
   EventUser,
+  eventUserLegacyLabel,
+  eventUserToApiEventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
   RampScheduleInterface,
@@ -135,6 +136,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
+import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
@@ -2507,46 +2509,7 @@ export async function encrypt(
   );
 }
 
-function eventUserToString(
-  user: FeatureRevisionInterface["createdBy"],
-): string | undefined {
-  if (!user) return undefined;
-  if (user.type === "api_key") return "API";
-  if (user.type === "system") return "SYSTEM";
-  return user.name || undefined;
-}
-
-// API-safe projection of the internal EventUser union. Deliberately never
-// exposes the api_key actor's `apiKey` field — only stable identifying fields.
-export function eventUserToApiEventUser(
-  user: FeatureRevisionInterface["createdBy"] | undefined,
-): ApiEventUser | undefined {
-  if (!user) return undefined;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "system":
-      return {
-        type: "system",
-        id: user.id,
-      };
-  }
-  // Fail closed for legacy stored documents with an unrecognized type.
-  return undefined;
-}
-
+// v1's frozen string actor; v2 returns the structured actor instead.
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -2680,8 +2643,8 @@ export function revisionToApiInterface(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
+    createdBy: eventUserLegacyLabel(rev.createdBy),
+    publishedBy: eventUserLegacyLabel(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -2887,6 +2850,11 @@ export function revisionToApiInterfaceV2(
     // `autoPublishEnabledBy` it can't tell whose authority the publish will use.
     ...(rev.autoPublishEnabledBy !== undefined && {
       autoPublishEnabledBy: rev.autoPublishEnabledBy,
+    }),
+    ...(rev.autoPublishEnabledBy && {
+      autoPublishEnabledByUser: eventUserToApiEventUser(
+        armerActor(rev, rev.autoPublishEnabledBy),
+      ),
     }),
     ...(rev.scheduledPublishAttempts !== undefined && {
       scheduledPublishAttempts: rev.scheduledPublishAttempts,
@@ -3183,18 +3151,8 @@ export function getApiFeatureObj({
       );
     }
   });
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
+  const createdBy = eventUserLegacyLabel(revision?.createdBy);
+  const publishedBy = eventUserLegacyLabel(revision?.publishedBy);
 
   const revisionDefs = revisions?.map((rev) => {
     // Bucket twice: REST response shape (matches the feature env loop above)
@@ -3237,18 +3195,8 @@ export function getApiFeatureObj({
         scrubConfigExtends(definition),
       );
     });
-    const createdBy =
-      rev?.createdBy?.type === "api_key"
-        ? "API"
-        : rev?.createdBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.createdBy?.name;
-    const publishedBy =
-      rev?.publishedBy?.type === "api_key"
-        ? "API"
-        : rev?.publishedBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.publishedBy?.name;
+    const createdBy = eventUserLegacyLabel(rev?.createdBy);
+    const publishedBy = eventUserLegacyLabel(rev?.publishedBy);
     return {
       id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,
@@ -4255,7 +4203,7 @@ export async function getFeatureReviewFootprint({
 // the way the review panel judges it.
 // Who may retract a verdict on a draft: anyone who could review it now, or the
 // verdict's own author even after the draft or their role moved them out of
-// its reviewer set.
+// its reviewer set. A key assuming the author's role must be able to review.
 export async function assertCanUndoFeatureReview({
   context,
   feature,
@@ -4267,17 +4215,27 @@ export async function assertCanUndoFeatureReview({
   revision: FeatureRevisionInterface;
   user: EventUser;
 }): Promise<void> {
-  const ownVerdict = (revision.reviews ?? []).some(
-    (r) => r.userId === reviewerKeyForEventUser(user),
-  );
-  if (ownVerdict) return;
-  if (
-    !context.permissions.canReviewFeatureDrafts(
+  const footprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  const approverProjects = await getFeatureReviewApproverProjects({
+    context,
+    feature,
+    revision,
+  });
+  const canReview = (reviewer: ReqContext | ApiReqContext) =>
+    reviewer.permissions.canReviewFeatureDrafts(
       feature,
-      await getFeatureReviewFootprint({ context, feature, revision }),
-      await getFeatureReviewApproverProjects({ context, feature, revision }),
-    )
-  ) {
+      footprint,
+      approverProjects,
+    );
+  const ownVerdict =
+    !!context.actorId &&
+    (revision.reviews ?? []).some((r) => r.userId === eventUserIdentity(user));
+  if (ownVerdict && context.authorRightsAllow(canReview)) return;
+  if (!canReview(context)) {
     context.permissions.throwPermissionError();
   }
 }
