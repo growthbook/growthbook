@@ -704,7 +704,7 @@ export default function ExplorerChart({
     });
 
     return {
-      // Buckets are parsed as UTC, so UTC ticks show the warehouse's wall-clock values unshifted.
+      // Buckets are parsed as UTC, so UTC ticks show the warehouse's dates and times unshifted.
       useUTC: true,
       tooltip: {
         appendTo: "body",

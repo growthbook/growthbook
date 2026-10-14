@@ -1,13 +1,13 @@
 import { assumeUtc } from "back-end/src/util/dates";
 
 describe("assumeUtc", () => {
-  it("reads a timezone-less wall-clock as UTC", () => {
+  it("reads a timezone-less date and time as UTC", () => {
     expect(new Date(assumeUtc("2026-01-15T08:12")).toISOString()).toBe(
       "2026-01-15T08:12:00.000Z",
     );
   });
 
-  it("leaves an explicit instant alone", () => {
+  it("leaves a string with a timezone alone", () => {
     expect(assumeUtc("2026-01-15T08:12:00.000Z")).toBe(
       "2026-01-15T08:12:00.000Z",
     );

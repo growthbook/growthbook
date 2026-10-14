@@ -40,7 +40,7 @@ describe("parseWarehouseDate", () => {
     );
   });
 
-  it("leaves dates, instants and explicit zones alone", () => {
+  it("leaves Dates, timestamps and explicit zones alone", () => {
     expect(parseWarehouseDate("2026-10-01").toISOString()).toBe(
       "2026-10-01T00:00:00.000Z",
     );

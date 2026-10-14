@@ -21,7 +21,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
-import { pickerDateToUtcInstant, utcInstantToPickerDate } from "@/utils/date";
+import { localAsUtc, utcAsLocal } from "@/utils/date";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -55,10 +55,7 @@ type Props = {
   size?: "md" | "legacy";
   disabled?: boolean;
   required?: boolean;
-  /**
-   * Clock the user picks on, shown beside the field. "utc" takes and returns
-   * true instants while editing their UTC wall-clock.
-   */
+  /** Timezone the user picks in, shown beside the field. With "utc", the field shows and edits the UTC date and time. */
   timeZone?: "utc" | "local";
   fixedSpanMode?: {
     phase: "committed" | "choosing";
@@ -115,8 +112,8 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
 
 /** Converts between the values callers pass in and what the user sees and types. */
 type Clock = {
-  /** Caller value → exact moment, for clamping to bounds. */
-  toInstant: (value: Date | string) => Date;
+  /** Caller value → its exact date and time, for clamping to bounds. */
+  toDate: (value: Date | string) => Date;
   /** Caller value → the day the calendar shows (the calendar only renders local time). */
   toCalendar: (value: Date | string) => Date;
   /** Calendar day → value handed back to the caller. */
@@ -134,7 +131,7 @@ function localClock(precision: "datetime" | "date"): Clock {
   const textFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   return {
-    toInstant: parse,
+    toDate: parse,
     toCalendar: parse,
     fromCalendar: (day) => day,
     toText: (value) => format(parse(value), textFormat),
@@ -145,9 +142,9 @@ function localClock(precision: "datetime" | "date"): Clock {
 function utcClock(precision: "datetime" | "date"): Clock {
   const textLength = precision === "datetime" ? 16 : 10;
   return {
-    toInstant: (value) => getValidDate(value),
-    toCalendar: (value) => utcInstantToPickerDate(getValidDate(value)),
-    fromCalendar: pickerDateToUtcInstant,
+    toDate: (value) => getValidDate(value),
+    toCalendar: (value) => utcAsLocal(getValidDate(value)),
+    fromCalendar: localAsUtc,
     // Text never passes through a local Date, which can't hold a UTC time in the viewer's DST gap.
     toText: (value) => getValidDate(value).toISOString().slice(0, textLength),
     fromText: (text) =>
@@ -198,7 +195,7 @@ export default function DatePicker({
     () => (timeZone === "utc" ? utcClock(precision) : localClock(precision)),
     [timeZone, precision],
   );
-  const zone = zoneLabel(timeZone, date ? clock.toInstant(date) : new Date());
+  const zone = zoneLabel(timeZone, date ? clock.toDate(date) : new Date());
   const autoId = useId();
   const fieldId = id || autoId;
   const zoneId = `${fieldId}-zone`;
@@ -324,10 +321,10 @@ export default function DatePicker({
   const clampParsedDate = useCallback(
     (parsedDate: Date) => {
       let finalDate = parsedDate;
-      if (disableBefore && parsedDate < clock.toInstant(disableBefore)) {
-        finalDate = clock.toInstant(disableBefore);
-      } else if (disableAfter && parsedDate > clock.toInstant(disableAfter)) {
-        finalDate = clock.toInstant(disableAfter);
+      if (disableBefore && parsedDate < clock.toDate(disableBefore)) {
+        finalDate = clock.toDate(disableBefore);
+      } else if (disableAfter && parsedDate > clock.toDate(disableAfter)) {
+        finalDate = clock.toDate(disableAfter);
       }
       return finalDate;
     },
@@ -348,7 +345,7 @@ export default function DatePicker({
     return debounce((startStr: string, endStr: string) => {
       const startTrim = startStr.trim();
       const endTrim = endStr.trim();
-      let anchor = date ? clock.toInstant(date) : new Date();
+      let anchor = date ? clock.toDate(date) : new Date();
 
       if (startTrim) {
         const parsedDate = clock.fromText(startTrim);

@@ -1,17 +1,17 @@
-// Map an instant to/from a Date whose local fields are its UTC fields, so a local-only picker edits UTC.
-export function utcInstantToPickerDate(instant: Date): Date {
+// Copy a Date's UTC date and time into local fields and back, so a picker that only shows local time can show UTC.
+export function utcAsLocal(date: Date): Date {
   return new Date(
-    instant.getUTCFullYear(),
-    instant.getUTCMonth(),
-    instant.getUTCDate(),
-    instant.getUTCHours(),
-    instant.getUTCMinutes(),
-    instant.getUTCSeconds(),
-    instant.getUTCMilliseconds(),
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds(),
   );
 }
 
-export function pickerDateToUtcInstant(picked: Date): Date {
+export function localAsUtc(picked: Date): Date {
   return new Date(
     Date.UTC(
       picked.getFullYear(),

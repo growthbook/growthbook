@@ -69,7 +69,7 @@ function formatXValue(
     if (isDateType && xVal instanceof Date) {
       const unit = xConfig?.dateAggregationUnit || "none";
       const d = xVal;
-      // Values are parsed as UTC, so formatting in UTC shows the warehouse's wall clock unshifted.
+      // Values are parsed as UTC, so formatting in UTC shows the warehouse's dates and times unshifted.
       const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
         new Intl.DateTimeFormat(undefined, { ...opts, timeZone: "UTC" }).format(
           date,
