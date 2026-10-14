@@ -107,7 +107,7 @@ it("uses the latest quantile and a weighted average for per-unit maxima", () => 
     })?.value,
   ).toBe(7.5);
 });
-it("shows daily unit counts instead of a misleading proportion", () => {
+it("totals daily unit counts instead of showing a misleading proportion", () => {
   expect(
     getMetricPreviewSummary(rows, {
       metricType: "proportion",
@@ -118,9 +118,9 @@ it("shows daily unit counts instead of a misleading proportion", () => {
       },
     }),
   ).toMatchObject({
-    value: 400,
-    label: "Latest daily matching units",
-    date: "2026-09-21",
+    value: 600,
+    label: "Matching units, 7-day total",
+    date: null,
   });
 });
 it("does not invent a value for absent data or a zero denominator", () => {
@@ -304,7 +304,7 @@ it("finds the latest populated day regardless of row order", () => {
           values: [{ metricId: "metric", numerator: null, denominator: null }],
         },
       ],
-      { metricType: "proportion", numerator },
+      { metricType: "quantile", numerator },
     ),
   ).toMatchObject({ value: 400, date: "2026-09-21" });
 });

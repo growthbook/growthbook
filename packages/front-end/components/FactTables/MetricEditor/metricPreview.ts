@@ -215,8 +215,11 @@ export function getMetricPreviewSummary(
     (row) => (row.values?.[0]?.numerator ?? null) !== null,
   );
   if (!validRows.length) return null;
-  const latestDaily =
-    metric.metricType === "quantile" || metric.metricType === "proportion";
+  // Quantiles can't be summed across days, so they show the latest day.
+  // Everything else totals the week: the latest day is usually partial.
+  const latestDaily = metric.metricType === "quantile";
+  // Conversion rate previews show matching units, not a rate.
+  const total = metric.metricType === "proportion";
   const latestRow = validRows.reduce((latest, row) =>
     String(row.dimensions[0] ?? "") > String(latest.dimensions[0] ?? "")
       ? row
@@ -235,7 +238,7 @@ export function getMetricPreviewSummary(
   const quotient =
     denominator !== null && denominator !== 0 ? numerator / denominator : null;
   return {
-    value: latestDaily ? numerator : quotient,
+    value: latestDaily || total ? numerator : quotient,
     numerator,
     denominator,
     quotient,
@@ -246,7 +249,7 @@ export function getMetricPreviewSummary(
         : metric.metricType === "quantile"
           ? "Latest daily quantile"
           : metric.metricType === "proportion"
-            ? "Latest daily matching units"
+            ? "Matching units, 7-day total"
             : "Average per unit-day",
   };
 }
