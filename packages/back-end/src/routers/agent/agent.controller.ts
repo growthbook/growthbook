@@ -5,6 +5,7 @@ import {
   type AIChatUserMessage,
   type OrgSkillSummary,
 } from "shared/ai-chat";
+import { getProviderForAIModel } from "shared/ai";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -15,7 +16,7 @@ import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
 import {
-  secondsUntilAICanBeUsedAgainForPrompt,
+  secondsUntilAICanBeUsedAgainForProvider,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
@@ -211,7 +212,8 @@ const entityCache = new Map<string, { at: number; lists: EntityLists }>();
 
 /**
  * Labelled name lists for the entity kinds the context points at, cached per
- * user and kind set so pauses on the same page skip Mongo.
+ * user, kind set and readable projects so pauses on the same page skip Mongo
+ * while a change in project access is a cache miss.
  */
 async function entityNames(
   context: ReqContext,
@@ -220,17 +222,29 @@ async function entityNames(
     kinds: kindList,
   }: { datasourceId?: string; kinds: ContextKind[] },
 ): Promise<EntityLists> {
+  const kinds = new Set(kindList);
+  // Lets the feature and metric lookups filter by read access in Mongo, so
+  // their limits stay bounded on large catalogs. null means every project.
+  const readableProjects =
+    kinds.has("features") || kinds.has("metrics")
+      ? context.permissions.getProjectsWithPermission(
+          "readData",
+          await context.models.projects.getAllIdsForOrg(),
+        )
+      : null;
   const key = [
     context.org.id,
     context.userId,
     datasourceId ?? "",
-    [...kindList].sort().join(","),
+    [...kinds].sort().join(","),
+    readableProjects?.join(",") ?? "*",
   ].join(":");
   const hit = entityCache.get(key);
   if (hit && Date.now() - hit.at < ENTITY_CACHE_MS) return hit.lists;
   const lists = await fetchEntityNames(context, {
     datasourceId,
-    kinds: kindList,
+    kinds,
+    readableProjects,
   });
   if (entityCache.size >= ENTITY_CACHE_MAX) {
     entityCache.delete(entityCache.keys().next().value as string);
@@ -243,20 +257,15 @@ async function fetchEntityNames(
   context: ReqContext,
   {
     datasourceId,
-    kinds: kindList,
-  }: { datasourceId?: string; kinds: ContextKind[] },
+    kinds,
+    readableProjects,
+  }: {
+    datasourceId?: string;
+    kinds: Set<ContextKind>;
+    readableProjects: string[] | null;
+  },
 ): Promise<EntityLists> {
-  const kinds = new Set(kindList);
   const limit = ORG_CONTEXT_LIMIT;
-  // Lets the feature and metric lookups filter by read access in Mongo, so
-  // their limits stay bounded on large catalogs. null means every project.
-  const readableProjects =
-    kinds.has("features") || kinds.has("metrics")
-      ? context.permissions.getProjectsWithPermission(
-          "readData",
-          await context.models.projects.getAllIdsForOrg(),
-        )
-      : null;
   const sources: [string, ContextKind, () => Promise<string[]>][] = [
     [
       "Data sources",
@@ -312,25 +321,21 @@ async function fetchEntityNames(
  * Model output → text to append. One pass that rebuilds the message the model
  * meant and checks it against what the org has, instead of trusting the
  * output's shape:
- * - normalize: strip quotes, keep the first line
+ * - normalize: strip quotes
  * - align: the model is asked to echo the draft, but may echo part of it or
  *   restart the word being typed ("…metric D" → "D7 …"); drop the longest
  *   whole-word tail of the draft the output repeats, or add a space when it
  *   repeats nothing
  * - ground: when the word being typed grew into the start of a listed name,
  *   the rest of that name
- * - cap: one short phrase
+ * - cap: one short phrase, one line
  */
 export function cleanCompletion(
   raw: string,
   draft: string,
   names: string[] = [],
 ): string {
-  const output = raw
-    .trim()
-    .replace(/^["'“”`]+|["'“”`]+$/g, "")
-    .split("\n")[0]
-    .trim();
+  const output = raw.trim().replace(/^["'“”`]+|["'“”`]+$/g, "");
   const d = draft.trimStart();
   const lowerOut = output.toLowerCase();
   const lowerDraft = d.toLowerCase();
@@ -363,7 +368,10 @@ export function cleanCompletion(
     }
   }
 
-  return message.slice(d.length, d.length + 120).trimEnd();
+  return message
+    .slice(d.length, d.length + 120)
+    .split("\n")[0]
+    .trimEnd();
 }
 
 export const postAutocomplete = async (
@@ -385,9 +393,11 @@ export const postAutocomplete = async (
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+  // The cap follows the key autocomplete actually bills, not the org default's.
+  const { autocompleteAIModel } = await getAISettingsForOrg(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForProvider(
     context,
-    "chat-autocomplete",
+    getProviderForAIModel("text", autocompleteAIModel) ?? undefined,
   );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
@@ -422,7 +432,6 @@ export const postAutocomplete = async (
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 
-  const { autocompleteAIModel } = await getAISettingsForOrg(context);
   const raw = await simpleCompletion({
     context,
     type: "chat-autocomplete",

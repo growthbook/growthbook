@@ -9,6 +9,8 @@ const DEBOUNCE_MS = 300;
 // "I want" says little; three words is about where a continuation stops being a guess.
 const MIN_WORDS = 3;
 const RETRY_AFTER_ERROR_MS = 60_000;
+// The route's limit; past it is an input case, not a failure to stop on.
+const MAX_CHARS = 2000;
 // Nothing about the request will change by retrying: feature off, no access, bad input.
 const FATAL_STATUSES = new Set([400, 401, 403, 404]);
 
@@ -114,7 +116,8 @@ export function useAutocomplete({
     datasourceId,
     suggestedReply?.key,
   ].join("|");
-  const current = suggestion?.scope === scope ? suggestion : null;
+  // Off means off: a suggestion from before the org toggled it stays hidden.
+  const current = enabled && suggestion?.scope === scope ? suggestion : null;
   const ghost = remainingCompletion(text, current);
 
   useEffect(() => {
@@ -152,7 +155,12 @@ export function useAutocomplete({
       suggest({ base: text, completion: quick, source: "starter-prompts" });
       return;
     }
-    if (text.trim().split(/\s+/).length < MIN_WORDS) return;
+    if (
+      text.length > MAX_CHARS ||
+      text.trim().split(/\s+/).length < MIN_WORDS
+    ) {
+      return;
+    }
     const ctrl = new AbortController();
     // After a failure, wait out the back-off and then retry the unchanged draft.
     const delay = Math.max(DEBOUNCE_MS, pausedUntil.current - Date.now());

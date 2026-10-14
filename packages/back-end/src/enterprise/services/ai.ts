@@ -460,7 +460,7 @@ export const simpleCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(maxOutputTokens != null ? { maxOutputTokens } : {}),
+    ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
   };
 
   let numTokensUsed: number | undefined;

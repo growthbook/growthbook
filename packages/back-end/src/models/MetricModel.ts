@@ -420,7 +420,6 @@ export async function getRecentMetricNames(
     readableProjects: string[] | null;
   },
 ): Promise<string[]> {
-  if (readableProjects?.length === 0) return [];
   const docs = await getCollection(COLLECTION)
     .find(
       {

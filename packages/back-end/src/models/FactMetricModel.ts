@@ -281,7 +281,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     /** From `getProjectsWithPermission`; null means every project. */
     readableProjects: string[] | null;
   }): Promise<string[]> {
-    if (readableProjects?.length === 0) return [];
     const docs = await this._find(
       {
         archived: { $ne: true },

@@ -41,10 +41,17 @@ describe("cleanCompletion", () => {
       "for the page.",
     );
   });
-  it("keeps only the first line", () => {
+  it("keeps only the first line of the continuation", () => {
     expect(
       cleanCompletion("create a flag now\nSecond thought", "create a flag"),
     ).toBe(" now");
+    // A draft with line breaks is echoed with them; the cut is after the echo.
+    expect(
+      cleanCompletion(
+        "first line\nsecond line done",
+        "first line\nsecond line",
+      ),
+    ).toBe(" done");
   });
   it("finishes a listed name the model stopped inside", () => {
     const names = ["D7 Purchase Retention", "Daily Active Users"];
