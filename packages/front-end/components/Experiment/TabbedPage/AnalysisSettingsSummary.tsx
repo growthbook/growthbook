@@ -314,6 +314,8 @@ export default function AnalysisSettingsSummary({
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
       exposureQueryIdentifierType: userIdType,
+      isClusterExperiment: experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -337,6 +339,8 @@ export default function AnalysisSettingsSummary({
         ),
         dimensionless.settings.exposureQueryIdentifierType,
       ),
+      isClusterExperiment: dimensionless.settings.isClusterExperiment,
+      clusterSubUnitIdentifier: dimensionless.settings.clusterSubUnitIdentifier,
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
