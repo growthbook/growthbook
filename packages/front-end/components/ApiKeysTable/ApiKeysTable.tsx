@@ -183,13 +183,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     Requested-by required
                   </KeyTrait>
                 )}
-                {!key.userId && requesterHeaderPolicy(key) === "optional" && (
+                {!key.userId && requesterHeaderPolicy(key) === "rejected" && (
                   <KeyTrait
                     icon={<PiIdentificationCard size={18} />}
-                    color="var(--gray-10)"
-                    tooltip="Requests can name a member with X-GrowthBook-Requested-By"
+                    color="var(--brown-10)"
+                    tooltip="Requests that send X-GrowthBook-Requested-By are rejected"
                   >
-                    Requested-by optional
+                    Requested-by rejected
                   </KeyTrait>
                 )}
                 {key.confirmRules && (

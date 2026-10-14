@@ -7,7 +7,6 @@ import type {
   ConfirmationLink,
   ConfirmationNotice,
 } from "shared/validators";
-import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -43,23 +42,6 @@ type ConfirmationResponse = {
   canDecide: boolean;
 };
 
-const NOUNS: Record<ConfirmationLink["type"], string> = {
-  feature: "Feature Flag",
-  experiment: "Experiment",
-  savedGroup: "Saved Group",
-  constant: "Constant",
-  config: "Config",
-};
-
-// "Affected Feature Flag", "Affected Experiments", or for a mix "Affected Resources"
-function affectedLabel(links: ConfirmationLink[]) {
-  const noun =
-    new Set(links.map((l) => l.type)).size === 1 ? NOUNS[links[0].type] : null;
-  return noun
-    ? `Affected ${noun}${links.length > 1 ? "s" : ""}`
-    : "Affected Resources";
-}
-
 // "production", "production and staging", "dev, staging and production"
 const listJoin = (items: string[]) =>
   items.length > 1
@@ -88,7 +70,7 @@ function policyReason(
 ) {
   switch (via) {
     case "bypassApprovalPermission":
-      return `Confirming publishes this without the review it requires, because ${
+      return `Confirming skips this check because ${
         requester.personal
           ? "the token's owner"
           : requester.assumedRole
@@ -96,12 +78,28 @@ function policyReason(
             : "this key"
       } can bypass approvals.`;
     case "restApiBypassesReviews":
-      return "Confirming publishes this without the review it requires, because your organization lets REST API requests skip reviews.";
+      return "Confirming skips this check because your organization lets REST API requests bypass it.";
     case "revertsBypassApproval":
-      return "Confirming reverts without approval, because your organization lets reverts skip it.";
+      return "Confirming reverts without approval because your organization lets reverts skip approval.";
     case "ignoreWarnings":
     case "skipSchemaValidation":
     case "skipHooks":
+    case null:
+      return null;
+  }
+}
+
+function flagReason(via: ConfirmationNotice["via"]) {
+  switch (via) {
+    case "ignoreWarnings":
+      return "Confirming ignores this warning.";
+    case "skipSchemaValidation":
+      return "Confirming skips schema validation.";
+    case "skipHooks":
+      return "Confirming skips the custom validation hooks.";
+    case "bypassApprovalPermission":
+    case "restApiBypassesReviews":
+    case "revertsBypassApproval":
     case null:
       return null;
   }
@@ -151,7 +149,10 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 const OUTCOMES: Partial<
-  Record<ApiConfirmation["status"], { status: Status; text: string }>
+  Record<
+    ApiConfirmation["status"],
+    { status: Status; text: string; icon?: ReactNode }
+  >
 > = {
   completed: {
     status: "success",
@@ -164,6 +165,7 @@ const OUTCOMES: Partial<
   expired: {
     status: "warning",
     text: "This request expired, so nothing was changed. Ask the agent to try again.",
+    icon: <PiTimer />,
   },
   running: { status: "info", text: "Confirmed. Running it now." },
 };
@@ -277,13 +279,13 @@ export default function ConfirmationPage() {
             "API key"
           )}
         </Text>
-        <Text as="div" size="lg" color="text-mid" align="center">
+        <Text as="div" size="lg" color="text-high" align="center">
           wants to make a change that needs your confirmation.
         </Text>
       </Flex>
 
       {outcome ? (
-        <Callout status={outcome.status} mb="4">
+        <Callout status={outcome.status} icon={outcome.icon} mb="4">
           {outcome.text}
           {confirmation.note ? (
             <Box mt="2">Note: {confirmation.note}</Box>
@@ -325,24 +327,19 @@ export default function ConfirmationPage() {
         </Box>
         {checks.length ? (
           <Box mt="5">
-            <SectionHeader>
-              {lastAttemptAt
-                ? `What refused the agent's last try, ${ago(lastAttemptAt)}`
-                : "Checks this skips"}
-            </SectionHeader>
+            <SectionHeader>Checks this skips</SectionHeader>
+            {lastAttemptAt ? (
+              <Text as="div" size="sm" color="text-low" mt="-1" mb="2">
+                From the agent&apos;s last try at this request.
+              </Text>
+            ) : null}
             <Flex direction="column" gap="2">
               {checks.map((notice, i) => (
                 <NoticeCallout
                   key={i}
                   notice={notice}
                   status={notice.severity}
-                  reason={
-                    notice.via ? (
-                      <>
-                        Skipped with <code>{notice.via}</code>
-                      </>
-                    ) : null
-                  }
+                  reason={flagReason(notice.via)}
                 />
               ))}
             </Flex>
@@ -365,7 +362,7 @@ export default function ConfirmationPage() {
         ) : null}
         {links.length ? (
           <Box mt="5">
-            <SectionHeader>{affectedLabel(links)}</SectionHeader>
+            <SectionHeader>Affected by this change</SectionHeader>
             <Flex direction="column" align="start" gap="1">
               {links.map((link) => (
                 <Link key={link.url} href={link.url} external>
