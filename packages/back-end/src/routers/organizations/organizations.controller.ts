@@ -860,6 +860,7 @@ export async function getOrganization(
     watch,
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   ] = await Promise.all([
     resolveLicense(),
     getInstallationName(org),
@@ -868,6 +869,9 @@ export async function getOrganization(
     context.models.watch.getWatchedByUser(userId),
     getSdkPayloadSizeAlerts(context),
     context.models.apiKeys.getExpiringPersonalAccessTokens(userId),
+    context.permissions.canCreateApiKey()
+      ? context.models.apiKeys.getExpiringOrgApiKeys()
+      : [],
   ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
@@ -978,6 +982,7 @@ export async function getOrganization(
     usage: getUsageFromCache(org),
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   });
 }
 

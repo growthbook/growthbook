@@ -760,22 +760,33 @@ export class ApiKeyModel extends BaseClass {
     )) as SecretApiKey;
   }
 
-  // The member's own PATs worth a top-nav warning: lapsing soon, or lapsed but still in use.
+  // The member's own PATs worth a warning: lapsing soon, or lapsed but still in use.
   public async getExpiringPersonalAccessTokens(userId: string) {
-    const now = new Date();
-    const tokens = await this._find({
+    return this.findExpiring({
       userId,
       oauthClientId: { $exists: false },
-      disabled: { $ne: true },
-      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
       // The app mints and replaces its own Visual Editor key; the member never made it.
       $nor: [{ role: "visualEditor", scoped: { $ne: true } }],
     });
-    return tokens
+  }
+
+  // The organization's own API keys worth a warning, for people who manage them.
+  public async getExpiringOrgApiKeys() {
+    return this.findExpiring({ userId: null, secret: true });
+  }
+
+  private async findExpiring(filter: Record<string, unknown>) {
+    const now = new Date();
+    const keys = await this._find({
+      ...filter,
+      disabled: { $ne: true },
+      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+    });
+    return keys
       .filter(
-        (t) =>
-          !isExpired(t.expiresAt, now) ||
-          (!!t.lastUsed && !!t.expiresAt && t.lastUsed > t.expiresAt),
+        (k) =>
+          !isExpired(k.expiresAt, now) ||
+          (!!k.lastUsed && !!k.expiresAt && k.lastUsed > k.expiresAt),
       )
       .map(({ id, description, expiresAt, lastUsed }) => ({
         id,

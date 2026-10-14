@@ -5,7 +5,9 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import NoticeStack from "@/components/Notices/NoticeStack";
+import { rankNotices } from "@/components/Notices/notices";
+import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import { isCloud } from "@/services/env";
@@ -16,6 +18,7 @@ const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
   const { accountPlan, license, refreshOrganization, subscription } = useUser();
+  const planNotices = rankNotices(useAccountPlanNotices());
   const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
@@ -86,7 +89,7 @@ const ShowLicenseInfo: FC<{
                   </Flex>
                 </div>
                 <Box pl="2">
-                  <AccountPlanNotices />
+                  <NoticeStack notices={planNotices} />
                 </Box>
               </div>
               {permissionsUtil.canManageBilling() && (

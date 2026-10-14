@@ -53,3 +53,45 @@
     text-decoration: none;
   }
 }
+
+// One line, whatever else shares the row.
+.pill {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+// ui/Link recolors on hover; notice links only change their underline
+a.pill:hover {
+  color: var(--accent-a11);
+}
+
+// Clickable headings look the same whether they navigate or open the upgrade flow
+.title,
+a.title:hover {
+  color: inherit;
+}
+
+.title {
+  font: inherit;
+
+  &:hover {
+    text-decoration-line: none;
+  }
+}
+
+// Sized and outlined like the notice pill beside it
+.more {
+  height: auto;
+  padding: var(--space-1) var(--space-2);
+  font-size: 12px;
+  line-height: 16px;
+  border: 1px solid var(--gray-a5);
+  border-radius: 5px;
+
+  // Button's label sets its own taller line-height
+  > * {
+    line-height: inherit;
+  }
+}
