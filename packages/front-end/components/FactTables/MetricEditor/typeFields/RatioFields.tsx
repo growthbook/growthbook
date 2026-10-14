@@ -7,7 +7,7 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import DataList from "@/ui/DataList";
 import Badge from "@/ui/Badge";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
@@ -172,10 +172,10 @@ export default function RatioFields({
   const userFilter =
     numerator.column !== "$$distinctUsers" ? undefined : canEdit ? (
       <Flex direction="column" gap="2">
-        <Checkbox
+        <Switch
           label="Only count users who meet a threshold"
           value={hasUserFilter}
-          setValue={(checked) =>
+          onChange={(checked) =>
             onNumeratorChange({
               ...numerator,
               aggregateFilterColumn: checked ? "$$count" : undefined,
@@ -184,7 +184,8 @@ export default function RatioFields({
           }
         />
         {hasUserFilter && (
-          <Box pl="5">
+          // Aligns with the switch label (28px switch + 8px gap).
+          <Box pl="36px">
             <ThresholdBasisRow
               value={numerator}
               onChange={(v) => onNumeratorChange({ ...numerator, ...v })}

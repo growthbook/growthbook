@@ -15,6 +15,7 @@ import { getInitialInlineFilters } from "@/services/metrics";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
 import TextField from "@/ui/TextField";
@@ -111,10 +112,10 @@ function FunnelStepInput({
         <Box width="100%">
           {index > 0 && (
             <Box mb="3">
-              <Checkbox
+              <Switch
                 label="Keep fact table from previous step"
                 value={inheritTable}
-                setValue={(checked) => setInheritTable(checked === true)}
+                onChange={setInheritTable}
               />
             </Box>
           )}
@@ -191,7 +192,7 @@ function FunnelStepInput({
             </Box>
 
             <Box mb="3">
-              <Checkbox
+              <Switch
                 label="Conversion window"
                 description={
                   step.conversionWindow
@@ -201,18 +202,19 @@ function FunnelStepInput({
                     : undefined
                 }
                 value={!!step.conversionWindow}
-                setValue={(v) =>
+                onChange={(checked) =>
                   setConversionWindow(
-                    v === true ? { value: 1, unit: "days" } : null,
+                    checked ? { value: 1, unit: "days" } : null,
                   )
                 }
               />
-              {/* pl matches the checkbox width + gap so the fields align
-                with the description text above. */}
+              {/* pl matches the switch width + gap (28px + 8px) so the
+                fields align with the description text above. */}
               {step.conversionWindow && (
-                <Flex align="center" gap="2" mt="2" pl="5">
+                <Flex align="center" gap="2" mt="2" pl="36px">
                   <Field
                     size="md"
+                    aria-label="Conversion window length"
                     type="number"
                     min={1}
                     value={step.conversionWindow.value}
@@ -225,6 +227,7 @@ function FunnelStepInput({
                   />
                   <SelectField
                     size="small"
+                    aria-label="Conversion window unit"
                     value={step.conversionWindow.unit}
                     options={CONVERSION_WINDOW_UNITS.map((u) => ({
                       label: u,
