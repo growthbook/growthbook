@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { archiveChanges, ManagedItem, metricKey } from "./prune";
 import {
   BulkImportPayload,
   DbtManifest,
@@ -186,7 +187,7 @@ async function prune(
   payload: BulkImportPayload,
 ) {
   const listAll = async (path: string, key: string) => {
-    const items: { id: string; managedBy: string; archived: boolean }[] = [];
+    const items: ManagedItem[] = [];
     let offset = 0;
     for (;;) {
       const r = await api(
@@ -206,9 +207,8 @@ async function prune(
       if (!r.body.hasMore || typeof r.body.nextOffset !== "number") break;
       offset = r.body.nextOffset;
     }
-    return items.filter((i) => i.managedBy === "api");
+    return items;
   };
-  // Archive rather than delete so old experiment results keep resolving.
   const setArchived = async (path: string, id: string, archived: boolean) => {
     const r = await api(`${path}/${id}`, {
       method: "POST",
@@ -219,16 +219,15 @@ async function prune(
     console.log(`${archived ? "Archived" : "Unarchived"} ${id}`);
   };
   const reconcile = async (path: string, key: string, keep: Set<string>) => {
-    for (const item of await listAll(path, key)) {
-      const stale = !keep.has(item.id);
-      if (stale !== item.archived) await setArchived(path, item.id, stale);
+    for (const change of archiveChanges(await listAll(path, key), keep)) {
+      await setArchived(path, change.id, change.archived);
     }
   };
 
   await reconcile(
     "/fact-metrics",
     "factMetrics",
-    new Set(payload.factMetrics.map((m) => `fact__${m.id}`)),
+    new Set(payload.factMetrics.map((m) => metricKey(m.id))),
   );
   await reconcile(
     "/fact-tables",

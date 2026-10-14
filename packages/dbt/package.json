@@ -22,6 +22,7 @@
   "scripts": {
     "build:clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "pnpm build:clean && tsc",
+    "prepack": "pnpm build",
     "test": "jest",
     "type-check": "tsgo --pretty --noEmit",
     "clean": "rimraf node_modules"

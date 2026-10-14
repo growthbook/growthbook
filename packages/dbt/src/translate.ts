@@ -172,11 +172,9 @@ export interface FactMetricData {
   metricType: string;
   numerator?: ColumnRef;
   denominator?: ColumnRef;
-  windowSettings?: {
-    type: "lookback";
-    windowValue: number;
-    windowUnit: WindowUnit;
-  };
+  windowSettings?:
+    | { type: "lookback"; windowValue: number; windowUnit: WindowUnit }
+    | { type: "none" };
   quantileSettings?: { type: "event"; quantile: number; ignoreZeros: boolean };
   funnelSettings?: { steps: FunnelStep[] };
   [key: string]: unknown;
@@ -239,8 +237,17 @@ const tagsOf = (x: WithMeta): string[] => x.tags ?? x.config?.tags ?? [];
 const filtersOf = (f?: DbtFilter | null): string[] =>
   (f?.where_filters ?? []).map((w) => w.where_sql_template);
 
-function toWindow(w: DbtWindow): { value: number; unit: WindowUnit } {
-  const days = (n: number) => ({ value: w.count * n, unit: "days" as const });
+interface Window {
+  value: number;
+  unit: WindowUnit;
+  note?: string;
+}
+function toWindow(w: DbtWindow): Window {
+  const days = (n: number): Window => ({ value: w.count * n, unit: "days" });
+  const approx = (n: number): Window => ({
+    ...days(n),
+    note: `window "${w.count} ${w.granularity}" synced as ${w.count * n} days`,
+  });
   switch (w.granularity.toLowerCase().replace(/s$/, "")) {
     case "minute":
       return { value: w.count, unit: "minutes" };
@@ -251,11 +258,11 @@ function toWindow(w: DbtWindow): { value: number; unit: WindowUnit } {
     case "week":
       return { value: w.count, unit: "weeks" };
     case "month":
-      return days(30);
+      return approx(30);
     case "quarter":
-      return days(91);
+      return approx(91);
     case "year":
-      return days(365);
+      return approx(365);
     default:
       throw new Unsupported(`unknown window granularity "${w.granularity}"`);
   }
@@ -506,10 +513,18 @@ export function translate(
   }
 
   // Legacy cumulative/conversion inputs name a measure; everything else names a metric.
-  const resolveInput = (input: DbtInput): MeasureDef =>
-    metricsByName.has(input.name)
+  // A measure and the metric dbt creates from it share a name, so whether an
+  // input names a measure or a metric comes from the field it sits in.
+  type InputKind = "measure" | "metric";
+  const resolveInput = (input: DbtInput, kind: InputKind): MeasureDef =>
+    kind === "metric"
       ? resolveSimple(input.name, filtersOf(input.filter))
       : resolveMeasure(input);
+  const pick = (
+    metric: DbtInput | null | undefined,
+    measure: DbtInput | null | undefined,
+  ): [DbtInput | null | undefined, InputKind] =>
+    metric ? [metric, "metric"] : [measure, "measure"];
 
   const withFilters = (def: MeasureDef, filters: string[]): MeasureDef => ({
     ...def,
@@ -583,7 +598,11 @@ export function translate(
     return sql;
   }
 
-  function measureRef(def: MeasureDef): { usage: Usage; ref: ColumnRef } {
+  function measureRef(def: MeasureDef): {
+    usage: Usage;
+    ref: ColumnRef;
+    notNull: () => RowFilter;
+  } {
     if (def.nonAdditive) {
       throw new Unsupported(
         `measure "${def.name}" uses non_additive_dimension, which has no GrowthBook equivalent`,
@@ -611,25 +630,35 @@ export function translate(
       return parsed.filter;
     });
     const ref: ColumnRef = { factTableId: "" };
-    if (rowFilters.length) ref.rowFilters = rowFilters;
 
     const column = (datatype: FactTableColumn["datatype"]) => {
       if (isIdent(def.expr)) {
         usage.columns.push({ column: def.expr, datatype });
         return def.expr;
       }
+      // The API requires virtual column ids to end in _vc.
+      const name = `${def.name}_vc`;
       usage.columns.push({
-        column: def.name,
+        column: name,
         datatype,
         isVirtual: true,
         sql: def.expr,
       });
-      return def.name;
+      return name;
     };
+    // dbt's COUNT(expr) and AVG(expr) skip nulls; $$count counts rows.
+    const notNull = (): RowFilter =>
+      isIdent(def.expr)
+        ? { operator: "not_null", column: def.expr }
+        : { operator: "sql_expr", values: [`(${def.expr}) IS NOT NULL`] };
+    const isKey = (def.model.entities ?? []).some(
+      (e) => e.type !== "foreign" && (e.expr ?? e.name) === def.expr,
+    );
 
     switch (def.agg) {
       case "count":
         ref.column = "$$count";
+        if (!isKey) rowFilters.push(notNull());
         break;
       case "sum":
       case "average":
@@ -646,7 +675,7 @@ export function translate(
         ref.aggregation = "count distinct";
         break;
       case "sum_boolean": {
-        const name = def.expr === def.name ? `${def.name}_value` : def.name;
+        const name = `${def.name}_vc`;
         usage.columns.push({
           column: name,
           datatype: "number",
@@ -661,12 +690,13 @@ export function translate(
       default:
         throw new Unsupported(`unknown agg "${def.agg}"`);
     }
+    if (rowFilters.length) ref.rowFilters = rowFilters;
     usage.columns.push(...filterColumns);
-    return { usage, ref };
+    return { usage, ref, notNull };
   }
 
   function simpleData(def: MeasureDef): Omit<Draft, "metric"> {
-    const { usage, ref } = measureRef(def);
+    const { usage, ref, notNull } = measureRef(def);
     const data: FactMetricData = {
       name: def.label,
       metricType: "mean",
@@ -674,8 +704,11 @@ export function translate(
     };
     const refs: Ref[] = [{ ref, usage }];
     if (def.agg === "average") {
-      const den: ColumnRef = { factTableId: "", column: "$$count" };
-      if (ref.rowFilters) den.rowFilters = ref.rowFilters;
+      const den: ColumnRef = {
+        factTableId: "",
+        column: "$$count",
+        rowFilters: [...(ref.rowFilters ?? []), notNull()],
+      };
       refs.push({ ref: den, usage });
       return { data: { ...data, metricType: "ratio", denominator: den }, refs };
     }
@@ -738,6 +771,17 @@ export function translate(
       if (!input) throw new Unsupported(`${metric.type} metric has no ${what}`);
       return input;
     };
+    const window = (w: DbtWindow): Window => {
+      const out = toWindow(w);
+      if (out.note) {
+        warnings.push({
+          level: "note",
+          resource: `metric ${metric.name}`,
+          message: out.note,
+        });
+      }
+      return out;
+    };
     switch (metric.type) {
       case "simple":
         return simpleData(resolveSimple(metric.name, []));
@@ -745,11 +789,11 @@ export function translate(
         return ratioData(
           name,
           withFilters(
-            resolveInput(required(tp.numerator, "numerator")),
+            resolveInput(required(tp.numerator, "numerator"), "metric"),
             filters,
           ),
           withFilters(
-            resolveInput(required(tp.denominator, "denominator")),
+            resolveInput(required(tp.denominator, "denominator"), "metric"),
             filters,
           ),
         );
@@ -760,14 +804,15 @@ export function translate(
             "grain_to_date (period-to-date) has no GrowthBook equivalent",
           );
         }
+        const [input, kind] = pick(ctp?.metric, tp.measure);
         const def = withFilters(
-          resolveInput(required(ctp?.metric ?? tp.measure, "input metric")),
+          resolveInput(required(input, "input metric"), kind),
           filters,
         );
         const out = simpleData({ ...def, label: name });
-        const window = ctp?.window ?? tp.window;
-        if (window) {
-          const w = toWindow(window);
+        const dbtWindow = ctp?.window ?? tp.window;
+        if (dbtWindow) {
+          const w = window(dbtWindow);
           out.data.windowSettings = {
             type: "lookback",
             windowValue: w.value,
@@ -789,16 +834,27 @@ export function translate(
             "calculation: conversions is not supported (funnels report a rate)",
           );
         }
+        const [baseInput, baseKind] = pick(c.base_metric, c.base_measure);
+        const [convInput, convKind] = pick(
+          c.conversion_metric,
+          c.conversion_measure,
+        );
         const base = withFilters(
-          resolveInput(required(c.base_metric ?? c.base_measure, "base")),
+          resolveInput(required(baseInput, "base"), baseKind),
           filters,
         );
         const conv = withFilters(
-          resolveInput(
-            required(c.conversion_metric ?? c.conversion_measure, "conversion"),
-          ),
+          resolveInput(required(convInput, "conversion"), convKind),
           filters,
         );
+        // Funnels join steps on the experiment's identifier, so the dbt entity
+        // must be one; a session- or order-keyed conversion can't be expressed.
+        const idType = opts.entities?.[c.entity] ?? c.entity;
+        if (opts.idTypes && !opts.idTypes.includes(idType)) {
+          throw new Unsupported(
+            `conversion entity "${c.entity}" is not a Data Source identifier type; funnels join events on the experiment's identifier`,
+          );
+        }
         for (const d of [base, conv]) {
           if (!findEntity(d.model, c.entity)) {
             throw new Unsupported(
@@ -816,7 +872,10 @@ export function translate(
         });
         const s1 = step(b.ref, base.label);
         const s2 = step(v.ref, conv.label);
-        if (c.window) s2.conversionWindow = toWindow(c.window);
+        if (c.window) {
+          const w = window(c.window);
+          s2.conversionWindow = { unit: w.unit, value: w.value };
+        }
         return {
           data: {
             name,
@@ -843,7 +902,7 @@ export function translate(
             (i) => (i.alias ?? i.name) === alias,
           );
           if (!found) throw new Unsupported(`unknown derived input "${alias}"`);
-          return withFilters(resolveInput(found), filters);
+          return withFilters(resolveInput(found, "metric"), filters);
         };
         return ratioData(name, input(m[1]), input(m[2]));
       }
@@ -852,14 +911,80 @@ export function translate(
     }
   }
 
+  function inputs(metric: DbtMetric): [DbtInput, InputKind][] {
+    const tp = metric.type_params ?? {};
+    const c = tp.conversion_type_params;
+    const all: [DbtInput | null | undefined, InputKind][] = [
+      [tp.measure, "measure"],
+      [tp.numerator, "metric"],
+      [tp.denominator, "metric"],
+      ...(tp.metrics ?? []).map((m): [DbtInput, InputKind] => [m, "metric"]),
+      [tp.cumulative_type_params?.metric, "metric"],
+      [c?.base_metric, "metric"],
+      [c?.base_measure, "measure"],
+      [c?.conversion_metric, "metric"],
+      [c?.conversion_measure, "measure"],
+    ];
+    return all.filter(
+      (e): e is [DbtInput, InputKind] => (e[0] ?? null) !== null,
+    );
+  }
+
+  // Selection runs on this before anything is translated, so unselected
+  // metrics neither warn nor widen the join sets of the tables that are synced.
+  function modelsOf(
+    metric: DbtMetric,
+    seen = new Set<string>(),
+  ): DbtSemanticModel[] {
+    if (seen.has(metric.name)) return [];
+    seen.add(metric.name);
+    const own = metric.type_params?.metric_aggregation_params?.semantic_model;
+    const models = [own ? modelsByName.get(own) : undefined];
+    for (const [input, kind] of inputs(metric)) {
+      const m = kind === "metric" ? metricsByName.get(input.name) : undefined;
+      if (m) models.push(...modelsOf(m, seen));
+      else models.push(measureIndex.get(input.name)?.model);
+    }
+    return [
+      ...new Set(
+        models.filter((m): m is DbtSemanticModel => (m ?? null) !== null),
+      ),
+    ];
+  }
+
   const drafts: Draft[] = [];
   for (const metric of metrics) {
     if (gbMeta(metric).enabled === false) continue;
+    const tags = tagsOf(metric);
+    if (matches(opts.exclude, metric.name, tags)) continue;
+    const used = modelsOf(metric);
+    if (
+      opts.select?.length &&
+      !matches(opts.select, metric.name, tags) &&
+      !used.some((m) => matches(opts.select, m.name, tagsOf(m)))
+    ) {
+      continue;
+    }
+    const blocked = used.filter(modelBlocked);
+    if (blocked.length) {
+      if (blocked.length < used.length) {
+        warnings.push({
+          level: "skipped",
+          resource: `metric ${metric.name}`,
+          message: `depends on semantic model "${blocked[0].name}", which is excluded`,
+        });
+      }
+      continue;
+    }
     try {
       const out = metricDraft(metric);
-      if (metric.description) out.data.description = metric.description;
-      const tags = tagsOf(metric);
-      if (tags.length) out.data.tags = tags;
+      // Fields the sync owns are always sent, so removing them in dbt
+      // removes them in GrowthBook (bulk updates keep omitted fields).
+      out.data.description = metric.description ?? "";
+      out.data.tags = tags;
+      if (out.data.metricType !== "funnel" && !out.data.windowSettings) {
+        out.data.windowSettings = { type: "none" };
+      }
       Object.assign(out.data, omit(gbMeta(metric), ["enabled"]));
       drafts.push({ metric, ...out });
     } catch (e) {
@@ -926,14 +1051,9 @@ export function translate(
   }
 
   const factTables: BulkImportPayload["factTables"] = [];
-  const blockedTables = new Set<string>();
   const failedTables = new Set<string>();
   for (const t of tables.values()) {
     const model = t.model;
-    if (modelBlocked(model)) {
-      blockedTables.add(t.id);
-      continue;
-    }
     try {
       const rel = model.node_relation?.relation_name;
       if (!rel) {
@@ -998,17 +1118,21 @@ export function translate(
               `semantic model "${j?.target.name}" has no relation_name`,
             );
           }
+          // The joined side is a subquery so its expressions can't collide
+          // with same-named base columns, and every exposed column is prefixed.
           const alias = `j_${entity}`;
+          const key = `${entity}__key`;
+          const inner = [`${j.pk.expr ?? j.pk.name} AS ${key}`];
           for (const dim of [...j.dims].sort()) {
             const d = findDim(j.target, dim);
             if (!d) continue;
-            selects.push(
-              `${qualify(alias, d.expr ?? d.name)} AS ${entity}__${dim}`,
-            );
-            declare(`${entity}__${dim}`, "");
+            const col = `${entity}__${dim}`;
+            inner.push(`${d.expr ?? d.name} AS ${col}`);
+            selects.push(`${alias}.${col}`);
+            declare(col, "");
           }
           joins.push(
-            `LEFT JOIN ${rel2} ${alias} ON ${qualify("t", j.fk.expr ?? j.fk.name)} = ${qualify(alias, j.pk.expr ?? j.pk.name)}`,
+            `LEFT JOIN (SELECT ${inner.join(", ")} FROM ${rel2}) ${alias} ON ${qualify("t", j.fk.expr ?? j.fk.name)} = ${alias}.${key}`,
           );
         }
         sql = `SELECT ${selects.join(", ")} FROM ${rel} t ${joins.join(" ")}`;
@@ -1024,9 +1148,8 @@ export function translate(
         columns: [...columns.values()],
       };
       if (Object.keys(userIdColumns).length) data.userIdColumns = userIdColumns;
-      if (model.description) data.description = model.description;
-      const tags = tagsOf(model);
-      if (tags.length) data.tags = tags;
+      data.description = model.description ?? "";
+      data.tags = tagsOf(model);
       Object.assign(data, omit(gbMeta(model), ["enabled"]));
       factTables.push({ id: t.id, data });
     } catch (e) {
@@ -1044,26 +1167,30 @@ export function translate(
   const usedTables = new Set<string>();
   for (const d of drafts) {
     const name = d.metric.name;
-    const tags = tagsOf(d.metric);
-    const usedModels = [...new Set(d.refs.map((r) => r.usage.model))];
-    if (matches(opts.exclude, name, tags)) continue;
-    if (
-      opts.select?.length &&
-      !matches(opts.select, name, tags) &&
-      !usedModels.some((m) => matches(opts.select, m.name, tagsOf(m)))
-    ) {
-      continue;
-    }
-    const ids = d.refs.map((r) => r.usage.factTableId);
-    if (ids.every((id) => blockedTables.has(id))) continue;
-    const bad = ids.find((id) => blockedTables.has(id) || failedTables.has(id));
+    const bad = d.refs.find((r) => failedTables.has(r.usage.factTableId));
     if (bad) {
       warnings.push({
         level: "skipped",
         resource: `metric ${name}`,
-        message: `depends on fact table "${bad}", which was ${
-          blockedTables.has(bad) ? "excluded" : "skipped"
-        }`,
+        message: `depends on fact table "${bad.usage.factTableId}", which was skipped`,
+      });
+      continue;
+    }
+    // First declaration of a column wins; a metric needing a different type
+    // for the same column (sum vs count_distinct) would be rejected by the API.
+    const conflict = d.refs
+      .flatMap((r) =>
+        r.usage.columns.map((c) => ({
+          c,
+          stored: tables.get(r.usage.factTableId)?.columns.get(c.column),
+        })),
+      )
+      .find(({ c, stored }) => stored && stored.datatype !== c.datatype);
+    if (conflict) {
+      warnings.push({
+        level: "skipped",
+        resource: `metric ${name}`,
+        message: `column "${conflict.c.column}" is used as ${conflict.c.datatype} here but ${conflict.stored?.datatype} by another metric on the same fact table`,
       });
       continue;
     }
@@ -1083,7 +1210,17 @@ export function translate(
     const tags = tagsOf(node);
     if (meta.enabled === false || matches(opts.exclude, node.name, tags))
       continue;
-    if (opts.select?.length && !matches(opts.select, node.name, tags)) continue;
+    const modelSelected =
+      !opts.select?.length || matches(opts.select, node.name, tags);
+    const entries = (Array.isArray(meta.metrics) ? meta.metrics : []).filter(
+      (m) => {
+        const id = isRecord(m) && typeof m.id === "string" ? m.id : null;
+        if (id === null) return modelSelected;
+        if (matches(opts.exclude, id, [])) return false;
+        return modelSelected || matches(opts.select, id, []);
+      },
+    );
+    if (!modelSelected && !entries.length) continue;
     if (!node.relation_name) {
       warnings.push({
         level: "skipped",
@@ -1103,9 +1240,29 @@ export function translate(
       columns: [],
     };
     Object.assign(data, omit(meta, ["enabled", "metrics", "userIdTypes"]));
+    // The API needs the timestamp and identifier columns declared up front;
+    // everything else is detected from the SQL.
+    const columns = new Map<string, FactTableColumn>();
+    for (const c of Array.isArray(data.columns) ? data.columns : []) {
+      if (isRecord(c) && typeof c.column === "string") {
+        columns.set(c.column, c as FactTableColumn);
+      }
+    }
+    const declare = (column: string, datatype: FactTableColumn["datatype"]) => {
+      if (!columns.has(column)) columns.set(column, { column, datatype });
+    };
+    if (typeof data.timestampColumn !== "string")
+      data.timestampColumn = "timestamp";
+    declare(data.timestampColumn, "date");
+    const idColumns = isRecord(data.userIdColumns) ? data.userIdColumns : {};
+    for (const idType of data.userIdTypes) {
+      const col = idColumns[idType];
+      declare(typeof col === "string" ? col : idType, "");
+    }
+    data.columns = [...columns.values()];
     factTables.push({ id: node.name, data });
     plainTables.add(node.name);
-    for (const m of Array.isArray(meta.metrics) ? meta.metrics : []) {
+    for (const m of entries) {
       if (
         !isRecord(m) ||
         typeof m.id !== "string" ||
