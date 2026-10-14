@@ -13,7 +13,7 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import { ApiOrganization } from "shared/validators";
+import { ApiOrganization, SignupAttribution } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -82,6 +82,20 @@ const organizationSchema = new mongoose.Schema({
         enum: Object.keys(USAGE_INTENTS),
       },
     ],
+  },
+  signupAttribution: {
+    utm_source: String,
+    utm_medium: String,
+    utm_campaign: String,
+    utm_term: String,
+    utm_content: String,
+    gclid: String,
+    li_fat_id: String,
+    fbclid: String,
+    msclkid: String,
+    referrer: String,
+    landing_page: String,
+    touch_at: String,
   },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
@@ -185,6 +199,7 @@ export async function createOrganization({
   userId,
   name,
   demographicData,
+  signupAttribution,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -195,6 +210,7 @@ export async function createOrganization({
   userId: string;
   name: string;
   demographicData?: DemographicData;
+  signupAttribution?: SignupAttribution;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -205,6 +221,7 @@ export async function createOrganization({
   const doc = await OrganizationModel.create({
     ownerEmail: email,
     demographicData,
+    signupAttribution,
     name,
     url,
     verifiedDomain,

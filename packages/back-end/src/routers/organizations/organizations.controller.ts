@@ -120,6 +120,7 @@ import {
 } from "back-end/src/util/definitionsEtag";
 import {
   classifyEmail,
+  getOrgSignupAttribution,
   parseAttributionCookie,
   postSignupAttributionToLicenseServer,
 } from "back-end/src/util/signup-attribution";
@@ -1518,6 +1519,8 @@ export async function signup(
     if (!req.userId) {
       throw Error("Must be logged in");
     }
+    // Never throws: a missing or malformed cookie parses to {}
+    const attribution = parseAttributionCookie(req);
     const org = await createOrganization({
       email: req.email,
       userId: req.userId,
@@ -1525,6 +1528,7 @@ export async function signup(
       verifiedDomain,
       externalId,
       demographicData,
+      signupAttribution: getOrgSignupAttribution(attribution),
     });
 
     // Forward marketing attribution to central-license-server for the new
@@ -1537,7 +1541,7 @@ export async function signup(
           userId: req.userId,
           email: req.email,
           emailType: classifyEmail(req.email),
-          attribution: parseAttributionCookie(req),
+          attribution,
         });
       } catch (e) {
         req.log.error(

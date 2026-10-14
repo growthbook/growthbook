@@ -3,6 +3,8 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   attributionCookieSchema,
   AttributionCookie,
+  SignupAttribution,
+  signupAttributionSchema,
   SignupAttributionPayload,
 } from "shared/validators";
 import {
@@ -36,6 +38,20 @@ export function parseAttributionCookie(
   } catch {
     return {};
   }
+}
+
+/**
+ * Narrow a parsed gb_attr cookie to the known fields we persist on the
+ * organization document. Returns undefined when there is nothing to store.
+ */
+export function getOrgSignupAttribution(
+  attribution: AttributionCookie,
+): SignupAttribution | undefined {
+  const result = signupAttributionSchema.safeParse(attribution);
+  if (!result.success) return undefined;
+  const fields = Object.entries(result.data).filter(([, value]) => !!value);
+  if (!fields.length) return undefined;
+  return Object.fromEntries(fields);
 }
 
 /**
