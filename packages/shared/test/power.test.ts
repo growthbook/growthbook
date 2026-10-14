@@ -218,16 +218,17 @@ describe("backend", () => {
       0.10796, 0.27647,
     ];
     const powerSolutionBayesian = [
-      0.0752, 0.15127, 0.10103, 0.29358, 0.12581, 0.41893, 0.15048, 0.52858,
-      0.17516, 0.62241, 0.19984, 0.70103, 0.22446, 0.7657, 0.24899, 0.81807,
-      0.27334, 0.8599,
+      0.13716, 0.25148, 0.17318, 0.41904, 0.20662, 0.55018, 0.23893, 0.65488,
+      0.27037, 0.7377, 0.30098, 0.80241, 0.33078, 0.85234, 0.35976, 0.89046,
+      0.3879, 0.91927,
     ];
     const mdeSolutionBayesian = [
-      0.36259, 1.65287, 0.24173, 0.73248, 0.1929, 0.54036, 0.16492, 0.44561,
-      0.14626, 0.38687, 0.1327, 0.34604, 0.12228, 0.3156, 0.11396, 0.29182,
-      0.10712, 0.27258,
+      0.31257, 1.14383, 0.21065, 0.60553, 0.16878, 0.45734, 0.14462, 0.381,
+      0.12844, 0.33273, 0.11666, 0.29877, 0.10759, 0.27326, 0.10033, 0.2532,
+      0.09435, 0.23691,
     ];
     const sampleSizeAndRuntime = [undefined, 8];
+    const sampleSizeAndRuntimeBayesian = [undefined, 6];
     const resultsTS = powerMetricWeeks(powerSettings);
     const resultsTSBayesian = powerMetricWeeks(powerSettingsBayesian);
     let powerMultiple = [0.0, 0.0];
@@ -301,8 +302,8 @@ describe("backend", () => {
     expect(mdeMultipleBayesian.map(roundToFifthDecimal)).toEqual(
       mdeSolutionBayesian,
     );
-    expect(sampleSizeAndRuntime[0]).toEqual(w0Bayesian);
-    expect(sampleSizeAndRuntime[1]).toEqual(w1Bayesian);
+    expect(sampleSizeAndRuntimeBayesian[0]).toEqual(w0Bayesian);
+    expect(sampleSizeAndRuntimeBayesian[1]).toEqual(w1Bayesian);
   });
   it("checks sequential power", () => {
     const powerSettings: PowerCalculationParams = {
@@ -380,8 +381,8 @@ it("calculatePriorVariance", () => {
 it("powerEstBayesian", () => {
   const power = 0.8;
   const alpha = 0.05;
-  const effectSizeRelative = 0.07024999999999991; /*0.12033664690846606;*/
-  const effectSizeAbsolute = 0.06781974621178363;
+  const effectSizeRelative = 0.062080000000000024;
+  const effectSizeAbsolute = 0.060190000000000056;
   const nPerVariation = 400000 / 3;
 
   const myMetricRel: MetricParams = {
