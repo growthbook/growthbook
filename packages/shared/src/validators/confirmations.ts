@@ -52,8 +52,18 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   bypassApproval: "override.bypassApproval",
   overrideDraftLimit: "override.draftLimit",
 } as const satisfies Record<string, ConfirmLabel>;
+
+// The checks a publishing write can ask to skip.
+export const PUBLISH_OVERRIDE_LABELS = [
+  "override.ignoreWarnings",
+  "override.skipSchemaValidation",
+  "override.skipHooks",
+  "override.bypassApproval",
+  "override.restBypassesReviews",
+] as const satisfies readonly ConfirmLabel[];
+
 type ModelOf<L> = L extends `${infer M}.other` ? M : never;
-export type ConfirmModel = ModelOf<ConfirmLabel>;
+type ConfirmModel = ModelOf<ConfirmLabel>;
 
 // Writes to these API tags change live state unless declared otherwise. A write
 // that declares no labels holds as `<model>.other`, so "*" and "<model>.*" rules
@@ -100,7 +110,10 @@ export const confirmationStatuses = [
   "rejected",
   "expired",
 ] as const;
-export type ConfirmationStatus = (typeof confirmationStatuses)[number];
+
+const confirmationResponseValidator = z
+  .strictObject({ status: z.number(), body: z.unknown() })
+  .nullable();
 
 // A page the person can check before deciding.
 export const confirmationLinkValidator = z.strictObject({
@@ -129,9 +142,7 @@ export const confirmationValidator = baseSchema.safeExtend({
   links: z.array(confirmationLinkValidator),
   fingerprint: z.string(),
   status: z.enum(confirmationStatuses),
-  response: z
-    .strictObject({ status: z.number(), body: z.unknown() })
-    .nullable(),
+  response: confirmationResponseValidator,
   rejectionNote: z.string().nullable(),
   decidedBy: z.string().nullable(),
   decidedAt: z.date().nullable(),
@@ -147,9 +158,7 @@ export const apiConfirmationValidator = z.strictObject({
   summary: z.string(),
   url: z.string(),
   expiresAt: z.string(),
-  response: z
-    .strictObject({ status: z.number(), body: z.unknown() })
-    .nullable(),
+  response: confirmationResponseValidator,
   rejectionNote: z.string().nullable(),
 });
 export type ApiConfirmation = z.infer<typeof apiConfirmationValidator>;

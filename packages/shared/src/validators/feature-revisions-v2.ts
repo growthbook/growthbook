@@ -24,6 +24,7 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -475,11 +476,7 @@ export const postFeatureRevisionPublishV2Validator = {
     "feature.archive",
     "rampSchedule.start",
     "rampSchedule.edit",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
+    ...PUBLISH_OVERRIDE_LABELS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionPublishV2",
@@ -505,14 +502,7 @@ export const postFeatureRevisionPublishV2Validator = {
 export const postFeatureRevisionRevertV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
-  confirmation: [
-    "feature.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postFeatureRevisionRevertV2",
   summary: "Revert the feature to a prior revision",
   tags: ["feature-revisions-v2"],
@@ -758,14 +748,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
 export const postFeatureRevisionSchedulePublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/schedule-publish",
-  confirmation: [
-    "feature.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postFeatureRevisionSchedulePublishV2",
   summary: "Schedule (or cancel) a deferred publish for a draft revision",
   description:

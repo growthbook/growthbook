@@ -24,6 +24,7 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -326,14 +327,7 @@ export const postConstantRevisionDiscardValidator = {
 export const postConstantRevisionPublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/publish",
-  confirmation: [
-    "constant.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -355,14 +349,7 @@ export const postConstantRevisionPublishValidator = {
 export const postConstantRevisionRevertValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/revert",
-  confirmation: [
-    "constant.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postConstantRevisionRevert",
   summary: "Revert the constant to a prior revision",
   description:
@@ -538,14 +525,7 @@ export const putConstantRevisionArchiveValidator = {
 export const postConstantRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/schedule-publish",
-  confirmation: [
-    "constant.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postConstantRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:

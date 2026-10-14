@@ -80,10 +80,9 @@ function ActionsField({
       return next;
     });
 
-  const covered = (v: string) =>
-    v !== ALL &&
-    (value.includes(ALL) ||
-      (!isCategory(v) && value.includes(`${categoryOf(v)}.*`)));
+  // Picked itself, or covered by "*" or its category
+  const checked = (v: string) =>
+    [v, ALL, `${categoryOf(v)}.*`].some((x) => value.includes(x));
 
   return (
     <MultiSelectField
@@ -127,14 +126,12 @@ function ActionsField({
         const category = isCategory(option.value)
           ? categoryOf(option.value)
           : null;
-        const checked =
-          meta.selectValue.some((s) => s.value === option.value) ||
-          covered(option.value);
+        const isChecked = checked(option.value);
         return (
           <Flex align="center" gap="1" data-action={option.value}>
             <Flex
               flexShrink="0"
-              className={clsx(styles.check, checked && styles.checked)}
+              className={clsx(styles.check, isChecked && styles.checked)}
             >
               <PiCheckBold />
             </Flex>

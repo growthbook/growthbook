@@ -443,11 +443,11 @@ export const postRampSchedule = createApiRequestHandler(
   // Attaching on creation controls a live rule without a revision publish.
   if (hasTarget) {
     await requireConfirmation(req.context, {
-      actions: [{ action: "rampSchedule.start", environments: [] }],
-      project: feature?.project || "",
-      summary: `Attach a ramp schedule to ${body.featureId}`,
-      links: [confirmationLink("feature", body.featureId!)],
-      pin: feature?.dateUpdated ?? null,
+      labels: ["rampSchedule.start"],
+      project: feature!.project,
+      summary: `Attach a ramp schedule to ${feature!.id}`,
+      links: [confirmationLink("feature", feature!.id)],
+      pin: feature!.dateUpdated,
     });
   }
 

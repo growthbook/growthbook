@@ -408,7 +408,7 @@ function decodePathParams(
 function matchRoute(
   method: string,
   path: string,
-  includeDeprecated = false,
+  includeDeprecated: boolean,
 ): { route: OpenApiRoute; params: Record<string, string> } | null {
   const m = method.toUpperCase();
   const cleanPath = normalizePath(path);

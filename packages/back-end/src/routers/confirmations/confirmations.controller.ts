@@ -54,7 +54,6 @@ export const getConfirmation = async (
     request: { method: c.method, path: c.path, query: c.query, body: c.body },
     requester: {
       personal: !!c.userId && !c.assumedRole,
-      // The token's owner, or the member an org key assumed or named.
       person: person ? person.name || person.email : null,
       assumedRole: c.assumedRole,
       keyDescription: key?.description || null,

@@ -326,7 +326,6 @@ export type OpenApiRoute<
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   confirmation?: readonly ConfirmLabel[];
-  confirmationInHandler?: boolean;
 };
 
 export function createApiRequestHandler<

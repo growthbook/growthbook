@@ -55,11 +55,7 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
-import {
-  featureUpdateSummary,
-  confirmationLink,
-  requireConfirmation,
-} from "back-end/src/services/confirmations";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidFeatureRules,
@@ -546,15 +542,10 @@ export const updateFeatureV2 = createApiRequestHandler(
       comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
       beforeLanding: ({ bypassesApproval }) =>
-        requireConfirmation(req.context, {
-          actions: [
-            { action: "feature.publish", environments: [] },
-            ...(newArchived
-              ? [{ action: "feature.archive" as const, environments: [] }]
-              : []),
-          ],
-          project: feature.project || "",
-          summary: featureUpdateSummary(feature.id, {
+        holdFeatureUpdate(
+          req.context,
+          feature,
+          {
             archived: newArchived,
             envEnabled: changedEnvEnabled,
             defaultValue: defaultValueChanged,
@@ -562,11 +553,9 @@ export const updateFeatureV2 = createApiRequestHandler(
             metadata: Object.keys(metadataChanges),
             prerequisites: hasPrereqChanges,
             holdout: hasHoldoutChange,
-          }),
-          bypassing: bypassesApproval ? [approvalGate] : [],
-          links: [confirmationLink("feature", feature.id)],
-          pin: feature.dateUpdated,
-        }),
+          },
+          bypassesApproval ? [approvalGate] : [],
+        ),
     });
 
     updatedFeature = updatedFeatureFromRevision;

@@ -38,11 +38,8 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     throw new NotFoundError("Feature not found");
   }
 
-  await holdLinkedFeaturePublish(
-    req.context,
-    feature,
-    stringToBoolean(req.query.autoPublish?.toString()),
-  );
+  const autoPublish = stringToBoolean(req.query.autoPublish?.toString());
+  await holdLinkedFeaturePublish(req.context, feature, autoPublish);
   const result = await unlinkFeatureFromContextualBandit({
     context: req.context,
     contextualBandit,
@@ -50,7 +47,7 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     feature,
     eventAudit: req.eventAudit,
     audit: req.audit,
-    autoPublish: stringToBoolean(req.query.autoPublish?.toString()),
+    autoPublish,
     draftVersion: req.query.draftVersion,
   });
 

@@ -132,7 +132,7 @@ const ApiKeysModal: FC<{
   >(assumesRequesterRole(source ?? {}) ? "assume" : "key");
   const [scoped, setScoped] = useState(!!source?.scoped);
   const [requireConfirmation, setRequireConfirmation] = useState(
-    (source?.confirmRules ?? null) !== null,
+    !!source?.confirmRules,
   );
   // Kept while the checkbox is off, so turning it back on restores the edits.
   const [rules, setRules] = useState<ConfirmRule[]>(
@@ -145,7 +145,6 @@ const ApiKeysModal: FC<{
     !!source?.confirmRules &&
       !isEqual(source.confirmRules, SUGGESTED_CONFIRM_RULES),
   );
-  const confirmRulesBody = { confirmRules };
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
   const canScopeToken =
@@ -168,7 +167,7 @@ const ApiKeysModal: FC<{
           ...(expirationChanged && {
             expiresAt: expiresAt?.toISOString() ?? null,
           }),
-          ...confirmRulesBody,
+          confirmRules,
         }),
       });
       track("Edit API Key", {
@@ -185,14 +184,14 @@ const ApiKeysModal: FC<{
           type: "user",
           ...patScope,
           expiresAt: expiresAt?.toISOString() ?? null,
-          ...confirmRulesBody,
+          confirmRules,
         }
       : {
           description: value.description,
           type: role,
           ...orgKeyFields,
           expiresAt: expiresAt?.toISOString() ?? null,
-          ...confirmRulesBody,
+          confirmRules,
         };
     if (!created.current) {
       await apiCall("/keys", {

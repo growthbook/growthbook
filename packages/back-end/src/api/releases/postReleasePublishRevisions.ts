@@ -196,26 +196,21 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   }
 
   // One confirmation covers the whole release.
-  const labels = new Set(
-    plan.items.map(({ ref }) =>
-      ref.entityType === "feature"
-        ? ("feature.publish" as const)
-        : REVISION_PUBLISH_LABEL[ref.entityType],
+  const links = plan.items.map(({ ref }) =>
+    confirmationLink(
+      ref.entityType === "saved-group" ? "savedGroup" : ref.entityType,
+      callerIdFor(ref.entityType, ref.entityId),
     ),
   );
   await requireConfirmation(req.context, {
-    actions: [...labels].map((action) => ({ action, environments: [] })),
-    bypassing: plan.items.flatMap((item) => item.bypassedGates),
-    project: "",
-    summary: `Publish ${plan.items
-      .map(({ ref }) => callerIdFor(ref.entityType, ref.entityId))
-      .join(", ")}`,
-    links: plan.items.map(({ ref }) =>
-      confirmationLink(
-        ref.entityType === "saved-group" ? "savedGroup" : ref.entityType,
-        callerIdFor(ref.entityType, ref.entityId),
+    labels: [
+      ...new Set(
+        plan.items.map(({ ref }) => REVISION_PUBLISH_LABEL[ref.entityType]),
       ),
-    ),
+    ],
+    bypassing: plan.items.flatMap((item) => item.bypassedGates),
+    summary: `Publish ${links.map((link) => link.label).join(", ")}`,
+    links,
     pin: plan.items.map((item) => item.baseline),
   });
 

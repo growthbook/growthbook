@@ -24,6 +24,7 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -349,14 +350,7 @@ export const postSavedGroupRevisionDiscardValidator = {
 export const postSavedGroupRevisionPublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/publish",
-  confirmation: [
-    "savedGroup.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -378,14 +372,7 @@ export const postSavedGroupRevisionPublishValidator = {
 export const postSavedGroupRevisionRevertValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/revert",
-  confirmation: [
-    "savedGroup.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
@@ -636,14 +623,7 @@ export type SavedGroupRevisionItemsBody = z.infer<
 export const postSavedGroupRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
-  confirmation: [
-    "savedGroup.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postSavedGroupRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:

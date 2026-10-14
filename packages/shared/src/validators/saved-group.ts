@@ -14,6 +14,7 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -278,14 +279,7 @@ export const updateSavedGroupValidator = {
   summary: "Partially update a single saved group",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
-  confirmation: [
-    "savedGroup.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,

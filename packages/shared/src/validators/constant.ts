@@ -13,6 +13,7 @@ import {
   publishBypassedGatesField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
 // via `$extends`). Configs are separate but resolve like `json` constants.
@@ -598,14 +599,7 @@ export const updateConstantValidator = {
   summary: "Partially update a single constant",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
-  confirmation: [
-    "constant.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "updateConstant",
   tags: ["constants"],
   method: "post" as const,

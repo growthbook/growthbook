@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // Releases — the REST namespace for coordinated multi-entity publishing. The
 // bare `POST /releases` slot stays free for a future full Release entity.
@@ -121,11 +122,7 @@ export const postReleasePublishRevisionsValidator = {
     "savedGroup.publish",
     "constant.publish",
     "config.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
+    ...PUBLISH_OVERRIDE_LABELS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postReleasePublishRevisions",

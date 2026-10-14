@@ -4,14 +4,14 @@ import type {
   ExperimentInterface,
   ExperimentPhase,
   ApiConfirmation,
-  ConfirmAction,
   ConfirmationInterface,
   ConfirmLabel,
   ConfirmRule,
   ConfirmationLink,
 } from "shared/validators";
 import type { RevisionTargetType } from "shared/enterprise";
-import { matchConfirmRules } from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
+import { matchConfirmRules, stringToBoolean } from "shared/util";
 import { CONFIRM_OVERRIDE_FLAGS } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
@@ -47,12 +47,15 @@ function rulesFor(context: ReqContext): ConfirmRule[] {
   return key.confirmRules ?? [];
 }
 
-export const REVISION_PUBLISH_LABEL: Record<RevisionTargetType, ConfirmLabel> =
-  {
-    "saved-group": "savedGroup.publish",
-    constant: "constant.publish",
-    config: "config.publish",
-  };
+export const REVISION_PUBLISH_LABEL: Record<
+  RevisionTargetType | "feature",
+  ConfirmLabel
+> = {
+  feature: "feature.publish",
+  "saved-group": "savedGroup.publish",
+  constant: "constant.publish",
+  config: "config.publish",
+};
 
 const LINK_PATHS: Record<ConfirmationLink["type"], string> = {
   feature: "features",
@@ -101,24 +104,26 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
 export async function requireConfirmation(
   context: ReqContext,
   opts: {
-    actions: ConfirmAction[];
+    labels: readonly ConfirmLabel[];
+    // Where the change applies; none matches every environment rule.
+    environments?: string[];
     bypassing?: BypassedGate[];
-    project: string;
+    project?: string;
     summary: string;
     links: ConfirmationLink[];
     // Anything that must not change between hold and run, e.g. a revision's dateUpdated.
     pin: unknown;
   },
 ): Promise<void> {
-  const environments = opts.actions.flatMap((a) => a.environments);
-  const overrides = (opts.bypassing ?? []).flatMap(({ via }) => {
-    const action = OVERRIDE_LABELS[via];
-    return action ? [{ action, environments }] : [];
-  });
-  const actions = matchConfirmRules(rulesFor(context), [
-    ...opts.actions,
-    ...overrides,
-  ]);
+  const environments = opts.environments ?? [];
+  const labels = [
+    ...opts.labels,
+    ...(opts.bypassing ?? []).flatMap(({ via }) => OVERRIDE_LABELS[via] ?? []),
+  ];
+  const actions = matchConfirmRules(
+    rulesFor(context),
+    labels.map((action) => ({ action, environments })),
+  );
   if (!actions.length) return;
 
   const fingerprint = hash([actions, opts.summary, opts.pin]);
@@ -168,7 +173,7 @@ export async function requireConfirmation(
       requestedBy,
       assumedRole,
       apiKeyId: context.apiKey,
-      project: opts.project,
+      project: opts.project || "",
       ...request,
       requestHash,
       actions,
@@ -199,8 +204,9 @@ export async function requireConfirmation(
 
 const asRecord = (v: unknown) =>
   (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
-// Query flags arrive as strings unless the route's schema parsed them.
-const isTrue = (v: unknown) => v === true || v === "true" || v === "1";
+// At least as loose as any handler reads a flag, so every skip it honors is held.
+const asks = (v: unknown) =>
+  v === true || (typeof v === "string" && stringToBoolean(v));
 
 // The route-level hold: the endpoint's labels, with no environments, before the
 // handler loads anything. Nothing has run, so replay is always safe.
@@ -213,17 +219,16 @@ export async function holdAtRoute(
   summary?: string,
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
-  const fields = { ...asRecord(req.query), ...asRecord(req.body) };
+  const query = asRecord(req.query);
+  const body = asRecord(req.body);
   const requested = Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(
-    ([flag, label]) => (isTrue(fields[flag]) ? [label] : []),
+    ([flag, label]) => (asks(query[flag]) || asks(body[flag]) ? [label] : []),
   );
-  const actions = [
-    ...labels.filter((label) => !label.startsWith("override.")),
-    ...requested,
-  ].map((action) => ({ action, environments: [] }));
   await requireConfirmation(context, {
-    actions,
-    project: "",
+    labels: [
+      ...labels.filter((label) => !label.startsWith("override.")),
+      ...requested,
+    ],
     summary:
       summary ||
       `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
@@ -262,6 +267,26 @@ export function featureUpdateSummary(
     return `${archive[0].toUpperCase()}${archive.slice(1)} ${id}`;
   }
   return `Update ${id}: ${[archive, ...parts].filter(Boolean).join(", ")}`;
+}
+
+// A direct flag update lands as a publish, and an archive when it archives.
+export function holdFeatureUpdate(
+  context: ReqContext,
+  feature: FeatureInterface,
+  change: Parameters<typeof featureUpdateSummary>[1],
+  bypassing: BypassedGate[],
+) {
+  return requireConfirmation(context, {
+    labels: [
+      "feature.publish",
+      ...(change.archived ? (["feature.archive"] as const) : []),
+    ],
+    bypassing,
+    project: feature.project,
+    summary: featureUpdateSummary(feature.id, change),
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
 }
 
 const PHASE_LABELS: [keyof ExperimentPhase, ConfirmLabel][] = [

@@ -21,6 +21,7 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -207,11 +208,7 @@ export const postFeatureRevisionPublishValidator = {
     "feature.archive",
     "rampSchedule.start",
     "rampSchedule.edit",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
+    ...PUBLISH_OVERRIDE_LABELS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionPublish",
@@ -238,14 +235,7 @@ export const postFeatureRevisionPublishValidator = {
 export const postFeatureRevisionRevertValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
-  confirmation: [
-    "feature.publish",
-    "override.ignoreWarnings",
-    "override.skipSchemaValidation",
-    "override.skipHooks",
-    "override.bypassApproval",
-    "override.restBypassesReviews",
-  ] as const,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
   operationId: "postFeatureRevisionRevert",
   summary: "Revert the feature to a prior revision",
   description:

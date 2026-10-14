@@ -15,7 +15,7 @@ export default function useKeyExpiryNotices(): AppNotice[] {
   return [
     expiryNotice(expiringPersonalAccessTokens, {
       id: "personal-access-token-expiry",
-      noun: "access token",
+      noun: "personal access token",
       href: "/account/personal-access-tokens",
       fix: "on your Personal Access Tokens page",
     }),
@@ -62,8 +62,7 @@ function expiryNotice(
           </Text>
         ))}
         <Text as="div" size="inherit">
-          Replace an {noun} with <strong>Copy settings to new key</strong> {fix}
-          .
+          To replace one, use <strong>Copy settings to new key</strong> {fix}.
         </Text>
       </Flex>
     ),

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "timers/promises";
 import { getConfirmationValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
@@ -14,17 +15,17 @@ export const getConfirmation = createApiRequestHandler(
     Date.now() + Math.min(req.query.wait ?? 0, MAX_WAIT_SECONDS) * 1000;
   for (;;) {
     const c = await req.context.models.confirmations.getById(req.params.id);
-    const isRequester =
-      !!c &&
-      (c.apiKeyId === req.context.apiKey ||
-        (!!c.userId && c.userId === req.context.userId));
-    if (!c || !isRequester) {
+    if (
+      !c ||
+      (c.apiKeyId !== req.context.apiKey &&
+        (!c.userId || c.userId !== req.context.userId))
+    ) {
       throw new NotFoundError("Could not find that confirmation");
     }
     const confirmation = toApiConfirmation(c);
     const open =
       confirmation.status === "pending" || confirmation.status === "running";
     if (!open || Date.now() >= deadline) return { confirmation };
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await delay(1000);
   }
 });

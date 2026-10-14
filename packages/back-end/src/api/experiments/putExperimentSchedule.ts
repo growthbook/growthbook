@@ -33,15 +33,13 @@ export const putExperimentSchedule = createApiRequestHandler(
 
   // A scheduled start or stop happens later with no one present, so it's held now.
   await requireConfirmation(req.context, {
-    actions: [
-      ...(req.body.startAt
-        ? [{ action: "experiment.start" as const, environments: [] }]
-        : []),
+    labels: [
+      ...(req.body.startAt ? (["experiment.start"] as const) : []),
       ...(req.body.stopAt || req.body.stopAfter
-        ? [{ action: "experiment.stop" as const, environments: [] }]
+        ? (["experiment.stop"] as const)
         : []),
     ],
-    project: experiment.project || "",
+    project: experiment.project,
     summary: `Schedule ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],
     pin: experiment.statusUpdateSchedule ?? null,

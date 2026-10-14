@@ -178,8 +178,8 @@ export async function holdLinkedFeaturePublish(
 ) {
   if (!autoPublish) return;
   await requireConfirmation(context, {
-    actions: [{ action: "feature.other", environments: [] }],
-    project: feature.project || "",
+    labels: ["feature.other"],
+    project: feature.project,
     summary: `Publish the contextual bandit rule on ${feature.id}`,
     links: [confirmationLink("feature", feature.id)],
     pin: feature.dateUpdated,

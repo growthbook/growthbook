@@ -246,22 +246,21 @@ export async function publishFeatureRevision(
   // Armed and auto-on-approval publishes were held, if at all, when set up.
   if (inlineValidationGates) {
     await requireConfirmation(req.context, {
-      actions: [
-        { action: "feature.publish", environments: envsToCheck },
+      labels: [
+        "feature.publish",
         ...(mergeChanges.archived === true && !feature.archived
-          ? [{ action: "feature.archive" as const, environments: envsToCheck }]
+          ? (["feature.archive"] as const)
           : []),
         // Ramp plans staged on the draft (feature ramp-schedule routes) apply now.
-        ...(revision.rampActions ?? []).map(({ mode }) => ({
-          action:
-            mode === "create"
-              ? ("rampSchedule.start" as const)
-              : ("rampSchedule.edit" as const),
-          environments: envsToCheck,
-        })),
+        ...(revision.rampActions ?? []).map(({ mode }) =>
+          mode === "create"
+            ? ("rampSchedule.start" as const)
+            : ("rampSchedule.edit" as const),
+        ),
       ],
+      environments: envsToCheck,
       bypassing: bypassed,
-      project: feature.project || "",
+      project: feature.project,
       summary: `Publish revision ${revision.version} of ${feature.id}`,
       links: [confirmationLink("feature", feature.id)],
       pin: revision.dateUpdated,

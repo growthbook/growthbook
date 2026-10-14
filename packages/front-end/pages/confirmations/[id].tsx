@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import type { Status } from "@/ui/HelperText";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -47,9 +48,7 @@ const NOUNS: Record<ConfirmationLink["type"], string> = {
 // "Feature Flag affected:", "Experiments affected:", or for a mix "Resources affected:"
 function affectedLabel(links: ConfirmationLink[]) {
   const noun =
-    new Set(links.map((l) => l.type)).size === 1
-      ? NOUNS[links[0].type]
-      : undefined;
+    new Set(links.map((l) => l.type)).size === 1 ? NOUNS[links[0].type] : null;
   return noun
     ? `${noun}${links.length > 1 ? "s" : ""} affected:`
     : "Resources affected:";
@@ -70,10 +69,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 const OUTCOMES: Partial<
-  Record<
-    ApiConfirmation["status"],
-    { status: "success" | "info" | "warning" | "error"; text: string }
-  >
+  Record<ApiConfirmation["status"], { status: Status; text: string }>
 > = {
   completed: {
     status: "success",
@@ -130,11 +126,9 @@ export default function ConfirmationPage() {
   const hasQuery = Object.keys(request.query).length > 0;
   const details =
     hasQuery || request.body !== undefined
-      ? JSON.stringify(
-          {
-            ...(hasQuery ? { query: request.query } : {}),
-            ...(request.body !== undefined ? { body: request.body } : {}),
-          },
+      ? // Undefined keys drop out
+        JSON.stringify(
+          { query: hasQuery ? request.query : undefined, body: request.body },
           null,
           2,
         )
@@ -246,10 +240,8 @@ export default function ConfirmationPage() {
           <Flex
             align="center"
             flexShrink="0"
-            style={{
-              height: "var(--line-height-1)",
-              color: "var(--violet-11)",
-            }}
+            height="var(--line-height-1)"
+            style={{ color: "var(--violet-11)" }}
           >
             <PiShieldCheck size={14} />
           </Flex>

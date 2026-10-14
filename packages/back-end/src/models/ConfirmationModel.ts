@@ -11,8 +11,8 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-// Who may read or decide is settled in services/confirmations: the requester's
-// credential polls, and only the confirming person's session decides.
+// Callers check access: getConfirmation for the requester, confirmationDecisions
+// for the person deciding.
 export class ConfirmationModel extends BaseClass {
   protected canCreate() {
     return true;
