@@ -15,7 +15,6 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
   AgreementType,
   ConfirmRule,
-  confirmRulesValidator,
   updateSdkWebhookValidator,
 } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -1617,11 +1616,6 @@ export async function putOrganization(
         if (!context.permissions.canManageNorthStarMetric()) {
           context.permissions.throwPermissionError();
         }
-      } else if (k === "confirmRules") {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-        confirmRulesValidator.parse(settings.confirmRules);
       } else if (k === "namespaces") {
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",

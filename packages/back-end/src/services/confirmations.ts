@@ -39,15 +39,12 @@ const OVERRIDE_LABELS: Record<BypassVia, ConfirmLabel | null> = {
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
-// A person-bound token answers to the org's rules plus its own; an org key only
-// to its own, so CI keys keep working. App sessions are never held.
+// Every key answers only to its own rules, so scripts and CI keep working.
+// App sessions are never held.
 function rulesFor(context: ReqContext): ConfirmRule[] {
   const key = context.apiKeyData;
   if (!context.isApiRequest || !key) return [];
-  const own = key.confirmRules ?? [];
-  return key.userId
-    ? [...(context.org.settings?.confirmRules ?? []), ...own]
-    : own;
+  return key.confirmRules ?? [];
 }
 
 export const REVISION_PUBLISH_LABEL: Record<RevisionTargetType, ConfirmLabel> =

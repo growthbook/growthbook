@@ -100,6 +100,21 @@ function ActionsField({
             isCategory(option.value) ||
             expanded.has(categoryOf(option.value))
       }
+      // Arrow keys open and close the highlighted category, like a tree.
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        if ((e.target as HTMLInputElement).value) return;
+        const value = document
+          .querySelector(".gb-multi-select__option--is-focused [data-action]")
+          ?.getAttribute("data-action");
+        if (!value || value === ALL) return;
+        const category = categoryOf(value);
+        const open = expanded.has(category);
+        if (e.key === "ArrowRight" ? !open && isCategory(value) : open) {
+          e.preventDefault();
+          toggle(category);
+        }
+      }}
       onChange={(next) => {
         if (!next.length) return onChange([]);
         const clicked =
@@ -116,7 +131,7 @@ function ActionsField({
           meta.selectValue.some((s) => s.value === option.value) ||
           covered(option.value);
         return (
-          <Flex align="center" gap="1">
+          <Flex align="center" gap="1" data-action={option.value}>
             <Flex
               flexShrink="0"
               className={clsx(styles.check, checked && styles.checked)}
@@ -130,7 +145,8 @@ function ActionsField({
                 color="gray"
                 size="1"
                 className={styles.caret}
-                aria-label={`Show ${option.label} actions`}
+                aria-label={`${expanded.has(category) ? "Hide" : "Show"} ${option.label} actions`}
+                tabIndex={-1}
                 aria-expanded={expanded.has(category)}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -159,9 +175,6 @@ function ActionsField({
 }
 
 export const SUGGESTED_CONFIRM_RULES: ConfirmRule[] = [{ actions: [ALL] }];
-
-export const withoutEmptyRules = (rules: ConfirmRule[]) =>
-  rules.filter((rule) => rule.actions.length);
 
 export default function ConfirmRulesField({
   value,
@@ -192,7 +205,7 @@ export default function ConfirmRulesField({
           />
           <MultiSelectField
             label="Environments"
-            placeholder="All environments"
+            placeholder="All Environments"
             value={rule.environments ?? []}
             options={envOptions}
             onChange={(envs) =>

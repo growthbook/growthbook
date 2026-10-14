@@ -8,7 +8,9 @@ import {
   getExpirationProblem,
   latestEditedExpiration,
 } from "shared/api-key-expiration";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import isEqual from "lodash/isEqual";
+import { PiGear } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -18,10 +20,10 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
 import ConfirmRulesField, {
   SUGGESTED_CONFIRM_RULES,
-  withoutEmptyRules,
 } from "./ConfirmRulesField";
 
 const ApiKeysModal: FC<{
@@ -117,18 +119,30 @@ const ApiKeysModal: FC<{
     projectRoles: source?.projectRoles,
   });
   const [scoped, setScoped] = useState(!!source?.scoped);
-  const [confirmRules, setConfirmRules] = useState<ConfirmRule[] | null>(
-    source?.confirmRules ?? null,
+  const [requireConfirmation, setRequireConfirmation] = useState(
+    (source?.confirmRules ?? null) !== null,
   );
-  const confirmRulesBody = {
-    confirmRules: confirmRules ? withoutEmptyRules(confirmRules) : null,
-  };
+  // Kept while the checkbox is off, so turning it back on restores the edits.
+  const [rules, setRules] = useState<ConfirmRule[]>(
+    source?.confirmRules ?? SUGGESTED_CONFIRM_RULES,
+  );
+  const confirmRules = requireConfirmation ? rules : null;
+  // The default holds everything; the editor stays tucked away until asked for,
+  // unless this key already has rules of its own.
+  const [customizing, setCustomizing] = useState(
+    !!source?.confirmRules &&
+      !isEqual(source.confirmRules, SUGGESTED_CONFIRM_RULES),
+  );
+  const confirmRulesBody = { confirmRules };
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
   const canScopeToken =
     personalAccessToken && (orgSupportsRoles() || !!source?.scoped);
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (confirmRules?.some((rule) => !rule.actions.length)) {
+      throw new Error("Choose at least one action for each confirmation rule.");
+    }
     const { role, ...roleStateData } = roleState;
     const patScope = scoped ? { scopedRole: role, ...roleStateData } : {};
 
@@ -217,16 +231,35 @@ const ApiKeysModal: FC<{
         label="Require confirmation"
         description={
           personalAccessToken
-            ? "Hold these actions until you confirm them in GrowthBook, on top of your organization's rules."
+            ? "Hold these actions until you confirm them in GrowthBook."
             : "Hold these actions until someone allowed to make the change confirms it in GrowthBook."
         }
-        value={confirmRules !== null}
-        setValue={(on) => setConfirmRules(on ? SUGGESTED_CONFIRM_RULES : null)}
-        mb="3"
+        value={requireConfirmation}
+        setValue={(on) => {
+          setRequireConfirmation(on);
+          if (on && !rules.length) setRules(SUGGESTED_CONFIRM_RULES);
+        }}
+        mb={requireConfirmation ? "2" : "3"}
       />
-      {confirmRules && (
+      {requireConfirmation && !customizing && (
+        <Box pl="5" mb="3">
+          <Link weight="medium" onClick={() => setCustomizing(true)}>
+            <Flex align="center" gap="1">
+              <PiGear /> Customize behavior
+            </Flex>
+          </Link>
+        </Box>
+      )}
+      {requireConfirmation && customizing && (
         <Box mb="3">
-          <ConfirmRulesField value={confirmRules} setValue={setConfirmRules} />
+          <ConfirmRulesField
+            value={rules}
+            // No rules left holds nothing, so the checkbox goes off with them.
+            setValue={(next) => {
+              setRules(next);
+              if (!next.length) setRequireConfirmation(false);
+            }}
+          />
         </Box>
       )}
       {canDeleteSource && (

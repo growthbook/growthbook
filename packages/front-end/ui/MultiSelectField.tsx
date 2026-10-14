@@ -300,6 +300,7 @@ export type MultiSelectFieldProps = Omit<
     option: FilterOptionOption<SingleValue>,
     inputValue: string,
   ) => boolean;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   noMenu?: boolean;
   showCopyButton?: boolean;
   size?: MultiSelectFieldSize;
@@ -331,6 +332,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   isOptionDisabled,
   hideSelectedOptions,
   filterOption,
+  onKeyDown,
   noMenu,
   required,
   pattern,
@@ -638,6 +640,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   isOptionDisabled={isOptionDisabled}
                   hideSelectedOptions={hideSelectedOptions}
                   filterOption={filterOption}
+                  {...(onKeyDown ? { onKeyDown } : {})}
                   {...{ ...ReactSelectProps, ...mergeStyles }}
                 />
                 {required && (

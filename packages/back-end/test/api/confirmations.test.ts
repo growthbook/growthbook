@@ -38,9 +38,6 @@ const org = {
       { id: "dev", description: "" },
       { id: "production", description: "" },
     ],
-    confirmRules: [
-      { actions: ["feature.publish"], environments: ["production"] },
-    ],
   },
 } as unknown as OrganizationInterface;
 
@@ -58,7 +55,12 @@ const keyDoc = (id: string, extra: Partial<ApiKeyInterface>) =>
     dateUpdated: now,
     ...extra,
   }) as ApiKeyInterface;
-const pat = keyDoc("key_pat", { userId: "u_torres" });
+const pat = keyDoc("key_pat", {
+  userId: "u_torres",
+  confirmRules: [
+    { actions: ["feature.publish"], environments: ["production"] },
+  ],
+});
 const engineerPat = keyDoc("key_engineer", { userId: "u_engineer" });
 const bot = keyDoc("key_bot", {
   role: "admin",

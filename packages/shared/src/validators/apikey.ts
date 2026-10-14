@@ -108,7 +108,7 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .nullable()
     .optional()
     .describe(
-      "Actions this key can't complete until a person confirms them, on top of the organization's rules. Null or absent means off.",
+      "Actions this key can't complete until a person confirms them. Null or absent means off.",
     ),
 });
 

@@ -1,6 +1,5 @@
 import { FC } from "react";
 import PersonalAccessTokenSettings from "@/components/Settings/PersonalAccessTokenSettings";
-import ConfirmRulesSettings from "@/components/Settings/ConfirmRulesSettings";
 import MemberPersonalAccessTokens from "@/components/Settings/MemberPersonalAccessTokens";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
@@ -35,7 +34,6 @@ const ManagePersonalAccessTokensPage: FC = () => {
       </Text>
 
       <PersonalAccessTokenSettings />
-      <ConfirmRulesSettings />
       <MemberPersonalAccessTokens />
 
       <Callout status="info" mb="4">

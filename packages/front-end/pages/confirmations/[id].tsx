@@ -1,12 +1,7 @@
 import { useRouter } from "next/router";
-import { CSSProperties, ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import Collapsible from "react-collapsible";
-import {
-  PiArrowSquareOut,
-  PiCaretRightFill,
-  PiShieldCheck,
-} from "react-icons/pi";
+import { PiArrowSquareOut, PiShieldCheck } from "react-icons/pi";
 import type { ApiConfirmation, ConfirmationLink } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -19,6 +14,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RequestLine } from "@/components/Agent/ConfirmActionCard";
+import RequestDetails from "@/components/Confirmations/RequestDetails";
 import { describeActions } from "@/components/Settings/confirmRulesUtils";
 
 type ConfirmationResponse = {
@@ -37,20 +33,6 @@ type ConfirmationResponse = {
   };
   forEmail: string | null;
   canDecide: boolean;
-};
-
-const JSON_STYLE: CSSProperties = {
-  margin: "var(--space-2) 0 0",
-  padding: "var(--space-2)",
-  maxHeight: "50vh",
-  overflow: "auto",
-  fontSize: 12,
-  lineHeight: 1.4,
-  borderRadius: "var(--radius-2)",
-  background: "var(--gray-a3)",
-  color: "var(--gray-12)",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
 };
 
 const NOUNS: Record<ConfirmationLink["type"], string> = {
@@ -183,18 +165,18 @@ export default function ConfirmationPage() {
         {/* The key leads: an agent driving it is why this is held. */}
         <Heading as="h1" size="xl" align="center" mb="1">
           {requester.keyDescription ??
-            (requester.personal ? "A Personal Access Token" : "An API key")}
+            (requester.personal ? "A Personal Access Token" : "An API Key")}
         </Heading>
         <Text as="div" size="lg" color="text-mid" align="center" mb="3">
           {requester.personal ? (
             <>
-              Personal Access Token for{" "}
+              Personal access token for{" "}
               <Text size="inherit" weight="semibold" color="text-high">
                 {requester.name ?? "a former member"}
               </Text>
             </>
           ) : (
-            "API Key"
+            "API key"
           )}
         </Text>
         <Text as="div" size="lg" color="text-mid" align="center">
@@ -211,13 +193,13 @@ export default function ConfirmationPage() {
         </Callout>
       ) : null}
       {pending && forEmail ? (
-        <Callout status="error" mb="4">
+        <Callout status="warning" mb="4">
           This request is for {forEmail}. Only the person it was made for can
           confirm it.
         </Callout>
       ) : null}
       {pending && !forEmail && !canDecide ? (
-        <Callout status="error" mb="4">
+        <Callout status="warning" mb="4">
           You don&apos;t have permission to make this change, so you can&apos;t
           confirm it.
         </Callout>
@@ -236,26 +218,14 @@ export default function ConfirmationPage() {
           {confirmation.summary}
         </Heading>
         <RequestLine method={request.method} path={request.path} />
-        {details ? (
-          <Collapsible
-            trigger={
-              <div className="link-purple font-weight-bold mt-1">
-                <PiCaretRightFill className="chevron mr-1" />
-                Request details
-              </div>
-            }
-            transitionTime={100}
-          >
-            <pre style={JSON_STYLE}>{details}</pre>
-          </Collapsible>
-        ) : null}
+        {details ? <RequestDetails json={details} /> : null}
         {links.length ? (
           <Flex align="center" gap="2" wrap="wrap" mt="4">
             <Text size="sm" weight="medium">
               {affectedLabel(links)}
             </Text>
             {links.map((link) => (
-              <Link key={link.url} href={link.url} target="_blank">
+              <Link key={link.url} href={link.url} external>
                 <Flex align="center" gap="1">
                   {link.label} <PiArrowSquareOut />
                 </Flex>
@@ -305,15 +275,18 @@ export default function ConfirmationPage() {
             <Button
               size="lg"
               onClick={() => decide("confirm")}
-              loading={submitting}
+              disabled={submitting}
               style={{ flex: 1 }}
             >
               Confirm
             </Button>
           </Flex>
           <Text as="div" size="sm" color="text-low" align="center" mt="3">
-            Expires in {minutesLeft} minutes. Confirming doesn&apos;t count as a
-            review approval.
+            Expires in{" "}
+            {minutesLeft === 0
+              ? "less than a minute"
+              : `${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}`}
+            . Confirming doesn&apos;t count as a review approval.
           </Text>
         </>
       ) : null}
