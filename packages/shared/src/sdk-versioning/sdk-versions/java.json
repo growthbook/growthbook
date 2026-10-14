@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "0.11.1",
+      "capabilities": ["savedGroupReferences", "trackingPlugin"]
+    },
+    {
       "version": "0.11.0"
     },
     {
