@@ -92,7 +92,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
-import { InterleavingQueryModel } from "back-end/src/enterprise/models/InterleavingQueryModel";
+import { InterleavingExposureQueryModel } from "back-end/src/enterprise/models/InterleavingExposureQueryModel";
 import { InterleavingSnapshotModel } from "back-end/src/enterprise/models/InterleavingSnapshotModel";
 import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
@@ -179,7 +179,7 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
-  | "interleavingQueries"
+  | "interleavingExposureQueries"
   | "interleavingSnapshots"
   | "interleavings"
   | "contextualBanditEvents"
@@ -245,7 +245,7 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
-  interleavingQueries: InterleavingQueryModel,
+  interleavingExposureQueries: InterleavingExposureQueryModel,
   interleavingSnapshots: InterleavingSnapshotModel,
   interleavings: InterleavingModel,
   contextualBanditEvents: ContextualBanditEventModel,
@@ -431,7 +431,7 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
-      interleavingQueries: new InterleavingQueryModel(this),
+      interleavingExposureQueries: new InterleavingExposureQueryModel(this),
       interleavingSnapshots: new InterleavingSnapshotModel(this),
       interleavings: new InterleavingModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),

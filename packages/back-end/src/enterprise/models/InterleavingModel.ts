@@ -190,9 +190,9 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
-  public getByInterleavingQueryId(
-    interleavingQueryId: string,
+  public getByInterleavingExposureQueryId(
+    interleavingExposureQueryId: string,
   ): Promise<InterleavingInterface[]> {
-    return this._find({ interleavingQueryId });
+    return this._find({ interleavingExposureQueryId });
   }
 }

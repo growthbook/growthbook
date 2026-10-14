@@ -20,7 +20,7 @@ async function getIntegration(context: Context, datasourceId: string) {
 }
 
 /**
- * Freeze the analysis inputs from an Interleaving and its Interleaving Query.
+ * Freeze the analysis inputs from an Interleaving and its Interleaving Exposure Query.
  */
 async function getInterleavingSnapshotSettings(
   context: Context,
@@ -37,22 +37,25 @@ async function getInterleavingSnapshotSettings(
     );
   }
 
-  const interleavingQuery = await context.models.interleavingQueries.getById(
-    interleaving.interleavingQueryId,
-  );
-  if (!interleavingQuery) {
+  const interleavingExposureQuery =
+    await context.models.interleavingExposureQueries.getById(
+      interleaving.interleavingExposureQueryId,
+    );
+  if (!interleavingExposureQuery) {
     context.throwNotFoundError(
-      `Interleaving query not found: ${interleaving.interleavingQueryId}`,
+      `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
     );
   }
-  if (interleavingQuery.datasourceId !== interleaving.datasource) {
+  if (interleavingExposureQuery.datasourceId !== interleaving.datasource) {
     throw new Error(
-      `Interleaving query "${interleavingQuery.name}" belongs to a different Data Source than this interleaving experiment`,
+      `Interleaving exposure query "${interleavingExposureQuery.name}" belongs to a different Data Source than this interleaving experiment`,
     );
   }
-  if (!interleavingQuery.userIdTypes.includes(interleaving.userIdType)) {
+  if (
+    !interleavingExposureQuery.userIdTypes.includes(interleaving.userIdType)
+  ) {
     throw new Error(
-      `Interleaving query "${interleavingQuery.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
+      `Interleaving exposure query "${interleavingExposureQuery.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
     );
   }
 
@@ -61,8 +64,8 @@ async function getInterleavingSnapshotSettings(
     interleavingId: interleaving.id,
     trackingKey: interleaving.trackingKey,
     datasourceId: interleaving.datasource,
-    interleavingQueryId: interleavingQuery.id,
-    query: interleavingQuery.query,
+    interleavingExposureQueryId: interleavingExposureQuery.id,
+    exposureQuery: interleavingExposureQuery.query,
     userIdType: interleaving.userIdType,
     variations: [
       { id: a.id, key: a.key, name: a.name },

@@ -46,7 +46,7 @@ const baseDoc = {
   ],
   jsonSchema: null,
   datasource: "ds_1",
-  interleavingQueryId: "ilq_1",
+  interleavingExposureQueryId: "ileq_1",
   userIdType: "user_id",
   metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
   environmentSettings: { production: { enabled: true } },

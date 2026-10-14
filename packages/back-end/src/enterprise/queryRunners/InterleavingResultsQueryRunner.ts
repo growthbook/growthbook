@@ -98,7 +98,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     const queries: Queries = [];
     for (const [factTableId, group] of await this.groupByFactTable(settings)) {
       const sql = integration.getInterleavingMetricQuery({
-        exposureQuery: settings.query,
+        exposureQuery: settings.exposureQuery,
         userIdType: settings.userIdType,
         trackingKey: settings.trackingKey,
         variationKeys: [settings.variations[0].key, settings.variations[1].key],

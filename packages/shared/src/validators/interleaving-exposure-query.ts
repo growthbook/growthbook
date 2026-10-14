@@ -9,7 +9,7 @@ import {
 import { namedSchema } from "./openapi-helpers";
 
 /**
- * An Interleaving Query is the interleaving-specific replacement for borrowing
+ * An Interleaving Exposure Query is the interleaving-specific replacement for borrowing
  * an Experiment Assignment Query off the datasource (same design as Contextual
  * Bandit Queries). It returns ONE ROW PER IMPRESSION in the SDK's nested
  * exposure shape — the item-level detail rides in an `items` JSON column
@@ -39,7 +39,7 @@ export const INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS = [
   INTERLEAVING_ITEMS_COLUMN,
 ] as const;
 
-const interleavingQueryFields = {
+const interleavingExposureQueryFields = {
   datasourceId: z.string(),
   name: z.string().min(1),
   description: z.string().optional(),
@@ -49,28 +49,28 @@ const interleavingQueryFields = {
   query: z.string().min(1),
 };
 
-export const interleavingQueryValidator = baseSchema
-  .extend({ owner: ownerField, ...interleavingQueryFields })
+export const interleavingExposureQueryValidator = baseSchema
+  .extend({ owner: ownerField, ...interleavingExposureQueryFields })
   .strict();
 
-export type InterleavingQueryInterface = z.infer<
-  typeof interleavingQueryValidator
+export type InterleavingExposureQueryInterface = z.infer<
+  typeof interleavingExposureQueryValidator
 >;
 
-export const apiInterleavingQueryValidator = namedSchema(
-  "InterleavingQuery",
+export const apiInterleavingExposureQueryValidator = namedSchema(
+  "InterleavingExposureQuery",
   apiBaseSchema.safeExtend({
     owner: ownerField,
     ownerEmail: ownerEmailField,
-    ...interleavingQueryFields,
+    ...interleavingExposureQueryFields,
   }),
 );
 
-export type ApiInterleavingQueryInterface = z.infer<
-  typeof apiInterleavingQueryValidator
+export type ApiInterleavingExposureQueryInterface = z.infer<
+  typeof apiInterleavingExposureQueryValidator
 >;
 
-export const apiListInterleavingQueriesValidator = {
+export const apiListInterleavingExposureQueriesValidator = {
   bodySchema: z.never(),
   querySchema: z.strictObject({
     datasourceId: z.string().optional(),
@@ -78,21 +78,21 @@ export const apiListInterleavingQueriesValidator = {
   paramsSchema: z.never(),
 };
 
-export const apiCreateInterleavingQueryBody = z.strictObject({
+export const apiCreateInterleavingExposureQueryBody = z.strictObject({
   owner: optionalOwnerInputField,
-  ...interleavingQueryFields,
+  ...interleavingExposureQueryFields,
 });
 
-export type ApiCreateInterleavingQueryBody = z.infer<
-  typeof apiCreateInterleavingQueryBody
+export type ApiCreateInterleavingExposureQueryBody = z.infer<
+  typeof apiCreateInterleavingExposureQueryBody
 >;
 
 // datasourceId is immutable (a readonly field on the model)
-export const apiUpdateInterleavingQueryBody = z
-  .strictObject({ owner: ownerInputField, ...interleavingQueryFields })
+export const apiUpdateInterleavingExposureQueryBody = z
+  .strictObject({ owner: ownerInputField, ...interleavingExposureQueryFields })
   .omit({ datasourceId: true })
   .partial();
 
-export type ApiUpdateInterleavingQueryBody = z.infer<
-  typeof apiUpdateInterleavingQueryBody
+export type ApiUpdateInterleavingExposureQueryBody = z.infer<
+  typeof apiUpdateInterleavingExposureQueryBody
 >;

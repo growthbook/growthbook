@@ -4,8 +4,7 @@ import {
   PairedSufficientStats,
 } from "../src/interleaving";
 
-// Fixture computed independently in R (see interleave-sim.R companion work):
-// set.seed(42); x ~ Pois(2), y ~ Pois(1.6), n ~ Pois(5)+1, 40 users
+// Fixture computed independently in R
 const R_FIXTURE: PairedSufficientStats = {
   users: 40,
   sum_x: 96,

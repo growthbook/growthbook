@@ -1,18 +1,18 @@
 import { isEqual } from "lodash";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
-  ApiInterleavingQueryInterface,
-  InterleavingQueryInterface,
-  interleavingQueryApiSpec,
-  interleavingQueryValidator,
+  ApiInterleavingExposureQueryInterface,
+  InterleavingExposureQueryInterface,
+  interleavingExposureQueryApiSpec,
+  interleavingExposureQueryValidator,
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 
 const BaseClass = MakeModelClass({
-  schema: interleavingQueryValidator,
-  collectionName: "interleavingqueries",
-  idPrefix: "ilq_",
+  schema: interleavingExposureQueryValidator,
+  collectionName: "interleavingexposurequeries",
+  idPrefix: "ileq_",
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     owner: "",
@@ -27,33 +27,33 @@ const BaseClass = MakeModelClass({
     },
   ],
   apiConfig: {
-    modelKey: "interleavingQueries",
-    openApiSpec: interleavingQueryApiSpec,
+    modelKey: "interleavingExposureQueries",
+    openApiSpec: interleavingExposureQueryApiSpec,
   },
 });
 
-// Interleaving queries are Data Source configuration (like Experiment
+// Interleaving exposure queries are Data Source configuration (like Experiment
 // Assignment Queries): readable by anyone who can read the Data Source,
 // writable by anyone who can edit its settings.
-export class InterleavingQueryModel extends BaseClass {
-  protected canRead(doc: InterleavingQueryInterface): boolean {
+export class InterleavingExposureQueryModel extends BaseClass {
+  protected canRead(doc: InterleavingExposureQueryInterface): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return (
       !!datasource &&
       this.context.permissions.canReadMultiProjectResource(datasource.projects)
     );
   }
-  protected canCreate(doc: InterleavingQueryInterface): boolean {
+  protected canCreate(doc: InterleavingExposureQueryInterface): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return (
       !!datasource &&
       this.context.permissions.canUpdateDataSourceSettings(datasource)
     );
   }
-  protected canUpdate(existing: InterleavingQueryInterface): boolean {
+  protected canUpdate(existing: InterleavingExposureQueryInterface): boolean {
     return this.canCreate(existing);
   }
-  protected canDelete(doc: InterleavingQueryInterface): boolean {
+  protected canDelete(doc: InterleavingExposureQueryInterface): boolean {
     return this.canCreate(doc);
   }
 
@@ -61,20 +61,24 @@ export class InterleavingQueryModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
-  protected async beforeDelete(doc: InterleavingQueryInterface): Promise<void> {
+  protected async beforeDelete(
+    doc: InterleavingExposureQueryInterface,
+  ): Promise<void> {
     const referencing =
-      await this.context.models.interleavings.getByInterleavingQueryId(doc.id);
+      await this.context.models.interleavings.getByInterleavingExposureQueryId(
+        doc.id,
+      );
     if (referencing.length > 0) {
       const names = referencing.map((i) => i.name).join(", ");
       throw new Error(
-        `Cannot delete this interleaving query because it is in use by ${referencing.length} interleaving experiment(s): ${names}. Update or remove those experiments first.`,
+        `Cannot delete this interleaving exposure query because it is in use by ${referencing.length} interleaving experiment(s): ${names}. Update or remove those experiments first.`,
       );
     }
   }
 
   protected async customValidation(
-    doc: InterleavingQueryInterface,
-    previousDoc?: InterleavingQueryInterface,
+    doc: InterleavingExposureQueryInterface,
+    previousDoc?: InterleavingExposureQueryInterface,
   ): Promise<void> {
     const { datasource } = this.getForeignRefs(doc);
     if (!datasource) {
@@ -104,8 +108,8 @@ export class InterleavingQueryModel extends BaseClass {
   }
 
   protected toApiInterface(
-    doc: InterleavingQueryInterface,
-  ): ApiInterleavingQueryInterface {
+    doc: InterleavingExposureQueryInterface,
+  ): ApiInterleavingExposureQueryInterface {
     return {
       id: doc.id,
       dateCreated: doc.dateCreated.toISOString(),
@@ -122,7 +126,7 @@ export class InterleavingQueryModel extends BaseClass {
   /** List, optionally scoped to one Data Source. */
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
-  ): Promise<ApiInterleavingQueryInterface[]> {
+  ): Promise<ApiInterleavingExposureQueryInterface[]> {
     const { datasourceId } = req.query;
     const docs = await this._find(datasourceId ? { datasourceId } : {});
     return resolveOwnerEmails(

@@ -130,7 +130,7 @@ export const interleavingValidator = baseSchema
 
     // Analysis inputs.
     datasource: z.string(),
-    interleavingQueryId: z.string(),
+    interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
     metrics: z
       .array(interleavingMetricConfigValidator)

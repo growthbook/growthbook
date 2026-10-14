@@ -9,7 +9,7 @@ import { queryPointerValidator } from "./queries";
 
 /**
  * Frozen, self-contained settings for a single interleaving snapshot run,
- * copied from the parent Interleaving and its Interleaving Query
+ * copied from the parent Interleaving and its Interleaving Exposure Query
  * (contextual-bandit-snapshot pattern: `.strict()` and feature-specific).
  */
 export const interleavingSnapshotSettingsValidator = z
@@ -17,8 +17,8 @@ export const interleavingSnapshotSettingsValidator = z
     interleavingId: z.string(),
     trackingKey: z.string(),
     datasourceId: z.string(),
-    interleavingQueryId: z.string(),
-    query: z.string(),
+    interleavingExposureQueryId: z.string(),
+    exposureQuery: z.string(),
     userIdType: z.string(),
     // Control first. `key` is matched against the exposure items' `variation`;
     // `name` is what results display.

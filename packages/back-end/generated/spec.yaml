@@ -446,8 +446,8 @@ tags:
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
     description: ''
-  - name: InterleavingQueries
-    x-displayName: Interleaving Queries
+  - name: InterleavingExposureQueries
+    x-displayName: Interleaving Exposure Queries
     description: ''
   - name: CustomFields
     x-displayName: Custom Fields
@@ -731,9 +731,11 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
-  - name: InterleavingQuery_model
-    x-displayName: Interleaving Query
-    description: <SchemaDefinition schemaRef="#/components/schemas/InterleavingQuery" />
+  - name: InterleavingExposureQuery_model
+    x-displayName: Interleaving Exposure Query
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/InterleavingExposureQuery" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -52707,12 +52709,12 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/interleaving-queries/{id}:
+  /v1/interleaving-exposure-queries/{id}:
     get:
-      operationId: getInterleavingQuery
-      summary: Get a single interleavingQuery
+      operationId: getInterleavingExposureQuery
+      summary: Get a single interleavingExposureQuery
       tags:
-        - InterleavingQueries
+        - InterleavingExposureQueries
       parameters:
         - name: id
           in: path
@@ -52728,22 +52730,23 @@ paths:
               schema:
                 type: object
                 properties:
-                  interleavingQuery:
-                    $ref: '#/components/schemas/InterleavingQuery'
+                  interleavingExposureQuery:
+                    $ref: '#/components/schemas/InterleavingExposureQuery'
                 required:
-                  - interleavingQuery
+                  - interleavingExposureQuery
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+            'https://api.growthbook.io/api/v1/interleaving-exposure-queries/{id}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
-      operationId: deleteInterleavingQuery
-      summary: Delete a single interleavingQuery
+      operationId: deleteInterleavingExposureQuery
+      summary: Delete a single interleavingExposureQuery
       tags:
-        - InterleavingQueries
+        - InterleavingExposureQueries
       parameters:
         - name: id
           in: path
@@ -52768,13 +52771,14 @@ paths:
         - lang: cURL
           source: >-
             curl -X DELETE
-            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+            'https://api.growthbook.io/api/v1/interleaving-exposure-queries/{id}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
     put:
-      operationId: updateInterleavingQuery
-      summary: Update a single interleavingQuery
+      operationId: updateInterleavingExposureQuery
+      summary: Update a single interleavingExposureQuery
       tags:
-        - InterleavingQueries
+        - InterleavingExposureQueries
       parameters:
         - name: id
           in: path
@@ -52820,23 +52824,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  interleavingQuery:
-                    $ref: '#/components/schemas/InterleavingQuery'
+                  interleavingExposureQuery:
+                    $ref: '#/components/schemas/InterleavingExposureQuery'
                 required:
-                  - interleavingQuery
+                  - interleavingExposureQuery
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+            'https://api.growthbook.io/api/v1/interleaving-exposure-queries/{id}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/interleaving-queries:
+  /v1/interleaving-exposure-queries:
     post:
-      operationId: createInterleavingQuery
-      summary: Create a single interleavingQuery
+      operationId: createInterleavingExposureQuery
+      summary: Create a single interleavingExposureQuery
       tags:
-        - InterleavingQueries
+        - InterleavingExposureQueries
       requestBody:
         required: true
         content:
@@ -52886,22 +52891,22 @@ paths:
               schema:
                 type: object
                 properties:
-                  interleavingQuery:
-                    $ref: '#/components/schemas/InterleavingQuery'
+                  interleavingExposureQuery:
+                    $ref: '#/components/schemas/InterleavingExposureQuery'
                 required:
-                  - interleavingQuery
+                  - interleavingExposureQuery
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X POST 'https://api.growthbook.io/api/v1/interleaving-queries'
-            \
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleaving-exposure-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     get:
-      operationId: listInterleavingQueries
-      summary: Get all interleavingQueries
+      operationId: listInterleavingExposureQueries
+      summary: Get all interleavingExposureQueries
       tags:
-        - InterleavingQueries
+        - InterleavingExposureQueries
       parameters:
         - name: datasourceId
           in: query
@@ -52916,18 +52921,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  interleavingQueries:
+                  interleavingExposureQueries:
                     type: array
                     items:
-                      $ref: '#/components/schemas/InterleavingQuery'
+                      $ref: '#/components/schemas/InterleavingExposureQuery'
                 required:
-                  - interleavingQueries
+                  - interleavingExposureQueries
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X GET 'https://api.growthbook.io/api/v1/interleaving-queries'
-            \
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleaving-exposure-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
@@ -79019,7 +79024,7 @@ components:
         - query
         - targetingAttributeColumns
       additionalProperties: false
-    InterleavingQuery:
+    InterleavingExposureQuery:
       type: object
       properties:
         id:
@@ -85714,7 +85719,7 @@ x-tagGroups:
       - ContextualBandits
       - Dashboards
       - ContextualBanditQueries
-      - InterleavingQueries
+      - InterleavingExposureQueries
       - CustomFields
       - MetricGroups
       - Teams
@@ -85797,7 +85802,7 @@ x-tagGroups:
       - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
-      - InterleavingQuery_model
+      - InterleavingExposureQuery_model
       - Learning_model
       - LookbackOverride_model
       - Member_model
