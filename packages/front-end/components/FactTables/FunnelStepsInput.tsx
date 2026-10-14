@@ -20,6 +20,7 @@ import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
 import Frame from "@/ui/Frame";
 import TextField from "@/ui/TextField";
+import { Select, SelectItem } from "@/ui/Select";
 import {
   RowFilterInput,
   SampleRowsButton,
@@ -122,28 +123,14 @@ function FunnelStepInput({
             </Box>
           )}
           {!inheritTable && (
-            <SelectField
-              size="small"
+            <Select
               label="Fact table"
+              size="sm"
+              mb="3"
               disabled={disableFactTableSelector}
               value={step.factTableId}
-              options={factTableOptions}
-              formatOptionLabel={({ value: id, label }) => {
-                const factTable = getFactTableById(id);
-                if (factTable) {
-                  return (
-                    <>
-                      {label}
-                      <OfficialBadge
-                        managedBy={factTable.managedBy}
-                        type="fact table"
-                      />
-                    </>
-                  );
-                }
-                return label;
-              }}
-              onChange={(factTableId) => {
+              placeholder="Select a fact table"
+              setValue={(factTableId) => {
                 const newFactTable = getFactTableById(factTableId);
                 if (!newFactTable) return;
 
@@ -154,9 +141,17 @@ function FunnelStepInput({
                   rowFilters: getInitialInlineFilters(newFactTable, []),
                 });
               }}
-              placeholder="Select a fact table"
-              required
-            />
+            >
+              {factTableOptions.map(({ value: id, label }) => (
+                <SelectItem key={id} value={id}>
+                  {label}
+                  <OfficialBadge
+                    managedBy={getFactTableById(id)?.managedBy}
+                    type="fact table"
+                  />
+                </SelectItem>
+              ))}
+            </Select>
           )}
         </Box>
       </Flex>
