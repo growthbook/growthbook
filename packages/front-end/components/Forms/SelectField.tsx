@@ -78,6 +78,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  noOptionsMessage?: () => ReactNode;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
@@ -89,6 +90,10 @@ export type SelectFieldProps = Omit<
   labelWeight?: TextWeights;
   size?: "x-small" | "small" | "legacy" | "medium";
   errorLevel?: "error" | "warning";
+  /** Names the control when its visible label isn't the `label` prop. */
+  "aria-label"?: string;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
 };
 
 export function useSelectOptions(
@@ -279,6 +284,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  noOptionsMessage,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
@@ -290,6 +296,8 @@ const SelectField: FC<SelectFieldProps> = ({
   labelWeight = "semibold",
   size = "legacy" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
+  "aria-label": ariaLabel,
+  maxMenuHeight,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -431,6 +439,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",
@@ -506,6 +516,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",
@@ -524,6 +536,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     forceUndefinedValueToNull ? (selected ?? null) : selected
                   }
                   placeholder={initialOption ?? placeholder}
+                  noOptionsMessage={noOptionsMessage}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}

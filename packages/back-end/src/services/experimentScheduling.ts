@@ -592,7 +592,7 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context),
+    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context.armer),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });

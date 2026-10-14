@@ -18,6 +18,7 @@ import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -30,6 +31,13 @@ type Props = {
   /** When using a range (`setDate2`), shown if `label` is omitted. */
   label2?: ReactNode;
   helpText?: ReactNode;
+  /** Invalid-state message, shown in place of `helpText`. */
+  error?: ReactNode;
+  /**
+   * Snap a typed date onto the nearest bound. Off lets an out-of-range date
+   * through so the caller can flag it rather than silently rewriting it.
+   */
+  clampInput?: boolean;
   inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
@@ -41,7 +49,9 @@ type Props = {
   clearButton?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
+  size?: "md" | "legacy";
   disabled?: boolean;
+  required?: boolean;
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -104,6 +114,8 @@ export default function DatePicker({
   label,
   label2,
   helpText,
+  error,
+  clampInput = true,
   inputWidth,
   precision = "datetime",
   disableBefore,
@@ -115,10 +127,13 @@ export default function DatePicker({
   clearButton = false,
   wrapRangeInputs = false,
   compact = false,
+  size = "legacy",
   disabled,
+  required,
   fixedSpanMode,
 }: Props) {
-  const inputHeight = compact ? 32 : 38;
+  const fixedHeight = compact || size === "md";
+  const inputHeight = fixedHeight ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
     ? {
         height: 32,
@@ -284,12 +299,19 @@ export default function DatePicker({
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
       const parsedDate = parseDateInput(value);
-      const finalDate = clampParsedDate(parsedDate);
+      const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
       setBufferedDate(format(finalDate, dateFormat));
       setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
-  }, [clampParsedDate, setDate, setCalendarMonth, dateFormat, parseDateInput]);
+  }, [
+    clampInput,
+    clampParsedDate,
+    setDate,
+    setCalendarMonth,
+    dateFormat,
+    parseDateInput,
+  ]);
 
   const debouncedApplyRange = useMemo(() => {
     return debounce((startStr: string, endStr: string) => {
@@ -360,7 +382,7 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: compact ? inputHeight : undefined,
+                height: fixedHeight ? inputHeight : undefined,
                 minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
@@ -384,18 +406,23 @@ export default function DatePicker({
                 }
               >
                 <div
-                  className="form-control p-0"
+                  className={clsx("form-control p-0", {
+                    "form-control--error": !!error,
+                  })}
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    height: compact ? inputHeight : undefined,
+                    height: fixedHeight ? inputHeight : undefined,
                     minHeight: inputHeight,
+                    borderRadius: size === "md" ? "var(--radius-2)" : undefined,
                     overflow: "clip",
                   }}
                 >
                   <Field
                     id={id ?? ""}
+                    size={size}
                     disabled={disabled}
+                    required={required}
                     readOnly={!!fixedSpanMode}
                     style={{
                       border: 0,
@@ -554,14 +581,19 @@ export default function DatePicker({
               ) : (
                 <DayPicker
                   mode="single"
+                  // Re-clicking the selected day keeps it; the library's default
+                  // toggle deselected it, which used to fall back to "now".
+                  required
                   // Nothing is selected when there is no date, rather than
                   // `getValidDate`'s "today" fallback highlighting a day the
                   // caller never set (the range branch above already does this).
                   selected={date ? parseDateInput(date) : undefined}
                   onSelect={(selectedDate: Date) => {
-                    if (!selectedDate) selectedDate = new Date();
                     setDate(selectedDate);
                     setBufferedDate(format(selectedDate, dateFormat));
+                    // A day is the whole choice at date precision; datetime
+                    // still needs the time typed into the field.
+                    if (precision === "date") setOpen(false);
                   }}
                   disabled={disabledMatchers}
                   modifiers={markedDays}
@@ -577,7 +609,13 @@ export default function DatePicker({
           </RadixTheme>
         </Popover.Portal>
       </Popover.Root>
-      {helpText && <small className="form-text text-muted">{helpText}</small>}
+      {error ? (
+        <HelperText status="error" mt="1">
+          {error}
+        </HelperText>
+      ) : helpText ? (
+        <small className="form-text text-muted">{helpText}</small>
+      ) : null}
     </div>
   );
 }

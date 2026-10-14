@@ -109,3 +109,75 @@ describe("buildSnowflakeConnection auth methods", () => {
     expect(opts.workloadIdentityProvider).toBeUndefined();
   });
 });
+
+describe("snowflakeMonitoringToStatistics", () => {
+  // Loaded lazily so it doesn't share a module instance with the IS_CLOUD cases
+  let snowflakeMonitoringToStatistics: SnowflakeModule["snowflakeMonitoringToStatistics"];
+  beforeAll(() => {
+    ({ snowflakeMonitoringToStatistics } = jest.requireActual<SnowflakeModule>(
+      "back-end/src/services/snowflake",
+    ));
+  });
+
+  // Trimmed from real /monitoring/queries/{id} responses
+  const response = (query: Record<string, unknown>) => ({
+    data: { queries: [query] },
+  });
+
+  it("maps warehouse execution stats", () => {
+    expect(
+      snowflakeMonitoringToStatistics(
+        response({
+          clusterNumber: 1,
+          stats: {
+            xpExecTime: 9792,
+            scanBytes: 4644879984,
+            scanFiles: 2,
+            scanOriginalFiles: 291,
+            queuedLoadTime: 1479,
+          },
+        }),
+      ),
+    ).toEqual({
+      executionDurationMs: 9792,
+      bytesProcessed: 4644879984,
+      partitionsScanned: 2,
+      partitionsTotal: 291,
+    });
+  });
+
+  it("reports zeros for a query that used no warehouse", () => {
+    expect(
+      snowflakeMonitoringToStatistics(
+        response({
+          clusterNumber: -1,
+          stats: { gsExecTime: 25, compilationTime: 145 },
+        }),
+      ),
+    ).toEqual({
+      executionDurationMs: 0,
+      bytesProcessed: 0,
+      partitionsScanned: 0,
+      partitionsTotal: 0,
+    });
+  });
+
+  it("leaves counters unset when the stats format is unrecognized", () => {
+    const statistics = snowflakeMonitoringToStatistics(
+      response({
+        clusterNumber: 1,
+        stats: { renamedExecTime: 9792, renamedScanBytes: 4644879984 },
+      }),
+    );
+    expect(statistics?.executionDurationMs).toBeUndefined();
+    expect(statistics?.bytesProcessed).toBeUndefined();
+  });
+
+  it("returns undefined for an unexpected response", () => {
+    expect(snowflakeMonitoringToStatistics({ data: { queries: [] } })).toBe(
+      undefined,
+    );
+    expect(snowflakeMonitoringToStatistics({ success: false })).toBe(undefined);
+    expect(snowflakeMonitoringToStatistics(null)).toBe(undefined);
+  });
+});
