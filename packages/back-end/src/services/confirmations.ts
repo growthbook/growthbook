@@ -26,7 +26,7 @@ import {
   BadRequestError,
   ConfirmationRequiredError,
 } from "back-end/src/util/errors";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { APP_ORIGIN, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 const TTL_MS = 60 * 60 * 1000;
@@ -102,7 +102,8 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
       c.status === "pending" && c.expiresAt < new Date() ? "expired" : c.status,
     actions: c.actions,
     summary: c.summary,
-    url: `${APP_ORIGIN}/confirmations/${c.id}`,
+    // With several orgs, the link opens in the one the request was made in.
+    url: `${APP_ORIGIN}/confirmations/${c.id}${IS_MULTI_ORG ? `?org=${c.organization}` : ""}`,
     expiresAt: c.expiresAt.toISOString(),
     response: c.response,
     note: c.note,

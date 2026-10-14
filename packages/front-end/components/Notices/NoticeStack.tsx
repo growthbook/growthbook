@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import clsx from "clsx";
@@ -18,6 +19,14 @@ type Upgrade = NonNullable<AppNotice["upgrade"]>;
 // crowded row stays one line.
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  // The list lives in the persistent top nav, so following a link closes it.
+  const router = useRouter();
+  useEffect(() => {
+    const close = () => setListOpen(false);
+    router.events.on("routeChangeStart", close);
+    return () => router.events.off("routeChangeStart", close);
+  }, [router.events]);
   if (!notices.length) return null;
   const [top, ...rest] = notices;
 
@@ -33,6 +42,8 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
       </Tooltip>
       {rest.length ? (
         <Popover
+          open={listOpen}
+          onOpenChange={setListOpen}
           side="bottom"
           align="end"
           contentStyle={{ maxWidth: 380 }}

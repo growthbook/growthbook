@@ -250,7 +250,7 @@ describe("confirmations", () => {
 
     await expect(
       decideConfirmation(asUser("u_admin"), id, "confirm"),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/permission/i);
     const done = await decideConfirmation(
       asUser("u_torres"),
       id,
@@ -321,7 +321,7 @@ describe("confirmations", () => {
 
     await expect(
       decideConfirmation(asUser("u_viewer"), id, "confirm"),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/permission/i);
     const done = await decideConfirmation(asUser("u_admin"), id, "confirm");
     expect(done.status).toBe("completed");
     await expect(
@@ -606,7 +606,7 @@ describe("confirmations", () => {
     const id = held.body.confirmation.id;
     await expect(
       decideConfirmation(asUser("u_admin"), id, "confirm"),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/permission/i);
 
     const done = await decideConfirmation(asUser("u_engineer"), id, "confirm");
     expect(done.status).toBe("completed");

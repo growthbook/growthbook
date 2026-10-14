@@ -148,6 +148,7 @@ export class ApiKeyModel extends BaseClass {
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
+      confirmRules: doc.confirmRules,
     };
   }
 

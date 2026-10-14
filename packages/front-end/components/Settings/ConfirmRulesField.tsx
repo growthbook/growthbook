@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { createFilter } from "react-select";
@@ -198,6 +198,13 @@ export default function ConfirmRulesField({
 }) {
   const update = (i: number, rule: ConfirmRule) =>
     setValue(value.map((r, j) => (j === i ? rule : r)));
+  // Row keys that follow their rule, so a removed row's open pickers go with it.
+  const keys = useRef<number[]>([]);
+  const nextKey = useRef(0);
+  keys.current = keys.current.slice(0, value.length);
+  while (keys.current.length < value.length) {
+    keys.current.push(nextKey.current++);
+  }
 
   // Laid out like the permissions table: any rule that matches holds.
   return (
@@ -212,7 +219,7 @@ export default function ConfirmRulesField({
       </TableHeader>
       <TableBody>
         {value.map((rule, i) => (
-          <TableRow key={i} style={{ verticalAlign: "middle" }}>
+          <TableRow key={keys.current[i]} style={{ verticalAlign: "middle" }}>
             <TableCell width={WIDTHS[0]}>{i > 0 && PLUS}</TableCell>
             <TableCell width={WIDTHS[1]}>
               <ActionsField
@@ -241,7 +248,10 @@ export default function ConfirmRulesField({
                     size="3"
                     style={{ margin: 0 }}
                     aria-label="Remove rule"
-                    onClick={() => setValue(value.filter((_, j) => j !== i))}
+                    onClick={() => {
+                      keys.current.splice(i, 1);
+                      setValue(value.filter((_, j) => j !== i));
+                    }}
                   >
                     <PiTrash size={16} />
                   </IconButton>

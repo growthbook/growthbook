@@ -176,9 +176,6 @@ export const confirmationAttemptValidator = baseSchema.safeExtend({
   notices: z.array(confirmationNoticeValidator),
   deleteAt: z.date(),
 });
-export type ConfirmationAttemptInterface = z.infer<
-  typeof confirmationAttemptValidator
->;
 
 export const apiConfirmationValidator = z.strictObject({
   id: z.string(),

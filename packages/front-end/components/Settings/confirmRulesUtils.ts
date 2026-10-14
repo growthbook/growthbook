@@ -20,7 +20,7 @@ export const isCatchAll = (value: string) => value.endsWith(".other");
 export const actionsOf = (category: Category) =>
   CONFIRM_LABELS.filter((label) => categoryOf(label) === category);
 
-// "approveStep" reads as "approve step".
+// "ignoreWarnings" reads as "ignore warnings".
 export const verbOf = (label: string) =>
   isCatchAll(label)
     ? "other actions"

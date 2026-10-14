@@ -19,7 +19,7 @@ import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import { Popover } from "@/ui/Popover";
-import UITooltip from "@/ui/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Table, {
   TableBody,
@@ -158,7 +158,7 @@ export default function SDKConnectionsList() {
               return (
                 <TableRow key={connection.id}>
                   <TableCell>
-                    <UITooltip
+                    <Tooltip
                       content={
                         connected
                           ? "Connected successfully"
@@ -168,7 +168,7 @@ export default function SDKConnectionsList() {
                       <Flex align="center" justify="center">
                         <ExperimentDot color={connected ? "green" : "amber"} />
                       </Flex>
-                    </UITooltip>
+                    </Tooltip>
                   </TableCell>
                   <TableCell style={{ wordBreak: "break-word" }}>
                     <Link

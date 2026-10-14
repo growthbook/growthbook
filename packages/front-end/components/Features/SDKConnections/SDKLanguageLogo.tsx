@@ -363,7 +363,11 @@ export default function SDKLanguageLogo({
     <span className="d-inline-flex align-items-center position-relative">
       {/* react-icons don't forward refs, so the tooltip anchors on a span */}
       <UITooltip content={titlePrefix + label}>
-        <span style={{ display: "inline-flex" }}>
+        <span
+          role="img"
+          aria-label={titlePrefix + label}
+          style={{ display: "inline-flex" }}
+        >
           <Icon
             style={{ color, height: size, fontSize: size, lineHeight: size }}
             className="m-0"

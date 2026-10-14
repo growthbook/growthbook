@@ -135,6 +135,7 @@ export async function decideConfirmation(
   }
   requester.confirmationId = id;
   requester.dispatchedRequest = { body: c.body, query: c.query };
+  // A replay that throws still finishes, so the agent polling it sees why.
   const response = await dispatchInternal(
     requester,
     {
@@ -144,7 +145,10 @@ export async function decideConfirmation(
       body: c.body,
     },
     { includeDeprecated: true },
-  );
+  ).catch((e: unknown) => ({
+    status: 500,
+    body: { message: e instanceof Error ? e.message : String(e) },
+  }));
 
   const done = await confirmations.updateWithCas(id, ["status"], (doc) =>
     doc.status === "running" ? { status: "completed", response } : null,
