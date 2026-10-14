@@ -6,6 +6,11 @@ import { baseDialect } from "./base";
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS JOIN LATERAL jsonb_array_elements((${jsonColumn})::jsonb) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) => `${itemAlias} ->> '${field}'`,
+  },
   ...createLikeMatchFns({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     emitEscapeClause: false,

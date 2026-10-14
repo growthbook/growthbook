@@ -8,11 +8,11 @@ import {
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { isFactMetricId } from "shared/experiments";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 
 const BaseClass = MakeModelClass({
   schema: interleavingValidator,
@@ -86,39 +86,19 @@ export class InterleavingModel extends BaseClass {
       }
     }
 
-    // Only re-validate metrics when they (or the datasource) change, so an
-    // experiment whose metric was deleted later can still be edited.
+    // Only re-validate metrics when they (or what they're read with) change,
+    // so an experiment whose metric was deleted later can still be edited.
     if (
       !previousDoc ||
       !isEqual(doc.metrics, previousDoc.metrics) ||
-      doc.datasource !== previousDoc.datasource
+      doc.datasource !== previousDoc.datasource ||
+      doc.userIdType !== previousDoc.userIdType
     ) {
-      const ids = doc.metrics.map((m) => m.id);
-      if (new Set(ids).size !== ids.length) {
-        throw new Error("Each metric can only be added once.");
-      }
-      for (const { id } of doc.metrics) {
-        if (!isFactMetricId(id)) {
-          throw new Error(`Interleaving metrics must be fact metrics: ${id}`);
-        }
-        const metric = await this.context.models.factMetrics.getById(id);
-        if (!metric) {
-          throw new Error(`Interleaving metric not found: ${id}`);
-        }
-        if (metric.datasource !== doc.datasource) {
-          throw new Error(
-            `Interleaving metric ${id} must belong to datasource ${doc.datasource}`,
-          );
-        }
-        if (
-          metric.metricType !== "mean" &&
-          metric.metricType !== "proportion"
-        ) {
-          throw new Error(
-            `Interleaving metrics must be mean or proportion metrics: ${id} is a ${metric.metricType} metric`,
-          );
-        }
-      }
+      await resolveInterleavingMetrics(this.context, {
+        datasourceId: doc.datasource,
+        userIdType: doc.userIdType,
+        metrics: doc.metrics,
+      });
     }
 
     if (
@@ -210,9 +190,9 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
-  public getByInterleavingQueryId(
-    interleavingQueryId: string,
+  public getByInterleavingExposureQueryId(
+    interleavingExposureQueryId: string,
   ): Promise<InterleavingInterface[]> {
-    return this._find({ interleavingQueryId });
+    return this._find({ interleavingExposureQueryId });
   }
 }

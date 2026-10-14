@@ -1030,6 +1030,16 @@
                 ]
               },
               {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
                 "group": "Custom Fields",
                 "pages": [
                   "api/CustomFields/operation/listCustomFields",
@@ -1216,6 +1226,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/InterleavingExposureQuery_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

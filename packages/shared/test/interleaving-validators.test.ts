@@ -46,7 +46,7 @@ const baseDoc = {
   ],
   jsonSchema: null,
   datasource: "ds_1",
-  interleavingQueryId: "ilq_1",
+  interleavingExposureQueryId: "ileq_1",
   userIdType: "user_id",
   metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
   environmentSettings: { production: { enabled: true } },
@@ -83,6 +83,14 @@ describe("interleavingValidator", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("rejects the same metric added twice", () => {
+    const metric = { id: "fact__clicks", analyses: [{ type: "paired" }] };
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, metrics: [metric, metric] })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("interleavingMetricConfigValidator", () => {
@@ -100,7 +108,26 @@ describe("interleavingMetricConfigValidator", () => {
       "both ownership attributions",
       [
         { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
+        {
+          type: "ownership",
+          attribution: "engagementSignal",
+          signalMetricId: "fact__click",
+        },
+      ],
+    ],
+    [
+      "two different engagement signals",
+      [
+        {
+          type: "ownership",
+          attribution: "engagementSignal",
+          signalMetricId: "fact__click",
+        },
+        {
+          type: "ownership",
+          attribution: "engagementSignal",
+          signalMetricId: "fact__add_to_cart",
+        },
       ],
     ],
     [
@@ -108,7 +135,11 @@ describe("interleavingMetricConfigValidator", () => {
       [
         { type: "paired" },
         { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
+        {
+          type: "ownership",
+          attribution: "engagementSignal",
+          signalMetricId: "fact__click",
+        },
       ],
     ],
   ])("accepts %s", (_label, analyses) => {
@@ -129,6 +160,21 @@ describe("interleavingMetricConfigValidator", () => {
         { type: "ownership", attribution: "exposureCount" },
         { type: "ownership", attribution: "exposureCount" },
       ]),
+    ).toBe(false);
+  });
+
+  it("rejects the same engagement signal twice", () => {
+    const signal = {
+      type: "ownership",
+      attribution: "engagementSignal",
+      signalMetricId: "fact__click",
+    };
+    expect(parse([signal, signal])).toBe(false);
+  });
+
+  it("rejects an engagement signal with no signal metric", () => {
+    expect(
+      parse([{ type: "ownership", attribution: "engagementSignal" }]),
     ).toBe(false);
   });
 

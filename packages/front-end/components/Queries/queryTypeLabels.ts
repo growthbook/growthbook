@@ -66,6 +66,7 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
   factTableTest: "Fact table test",
   exposureQueryTest: "Experiment Assignment Query test",
   contextualBanditQueryTest: "Contextual Bandit query test",
+  interleavingMetric: "Interleaving analysis",
   identityJoinTest: "Identity join test",
   featureUsageQueryTest: "Feature usage query test",
   metricTest: "Metric test",

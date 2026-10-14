@@ -1,5 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import type { InterleavingAnalysis } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { AttributionModel } from "shared/types/experiment";
@@ -1056,3 +1057,39 @@ export interface FeatureUsageAggregateRow {
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
+// One (metric, analysis) pair; a metric with two analyses appears twice.
+// The metric's numerator (column, aggregation, row filters) is resolved with
+// the same helpers as experiment fact metrics.
+export interface InterleavingMetricQueryMetric {
+  // "paired" needs interleave_id on the metric's fact table; ownership only
+  // needs item_id.
+  analysis: InterleavingAnalysis;
+  metric: FactMetricInterface;
+}
+
+export interface InterleavingMetricQueryParams {
+  // The interleaving exposure query SQL (one row per impression, nested
+  // items JSON column)
+  exposureQuery: string;
+  userIdType: string;
+  trackingKey: string;
+  // Control first; matched against the exposure items' `variation` values
+  variationKeys: [string, string];
+  startDate: Date;
+  endDate: Date | null;
+  // One query analyzes all metrics whose numerator reads this fact table;
+  // output columns are prefixed m{i}_ by array index. Paired/ownership CTEs
+  // are only included when at least one metric requests them.
+  factTable: FactTableInterface;
+  metrics: InterleavingMetricQueryMetric[];
+  // Each engagement signal metric referenced by `metrics`, with its fact
+  // table. Signal tables need item_id and interleave_id.
+  signals: { metric: FactMetricInterface; factTable: FactTableInterface }[];
+}
+
+// One row of numeric aggregates; the column set depends on the attribution type
+// (paired sufficient statistics vs ownership preference counts)
+export type InterleavingMetricQueryResponseRows = Record<string, number>[];
+export type InterleavingMetricQueryResponse =
+  QueryResponse<InterleavingMetricQueryResponseRows>;

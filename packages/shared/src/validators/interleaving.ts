@@ -19,21 +19,53 @@ export type InterleavingOwnershipAttribution =
 
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
-  z
-    .object({
-      type: z.literal("ownership"),
-      attribution: z.enum(interleavingOwnershipAttribution),
-    })
-    .strict(),
+  z.discriminatedUnion("attribution", [
+    z
+      .object({
+        type: z.literal("ownership"),
+        attribution: z.literal("exposureCount"),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("ownership"),
+        attribution: z.literal("engagementSignal"),
+        // Fact metric whose events (e.g. clicks) decide which ranker owns an
+        // item for a user. A metric can use several different signals.
+        signalMetricId: z.string().min(1),
+      })
+      .strict(),
+  ]),
 ]);
 export type InterleavingAnalysis = z.infer<
   typeof interleavingAnalysisValidator
 >;
+export type InterleavingSignalAnalysis = Extract<
+  InterleavingAnalysis,
+  { attribution: "engagementSignal" }
+>;
 
-// Identity of an analysis within a metric. Results are keyed by (metric id,
-// analysis key), so this has to stay stable.
+export function isSignalAnalysis(
+  a: InterleavingAnalysis,
+): a is InterleavingSignalAnalysis {
+  return a.type === "ownership" && a.attribution === "engagementSignal";
+}
+
+// Identity of an analysis within a metric; used to reject duplicates.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
+  if (isSignalAnalysis(a)) {
+    return `ownership:engagementSignal:${a.signalMetricId}`;
+  }
   return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
+}
+
+// Distinct engagement-signal metric ids used by a list of analyses.
+export function interleavingSignalMetricIds(
+  analyses: InterleavingAnalysis[],
+): string[] {
+  return [
+    ...new Set(analyses.filter(isSignalAnalysis).map((a) => a.signalMetricId)),
+  ];
 }
 
 export const interleavingMetricConfigValidator = z
@@ -98,9 +130,13 @@ export const interleavingValidator = baseSchema
 
     // Analysis inputs.
     datasource: z.string(),
-    interleavingQueryId: z.string(),
+    interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
-    metrics: z.array(interleavingMetricConfigValidator),
+    metrics: z
+      .array(interleavingMetricConfigValidator)
+      .refine((ms) => new Set(ms.map((m) => m.id)).size === ms.length, {
+        message: "Each metric can only be added once.",
+      }),
 
     // Targeting, validated and served like a feature rule's (CB pattern).
     coverage: z.number().min(0).max(1).optional(),
