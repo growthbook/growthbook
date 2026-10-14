@@ -1,7 +1,7 @@
-import { CONFIRM_LABELS, type ConfirmRule } from "shared/validators";
+import { CONFIRM_ACTIONS, type ConfirmRule } from "shared/validators";
 
 export type Category =
-  (typeof CONFIRM_LABELS)[number] extends `${infer C}.${string}` ? C : never;
+  (typeof CONFIRM_ACTIONS)[number] extends `${infer C}.${string}` ? C : never;
 export const CATEGORY_TITLES: Record<Category, string> = {
   feature: "Feature Flags",
   experiment: "Experiments",
@@ -18,7 +18,7 @@ export const categoryOf = (value: string) => value.split(".")[0] as Category;
 export const isCategory = (value: string) => value.endsWith(".*");
 export const isCatchAll = (value: string) => value.endsWith(".other");
 export const actionsOf = (category: Category) =>
-  CONFIRM_LABELS.filter((label) => categoryOf(label) === category);
+  CONFIRM_ACTIONS.filter((label) => categoryOf(label) === category);
 
 // "ignoreWarnings" reads as "ignore warnings".
 export const verbOf = (label: string) =>

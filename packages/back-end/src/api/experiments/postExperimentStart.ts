@@ -49,7 +49,7 @@ export const postExperimentStart = createApiRequestHandler(
 
   // Staging a scheduled start is held too: it starts later with no one present.
   await requireConfirmation(context, {
-    labels: ["experiment.start"],
+    actions: ["experiment.start"],
     project: existing.project,
     summary: `Start ${existing.name}`,
     links: [confirmationLink("experiment", existing.id, existing.name)],

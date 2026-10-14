@@ -268,7 +268,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   );
 
   await requireConfirmation(req.context, {
-    labels: ["config.publish"],
+    actions: ["config.publish"],
     bypassing: bypassed,
     notices: gateNotices(skipped),
     project: config.project,

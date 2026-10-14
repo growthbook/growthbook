@@ -452,7 +452,7 @@ export async function revertFeatureRevision(
 
   await assertRevertLandingGuards(context, feature, changes, targetRevision);
   await requireConfirmation(context, {
-    labels: [
+    actions: [
       "feature.publish",
       ...(changes.archived === true && !feature.archived
         ? (["feature.archive"] as const)

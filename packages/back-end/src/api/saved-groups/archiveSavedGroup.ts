@@ -132,7 +132,7 @@ async function setArchivedState(
   }
 
   await requireConfirmation(context, {
-    labels: ["savedGroup.archive"],
+    actions: ["savedGroup.archive"],
     bypassing: bypassed,
     notices: gateNotices(skipped),
     summary: `${archived ? "Archive" : "Unarchive"} ${savedGroup.groupName}`,

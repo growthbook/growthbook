@@ -24,7 +24,7 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
-import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -476,7 +476,7 @@ export const postFeatureRevisionPublishV2Validator = {
     "feature.archive",
     "rampSchedule.start",
     "rampSchedule.edit",
-    ...PUBLISH_OVERRIDE_LABELS,
+    ...PUBLISH_OVERRIDE_ACTIONS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionPublishV2",
@@ -505,7 +505,7 @@ export const postFeatureRevisionRevertV2Validator = {
   confirmation: [
     "feature.publish",
     "feature.archive",
-    ...PUBLISH_OVERRIDE_LABELS,
+    ...PUBLISH_OVERRIDE_ACTIONS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionRevertV2",
@@ -753,7 +753,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
 export const postFeatureRevisionSchedulePublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/schedule-publish",
-  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postFeatureRevisionSchedulePublishV2",
   summary: "Schedule (or cancel) a deferred publish for a draft revision",
   description:

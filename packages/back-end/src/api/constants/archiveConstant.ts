@@ -150,7 +150,7 @@ async function setArchivedState(
   }
 
   await requireConfirmation(context, {
-    labels: ["constant.archive"],
+    actions: ["constant.archive"],
     bypassing: bypassed,
     notices: gateNotices(skipped),
     project: constant.project,

@@ -1,4 +1,4 @@
-import type { ConfirmationInterface, ConfirmLabel } from "shared/validators";
+import type { ConfirmationInterface, ConfirmAction } from "shared/validators";
 import type { Permissions } from "shared/permissions";
 import type { ReqContext } from "back-end/types/request";
 import { dispatchInternal, HttpMethod } from "back-end/src/agent/dispatcher";
@@ -20,7 +20,7 @@ const REVISION_MODELS = {
 // themselves, in each of these environments.
 function deciderCan(
   p: Permissions,
-  action: ConfirmLabel,
+  action: ConfirmAction,
   project: string,
   envs: string[],
 ): boolean {

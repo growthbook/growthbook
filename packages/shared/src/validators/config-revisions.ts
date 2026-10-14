@@ -31,7 +31,7 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
-import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -326,7 +326,7 @@ export const postConfigRevisionDiscardValidator = {
 export const postConfigRevisionPublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/publish",
-  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
@@ -349,7 +349,7 @@ export const postConfigRevisionPublishValidator = {
 export const postConfigRevisionRevertValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/revert",
-  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postConfigRevisionRevert",
   summary: "Revert the config to a prior revision",
   description:
@@ -449,7 +449,7 @@ export const postConfigRevisionSubmitReviewValidator = {
 export const postConfigRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/schedule-publish",
-  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postConfigRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:

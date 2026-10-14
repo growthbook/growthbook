@@ -1,5 +1,5 @@
 import type { ExperimentInterface, ExperimentPhase } from "shared/validators";
-import { experimentChangeLabels } from "back-end/src/services/confirmations";
+import { experimentChangeActions } from "back-end/src/services/confirmations";
 
 const phase = (overrides: Partial<ExperimentPhase> = {}): ExperimentPhase => ({
   dateStarted: new Date("2026-01-01"),
@@ -16,10 +16,10 @@ const running = {
   phases: [phase({ name: "First" }), phase()],
 } as unknown as ExperimentInterface;
 
-describe("experimentChangeLabels", () => {
+describe("experimentChangeActions", () => {
   it("names Make Changes edits to the live phase", () => {
     expect(
-      experimentChangeLabels(running, {
+      experimentChangeActions(running, {
         phases: [
           phase({ name: "First" }),
           phase({
@@ -34,7 +34,7 @@ describe("experimentChangeLabels", () => {
 
   it("names a new phase, a re-randomize and edits to past phases or dates", () => {
     const labels = (changes: Partial<ExperimentInterface>) =>
-      experimentChangeLabels(running, changes);
+      experimentChangeActions(running, changes);
     expect(labels({ bucketVersion: 2 })).toEqual(["experiment.phases"]);
     expect(
       labels({ phases: [phase({ name: "First" }), phase(), phase()] }),
@@ -50,14 +50,14 @@ describe("experimentChangeLabels", () => {
   });
 
   it("names any other change to what a live experiment serves", () => {
-    expect(experimentChangeLabels(running, { archived: true })).toEqual([
+    expect(experimentChangeActions(running, { archived: true })).toEqual([
       "experiment.other",
     ]);
-    expect(experimentChangeLabels(running, { trackingKey: "new-key" })).toEqual(
-      ["experiment.other"],
-    );
     expect(
-      experimentChangeLabels(
+      experimentChangeActions(running, { trackingKey: "new-key" }),
+    ).toEqual(["experiment.other"]);
+    expect(
+      experimentChangeActions(
         { ...running, status: "draft" },
         { archived: true },
       ),
@@ -66,17 +66,17 @@ describe("experimentChangeLabels", () => {
 
   it("ignores echoed fields, and counts only status on a draft", () => {
     expect(
-      experimentChangeLabels(running, {
+      experimentChangeActions(running, {
         phases: [phase({ name: "First", savedGroups: [] }), phase()],
       }),
     ).toEqual([]);
     expect(
-      experimentChangeLabels(
+      experimentChangeActions(
         { ...running, status: "draft" },
         { status: "running", phases: [phase({ coverage: 0.1 })] },
       ),
     ).toEqual(["experiment.start"]);
-    expect(experimentChangeLabels(running, { status: "stopped" })).toEqual([
+    expect(experimentChangeActions(running, { status: "stopped" })).toEqual([
       "experiment.stop",
     ]);
   });

@@ -71,7 +71,7 @@ export async function deleteFeatureHandler(
   await assertFeatureDeletable(req.context, feature.id);
 
   await requireConfirmation(req.context, {
-    labels: ["feature.delete"],
+    actions: ["feature.delete"],
     environments: [...deleteFootprint],
     project: feature.project,
     summary: `Delete ${feature.id}`,

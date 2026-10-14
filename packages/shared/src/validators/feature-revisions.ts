@@ -21,7 +21,7 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
-import { PUBLISH_OVERRIDE_LABELS } from "./confirmations";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -208,7 +208,7 @@ export const postFeatureRevisionPublishValidator = {
     "feature.archive",
     "rampSchedule.start",
     "rampSchedule.edit",
-    ...PUBLISH_OVERRIDE_LABELS,
+    ...PUBLISH_OVERRIDE_ACTIONS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionPublish",
@@ -238,7 +238,7 @@ export const postFeatureRevisionRevertValidator = {
   confirmation: [
     "feature.publish",
     "feature.archive",
-    ...PUBLISH_OVERRIDE_LABELS,
+    ...PUBLISH_OVERRIDE_ACTIONS,
   ] as const,
   confirmationInHandler: true,
   operationId: "postFeatureRevisionRevert",

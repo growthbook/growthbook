@@ -19,9 +19,9 @@ import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import {
   confirmationLink,
   gateNotices,
-  rampActionLabel,
-  REVISION_ARCHIVE_LABEL,
-  REVISION_PUBLISH_LABEL,
+  rampScheduleAction,
+  REVISION_ARCHIVE_ACTION,
+  REVISION_PUBLISH_ACTION,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -208,15 +208,15 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   );
   await requireConfirmation(req.context, {
     // Each item as its own publish would hold it.
-    labels: plan.items.flatMap(
+    actions: plan.items.flatMap(
       ({ ref, revision, desiredState, entityPreImage }) => [
-        REVISION_PUBLISH_LABEL[ref.entityType],
+        REVISION_PUBLISH_ACTION[ref.entityType],
         ...(desiredState.archived === true && entityPreImage.archived !== true
-          ? [REVISION_ARCHIVE_LABEL[ref.entityType]]
+          ? [REVISION_ARCHIVE_ACTION[ref.entityType]]
           : []),
         ...(ref.entityType === "feature"
           ? ((revision.raw as FeatureRevisionInterface).rampActions ?? []).map(
-              ({ mode }) => rampActionLabel(mode),
+              ({ mode }) => rampScheduleAction(mode),
             )
           : []),
       ],

@@ -3,9 +3,9 @@ import { z, ZodType, ZodNever, output, core } from "zod";
 import {
   ApiPaginationFields,
   ApiErrorCode,
-  ConfirmLabel,
+  ConfirmAction,
 } from "shared/validators";
-import { armedPublishLabel, routeConfirmation } from "shared/util";
+import { armedPublishAction, routeConfirmation } from "shared/util";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -361,7 +361,7 @@ export type OpenApiRoute<
   excludeFromSpec?: boolean;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
-  confirmation?: readonly ConfirmLabel[];
+  confirmation?: readonly ConfirmAction[];
 };
 
 export function createApiRequestHandler<
@@ -409,17 +409,17 @@ export function createApiRequestHandler<
       >,
     ) => Promise<z.infer<ResponseSchema>>,
   ) => {
-    // Every write is checked before the handler runs, for its own labels and
+    // Every write is checked before the handler runs, for its own actions and
     // any check it asks to skip, unless the handler holds once it knows what
     // changes. Inside the raw handler, so replays pass the same hold.
-    const labels = routeConfirmation(method, tags, confirmation);
+    const actions = routeConfirmation(method, tags, confirmation);
     if (method !== "get" && !confirmationInHandler) {
       const inner = handler;
       handler = async (req) => {
         await holdAtRoute(
           req.context,
-          labels,
-          armedPublishLabel(tags),
+          actions,
+          armedPublishAction(tags),
           method,
           path,
           req,

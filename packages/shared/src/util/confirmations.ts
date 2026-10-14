@@ -1,18 +1,18 @@
 import {
-  CONFIRM_LABELS,
+  CONFIRM_ACTIONS,
   CONFIRM_MODEL_BY_TAG,
+  type HeldAction,
   type ConfirmAction,
-  type ConfirmLabel,
   type ConfirmRule,
 } from "../validators/confirmations";
 
-// The actions any rule holds. A rule names a label, a whole category
+// The actions any rule holds. A rule names an action, a whole category
 // ("override.*") or everything ("*"); an action with no environments matches
 // any environment list.
 export function matchConfirmRules(
   rules: ConfirmRule[],
-  actions: ConfirmAction[],
-): ConfirmAction[] {
+  actions: HeldAction[],
+): HeldAction[] {
   return actions.filter(({ action, environments }) =>
     rules.some(
       (rule) =>
@@ -40,13 +40,13 @@ export function routeModel(tags: readonly string[] | undefined) {
   );
 }
 
-// The labels a route may hold for: its own, or `<model>.other` for a write to a
+// The actions a route may hold for: its own, or `<model>.other` for a write to a
 // live model that declares none.
 export function routeConfirmation(
   method: string,
   tags: readonly string[] | undefined,
-  declared: readonly ConfirmLabel[] | undefined,
-): readonly ConfirmLabel[] {
+  declared: readonly ConfirmAction[] | undefined,
+): readonly ConfirmAction[] {
   if (declared) return declared;
   if (method.toLowerCase() === "get") return [];
   const model = routeModel(tags);
@@ -57,11 +57,11 @@ export function routeConfirmation(
 export const ARMING_FIELDS = ["autoPublishOnApproval", "scheduledPublishAt"];
 
 // What arming a publish on this route holds as: the publish itself.
-export function armedPublishLabel(
+export function armedPublishAction(
   tags: readonly string[] | undefined,
-): ConfirmLabel | null {
-  const label = `${routeModel(tags)}.publish`;
-  return (CONFIRM_LABELS as readonly string[]).includes(label)
-    ? (label as ConfirmLabel)
+): ConfirmAction | null {
+  const action = `${routeModel(tags)}.publish`;
+  return (CONFIRM_ACTIONS as readonly string[]).includes(action)
+    ? (action as ConfirmAction)
     : null;
 }

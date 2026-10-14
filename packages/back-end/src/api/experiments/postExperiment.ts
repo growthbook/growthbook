@@ -35,7 +35,7 @@ import {
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
-  experimentChangeLabels,
+  experimentChangeActions,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import {
@@ -403,7 +403,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     // Created running, stopped or with a scheduled start: judged as a change
     // from a draft of itself.
     await requireConfirmation(req.context, {
-      labels: experimentChangeLabels(
+      actions: experimentChangeActions(
         { ...newExperiment, status: "draft", statusUpdateSchedule: undefined },
         newExperiment,
       ),

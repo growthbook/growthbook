@@ -34,7 +34,7 @@ import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureD
 import {
   confirmationLink,
   gateNotices,
-  rampActionLabel,
+  rampScheduleAction,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -248,14 +248,14 @@ export async function publishFeatureRevision(
   // Armed and auto-on-approval publishes were held, if at all, when set up.
   if (inlineValidationGates) {
     await requireConfirmation(req.context, {
-      labels: [
+      actions: [
         "feature.publish",
         ...(mergeChanges.archived === true && !feature.archived
           ? (["feature.archive"] as const)
           : []),
         // Ramp plans staged on the draft (feature ramp-schedule routes) apply now.
         ...(revision.rampActions ?? []).map(({ mode }) =>
-          rampActionLabel(mode),
+          rampScheduleAction(mode),
         ),
       ],
       environments: envsToCheck,

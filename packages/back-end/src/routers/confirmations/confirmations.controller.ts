@@ -13,8 +13,8 @@ import { allRoutes } from "back-end/src/api/api.router";
 
 let coverage: Record<string, string[]> | null = null;
 
-// The API calls each label can hold, read from the routes' own declarations.
-export const getConfirmationLabels = async (
+// The API calls each action can hold, read from the routes' own declarations.
+export const getConfirmationActions = async (
   req: AuthRequest,
   res: Response<{ status: 200; coverage: Record<string, string[]> }>,
 ) => {
@@ -22,16 +22,16 @@ export const getConfirmationLabels = async (
     const calls: Record<string, Set<string>> = {};
     for (const route of allRoutes) {
       if (!route.method || route.deprecated) continue;
-      for (const label of routeConfirmation(
+      for (const action of routeConfirmation(
         route.method,
         route.tags,
         route.confirmation,
       )) {
-        (calls[label] ??= new Set()).add(route.summary || route.path);
+        (calls[action] ??= new Set()).add(route.summary || route.path);
       }
     }
     coverage = Object.fromEntries(
-      Object.entries(calls).map(([label, set]) => [label, [...set]]),
+      Object.entries(calls).map(([action, set]) => [action, [...set]]),
     );
   }
   res.status(200).json({ status: 200, coverage });

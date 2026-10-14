@@ -59,7 +59,7 @@ function ActionsField({
   onChange: (value: string[]) => void;
 }) {
   const { data } = useApi<{ coverage: Record<string, string[]> }>(
-    "/confirmations/labels",
+    "/confirmations/actions",
   );
   const coverage = data?.coverage;
   // Changes only when coverage loads, so react-select keeps its highlighted

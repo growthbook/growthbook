@@ -49,7 +49,7 @@ import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/sr
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
-  experimentChangeLabels,
+  experimentChangeActions,
   confirmationLink,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -459,7 +459,7 @@ export const updateExperiment = createApiRequestHandler(
   await validateExperimentChange({ context: req.context, experiment, changes });
 
   await requireConfirmation(req.context, {
-    labels: experimentChangeLabels(experiment, changes),
+    actions: experimentChangeActions(experiment, changes),
     project: experiment.project,
     summary: `Change ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],

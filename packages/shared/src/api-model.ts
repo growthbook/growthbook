@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
-import type { ConfirmLabel } from "./validators/confirmations";
+import type { ConfirmAction } from "./validators/confirmations";
 import { capitalizeFirstCharacter } from "./util";
 import { HttpVerb, RequestSchemas } from "./api-spec";
 
@@ -89,7 +89,7 @@ export type OpenApiEndpointSpec = {
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   /** Labels a person may have to confirm before this request runs. */
-  confirmation?: readonly ConfirmLabel[];
+  confirmation?: readonly ConfirmAction[];
 };
 
 /**
@@ -129,7 +129,7 @@ export type OpenApiModelSpec<
   /** Error codes that may be thrown by CRUD actions, used to generate OpenAPI error response schemas. */
   possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
   /** Labels a person may have to confirm before each CRUD action runs. */
-  confirmation?: Partial<Record<CrudAction, readonly ConfirmLabel[]>>;
+  confirmation?: Partial<Record<CrudAction, readonly ConfirmAction[]>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
@@ -298,7 +298,7 @@ export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
   tags: string[];
   possibleErrors?: readonly ApiErrorCode[];
   version?: "v1" | "v2";
-  confirmation?: readonly ConfirmLabel[];
+  confirmation?: readonly ConfirmAction[];
 };
 
 /** The endpoint the back-end mounts for one of a spec's custom endpoints. */

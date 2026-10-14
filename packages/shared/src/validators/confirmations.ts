@@ -3,9 +3,9 @@ import { baseSchema } from "./base-model";
 import { eventUserRequestedBy } from "./event-user";
 import { bypassViaValues } from "./shared";
 
-// `model.action`, model-first like webhook events. `override.*` labels are the
+// `model.action`, model-first like webhook events. `override.*` actions are the
 // checks a request skips, whatever it changes.
-export const CONFIRM_LABELS = [
+export const CONFIRM_ACTIONS = [
   "feature.publish",
   "feature.archive",
   "feature.delete",
@@ -42,7 +42,7 @@ export const CONFIRM_LABELS = [
   "override.restBypassesReviews",
   "override.draftLimit",
 ] as const;
-export type ConfirmLabel = (typeof CONFIRM_LABELS)[number];
+export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
 
 // Request fields (body or query) that ask to skip a check. Asking is enough to
 // hold, whatever the request changes.
@@ -52,22 +52,22 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   skipHooks: "override.skipHooks",
   bypassApproval: "override.bypassApproval",
   overrideDraftLimit: "override.draftLimit",
-} as const satisfies Record<string, ConfirmLabel>;
+} as const satisfies Record<string, ConfirmAction>;
 
 // The checks a publishing write can ask to skip.
-export const PUBLISH_OVERRIDE_LABELS = [
+export const PUBLISH_OVERRIDE_ACTIONS = [
   "override.ignoreWarnings",
   "override.skipSchemaValidation",
   "override.skipHooks",
   "override.bypassApproval",
   "override.restBypassesReviews",
-] as const satisfies readonly ConfirmLabel[];
+] as const satisfies readonly ConfirmAction[];
 
 type ModelOf<L> = L extends `${infer M}.other` ? M : never;
-type ConfirmModel = ModelOf<ConfirmLabel>;
+type ConfirmModel = ModelOf<ConfirmAction>;
 
 // Writes to these API tags change live state unless declared otherwise. A write
-// that declares no labels holds as `<model>.other`, so "*" and "<model>.*" rules
+// that declares no actions holds as `<model>.other`, so "*" and "<model>.*" rules
 // cover endpoints added after them.
 export const CONFIRM_MODEL_BY_TAG = {
   features: "feature",
@@ -89,7 +89,7 @@ export const CONFIRM_MODEL_BY_TAG = {
   "ramp-schedules": "rampSchedule",
 } as const satisfies Record<string, ConfirmModel>;
 
-// `actions` holds labels, whole categories ("override.*") or everything ("*");
+// `actions` holds actions, whole categories ("override.*") or everything ("*");
 // omitted environments mean every environment.
 export const confirmRuleValidator = z.strictObject({
   actions: z.array(z.string()).min(1),
@@ -98,11 +98,11 @@ export const confirmRuleValidator = z.strictObject({
 export const confirmRulesValidator = z.array(confirmRuleValidator);
 export type ConfirmRule = z.infer<typeof confirmRuleValidator>;
 
-export const confirmActionValidator = z.strictObject({
-  action: z.enum(CONFIRM_LABELS),
+export const heldActionValidator = z.strictObject({
+  action: z.enum(CONFIRM_ACTIONS),
   environments: z.array(z.string()),
 });
-export type ConfirmAction = z.infer<typeof confirmActionValidator>;
+export type HeldAction = z.infer<typeof heldActionValidator>;
 
 export const confirmationStatuses = [
   "pending",
@@ -149,7 +149,7 @@ export const confirmationValidator = baseSchema.safeExtend({
   query: z.record(z.string(), z.unknown()),
   body: z.unknown(),
   requestHash: z.string(),
-  actions: z.array(confirmActionValidator),
+  actions: z.array(heldActionValidator),
   summary: z.string(),
   links: z.array(confirmationLinkValidator),
   notices: z.array(confirmationNoticeValidator),
@@ -180,7 +180,7 @@ export const confirmationAttemptValidator = baseSchema.safeExtend({
 export const apiConfirmationValidator = z.strictObject({
   id: z.string(),
   status: z.enum(confirmationStatuses),
-  actions: z.array(confirmActionValidator),
+  actions: z.array(heldActionValidator),
   summary: z.string(),
   url: z.string(),
   expiresAt: z.string(),

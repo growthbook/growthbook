@@ -7,7 +7,7 @@ import type {
   ApiConfirmation,
   ConfirmationInterface,
   ConfirmationNotice,
-  ConfirmLabel,
+  ConfirmAction,
   ConfirmRule,
   ConfirmationLink,
 } from "shared/validators";
@@ -32,7 +32,7 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 const TTL_MS = 60 * 60 * 1000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-const OVERRIDE_LABELS: Record<BypassVia, ConfirmLabel | null> = {
+const OVERRIDE_ACTIONS: Record<BypassVia, ConfirmAction | null> = {
   ignoreWarnings: "override.ignoreWarnings",
   skipSchemaValidation: "override.skipSchemaValidation",
   skipHooks: "override.skipHooks",
@@ -54,9 +54,9 @@ function rulesFor(context: ReqContext): ConfirmRule[] {
   return key.confirmRules ?? [];
 }
 
-export const REVISION_PUBLISH_LABEL: Record<
+export const REVISION_PUBLISH_ACTION: Record<
   RevisionTargetType | "feature",
-  ConfirmLabel
+  ConfirmAction
 > = {
   feature: "feature.publish",
   "saved-group": "savedGroup.publish",
@@ -64,9 +64,9 @@ export const REVISION_PUBLISH_LABEL: Record<
   config: "config.publish",
 };
 
-export const REVISION_ARCHIVE_LABEL: Record<
+export const REVISION_ARCHIVE_ACTION: Record<
   RevisionTargetType | "feature",
-  ConfirmLabel
+  ConfirmAction
 > = {
   feature: "feature.archive",
   "saved-group": "savedGroup.archive",
@@ -75,7 +75,7 @@ export const REVISION_ARCHIVE_LABEL: Record<
 };
 
 // A ramp plan staged on a draft starts a schedule or edits one when it lands.
-export const rampActionLabel = (mode: string): ConfirmLabel =>
+export const rampScheduleAction = (mode: string): ConfirmAction =>
   mode === "create" ? "rampSchedule.start" : "rampSchedule.edit";
 
 const LINK_PATHS: Record<ConfirmationLink["type"], string> = {
@@ -179,7 +179,7 @@ export async function recordRefusal(
 export async function requireConfirmation(
   context: ReqContext,
   opts: {
-    labels: readonly ConfirmLabel[];
+    actions: readonly ConfirmAction[];
     // Where the change applies; none matches every environment rule.
     environments?: string[];
     bypassing?: BypassedGate[];
@@ -193,27 +193,27 @@ export async function requireConfirmation(
   },
 ): Promise<void> {
   const environments = opts.environments ?? [];
-  const labels = [
+  const requested = [
     ...new Set([
-      ...opts.labels,
+      ...opts.actions,
       ...(opts.bypassing ?? []).flatMap(
-        ({ via }) => OVERRIDE_LABELS[via] ?? [],
+        ({ via }) => OVERRIDE_ACTIONS[via] ?? [],
       ),
       ...requestedOverrides(context),
     ]),
   ];
-  const actions = matchConfirmRules(
+  const held = matchConfirmRules(
     rulesFor(context),
-    labels.map((action) => ({ action, environments })),
+    requested.map((action) => ({ action, environments })),
   );
-  if (!actions.length) return;
+  if (!held.length) return;
 
-  const fingerprint = hash([actions, opts.summary, opts.pin]);
+  const fingerprint = hash([held, opts.summary, opts.pin]);
   const confirmations = context.models.confirmations;
   if (context.confirmationId) {
     const id = context.confirmationId;
-    const held = await confirmations.getById(id);
-    if (held?.fingerprint === fingerprint) return;
+    const stored = await confirmations.getById(id);
+    if (stored?.fingerprint === fingerprint) return;
     await confirmations.updateWithCas(id, ["status"], (doc) =>
       doc.status === "running" ? { status: "expired" } : null,
     );
@@ -242,7 +242,7 @@ export async function requireConfirmation(
   ]);
   // Without fresh check text, a retry that skips checks shows what they said
   // when the same request was refused.
-  const skipping = actions.some(({ action }) => action.startsWith("override."));
+  const skipping = held.some(({ action }) => action.startsWith("override."));
   const lastAttempt =
     !opts.notices?.length && skipping
       ? await context.models.confirmationAttempts.findLatest(
@@ -261,7 +261,7 @@ export async function requireConfirmation(
       project: opts.project || "",
       ...request,
       requestHash,
-      actions,
+      actions: held,
       summary: opts.summary,
       links: opts.links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
@@ -295,23 +295,23 @@ const asks = (v: unknown) =>
 
 // Skip flags the request sends hold wherever it is checked, needed or not.
 // Reads the replayed request on a confirmed run, so both see the same flags.
-function requestedOverrides(context: ReqContext): ConfirmLabel[] {
+function requestedOverrides(context: ReqContext): ConfirmAction[] {
   const source = context.dispatchedRequest ?? context.req;
   const query = asRecord(source?.query);
   const body = asRecord(source?.body);
-  return Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, label]) =>
-    asks(query[flag]) || asks(body[flag]) ? [label] : [],
+  return Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
+    asks(query[flag]) || asks(body[flag]) ? [action] : [],
   );
 }
 
-// The route-level hold: the endpoint's labels, with no environments, before the
+// The route-level hold: the endpoint's actions, with no environments, before the
 // handler loads anything. Nothing has run, so replay is always safe.
 export async function holdAtRoute(
   context: ReqContext,
-  labels: readonly ConfirmLabel[],
+  actions: readonly ConfirmAction[],
   // Held when the request arms a publish to run later: confirming the arming
   // confirms the publish, which then runs unheld.
-  armedPublish: ConfirmLabel | null,
+  armedPublish: ConfirmAction | null,
   method: string,
   path: string,
   req: { params?: unknown; body?: unknown; query?: unknown },
@@ -323,8 +323,8 @@ export async function holdAtRoute(
     body.autoPublishOnApproval === true ||
     (body.scheduledPublishAt ?? null) !== null;
   await requireConfirmation(context, {
-    labels: [
-      ...labels.filter((label) => !label.startsWith("override.")),
+    actions: [
+      ...actions.filter((action) => !action.startsWith("override.")),
       ...(arms && armedPublish ? [armedPublish] : []),
     ],
     summary:
@@ -376,7 +376,7 @@ export function holdFeatureUpdate(
   environments?: string[],
 ) {
   return requireConfirmation(context, {
-    labels: [
+    actions: [
       "feature.publish",
       ...(change.archived ? (["feature.archive"] as const) : []),
     ],
@@ -389,7 +389,7 @@ export function holdFeatureUpdate(
   });
 }
 
-const PHASE_LABELS: [keyof ExperimentPhase, ConfirmLabel][] = [
+const PHASE_ACTIONS: [keyof ExperimentPhase, ConfirmAction][] = [
   ["condition", "experiment.targeting"],
   ["savedGroups", "experiment.targeting"],
   ["prerequisites", "experiment.targeting"],
@@ -411,7 +411,7 @@ const RERANDOMIZE_FIELDS = [
   "bucketVersion",
   "minBucketVersion",
 ] as const;
-// Payload fields with no label of their own.
+// Payload fields with no action of their own.
 const OTHER_LIVE_FIELDS = PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.filter(
   (field) =>
     field !== "phases" &&
@@ -427,45 +427,45 @@ const changed = (before: unknown, after: unknown) =>
 
 // What an update does to a live experiment, in the Make Changes flow's terms.
 // Edits to a draft aren't live, so only starting it counts.
-export function experimentChangeLabels(
+export function experimentChangeActions(
   existing: Omit<ExperimentInterface, "id" | "dateCreated" | "dateUpdated">,
   changes: Partial<ExperimentInterface>,
-): ConfirmLabel[] {
-  const labels = new Set<ConfirmLabel>();
+): ConfirmAction[] {
+  const actions = new Set<ConfirmAction>();
   if (changes.status === "running" && existing.status !== "running") {
-    labels.add("experiment.start");
+    actions.add("experiment.start");
   }
   if (changes.status === "stopped" && existing.status !== "stopped") {
-    labels.add("experiment.stop");
+    actions.add("experiment.stop");
   }
   // A scheduled start or stop happens later with no one present.
   const schedule = changes.statusUpdateSchedule;
   if (schedule && !isEqual(schedule, existing.statusUpdateSchedule)) {
-    if (schedule.startAt) labels.add("experiment.start");
-    if (schedule.stopAt || schedule.stopAfter) labels.add("experiment.stop");
+    if (schedule.startAt) actions.add("experiment.start");
+    if (schedule.stopAt || schedule.stopAfter) actions.add("experiment.stop");
   }
-  if (existing.status === "draft") return [...labels];
+  if (existing.status === "draft") return [...actions];
 
   if (RERANDOMIZE_FIELDS.some((f) => changed(existing[f], changes[f]))) {
-    labels.add("experiment.phases");
+    actions.add("experiment.phases");
   }
   const before = existing.phases ?? [];
   const after = changes.phases;
   if (after) {
-    if (after.length !== before.length) labels.add("experiment.phases");
+    if (after.length !== before.length) actions.add("experiment.phases");
     before.forEach((phase, i) => {
       if (!after[i]) return;
       const isLatest = i === before.length - 1;
-      for (const [field, label] of PHASE_LABELS) {
+      for (const [field, action] of PHASE_ACTIONS) {
         if (changed(phase[field], after[i][field])) {
-          labels.add(isLatest ? label : "experiment.phases");
+          actions.add(isLatest ? action : "experiment.phases");
         }
       }
     });
   }
   const live = existing as Partial<ExperimentInterface>;
   if (OTHER_LIVE_FIELDS.some((f) => changed(live[f], changes[f]))) {
-    labels.add("experiment.other");
+    actions.add("experiment.other");
   }
-  return [...labels];
+  return [...actions];
 }

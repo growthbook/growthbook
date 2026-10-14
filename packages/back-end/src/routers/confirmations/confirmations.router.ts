@@ -11,7 +11,7 @@ const ConfirmationsController = wrapController(rawConfirmationsController);
 const idParams = z.strictObject({ id: z.string() });
 const decisionBody = z.strictObject({ note: z.string().optional() });
 
-router.get("/labels", ConfirmationsController.getConfirmationLabels);
+router.get("/actions", ConfirmationsController.getConfirmationActions);
 
 router.get(
   "/:id",

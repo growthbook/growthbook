@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ConfirmLabel } from "./validators/confirmations";
+import type { ConfirmAction } from "./validators/confirmations";
 
 export const apiHttpVerbs = ["get", "post", "put", "delete", "patch"] as const;
 export type HttpVerb = (typeof apiHttpVerbs)[number];
@@ -45,7 +45,7 @@ export type ApiEndpointSpec<
   /** API version prefix for the route path (default: "v1"). */
   version?: "v1" | "v2";
   /** Labels a person may have to confirm before this request runs. */
-  confirmation?: readonly ConfirmLabel[];
+  confirmation?: readonly ConfirmAction[];
   /** The handler holds the request itself, once it knows what changes. */
   confirmationInHandler?: boolean;
 };

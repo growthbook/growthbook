@@ -10,7 +10,7 @@ import {
 } from "shared/validators";
 import {
   ARMING_FIELDS,
-  armedPublishLabel,
+  armedPublishAction,
   routeConfirmation,
 } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
@@ -923,7 +923,7 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
-    // Its own labels, an override for each skip flag it accepts, and the publish
+    // Its own actions, an override for each skip flag it accepts, and the publish
     // it can arm.
     const accepted = [
       // Shared parameters are refs keyed by their name.
@@ -932,14 +932,14 @@ curl https://api.growthbook.io/api/v1/features \
       ),
       ...bodyFieldNames(requestBody?.content["application/json"].schema),
     ];
-    const labels = [
+    const actions = [
       ...new Set([
         ...routeConfirmation(method, tags, confirmation),
-        ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, label]) =>
-          accepted.includes(flag) ? [label] : [],
+        ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
+          accepted.includes(flag) ? [action] : [],
         ),
         ...(ARMING_FIELDS.some((field) => accepted.includes(field))
-          ? [armedPublishLabel(tags)].filter((label) => label !== null)
+          ? [armedPublishAction(tags)].filter((action) => action !== null)
           : []),
       ]),
     ];
@@ -954,7 +954,7 @@ curl https://api.growthbook.io/api/v1/features \
       ...(requestBody !== undefined && { requestBody }),
       responses,
       "x-codeSamples": codeSamples,
-      ...(labels.length > 0 && { "x-growthbook-confirmation": labels }),
+      ...(actions.length > 0 && { "x-growthbook-confirmation": actions }),
     };
   }
 

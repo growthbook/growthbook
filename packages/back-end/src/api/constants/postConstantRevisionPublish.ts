@@ -208,7 +208,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // synchronous override in the logs), so no separate assert runs here.
 
   await requireConfirmation(req.context, {
-    labels: ["constant.publish"],
+    actions: ["constant.publish"],
     bypassing: bypassed,
     notices: gateNotices(skipped),
     project: constant.project,
