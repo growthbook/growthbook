@@ -154,10 +154,7 @@ function postgresLikeSteps(
     {
       title: "Allow network access",
       description: opts.networkDescription(port),
-      code: opts.includeEgressIp
-        ? `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`
-        : undefined,
+      code: opts.includeEgressIp ? `${CLOUD_EGRESS_IP}/32` : undefined,
     },
     {
       title: "Enter credentials and test",
@@ -249,7 +246,6 @@ GRANT \`roles/bigquery.dataEditor\`
       const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
--- Read access for analysis
 GRANT USAGE ON DATABASE ${database}
   TO ROLE ${role};
 GRANT USAGE ON ALL SCHEMAS
@@ -302,7 +298,6 @@ ${readGrants}`;
       if (isEventForwarder && authMethod !== "workload-identity") {
         createUserCode += `
 
--- Write access for Event Forwarder
 GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
 CREATE SCHEMA ${database}.${efSchema};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
@@ -358,8 +353,7 @@ ALTER USER ${user}
       const usingOauth = isEventForwarder || authType === "oauth-m2m";
       const principal = "`<service-principal-application-id>`";
 
-      let grantCode = `-- Read access for analysis
-GRANT USE CATALOG ON CATALOG ${catalog}
+      let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
   TO ${principal};
 GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
   TO ${principal};`;
@@ -367,7 +361,6 @@ GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
       if (isEventForwarder) {
         grantCode += `
 
--- Write access for Event Forwarder (Unity Catalog)
 GRANT USE SCHEMA, CREATE TABLE
   ON SCHEMA ${catalog}.growthbook
   TO ${principal};`;
@@ -403,12 +396,9 @@ GRANT USE SCHEMA, CREATE TABLE
         title: "Allow network access",
         description: "Only if IP access lists are on.",
         code: isEventForwarder
-          ? `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32
-# Event Forwarder eu-west-1 ingestor
+          ? `${CLOUD_EGRESS_IP}/32
 ${EU_INGESTOR_IP}/32`
-          : `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          : `${CLOUD_EGRESS_IP}/32`,
         codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
       });
 
@@ -440,8 +430,7 @@ ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Configure security settings",
           description: `Turn on publicly accessible. Allow inbound TCP ${port} from this IP.`,
-          code: `# Security group inbound rule
-Protocol: TCP
+          code: `Protocol: TCP
 Port: ${port}
 Source: ${CLOUD_EGRESS_IP}/32`,
         },
@@ -523,8 +512,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Allow network access",
           description: "If ClickHouse is behind a firewall, allow this IP.",
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          code: `${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
@@ -579,10 +567,7 @@ FLUSH PRIVILEGES;`,
           description: cloud
             ? `Allow port ${port} from this IP.`
             : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
-          code: cloud
-            ? `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`
-            : undefined,
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -614,10 +599,7 @@ GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
           description: cloud
             ? `Allow port ${port} from this IP.`
             : "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
-          code: cloud
-            ? `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`
-            : undefined,
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -637,8 +619,7 @@ ${CLOUD_EGRESS_IP}/32`
         {
           title: "Allow network access",
           description: "If Vertica is firewalled, allow this IP.",
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          code: `${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",

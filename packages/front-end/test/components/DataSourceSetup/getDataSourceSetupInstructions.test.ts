@@ -279,7 +279,7 @@ describe("getDataSourceSetupInstructions", () => {
         "event_forwarder",
       );
       const create = codeOf(steps, "Create a user and grant access");
-      expect(create.code).toContain("Write access for Event Forwarder");
+      expect(create.code).toContain("GRANT CREATE SCHEMA ON DATABASE");
       expect(create.code).toContain("GRANT INSERT ON FUTURE TABLES");
 
       const network = codeOf(steps, "Allow network access");
