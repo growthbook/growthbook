@@ -566,7 +566,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
-      timeoutSeconds: z.number().int().min(1).nullable(),
+      timeoutSeconds: z.number().int().min(1).nullish(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);

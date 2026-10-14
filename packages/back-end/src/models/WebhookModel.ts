@@ -47,8 +47,15 @@ export class SdkWebhookModel extends BaseClass {
     return this.context.permissions.canDeleteEventWebhook();
   }
 
-  protected async customValidation(doc: WebhookInterface) {
-    validateWebhookTimeoutSeconds(doc.timeoutSeconds);
+  protected async customValidation(
+    doc: WebhookInterface,
+    previousDoc?: WebhookInterface,
+  ) {
+    // Only on change: status writes merge the stored value, which must keep
+    // working if the cap is lowered later (the request-time clamp covers it)
+    if (doc.timeoutSeconds !== previousDoc?.timeoutSeconds) {
+      validateWebhookTimeoutSeconds(doc.timeoutSeconds);
+    }
   }
 
   protected static migrate(doc: unknown): WebhookInterface {
