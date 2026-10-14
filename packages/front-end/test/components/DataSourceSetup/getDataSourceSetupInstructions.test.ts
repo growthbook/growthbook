@@ -123,16 +123,69 @@ describe("getDataSourceSetupInstructions", () => {
       expect(snowflake.code).toContain("PASSWORD = 'O''Brien123!'");
     });
 
-    it("mysql also escapes backslashes", () => {
-      const create = codeOf(
-        getDataSourceSetupInstructions(
-          "mysql",
-          "custom",
-          params({ password: String.raw`a'b\c` }),
-        ),
-        "Create a read-only user",
-      );
-      expect(create.code).toContain(String.raw`IDENTIFIED BY 'a''b\\c'`);
+    it("doubles backslashes where the warehouse treats them as escapes", () => {
+      const password = String.raw`a'b\c`;
+      const expected = String.raw`'a''b\\c'`;
+
+      expect(
+        codeOf(
+          getDataSourceSetupInstructions(
+            "mysql",
+            "custom",
+            params({ password }),
+          ),
+          "Create a read-only user",
+        ).code,
+      ).toContain(`IDENTIFIED BY ${expected}`);
+
+      expect(
+        codeOf(
+          getDataSourceSetupInstructions(
+            "redshift",
+            "custom",
+            params({ password }),
+          ),
+          "Create a read-only user",
+        ).code,
+      ).toContain(`WITH PASSWORD ${expected}`);
+
+      expect(
+        codeOf(
+          getDataSourceSetupInstructions(
+            "snowflake",
+            "custom",
+            params({ authMethod: "password", password }),
+          ),
+          "Create a user and grant access",
+        ).code,
+      ).toContain(`PASSWORD = ${expected}`);
+    });
+
+    it("leaves backslashes alone where they are literal", () => {
+      const password = String.raw`a'b\c`;
+      const expected = String.raw`'a''b\c'`;
+
+      expect(
+        codeOf(
+          getDataSourceSetupInstructions(
+            "postgres",
+            "custom",
+            params({ password }),
+          ),
+          "Create a read-only user",
+        ).code,
+      ).toContain(`WITH PASSWORD ${expected}`);
+
+      expect(
+        codeOf(
+          getDataSourceSetupInstructions(
+            "mssql",
+            "custom",
+            params({ password }),
+          ),
+          "Create a read-only login",
+        ).code,
+      ).toContain(`WITH PASSWORD = ${expected}`);
     });
 
     it("preserves the exact value, including surrounding spaces", () => {

@@ -72,16 +72,18 @@ const TEST_CONNECTION = "Enter the fields, then run the connection test.";
 // placeholder and say so.
 const PASSWORD_PLACEHOLDER = "use-a-strong-password";
 
-type SqlDialect = "standard" | "mysql";
-
 /**
- * Quote a value as a SQL string literal. Doubling single quotes is valid in
- * Postgres, Redshift, MSSQL, and Snowflake. MySQL also treats backslash as an
- * escape character by default, so it needs those doubled as well.
+ * How a warehouse reads a single-quoted string literal.
+ * - "quote-only": only `'` is special (Postgres with the default
+ *   standard_conforming_strings, MSSQL).
+ * - "backslash": `\` is also an escape character (MySQL by default, Snowflake,
+ *   and Redshift, which keeps PostgreSQL 8.0 escape processing).
  */
+type SqlDialect = "quote-only" | "backslash";
+
 function sqlStringLiteral(value: string, dialect: SqlDialect): string {
   let escaped = value.replace(/'/g, "''");
-  if (dialect === "mysql") {
+  if (dialect === "backslash") {
     escaped = escaped.replace(/\\/g, "\\\\");
   }
   return `'${escaped}'`;
@@ -94,7 +96,7 @@ function sqlStringLiteral(value: string, dialect: SqlDialect): string {
  */
 function passwordFor(
   params: ParamsBag,
-  dialect: SqlDialect = "standard",
+  dialect: SqlDialect,
 ): { literal: string; note: string } {
   const raw = params.password;
   const password = typeof raw === "string" && raw.length > 0 ? raw : null;
@@ -124,13 +126,17 @@ function postgresLikeSteps(
     ) => string;
     networkDescription: (port: string) => string;
     includeEgressIp?: boolean;
+    sqlDialect: SqlDialect;
   },
 ): SetupInstructionStep[] {
   const user = field(params, "user", opts.userFallback);
   const database = field(params, "database", opts.databaseFallback);
   const schema = field(params, "defaultSchema", opts.schemaFallback);
   const port = field(params, "port", opts.portFallback);
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(params);
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+    params,
+    opts.sqlDialect,
+  );
 
   return [
     {
@@ -239,7 +245,7 @@ GRANT \`roles/bigquery.dataEditor\`
         typeof p.workloadIdentityProvider === "string"
           ? p.workloadIdentityProvider
           : "AWS";
-      const snowflakePassword = passwordFor(p);
+      const snowflakePassword = passwordFor(p, "backslash");
       const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
@@ -420,7 +426,10 @@ ${CLOUD_EGRESS_IP}/32`,
       const user = field(p, "user", "growthbook_user");
       const schema = field(p, "defaultSchema", "public");
       const port = field(p, "port", "5439");
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(p);
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "backslash",
+      );
 
       return [
         {
@@ -531,6 +540,7 @@ ${CLOUD_EGRESS_IP}/32`,
         schemaFallback: "public",
         portFallback: "5432",
         includeEgressIp: cloud,
+        sqlDialect: "quote-only",
         createUserSql: (user, passwordLiteral, database, schema) =>
           `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT CONNECT ON DATABASE ${database} TO ${user};
@@ -552,7 +562,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
       const port = field(p, "port", "3306");
       const { literal: passwordLiteral, note: passwordNote } = passwordFor(
         p,
-        "mysql",
+        "backslash",
       );
       return [
         {
@@ -586,7 +596,10 @@ ${CLOUD_EGRESS_IP}/32`
       const user = field(p, "user", "growthbook");
       const schema = field(p, "defaultSchema", "dbo");
       const port = field(p, "port", "1433");
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(p);
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "quote-only",
+      );
       return [
         {
           title: "Create a read-only login",
