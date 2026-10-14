@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.2.0",
+    version: "3.2.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -824,7 +824,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.4",
+    version: "1.3.1",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
