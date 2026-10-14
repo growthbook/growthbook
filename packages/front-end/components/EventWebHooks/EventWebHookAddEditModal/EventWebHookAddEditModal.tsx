@@ -315,7 +315,12 @@ const EventWebHookAddEditSettings = ({
             type="number"
             min={1}
             placeholder="30"
-            value={timeoutMs ? timeoutMs / 1000 : ""}
+            value={timeoutMs !== undefined ? timeoutMs / 1000 : ""}
+            error={
+              timeoutMs !== undefined && timeoutMs < 1000
+                ? "Enter at least 1 second."
+                : undefined
+            }
             onChange={(evt) => {
               form.setValue(
                 "timeoutMs",

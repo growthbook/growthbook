@@ -58,6 +58,8 @@ interface SdkWebhookInputs {
 }
 
 const timeoutSecondsToMs = (s: string) => (s ? Number(s) * 1000 : undefined);
+const timeoutError = (s: string) =>
+  s && Number(s) < 1 ? "Enter at least 1 second." : undefined;
 
 function getWebhookFromType(
   type: WebhookType,
@@ -68,7 +70,6 @@ function getWebhookFromType(
   headers: string;
   payloadFormat: WebhookPayloadFormat;
   payloadKey?: string;
-  timeoutMs?: number;
 } {
   switch (type) {
     case "cloudflare":
@@ -108,7 +109,6 @@ function getWebhookFromType(
         headers: inputs.headers,
         payloadFormat: inputs.payloadFormat,
         payloadKey: inputs.key,
-        timeoutMs: timeoutSecondsToMs(inputs.timeoutSeconds),
       };
   }
 }
@@ -236,9 +236,14 @@ export function CreateSDKWebhookModal({
             throw new Error("Please select a Webhook type");
           }
 
+          if (timeoutError(inputs.timeoutSeconds)) {
+            throw new Error(timeoutError(inputs.timeoutSeconds));
+          }
+
           const data: CreateSdkWebhookProps = {
             ...getWebhookFromType(webhookType, inputs),
             name: inputs.name,
+            timeoutMs: timeoutSecondsToMs(inputs.timeoutSeconds),
           };
 
           if (data.endpoint.match(/localhost/g)) {
@@ -418,15 +423,6 @@ export function CreateSDKWebhookModal({
               key="http_method"
             />
 
-            <Field
-              label="Timeout (seconds)"
-              type="number"
-              min={1}
-              placeholder="30"
-              {...form.register("timeoutSeconds")}
-              key="http_timeout"
-            />
-
             <CodeTextArea
               label="Headers"
               language="json"
@@ -527,6 +523,15 @@ export function CreateSDKWebhookModal({
             )}
           </>
         ) : null}
+
+        <Field
+          label="Timeout (seconds)"
+          type="number"
+          min={1}
+          placeholder="30"
+          error={timeoutError(form.watch("timeoutSeconds"))}
+          {...form.register("timeoutSeconds")}
+        />
       </Modal>
     </>
   );
@@ -563,6 +568,9 @@ const EditSDKWebhooksModal: FC<{
     }
     if (!isValidHttp(value.endpoint)) {
       throw new Error("Invalid URL");
+    }
+    if (timeoutError(value.timeoutSeconds)) {
+      throw new Error(timeoutError(value.timeoutSeconds));
     }
 
     if (current.id) {
@@ -642,7 +650,7 @@ const EditSDKWebhooksModal: FC<{
       open={true}
       submit={onSubmit}
       autoCloseOnSubmit={false}
-      ctaEnabled={validHeaders}
+      ctaEnabled={validHeaders && !timeoutError(form.watch("timeoutSeconds"))}
       cta={current.id ? "Update" : "Create"}
       size="lg"
     >
@@ -700,14 +708,6 @@ const EditSDKWebhooksModal: FC<{
       />
 
       {headerJsonEditor()}
-
-      <Field
-        label="Timeout (seconds)"
-        type="number"
-        min={1}
-        placeholder="30"
-        {...form.register("timeoutSeconds")}
-      />
 
       {form.watch("httpMethod") !== "GET" && (
         <>
@@ -778,6 +778,15 @@ const EditSDKWebhooksModal: FC<{
           )}
         </>
       )}
+
+      <Field
+        label="Timeout (seconds)"
+        type="number"
+        min={1}
+        placeholder="30"
+        error={timeoutError(form.watch("timeoutSeconds"))}
+        {...form.register("timeoutSeconds")}
+      />
     </Modal>
   );
 };
