@@ -17,13 +17,18 @@ import {
   PiPlus,
   PiPencilSimpleFill,
   PiCaretRightBold,
+  PiCaretDownBold,
   PiPencil,
   PiLockSimple,
   PiProhibit,
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getMalformedPrereqConditionError,
+  getReviewSetting,
+} from "shared/util";
 import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
@@ -223,6 +228,7 @@ export default function FeaturesOverview({
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
+  const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
   // stale closure captures when ramp actions auto-publish new revisions.
@@ -540,10 +546,54 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
+  const invalidPrereqs: {
+    key: string;
+    ruleId: string | null;
+    where: string;
+    id: string;
+    error: string;
+  }[] = [];
+  prerequisites.forEach((p, i) => {
+    const error = getMalformedPrereqConditionError(p.condition);
+    if (error) {
+      invalidPrereqs.push({
+        key: `flag-${i}`,
+        ruleId: null,
+        where: "this flag",
+        id: p.id,
+        error,
+      });
+    }
+  });
+  const seenRuleIds = new Set<string>();
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
+    r.forEach((rule, i) => {
+      if (seenRuleIds.has(rule.id)) return;
+      seenRuleIds.add(rule.id);
+      (rule.prerequisites ?? []).forEach((p, j) => {
+        const error = getMalformedPrereqConditionError(p.condition);
+        if (error) {
+          invalidPrereqs.push({
+            key: `${rule.id}-${j}`,
+            ruleId: rule.id,
+            where: `rule "${rule.description || `Rule ${i + 1}`}"`,
+            id: p.id,
+            error,
+          });
+        }
+      });
+    });
   });
+  const invalidRuleCount = new Set(
+    invalidPrereqs.map((p) => p.ruleId).filter((id) => id !== null),
+  ).size;
+  const invalidPrereqBlocking = invalidPrereqs.some((p) => p.ruleId === null)
+    ? "An invalid prerequisite condition is blocking this flag"
+    : `An invalid prerequisite condition is blocking ${
+        invalidRuleCount === 1 ? "a rule" : `${invalidRuleCount} rules`
+      }`;
 
   const variables = {
     featureKey: feature.id,
@@ -839,6 +889,31 @@ export default function FeaturesOverview({
             </>
           );
         })()}
+        {invalidPrereqs.length > 0 && (
+          <Callout status="error" mt="2" mb="3">
+            <Link onClick={() => setShowInvalidPrereqs((v) => !v)}>
+              <Flex align="center" gap="1">
+                {invalidPrereqBlocking}
+                {showInvalidPrereqs ? (
+                  <PiCaretDownBold />
+                ) : (
+                  <PiCaretRightBold />
+                )}
+              </Flex>
+            </Link>
+            {showInvalidPrereqs && (
+              <Flex direction="column" gap="1" mt="2">
+                {invalidPrereqs.map((p) => (
+                  <Text key={p.key}>
+                    Blocking {p.where}: prerequisite <code>{p.id}</code> —{" "}
+                    {p.error}
+                  </Text>
+                ))}
+                <Text>Edit the prerequisite to fix it.</Text>
+              </Flex>
+            )}
+          </Callout>
+        )}
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">

@@ -352,6 +352,27 @@ describe("computeFeatureHealth", () => {
     expect(compute(good)).toEqual([]);
   });
 
+  it("flags prerequisite conditions that can't be evaluated", () => {
+    const f = feature(
+      [
+        {
+          ...force("true", '{"a":1}'),
+          prerequisites: [
+            { id: "p2", condition: '{"$and": [null]}' },
+            { id: "p3", condition: '{"value": true}' },
+          ],
+        },
+        {
+          ...force("true"),
+          enabled: false,
+          prerequisites: [{ id: "p4", condition: '{"$or": null}' }],
+        },
+      ],
+      { prerequisites: [{ id: "p1", condition: '{"$not": null}' }] },
+    );
+    expect(compute(f)).toEqual([{ signal: "invalid-prerequisite", count: 2 }]);
+  });
+
   it("orders entries most urgent first", () => {
     const f = feature([force("true"), force("bad")]);
     const envResults: Record<string, EnvStaleResult> = {

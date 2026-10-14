@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
+  getMalformedPrereqConditionError,
   getReviewSetting,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -106,7 +107,11 @@ export default function PrerequisiteModal({
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
       id: prerequisite?.id ?? defaultValues.id,
-      condition: prerequisite?.condition ?? defaultValues.condition,
+      // Saving resets a malformed condition to the parent's default.
+      condition:
+        prerequisite && getMalformedPrereqConditionError(prerequisite.condition)
+          ? ""
+          : (prerequisite?.condition ?? defaultValues.condition),
     },
   });
 

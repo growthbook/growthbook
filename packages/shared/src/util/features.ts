@@ -2579,6 +2579,11 @@ export function validateCondition(
       return { success: false, empty: false, error: "Must be object" };
     }
 
+    const structureError = findMalformedConditionOperator(res);
+    if (structureError) {
+      return { success: false, empty: false, error: structureError };
+    }
+
     const scrubbed = cloneDeep(res);
     recursiveWalk(
       scrubbed,
@@ -2640,6 +2645,57 @@ export function validatePrerequisiteCondition(
     };
   }
   return validateCondition(condition);
+}
+
+const isNonNullObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object";
+
+// Shapes that make evalCondition throw rather than return false: a null
+// operand under a logical operator or $elemMatch.
+function findMalformedConditionOperator(condition: unknown): string | null {
+  if (!isNonNullObject(condition)) return null;
+  for (const [key, value] of Object.entries(condition)) {
+    if (key === "$and" || key === "$or" || key === "$nor") {
+      if ((value ?? null) === null) return `${key} cannot be null`;
+      if (!Array.isArray(value)) continue;
+      for (const item of value) {
+        if ((item ?? null) === null) return `${key} cannot contain null`;
+        const err = findMalformedConditionOperator(item);
+        if (err) return err;
+      }
+    } else if (key === "$not") {
+      if ((value ?? null) === null) return "$not cannot be null";
+      const err = findMalformedConditionOperator(value);
+      if (err) return err;
+    } else if (!key.startsWith("$")) {
+      const err = findMalformedOperatorValue(value);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+const isOperatorObject = (v: unknown): v is Record<string, unknown> => {
+  if (!isNonNullObject(v) || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
+};
+
+function findMalformedOperatorValue(value: unknown): string | null {
+  if (!isOperatorObject(value)) return null;
+  for (const [op, operand] of Object.entries(value)) {
+    if (op === "$elemMatch") {
+      if ((operand ?? null) === null) return "$elemMatch cannot be null";
+      const err = isOperatorObject(operand)
+        ? findMalformedOperatorValue(operand)
+        : findMalformedConditionOperator(operand);
+      if (err) return err;
+    } else if (op === "$not" || op === "$size") {
+      const err = findMalformedOperatorValue(operand);
+      if (err) return err;
+    }
+  }
+  return null;
 }
 
 export function validateAndFixCondition(
@@ -2990,12 +3046,17 @@ export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
   condition: string,
+  onError?: (e: unknown) => void,
 ): "pass" | "fail" {
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
   const evalObj = { value: value };
-  const pass = evalCondition(evalObj, parsedCondition);
-  return pass ? "pass" : "fail";
+  try {
+    return evalCondition(evalObj, parsedCondition) ? "pass" : "fail";
+  } catch (e) {
+    onError?.(e);
+    return "fail";
+  }
 }
 
 /** Maps each feature ID to the set of features that depend on it as a prerequisite. */
@@ -3104,6 +3165,12 @@ export function getDependentExperiments(
     const phase = e.phases.slice(-1)?.[0] ?? null;
     return phase?.prerequisites?.some((p) => p.id === feature.id);
   });
+}
+
+export function getMalformedPrereqConditionError(
+  condition: string,
+): string | null {
+  return findMalformedConditionOperator(getParsedPrereqCondition(condition));
 }
 
 // Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
