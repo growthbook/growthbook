@@ -32,7 +32,7 @@ import MetricSlices from "@/components/FactTables/MetricEditor/MetricSlices";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
-import DatasourcePicker from "@/components/FactTables/MetricEditor/DatasourcePicker";
+import DataSourcePicker from "@/components/DataSourcePicker";
 import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
 import MetricDescription from "@/components/FactTables/MetricEditor/MetricDescription";
 import {
@@ -644,11 +644,17 @@ export default function MetricEditor({
   return (
     <Flex direction="column" gap="3">
       <Flex mt="-2">
-        <DatasourcePicker
+        <DataSourcePicker
           value={datasourceId}
           options={datasourceOptions}
           onChange={changeDatasource}
-          confirmChange={hasChosenFactTable}
+          // Switching clears the chosen fact tables, so confirm once there are any.
+          confirmMessage={
+            hasChosenFactTable
+              ? (name) =>
+                  `Changing the Data Source clears the fact tables you've chosen. Switch to "${name}"?`
+              : null
+          }
         />
       </Flex>
       {grid}

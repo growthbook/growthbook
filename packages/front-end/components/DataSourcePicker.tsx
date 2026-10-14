@@ -5,32 +5,31 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 
-// Page-level data source picker for a new metric - same look as the
-// Product Analytics Explorer's DataSourceDropdown, but bound to a value
-// instead of ExplorerContext.
-export default function DatasourcePicker({
+// Ghost-button Data Source menu shared by the Product Analytics Explorer and
+// the new-metric page.
+export default function DataSourcePicker({
   value,
   options,
   onChange,
-  confirmChange,
+  disabled = false,
+  confirmMessage,
 }: {
-  value: string;
+  value: string | undefined;
   options: DataSourceInterfaceWithParams[];
   onChange: (datasourceId: string) => void;
-  // Switching clears the chosen fact tables, so confirm once there are any.
-  confirmChange: boolean;
+  disabled?: boolean;
+  // When switching would discard work, the confirmation text for the
+  // Data Source named; null switches without asking.
+  confirmMessage: ((name: string) => string) | null;
 }) {
   const current = options.find((ds) => ds.id === value);
+  const isDisabled = disabled || !options.length;
 
   return (
     <DropdownMenu
-      disabled={!options.length}
+      disabled={isDisabled}
       trigger={
-        <Button
-          variant="ghost"
-          icon={<PiDatabase />}
-          disabled={!options.length}
-        >
+        <Button variant="ghost" icon={<PiDatabase />} disabled={isDisabled}>
           <Flex align="center" gap="2">
             <Text weight="medium">
               {current?.name || "Select a Data Source"}
@@ -42,21 +41,19 @@ export default function DatasourcePicker({
     >
       {options.map((ds) => {
         const selected = ds.id === value;
+        const confirm = !selected && confirmMessage;
         return (
           <DropdownMenuItem
             key={ds.id}
-            onClick={
-              selected || confirmChange ? undefined : () => onChange(ds.id)
-            }
+            onClick={selected || confirm ? undefined : () => onChange(ds.id)}
             confirmation={
-              !selected && confirmChange
+              confirm
                 ? {
                     confirmationTitle: "Change Data Source",
                     cta: "Change",
                     ctaColor: "violet",
                     submit: () => onChange(ds.id),
-                    getConfirmationContent: async () =>
-                      `Changing the Data Source clears the fact tables you've chosen. Switch to "${ds.name}"?`,
+                    getConfirmationContent: async () => confirm(ds.name),
                   }
                 : undefined
             }
