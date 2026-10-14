@@ -133,14 +133,15 @@ export default function DataSourceConnectInstructions({
   docs,
   setup,
   params,
-  existing,
+  existing = false,
 }: {
   type: DataSourceType;
   displayName: string;
   docs: DocSection;
   setup: ConnectSetupKind;
   params?: Partial<DataSourceParams>;
-  existing: boolean;
+  /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
+  existing?: boolean;
 }) {
   const steps = getDataSourceSetupInstructions(type, setup, params, {
     existing,

@@ -66,6 +66,11 @@ function withEventForwarderWrite(
 
 const TEST_CONNECTION = "Enter the fields, then run the connection test.";
 
+// The password is never filled from the form so it is not copied to the
+// clipboard. Tie the command back to the Password field instead.
+const PASSWORD_PLACEHOLDER = "use-a-strong-password";
+const PASSWORD_NOTE = `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`;
+
 function postgresLikeSteps(
   params: ParamsBag,
   opts: {
@@ -89,8 +94,7 @@ function postgresLikeSteps(
       description:
         "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
       code: opts.createUserSql(user, database, schema || "public"),
-      codeNote:
-        "Grants use the Default Schema field. Change it there if events live in another schema.",
+      codeNote: `${PASSWORD_NOTE} Grants use the Default Schema field; change it there if events live in another schema.`,
     },
     {
       title: "Allow network access",
@@ -382,11 +386,12 @@ Source: ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Create a read-only user",
           description: "Run in the query editor.",
-          code: `CREATE USER ${user} WITH PASSWORD 'securepassword';
+          code: `CREATE USER ${user} WITH PASSWORD '${PASSWORD_PLACEHOLDER}';
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
+          codeNote: PASSWORD_NOTE,
         },
         {
           title: "Enter credentials and test",
@@ -474,7 +479,7 @@ ${CLOUD_EGRESS_IP}/32`,
         portFallback: "5432",
         includeEgressIp: cloud,
         createUserSql: (user, database, schema) =>
-          `CREATE USER ${user} WITH PASSWORD 'use-a-strong-password';
+          `CREATE USER ${user} WITH PASSWORD '${PASSWORD_PLACEHOLDER}';
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
@@ -497,9 +502,10 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
           title: "Create a read-only user",
           description:
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
-          code: `CREATE USER '${user}'@'%' IDENTIFIED BY 'use-a-strong-password';
+          code: `CREATE USER '${user}'@'%' IDENTIFIED BY '${PASSWORD_PLACEHOLDER}';
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
+          codeNote: PASSWORD_NOTE,
         },
         {
           title: "Allow network access",
@@ -527,9 +533,10 @@ ${CLOUD_EGRESS_IP}/32`
         {
           title: "Create a read-only login",
           description: "Grant SELECT on the schema.",
-          code: `CREATE LOGIN ${user} WITH PASSWORD = 'use-a-strong-password';
+          code: `CREATE LOGIN ${user} WITH PASSWORD = '${PASSWORD_PLACEHOLDER}';
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
+          codeNote: PASSWORD_NOTE,
         },
         {
           title: "Allow network access",

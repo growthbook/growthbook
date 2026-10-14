@@ -24,6 +24,7 @@ import {
   isTestableDataSourceType,
   TestableDataSourceType,
 } from "shared/validators";
+import { BigQueryTestStatus } from "@/components/Settings/BigQueryForm";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -47,6 +48,24 @@ import DataSourceConnectInstructions, {
 } from "./DataSourceConnectInstructions";
 
 type TestStatus = "idle" | "running" | "passed" | "failed";
+
+// Fields BigQueryForm's test covers. Changing any of them invalidates a
+// previously saved or tested connection.
+const BIGQUERY_CREDENTIAL_KEYS = [
+  "authType",
+  "projectId",
+  "apiEndpoint",
+  "clientEmail",
+  "privateKey",
+] as const;
+
+function paramValue(
+  params: Partial<DataSourceInterfaceWithParams>["params"] | undefined,
+  key: string,
+): string {
+  const value = (params as Partial<Record<string, unknown>> | undefined)?.[key];
+  return typeof value === "string" ? value : "";
+}
 
 const DATA_SOURCE_TYPE_ABBR: Record<DataSourceType, string> = {
   bigquery: "BQ",
@@ -98,6 +117,8 @@ export default function ConnectDataSourceLayout({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [bigQueryTestStatus, setBigQueryTestStatus] =
+    useState<BigQueryTestStatus | null>(null);
   const [saving, setSaving] = useState(false);
   // Incremented whenever the params a test would cover change, so a response
   // from an earlier test cannot approve credentials it never saw.
@@ -184,12 +205,25 @@ export default function ConnectDataSourceLayout({
       : null;
 
   // BigQuery verifies the connection from the form above, which also loads
-  // datasets so the user can choose a default dataset.
+  // datasets so the user can choose a default dataset. The form reports its
+  // result here and clears it whenever a credential field changes.
   const isBigQuery = datasource.type === "bigquery";
   const bigQueryDefaultDataset =
     isBigQuery && datasource.params && "defaultDataset" in datasource.params
       ? (datasource.params.defaultDataset || "").trim()
       : "";
+  const bigQueryCredentialsDirty =
+    isBigQuery &&
+    BIGQUERY_CREDENTIAL_KEYS.some(
+      (key) =>
+        paramValue(datasource.params, key) !== paramValue(initial.params, key),
+    );
+  // Saved credentials that have not been touched were verified when saved.
+  const needsBigQueryTest =
+    isBigQuery && !isSampleData && (!existing || bigQueryCredentialsDirty);
+  // "warning" means connected but no datasets were found; credentials are valid.
+  const bigQueryTestPassed =
+    bigQueryTestStatus === "success" || bigQueryTestStatus === "warning";
 
   const canTest =
     !!datasource.type &&
@@ -267,6 +301,7 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     projectPermissionError === null &&
     (!needsSuccessfulTest || testStatus === "passed") &&
+    (!needsBigQueryTest || bigQueryTestPassed) &&
     (!isBigQuery || !!bigQueryDefaultDataset) &&
     (existing ? dirty : true);
 
@@ -279,6 +314,12 @@ export default function ConnectDataSourceLayout({
     }
     if (projectPermissionError !== null) {
       return "Select a Project to continue";
+    }
+    if (needsBigQueryTest && bigQueryTestStatus === null) {
+      return "Test the connection to continue";
+    }
+    if (needsBigQueryTest && bigQueryTestStatus === "danger") {
+      return "Fix the connection to continue";
     }
     if (isBigQuery && !bigQueryDefaultDataset) {
       return "Choose a default dataset to continue";
@@ -437,11 +478,9 @@ export default function ConnectDataSourceLayout({
               ? `Edit ${typeInfo.display}`
               : `Connect ${typeInfo.display}`}
           </Heading>
-          <Badge
-            label={setup === "event_forwarder" ? "Event Forwarder" : "Custom"}
-            color="violet"
-            variant="soft"
-          />
+          {setup === "event_forwarder" ? (
+            <Badge label="Event Forwarder" color="violet" variant="soft" />
+          ) : null}
         </Flex>
         <Text as="p" color="text-mid" mb="4">
           {setup === "event_forwarder"
@@ -504,6 +543,7 @@ export default function ConnectDataSourceLayout({
                 resetTest();
               }
             }}
+            onBigQueryTestResult={setBigQueryTestStatus}
           />
         </Frame>
 
@@ -640,7 +680,7 @@ function ConnectionTestRow({
           {passed
             ? "Confirmed read access to"
             : "Could not confirm read access to"}{" "}
-          <Text as="span" size="sm" mono>
+          <Text as="span" size="sm" weight="medium">
             {name}
           </Text>
         </Text>
