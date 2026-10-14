@@ -298,16 +298,30 @@ export class GrowthBookClient<
     if (!getRemoteSavedGroups(this._options.savedGroups).length) {
       return userContext;
     }
+    const attributes = {
+      ...this._options.globalAttributes,
+      ...userContext.attributes,
+      ...userContext.attributeOverrides,
+    };
     try {
-      const remoteGroupIds = await resolveRemoteGroupIds(
-        {
-          ...this._options.globalAttributes,
-          ...userContext.attributes,
-          ...userContext.attributeOverrides,
-        },
-        this._options.savedGroups,
+      let savedGroups = this._options.savedGroups;
+      let remoteGroupIds = await resolveRemoteGroupIds(
+        attributes,
+        savedGroups,
         resolver,
       );
+      // A refresh during the lookup can add groups the result doesn't cover,
+      // and a missing group would pass "not in group" rules. Look up once
+      // more for the new payload.
+      if (this._options.savedGroups !== savedGroups) {
+        savedGroups = this._options.savedGroups;
+        if (!getRemoteSavedGroups(savedGroups).length) return userContext;
+        remoteGroupIds = await resolveRemoteGroupIds(
+          attributes,
+          savedGroups,
+          resolver,
+        );
+      }
       return { ...userContext, remoteGroupIds };
     } catch (error) {
       this.log("Could not resolve remote saved groups", { error });

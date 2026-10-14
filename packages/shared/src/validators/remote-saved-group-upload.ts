@@ -104,6 +104,10 @@ export const savedGroupUploadValidator = baseSchema.safeExtend({
   // The file's name on the uploader's computer, used for downloads
   fileName: z.string().optional(),
   size: z.number().int().nonnegative(),
+  // Whether IDs are parsed as numbers, from the attribute's type at upload.
+  // Fixed per version, so every store loads it the same way even if the
+  // attribute's type changes later. Older uploads don't have it.
+  numeric: z.boolean().optional(),
   createdBy: z.string(),
   status: savedGroupUploadStatusValidator,
   // One entry per data store, from loaders' reports
@@ -136,7 +140,11 @@ export const apiSavedGroupUploadValidator = namedSchema(
           "Hex SHA-256 of the file, set once it's validated. Null if it isn't validated yet, or wasn't read in full.",
         ),
       dateCreated: z.string().meta({ format: "date-time" }),
-      createdBy: z.string(),
+      createdBy: z
+        .string()
+        .describe(
+          "Who uploaded it: a user ID, or an API key ID (`key_…`) for a key acting as itself",
+        ),
       status: savedGroupUploadStatusValidator,
       loads: z
         .array(

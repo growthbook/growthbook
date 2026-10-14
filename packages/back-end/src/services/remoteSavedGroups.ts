@@ -52,7 +52,7 @@ type FullContext = ReqContext | ApiReqContext;
 /** The parts of a request context this service uses, so tests can supply only those. */
 export type RemoteSavedGroupsContext = Pick<
   FullContext,
-  "org" | "userId" | "auditLog"
+  "org" | "userId" | "actorId" | "auditLog"
 > & {
   permissions: Pick<
     FullContext["permissions"],
@@ -171,14 +171,20 @@ export async function getRemoteSavedGroupUploadUrl(
   };
 }
 
+/**
+ * How a group's CSVs are parsed. An upload keeps the number mode it was
+ * created with; new uploads take it from the attribute's current type.
+ */
 function getCsvOptions(
   context: Context,
   group: SavedGroupInterface,
+  upload?: Pick<SavedGroupUploadInterface, "numeric">,
 ): RemoteGroupCsvOptions {
   const attributeKey = group.attributeKey ?? "";
   return {
     attributeKey,
     numeric:
+      upload?.numeric ??
       context.org.settings?.attributeSchema?.find(
         (a) => a.property === attributeKey,
       )?.datatype === "number",
@@ -399,7 +405,8 @@ async function recordUpload(
         fileKey,
         ...(fileName ? { fileName } : {}),
         size,
-        createdBy: context.userId || "",
+        numeric: getCsvOptions(context, group).numeric,
+        createdBy: context.actorId,
         status: { type: "pending" },
       });
     } catch (e) {
@@ -448,7 +455,7 @@ export async function validateRemoteSavedGroupUpload(
   }
   const result = await parseRemoteGroupCsv(
     hashed(),
-    getCsvOptions(context, group),
+    getCsvOptions(context, group, upload),
   );
   await context.models.savedGroupUploads.setStatus(
     upload,
@@ -500,7 +507,7 @@ export async function toApiSavedGroupsWithUploads(
           ? {
               version: upload.version,
               dateCreated: upload.dateCreated.toISOString(),
-              numeric: getCsvOptions(context, g).numeric,
+              numeric: getCsvOptions(context, g, upload).numeric,
             }
           : null,
       };

@@ -114,6 +114,7 @@ function makeContext({
   const context: RemoteSavedGroupsContext = {
     org,
     userId: "u_1",
+    actorId: "u_1",
     auditLog: jest.fn(async (data, id) => {
       if (id && audits.has(id)) throw duplicateKeyError();
       audits.set(id ?? `aud_${audits.size}`, data);
@@ -256,6 +257,7 @@ describe("createRemoteSavedGroupUpload", () => {
     );
 
     expect(upload).toMatchObject({ version: 1, status: { type: "pending" } });
+    expect(uploads[0]).toMatchObject({ createdBy: "u_1", numeric: false });
     expect(uploads[0].sourceKey).toBe(stagingKey("a"));
     expect(uploads[0].fileKey).toMatch(
       /^org_1\/remote-saved-groups\/grp_1\/uploads\/.+\.csv$/,
@@ -623,6 +625,15 @@ describe("validateRemoteSavedGroupUpload", () => {
     });
   });
 
+  it("parses with the number mode the upload was created with", async () => {
+    const { context, upload } = await pendingUpload("abc\n");
+    context.org.settings = {
+      attributeSchema: [{ property: "user_id", datatype: "number" }],
+    };
+    await validateRemoteSavedGroupUpload(context, upload.id);
+    expect(upload.status).toEqual({ type: "valid", idCount: 1 });
+  });
+
   it("leaves a finished upload alone", async () => {
     const { context, upload } = await pendingUpload("u1\n");
     upload.status = { type: "valid", idCount: 1 };
@@ -900,6 +911,15 @@ describe("toApiSavedGroupsWithUploads", () => {
     });
     expect(none.currentUpload).toBeNull();
     expect(list).not.toHaveProperty("currentUpload");
+
+    // A version keeps its number mode when the attribute's type changes
+    context.org.settings = {
+      attributeSchema: [{ property: "user_id", datatype: "number" }],
+    };
+    const [after] = await toApiSavedGroupsWithUploads(withApi, [
+      { ...group, currentUploadVersion: 1 },
+    ]);
+    expect(after.currentUpload).toMatchObject({ numeric: false });
   });
 });
 

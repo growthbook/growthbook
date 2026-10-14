@@ -121,6 +121,34 @@ function LoadCountWarning() {
   );
 }
 
+/** How often pages refresh while waiting for data stores to report. */
+export const LOAD_REPORT_POLL_MS = 15000;
+
+/**
+ * Whether a valid upload is still waiting for data stores: none has loaded it,
+ * or one is loading. Loaders report after validation, so pages keep polling.
+ */
+export function isAwaitingLoads(upload: ApiSavedGroupUpload): boolean {
+  return (
+    upload.status.type === "valid" &&
+    (!upload.loads.some((l) => l.status.type === "loaded") ||
+      upload.loads.some((l) => l.status.type === "loading"))
+  );
+}
+
+/**
+ * Who uploaded a version: a member's name, "API key" for a key acting as
+ * itself, or "Unknown" for uploads from before authorship was recorded.
+ */
+export function uploaderDisplay(
+  createdBy: string,
+  getUserDisplay: (id: string, fallback?: boolean) => string,
+): string {
+  if (!createdBy) return "Unknown";
+  if (createdBy.startsWith("key_")) return "API key";
+  return getUserDisplay(createdBy, true);
+}
+
 /** A store's load status, explaining a count that differs from the file's. */
 function LoadStatusCell({ load, idCount }: { load: Load; idCount?: number }) {
   const { status } = load;
@@ -185,6 +213,10 @@ export default function RemoteSavedGroupUploadDetailsModal({
     useDownloadUpload(savedGroupId);
   const { data, error } = useApi<SavedGroupUploadDetails>(
     `/saved-groups/${savedGroupId}/uploads/${version}`,
+    {
+      refreshInterval: (latest) =>
+        latest && isAwaitingLoads(latest.upload) ? LOAD_REPORT_POLL_MS : 0,
+    },
   );
 
   const upload = data?.upload;
@@ -237,7 +269,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 },
                 {
                   label: "Uploaded",
-                  value: `${datetime(upload.dateCreated)} by ${getUserDisplay(upload.createdBy, true)}`,
+                  value: `${datetime(upload.dateCreated)} by ${uploaderDisplay(upload.createdBy, getUserDisplay)}`,
                 },
                 {
                   label: "Content type",

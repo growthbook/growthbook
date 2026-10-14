@@ -22,6 +22,9 @@ import { uploadToSignedUrl } from "@/services/files";
 import { DocLink } from "@/components/DocLink";
 import RemoteSavedGroupUploadDetailsModal, {
   LoadSummary,
+  LOAD_REPORT_POLL_MS,
+  isAwaitingLoads,
+  uploaderDisplay,
   UploadStatusBadge,
   useDownloadUpload,
 } from "@/components/SavedGroups/RemoteSavedGroupUploadDetailsModal";
@@ -330,13 +333,21 @@ export default function RemoteSavedGroupUploads({
     savedGroup.id,
   );
   const [page, setPage] = useState(1);
+  const liveVersion = savedGroup.currentUploadVersion;
+  // Uploads are checked in the background, and data stores report on the
+  // live version after that, so poll until both are done. Only the live
+  // version waits for loads; loaders skip the others.
+  const pollInterval = (latest: UploadsPage | undefined) =>
+    latest?.uploads.some((u) => u.status.type === "pending")
+      ? 5000
+      : latest?.uploads.some(
+            (u) => u.version === liveVersion && isAwaitingLoads(u),
+          )
+        ? LOAD_REPORT_POLL_MS
+        : 0;
   const { data, error, mutate } = useApi<UploadsPage>(
     `/saved-groups/${savedGroup.id}/uploads?limit=${UPLOADS_PER_PAGE}&offset=${(page - 1) * UPLOADS_PER_PAGE}`,
-    {
-      // Uploads are checked in the background, so poll until they're done.
-      refreshInterval: (latest) =>
-        latest?.uploads.some((u) => u.status.type === "pending") ? 5000 : 0,
-    },
+    { refreshInterval: pollInterval },
   );
   // Deleting the last rows of the last page leaves it empty; go back a page
   const lastPage = Math.max(
@@ -346,7 +357,6 @@ export default function RemoteSavedGroupUploads({
   useEffect(() => {
     if (data && page > lastPage) setPage(lastPage);
   }, [data, page, lastPage]);
-  const liveVersion = savedGroup.currentUploadVersion;
 
   // The live and viewed versions are fetched on every page, to tell whether
   // the viewed one was deleted. On the first page they're also listed when
@@ -358,7 +368,7 @@ export default function RemoteSavedGroupUploads({
   );
   const { data: keyData, mutate: mutateKey } = useApi<UploadsPage>(
     `/saved-groups/${savedGroup.id}/uploads?versions=${keyVersions.join(",")}`,
-    { shouldRun: () => keyVersions.length > 0 },
+    { shouldRun: () => keyVersions.length > 0, refreshInterval: pollInterval },
   );
   const refresh = async () => {
     await Promise.all([mutate(), mutateKey()]);
@@ -555,7 +565,7 @@ export default function RemoteSavedGroupUploads({
                 <TableCell>{formatByteSizeString(upload.size)}</TableCell>
                 <TableCell title={datetime(upload.dateCreated)}>
                   {ago(upload.dateCreated)} by{" "}
-                  {getUserDisplay(upload.createdBy, true)}
+                  {uploaderDisplay(upload.createdBy, getUserDisplay)}
                 </TableCell>
                 <TableCell>
                   <LoadSummary

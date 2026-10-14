@@ -93,6 +93,35 @@ describe("GrowthBookClient.addRemoteSavedGroups", () => {
     });
   });
 
+  it("looks up again when the payload changes during the lookup", async () => {
+    const gb = client();
+    const withNew: SavedGroupsPayload = {
+      ...savedGroups,
+      grp_new: { type: "remote", attributeKey: "user_id" },
+    };
+    const resolver = jest.fn<
+      ReturnType<SavedGroupResolver>,
+      Parameters<SavedGroupResolver>
+    >(async ({ groups }) => {
+      // A refresh lands while the first lookup is waiting
+      if (resolver.mock.calls.length === 1) {
+        await gb.setPayload({ features, savedGroups: withNew });
+      }
+      return groups.some((g) => g.id === "grp_new") ? ["grp_new"] : [];
+    });
+
+    const resolved = await gb.addRemoteSavedGroups(
+      { attributes: {} },
+      resolver,
+    );
+
+    expect(resolver).toHaveBeenCalledTimes(2);
+    expect(resolver.mock.calls[1][0].groups).toEqual(
+      getRemoteSavedGroups(withNew),
+    );
+    expect(resolved.remoteGroupIds).toEqual(["grp_new"]);
+  });
+
   it("leaves the context unchanged when the resolver fails", async () => {
     const user = { attributes: { account_id: "a1" } };
     const resolved = await client().addRemoteSavedGroups(user, async () => {

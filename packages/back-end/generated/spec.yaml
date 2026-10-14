@@ -70723,6 +70723,9 @@ components:
           format: date-time
           type: string
         createdBy:
+          description: >-
+            Who uploaded it: a user ID, or an API key ID (`key_…`) for a key
+            acting as itself
           type: string
         status:
           description: >-
