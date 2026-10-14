@@ -3,25 +3,30 @@ import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
 import {
   API_USER_AGENT,
-  MAX_WEBHOOK_TIMEOUT_MS,
+  MAX_WEBHOOK_TIMEOUT_SECONDS,
   USE_PROXY,
   WEBHOOK_PROXY,
 } from "./secrets";
 
-const DEFAULT_WEBHOOK_TIMEOUT_MS = 30000;
+const DEFAULT_WEBHOOK_TIMEOUT_SECONDS = 30;
 
-// Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_MS later still applies to stored webhooks
-export function getWebhookTimeoutMs(timeoutMs?: number | null) {
-  return Math.min(
-    timeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS,
-    MAX_WEBHOOK_TIMEOUT_MS,
+// Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_SECONDS later still applies to stored webhooks
+export function getWebhookTimeoutMs(timeoutSeconds?: number | null) {
+  return (
+    Math.min(
+      timeoutSeconds ?? DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
+      MAX_WEBHOOK_TIMEOUT_SECONDS,
+    ) * 1000
   );
 }
 
-export function validateWebhookTimeoutMs(timeoutMs?: number | null) {
-  if (typeof timeoutMs === "number" && timeoutMs > MAX_WEBHOOK_TIMEOUT_MS) {
+export function validateWebhookTimeoutSeconds(timeoutSeconds?: number | null) {
+  if (
+    typeof timeoutSeconds === "number" &&
+    timeoutSeconds > MAX_WEBHOOK_TIMEOUT_SECONDS
+  ) {
     throw new Error(
-      `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_MS / 1000} seconds`,
+      `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_SECONDS} seconds`,
     );
   }
 }

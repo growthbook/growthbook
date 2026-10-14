@@ -28,7 +28,7 @@ import {
   notificationEventNames,
   WebhookIcon,
   timeoutError,
-  timeoutSecondsToMs,
+  timeoutSecondsFromInput,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -318,6 +318,7 @@ const EventWebHookAddEditSettings = ({
             placeholder="30"
             error={timeoutError(form.watch("timeoutSeconds"))}
             {...form.register("timeoutSeconds", {
+              setValueAs: timeoutSecondsFromInput,
               onChange: handleFormValidation,
             })}
           />
@@ -511,7 +512,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
-            timeoutSeconds: "",
+            timeoutSeconds: null,
           },
   });
 
@@ -527,13 +528,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       return () => setStep("confirm");
 
     return form.handleSubmit(async (rawValues) => {
-      // The request body schema is strict, so the seconds string must not be sent
-      const { timeoutSeconds, ...values } = filteredValues(rawValues);
-      await onSubmit({
-        ...values,
-        headers: JSON.parse(values.headers),
-        timeoutMs: timeoutSecondsToMs(timeoutSeconds),
-      });
+      const values = filteredValues(rawValues);
+      await onSubmit({ ...values, headers: JSON.parse(values.headers) });
       onClose();
     });
   }, [step, onSubmit, onClose, form, filteredValues]);
@@ -570,10 +566,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
-      timeoutSeconds: z
-        .string()
-        .optional()
-        .refine((s) => !timeoutError(s)),
+      timeoutSeconds: z.number().int().min(1).nullable(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);

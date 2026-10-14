@@ -20,12 +20,11 @@ export const webhookMethods = [
   "PATCH",
 ] as const;
 
-// Whole seconds; null clears it back to the default. Upper bound is enforced server-side by MAX_WEBHOOK_TIMEOUT_MS
-export const webhookTimeoutMsValidator = z
+// null clears it back to the default. Upper bound is enforced server-side by MAX_WEBHOOK_TIMEOUT_SECONDS
+export const webhookTimeoutSecondsValidator = z
   .number()
   .int()
-  .min(1000)
-  .multipleOf(1000)
+  .min(1)
   .nullable();
 
 export const webhookSchema = z.strictObject({
@@ -53,7 +52,7 @@ export const webhookSchema = z.strictObject({
   managedBy: managedByValidator.optional(),
   consecutiveFailures: z.number().optional(),
   disabled: z.boolean().optional(),
-  timeoutMs: webhookTimeoutMsValidator.optional(),
+  timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
 });
 
 export type WebhookPayloadFormat = z.infer<typeof payloadFormatValidator>;
@@ -66,7 +65,7 @@ export const createSdkWebhookValidator = z
     payloadKey: z.string().optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
-    timeoutMs: webhookTimeoutMsValidator.optional(),
+    timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();

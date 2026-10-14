@@ -22,7 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import {
   timeoutError,
-  timeoutSecondsToMs,
+  timeoutSecondsFromInput,
 } from "@/components/EventWebHooks/utils";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -58,7 +58,7 @@ interface SdkWebhookInputs {
   payloadFormat: WebhookPayloadFormat;
   httpMethod: WebhookMethod;
   headers: string;
-  timeoutSeconds: string;
+  timeoutSeconds: number | null;
 }
 
 function getWebhookFromType(
@@ -172,7 +172,7 @@ export function CreateSDKWebhookModal({
       payloadFormat: "standard",
       httpMethod: "POST",
       headers: "{}",
-      timeoutSeconds: "",
+      timeoutSeconds: null,
     },
   });
 
@@ -243,7 +243,7 @@ export function CreateSDKWebhookModal({
           const data: CreateSdkWebhookProps = {
             ...getWebhookFromType(webhookType, inputs),
             name: inputs.name,
-            timeoutMs: timeoutSecondsToMs(inputs.timeoutSeconds),
+            timeoutSeconds: inputs.timeoutSeconds,
           };
 
           if (data.endpoint.match(/localhost/g)) {
@@ -530,7 +530,9 @@ export function CreateSDKWebhookModal({
           min={1}
           placeholder="30"
           error={timeoutError(form.watch("timeoutSeconds"))}
-          {...form.register("timeoutSeconds")}
+          {...form.register("timeoutSeconds", {
+            setValueAs: timeoutSecondsFromInput,
+          })}
         />
       </Modal>
     </>
@@ -555,9 +557,7 @@ const EditSDKWebhooksModal: FC<{
       payloadKey: current?.payloadKey || "",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
-      timeoutSeconds: current?.timeoutMs
-        ? String(current.timeoutMs / 1000)
-        : "",
+      timeoutSeconds: current?.timeoutSeconds ?? null,
       sdkid: sdkConnectionId,
     },
   });
@@ -581,7 +581,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
-        timeoutMs: timeoutSecondsToMs(value.timeoutSeconds),
+        timeoutSeconds: value.timeoutSeconds,
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -596,7 +596,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
-        timeoutMs: timeoutSecondsToMs(value.timeoutSeconds),
+        timeoutSeconds: value.timeoutSeconds,
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -785,7 +785,9 @@ const EditSDKWebhooksModal: FC<{
         min={1}
         placeholder="30"
         error={timeoutError(form.watch("timeoutSeconds"))}
-        {...form.register("timeoutSeconds")}
+        {...form.register("timeoutSeconds", {
+          setValueAs: timeoutSecondsFromInput,
+        })}
       />
     </Modal>
   );

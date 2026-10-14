@@ -24,7 +24,7 @@ export async function sendEventWebhook<DataType>({
   method: EventWebHookMethod;
   applySecrets: SecretsReplacer;
 }): Promise<EventWebHookResult> {
-  const requestTimeout = getWebhookTimeoutMs(eventWebHook.timeoutMs);
+  const requestTimeout = getWebhookTimeoutMs(eventWebHook.timeoutSeconds);
   const maxContentSize = 1000;
 
   try {

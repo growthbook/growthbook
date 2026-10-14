@@ -40,22 +40,17 @@ export type EventWebHookEditParams = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: string;
-  // Kept as the typed seconds string until submit, then converted to timeoutMs
-  timeoutSeconds?: string;
-  timeoutMs?: number | null;
+  timeoutSeconds?: number | null;
 };
 
-// Whole seconds only, so the native number input's step of 1 matches validation.
-// Blank is null rather than undefined so an edit clears the stored value.
-export const timeoutSecondsToMs = (s?: string) => (s ? Number(s) * 1000 : null);
+// Blank is null rather than undefined so an edit clears the stored value
+export const timeoutSecondsFromInput = (v: string) =>
+  v === "" ? null : Number(v);
 
-export const timeoutError = (s?: string) => {
-  if (!s) return undefined;
-  const n = Number(s);
-  return Number.isInteger(n) && n >= 1
+export const timeoutError = (n?: number | null) =>
+  n === null || n === undefined || (Number.isInteger(n) && n >= 1)
     ? undefined
     : "Enter a whole number of seconds, at least 1.";
-};
 
 export const notificationEventNames = publicNotificationEventNames;
 

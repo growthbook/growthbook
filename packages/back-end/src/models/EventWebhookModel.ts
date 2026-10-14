@@ -18,7 +18,7 @@ import {
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { validateWebhookTimeoutMs } from "back-end/src/util/http.util";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
@@ -113,7 +113,7 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   excludeBookkeepingUpdates: { type: Boolean, required: false },
-  timeoutMs: { type: Number, required: false },
+  timeoutSeconds: { type: Number, required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -258,12 +258,12 @@ export const createEventWebHook = async ({
   payloadType,
   method,
   headers,
-  timeoutMs,
+  timeoutSeconds,
   slack,
   notificationSettings,
   excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
-  validateWebhookTimeoutMs(timeoutMs);
+  validateWebhookTimeoutSeconds(timeoutSeconds);
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
@@ -283,7 +283,7 @@ export const createEventWebHook = async ({
     payloadType,
     method,
     headers,
-    timeoutMs,
+    timeoutSeconds,
     slack,
     notificationSettings,
     excludeBookkeepingUpdates,
@@ -365,7 +365,7 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
-  validateWebhookTimeoutMs(updates.timeoutMs);
+  validateWebhookTimeoutSeconds(updates.timeoutSeconds);
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {

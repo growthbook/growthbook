@@ -8,7 +8,7 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateSigningKey } from "back-end/src/util/api-key.util";
-import { validateWebhookTimeoutMs } from "back-end/src/util/http.util";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "webhooks";
@@ -48,7 +48,7 @@ export class SdkWebhookModel extends BaseClass {
   }
 
   protected async customValidation(doc: WebhookInterface) {
-    validateWebhookTimeoutMs(doc.timeoutMs);
+    validateWebhookTimeoutSeconds(doc.timeoutSeconds);
   }
 
   protected static migrate(doc: unknown): WebhookInterface {

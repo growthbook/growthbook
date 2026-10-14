@@ -146,7 +146,7 @@ async function runWebhookFetch({
   const payloadFormat = webhook.payloadFormat || "standard";
   const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
-  const requestTimeout = getWebhookTimeoutMs(webhook.timeoutMs);
+  const requestTimeout = getWebhookTimeoutMs(webhook.timeoutSeconds);
   const maxContentSize = 1000;
   const jsonPayload = JSON.stringify(payload);
 
