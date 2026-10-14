@@ -64,7 +64,8 @@ function RatioPart({
           data={[
             {
               label: "Fact table",
-              value: <FactTableLink id={value.factTableId} />,
+              // An empty id means the metric's primary fact table.
+              value: <FactTableLink id={value.factTableId || factTable?.id} />,
             },
             {
               label: "Value",
@@ -235,7 +236,7 @@ export default function RatioFields({
                 placeholder="Select a fact table"
                 variant="ghost"
                 style={{ fontWeight: 600 }}
-                value={denominator.factTableId}
+                value={denominator.factTableId || factTable?.id || ""}
                 setValue={(factTableId) =>
                   onDenominatorChange(
                     onFactTableChange(

@@ -18,6 +18,7 @@ import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
+import Frame from "@/ui/Frame";
 import TextField from "@/ui/TextField";
 import {
   RowFilterInput,
@@ -70,9 +71,10 @@ function FunnelStepInput({
   };
 
   return (
-    <Box
-      className="appbox"
+    <Frame
+      mb="0"
       px="3"
+      py="0"
       pt="3"
       style={{ backgroundColor: "var(--gray-a2)" }}
     >
@@ -245,7 +247,7 @@ function FunnelStepInput({
           </details>
         </>
       )}
-    </Box>
+    </Frame>
   );
 }
 
