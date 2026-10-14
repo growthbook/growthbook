@@ -9,6 +9,7 @@ const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
   growthbook_clickhouse: "Managed Warehouse",
   buildYourOwn: "Build Your Own SDK",
   ga4BigQuery: "GA4 BigQuery",
+  remoteSavedGroups: "Remote Groups",
   sdks: "SDKs",
   javascript: "JavaScript SDK",
   javascriptAutoAttributes: "JavaScript SDK (Auto Attributes)",
@@ -148,16 +149,12 @@ export function getDocSectionsForCommandPalette(): {
   url: string;
   tags: string;
 }[] {
-  // The remote groups page is unlisted while the feature is behind a flag
-  const unlisted: DocSection[] = ["remoteSavedGroups"];
-  return (Object.keys(docSections) as DocSection[])
-    .filter((section) => !unlisted.includes(section))
-    .map((section) => ({
-      section,
-      title: docTitleForSection(section),
-      url: docUrl(section),
-      tags: `${section} documentation`,
-    }));
+  return (Object.keys(docSections) as DocSection[]).map((section) => ({
+    section,
+    title: docTitleForSection(section),
+    url: docUrl(section),
+    tags: `${section} documentation`,
+  }));
 }
 
 export function DocLink({

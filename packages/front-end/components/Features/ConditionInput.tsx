@@ -962,17 +962,23 @@ function ConditionAndGroupInput({
               }
               attributeSlot={fieldSelector}
               valueSlot={
-                <MultiSelectField
-                  legacyHeight
-                  disabled={disabled}
-                  value={ids}
-                  options={groupOptions}
-                  onChange={handleListChange}
-                  name="value"
-                  formatOptionLabel={formatSavedGroupOptionLabel}
-                  valueTitles={false}
-                  required
-                />
+                <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                  <MultiSelectField
+                    legacyHeight
+                    disabled={disabled}
+                    value={ids}
+                    options={groupOptions}
+                    onChange={handleListChange}
+                    name="value"
+                    formatOptionLabel={formatSavedGroupOptionLabel}
+                    valueTitles={false}
+                    required
+                  />
+                  {field === "$notSavedGroups" &&
+                    ids.map((id) => (
+                      <RemoteGroupNotLoadedWarning key={id} groupId={id} />
+                    ))}
+                </Box>
               }
               removeSlot={
                 (conds.length > 1 ||

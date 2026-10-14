@@ -135,7 +135,7 @@ function SavedGroupOptionLabel({
         // The name shrinks before the suffix, which is the only sign that the
         // group's IDs belong to another attribute
         <Flex align="center" gap="2" minWidth="0">
-          <Box flexGrow="1" flexShrink="1" minWidth="0">
+          <Box flexShrink="1" minWidth="0">
             <OptionLabel
               label={option.label}
               maxWidth={sourceAttribute ? "100%" : undefined}

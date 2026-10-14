@@ -184,7 +184,7 @@ To make the group use the new version, set `currentUploadVersion` with [`POST /s
 
 To load IDs into your own store:
 
-1. Poll `GET /api/v1/saved-groups?type=remote`. Each group's `currentUpload` has the `version` it uses, or is `null` when it uses none. Archived groups are included. Remove the IDs of groups that are no longer listed.
+1. Poll `GET /api/v1/saved-groups?type=remote&limit=100`. The response is paginated: while `hasMore` is true, fetch the next page by passing `nextOffset` as `offset`. Each group's `currentUpload` has the `version` it uses, or is `null` when it uses none. Archived groups are included. Only after every page succeeds, remove the IDs of groups missing from the complete list.
 2. Download a version with `GET /api/v1/saved-groups/{id}/uploads/{version}/file`. It redirects to a short-lived download URL; follow the redirect without the `Authorization` header.
 3. Load the IDs. Remove duplicates, and when `currentUpload.numeric` is true, store numbers in their shortest form (`String(Number(id))`).
 4. Optionally report the result with `POST /api/v1/saved-groups/{id}/uploads/{version}/loads`, so it shows in GrowthBook.
