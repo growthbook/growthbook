@@ -43,7 +43,7 @@ function cappingSummary(
     cs.type === "percentile"
       ? {
           label: `Percentile capping (${tail === "upper" ? "ceiling" : "floor"})`,
-          value: `${cs.value} (${100 * cs.value} pctile${
+          value: `${cs.value} (${100 * cs.value} percentile${
             cs.ignoreZeros ? ", ignoring zeros" : ""
           })`,
         }
@@ -66,7 +66,7 @@ function Summary({ subtitle }: { subtitle: string }) {
     <summary className={styles.summary}>
       <Flex direction="column" gap="1">
         <Heading as="h4" size="sm" mb="0">
-          Advanced settings
+          Advanced Settings
         </Heading>
         <Text size="sm" color="text-mid">
           {subtitle}
@@ -445,8 +445,8 @@ export default function AdvancedSettings({
                   <Checkbox
                     label="Mark as official metric"
                     disabled={form.watch("managedBy") === "api"}
-                    disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
-                    description="Official Metrics can only be modified by Admins or users with the ManageOfficialResources policy."
+                    disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
+                    description="Official metrics can only be modified by admins or users with the ManageOfficialResources policy."
                     value={form.watch("managedBy") === "admin"}
                     setValue={(value) =>
                       form.setValue("managedBy", value ? "admin" : "")

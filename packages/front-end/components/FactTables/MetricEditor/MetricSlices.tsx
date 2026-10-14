@@ -30,7 +30,7 @@ export default function MetricSlices({
   return (
     <Frame px="4" py="4" mb="0">
       <Heading as="h4" size="sm" mb="1">
-        Slices
+        Auto Slices
       </Heading>
       {(!canEdit || sliceColumns.length > 0) && (
         <Text as="p" color="text-mid" mb="3">
@@ -41,7 +41,7 @@ export default function MetricSlices({
         <DataList
           data={[
             {
-              label: "Auto slices",
+              label: "Auto Slices",
               value:
                 selected
                   .map(
@@ -55,7 +55,7 @@ export default function MetricSlices({
         />
       ) : sliceColumns.length ? (
         <MultiSelectField
-          label="Auto slices"
+          label="Auto Slices"
           value={selected}
           onChange={(metricAutoSlices) =>
             form.setValue("metricAutoSlices", metricAutoSlices)
