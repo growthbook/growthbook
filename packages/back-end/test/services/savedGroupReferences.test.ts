@@ -1,10 +1,10 @@
 import type { ReqContext } from "back-end/types/request";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { loadSavedGroupReferences } from "back-end/src/services/savedGroups";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(async () => []),
+  getAllFeaturesForGraph: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllExperiments: jest.fn(async () => []),
@@ -28,19 +28,19 @@ describe("loadSavedGroupReferences", () => {
     ({
       org: { id: "org", settings: { environments: [{ id: "production" }] } },
       models: {
-        savedGroups: { getAll: async () => [group] },
+        savedGroups: { getAllWithoutValues: async () => [group] },
         contextualBandits: { getAll: async () => bandits },
       },
     }) as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([]);
+    jest.mocked(getAllFeaturesForGraph).mockResolvedValue([]);
     jest.mocked(getAllExperiments).mockResolvedValue([]);
   });
 
   it("sees a group named only inside a prerequisite condition, on every holder", async () => {
     const gate = { id: "parent", condition: '{"value":{"$inGroup":"sg_1"}}' };
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    jest.mocked(getAllFeaturesForGraph).mockResolvedValue([
       {
         id: "f_rule",
         environmentSettings: { production: { enabled: true } },
@@ -73,6 +73,26 @@ describe("loadSavedGroupReferences", () => {
     expect(refs?.features.map((f) => f.id)).toEqual(["f_rule", "f_top"]);
     expect(refs?.experiments.map((e) => e.id)).toEqual(["exp"]);
     expect(refs?.contextualBandits.map((cb) => cb.id)).toEqual(["cb"]);
+  });
+
+  it("counts a holdout whose phase targets the group", async () => {
+    jest
+      .mocked(getAllExperiments)
+      .mockImplementation(async (_context, { type } = {}) =>
+        type === "holdout"
+          ? ([
+              {
+                id: "exp_holdout",
+                name: "Holdout",
+                type: "holdout",
+                phases: [{ savedGroups: [{ ids: ["sg_1"], match: "all" }] }],
+              },
+            ] as never)
+          : [],
+      );
+
+    const refs = await loadSavedGroupReferences(context([]), "sg_1");
+    expect(refs?.experiments.map((e) => e.id)).toEqual(["exp_holdout"]);
   });
 
   it("counts bandits that name the group, not stopped ones or a longer id", async () => {

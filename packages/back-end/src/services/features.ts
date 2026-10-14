@@ -81,7 +81,6 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  ApiEventUser,
   ApiFeatureEnvironment,
   ApiFeatureEnvironmentV2,
   apiFeatureRevisionV2Validator,
@@ -92,9 +91,11 @@ import {
   ApiFeatureWithRevisionsV2,
   ContextualBanditInterface,
   EventUser,
+  eventUserLegacyLabel,
+  eventUserToApiEventUser,
   HoldoutInterface,
   resolveSavedGroupsInput,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
   RampScheduleInterface,
@@ -134,6 +135,8 @@ import {
   type ReviewAuthorityFootprint,
   getEnvsForRampTarget,
 } from "shared/util";
+import { measureSdkPayloadSize } from "shared/health";
+import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
@@ -196,6 +199,11 @@ import {
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import {
+  estimateCacheDocumentBytes,
+  getSdkPayloadSizeLimitBytes,
+  recordSdkPayloadSize,
+} from "back-end/src/services/sdkPayloadSize";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -669,6 +677,43 @@ export function generateAutoExperimentsPayload({
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
+// The saved groups these definitions can read, with values, plus any group
+// those reach through condition groups.
+export async function loadSavedGroupsForDefinitions(
+  context: ReqContext | ApiReqContext,
+  sources: FeatureDefinitionSources,
+): Promise<SavedGroupInterface[]> {
+  return loadSavedGroupsWithNested(
+    getSavedGroupIdsForFeatureDefinitions(sources),
+    (ids) => context.models.savedGroups.getByIdsWithValues(ids),
+  );
+}
+
+// Groups for evaluating one feature revision: what its rules and the
+// experiments they reference can read.
+export async function getSavedGroupMapForFeatureRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  experimentMap: Map<string, ExperimentInterface>,
+): Promise<GroupMap> {
+  const experiments = [...(feature.rules ?? []), ...(revision.rules ?? [])]
+    .map((rule) =>
+      rule?.type === "experiment-ref"
+        ? experimentMap.get(rule.experimentId)
+        : undefined,
+    )
+    .filter((e): e is ExperimentInterface => !!e);
+  return getSavedGroupMap(
+    context,
+    await loadSavedGroupsForDefinitions(context, {
+      features: [feature],
+      revisions: [revision],
+      experiments,
+    }),
+  );
+}
+
 export async function getSavedGroupMap(
   context: ReqContext | ApiReqContext,
   savedGroups?: SavedGroupInterface[],
@@ -999,6 +1044,32 @@ export async function assertFeatureDeletable(
   );
 }
 
+// Bandits behind the features' contextual-bandit-ref rules. Their targeting
+// is compiled into the payload, so the saved groups it names must load too.
+async function getPayloadContextualBandits(
+  context: ReqContext | ApiReqContext,
+  features: FeatureInterface[],
+): Promise<Map<string, ContextualBanditInterface>> {
+  const ids = getReferenceIdsInFeatures(features, "contextual-bandit-ref");
+  if (!ids.length) return new Map();
+  const bandits = await context.models.contextualBandits.getByIds(ids);
+  return new Map(bandits.map((cb) => [cb.id, cb]));
+}
+
+// Holdout targeting lives on the holdout's experiment, which the payload
+// experiments never include.
+function getPayloadHoldoutExperiments(
+  holdoutsMaps: Iterable<SDKPayloadRawData["holdoutsMap"]>,
+): ExperimentInterface[] {
+  const experiments: ExperimentInterface[] = [];
+  for (const holdoutsMap of holdoutsMaps) {
+    for (const { holdoutExperiment } of holdoutsMap.values()) {
+      if (holdoutExperiment) experiments.push(holdoutExperiment);
+    }
+  }
+  return experiments;
+}
+
 export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
@@ -1164,7 +1235,25 @@ export async function refreshSDKPayloadCache({
 
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const savedGroups = await context.models.savedGroups.getAll();
+  const allEnvironmentsToUpdate = Array.from(
+    new Set(connectionsUpdated.map((c) => c.environment)),
+  );
+  const holdoutsMapByEnv: Record<string, SDKPayloadRawData["holdoutsMap"]> = {};
+  for (const environment of allEnvironmentsToUpdate) {
+    holdoutsMapByEnv[environment] =
+      await context.models.holdout.getAllPayloadHoldouts(environment);
+  }
+  const cbMap = await getPayloadContextualBandits(context, allFeatures);
+  // Holdouts and contextual bandits carry targeting the features and
+  // experiments do not.
+  const savedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
+    ],
+    bandits: cbMap.values(),
+  });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
   const rampMonitoredRuleMap =
@@ -1187,26 +1276,14 @@ export async function refreshSDKPayloadCache({
     urlRedirectExperiments: allURLRedirectExperiments,
     rampMonitoredRuleMap,
     constants,
+    cbMap,
   };
 
-  const allEnvironmentsToUpdate = Array.from(
-    new Set(connectionsUpdated.map((c) => c.environment)),
-  );
-
-  const holdoutsMapByEnv: Record<
-    string,
-    Map<
-      string,
-      { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
-    >
-  > = {};
   // Build the constant value map once per environment (parsing each JSON
   // constant once), shared across every connection in that env — rather than
   // rebuilding it inside generateFeaturesPayload per connection.
   const constantMapByEnv: Record<string, ConstantValueMap | null> = {};
   for (const environment of allEnvironmentsToUpdate) {
-    holdoutsMapByEnv[environment] =
-      await context.models.holdout.getAllPayloadHoldouts(environment);
     constantMapByEnv[environment] = constants.length
       ? buildConstantValueMap(constants, environment)
       : null;
@@ -1216,6 +1293,8 @@ export async function refreshSDKPayloadCache({
     const allProjects = await context.models.projects.getAll();
     rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
+
+  const payloadSizeLimitBytes = await getSdkPayloadSizeLimitBytes();
 
   const promises = connectionsUpdated.map((connection) => {
     const env = connection.environment;
@@ -1278,9 +1357,22 @@ export async function refreshSDKPayloadCache({
               }
             : undefined;
 
+        const json = JSON.stringify(contents);
+        if (payloadSizeLimitBytes !== null) {
+          await recordSdkPayloadSize(
+            context,
+            connection,
+            measureSdkPayloadSize(
+              contents,
+              estimateCacheDocumentBytes(json, auditContext),
+              payloadSizeLimitBytes,
+              connection.payloadSize ?? null,
+            ),
+          );
+        }
         await context.models.sdkConnectionCache.upsert(
           connection.key,
-          JSON.stringify(contents),
+          json,
           auditContext,
         );
       } catch (e) {
@@ -1539,6 +1631,9 @@ export type SDKPayloadRawData = {
   urlRedirectExperiments?: URLRedirectExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Bandits behind the features' contextual-bandit-ref rules, loaded once for
+  // every connection a refresh builds.
+  cbMap?: Map<string, ContextualBanditInterface>;
   constants?: ConstantInterface[];
   // Pre-built per-environment constant value map. Hoisted out of
   // generateFeaturesPayload so the bulk refresh builds it once per env (next to
@@ -1696,21 +1791,9 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  let cbMap: Map<string, ContextualBanditInterface> | undefined;
-  const cbIds = getReferenceIdsInFeatures(
-    filteredFeatures,
-    "contextual-bandit-ref",
-  );
-  if (cbIds.length > 0) {
-    const cbDocs = await Promise.all(
-      cbIds.map((id) => context.models.contextualBandits.getById(id)),
-    );
-    cbMap = new Map(
-      cbDocs
-        .filter((cb): cb is ContextualBanditInterface => cb !== null)
-        .map((cb) => [cb.id, cb]),
-    );
-  }
+  const cbMap =
+    data.cbMap ??
+    (await getPayloadContextualBandits(context, filteredFeatures));
 
   // One strategy for the whole payload, so every part uses the same format.
   const savedGroupStrategy = getSavedGroupPayloadStrategy({
@@ -1882,14 +1965,12 @@ export async function getFeatureDefinitions(
 ): Promise<FeatureDefinitionSDKPayload> {
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
-  const allSavedGroups = await context.models.savedGroups.getAll();
   let allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
   });
   if (projectFilter && args.includeReferencedPrerequisites) {
     allFeatures = await loadMissingPrerequisites(context, allFeatures);
   }
-  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   let experimentMap = await getAllPayloadExperiments(
     context,
     projectFilter,
@@ -1923,7 +2004,17 @@ export async function getFeatureDefinitions(
     await context.models.holdout.getAllPayloadHoldouts(environment);
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
+  const cbMap = await getPayloadContextualBandits(context, allFeatures);
 
+  const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
+    features: allFeatures,
+    experiments: [
+      ...experimentMap.values(),
+      ...getPayloadHoldoutExperiments([holdoutsMap]),
+    ],
+    bandits: cbMap.values(),
+  });
+  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
     context,
     connection: {
@@ -1957,6 +2048,7 @@ export async function getFeatureDefinitions(
       holdoutsMap,
       rampMonitoredRuleMap,
       constants: await getResolvableValues(context),
+      cbMap,
     },
   });
 }
@@ -2417,46 +2509,7 @@ export async function encrypt(
   );
 }
 
-function eventUserToString(
-  user: FeatureRevisionInterface["createdBy"],
-): string | undefined {
-  if (!user) return undefined;
-  if (user.type === "api_key") return "API";
-  if (user.type === "system") return "SYSTEM";
-  return user.name || undefined;
-}
-
-// API-safe projection of the internal EventUser union. Deliberately never
-// exposes the api_key actor's `apiKey` field — only stable identifying fields.
-export function eventUserToApiEventUser(
-  user: FeatureRevisionInterface["createdBy"] | undefined,
-): ApiEventUser | undefined {
-  if (!user) return undefined;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "system":
-      return {
-        type: "system",
-        id: user.id,
-      };
-  }
-  // Fail closed for legacy stored documents with an unrecognized type.
-  return undefined;
-}
-
+// v1's frozen string actor; v2 returns the structured actor instead.
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -2590,8 +2643,8 @@ export function revisionToApiInterface(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
+    createdBy: eventUserLegacyLabel(rev.createdBy),
+    publishedBy: eventUserLegacyLabel(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -2797,6 +2850,11 @@ export function revisionToApiInterfaceV2(
     // `autoPublishEnabledBy` it can't tell whose authority the publish will use.
     ...(rev.autoPublishEnabledBy !== undefined && {
       autoPublishEnabledBy: rev.autoPublishEnabledBy,
+    }),
+    ...(rev.autoPublishEnabledBy && {
+      autoPublishEnabledByUser: eventUserToApiEventUser(
+        armerActor(rev, rev.autoPublishEnabledBy),
+      ),
     }),
     ...(rev.scheduledPublishAttempts !== undefined && {
       scheduledPublishAttempts: rev.scheduledPublishAttempts,
@@ -3093,18 +3151,8 @@ export function getApiFeatureObj({
       );
     }
   });
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
+  const createdBy = eventUserLegacyLabel(revision?.createdBy);
+  const publishedBy = eventUserLegacyLabel(revision?.publishedBy);
 
   const revisionDefs = revisions?.map((rev) => {
     // Bucket twice: REST response shape (matches the feature env loop above)
@@ -3147,18 +3195,8 @@ export function getApiFeatureObj({
         scrubConfigExtends(definition),
       );
     });
-    const createdBy =
-      rev?.createdBy?.type === "api_key"
-        ? "API"
-        : rev?.createdBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.createdBy?.name;
-    const publishedBy =
-      rev?.publishedBy?.type === "api_key"
-        ? "API"
-        : rev?.publishedBy?.type === "system"
-          ? "SYSTEM"
-          : rev?.publishedBy?.name;
+    const createdBy = eventUserLegacyLabel(rev?.createdBy);
+    const publishedBy = eventUserLegacyLabel(rev?.publishedBy);
     return {
       id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,
@@ -4165,7 +4203,7 @@ export async function getFeatureReviewFootprint({
 // the way the review panel judges it.
 // Who may retract a verdict on a draft: anyone who could review it now, or the
 // verdict's own author even after the draft or their role moved them out of
-// its reviewer set.
+// its reviewer set. A key assuming the author's role must be able to review.
 export async function assertCanUndoFeatureReview({
   context,
   feature,
@@ -4177,17 +4215,27 @@ export async function assertCanUndoFeatureReview({
   revision: FeatureRevisionInterface;
   user: EventUser;
 }): Promise<void> {
-  const ownVerdict = (revision.reviews ?? []).some(
-    (r) => r.userId === reviewerKeyForEventUser(user),
-  );
-  if (ownVerdict) return;
-  if (
-    !context.permissions.canReviewFeatureDrafts(
+  const footprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  const approverProjects = await getFeatureReviewApproverProjects({
+    context,
+    feature,
+    revision,
+  });
+  const canReview = (reviewer: ReqContext | ApiReqContext) =>
+    reviewer.permissions.canReviewFeatureDrafts(
       feature,
-      await getFeatureReviewFootprint({ context, feature, revision }),
-      await getFeatureReviewApproverProjects({ context, feature, revision }),
-    )
-  ) {
+      footprint,
+      approverProjects,
+    );
+  const ownVerdict =
+    !!context.actorId &&
+    (revision.reviews ?? []).some((r) => r.userId === eventUserIdentity(user));
+  if (ownVerdict && context.authorRightsAllow(canReview)) return;
+  if (!canReview(context)) {
     context.permissions.throwPermissionError();
   }
 }

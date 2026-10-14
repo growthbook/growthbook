@@ -458,9 +458,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => {
           const raw = v.customFields?.[f.id] ?? "";
-          if (!raw) return null;
+          const text = customFieldValueToText(f, raw);
+          if (!text.trim()) return null;
           return (
-            <ClampedCell tooltip={customFieldValueToText(f, raw)}>
+            <ClampedCell
+              tooltip={text}
+              clampLines={
+                f.type === "textarea" || f.type === "markdown" ? 2 : 1
+              }
+            >
               {renderCustomFieldValue(f, raw)}
             </ClampedCell>
           );

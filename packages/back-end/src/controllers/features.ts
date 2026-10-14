@@ -52,6 +52,8 @@ import {
   computeFeatureHealth,
   FeatureHealthStateEntry,
   rebasedRevisionChanges,
+  getFeaturePageDefaultVersion,
+  naiveFlattenV1Rules,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -70,7 +72,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
-  HoldoutInterface,
+  eventUserIdentity,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -95,10 +97,7 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "shared/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -113,6 +112,7 @@ import {
   InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import type { GroupMap } from "shared/types/saved-group";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -134,6 +134,7 @@ import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
   getEnvironments,
+  getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import {
   addLinkedExperiment,
@@ -141,9 +142,11 @@ import {
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
+  getAllFeaturesForGraph,
   getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
+  getFeaturesWithPrerequisitesOn,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   getFeatureEnvStatus,
@@ -169,6 +172,7 @@ import {
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
+  getSavedGroupMapForFeatureRevision,
   getLiveAndBaseRevisionsForFeature,
   getFeatureReviewFootprint,
   getFeatureReviewApproverProjects,
@@ -239,6 +243,7 @@ import {
   getRevision,
   getRevisionsByVersions,
   getFeaturePageRevisions,
+  getOpenDraftRules,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
@@ -339,6 +344,11 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import {
+  getSavedGroupIdsForFeatureDefinitions,
+  loadSavedGroupsWithNested,
+} from "back-end/src/util/featureDefinitionReferences.util";
+import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -908,7 +918,7 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  if (!id) {
+  if (typeof id !== "string" || !id) {
     throw new Error("Must specify feature key");
   }
 
@@ -1206,7 +1216,7 @@ export async function postFeatureRebase(
     feature,
     finalRevision,
     "revision.rebased",
-    { baseVersion: live.version },
+    {},
   );
 
   // A clean rebase (no review reset) keeps an approved+armed draft approved;
@@ -1523,14 +1533,15 @@ export async function postFeatureReviewOrComment(
       context.permissions.throwPermissionError();
     }
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
 
-  if (createdByUser?.id === context.userId && review !== "Comment") {
+  if (
+    eventUserIdentity(revision.createdBy) === context.actorId &&
+    review !== "Comment"
+  ) {
     throw Error("cannot submit a review for yourself");
   }
 
@@ -1592,12 +1603,6 @@ export async function postFeatureReviewOrComment(
   });
   const finalRevision = updatedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1605,7 +1610,6 @@ export async function postFeatureReviewOrComment(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (review === "Approved") {
@@ -1671,8 +1675,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
+  if (eventUserIdentity(revision.createdBy) === context.actorId) {
     throw Error("Cannot approve a draft you created");
   }
 
@@ -1913,12 +1916,6 @@ export async function postFeatureApproveAndPublish(
   });
   const finalApproved = approvedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1926,7 +1923,6 @@ export async function postFeatureApproveAndPublish(
     finalApproved,
     "Approved",
     comment,
-    reviewer,
   );
 
   if (armedApproval) {
@@ -6053,8 +6049,13 @@ export async function postFeatureEvaluate(
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
-  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getAllPayloadExperiments(context);
+  const groupMap = await getSavedGroupMapForFeatureRevision(
+    context,
+    feature,
+    revision,
+    experimentMap,
+  );
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
@@ -6245,10 +6246,7 @@ export async function postFeatureArchive(
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          targetDraft.createdBy && "id" in targetDraft.createdBy
-            ? targetDraft.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(targetDraft.createdBy) ?? undefined,
         contributors: targetDraft.contributors,
       },
       userId: context.userId,
@@ -6369,6 +6367,24 @@ export async function getFeatures(
   });
 }
 
+// Code references are only shown on the flag's Stats tab, so they load there
+// rather than with the flag.
+export async function getFeatureCodeRefs(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context, req.params.id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  const codeRefs = await getAllCodeRefsForFeature({
+    feature: feature.id,
+    organization: context.org,
+  });
+  res.status(200).json({ status: 200, codeRefs });
+}
+
 export async function getFeatureRevisions(
   req: AuthRequest<null, { id: string }, { versions?: string }>,
   res: Response,
@@ -6475,46 +6491,31 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const minimalRevisions = await getMinimalRevisions(context, org.id, id);
+  const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
+    getMinimalRevisions(context, org.id, id),
+    context.models.rampSchedules.getAllByFeatureId(feature.id),
+    feature.holdout ? context.models.holdout.getById(feature.holdout.id) : null,
+  ]);
 
+  // Full revisions only for what the page shows first: live, a requested
+  // version, and the version it opens on, decided the way the page decides it.
+  const parsedVersion = req.query.v ? parseInt(req.query.v) : NaN;
+  const requestedVersion = Number.isNaN(parsedVersion) ? null : parsedVersion;
+  const openingVersion = getFeaturePageDefaultVersion({
+    revisionList: minimalRevisions,
+    liveVersion: feature.version,
+    requestedVersion,
+    userId: context.userId || null,
+  });
   let fullRevisions = await getFeaturePageRevisions(
     context,
     org.id,
     id,
     feature,
+    [feature.version, openingVersion, requestedVersion].filter(
+      (v): v is number => v !== null,
+    ),
   );
-
-  // The above only fetches the most recent revisions
-  // If we're requesting a specific version that's older than that, fetch it directly
-  if (req.query.v) {
-    const version = parseInt(req.query.v);
-    if (!fullRevisions.some((r) => r.version === version)) {
-      const revision = await getRevision({
-        context,
-        organization: org.id,
-        featureId: id,
-        feature,
-        version,
-      });
-      if (revision) {
-        fullRevisions.push(revision);
-      }
-    }
-  }
-
-  // Make sure we always select the live version, even if it's not one of the most recent revisions
-  if (!fullRevisions.some((r) => r.version === feature.version)) {
-    const revision = await getRevision({
-      context,
-      organization: org.id,
-      featureId: id,
-      feature,
-      version: feature.version,
-    });
-    if (revision) {
-      fullRevisions.push(revision);
-    }
-  }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
@@ -6553,12 +6554,21 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments and  saferollouts
+  // Get all linked experiments and safe rollouts, including those only in
+  // drafts the page didn't load in full
+  const openDraftRules = await getOpenDraftRules(
+    org.id,
+    id,
+    fullRevisions.map((r) => r.version),
+  );
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
-  fullRevisions.forEach((revision) => {
-    (revision.rules ?? []).forEach((rule) => {
+  [
+    ...fullRevisions.map((r) => r.rules ?? []),
+    ...openDraftRules.map(naiveFlattenV1Rules),
+  ].forEach((rules) => {
+    rules.forEach((rule) => {
       if (rule?.type === "experiment-ref") {
         experimentIds.add(rule.experimentId);
       }
@@ -6585,12 +6595,10 @@ export async function getFeatureById(
       experimentsMap.set(exp.id, exp);
     });
   }
-  // find active ramp schedules for this feature (before safe rollouts so we
-  // can check for ramp-linked safe rollout IDs).
+  // Ramp schedules come before safe rollouts so we can check for ramp-linked
+  // safe rollout IDs.
   const now = Date.now();
-  const rampSchedules = (
-    await context.models.rampSchedules.getAllByFeatureId(feature.id)
-  ).map((rs) =>
+  const rampSchedules = rampScheduleDocs.map((rs) =>
     rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
   );
 
@@ -6619,18 +6627,6 @@ export async function getFeatureById(
   const live = fullRevisions.find((r) => r.version === feature.version);
   await repairFeatureDriftIfNeeded(context, feature, live, environments);
 
-  // find code references
-  const codeRefs = await getAllCodeRefsForFeature({
-    feature: feature.id,
-    organization: org,
-  });
-
-  // find holdout
-  let holdout: HoldoutInterface | null = null;
-  if (feature.holdout) {
-    holdout = await context.models.holdout.getById(feature.holdout.id);
-  }
-
   res.status(200).json({
     status: 200,
     feature,
@@ -6638,7 +6634,6 @@ export async function getFeatureById(
     revisions: fullRevisions,
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
-    codeRefs,
     holdout,
     rampSchedules,
   });
@@ -7763,17 +7758,30 @@ export async function getFeaturesHealth(
     : undefined;
 
   const [
-    allFeatures,
-    allExperiments,
+    { features: allFeatures, experiments: allExperiments },
+    requestedFeatures,
     draftRevisions,
     allRampSchedules,
     safeRollouts,
     jsonSchemas,
   ] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context),
-    getAllExperimentsForStaleGraph(context),
+    // The health signals validate the requested features' values, so those
+    // load in full.
+    featureIds
+      ? loadStaleGraph(context, featureIds)
+      : Promise.all([
+          getAllFeaturesWithoutEditorFields(context),
+          getAllExperimentsForStaleGraph(context),
+        ]).then(([features, experiments]) => ({ features, experiments })),
+    featureIds
+      ? getAllFeaturesWithoutEditorFields(context, {
+          ids: featureIds,
+          includeArchived: true,
+        })
+      : null,
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
+      featureIds,
     }),
     featureIds
       ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
@@ -7804,10 +7812,22 @@ export async function getFeaturesHealth(
     }
   }
 
-  const targetIds = featureIds ? new Set(featureIds) : null;
-  const targetFeatures = targetIds
-    ? allFeatures.filter((f) => targetIds.has(f.id))
-    : allFeatures;
+  const targetFeatures = requestedFeatures ?? allFeatures;
+  // Whether a referenced group exists is checked org-wide: a group the viewer
+  // cannot read is not a broken reference.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const groupMap: GroupMap = new Map(
+    (
+      await loadSavedGroupsWithNested(
+        getSavedGroupIdsForFeatureDefinitions({
+          features: targetFeatures,
+          // experiment-ref rules are served with their experiment's targeting
+          experiments: allExperiments,
+        }),
+        (ids) => scanContext.models.savedGroups.getAllWithoutValues(ids),
+      )
+    ).map((group) => [group.id, group]),
+  );
   const knownExperimentIds = await getExistingExperimentIds(context, [
     ...new Set(
       targetFeatures.flatMap((f) =>
@@ -7834,14 +7854,10 @@ export async function getFeaturesHealth(
     await yieldEventLoop(i);
     const feature = targetFeatures[i];
 
-    const applicableEnvIds = getEnvironments(context.org)
-      .filter(
-        (env) =>
-          !feature.project ||
-          !env.projects?.length ||
-          env.projects.includes(feature.project as string),
-      )
-      .map((env) => env.id);
+    const applicableEnvIds = getApplicableEnvIds(
+      getEnvironments(context.org),
+      feature,
+    );
 
     const staleResult = isFeatureStale({
       feature,
@@ -7865,6 +7881,7 @@ export async function getFeaturesHealth(
         safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
         healthSettings,
         knownExperimentIds,
+        groupMap,
       }),
     };
   }
@@ -7927,9 +7944,16 @@ export async function getFeaturesDependents(
 
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
+  // Dependents are one hop: only the features and experiments whose
+  // prerequisites name a requested flag can be one.
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
-    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
+    getFeaturesWithPrerequisitesOn(context, featureIds, {
+      includeArchived: true,
+    }),
+    getAllExperimentsForStaleGraph(context, {
+      includeArchived: true,
+      prerequisiteIds: featureIds,
+    }),
   ]);
 
   const {
@@ -8181,7 +8205,9 @@ export async function getFeatureDependencyIndex(
   >,
 ) {
   const context = getContextFromReq(req);
-  const allFeatures = await getAllFeatures(context, { includeArchived: true });
+  const allFeatures = await getAllFeaturesForGraph(context, {
+    includeArchived: true,
+  });
 
   const prereqIds = new Set<string>();
   for (let i = 0; i < allFeatures.length; i++) {

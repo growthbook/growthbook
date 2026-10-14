@@ -1,5 +1,5 @@
 import { diffLines } from "diff";
-import type { RevisionLog } from "shared/validators";
+import { eventUserCredit, type RevisionLog } from "shared/validators";
 import type { Review } from "shared/enterprise";
 
 // ── Diff comment references ──
@@ -249,13 +249,17 @@ export function requestReviewSubTab(tab: "overview" | "changes"): void {
 // re-render. No-ops quietly when the target never appears (stale line
 // reference or a surface without the diff) — the snapshot in the comment is
 // the fallback context.
+// A large section diff waits behind "Show diff"; a reference into it opens it
+export const DIFF_SECTION_EXPAND_EVENT = "gb:diff-section-expand";
+
 export function scrollToDiffRef(ref: DiffCommentRef): void {
   const refId = diffRefId(ref);
   const find = () =>
     document.querySelector(`[data-diff-ref="${CSS.escape(refId)}"]`);
   const scrollTo = (el: Element) => {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    const row = el.closest("tr");
+    // Long sections render rows as divs rather than table rows
+    const row = el.closest("tr, [data-diff-row]");
     if (row) {
       row.classList.add("gb-diff-ref-flash");
       setTimeout(() => row.classList.remove("gb-diff-ref-flash"), 1800);
@@ -280,6 +284,11 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
       scrollTo(el);
       return;
     }
+    // Sent on every attempt: the section may only mount after the tab switch
+    window.dispatchEvent(
+      // The whole ref, so a long section can bring the line into view
+      new CustomEvent(DIFF_SECTION_EXPAND_EVENT, { detail: ref }),
+    );
     if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
   };
   tryScroll(0);
@@ -392,12 +401,9 @@ export function buildAnchoredCommentMap(
       entry.timestamp instanceof Date
         ? entry.timestamp.toISOString()
         : String(entry.timestamp);
-    const user = entry.user;
-    const userId = user && "id" in user ? user.id : undefined;
-    const userName =
-      (user && "name" in user && user.name) ||
-      (user && "email" in user && user.email) ||
-      undefined;
+    const person = eventUserCredit(entry.user ?? null);
+    const userId = person?.id;
+    const userName = person?.name || person?.email || undefined;
     for (const ref of parseDiffRefs(comment)) {
       const id = diffRefId(ref);
       const existing = map.get(id);

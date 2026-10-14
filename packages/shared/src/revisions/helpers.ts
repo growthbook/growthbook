@@ -793,10 +793,12 @@ const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
   "request-changes": "changes-requested",
 };
 
-// As hooks see them: latest per reviewer, `decision` + `stale` collapsed.
+// As hooks see them: latest per reviewer, `decision` + `stale` collapsed. A
+// stored actor wins over the enriched one, so a hook can tell a key acted.
 export function toHookReviewerVerdicts<U, T>(
   reviews: {
     userId: string;
+    user?: U | null;
     decision: string;
     stale?: boolean;
     dateCreated: Date;
@@ -811,7 +813,7 @@ export function toHookReviewerVerdicts<U, T>(
 }[] {
   const latest = new Map<
     string,
-    { status: ReviewerVerdictStatus; timestamp: Date }
+    { status: ReviewerVerdictStatus; timestamp: Date; user?: U | null }
   >();
   for (const r of reviews) {
     const base = VERDICT_BASE[r.decision];
@@ -819,14 +821,18 @@ export function toHookReviewerVerdicts<U, T>(
     const status = (r.stale ? `${base}-stale` : base) as ReviewerVerdictStatus;
     const existing = latest.get(r.userId);
     if (existing && existing.timestamp > r.dateCreated) continue;
-    latest.set(r.userId, { status, timestamp: r.dateCreated });
+    latest.set(r.userId, { status, timestamp: r.dateCreated, user: r.user });
   }
-  return Array.from(latest, ([userId, v]) => ({
-    userId,
-    ...enrich(userId),
-    status: v.status,
-    timestamp: v.timestamp,
-  }));
+  return Array.from(latest, ([userId, v]) => {
+    const enriched = enrich(userId);
+    return {
+      userId,
+      user: v.user ?? enriched.user,
+      teams: enriched.teams,
+      status: v.status,
+      timestamp: v.timestamp,
+    };
+  });
 }
 
 // `contributors` may include the author, and carries blanks from older rows.

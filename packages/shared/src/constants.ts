@@ -94,9 +94,9 @@ export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
 export const MAX_SAVED_GROUP_DESCRIPTION_LENGTH = 100;
-export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:|-]+$";
+export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:\\|\\-]+$";
 export const FEATURE_KEY_PATTERN_ERROR =
-  "Feature keys can only include letters, numbers, hyphens, and underscores.";
+  "Feature keys can only include letters, numbers, and the characters _, -, ., :, and |.";
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -293,6 +293,7 @@ export const entityEvents = {
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],
   populationData: ["create", "delete", "update"],
+  population: ["create", "update", "delete"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
@@ -337,9 +338,25 @@ export const entityEvents = {
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
+  interleaving: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+
+// SDK Connection settings that add optional data to the SDK payload
+export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [
+  "includeDraftExperiments",
+  "includeVisualExperiments",
+  "includeRedirectExperiments",
+  "includeProjectIdInMetadata",
+  "includeCustomFieldsInMetadata",
+  "includeTagsInMetadata",
+  "includeExperimentScheduleInMetadata",
+] as const;
+
+// ID lists longer than this are treated as opaque by the flag page's rule
+// conflict analysis, so their values are never fetched.
+export const SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES = 1000;

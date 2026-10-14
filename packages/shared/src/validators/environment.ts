@@ -3,6 +3,7 @@ import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
 import {
   ENVIRONMENT_PROJECTS_DESCRIPTION,
+  ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION,
   PLAIN_DESCRIPTION,
 } from "./api-field-descriptions";
 
@@ -101,7 +102,7 @@ const putEnvironmentBody = z
       .optional(),
     projects: z
       .array(z.string())
-      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .describe(ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION)
       .optional(),
   })
   .strict();

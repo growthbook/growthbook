@@ -39,7 +39,6 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   naiveFlattenV1Rules,
-  validateCondition,
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
@@ -4759,18 +4758,6 @@ export function postExperimentApiPayloadToInterface(
     // Accept the GET-response field names as aliases so a GET -> POST
     // round-trip is lossless. The POST-only fields take precedence when set.
     const condition = p.condition || p.targetingCondition || "{}";
-    const conditionRes = validateCondition(condition);
-    if (!conditionRes.success) {
-      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-    }
-    p.prerequisites?.forEach((prerequisite) => {
-      const conditionRes = validateCondition(prerequisite.condition);
-      if (!conditionRes.success) {
-        throw new Error(
-          `Invalid prerequisite condition: ${conditionRes.error}`,
-        );
-      }
-    });
 
     return {
       ...p,
@@ -5017,18 +5004,6 @@ function resolveExperimentUpdateVariationsAndPhases(
       // Accept the GET-response field names as aliases so a GET -> POST
       // round-trip is lossless. The POST-only fields take precedence when set.
       const condition = p.condition || p.targetingCondition || "{}";
-      const conditionRes = validateCondition(condition);
-      if (!conditionRes.success) {
-        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-      }
-      p.prerequisites?.forEach((prerequisite) => {
-        const conditionRes = validateCondition(prerequisite.condition);
-        if (!conditionRes.success) {
-          throw new Error(
-            `Invalid prerequisite condition: ${conditionRes.error}`,
-          );
-        }
-      });
 
       // Update phase variations to match new variations payload if it exists
       // otherwise, use the existing phase variations

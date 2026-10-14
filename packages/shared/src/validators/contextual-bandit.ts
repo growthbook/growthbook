@@ -86,6 +86,7 @@ export const contextualBanditValidator = baseSchema
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
+    priorSampleSize: z.number().int().nonnegative(),
 
     // TODO(holdout-v1.5): preserved on the doc but NOT wired through — the orchestrator,
     // SQL runner, stats engine, SDK callback, and results UI all ignore non-zero values.
@@ -167,6 +168,7 @@ export const apiContextualBanditValidator = namedSchema(
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
+    priorSampleSize: z.number().int().nonnegative(),
     holdoutPercent: z.number().min(0).max(0.5),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),
@@ -227,6 +229,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
     .positive()
     .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
     .optional(),
+  priorSampleSize: z.number().int().nonnegative().optional(),
 
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -247,7 +250,10 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
 
-  trackingKey: z.string().optional(),
+  trackingKey: z
+    .string()
+    .describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION)
+    .optional(),
   hashAttribute: z.string().optional(),
 
   datasource: z.string().optional(),
@@ -262,6 +268,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
     .positive()
     .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
     .optional(),
+  priorSampleSize: z.number().int().nonnegative().optional(),
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
   burnInValue: z.number().optional(),
@@ -298,6 +305,7 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "decisionMetric",
   "minUsersPerLeaf",
   "maxLeaves",
+  "priorSampleSize",
   "scheduleValue",
   "scheduleUnit",
   "burnInValue",

@@ -152,6 +152,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import {
@@ -443,6 +444,7 @@ const INTERNAL_API_ALLOWED_HEADERS = [
   "Authorization",
   "X-Organization",
   "X-SSO-Connection-ID",
+  "X-GrowthBook-Requested-By",
   "x-no-compression",
   ...GROWTHBOOK_TRACKING_HEADERS,
 ];
@@ -647,6 +649,7 @@ if (IS_CLOUD) {
     subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
+  app.get("/billing/usage/by-key", subscriptionController.getUsageByKey);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -732,6 +735,7 @@ app.get(
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+app.use(queryLogsRouter);
 
 // Metric Groups
 app.use(metricGroupRouter);
@@ -953,6 +957,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
+app.get("/feature/:id/code-refs", featuresController.getFeatureCodeRefs);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
@@ -1088,6 +1093,10 @@ app.get(
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
+app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
@@ -1118,7 +1127,6 @@ app.post(
   datasourcesController.postResumeEventForwarder,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
-app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
   "/datasource/:id/query/:queryId/cancel",
   datasourcesController.cancelDataSourceQuery,

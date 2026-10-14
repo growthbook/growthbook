@@ -367,11 +367,7 @@ export const constantValidator = z
     // Resolved per environment as `environmentValues[env] ?? value`.
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe(MARKDOWN_DESCRIPTION)
-      .optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     // Single project (or unset = global), mirroring features.
     project: z.string().optional(),
     archived: z.boolean().optional(),

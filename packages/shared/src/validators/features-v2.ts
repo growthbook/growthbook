@@ -6,6 +6,7 @@ import {
   RULE_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
+import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
@@ -19,10 +20,9 @@ import {
 } from "./shared";
 import {
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
-  apiEventUserValidator,
   apiFeatureBaseRuleValidator,
   apiFeatureForceRuleValidator,
   apiFeatureRolloutRuleValidator,
@@ -225,8 +225,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
       defaultValue: z
         .string()
         .describe(
@@ -313,9 +313,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       autoPublishEnabledBy: z
         .string()
         .describe(
-          "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+          "User or API key the deferred publish runs as, re-checked when it fires. A key that assumed a member's role is recorded as `<keyId>:<memberId>`.",
         )
         .optional(),
+      autoPublishEnabledByUser: apiEventUser
+        .optional()
+        .describe("Who armed the deferred publish, with an API key's name"),
       scheduledPublishAttempts: z
         .number()
         .int()
@@ -337,9 +340,9 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                  "Who reviewed: a member's user ID, or an API key's ID when it reviewed as itself",
                 ),
-              user: apiEventUserValidator.optional(),
+              user: apiEventUser.optional(),
               status: z.enum([
                 "approved",
                 "changes-requested",
@@ -379,8 +382,8 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
     })
     .strict(),
 );
@@ -702,7 +705,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe(FEATURE_DESCRIPTION)
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -881,7 +884,7 @@ export const postFeatureV2Validator = {
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
     "### Naming for human review\n\n" +
-    "The `id` is the flag's permanent name in the UI and code. Keep it short (`checkout-express-pay`) and put context in `description`.\n\n" +
+    "The `id` is the Feature Flag's permanent name in the UI and code. Keep it short (`checkout-express-pay`) and put context in `description`.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the Feature Flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
@@ -1042,7 +1045,7 @@ export const getFeatureRevisionsV2Validator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

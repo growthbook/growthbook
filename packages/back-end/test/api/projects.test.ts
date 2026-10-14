@@ -22,7 +22,7 @@ describe("environments API", () => {
               description: "proj2",
             },
           ],
-          toApiInterface: ({ id }) => `${id}_interface`,
+          toApiInterface: ({ id }) => ({ id: `${id}_interface` }),
         },
       },
     });
@@ -39,7 +39,7 @@ describe("environments API", () => {
       nextOffset: null,
       offset: 0,
       total: 2,
-      projects: ["proj1_interface", "proj2_interface"],
+      projects: [{ id: "proj1_interface" }, { id: "proj2_interface" }],
     });
   });
 
@@ -61,7 +61,7 @@ describe("environments API", () => {
               description: "proj3",
             },
           ],
-          toApiInterface: ({ id }) => `${id}_interface`,
+          toApiInterface: ({ id }) => ({ id: `${id}_interface` }),
         },
       },
     });
@@ -78,7 +78,7 @@ describe("environments API", () => {
       nextOffset: 2,
       offset: 1,
       total: 3,
-      projects: ["proj2_interface"],
+      projects: [{ id: "proj2_interface" }],
     });
   });
 
