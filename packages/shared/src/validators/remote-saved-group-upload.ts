@@ -14,7 +14,7 @@ const loadReportFields = {
     .min(1)
     .max(100)
     .describe(
-      "Identifies the data store, such as one Redis. Loaders sharing a store report with the same id.",
+      "The data store's ID, such as `redis-us-east`, set in the loader's config. Loaders sharing a store (such as one Redis) use the same ID. Shown in the UI.",
     ),
   status: z
     .discriminatedUnion("type", [
@@ -308,7 +308,7 @@ export const postSavedGroupUploadLoadValidator = {
   exampleRequest: {
     params: { id: "abc123", version: 3 },
     body: {
-      storeId: "7f3c2a9e-redis-us-east",
+      storeId: "redis-us-east",
       status: { type: "loaded" as const, rowCount: 120000 },
     },
   },

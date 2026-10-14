@@ -6,7 +6,7 @@ import {
   SavedGroupUploadDetails,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiDownloadSimple, PiTrash } from "react-icons/pi";
+import { PiDownloadSimple, PiTrash, PiWarningCircle } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -18,6 +18,7 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import DataList from "@/ui/DataList";
 import Tooltip from "@/ui/Tooltip";
+import CopyableValue from "@/components/SavedGroups/CopyableValue";
 import Table, {
   TableBody,
   TableCell,
@@ -66,15 +67,69 @@ function describeLoad(status: Load["status"]): string {
   }
 }
 
-export function LoadStatus({ loads }: { loads: Load[] }) {
+/** How many data stores reached each load status, such as "2 loaded, 1 failed". */
+export function LoadSummary({
+  loads,
+  idCount,
+}: {
+  loads: Load[];
+  /** The file's ID count, to flag stores that loaded a different number. */
+  idCount?: number;
+}) {
   if (!loads.length) return <Text color="text-low">Not reported</Text>;
+  const labels: Record<Load["status"]["type"], string> = {
+    loaded: "loaded",
+    loading: "loading",
+    invalid: "invalid",
+    failed: "failed",
+  };
+  const parts = (Object.keys(labels) as Load["status"]["type"][])
+    .map((type) => {
+      const count = loads.filter((l) => l.status.type === type).length;
+      return count ? `${count} ${labels[type]}` : null;
+    })
+    .filter(Boolean);
+  const differs =
+    idCount !== undefined &&
+    loads.some(
+      ({ status }) => status.type === "loaded" && status.rowCount !== idCount,
+    );
   return (
-    <Flex direction="column" gap="1">
-      {loads.map(({ storeId, status, dateUpdated }) => (
-        <Text key={storeId} title={datetime(dateUpdated)}>
-          {storeId}: {describeLoad(status)}
-        </Text>
-      ))}
+    <Flex align="center" gap="1">
+      <Text>{parts.join(", ")}</Text>
+      {differs && (
+        <Tooltip content={LOAD_COUNT_DIFFERS}>
+          <span>
+            <LoadCountWarningIcon />
+          </span>
+        </Tooltip>
+      )}
+    </Flex>
+  );
+}
+
+const LOAD_COUNT_DIFFERS =
+  "The number of values loaded doesn't match the file. The file may contain duplicates, which are removed at load time.";
+
+function LoadCountWarningIcon() {
+  return <PiWarningCircle style={{ color: "var(--amber-11)" }} />;
+}
+
+/** A store's load status, explaining a count that differs from the file's. */
+function LoadStatusCell({ load, idCount }: { load: Load; idCount?: number }) {
+  const { status } = load;
+  return (
+    <Flex align="center" gap="1">
+      <Text>{describeLoad(status)}</Text>
+      {status.type === "loaded" &&
+        idCount !== undefined &&
+        status.rowCount !== idCount && (
+          <Tooltip content={LOAD_COUNT_DIFFERS}>
+            <span>
+              <LoadCountWarningIcon />
+            </span>
+          </Tooltip>
+        )}
     </Flex>
   );
 }
@@ -197,9 +252,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 {
                   label: "SHA-256",
                   value: upload.sha256 ? (
-                    <Text mono overflowWrap="anywhere">
-                      {upload.sha256}
-                    </Text>
+                    <CopyableValue value={upload.sha256} />
                   ) : status.type === "pending" ? (
                     "Computed when validated"
                   ) : (
@@ -208,17 +261,17 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 },
                 {
                   label: "Checksum (ETag)",
-                  value: file?.etag ? <Text mono>{file.etag}</Text> : "Unknown",
+                  value: file?.etag ? (
+                    <CopyableValue value={file.etag} />
+                  ) : (
+                    "Unknown"
+                  ),
                 },
                 ...(data.storageLocation
                   ? [
                       {
                         label: "Storage location",
-                        value: (
-                          <Text mono overflowWrap="anywhere">
-                            {data.storageLocation}
-                          </Text>
-                        ),
+                        value: <CopyableValue value={data.storageLocation} />,
                       },
                     ]
                   : []),
@@ -268,8 +321,19 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 <TableBody>
                   {upload.loads.map((load) => (
                     <TableRow key={load.storeId}>
-                      <TableCell>{load.storeId}</TableCell>
-                      <TableCell>{describeLoad(load.status)}</TableCell>
+                      <TableCell>
+                        <CopyableValue value={load.storeId} />
+                      </TableCell>
+                      <TableCell>
+                        <LoadStatusCell
+                          load={load}
+                          idCount={
+                            status?.type === "valid"
+                              ? status.idCount
+                              : undefined
+                          }
+                        />
+                      </TableCell>
                       <TableCell>{datetime(load.dateUpdated)}</TableCell>
                     </TableRow>
                   ))}

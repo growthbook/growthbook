@@ -21,7 +21,7 @@ import { getUploadMethod } from "@/services/env";
 import { uploadToSignedUrl } from "@/services/files";
 import { DocLink } from "@/components/DocLink";
 import RemoteSavedGroupUploadDetailsModal, {
-  LoadStatus,
+  LoadSummary,
   UploadStatusBadge,
   useDownloadUpload,
 } from "@/components/SavedGroups/RemoteSavedGroupUploadDetailsModal";
@@ -273,7 +273,7 @@ function VersionMark({
   if (inUse) {
     return (
       <Tooltip content={inUseLabel}>
-        <span style={{ display: "inline-flex", color: "var(--green-10)" }}>
+        <span style={{ display: "flex", color: "var(--green-10)" }}>
           <PiCheckCircleFill size={20} aria-label={inUseLabel} />
         </span>
       </Tooltip>
@@ -502,6 +502,7 @@ export default function RemoteSavedGroupUploads({
             {uploads.map((upload) => (
               <TableRow
                 key={upload.version}
+                align="center"
                 onClick={() => setDetailsVersion(upload.version)}
                 style={{ cursor: "pointer" }}
               >
@@ -557,7 +558,14 @@ export default function RemoteSavedGroupUploads({
                   {getUserDisplay(upload.createdBy, true)}
                 </TableCell>
                 <TableCell>
-                  <LoadStatus loads={upload.loads} />
+                  <LoadSummary
+                    loads={upload.loads}
+                    idCount={
+                      upload.status.type === "valid"
+                        ? upload.status.idCount
+                        : undefined
+                    }
+                  />
                 </TableCell>
                 {/* Its own click target, so it doesn't open the details */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
