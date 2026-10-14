@@ -1267,6 +1267,10 @@
   "navbar": {
     "links": [
       {
+        "label": "Open App",
+        "href": "https://app.growthbook.io/?utm_source=docs&utm_medium=navbar&utm_content=open-app"
+      },
+      {
         "label": "Github",
         "type": "github",
         "href": "https://github.com/growthbook/growthbook"
@@ -1274,8 +1278,8 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Open App",
-      "href": "https://app.growthbook.io/"
+      "label": "Start for free",
+      "href": "https://app.growthbook.io/?utm_source=docs&utm_medium=navbar&utm_content=start-for-free"
     }
   },
   "integrations": {
