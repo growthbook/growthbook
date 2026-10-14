@@ -34,6 +34,7 @@ export default function useFactMetricFlow(source: string) {
     });
     if (target.factTable) params.set("factTable", target.factTable);
     if (target.duplicate) params.set("duplicate", target.duplicate.id);
+    if (target.datasource) params.set("datasource", target.datasource);
     return `/fact-metrics/new?${params.toString()}`;
   };
 

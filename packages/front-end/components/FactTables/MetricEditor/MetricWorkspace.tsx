@@ -38,7 +38,12 @@ import styles from "./MetricWorkspace.module.scss";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
-  "datasources" | "project" | "metricDefaults" | "settings" | "initialFactTable"
+  | "datasources"
+  | "project"
+  | "metricDefaults"
+  | "settings"
+  | "initialFactTable"
+  | "initialDatasource"
 >;
 
 function buildFormDefaults(
@@ -92,6 +97,7 @@ export default function MetricWorkspace({
   existing,
   duplicateFrom,
   initialFactTable,
+  initialDatasource,
   isEditing,
   setIsEditing = () => {},
   mutate,
@@ -113,6 +119,9 @@ export default function MetricWorkspace({
   // fact table's own page) - existing/duplicateFrom's own fact table always
   // wins when either is set.
   initialFactTable?: FactTableDefinition | null;
+  // Pre-selects a data source for a brand-new metric (e.g. "Add" from a data
+  // source's own page). initialFactTable's data source wins when both are set.
+  initialDatasource?: string;
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
   mutate: () => Promise<unknown>;
@@ -135,6 +144,7 @@ export default function MetricWorkspace({
     metricDefaults,
     settings,
     initialFactTable: initialFactTable ?? undefined,
+    initialDatasource,
   };
   const seedSource = existing ?? duplicateFrom ?? null;
 
