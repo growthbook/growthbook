@@ -10,6 +10,7 @@ import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
 import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
+import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
@@ -18,6 +19,14 @@ import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
+
+// Warehouses whose setup instructions create a password-authenticated user.
+const PASSWORD_USER_TYPES = new Set<DataSourceType>([
+  "postgres",
+  "redshift",
+  "mysql",
+  "mssql",
+]);
 
 function parseSetup(value: string | string[] | undefined): ConnectSetupKind {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -59,11 +68,16 @@ const NewDataSourceConnectPage: FC = () => {
     if (!type) return null;
     const option = dataSourceConnections.find((c) => c.type === type);
     if (!option) return null;
+    // Prefill a password so the setup SQL in the right column and the
+    // Password field start out matching.
+    const params = PASSWORD_USER_TYPES.has(option.type)
+      ? { ...option.default, password: generateStrongPassword() }
+      : option.default;
     return {
       name: "",
       description: "",
       type: option.type,
-      params: option.default,
+      params,
       settings: {},
       // Start scoped to the current Project (if any) so Project-level
       // creators can test and save without first changing the picker.

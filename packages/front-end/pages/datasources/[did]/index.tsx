@@ -7,7 +7,7 @@ import {
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical, PiInfo, PiLinkBold } from "react-icons/pi";
+import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -54,7 +54,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import Tooltip from "@/ui/Tooltip";
 import { GBEdit } from "@/components/Icons";
 import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
 import LinkButton from "@/ui/LinkButton";
@@ -675,14 +674,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       </Box>
       {editProjectsOpen && (
         <EditProjectsForm
-          label={
-            <Flex as="span" align="center" gap="1">
-              Projects
-              <Tooltip content="The dropdown below has been filtered to only include Projects where you have permission to update Data Sources.">
-                <PiInfo aria-label="More about Projects" />
-              </Tooltip>
-            </Flex>
-          }
+          label={<>Projects</>}
+          helpText="Only Projects where you have permission to update Data Sources are listed."
           cancel={() => setEditProjectsOpen(false)}
           entityName="Data Source"
           mutate={() => {

@@ -66,10 +66,24 @@ function withEventForwarderWrite(
 
 const TEST_CONNECTION = "Enter the fields, then run the connection test.";
 
-// The password is never filled from the form so it is not copied to the
-// clipboard. Tie the command back to the Password field instead.
+// New connections start with a generated password in the form, so the SQL
+// reads it from there and the two cannot drift. When the field is blank
+// (editing a saved connection keeps the stored secret) fall back to a
+// placeholder and say so.
 const PASSWORD_PLACEHOLDER = "use-a-strong-password";
-const PASSWORD_NOTE = `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`;
+
+function passwordFor(params: ParamsBag): {
+  password: string;
+  note: string;
+} {
+  const password = field(params, "password", PASSWORD_PLACEHOLDER);
+  return password === PASSWORD_PLACEHOLDER
+    ? {
+        password,
+        note: `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`,
+      }
+    : { password, note: "The password matches the Password field." };
+}
 
 function postgresLikeSteps(
   params: ParamsBag,
@@ -78,7 +92,12 @@ function postgresLikeSteps(
     databaseFallback: string;
     schemaFallback: string;
     portFallback: string;
-    createUserSql: (user: string, database: string, schema: string) => string;
+    createUserSql: (
+      user: string,
+      password: string,
+      database: string,
+      schema: string,
+    ) => string;
     networkDescription: (port: string) => string;
     includeEgressIp?: boolean;
   },
@@ -87,14 +106,15 @@ function postgresLikeSteps(
   const database = field(params, "database", opts.databaseFallback);
   const schema = field(params, "defaultSchema", opts.schemaFallback);
   const port = field(params, "port", opts.portFallback);
+  const { password, note: passwordNote } = passwordFor(params);
 
   return [
     {
       title: "Create a read-only user",
       description:
         "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-      code: opts.createUserSql(user, database, schema || "public"),
-      codeNote: `${PASSWORD_NOTE} Grants use the Default Schema field; change it there if events live in another schema.`,
+      code: opts.createUserSql(user, password, database, schema || "public"),
+      codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
     },
     {
       title: "Allow network access",
@@ -190,6 +210,7 @@ GRANT \`roles/bigquery.dataEditor\`
         typeof p.workloadIdentityProvider === "string"
           ? p.workloadIdentityProvider
           : "AWS";
+      const snowflakePassword = passwordFor(p);
       const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
@@ -233,7 +254,7 @@ ${readGrants}`;
       } else {
         const authLine =
           authMethod === "password"
-            ? "PASSWORD = '<password>'"
+            ? `PASSWORD = '${snowflakePassword.password}'`
             : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
         createUserCode = `CREATE ROLE ${role};
 CREATE USER ${user}
@@ -269,6 +290,8 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
           title: "Create a user and grant access",
           description: userStepDescription,
           code: createUserCode,
+          codeNote:
+            authMethod === "password" ? snowflakePassword.note : undefined,
         },
         {
           title: "Allow network access",
@@ -368,6 +391,7 @@ ${CLOUD_EGRESS_IP}/32`,
       const user = field(p, "user", "growthbook_user");
       const schema = field(p, "defaultSchema", "public");
       const port = field(p, "port", "5439");
+      const { password, note: passwordNote } = passwordFor(p);
 
       return [
         {
@@ -386,12 +410,12 @@ Source: ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Create a read-only user",
           description: "Run in the query editor.",
-          code: `CREATE USER ${user} WITH PASSWORD '${PASSWORD_PLACEHOLDER}';
+          code: `CREATE USER ${user} WITH PASSWORD '${password}';
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-          codeNote: PASSWORD_NOTE,
+          codeNote: passwordNote,
         },
         {
           title: "Enter credentials and test",
@@ -478,8 +502,8 @@ ${CLOUD_EGRESS_IP}/32`,
         schemaFallback: "public",
         portFallback: "5432",
         includeEgressIp: cloud,
-        createUserSql: (user, database, schema) =>
-          `CREATE USER ${user} WITH PASSWORD '${PASSWORD_PLACEHOLDER}';
+        createUserSql: (user, password, database, schema) =>
+          `CREATE USER ${user} WITH PASSWORD '${password}';
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
@@ -497,15 +521,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
       const user = field(p, "user", "growthbook");
       const database = field(p, "database", "your_database");
       const port = field(p, "port", "3306");
+      const { password, note: passwordNote } = passwordFor(p);
       return [
         {
           title: "Create a read-only user",
           description:
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
-          code: `CREATE USER '${user}'@'%' IDENTIFIED BY '${PASSWORD_PLACEHOLDER}';
+          code: `CREATE USER '${user}'@'%' IDENTIFIED BY '${password}';
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
-          codeNote: PASSWORD_NOTE,
+          codeNote: passwordNote,
         },
         {
           title: "Allow network access",
@@ -529,14 +554,15 @@ ${CLOUD_EGRESS_IP}/32`
       const user = field(p, "user", "growthbook");
       const schema = field(p, "defaultSchema", "dbo");
       const port = field(p, "port", "1433");
+      const { password, note: passwordNote } = passwordFor(p);
       return [
         {
           title: "Create a read-only login",
           description: "Grant SELECT on the schema.",
-          code: `CREATE LOGIN ${user} WITH PASSWORD = '${PASSWORD_PLACEHOLDER}';
+          code: `CREATE LOGIN ${user} WITH PASSWORD = '${password}';
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
-          codeNote: PASSWORD_NOTE,
+          codeNote: passwordNote,
         },
         {
           title: "Allow network access",

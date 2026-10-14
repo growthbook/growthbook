@@ -318,11 +318,13 @@ export default function ConnectDataSourceLayout({
     if (projectPermissionError !== null) {
       return "Select a Project to continue";
     }
+    // BigQuery's test lives inside the form ("Test Connection" button), not
+    // in the Connection Test section, so point at that control.
     if (needsBigQueryTest && bigQueryTestStatus === null) {
-      return "Test the connection to continue";
+      return "Use Test Connection above to continue";
     }
     if (needsBigQueryTest && bigQueryTestStatus === "danger") {
-      return "Fix the connection to continue";
+      return "Fix the connection and run Test Connection again to continue";
     }
     if (isBigQuery && !bigQueryDefaultDataset) {
       return "Choose a default dataset to continue";
