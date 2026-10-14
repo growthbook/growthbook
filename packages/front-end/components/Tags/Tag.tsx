@@ -40,14 +40,19 @@ export default function Tag({
 }: TagProps) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
+  const tagDisplayName = fullTag?.label ?? tag;
   const desc = description ?? fullTag?.description ?? "";
   // Suppressed when a label is provided so wrappers can own hover affordance.
-  const displayTitle = label ? undefined : tag + (desc ? `\n\n${desc}` : "");
+  const displayTitle = label
+    ? undefined
+    : tagDisplayName + (desc ? `\n\n${desc}` : "");
   const tagColor = (color ?? fullTag?.color ?? "blue") as RadixColor;
-  const content = label ?? tag;
+  const content = label ?? tagDisplayName;
 
-  const truncate = maxChars != null && tag.length > maxChars;
-  const displayLabel = truncate ? `${tag.slice(0, maxChars)}…` : tag;
+  const truncate = maxChars != null && tagDisplayName.length > maxChars;
+  const displayLabel = truncate
+    ? `${tagDisplayName.slice(0, maxChars)}…`
+    : tagDisplayName;
   const badgeStyle =
     truncate || maxChars != null
       ? {
@@ -63,7 +68,7 @@ export default function Tag({
       <Flex
         gap="2"
         align="center"
-        title={truncate ? tag : displayTitle}
+        title={truncate ? tagDisplayName : displayTitle}
         mr={skipMargin ? undefined : "2"}
         mb={skipMargin ? undefined : "1"}
         style={maxChars != null ? badgeStyle : { maxWidth, overflow: "hidden" }}
@@ -94,7 +99,7 @@ export default function Tag({
       </Flex>
     );
     return truncate ? (
-      <Tooltip body={tag} flipTheme={false}>
+      <Tooltip body={tagDisplayName} flipTheme={false}>
         {dotMark}
       </Tooltip>
     ) : (
@@ -115,7 +120,7 @@ export default function Tag({
     />
   );
   return truncate ? (
-    <Tooltip body={tag} flipTheme={false}>
+    <Tooltip body={tagDisplayName} flipTheme={false}>
       {badge}
     </Tooltip>
   ) : (
