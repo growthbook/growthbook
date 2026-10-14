@@ -40,8 +40,16 @@ export type EventWebHookEditParams = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: string;
+  // Kept as the typed seconds string until submit, then converted to timeoutMs
+  timeoutSeconds?: string;
   timeoutMs?: number;
 };
+
+export const timeoutSecondsToMs = (s?: string) =>
+  s ? Math.round(Number(s) * 1000) : undefined;
+
+export const timeoutError = (s?: string) =>
+  s && Number(s) < 1 ? "Enter at least 1 second." : undefined;
 
 export const notificationEventNames = publicNotificationEventNames;
 

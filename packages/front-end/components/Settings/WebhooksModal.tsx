@@ -20,6 +20,10 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import {
+  timeoutError,
+  timeoutSecondsToMs,
+} from "@/components/EventWebHooks/utils";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
@@ -56,10 +60,6 @@ interface SdkWebhookInputs {
   headers: string;
   timeoutSeconds: string;
 }
-
-const timeoutSecondsToMs = (s: string) => (s ? Number(s) * 1000 : undefined);
-const timeoutError = (s: string) =>
-  s && Number(s) < 1 ? "Enter at least 1 second." : undefined;
 
 function getWebhookFromType(
   type: WebhookType,

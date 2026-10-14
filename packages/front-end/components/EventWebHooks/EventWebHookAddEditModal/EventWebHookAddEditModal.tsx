@@ -27,6 +27,8 @@ import {
   EventWebHookModalMode,
   notificationEventNames,
   WebhookIcon,
+  timeoutError,
+  timeoutSecondsToMs,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -180,7 +182,6 @@ const EventWebHookAddEditSettings = ({
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
-  const timeoutMs = form.watch("timeoutMs");
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
 
@@ -315,17 +316,10 @@ const EventWebHookAddEditSettings = ({
             type="number"
             min={1}
             placeholder="30"
-            value={timeoutMs !== undefined ? timeoutMs / 1000 : ""}
-            error={
-              timeoutMs !== undefined && timeoutMs < 1000
-                ? "Enter at least 1 second."
-                : undefined
-            }
+            error={timeoutError(form.watch("timeoutSeconds"))}
+            {...form.register("timeoutSeconds")}
             onChange={(evt) => {
-              form.setValue(
-                "timeoutMs",
-                evt.target.value ? Number(evt.target.value) * 1000 : undefined,
-              );
+              form.setValue("timeoutSeconds", evt.target.value);
               handleFormValidation();
             }}
           />
@@ -519,6 +513,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
+            timeoutSeconds: "",
           },
   });
 
@@ -534,8 +529,13 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       return () => setStep("confirm");
 
     return form.handleSubmit(async (rawValues) => {
-      const values = filteredValues(rawValues);
-      await onSubmit({ ...values, headers: JSON.parse(values.headers) });
+      // The request body schema is strict, so the seconds string must not be sent
+      const { timeoutSeconds, ...values } = filteredValues(rawValues);
+      await onSubmit({
+        ...values,
+        headers: JSON.parse(values.headers),
+        timeoutMs: timeoutSecondsToMs(timeoutSeconds),
+      });
       onClose();
     });
   }, [step, onSubmit, onClose, form, filteredValues]);
@@ -572,7 +572,10 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
-      timeoutMs: z.number().int().min(1000).optional(),
+      timeoutSeconds: z
+        .string()
+        .optional()
+        .refine((s) => !timeoutError(s)),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);

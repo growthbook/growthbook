@@ -382,6 +382,9 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
                 : "{}",
+              timeoutSeconds: eventWebHook.timeoutMs
+                ? String(eventWebHook.timeoutMs / 1000)
+                : "",
             },
           }}
         />
