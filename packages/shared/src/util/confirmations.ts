@@ -9,6 +9,13 @@ import {
 // The actions any rule holds. A rule names an action, a whole category
 // ("override.*") or everything ("*"); an action with no environments matches
 // any environment list.
+// Whether a rule's action ("*", a whole category like "feature.*", or one
+// action) covers this action.
+export const actionCovers = (ruleAction: string, action: string) =>
+  ruleAction === "*" ||
+  ruleAction === action ||
+  (ruleAction.endsWith(".*") && action.startsWith(ruleAction.slice(0, -1)));
+
 export function matchConfirmRules(
   rules: ConfirmRule[],
   actions: HeldAction[],
@@ -16,12 +23,7 @@ export function matchConfirmRules(
   return actions.filter(({ action, environments }) =>
     rules.some(
       (rule) =>
-        rule.actions.some(
-          (a) =>
-            a === "*" ||
-            a === action ||
-            (a.endsWith(".*") && action.startsWith(a.slice(0, -1))),
-        ) &&
+        rule.actions.some((a) => actionCovers(a, action)) &&
         (!rule.environments?.length ||
           !environments.length ||
           environments.some((env) => rule.environments?.includes(env))),

@@ -1,4 +1,5 @@
 import { CONFIRM_ACTIONS, type ConfirmRule } from "shared/validators";
+import { actionCovers } from "shared/util";
 
 export type Category =
   (typeof CONFIRM_ACTIONS)[number] extends `${infer C}.${string}` ? C : never;
@@ -68,7 +69,7 @@ export function toggleAction(value: string[], clicked: string): string[] {
 
 // Picked itself, or covered by "*" or its category.
 export const covers = (actions: string[], action: string) =>
-  [action, ALL, `${categoryOf(action)}.*`].some((a) => actions.includes(a));
+  actions.some((a) => actionCovers(a, action));
 
 // Rules for the same environments act as one rule, so they save as one, with
 // actions a wildcard already covers folded into it.
