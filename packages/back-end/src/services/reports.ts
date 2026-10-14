@@ -176,6 +176,8 @@ export function getSnapshotSettingsFromReportArgs(
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
     exposureQueryIdentifierType: args.exposureQueryIdentifierType,
+    isClusterExperiment: experiment?.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment?.clusterSubUnitIdentifier,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -608,6 +610,12 @@ export function getReportSnapshotSettings({
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );
 
+  const metricJoinIdentifierType =
+    report.experimentAnalysisSettings.isClusterExperiment &&
+    report.experimentAnalysisSettings.clusterSubUnitIdentifier
+      ? report.experimentAnalysisSettings.clusterSubUnitIdentifier
+      : exposureQueryIdentifierType;
+
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.goalMetrics,
@@ -617,7 +625,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -629,7 +637,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -641,7 +649,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: metricJoinIdentifierType,
       datasource,
     }),
   );
@@ -733,6 +741,9 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: report.experimentAnalysisSettings.isClusterExperiment,
+    clusterSubUnitIdentifier:
+      report.experimentAnalysisSettings.clusterSubUnitIdentifier,
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",
