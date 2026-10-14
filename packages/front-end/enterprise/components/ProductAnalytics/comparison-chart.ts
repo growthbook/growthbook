@@ -1191,9 +1191,6 @@ export function buildExplorerChartTooltipFormatter({
       );
       if (!items.length) return "";
 
-      // The floating header is read on its own, so it names the zone the axis title gives.
-      const formatTooltipDate = (d: Date, g: ResolvedGranularity) =>
-        `${formatDateByGranularity(d, g)} UTC`;
       const rawAxisValue = items[0].axisValue;
       const date =
         typeof rawAxisValue === "number"
@@ -1224,7 +1221,7 @@ export function buildExplorerChartTooltipFormatter({
             firstDimensionIsDate,
             comparisonAlignment,
           );
-          const currentFormatted = formatTooltipDate(
+          const currentFormatted = formatDateByGranularity(
             parseUtcBucketDate(currentX),
             dateGranularity,
           );
@@ -1232,7 +1229,7 @@ export function buildExplorerChartTooltipFormatter({
             compKey !== undefined &&
             !Number.isNaN(parseUtcBucketDate(compKey).getTime())
           ) {
-            const prevFormatted = formatTooltipDate(
+            const prevFormatted = formatDateByGranularity(
               parseUtcBucketDate(compKey),
               dateGranularity,
             );
@@ -1245,12 +1242,12 @@ export function buildExplorerChartTooltipFormatter({
           }
         } else {
           header = escapeHtmlForProductAnalyticsTooltip(
-            formatTooltipDate(date, dateGranularity),
+            formatDateByGranularity(date, dateGranularity),
           );
         }
       } else {
         header = escapeHtmlForProductAnalyticsTooltip(
-          formatTooltipDate(date, dateGranularity),
+          formatDateByGranularity(date, dateGranularity),
         );
       }
 

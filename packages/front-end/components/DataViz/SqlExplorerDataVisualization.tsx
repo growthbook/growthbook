@@ -730,7 +730,7 @@ export function DataVisualizationDisplay({
 
   const option = useMemo(() => {
     return {
-      // Query results are shown as returned, in UTC, matching the UTC bucketing and filters above.
+      // Values are parsed as UTC, so UTC rendering shows query results as returned, unshifted.
       useUTC: true,
       dataset,
       tooltip: {
@@ -774,11 +774,9 @@ export function DataVisualizationDisplay({
         : null),
       xAxis: {
         name:
-          xConfig?.type !== "date"
-            ? xField
-            : xConfig.dateAggregationUnit !== "none"
-              ? `${xConfig.dateAggregationUnit} (${xField}) (UTC)`
-              : `${xField} (UTC)`,
+          xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
+            ? `${xConfig?.dateAggregationUnit} (${xField})`
+            : xField,
         nameLocation: "middle",
         nameTextStyle: {
           fontSize: 14,

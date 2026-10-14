@@ -69,13 +69,11 @@ function formatXValue(
     if (isDateType && xVal instanceof Date) {
       const unit = xConfig?.dateAggregationUnit || "none";
       const d = xVal;
-      // UTC, like the chart and the buckets these rows were grouped into.
+      // Values are parsed as UTC, so formatting in UTC shows the warehouse's wall clock unshifted.
       const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
-        new Intl.DateTimeFormat(undefined, {
-          ...opts,
-          timeZone: "UTC",
-          timeZoneName: "short",
-        }).format(date);
+        new Intl.DateTimeFormat(undefined, { ...opts, timeZone: "UTC" }).format(
+          date,
+        );
       switch (unit) {
         case "second":
           return fmt(d, {

@@ -1508,7 +1508,7 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
-// Warehouse buckets are shown in UTC as cut; pass null for app-side buckets built in local time.
+// UTC shows warehouse buckets (parsed as UTC) unshifted; pass null for app-side buckets built in local time.
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,

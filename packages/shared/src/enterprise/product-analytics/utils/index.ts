@@ -499,7 +499,7 @@ export type ExplorationColumn =
 function getDimensionLabels(config: ExplorationConfig | null): string[] {
   const labels: string[] = [];
   for (const d of config?.dimensions ?? []) {
-    if (d.dimensionType === "date") labels.push("Date (UTC)");
+    if (d.dimensionType === "date") labels.push("Date");
     else if (d.dimensionType === "dynamic")
       labels.push(d.column ?? "Dimension");
     else if (d.dimensionType === "static") labels.push(d.column);

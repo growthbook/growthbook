@@ -211,10 +211,7 @@ export default function ExplorerChart({
   );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
-    submittedExploreState.chartSettings?.categoryAxisLabel?.trim() ??
-    (submittedExploreState.dimensions?.[0]?.dimensionType === "date"
-      ? "Date (UTC)"
-      : undefined);
+    submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
   const customValueAxisName =
     submittedExploreState.chartSettings?.valueAxisLabel?.trim();
   const valueAxisName = customValueAxisName ?? defaultValueAxisName;
@@ -600,7 +597,7 @@ export default function ExplorerChart({
               typeof params.value === "number"
                 ? new Date(params.value)
                 : parseUtcBucketDate(String(params.value));
-            return `${formatDateByGranularity(date, resolvedGranularity)} UTC`;
+            return formatDateByGranularity(date, resolvedGranularity);
           }
         : undefined;
 
@@ -707,7 +704,7 @@ export default function ExplorerChart({
     });
 
     return {
-      // Time-axis ticks show warehouse buckets in UTC, matching the tooltip and table labels.
+      // Buckets are parsed as UTC, so UTC ticks show the warehouse's wall-clock values unshifted.
       useUTC: true,
       tooltip: {
         appendTo: "body",

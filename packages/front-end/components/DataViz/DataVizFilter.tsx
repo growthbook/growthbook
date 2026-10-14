@@ -33,18 +33,10 @@ function getUniqueValuesFromColumn(
 
 export const filterOptions = [
   // Date filters
-  { value: "today", label: "Today (UTC)", supportedTypes: ["date"] },
-  { value: "last7Days", label: "Last 7 days (UTC)", supportedTypes: ["date"] },
-  {
-    value: "last30Days",
-    label: "Last 30 days (UTC)",
-    supportedTypes: ["date"],
-  },
-  {
-    value: "dateRange",
-    label: "Custom date range (UTC)",
-    supportedTypes: ["date"],
-  },
+  { value: "today", label: "Today", supportedTypes: ["date"] },
+  { value: "last7Days", label: "Last 7 Days", supportedTypes: ["date"] },
+  { value: "last30Days", label: "Last 30 Days", supportedTypes: ["date"] },
+  { value: "dateRange", label: "Custom Date Range", supportedTypes: ["date"] },
 
   // Number filters
   { value: "numberRange", label: "Custom Range", supportedTypes: ["number"] },
@@ -428,7 +420,7 @@ export default function DataVizFilter({
             <>
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                  Start (UTC)
+                  Start
                 </Text>
                 <TextField.Root
                   style={{ flex: 1 }}
@@ -444,7 +436,7 @@ export default function DataVizFilter({
               </Flex>
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                  End (UTC)
+                  End
                 </Text>
                 <TextField.Root
                   style={{ flex: 1 }}

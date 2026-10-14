@@ -261,7 +261,7 @@ function buildFunnelTableData(
   const dimensionLabel = (() => {
     const d = submittedExploreState.dimensions?.[0];
     if (!d) return "Dimension";
-    if (d.dimensionType === "date") return "Date (UTC)";
+    if (d.dimensionType === "date") return "Date";
     if (d.dimensionType === "dynamic") return d.column ?? "Dimension";
     if (d.dimensionType === "static") return d.column;
     if (d.dimensionType === "slice") return "Slice";
