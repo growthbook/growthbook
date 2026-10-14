@@ -7,7 +7,9 @@ import {
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiDownloadSimple, PiTrash, PiWarningCircle } from "react-icons/pi";
+import { ApiKeyInterface } from "shared/types/apikey";
 import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/ui/Modal";
@@ -137,16 +139,26 @@ export function isAwaitingLoads(upload: ApiSavedGroupUpload): boolean {
 }
 
 /**
- * Who uploaded a version: a member's name, "API key" for a key acting as
- * itself, or "Unknown" for uploads from before authorship was recorded.
+ * Who uploaded a version: a member's name, an API key's description (or "API
+ * key" when it has none or the viewer can't list keys), or "Unknown" for
+ * uploads from before authorship was recorded. Keys are looked up like the
+ * activity log does.
  */
-export function uploaderDisplay(
-  createdBy: string,
-  getUserDisplay: (id: string, fallback?: boolean) => string,
-): string {
-  if (!createdBy) return "Unknown";
-  if (createdBy.startsWith("key_")) return "API key";
-  return getUserDisplay(createdBy, true);
+export function useUploaderDisplay(): (createdBy: string) => string {
+  const { getUserDisplay } = useUser();
+  const permissionsUtils = usePermissionsUtil();
+  const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
+    shouldRun: () => permissionsUtils.canCreateApiKey(),
+  });
+  return (createdBy) => {
+    if (!createdBy) return "Unknown";
+    if (createdBy.startsWith("key_")) {
+      return (
+        data?.keys.find((k) => k.id === createdBy)?.description || "API key"
+      );
+    }
+    return getUserDisplay(createdBy, true);
+  };
 }
 
 /** A store's load status, explaining a count that differs from the file's. */
@@ -208,7 +220,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
   onDelete: () => void;
   close: () => void;
 }) {
-  const { getUserDisplay } = useUser();
+  const uploaderDisplay = useUploaderDisplay();
   const { download, downloadingVersion, downloadError } =
     useDownloadUpload(savedGroupId);
   const { data, error } = useApi<SavedGroupUploadDetails>(
@@ -269,7 +281,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 },
                 {
                   label: "Uploaded",
-                  value: `${datetime(upload.dateCreated)} by ${uploaderDisplay(upload.createdBy, getUserDisplay)}`,
+                  value: `${datetime(upload.dateCreated)} by ${uploaderDisplay(upload.createdBy)}`,
                 },
                 {
                   label: "Content type",
