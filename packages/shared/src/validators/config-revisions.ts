@@ -326,7 +326,11 @@ export const postConfigRevisionDiscardValidator = {
 export const postConfigRevisionPublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/publish",
-  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmation: [
+    "config.publish",
+    "config.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
   confirmationInHandler: true,
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",

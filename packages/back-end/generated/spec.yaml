@@ -24970,6 +24970,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - savedGroup.publish
+        - savedGroup.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -26980,6 +26981,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - constant.publish
+        - constant.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -30390,6 +30392,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - config.publish
+        - config.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
