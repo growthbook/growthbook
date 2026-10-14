@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const attributionFields = {
+// Stored on the organization document at creation.
+export const signupAttributionSchema = z.object({
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),
   utm_campaign: z.string().optional(),
@@ -13,19 +14,14 @@ const attributionFields = {
   referrer: z.string().optional(),
   landing_page: z.string().optional(),
   touch_at: z.string().optional(),
-};
-
-export const attributionCookieSchema = z
-  .object(attributionFields)
-  .passthrough(); // Prevents new keys from breaking the cookie
-
-export type AttributionCookie = z.infer<typeof attributionCookieSchema>;
-
-// Stored on the organization document at creation. Same fields as the
-// cookie, but unknown keys are stripped.
-export const signupAttributionSchema = z.object(attributionFields);
+});
 
 export type SignupAttribution = z.infer<typeof signupAttributionSchema>;
+
+// Prevents new keys from breaking the cookie
+export const attributionCookieSchema = signupAttributionSchema.passthrough();
+
+export type AttributionCookie = z.infer<typeof attributionCookieSchema>;
 
 export const signupAttributionPayloadSchema = z
   .object({

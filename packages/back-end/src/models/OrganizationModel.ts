@@ -13,7 +13,11 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import { ApiOrganization, SignupAttribution } from "shared/validators";
+import {
+  ApiOrganization,
+  SignupAttribution,
+  signupAttributionSchema,
+} from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -83,20 +87,10 @@ const organizationSchema = new mongoose.Schema({
       },
     ],
   },
-  signupAttribution: {
-    utm_source: String,
-    utm_medium: String,
-    utm_campaign: String,
-    utm_term: String,
-    utm_content: String,
-    gclid: String,
-    li_fat_id: String,
-    fbclid: String,
-    msclkid: String,
-    referrer: String,
-    landing_page: String,
-    touch_at: String,
-  },
+  // Same fields as the Zod schema, so the two can't drift
+  signupAttribution: Object.fromEntries(
+    Object.keys(signupAttributionSchema.shape).map((key) => [key, String]),
+  ),
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
