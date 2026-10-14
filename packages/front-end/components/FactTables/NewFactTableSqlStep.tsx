@@ -7,7 +7,6 @@ import {
 } from "react";
 import {
   PiArrowClockwise,
-  PiArrowLeft,
   PiArrowRight,
   PiDotsThreeVertical,
   PiPlay,
@@ -68,7 +67,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
@@ -85,10 +83,12 @@ function TablePicker({
   datasource,
   selectedTable,
   onSelectTable,
+  refreshColumns,
 }: {
   datasource: DataSourceInterfaceWithParams;
   selectedTable: SchemaBrowserTable | null;
   onSelectTable: (table: SchemaBrowserTable) => void;
+  refreshColumns: () => Promise<void>;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -118,25 +118,35 @@ function TablePicker({
     (creating && !informationSchema) || informationSchema?.status === "PENDING";
 
   const [error, setError] = useState<string | null>(null);
+  const [refreshingColumns, setRefreshingColumns] = useState(false);
   const schemaError =
     error || fetchError?.message || informationSchema?.error?.message || null;
   const refreshLabel = schemaError
     ? "Retry loading tables"
-    : informationSchema
-      ? "Refresh tables"
-      : "Load tables";
+    : !informationSchema
+      ? "Load tables"
+      : selectedTable
+        ? "Refresh tables and columns"
+        : "Refresh tables";
 
   const buildSchema = async () => {
     setError(null);
+    setRefreshingColumns(true);
     try {
-      await apiCall(`/datasource/${datasource.id}/schema`, {
-        method: informationSchema ? "PUT" : "POST",
-        body: JSON.stringify({ informationSchemaId: informationSchema?.id }),
-      });
-      if (!informationSchema) setCreating(true);
-      await mutate();
+      await Promise.all([
+        apiCall(`/datasource/${datasource.id}/schema`, {
+          method: informationSchema ? "PUT" : "POST",
+          body: JSON.stringify({ informationSchemaId: informationSchema?.id }),
+        }).then(() => {
+          if (!informationSchema) setCreating(true);
+          return mutate();
+        }),
+        refreshColumns(),
+      ]);
     } catch (e) {
       setError(e.message);
+    } finally {
+      setRefreshingColumns(false);
     }
   };
 
@@ -225,7 +235,7 @@ function TablePicker({
   return (
     <Box>
       <Flex align="center" justify="between" mb="1">
-        <Text weight="semibold">Source Table</Text>
+        <Text weight="semibold">Source table</Text>
         {managedWarehousePending ? null : (
           <Flex align="center" gap="2">
             {informationSchema && tablesById.size && !building ? (
@@ -256,7 +266,11 @@ function TablePicker({
                 size="1"
                 color={schemaError ? "red" : undefined}
                 aria-label={refreshLabel}
-                loading={building || (!!fetchError && isValidating)}
+                loading={
+                  building ||
+                  refreshingColumns ||
+                  (!!fetchError && isValidating)
+                }
                 // Without the schema there's nothing to rebuild, so a failed
                 // load retries the load itself
                 disabled={data ? !canRunQueries : !fetchError}
@@ -297,6 +311,7 @@ export default function NewFactTableSqlStep({
   tableColumnsError,
   loadingColumns,
   retryColumns,
+  refreshColumns,
   columnError,
   rowFilters,
   setRowFilters,
@@ -319,6 +334,7 @@ export default function NewFactTableSqlStep({
   tableColumnsError: string | null;
   loadingColumns: boolean;
   retryColumns: () => void;
+  refreshColumns: () => Promise<void>;
   columnError: string | null;
   rowFilters: RowFilter[];
   setRowFilters: (rowFilters: RowFilter[]) => void;
@@ -566,6 +582,7 @@ export default function NewFactTableSqlStep({
           datasource={datasource}
           selectedTable={selectedTable}
           onSelectTable={onSelectTable}
+          refreshColumns={refreshColumns}
         />
         {tableColumnsError ? (
           <Callout
@@ -641,16 +658,7 @@ export default function NewFactTableSqlStep({
 
   return (
     <Flex direction="column" gap="2" height="100%">
-      <Flex align="center" gap="5">
-        <Box width="320px">{datasourceSelect}</Box>
-        {supportsSchemaBrowser ? (
-          <Link onClick={() => setMode("table")}>
-            <Flex align="center" gap="1">
-              <PiArrowLeft /> Back to simple table mode
-            </Flex>
-          </Link>
-        ) : null}
-      </Flex>
+      <Box width="320px">{datasourceSelect}</Box>
       <Box flexGrow="1" style={{ minHeight: 0 }}>
         <PanelGroup direction="horizontal">
           <Panel defaultSize={70}>

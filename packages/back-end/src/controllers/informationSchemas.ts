@@ -15,6 +15,7 @@ import {
   fetchTableData,
   getInformationSchemaColumns,
   getInformationSchemaWithPaths,
+  refreshInformationSchemaTable,
 } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -149,10 +150,10 @@ export async function putTableData(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { tableId } = req.params;
 
-  const table = await getInformationSchemaTableById(org.id, tableId);
+  const table = await getInformationSchemaTableById(context.org.id, tableId);
 
   if (!table) {
     res.status(404).json({
@@ -162,9 +163,10 @@ export async function putTableData(
     return;
   }
 
-  await queueUpdateStaleInformationSchemaTable(org.id, table.id);
-
-  res.status(200).json({ message: "Job scheduled successfully" });
+  res.status(200).json({
+    status: 200,
+    table: await refreshInformationSchemaTable(context, table),
+  });
 }
 
 export async function postInformationSchema(

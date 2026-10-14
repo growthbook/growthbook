@@ -2,7 +2,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import {
+  DetectedFactTableColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { quoteIdentifier } from "shared/sql";
@@ -127,6 +130,16 @@ const GA4_EVENTS_COLUMNS: DetectedFactTableColumn[] = [
   { column: "engagement_time", datatype: "number" },
 ];
 
+// BigQuery forbids these prefixes on real columns. Its INFORMATION_SCHEMA lists
+// pseudo-columns like _PARTITIONTIME, which SELECT * never returns. Matched by
+// name rather than is_hidden so table columns cached before the flag existed
+// are covered too.
+const BIGQUERY_RESERVED_PREFIX =
+  /^(_TABLE_|_FILE_|_PARTITION|_ROW_TIMESTAMP|__ROOT__|_COLIDENTIFIER|_CHANGE_SEQUENCE_NUMBER|_CHANGE_TYPE|_CHANGE_TIMESTAMP)/i;
+
+export const isPseudoColumn = (c: Column, datasourceType?: DataSourceType) =>
+  datasourceType === "bigquery" && BIGQUERY_RESERVED_PREFIX.test(c.columnName);
+
 export function getPickerTableColumns(
   table: SchemaBrowserTable,
   columns: Column[],
@@ -139,13 +152,63 @@ export function getPickerTableColumns(
       }));
 }
 
-// String partitions (Hive-style `dt`) can be any format; only dates are safe
-export function getPartitionFilterColumn(columns: Column[]): string {
-  return (
-    columns.find(
-      (c) => c.isPartition && mapDatabaseTypeToEnum(c.dataType) === "date",
-    )?.columnName ?? ""
+// String partitions (Hive-style `dt`) can be any format, so only a partitioned
+// timestamp is picked by default. BigQuery's _PARTITIONTIME holds the start of
+// its hour, month or year, and a day-level bound would skip the month or year
+// the range starts in. _PARTITIONDATE only exists on daily tables.
+export function getDefaultPartitionColumn(
+  columns: Column[],
+  datasourceType?: DataSourceType,
+): string {
+  const partitioned = columns.find(
+    (c) =>
+      c.isPartition &&
+      !isPseudoColumn(c, datasourceType) &&
+      mapDatabaseTypeToEnum(c.dataType) === "date",
   );
+  if (partitioned) return partitioned.columnName;
+  if (datasourceType !== "bigquery") return "";
+  return (
+    columns.find((c) => c.columnName.toUpperCase() === "_PARTITIONDATE")
+      ?.columnName ?? ""
+  );
+}
+
+// Zero-padded and largest unit first, so values sort the same way dates do
+const PARTITION_FORMATS = [
+  "yyyy-MM-dd",
+  "yyyyMMdd",
+  "yyyy-MM",
+  "yyyyMM",
+  "yyyy",
+];
+
+// A date compares with a date literal; a number can't hold separators
+export const getPartitionFormats = (datatype: FactTableColumnType) =>
+  datatype === "date"
+    ? []
+    : PARTITION_FORMATS.filter(
+        (f) => datatype !== "number" || !f.includes("-"),
+      );
+
+export type PartitionFilter = {
+  column: string;
+  datatype: FactTableColumnType;
+  // From getPartitionFormats; ignored for dates
+  format: string;
+};
+
+function getPartitionStart(
+  { datatype, format }: PartitionFilter,
+  datasourceType?: DataSourceType,
+): string {
+  if (datatype === "date") {
+    const start = `'{{date startDateISO "yyyy-MM-dd"}}'`;
+    // Athena doesn't coerce a string literal when comparing it to a date
+    return datasourceType === "athena" ? `DATE ${start}` : start;
+  }
+  const start = `{{date startDateISO "${format}"}}`;
+  return datatype === "number" ? start : `'${start}'`;
 }
 
 const SIMPLE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -154,13 +217,13 @@ const SIMPLE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export function getPickerTableSql(
   table: SchemaBrowserTable,
   {
-    partitionColumn = "",
+    partition = null,
     datasourceType,
     identifierQuote = '"',
     columns = [],
     rowFilterWhere = "",
   }: {
-    partitionColumn?: string;
+    partition?: PartitionFilter | null;
     datasourceType?: DataSourceType;
     identifierQuote?: SqlIdentifierQuote;
     // Empty selects every column
@@ -179,11 +242,10 @@ export function getPickerTableSql(
     SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
 
   const where = table.shards ? [shardFilter(table.hasIntraday)] : [];
-  if (partitionColumn) {
-    const start = `'{{date startDateISO "yyyy-MM-dd"}}'`;
-    // Athena doesn't coerce a string literal when comparing it to a date
-    const literal = datasourceType === "athena" ? `DATE ${start}` : start;
-    where.push(`${quote(partitionColumn)} >= ${literal}`);
+  if (partition?.column) {
+    where.push(
+      `${quote(partition.column)} >= ${getPartitionStart(partition, datasourceType)}`,
+    );
   }
   if (rowFilterWhere) where.push(rowFilterWhere);
   const select = columns.length

@@ -2,11 +2,13 @@ import { DetectedFactTableColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
   getColumnMappingError,
+  getDefaultPartitionColumn,
   getDefaultTimestampColumn,
-  getPartitionFilterColumn,
+  getPartitionFormats,
   getPickerTableColumns,
   getPickerTableName,
   getPickerTableSql,
+  isPseudoColumn,
 } from "@/services/factTables";
 import {
   getSchemaBrowserTables,
@@ -122,6 +124,11 @@ describe("getUnlistedTable", () => {
 
 describe("getPickerTableSql", () => {
   const start = `'{{date startDateISO "yyyy-MM-dd"}}'`;
+  const datePartition = (column: string) => ({
+    column,
+    datatype: "date" as const,
+    format: "",
+  });
 
   it("uses the GA4 query for a GA4 events export only", () => {
     const [events, users] = getSchemaBrowserTables(GA4, true);
@@ -135,7 +142,7 @@ describe("getPickerTableSql", () => {
   it("adds only a lower bound on the partition column", () => {
     expect(
       getPickerTableSql(tracks, {
-        partitionColumn: "_PARTITIONTIME",
+        partition: datePartition("_PARTITIONTIME"),
         datasourceType: "bigquery",
       }),
     ).toBe(
@@ -146,7 +153,7 @@ describe("getPickerTableSql", () => {
   it("uses a DATE literal for Athena", () => {
     expect(
       getPickerTableSql(tracks, {
-        partitionColumn: "event_date",
+        partition: datePartition("event_date"),
         datasourceType: "athena",
       }),
     ).toContain(`event_date >= DATE ${start}`);
@@ -155,10 +162,23 @@ describe("getPickerTableSql", () => {
   it("quotes a partition column that needs it", () => {
     expect(
       getPickerTableSql(tracks, {
-        partitionColumn: "Order Date",
+        partition: datePartition("Order Date"),
         identifierQuote: "`",
       }),
     ).toContain(`\`Order Date\` >= ${start}`);
+  });
+
+  it("renders the start in a string or number partition's own format", () => {
+    expect(
+      getPickerTableSql(tracks, {
+        partition: { column: "dt", datatype: "string", format: "yyyy-MM" },
+      }),
+    ).toContain(`dt >= '{{date startDateISO "yyyy-MM"}}'`);
+    expect(
+      getPickerTableSql(tracks, {
+        partition: { column: "day", datatype: "number", format: "yyyyMMdd" },
+      }),
+    ).toContain(`day >= {{date startDateISO "yyyyMMdd"}}`);
   });
 
   it("keeps the intraday OR grouped when adding the partition filter", () => {
@@ -166,7 +186,9 @@ describe("getPickerTableSql", () => {
       schema("marts", "events_20240101", "events_intraday_20240102"),
       true,
     );
-    expect(getPickerTableSql(events, { partitionColumn: "ts" })).toMatch(
+    expect(
+      getPickerTableSql(events, { partition: datePartition("ts") }),
+    ).toMatch(
       /WHERE\n {2}\(\(_TABLE_SUFFIX .*\) OR \(_TABLE_SUFFIX .*'intraday_.*\)\)\n {2}AND ts >= /,
     );
   });
@@ -177,7 +199,7 @@ describe("getPickerTableSql", () => {
     );
     expect(
       getPickerTableSql(tracks, {
-        partitionColumn: "_PARTITIONTIME",
+        partition: datePartition("_PARTITIONTIME"),
         rowFilterWhere: "(x = 1)",
       }),
     ).toMatch(/_PARTITIONTIME >= .*\n {2}AND \(x = 1\)$/);
@@ -203,16 +225,75 @@ describe("getPickerTableSql", () => {
   });
 });
 
-describe("getPartitionFilterColumn", () => {
-  it("picks only a date-typed partition column", () => {
+describe("getDefaultPartitionColumn", () => {
+  it("prefers a partitioned timestamp, then BigQuery's _PARTITIONDATE", () => {
     expect(
-      getPartitionFilterColumn([
-        col("created_at", "TIMESTAMP"),
-        col("dt", "varchar", true),
-        col("_PARTITIONTIME", "TIMESTAMP", true),
-      ]),
-    ).toBe("_PARTITIONTIME");
-    expect(getPartitionFilterColumn([col("dt", "varchar", true)])).toBe("");
+      getDefaultPartitionColumn(
+        [col("dt", "varchar", true), col("event_date", "DATE", true)],
+        "athena",
+      ),
+    ).toBe("event_date");
+    expect(
+      getDefaultPartitionColumn(
+        [
+          col("_PARTITIONTIME", "TIMESTAMP", true),
+          col("_PARTITIONDATE", "DATE"),
+          col("created_at", "TIMESTAMP"),
+        ],
+        "bigquery",
+      ),
+    ).toBe("_PARTITIONDATE");
+  });
+
+  it("leaves hourly, monthly and yearly ingestion-time tables unfiltered", () => {
+    expect(
+      getDefaultPartitionColumn(
+        [col("_PARTITIONTIME", "TIMESTAMP", true), col("ts", "TIMESTAMP")],
+        "bigquery",
+      ),
+    ).toBe("");
+  });
+
+  it("never picks a string partition, whose format is unknown", () => {
+    expect(getDefaultPartitionColumn([col("dt", "varchar", true)])).toBe("");
+  });
+});
+
+describe("getPartitionFormats", () => {
+  it("offers only formats the column type can hold", () => {
+    expect(getPartitionFormats("date")).toEqual([]);
+    expect(getPartitionFormats("number")).toEqual([
+      "yyyyMMdd",
+      "yyyyMM",
+      "yyyy",
+    ]);
+    expect(getPartitionFormats("string")).toContain("yyyy-MM-dd");
+  });
+});
+
+describe("isPseudoColumn", () => {
+  it("matches BigQuery's reserved prefixes on BigQuery only", () => {
+    const names = [
+      "_PARTITIONTIME",
+      "_PARTITIONDATE",
+      "_FILE_NAME",
+      "_partition",
+      "_table_id",
+      "ts",
+      "partition_date",
+    ];
+    expect(
+      names.filter((name) => isPseudoColumn(col(name, "STRING"), "bigquery")),
+    ).toEqual([
+      "_PARTITIONTIME",
+      "_PARTITIONDATE",
+      "_FILE_NAME",
+      "_partition",
+      "_table_id",
+    ]);
+    expect(
+      names.filter((name) => isPseudoColumn(col(name, "STRING"), "snowflake")),
+    ).toEqual([]);
   });
 });
 
