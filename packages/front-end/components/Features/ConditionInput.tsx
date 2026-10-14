@@ -51,6 +51,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
+import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
   OperatorOption,
@@ -1192,6 +1193,9 @@ function ConditionAndGroupInput({
                         initialOption="Choose group..."
                         required
                       />
+                      {operator === "$notInGroup" && value && (
+                        <RemoteGroupNotLoadedWarning groupId={value} />
+                      )}
                     </Box>
                   ) : displayType === "array-field" ? (
                     <Flex

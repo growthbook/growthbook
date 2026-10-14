@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
@@ -55,8 +55,8 @@ export function SavedGroupOptionTooltipContent({
         </OptionTooltipRow>
       )}
       {isDerivedUse(group, conditionAttribute) && (
-        <OptionTooltipRow label="Matches:">
-          the value of {conditionAttribute} against this group&apos;s IDs
+        <OptionTooltipRow label="Compared to:">
+          {conditionAttribute}
         </OptionTooltipRow>
       )}
       <OptionTooltipProjectsRow names={names} />
@@ -132,9 +132,16 @@ function SavedGroupOptionLabel({
           }
         />
       ) : (
-        <Flex align="center" gap="2">
-          <OptionLabel label={option.label} />
-          {sourceAttribute}
+        // The name shrinks before the suffix, which is the only sign that the
+        // group's IDs belong to another attribute
+        <Flex align="center" gap="2" minWidth="0">
+          <Box flexGrow="1" flexShrink="1" minWidth="0">
+            <OptionLabel
+              label={option.label}
+              maxWidth={sourceAttribute ? "100%" : undefined}
+            />
+          </Box>
+          {sourceAttribute && <Box flexShrink="0">{sourceAttribute}</Box>}
         </Flex>
       )}
     </SavedGroupOptionWithTooltip>
