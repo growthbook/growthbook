@@ -164,7 +164,7 @@ export type StopExperimentInput = {
   enableTemporaryRollout?: boolean;
   reason?: string;
   analysis?: string;
-  dateEnded?: string;
+  dateEnded?: string | Date;
 };
 
 export type ModifyTemporaryRolloutInput = {
