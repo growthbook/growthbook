@@ -649,6 +649,7 @@ if (IS_CLOUD) {
     subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
+  app.get("/billing/usage/by-key", subscriptionController.getUsageByKey);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
