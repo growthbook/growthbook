@@ -9,7 +9,7 @@ import {
   yAxisAggregationType,
   dimensionAxisConfiguration,
 } from "shared/validators";
-import { getValidDate, parseUtcBucketDate } from "shared/dates";
+import { getValidDate, parseWarehouseDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
@@ -40,7 +40,7 @@ function parseYValue(
       return yValue + "";
     } else if (yType === "date") {
       return getValidDate(
-        typeof yValue === "string" ? parseUtcBucketDate(yValue) : yValue,
+        typeof yValue === "string" ? parseWarehouseDate(yValue) : yValue,
       ).toISOString();
     } else {
       return yValue * 1;
@@ -183,7 +183,7 @@ export function DataVisualizationDisplay({
         switch (filter.filterMethod) {
           // Date filters
           case "today": {
-            const filterDate = parseUtcBucketDate(rowValue);
+            const filterDate = parseWarehouseDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
@@ -196,7 +196,7 @@ export function DataVisualizationDisplay({
           }
 
           case "last7Days": {
-            const filterDate = parseUtcBucketDate(rowValue);
+            const filterDate = parseWarehouseDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
@@ -206,7 +206,7 @@ export function DataVisualizationDisplay({
           }
 
           case "last30Days": {
-            const filterDate = parseUtcBucketDate(rowValue);
+            const filterDate = parseWarehouseDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
@@ -216,7 +216,7 @@ export function DataVisualizationDisplay({
           }
 
           case "dateRange": {
-            const filterDate = parseUtcBucketDate(rowValue);
+            const filterDate = parseWarehouseDate(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const startDate = filter.config.startDate
@@ -463,7 +463,7 @@ export function DataVisualizationDisplay({
               ? parseFloat(xValue) || 0
               : Number(xValue);
         } else if (xType === "date") {
-          newRow.x = parseUtcBucketDate(xValue);
+          newRow.x = parseWarehouseDate(xValue);
         } else if (xType === "string") {
           newRow.x = xValue + "";
         }

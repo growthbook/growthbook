@@ -1,5 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { parseUtcBucketDate } from "shared/dates";
+import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRangeForMode,
@@ -743,7 +743,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) => [
-          parseUtcBucketDate(x).getTime(),
+          parseWarehouseDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -831,7 +831,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (chartType === "line" || chartType === "area") {
         const data = sourceSortedXValues.map((x) => [
-          parseUtcBucketDate(x).getTime(),
+          parseWarehouseDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -1195,7 +1195,7 @@ export function buildExplorerChartTooltipFormatter({
       const date =
         typeof rawAxisValue === "number"
           ? new Date(rawAxisValue)
-          : parseUtcBucketDate(String(rawAxisValue));
+          : parseWarehouseDate(String(rawAxisValue));
       let header: string;
       let groupedLineAreaCompareRows = false;
       if (
@@ -1206,13 +1206,13 @@ export function buildExplorerChartTooltipFormatter({
         const axisMs =
           typeof rawAxisValue === "number"
             ? rawAxisValue
-            : parseUtcBucketDate(String(rawAxisValue)).getTime();
+            : parseWarehouseDate(String(rawAxisValue)).getTime();
         const currentX = sortedXValues.find(
-          (xv) => parseUtcBucketDate(xv).getTime() === axisMs,
+          (xv) => parseWarehouseDate(xv).getTime() === axisMs,
         );
         if (
           currentX !== undefined &&
-          !Number.isNaN(parseUtcBucketDate(currentX).getTime())
+          !Number.isNaN(parseWarehouseDate(currentX).getTime())
         ) {
           const compKey = getAlignedComparisonDimensionKeyForTooltip(
             sortedXValues,
@@ -1222,15 +1222,15 @@ export function buildExplorerChartTooltipFormatter({
             comparisonAlignment,
           );
           const currentFormatted = formatDateByGranularity(
-            parseUtcBucketDate(currentX),
+            parseWarehouseDate(currentX),
             dateGranularity,
           );
           if (
             compKey !== undefined &&
-            !Number.isNaN(parseUtcBucketDate(compKey).getTime())
+            !Number.isNaN(parseWarehouseDate(compKey).getTime())
           ) {
             const prevFormatted = formatDateByGranularity(
-              parseUtcBucketDate(compKey),
+              parseWarehouseDate(compKey),
               dateGranularity,
             );
             groupedLineAreaCompareRows = true;

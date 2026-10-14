@@ -14,7 +14,7 @@ import {
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
-import { parseUtcBucketDate } from "shared/dates";
+import { parseWarehouseDate } from "shared/dates";
 import {
   compareJourneyStepValues,
   journeyDisplayLookaheadDepth,
@@ -63,7 +63,7 @@ function formatCellForTable(
       context.resolvedGranularity
     ) {
       return formatDateByGranularity(
-        parseUtcBucketDate(raw),
+        parseWarehouseDate(raw),
         context.resolvedGranularity,
       );
     }
@@ -755,7 +755,7 @@ export default function useExplorationTableData(
             PREV_BUCKET_DATE_KEY,
             typeof prevDim0 === "string" && resolvedGranularity
               ? formatDateByGranularity(
-                  parseUtcBucketDate(prevDim0),
+                  parseWarehouseDate(prevDim0),
                   resolvedGranularity,
                 )
               : null,

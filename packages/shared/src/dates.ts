@@ -138,7 +138,7 @@ export function getValidDateOffsetByUTC(
 }
 
 // Warehouse values like "2026-10-01 07:00:00" carry no zone; read them as UTC, not as the runtime's local time.
-export function parseUtcBucketDate(value: string | Date | number): Date {
+export function parseWarehouseDate(value: string | Date | number): Date {
   if (typeof value !== "string") return new Date(value);
   const s = value.trim();
   return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)

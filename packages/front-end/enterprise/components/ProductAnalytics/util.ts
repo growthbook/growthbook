@@ -1508,13 +1508,13 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
-// UTC shows warehouse buckets (parsed as UTC) unshifted; pass null for app-side buckets built in local time.
+// "utc" shows warehouse dates (see parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,
-  timeZone: string | null = "UTC",
+  timeZone: "utc" | "local" = "utc",
 ): string {
-  const tz = timeZone ?? undefined;
+  const tz = timeZone === "utc" ? "UTC" : undefined;
   switch (granularity) {
     case "year":
       return date.toLocaleDateString(undefined, {

@@ -9,7 +9,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
-import { parseUtcBucketDate } from "shared/dates";
+import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -596,7 +596,7 @@ export default function ExplorerChart({
             const date =
               typeof params.value === "number"
                 ? new Date(params.value)
-                : parseUtcBucketDate(String(params.value));
+                : parseWarehouseDate(String(params.value));
             return formatDateByGranularity(date, resolvedGranularity);
           }
         : undefined;

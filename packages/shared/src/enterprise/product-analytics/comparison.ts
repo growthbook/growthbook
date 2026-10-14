@@ -6,7 +6,7 @@ import type {
   ProductAnalyticsResultRow,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
-import { parseUtcBucketDate } from "shared/dates";
+import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
@@ -388,12 +388,12 @@ export function resolveComparisonPreviousTimeFrame(
 // --- Current/previous row alignment -----------------------------------------
 
 function compareDateStringsAsc(a: string, b: string): number {
-  return parseUtcBucketDate(a).getTime() - parseUtcBucketDate(b).getTime();
+  return parseWarehouseDate(a).getTime() - parseWarehouseDate(b).getTime();
 }
 
 /** UTC calendar day `yyyy-MM-dd` for explorer dimension strings (ISO, etc.). */
 export function explorerDimensionDateToUtcYyyyMmDd(key: string): string | null {
-  const d = parseUtcBucketDate(key);
+  const d = parseWarehouseDate(key);
   const t = d.getTime();
   if (Number.isNaN(t)) return null;
   return d.toISOString().slice(0, 10);
@@ -590,7 +590,7 @@ export function productAnalyticsDateDimensionBucketMergeKey(
   resolvedGranularity: ResolvedGranularity,
 ): number {
   if (dim0 == null) return NaN;
-  const d = parseUtcBucketDate(dim0);
+  const d = parseWarehouseDate(dim0);
   if (!Number.isFinite(d.getTime())) return NaN;
   return truncateUtc(d, resolvedGranularity).getTime();
 }
@@ -657,7 +657,7 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  const cur = truncateUtc(parseUtcBucketDate(afterIso), resolvedGranularity);
+  const cur = truncateUtc(parseWarehouseDate(afterIso), resolvedGranularity);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
