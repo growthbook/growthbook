@@ -170,6 +170,7 @@
           "type_params": { "time_granularity": "day" }
         },
         { "name": "region", "type": "categorical", "expr": null },
+        { "name": "key", "type": "categorical", "expr": "account_key" },
         {
           "name": "country",
           "type": "categorical",
@@ -322,6 +323,18 @@
           {
             "where_sql_template": "{{ Dimension('order_id__is_food_order') }} = true"
           }
+        ]
+      },
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.keyed_revenue": {
+      "name": "keyed_revenue",
+      "type": "simple",
+      "type_params": { "measure": { "name": "order_total" } },
+      "filter": {
+        "where_filters": [
+          { "where_sql_template": "{{ Dimension('customer__key') }} = 'k1'" }
         ]
       },
       "config": { "meta": {} },

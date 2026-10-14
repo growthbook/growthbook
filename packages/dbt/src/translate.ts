@@ -1121,7 +1121,8 @@ export function translate(
           // The joined side is a subquery so its expressions can't collide
           // with same-named base columns, and every exposed column is prefixed.
           const alias = `j_${entity}`;
-          const key = `${entity}__key`;
+          let key = `${entity}__key`;
+          while (j.dims.has(key.slice(entity.length + 2))) key += "_";
           const inner = [`${j.pk.expr ?? j.pk.name} AS ${key}`];
           for (const dim of [...j.dims].sort()) {
             const d = findDim(j.target, dim);

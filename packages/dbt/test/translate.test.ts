@@ -77,9 +77,13 @@ describe("translate (legacy spec)", () => {
   it("joins one hop through a prefixed subquery for filters on another model's dimension", () => {
     const joined = table("orders__customer");
     expect(joined.sql).toBe(
-      'SELECT t.*, j_customer.customer__country, j_customer.customer__region FROM "analytics"."jaffle"."orders" t LEFT JOIN (SELECT customer_id AS customer__key, upper(country_code) AS customer__country, region AS customer__region FROM "analytics"."jaffle"."customers") j_customer ON t.customer_id = j_customer.customer__key',
+      // A dimension named "key" would collide with the join key alias, so the alias gets a suffix.
+      'SELECT t.*, j_customer.customer__country, j_customer.customer__key, j_customer.customer__region FROM "analytics"."jaffle"."orders" t LEFT JOIN (SELECT customer_id AS customer__key_, upper(country_code) AS customer__country, account_key AS customer__key, region AS customer__region FROM "analytics"."jaffle"."customers") j_customer ON t.customer_id = j_customer.customer__key_',
     );
     expect(joined.name).toBe("Orders + customer");
+    expect(metric("keyed_revenue").numerator?.rowFilters).toEqual([
+      { operator: "=", column: "customer__key", values: ["k1"] },
+    ]);
     for (const id of ["orders_from_west", "west_food_revenue", "us_revenue"]) {
       expect(metric(id).numerator?.factTableId).toBe("orders__customer");
     }
