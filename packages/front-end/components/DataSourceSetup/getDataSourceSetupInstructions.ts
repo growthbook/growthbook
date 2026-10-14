@@ -54,6 +54,15 @@ const PASSWORD_PLACEHOLDER = "use-a-strong-password";
  */
 type SqlDialect = "quote-only" | "backslash";
 
+/**
+ * Postgres folds unquoted identifiers to lowercase, but the connection sends
+ * the form value as typed. Quoting keeps the created role, database, and
+ * schema identical to what the form will send.
+ */
+function pgIdentifier(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
 function sqlStringLiteral(value: string, dialect: SqlDialect): string {
   let escaped = value.replace(/'/g, "''");
   if (dialect === "backslash") {
@@ -445,9 +454,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
 
     case "postgres": {
       const cloud = isCloud();
-      const user = field(p, "user", "growthbook");
-      const database = field(p, "database", "your_database");
-      const schema = field(p, "defaultSchema", "public");
+      const user = pgIdentifier(field(p, "user", "growthbook"));
+      const database = pgIdentifier(field(p, "database", "your_database"));
+      const schema = pgIdentifier(field(p, "defaultSchema", "public"));
       const { literal: passwordLiteral, note: passwordNote } = passwordFor(
         p,
         "quote-only",

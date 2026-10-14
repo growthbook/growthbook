@@ -63,9 +63,25 @@ describe("getDataSourceSetupInstructions", () => {
         }),
       );
       const create = codeOf(steps, "Create a read-only user");
-      expect(create.code).toContain("CREATE USER analytics_ro");
-      expect(create.code).toContain("ON DATABASE warehouse");
-      expect(create.code).toContain("ON SCHEMA events");
+      expect(create.code).toContain('CREATE USER "analytics_ro"');
+      expect(create.code).toContain('ON DATABASE "warehouse"');
+      expect(create.code).toContain('ON SCHEMA "events"');
+    });
+
+    it("quotes Postgres identifiers so mixed case matches the form", () => {
+      const steps = getDataSourceSetupInstructions(
+        "postgres",
+        "custom",
+        params({
+          user: "GrowthBook",
+          database: "Prod_DB",
+          defaultSchema: 'odd"schema',
+        }),
+      );
+      const create = codeOf(steps, "Create a read-only user");
+      expect(create.code).toContain('CREATE USER "GrowthBook"');
+      expect(create.code).toContain('ON DATABASE "Prod_DB" TO "GrowthBook"');
+      expect(create.code).toContain('ON SCHEMA "odd""schema"');
     });
 
     it("keeps the case of values typed in the form", () => {
@@ -82,8 +98,8 @@ describe("getDataSourceSetupInstructions", () => {
     it("uses fallbacks when the form is empty", () => {
       const steps = getDataSourceSetupInstructions("postgres", "custom");
       const create = codeOf(steps, "Create a read-only user");
-      expect(create.code).toContain("CREATE USER growthbook");
-      expect(create.code).toContain("ON SCHEMA public");
+      expect(create.code).toContain('CREATE USER "growthbook"');
+      expect(create.code).toContain('ON SCHEMA "public"');
     });
   });
 
