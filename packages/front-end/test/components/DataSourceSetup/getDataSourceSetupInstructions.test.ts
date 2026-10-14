@@ -103,6 +103,50 @@ describe("getDataSourceSetupInstructions", () => {
       },
     );
 
+    it("escapes single quotes so the copied SQL stays valid", () => {
+      for (const type of ["postgres", "redshift", "mssql"] as const) {
+        const step = getDataSourceSetupInstructions(
+          type,
+          "custom",
+          params({ password: "O'Brien123!" }),
+        ).find((s) => s.code?.includes("PASSWORD"));
+        expect(step?.code).toContain("'O''Brien123!'");
+      }
+      const snowflake = codeOf(
+        getDataSourceSetupInstructions(
+          "snowflake",
+          "custom",
+          params({ authMethod: "password", password: "O'Brien123!" }),
+        ),
+        "Create a user and grant access",
+      );
+      expect(snowflake.code).toContain("PASSWORD = 'O''Brien123!'");
+    });
+
+    it("mysql also escapes backslashes", () => {
+      const create = codeOf(
+        getDataSourceSetupInstructions(
+          "mysql",
+          "custom",
+          params({ password: String.raw`a'b\c` }),
+        ),
+        "Create a read-only user",
+      );
+      expect(create.code).toContain(String.raw`IDENTIFIED BY 'a''b\\c'`);
+    });
+
+    it("preserves the exact value, including surrounding spaces", () => {
+      const create = codeOf(
+        getDataSourceSetupInstructions(
+          "postgres",
+          "custom",
+          params({ password: "  padded  " }),
+        ),
+        "Create a read-only user",
+      );
+      expect(create.code).toContain("WITH PASSWORD '  padded  '");
+    });
+
     it("falls back to a placeholder with a note when the field is blank", () => {
       const steps = getDataSourceSetupInstructions("postgres", "custom");
       const create = codeOf(steps, "Create a read-only user");

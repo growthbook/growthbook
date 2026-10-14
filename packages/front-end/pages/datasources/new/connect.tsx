@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import {
@@ -54,6 +54,11 @@ const NewDataSourceConnectPage: FC = () => {
   const { enabled, ready } = useNewDataSourceOnboarding();
   const { project } = useDefinitions();
   const { orgId } = useAuth();
+  // Generated once per visit. `initial` is rebuilt as definitions load, and
+  // the layout copies it back into the form until the user edits something,
+  // so a password created inside that memo could change after the setup SQL
+  // was already copied.
+  const [generatedPassword] = useState(() => generateStrongPassword());
   const type = parseType(router.query.type);
   const setup = parseSetup(router.query.setup);
   const schemaFormat = parseSchemaFormat(router.query.schema);
@@ -71,7 +76,7 @@ const NewDataSourceConnectPage: FC = () => {
     // Prefill a password so the setup SQL in the right column and the
     // Password field start out matching.
     const params = PASSWORD_USER_TYPES.has(option.type)
-      ? { ...option.default, password: generateStrongPassword() }
+      ? { ...option.default, password: generatedPassword }
       : option.default;
     return {
       name: "",
@@ -86,7 +91,7 @@ const NewDataSourceConnectPage: FC = () => {
         organizationId: orgId || undefined,
       }),
     } as Partial<DataSourceInterfaceWithParams>;
-  }, [type, project, orgId]);
+  }, [type, project, orgId, generatedPassword]);
 
   if (!ready || !enabled) {
     return <LoadingOverlay />;

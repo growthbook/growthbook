@@ -72,17 +72,41 @@ const TEST_CONNECTION = "Enter the fields, then run the connection test.";
 // placeholder and say so.
 const PASSWORD_PLACEHOLDER = "use-a-strong-password";
 
-function passwordFor(params: ParamsBag): {
-  password: string;
-  note: string;
-} {
-  const password = field(params, "password", PASSWORD_PLACEHOLDER);
-  return password === PASSWORD_PLACEHOLDER
+type SqlDialect = "standard" | "mysql";
+
+/**
+ * Quote a value as a SQL string literal. Doubling single quotes is valid in
+ * Postgres, Redshift, MSSQL, and Snowflake. MySQL also treats backslash as an
+ * escape character by default, so it needs those doubled as well.
+ */
+function sqlStringLiteral(value: string, dialect: SqlDialect): string {
+  let escaped = value.replace(/'/g, "''");
+  if (dialect === "mysql") {
+    escaped = escaped.replace(/\\/g, "\\\\");
+  }
+  return `'${escaped}'`;
+}
+
+/**
+ * The password literal for a CREATE USER command plus the note shown under
+ * it. Uses the exact form value (no trimming, since the form sends it as-is)
+ * and only falls back to the placeholder when the field is empty.
+ */
+function passwordFor(
+  params: ParamsBag,
+  dialect: SqlDialect = "standard",
+): { literal: string; note: string } {
+  const raw = params.password;
+  const password = typeof raw === "string" && raw.length > 0 ? raw : null;
+  return password === null
     ? {
-        password,
+        literal: `'${PASSWORD_PLACEHOLDER}'`,
         note: `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`,
       }
-    : { password, note: "The password matches the Password field." };
+    : {
+        literal: sqlStringLiteral(password, dialect),
+        note: "The password matches the Password field.",
+      };
 }
 
 function postgresLikeSteps(
@@ -94,7 +118,7 @@ function postgresLikeSteps(
     portFallback: string;
     createUserSql: (
       user: string,
-      password: string,
+      passwordLiteral: string,
       database: string,
       schema: string,
     ) => string;
@@ -106,14 +130,19 @@ function postgresLikeSteps(
   const database = field(params, "database", opts.databaseFallback);
   const schema = field(params, "defaultSchema", opts.schemaFallback);
   const port = field(params, "port", opts.portFallback);
-  const { password, note: passwordNote } = passwordFor(params);
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(params);
 
   return [
     {
       title: "Create a read-only user",
       description:
         "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-      code: opts.createUserSql(user, password, database, schema || "public"),
+      code: opts.createUserSql(
+        user,
+        passwordLiteral,
+        database,
+        schema || "public",
+      ),
       codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
     },
     {
@@ -254,7 +283,7 @@ ${readGrants}`;
       } else {
         const authLine =
           authMethod === "password"
-            ? `PASSWORD = '${snowflakePassword.password}'`
+            ? `PASSWORD = ${snowflakePassword.literal}`
             : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
         createUserCode = `CREATE ROLE ${role};
 CREATE USER ${user}
@@ -391,7 +420,7 @@ ${CLOUD_EGRESS_IP}/32`,
       const user = field(p, "user", "growthbook_user");
       const schema = field(p, "defaultSchema", "public");
       const port = field(p, "port", "5439");
-      const { password, note: passwordNote } = passwordFor(p);
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(p);
 
       return [
         {
@@ -410,7 +439,7 @@ Source: ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Create a read-only user",
           description: "Run in the query editor.",
-          code: `CREATE USER ${user} WITH PASSWORD '${password}';
+          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
@@ -502,8 +531,8 @@ ${CLOUD_EGRESS_IP}/32`,
         schemaFallback: "public",
         portFallback: "5432",
         includeEgressIp: cloud,
-        createUserSql: (user, password, database, schema) =>
-          `CREATE USER ${user} WITH PASSWORD '${password}';
+        createUserSql: (user, passwordLiteral, database, schema) =>
+          `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
@@ -521,13 +550,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
       const user = field(p, "user", "growthbook");
       const database = field(p, "database", "your_database");
       const port = field(p, "port", "3306");
-      const { password, note: passwordNote } = passwordFor(p);
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "mysql",
+      );
       return [
         {
           title: "Create a read-only user",
           description:
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
-          code: `CREATE USER '${user}'@'%' IDENTIFIED BY '${password}';
+          code: `CREATE USER '${user}'@'%' IDENTIFIED BY ${passwordLiteral};
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
           codeNote: passwordNote,
@@ -554,12 +586,12 @@ ${CLOUD_EGRESS_IP}/32`
       const user = field(p, "user", "growthbook");
       const schema = field(p, "defaultSchema", "dbo");
       const port = field(p, "port", "1433");
-      const { password, note: passwordNote } = passwordFor(p);
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(p);
       return [
         {
           title: "Create a read-only login",
           description: "Grant SELECT on the schema.",
-          code: `CREATE LOGIN ${user} WITH PASSWORD = '${password}';
+          code: `CREATE LOGIN ${user} WITH PASSWORD = ${passwordLiteral};
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
           codeNote: passwordNote,
