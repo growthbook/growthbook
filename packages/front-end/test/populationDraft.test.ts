@@ -2,6 +2,7 @@ import type { PopulationStep } from "shared/validators";
 import {
   getDefaultPopulationUserIdType,
   getPopulationDraftIssue,
+  moveItem,
   movePopulationStep,
   newPopulationStep,
   PopulationDraft,
@@ -71,6 +72,18 @@ describe("newPopulationStep", () => {
       windowValue: 7,
       windowUnit: "days",
     });
+  });
+});
+
+describe("moveItem", () => {
+  it("moves an item to a new index", () => {
+    expect(moveItem([1, 2, 3], 2, 0)).toEqual([3, 1, 2]);
+  });
+
+  it("returns the same array for moves past either end", () => {
+    const items = [1, 2];
+    expect(moveItem(items, 0, -1)).toBe(items);
+    expect(moveItem(items, 1, 2)).toBe(items);
   });
 });
 

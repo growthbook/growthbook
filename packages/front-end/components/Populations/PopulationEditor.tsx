@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -22,6 +22,7 @@ import PopulationStepCard from "./PopulationStepCard";
 import {
   getDefaultPopulationUserIdType,
   getPopulationDraftIssue,
+  moveItem,
   movePopulationStep,
   newPopulationStep,
   PopulationDraft,
@@ -79,6 +80,13 @@ export default function PopulationEditor({
       steps: [newPopulationStep({ isFirst: true })],
     };
   });
+  // Step cards hold local state (such as the aggregate filter's operator), so
+  // they need keys that follow a step when it moves rather than its index.
+  const nextStepKey = useRef(0);
+  const newStepKey = () => nextStepKey.current++;
+  const [stepKeys, setStepKeys] = useState<number[]>(() =>
+    draft.steps.map(() => newStepKey()),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const projects = population?.projects ?? (project ? [project] : []);
@@ -128,11 +136,21 @@ export default function PopulationEditor({
     : "/populations";
 
   const title = population ? "Edit Population" : "New Population";
-  const addStep = (negation: boolean) =>
+  const addStep = (negation: boolean) => {
     setSteps([
       ...draft.steps,
       newPopulationStep({ isFirst: draft.steps.length === 0, negation }),
     ]);
+    setStepKeys((keys) => [...keys, newStepKey()]);
+  };
+  const moveStep = (from: number, to: number) => {
+    setSteps(movePopulationStep(draft.steps, from, to));
+    setStepKeys((keys) => moveItem(keys, from, to));
+  };
+  const removeStep = (index: number) => {
+    setSteps(removePopulationStep(draft.steps, index));
+    setStepKeys((keys) => keys.filter((_, i) => i !== index));
+  };
   const atStepLimit = draft.steps.length >= MAX_POPULATION_STEPS;
 
   return (
@@ -196,14 +214,15 @@ export default function PopulationEditor({
               label="Data Source"
               value={draft.datasource}
               disabled={!!population}
-              setValue={(datasource) =>
+              setValue={(datasource) => {
                 setDraft((d) => ({
                   ...d,
                   datasource,
                   userIdTypes: defaultUserIdTypes(datasource),
                   steps: [newPopulationStep({ isFirst: true })],
-                }))
-              }
+                }));
+                setStepKeys([newStepKey()]);
+              }}
               placeholder="Choose a Data Source..."
             >
               {eligibleDatasources.map((d) => (
@@ -256,7 +275,7 @@ export default function PopulationEditor({
             </Box>
 
             {draft.steps.map((step, i) => (
-              <Fragment key={i}>
+              <Fragment key={stepKeys[i]}>
                 {i > 0 && (
                   <Box
                     ml="4"
@@ -277,12 +296,8 @@ export default function PopulationEditor({
                   onChange={(updated) =>
                     setSteps(draft.steps.map((s, j) => (j === i ? updated : s)))
                   }
-                  onMove={(to) =>
-                    setSteps(movePopulationStep(draft.steps, i, to))
-                  }
-                  onRemove={() =>
-                    setSteps(removePopulationStep(draft.steps, i))
-                  }
+                  onMove={(to) => moveStep(i, to)}
+                  onRemove={() => removeStep(i)}
                 />
               </Fragment>
             ))}

@@ -75,16 +75,21 @@ export function normalizePopulationSteps(
   ];
 }
 
+export function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length || from === to) return items;
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 export function movePopulationStep(
   steps: PopulationStep[],
   from: number,
   to: number,
 ): PopulationStep[] {
-  if (to < 0 || to >= steps.length || from === to) return steps;
-  const next = [...steps];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved);
-  return normalizePopulationSteps(next);
+  const next = moveItem(steps, from, to);
+  return next === steps ? steps : normalizePopulationSteps(next);
 }
 
 export function removePopulationStep(
