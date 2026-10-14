@@ -21,9 +21,14 @@ import {
   entityPublishFootprint,
   entityReviewFootprint,
   isInReviewCycle,
+  standingReviews,
 } from "shared/enterprise";
 import { serveFootprint } from "shared/permissions";
-import type { RevisionStatus } from "shared/validators";
+import {
+  eventUserLabel,
+  revisionActor,
+  type RevisionStatus,
+} from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
   isArchiveTransition,
@@ -279,6 +284,7 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const nameFor = (id: string) => users.get(id)?.name;
   const allEnvironments = useEnvironments();
   const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
@@ -487,29 +493,23 @@ function ReviewAndPublishRevision<T>({
         lastContentEditAt = t;
       }
     }
-    const byUser = new Map<
-      string,
-      { status: "approved" | "changes-requested"; timestamp: string }
-    >();
     const sorted = [...revision.reviews].sort(
       (a, b) =>
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
     );
-    for (const r of sorted) {
-      if (r.decision === "comment" || r.stale) continue;
-      byUser.set(r.userId, {
-        status: r.decision === "approve" ? "approved" : "changes-requested",
-        timestamp: new Date(r.dateCreated).toISOString(),
-      });
-    }
-    return Array.from(byUser, ([id, v]) => ({
-      id,
-      status: v.status,
-      timestamp: v.timestamp,
-      stale:
-        lastContentEditAt !== null &&
-        new Date(v.timestamp).getTime() < lastContentEditAt,
-    }));
+    return standingReviews(sorted).map((r) => {
+      const at = new Date(r.dateCreated);
+      return {
+        id: r.userId,
+        status:
+          r.decision === "approve"
+            ? ("approved" as const)
+            : ("changes-requested" as const),
+        timestamp: at.toISOString(),
+        user: r.user,
+        stale: lastContentEditAt !== null && at.getTime() < lastContentEditAt,
+      };
+    });
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
@@ -571,17 +571,16 @@ function ReviewAndPublishRevision<T>({
   // header's "<name> requested review to merge …" line. Attribute it to the
   // latest "review-requested" activity entry (the dedicated submit-for-review
   // action); older revisions predating that action fall back to the legacy
-  // "reopened" stopgap, then to the author. Resolved through the same
-  // members/getUserDisplay path the reviewers section uses. ──
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  // "reopened" stopgap, then to the author, and named from the stored actor. ──
+  const reviewRequest = useMemo(() => {
     const sorted = [...revision.activityLog].sort(
       (a, b) =>
         new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
     );
-    const requested = sorted.find((e) => e.action === "review-requested");
-    if (requested) return requested.userId;
-    const reopened = sorted.find((e) => e.action === "reopened");
-    return reopened?.userId;
+    return (
+      sorted.find((e) => e.action === "review-requested") ??
+      sorted.find((e) => e.action === "reopened")
+    );
   }, [revision.activityLog]);
   const reviewRequested =
     requiresApproval &&
@@ -589,11 +588,11 @@ function ReviewAndPublishRevision<T>({
       revision.status === "approved" ||
       revision.status === "changes-requested");
   const reviewRequesterName = reviewRequested
-    ? (() => {
-        const id = reviewRequesterId ?? revision.authorId;
-        const u = users.get(id);
-        return u?.name || u?.email || getUserDisplay(id) || "";
-      })()
+    ? eventUserLabel(
+        reviewRequest?.user ??
+          revisionActor(revision, reviewRequest?.userId ?? revision.authorId),
+        { nameFor },
+      )
     : "";
 
   const isBlockedContributor =
@@ -856,7 +855,6 @@ function ReviewAndPublishRevision<T>({
     status: toBadgeStatus(revision.status),
     mergeSuccess,
     hasChanges,
-    hasReviewPermission: canReviewOrEdit,
     canManageDraft: canAdvanceDraft,
     isReviewRequester: isAuthor,
     isContributor,
@@ -1027,15 +1025,7 @@ function ReviewAndPublishRevision<T>({
           editorMeta={
             <>
               <EventUser
-                user={{
-                  type: "dashboard",
-                  id: revision.authorId,
-                  name:
-                    users.get(revision.authorId)?.name ||
-                    getUserDisplay(revision.authorId) ||
-                    "",
-                  email: users.get(revision.authorId)?.email || "",
-                }}
+                user={revisionActor(revision, revision.authorId)}
                 display="avatar-name"
                 size="sm"
                 wrap={true}
@@ -1162,17 +1152,9 @@ function ReviewAndPublishRevision<T>({
             Contributors
           </Text>
           <Flex direction="column" gap="2">
-            {contributorIds.map((id) => {
-              const u = users.get(id);
-              return (
-                <PersonRow
-                  key={id}
-                  id={id}
-                  name={u?.name || ""}
-                  email={u?.email || ""}
-                />
-              );
-            })}
+            {contributorIds.map((id) => (
+              <PersonRow key={id} user={revisionActor(revision, id)} />
+            ))}
           </Flex>
         </Box>
       )}
@@ -1183,24 +1165,16 @@ function ReviewAndPublishRevision<T>({
             Reviewers
           </Text>
           <Flex direction="column" gap="2">
-            {reviewers.map(({ id, status, timestamp, stale }) => {
-              const u = users.get(id);
-              // The generic revision's reviews[] carries only userId (no baked
-              // event-user name/email like features). For reviewers absent from
-              // the members map (API key / SCIM-removed users) fall back to
-              // getUserDisplay so PersonRow shows the id rather than "Unknown".
-              const name = u?.name || getUserDisplay(id) || "";
-              const email = u?.email || "";
+            {reviewers.map(({ id, status, timestamp, stale, user }) => {
+              const reviewer = user ?? revisionActor(revision, id);
               return (
                 <PersonRow
                   key={id}
-                  id={id}
-                  name={name}
-                  email={email}
+                  user={reviewer}
                   trailing={
                     <ReviewerVerdictIcon
                       status={status}
-                      name={name || email}
+                      name={eventUserLabel(reviewer, { nameFor })}
                       timestamp={timestamp}
                       stale={stale}
                       uncoveredReason={

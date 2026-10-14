@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiAssignmentQueryInputFields } from "./assignment-query-field";
+import { apiEventUser, REVIEW_VERDICT_NOTE } from "./event-user";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -798,8 +799,7 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   confirmation: [],
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
-  description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts when `blockSelfApproval` is enabled.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+  description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts when \`blockSelfApproval\` is enabled.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -838,8 +838,7 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   confirmation: [],
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
-  description:
-    "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved. If the retraction resolves the revision to `approved` and auto-publish-on-approval is armed, the revision is published.",
+  description: `Reviewer retracts their own verdict. ${REVIEW_VERDICT_NOTE} The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding \`Requested Changes\` → \`changes-requested\`, else any outstanding \`Approved\` → \`approved\`, else \`pending-review\`. Existing review comments are preserved. If the retraction resolves the revision to \`approved\` and auto-publish-on-approval is armed, the revision is published.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -851,17 +850,6 @@ export const postFeatureRevisionUndoReviewV2Validator = {
 const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
 
 const okResponse = z.object({ status: z.literal(200) }).strict();
-
-// Sanitized actor for log entries — never exposes API key secrets.
-const apiRevisionLogUser = z
-  .object({
-    type: z.enum(["dashboard", "api_key", "system"]),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict()
-  .nullable();
 
 const apiRevisionLogEntry = z
   .object({
@@ -879,7 +867,7 @@ const apiRevisionLogEntry = z
     subject: z.string(),
     value: z.string().describe("JSON-encoded payload for the entry"),
     timestamp: z.string().meta({ format: "date-time" }),
-    user: apiRevisionLogUser,
+    user: apiEventUser.nullable(),
   })
   .strict();
 

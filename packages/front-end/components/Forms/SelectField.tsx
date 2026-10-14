@@ -90,6 +90,10 @@ export type SelectFieldProps = Omit<
   labelWeight?: TextWeights;
   size?: "x-small" | "small" | "legacy" | "medium";
   errorLevel?: "error" | "warning";
+  /** Names the control when its visible label isn't the `label` prop. */
+  "aria-label"?: string;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
 };
 
 export function useSelectOptions(
@@ -292,6 +296,8 @@ const SelectField: FC<SelectFieldProps> = ({
   labelWeight = "semibold",
   size = "legacy" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
+  "aria-label": ariaLabel,
+  maxMenuHeight,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -433,6 +439,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",
@@ -508,6 +516,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",

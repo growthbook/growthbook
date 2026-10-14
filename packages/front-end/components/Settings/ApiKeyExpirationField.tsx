@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useId, useRef, useState } from "react";
 import {
   addDays,
   allowedExpirationPresets,
@@ -12,12 +12,15 @@ import {
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date, datetimeAt } from "shared/dates";
-import { Box } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
-import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
+import SelectField from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
 
-const CUSTOM = "custom";
+const DATE = "date";
 const NEVER = "never";
 // Nothing selected, which only a policy change can put the field into.
 const UNSET = "";
@@ -54,7 +57,7 @@ const ApiKeyExpirationField: FC<{
     : allowedExpirationPresets(maxLifetimeDays);
   const longest = presets[presets.length - 1];
   const [selection, setSelection] = useState<string>(() =>
-    value ? CUSTOM : required && !existing ? String(longest) : NEVER,
+    value ? DATE : required && !existing ? String(longest) : NEVER,
   );
 
   const appliedPolicy = useRef(maxLifetimeDays);
@@ -77,7 +80,7 @@ const ApiKeyExpirationField: FC<{
       setValue(null);
       return;
     }
-    if (value || selection === CUSTOM || selection === UNSET) return;
+    if (value || selection === DATE || selection === UNSET) return;
     // A policy turning on strands a selection the select no longer offers —
     // converting that one gives an invalid date.
     const days = selection === NEVER ? longest : Number(selection);
@@ -93,15 +96,7 @@ const ApiKeyExpirationField: FC<{
     setValue,
   ]);
 
-  if (existing && isExpired(existing.expiresAt)) {
-    return (
-      <HelperText status="warning" mb="3">
-        This key has expired and can&apos;t be extended. Create a new key to
-        replace it.
-      </HelperText>
-    );
-  }
-
+  const expired = !!existing && isExpired(existing.expiresAt);
   const cleared = selection === UNSET;
   // Typed dates aren't snapped onto the bounds, so an out-of-range one is
   // flagged here instead of silently becoming a date the user never chose.
@@ -117,69 +112,104 @@ const ApiKeyExpirationField: FC<{
       : problem === "too-late" && latest
         ? `Enter or select a date on or before ${date(latest)}.`
         : undefined;
+  const picksDate = selection === DATE;
+  const dateId = useId();
+  // A preset only says how long; this turns it into the date it lands on.
+  const expiresNote =
+    value && !problem && !picksDate ? (
+      <Text size="sm" color="text-mid">{`Expires ${datetimeAt(value)}.`}</Text>
+    ) : null;
 
   return (
-    <>
-      {/* Day precision to match the picker; the exact moment shows below once chosen. */}
-      {required && latest && (
-        <HelperText status={cleared ? "warning" : "info"} mb="2">
-          {cleared
-            ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
-            : existing
-              ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created, so the latest allowed is ${date(latest)}.`
-              : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
+    <Box mt="6">
+      <Heading as="h4" size="sm" mb="1">
+        Expiration
+      </Heading>
+      {expired ? (
+        <HelperText status="warning">
+          This key has expired and can&apos;t be extended. Create a new key to
+          replace it.
         </HelperText>
+      ) : (
+        <>
+          {/* Day precision to match the picker. */}
+          {required && latest && (
+            <HelperText status={cleared ? "warning" : "info"} mb="3">
+              {cleared
+                ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
+                : existing
+                  ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created, so the latest allowed is ${date(latest)}.`
+                  : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
+            </HelperText>
+          )}
+          <Frame py="1" px="3">
+            <Grid
+              columns="100px 210px 1fr"
+              gapX="4"
+              align="center"
+              style={{ gridAutoRows: "minmax(40px, auto)" }}
+            >
+              <Text as="label" weight="semibold" mb="0">
+                Expires
+              </Text>
+              <SelectField
+                aria-label="Expires"
+                size="small"
+                maxMenuHeight={360}
+                sort={false}
+                isSearchable={false}
+                placeholder="Choose an expiration"
+                value={selection}
+                onChange={(next) => {
+                  setSelection(next);
+                  if (next === NEVER) {
+                    setValue(null);
+                  } else if (next !== DATE) {
+                    setValue(addDays(new Date(), Number(next)));
+                  }
+                }}
+                options={[
+                  ...presets.map((days) => ({
+                    label: presetLabel(days),
+                    value: String(days),
+                  })),
+                  { label: "Expires on date", value: DATE },
+                  // Offered under a policy only as the edited key's unchanged state.
+                  ...(!required || (existing && !existing.expiresAt)
+                    ? [{ label: "No expiration", value: NEVER }]
+                    : []),
+                ]}
+                formatOptionLabel={({ label, value }, { context }) =>
+                  context === "value" && value === DATE ? "Expires on" : label
+                }
+              />
+              <Box>{expiresNote}</Box>
+              {picksDate && (
+                <>
+                  <Text as="label" htmlFor={dateId} weight="semibold" mb="0">
+                    Date
+                  </Text>
+                  <DatePicker
+                    id={dateId}
+                    size="md"
+                    date={value ?? undefined}
+                    setDate={(d) => setValue(d ?? null)}
+                    precision="date"
+                    disableBefore={addDays(new Date(), 1)}
+                    disableAfter={latest ?? undefined}
+                    clampInput={false}
+                    error={dateError}
+                    required
+                    containerClassName=""
+                  />
+                  <Box />
+                </>
+              )}
+            </Grid>
+          </Frame>
+        </>
       )}
-
-      <Select
-        label="Expiration"
-        mb="3"
-        placeholder="Choose an expiration"
-        value={selection}
-        setValue={(next) => {
-          setSelection(next);
-          if (next === NEVER) {
-            setValue(null);
-          } else if (next !== CUSTOM) {
-            setValue(addDays(new Date(), Number(next)));
-          }
-        }}
-      >
-        {presets.map((days) => (
-          <SelectItem key={days} value={String(days)}>
-            {presetLabel(days)}
-          </SelectItem>
-        ))}
-        <SelectSeparator />
-        <SelectItem value={CUSTOM}>Custom</SelectItem>
-        {/* Offered under a policy only as the edited key's unchanged state. */}
-        {(!required || (existing && !existing.expiresAt)) && (
-          <SelectItem value={NEVER}>No expiration</SelectItem>
-        )}
-      </Select>
-
-      {selection === CUSTOM && (
-        <Box mb="3">
-          <DatePicker
-            label="Expiration date"
-            date={value ?? undefined}
-            setDate={(d) => setValue(d ?? null)}
-            precision="date"
-            disableBefore={addDays(new Date(), 1)}
-            disableAfter={latest ?? undefined}
-            clampInput={false}
-            error={dateError}
-            containerClassName=""
-          />
-        </Box>
-      )}
-
-      {value && !problem && (
-        <HelperText status="info" mb="3">
-          {`The ${existing ? "" : "newly created "}key will expire on ${datetimeAt(value)}.`}
-        </HelperText>
-      )}
-    </>
+    </Box>
   );
 };
 

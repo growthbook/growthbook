@@ -141,7 +141,10 @@ export class ApiKeyModel extends BaseClass {
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
+      additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
+      requesterHeader: doc.requesterHeader,
+      requesterPermissions: doc.requesterPermissions,
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
@@ -188,6 +191,11 @@ export class ApiKeyModel extends BaseClass {
       }
     }
     if (doc.userId) {
+      if (doc.requesterHeader || doc.requesterPermissions) {
+        this.context.throwBadRequestError(
+          "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
+        );
+      }
       // Creation only — existing tokens are already rejected at authentication,
       // and users must still be able to disable or delete the ones they have.
       if (
@@ -369,6 +377,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
     confirmRules,
   }: {
@@ -378,6 +388,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
@@ -392,6 +404,8 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
       confirmRules,
     });
@@ -503,6 +517,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
       confirmRules,
     }: {
@@ -513,6 +529,8 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
+      requesterHeader?: ApiKeyInterface["requesterHeader"];
+      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
       confirmRules?: ConfirmRule[] | null;
@@ -588,6 +606,8 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
         description,
+        ...(requesterHeader !== undefined && { requesterHeader }),
+        ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
         ...(confirmRules !== undefined && { confirmRules }),
       },
@@ -841,6 +861,8 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
     confirmRules,
   }: {
@@ -856,6 +878,8 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
@@ -887,6 +911,8 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
+      ...(requesterHeader !== undefined && { requesterHeader }),
+      ...(requesterPermissions !== undefined && { requesterPermissions }),
       expiresAt,
       ...(confirmRules ? { confirmRules } : {}),
     });
