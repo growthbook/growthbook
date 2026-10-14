@@ -129,9 +129,13 @@ export default function ChangeColumn({
         ) : null}
       </span>{" "}
       {expected === 0 && stats.errorMessage ? (
-        <span className="expected">n/a</span>
+        // Stable field name for programmatic value extraction
+        <span className="expected" data-field="lift_percent">
+          n/a
+        </span>
       ) : (
-        <span className="expected">
+        // Stable field name for programmatic value extraction
+        <span className="expected" data-field="lift_percent">
           {formatter(expected, formatterOptions)}{" "}
         </span>
       )}
@@ -139,16 +143,27 @@ export default function ChangeColumn({
         <span className="plusminus font-weight-normal text-gray ml-1">
           ±
           {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
-            <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>∞</span>
+            // Field name on the value leaf only (exclude the ± glyph)
+            <span
+              data-field="lift_moe"
+              style={{ fontSize: "18px", verticalAlign: "-2px" }}
+            >
+              ∞
+            </span>
           ) : (
-            formatter(expected - ci0, formatterOptions)
+            // Field name on the value leaf only (exclude the ± glyph)
+            <span data-field="lift_moe">
+              {formatter(expected - ci0, formatterOptions)}
+            </span>
           )}
         </span>
       ) : null}
       {showCI ? (
         <span className="ml-2 ci font-weight-normal text-gray">
-          [{formatter(ci0, formatterOptions)},{" "}
-          {formatter(ci1, formatterOptions)}]
+          [{/* Separate leaves so each CI bound can be read independently */}
+          <span data-field="ci_low">{formatter(ci0, formatterOptions)}</span>
+          {", "}
+          <span data-field="ci_high">{formatter(ci1, formatterOptions)}</span>]
         </span>
       ) : null}
     </div>

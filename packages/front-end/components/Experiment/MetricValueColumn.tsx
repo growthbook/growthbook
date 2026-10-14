@@ -74,6 +74,10 @@ interface Props
   getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getFactTableById: (id: string) => null | FactTableDefinition;
   asTd?: boolean;
+  // Differentiates the same component rendered as the baseline vs. the
+  // treatment column. Drives the data-field name so both values can be
+  // extracted without one overwriting the other under a single key.
+  cellRole?: "baseline" | "treatment";
 }
 
 export default function MetricValueColumn({
@@ -89,6 +93,7 @@ export default function MetricValueColumn({
   getExperimentMetricById,
   getFactTableById,
   asTd = true,
+  cellRole = "treatment",
   ...otherProps
 }: Props) {
   const formatterOptions = { currency: displayCurrency };
@@ -135,6 +140,12 @@ export default function MetricValueColumn({
     )(numeratorValue, formatterOptions);
   }
 
+  // Field names for programmatic value extraction. Baseline cells are prefixed
+  // so they don't collide with the treatment cell's values under one key.
+  const fieldPrefix = cellRole === "baseline" ? "baseline_" : "";
+  const metricValueField = `${fieldPrefix}metric_value`;
+  const userCountField = `${fieldPrefix}user_count`;
+
   return (
     <ConditionalWrapper
       condition={asTd}
@@ -149,7 +160,10 @@ export default function MetricValueColumn({
     >
       {metric && stats.users ? (
         <>
-          <div className="result-number">{overall}</div>
+          {/* Stable field name for programmatic value extraction */}
+          <div className="result-number" data-field={metricValueField}>
+            {overall}
+          </div>
           {showRatio && numerator ? (
             <div className="result-number-sub text-muted">
               <em>
@@ -164,7 +178,8 @@ export default function MetricValueColumn({
                   <>
                     {" "}
                     /&nbsp;
-                    {denominator}
+                    {/* Stable field name for programmatic value extraction */}
+                    <span data-field={userCountField}>{denominator}</span>
                   </>
                 ) : null}
               </em>
