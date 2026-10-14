@@ -19,7 +19,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import HelperText, { RadixStatusIcon } from "@/ui/HelperText";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -154,11 +154,7 @@ export function PayloadSizeCallout({
   const level = getSdkPayloadSizeLevel(size);
   if (level === "ok") return null;
   return (
-    <Callout
-      status={isSevere(level) ? "error" : "warning"}
-      icon={<RadixStatusIcon status="warning" size="md" />}
-      mb="3"
-    >
+    <Callout status={isSevere(level) ? "error" : "warning"} mb="3">
       <PayloadSizeAdvice connection={connection} size={size} />
     </Callout>
   );

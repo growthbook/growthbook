@@ -128,6 +128,9 @@ export default function SDKConnectionsList() {
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
+              const connectionStatus = connected
+                ? "Connected successfully"
+                : "Could not verify the connection";
 
               const environment = environments.find(
                 (e) => e.id === connection.environment,
@@ -158,14 +161,13 @@ export default function SDKConnectionsList() {
               return (
                 <TableRow key={connection.id}>
                   <TableCell>
-                    <Tooltip
-                      content={
-                        connected
-                          ? "Connected successfully"
-                          : "Could not verify the connection"
-                      }
-                    >
-                      <Flex align="center" justify="center">
+                    <Tooltip content={connectionStatus}>
+                      <Flex
+                        align="center"
+                        justify="center"
+                        role="img"
+                        aria-label={connectionStatus}
+                      >
                         <ExperimentDot color={connected ? "green" : "amber"} />
                       </Flex>
                     </Tooltip>

@@ -1,8 +1,12 @@
 import React, { ReactElement, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiWarningFill } from "react-icons/pi";
+import {
+  PiCheck,
+  PiInfo,
+  PiPaperPlaneTilt,
+  PiWarningFill,
+} from "react-icons/pi";
 import { WebhookInterface } from "shared/types/webhook";
-import { FaCheck, FaInfoCircle, FaPaperPlane } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useApi from "@/hooks/useApi";
@@ -152,7 +156,7 @@ export default function SdkWebhooks({
             />
           ) : webhook.lastSuccess ? (
             <em className="small">
-              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
+              <PiCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
             <em>never fired</em>
@@ -171,7 +175,7 @@ export default function SdkWebhooks({
               mutate();
             }}
           >
-            <FaPaperPlane className="mr-1" />
+            <PiPaperPlaneTilt className="mr-1" />
             Test
           </OldButton>
         </td>
@@ -249,7 +253,7 @@ export default function SdkWebhooks({
             }
           >
             <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-              What is this? <FaInfoCircle />
+              What is this? <PiInfo />
             </span>
           </Tooltip>
         </div>
