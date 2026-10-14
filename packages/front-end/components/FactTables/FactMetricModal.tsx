@@ -22,11 +22,9 @@ import {
   ColumnInterface,
   ColumnAggregation,
   FactTableColumnType,
-  RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
-  canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
@@ -86,7 +84,6 @@ export interface Props {
   initialFactTable?: string;
   existing?: Partial<FactMetricInterface>;
   duplicate?: boolean;
-  fromTemplate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
   source: string;
@@ -1180,297 +1177,6 @@ GROUP BY variation`.trim();
   return { sql, experimentSQL };
 }
 
-function FieldMappingModal({
-  factMetric,
-  datasource,
-  onSave,
-  close,
-}: {
-  factMetric: Partial<StandardFactMetricInterface>;
-  datasource: DataSourceInterfaceWithParams | null;
-  onSave: (metric: Partial<StandardFactMetricInterface>) => void;
-  close?: () => void;
-}) {
-  const { factTables, getFactTableById } = useDefinitions();
-
-  const [data, setData] = useState(factMetric);
-
-  const numerator = data.numerator as ColumnRef;
-  const denominator = data.denominator;
-
-  const numericColumns = new Set<string>();
-  const stringColumns = new Set<string>();
-
-  if (numerator.column && !numerator.column.startsWith("$$")) {
-    if (numerator.aggregation === "count distinct") {
-      stringColumns.add(numerator.column);
-    } else {
-      numericColumns.add(numerator.column);
-    }
-  }
-  if (denominator?.column && !denominator.column.startsWith("$$")) {
-    if (denominator.aggregation === "count distinct") {
-      stringColumns.add(denominator.column);
-    } else {
-      numericColumns.add(denominator.column);
-    }
-  }
-  if (
-    numerator.aggregateFilterColumn &&
-    !numerator.aggregateFilterColumn.startsWith("$$")
-  ) {
-    numericColumns.add(numerator.aggregateFilterColumn);
-  }
-  if (numerator.rowFilters) {
-    numerator.rowFilters.forEach((k) => {
-      if (k.column) {
-        stringColumns.add(k.column);
-      }
-    });
-  }
-  if (denominator?.rowFilters) {
-    denominator.rowFilters.forEach((k) => {
-      if (k.column) {
-        stringColumns.add(k.column);
-      }
-    });
-  }
-
-  const [numericColumnMap, setNumericColumnMap] = useState<
-    Record<string, string>
-  >(Object.fromEntries([...numericColumns].map((c) => [c, ""])));
-  const [stringColumnMap, setStringColumnMap] = useState<
-    Record<string, string>
-  >(Object.fromEntries([...stringColumns].map((c) => [c, ""])));
-
-  const factTable = getFactTableById(numerator.factTableId);
-
-  const numericColumnOptions = getColumnOptions({
-    factTable,
-    datasource,
-    includeCount: false,
-    includeCountDistinct: false,
-    includeStringColumns: false,
-  });
-
-  const stringColumnOptions =
-    factTable?.columns
-      ?.filter(
-        (c) =>
-          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
-      )
-      .map((c) => ({
-        label: c.name || c.column,
-        value: c.column,
-      })) || [];
-
-  return (
-    <Modal
-      close={close}
-      header="Create Fact Metric From Template"
-      trackingEventModalType=""
-      open={true}
-      cta="Preview Metric"
-      autoCloseOnSubmit={false}
-      submit={() => {
-        // Replace columns throughout metric definition
-        if (numerator.column && numerator.column in numericColumnMap) {
-          (data.numerator as ColumnRef).column =
-            numericColumnMap[numerator.column];
-        } else if (numerator.column && numerator.column in stringColumnMap) {
-          (data.numerator as ColumnRef).column =
-            stringColumnMap[numerator.column];
-        }
-        if (
-          numerator.aggregateFilterColumn &&
-          numerator.aggregateFilterColumn in numericColumnMap
-        ) {
-          (data.numerator as ColumnRef).aggregateFilterColumn =
-            numericColumnMap[numerator.aggregateFilterColumn];
-        }
-        if (numerator.rowFilters) {
-          const newRowFilters: RowFilter[] = [];
-          numerator.rowFilters.forEach((filter) => {
-            newRowFilters.push({
-              ...filter,
-              column: stringColumnMap[filter.column ?? ""] ?? filter.column,
-            });
-          });
-          (data.numerator as ColumnRef).rowFilters = newRowFilters;
-        }
-
-        if (denominator) {
-          if (denominator.column in numericColumnMap) {
-            (data.denominator as ColumnRef).column =
-              numericColumnMap[denominator.column];
-          } else if (denominator.column in stringColumnMap) {
-            (data.denominator as ColumnRef).column =
-              stringColumnMap[denominator.column];
-          }
-
-          if (denominator.rowFilters) {
-            const newRowFilters: RowFilter[] = [];
-            denominator.rowFilters.forEach((filter) => {
-              newRowFilters.push({
-                ...filter,
-                column: stringColumnMap[filter.column ?? ""] ?? filter.column,
-              });
-            });
-            (data.denominator as ColumnRef).rowFilters = newRowFilters;
-          }
-        }
-
-        data.datasource = factTable?.datasource || "";
-
-        onSave(data);
-      }}
-    >
-      <div className="appbox bg-light p-3">
-        <div>
-          <strong>Metric Name:</strong> {factMetric.name}
-        </div>
-        {factMetric.description ? (
-          <div className="mt-2">
-            <strong>Description:</strong> {factMetric.description}
-          </div>
-        ) : null}
-      </div>
-      <p>Which fact table do you want to add this metric to?</p>
-      <SelectField
-        size="legacy"
-        label={"Fact Table"}
-        value={numerator?.factTableId || ""}
-        onChange={(factTableId) => {
-          setData({
-            ...data,
-            numerator: { ...numerator, factTableId },
-            denominator: data.denominator
-              ? { ...data.denominator, factTableId }
-              : undefined,
-          });
-
-          const factTable = getFactTableById(factTableId);
-          if (factTable) {
-            // Fill out any column mappings with matching column names
-            const newNumericColumnMap = { ...numericColumnMap };
-            const newStringColumnMap = { ...stringColumnMap };
-
-            Object.keys(numericColumnMap).forEach((k) => {
-              if (
-                factTable.columns.find(
-                  (c) =>
-                    c.column === k && !c.deleted && c.datatype === "number",
-                )
-              ) {
-                newNumericColumnMap[k] = k;
-              }
-            });
-
-            Object.keys(stringColumnMap).forEach((k) => {
-              if (canInlineFilterColumn(factTable, k)) {
-                newStringColumnMap[k] = k;
-              }
-            });
-
-            setNumericColumnMap(newNumericColumnMap);
-            setStringColumnMap(newStringColumnMap);
-          }
-        }}
-        options={factTables.map((t) => ({
-          label: t.name,
-          value: t.id,
-        }))}
-        formatOptionLabel={({ value, label }) => {
-          const factTable = getFactTableById(value);
-          if (factTable) {
-            return (
-              <>
-                {factTable.name}
-                <OfficialBadge
-                  managedBy={factTable.managedBy}
-                  type="fact table"
-                />
-              </>
-            );
-          }
-          return label;
-        }}
-        placeholder="Select..."
-        required
-      />
-      {factTable && (
-        <>
-          {numericColumns.size > 0 || stringColumns.size > 0 ? (
-            <>
-              <hr />
-              <p>
-                The following columns are referenced in this metric. Select how
-                to map them to columns in your fact table.
-              </p>
-            </>
-          ) : null}
-          {numericColumns.size > 0 && !numericColumnOptions.length ? (
-            <Callout status="error">
-              <p>
-                This fact table does not have any numeric columns. Please select
-                a different fact table.
-              </p>
-            </Callout>
-          ) : null}
-          {stringColumns.size > 0 && !stringColumnOptions.length ? (
-            <Callout status="error">
-              <p>
-                This fact table does not have any string columns to filter on.
-                Please select a different fact table.
-              </p>
-            </Callout>
-          ) : null}
-        </>
-      )}
-      {[...numericColumns]
-        .filter((c) => !c.startsWith("$$"))
-        .map((k) => {
-          if (!numericColumnOptions.length) return null;
-          return (
-            <SelectField
-              size="legacy"
-              key={k}
-              label={`Column: ${k}`}
-              value={numericColumnMap[k] || ""}
-              onChange={(column) => {
-                setNumericColumnMap({ ...numericColumnMap, [k]: column });
-              }}
-              options={numericColumnOptions}
-              disabled={!factTable}
-              required
-              placeholder="Select..."
-            />
-          );
-        })}
-      {[...stringColumns]
-        .filter((c) => !c.startsWith("$$"))
-        .map((k) => {
-          if (!stringColumnOptions.length) return null;
-          return (
-            <SelectField
-              size="legacy"
-              key={k}
-              label={`Column: ${k}`}
-              value={stringColumnMap[k] || ""}
-              onChange={(column) => {
-                setStringColumnMap({ ...stringColumnMap, [k]: column });
-              }}
-              options={stringColumnOptions}
-              disabled={!factTable}
-              required
-              placeholder="Select..."
-            />
-          );
-        })}
-    </Modal>
-  );
-}
-
 export default function FactMetricModal(props: Props) {
   return <StandardFactMetricModal {...props} />;
 }
@@ -1480,7 +1186,6 @@ function StandardFactMetricModal({
   initialFactTable,
   existing,
   duplicate = false,
-  fromTemplate = false,
   showAdvancedSettings,
   onSave,
   source,
@@ -1574,7 +1279,7 @@ function StandardFactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existing || duplicate || fromTemplate;
+  const isNew = !existing || duplicate;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
@@ -1642,20 +1347,6 @@ function StandardFactMetricModal({
   const setDatasource = (datasource: string) => {
     form.setValue("datasource", datasource);
   };
-
-  if (fromTemplate && !form.watch("numerator").factTableId) {
-    return (
-      <FieldMappingModal
-        // Templates only produce standard (ColumnRef-based) metrics
-        factMetric={defaultValues as Partial<StandardFactMetricInterface>}
-        datasource={selectedDataSource}
-        onSave={(metric) => {
-          form.reset(metric);
-        }}
-        close={close}
-      />
-    );
-  }
 
   return (
     <Modal
