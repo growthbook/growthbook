@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   isSavedGroupAvailableForProjects,
   extractConditionAttributeKeys,
+  isRemoteGroupSupportedAttribute,
 } from "shared/util";
 import { isInternalAttributeName } from "shared/constants";
 import { some } from "lodash";
@@ -68,7 +69,10 @@ import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "./AttributeOptionTooltip";
-import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
+import {
+  formatSavedGroupOptionLabel,
+  formatSavedGroupOptionLabelFor,
+} from "./SavedGroupOptionTooltip";
 
 export function ConditionLabel({
   label,
@@ -1006,12 +1010,16 @@ function ConditionAndGroupInput({
         }
 
         const savedGroupOptions = savedGroups
-          // A remote group works on any attribute: on another one, its IDs
-          // are matched against this attribute's value.
+          // A remote group works on another string or number attribute: its
+          // IDs are matched against this attribute's raw value. Hashed
+          // attributes never match, so they don't get the option.
           .filter(
             (g) =>
               (g.type === "list" && g.attributeKey === field) ||
-              g.type === "remote",
+              (g.type === "remote" &&
+                (g.attributeKey === field ||
+                  isRemoteGroupSupportedAttribute(attribute) ||
+                  g.id === value)),
           )
           .filter((group) => {
             // Preserve the selected group on existing out-of-scope conditions.
@@ -1029,13 +1037,7 @@ function ConditionAndGroupInput({
                   props.savedGroupProjects,
                 );
           })
-          .map((g) => ({
-            label:
-              g.type === "remote" && g.attributeKey !== field
-                ? `${g.groupName} (${g.attributeKey} IDs)`
-                : g.groupName,
-            value: g.id,
-          }));
+          .map((g) => ({ label: g.groupName, value: g.id }));
 
         let operatorOptions: OperatorOption[] = getConditionOperators(
           attribute.datatype,
@@ -1183,7 +1185,9 @@ function ConditionAndGroupInput({
                         onChange={(v) => {
                           handleCondsChange(v, "value");
                         }}
-                        formatOptionLabel={formatSavedGroupOptionLabel}
+                        formatOptionLabel={formatSavedGroupOptionLabelFor(
+                          field,
+                        )}
                         name="value"
                         initialOption="Choose group..."
                         required

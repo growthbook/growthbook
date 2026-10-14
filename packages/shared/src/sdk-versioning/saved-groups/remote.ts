@@ -192,7 +192,7 @@ export function rewriteRemoteGroupReferences(
   if ("$savedGroup" in node) {
     const reference = node.$savedGroup;
     const groupId = readSavedGroupReferenceId(reference);
-    const attribute = isPlainObject(reference) ? reference.attribute : null;
+    const attribute = isPlainObject(reference) ? reference.attributeKey : null;
     const group = isRemote(groupId) ? groupMap.get(groupId) : undefined;
     const override =
       typeof attribute === "string" && attribute !== group?.attributeKey;

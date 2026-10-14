@@ -156,7 +156,7 @@ describe.each([
 
   it("uses the derived group for a hand-written $savedGroup on another attribute", () => {
     const condition = {
-      $savedGroup: { id: "vip", attribute: "parent_id" },
+      $savedGroup: { id: "vip", attributeKey: "parent_id" },
     };
     strategy.finalizeCondition(condition);
     expect(condition).toEqual({
@@ -400,7 +400,9 @@ describe("remote groups evaluate correctly", () => {
       $not: { $savedGroup: { id: "vip:parent_id" } },
       __gb_remoteGroupIds: { $exists: true },
     });
-    const handWritten = { $savedGroup: { id: "vip", attribute: "parent_id" } };
+    const handWritten = {
+      $savedGroup: { id: "vip", attributeKey: "parent_id" },
+    };
     strategy.finalizeCondition(handWritten);
     expect(handWritten).toEqual({
       $savedGroup: { id: "vip:parent_id" },
