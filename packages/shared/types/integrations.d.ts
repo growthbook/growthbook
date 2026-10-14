@@ -1,5 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import type { InterleavingAnalysis } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { AttributionModel } from "shared/types/experiment";
@@ -20,7 +21,6 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import type { AttributionType } from "shared/validators";
 import { SegmentInterface } from "shared/types/segment";
 import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
 
@@ -1058,10 +1058,11 @@ export interface FeatureUsageAggregateRow {
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 
+// One (metric, analysis) pair; a metric with two analyses appears twice
 export interface InterleavingMetricQueryMetric {
-  // "paired" needs interleave_id on the metric's fact table; the ownership
-  // types only need item_id. The user chooses per metric.
-  attributionType: AttributionType;
+  // "paired" needs interleave_id on the metric's fact table; ownership only
+  // needs item_id.
+  analysis: InterleavingAnalysis;
   metricType: "mean" | "proportion";
   // Numerator column for mean metrics; null means count rows / existence
   valueColumn: string | null;
@@ -1073,8 +1074,8 @@ export interface InterleavingMetricQueryParams {
   exposureQuery: string;
   userIdType: string;
   trackingKey: string;
-  // Control first; must match the exposure `variation` column values
-  variationNames: [string, string];
+  // Control first; matched against the exposure items' `variation` values
+  variationKeys: [string, string];
   startDate: Date;
   endDate?: Date | null;
   // One query analyzes all metrics sharing this fact table; output columns

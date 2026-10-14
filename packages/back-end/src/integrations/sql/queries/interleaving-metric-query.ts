@@ -9,6 +9,7 @@ import {
   INTERLEAVING_ITEMS_COLUMN,
   INTERLEAVING_TIMESTAMP_COLUMN,
 } from "shared/validators";
+import type { InterleavingAnalysis } from "shared/validators";
 import type { InterleavingMetricQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -22,13 +23,13 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
  * an `items` JSON column (the SDK's nested exposure shape); the __exposures
  * CTE unnests it per warehouse dialect.
  *
- * Each metric is configured with an attribution type:
+ * Each entry in `metrics` is one (metric, analysis) pair:
  * - "paired": engagement joined per impression x item via interleave_id
  *   (NULL ids never satisfy the join) -> per-user (x, y, n) restricted to
  *   engaged impressions -> cross-user joint moments for the paired
  *   delta-method t-test;
- * - "ownershipByExposureCount": per user x item ownership shares across all
- *   competitive exposures -> fractional win totals over ALL engagement
+ * - "ownership" by exposure count: per user x item ownership shares across
+ *   all competitive exposures -> fractional win totals over ALL engagement
  *   events -> user preference counts for the sign test;
  * The paired and ownership CTE branches are only emitted when at least one
  * metric requests them.
@@ -46,6 +47,26 @@ function sqlStringLiteral(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+type SqlAnalysisKind = "paired" | "ownership";
+
+// Which CTE branch an analysis needs. Ownership attributions other than
+// exposure count aren't generated yet.
+export function sqlAnalysisKind(a: InterleavingAnalysis): SqlAnalysisKind {
+  if (a.type === "paired") return "paired";
+  switch (a.attribution) {
+    case "exposureCount":
+      return "ownership";
+    case "engagementSignal":
+      throw new Error(
+        "Ownership by engagement signal is not supported in interleaving analysis yet",
+      );
+    default: {
+      const unknown: never = a.attribution;
+      throw new Error(`Unknown ownership attribution: ${unknown}`);
+    }
+  }
+}
+
 export function getInterleavingMetricQuery(
   dialect: SqlDialect,
   params: InterleavingMetricQueryParams,
@@ -53,7 +74,7 @@ export function getInterleavingMetricQuery(
   const {
     userIdType,
     trackingKey,
-    variationNames,
+    variationKeys,
     startDate,
     endDate,
     metrics,
@@ -69,17 +90,12 @@ export function getInterleavingMetricQuery(
     );
   }
 
-  const [controlName, treatmentName] = variationNames;
-  const includePaired = metrics.some((m) => m.attributionType === "paired");
-  const includeOwnership = metrics.some(
-    (m) => m.attributionType === "ownershipByExposureCount",
-  );
-  const pairedIdx = metrics.flatMap((m, i) =>
-    m.attributionType === "paired" ? [i] : [],
-  );
-  const ownershipIdx = metrics.flatMap((m, i) =>
-    m.attributionType === "ownershipByExposureCount" ? [i] : [],
-  );
+  const [controlKey, treatmentKey] = variationKeys;
+  const kinds = metrics.map((m) => sqlAnalysisKind(m.analysis));
+  const pairedIdx = kinds.flatMap((k, i) => (k === "paired" ? [i] : []));
+  const ownershipIdx = kinds.flatMap((k, i) => (k === "ownership" ? [i] : []));
+  const includePaired = pairedIdx.length > 0;
+  const includeOwnership = ownershipIdx.length > 0;
 
   const compiled = {
     startDate,
@@ -102,7 +118,7 @@ export function getInterleavingMetricQuery(
 
   // 1 for treatment picks, 0 for control picks; other variation values dropped
   const teamExpr = `${dialect.ifElse(
-    `${item(INTERLEAVING_ITEM_FIELD_VARIATION)} = ${sqlStringLiteral(treatmentName)}`,
+    `${item(INTERLEAVING_ITEM_FIELD_VARIATION)} = ${sqlStringLiteral(treatmentKey)}`,
     "1",
     "0",
   )}`;
@@ -121,7 +137,7 @@ export function getInterleavingMetricQuery(
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${sqlStringLiteral(trackingKey)}
         AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
-        AND ${item(INTERLEAVING_ITEM_FIELD_VARIATION)} IN (${sqlStringLiteral(controlName)}, ${sqlStringLiteral(treatmentName)})
+        AND ${item(INTERLEAVING_ITEM_FIELD_VARIATION)} IN (${sqlStringLiteral(controlKey)}, ${sqlStringLiteral(treatmentKey)})
         AND ${dateFilter(`e.${ts}`)}
     )`;
 
@@ -264,9 +280,9 @@ export function getInterleavingMetricQuery(
 
   const gate = (i: number, expr: string) =>
     `SUM(${dialect.ifElse(`u.n_${i} > 0`, expr, "0")})`;
-  const finalCols = metrics
-    .map((m, i) => {
-      switch (m.attributionType) {
+  const finalCols = kinds
+    .map((kind, i) => {
+      switch (kind) {
         case "paired":
           return `${gate(i, "1")} AS m${i}_users,
       ${gate(i, `u.x_${i}`)} AS m${i}_sum_x,
@@ -278,12 +294,12 @@ export function getInterleavingMetricQuery(
       ${gate(i, `u.x_${i} * u.y_${i}`)} AS m${i}_sum_xy,
       ${gate(i, `u.x_${i} * u.n_${i}`)} AS m${i}_sum_xn,
       ${gate(i, `u.y_${i} * u.n_${i}`)} AS m${i}_sum_yn`;
-        case "ownershipByExposureCount":
+        case "ownership":
           return `SUM(${dialect.ifElse(`u.wins_t_${i} > u.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment,
       SUM(${dialect.ifElse(`u.wins_c_${i} > u.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`;
         default: {
-          const unknownType: never = m.attributionType;
-          throw new Error(`Unknown attribution type: ${unknownType}`);
+          const unknownKind: never = kind;
+          throw new Error(`Unknown analysis kind: ${unknownKind}`);
         }
       }
     })

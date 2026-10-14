@@ -1,5 +1,5 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useContext, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -7,7 +7,12 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import VirtualizedCode, {
+  isLongCode,
+  RenderInFullContext,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
@@ -112,6 +117,21 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
+// A long condition shown as JSON scrolls inside a bounded box, highlighting
+// only the visible lines
+function ConditionJson({ code }: { code: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const renderInFull = useContext(RenderInFullContext);
+  if (renderInFull || !isLongCode(code)) {
+    return <InlineCode language="json" code={code} />;
+  }
+  return (
+    <Box ref={scrollRef} style={{ maxHeight: 400, overflowY: "auto" }}>
+      <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
+    </Box>
+  );
+}
+
 export function MultiValuesDisplay({
   values,
   displayMap,
@@ -155,30 +175,31 @@ export function MultiValuesDisplay({
         );
       })}
       {values.length > MULTI_VALUE_LIMIT && (
-        <Tooltip
-          body={
-            <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
-                const isSavedGroup = savedGroupIds?.has(v);
-                const group = isSavedGroup ? getSavedGroupById(v) : null;
-                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
-                return (
-                  <span key={i}>
-                    {isSavedGroup && group
-                      ? group.groupName
-                      : displayMap?.[v] || v}
-                    {!isLast && ", "}
-                  </span>
-                );
-              })}
-            </div>
+        // A list can run to thousands of ids: one wrapped, scrollable block
+        <Popover
+          openOnHover
+          side="bottom"
+          align="start"
+          contentStyle={{ maxWidth: 480, maxHeight: 240, overflowY: "auto" }}
+          trigger={
+            <span className="mr-1">
+              <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+            </span>
           }
-          usePortal
-        >
-          <span className="mr-1">
-            <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
-          </span>
-        </Tooltip>
+          content={
+            <Text size="sm" color="text-mid">
+              {values
+                .slice(MULTI_VALUE_LIMIT)
+                .map((v) => {
+                  const group = savedGroupIds?.has(v)
+                    ? getSavedGroupById(v)
+                    : null;
+                  return group ? group.groupName : displayMap?.[v] || v;
+                })
+                .join(", ")}
+            </Text>
+          }
+        />
       )}
     </>
   );
@@ -528,7 +549,7 @@ export default function ConditionDisplay({
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
               <FeatureBadge featureId={p.id} />
-              <InlineCode language="json" code={jsonFormattedCondition} />
+              <ConditionJson code={jsonFormattedCondition} />
             </Flex>,
           );
           prefixUsed = true;
@@ -571,7 +592,7 @@ export default function ConditionDisplay({
       parts.push(
         <div className="w-100" key={partId++}>
           {!prefixUsed && prefix}
-          <InlineCode language="json" code={jsonFormattedCondition} />
+          <ConditionJson code={jsonFormattedCondition} />
         </div>,
       );
       prefixUsed = true;

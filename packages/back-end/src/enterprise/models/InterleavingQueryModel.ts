@@ -61,6 +61,17 @@ export class InterleavingQueryModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
+  protected async beforeDelete(doc: InterleavingQueryInterface): Promise<void> {
+    const referencing =
+      await this.context.models.interleavings.getByInterleavingQueryId(doc.id);
+    if (referencing.length > 0) {
+      const names = referencing.map((i) => i.name).join(", ");
+      throw new Error(
+        `Cannot delete this interleaving query because it is in use by ${referencing.length} interleaving experiment(s): ${names}. Update or remove those experiments first.`,
+      );
+    }
+  }
+
   protected async customValidation(
     doc: InterleavingQueryInterface,
     previousDoc?: InterleavingQueryInterface,

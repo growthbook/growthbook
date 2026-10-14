@@ -20,6 +20,11 @@
  */
 import { randomUUID } from "crypto";
 import { Client } from "pg";
+import {
+  InterleavingAnalysis,
+  interleavingAnalysisKey,
+  interleavingResultKey,
+} from "shared/validators";
 
 const API_HOST = (process.env.GB_API_HOST || "http://localhost:3100").replace(
   /\/$/,
@@ -35,6 +40,10 @@ const TABLE = "gb_interleaving_demo_events";
 const TRACKING_KEY = "featured-products-ranker";
 // [control, treatment]
 const VARIATIONS: [string, string] = ["price-low", "buyers-picks"];
+const ANALYSES: InterleavingAnalysis[] = [
+  { type: "paired" },
+  { type: "ownership", attribution: "exposureCount" },
+];
 const LIST_LENGTH = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -232,7 +241,7 @@ type Snapshot = {
 };
 
 async function waitForSnapshot(interleavingId: string): Promise<Snapshot> {
-  // 5s keeps two pollers well under the 60 requests/minute API key limit
+  // 5s keeps polling well under the 60 requests/minute API key limit
   for (let i = 0; i < 60; i++) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
     const { snapshot } = await api<{ snapshot: Snapshot }>(
@@ -308,49 +317,53 @@ async function main() {
     `Created fact table ${factTable.id}, metrics ${metrics.map((m) => m.id).join(", ")}, interleaving query ${interleavingQuery.id}`,
   );
 
-  // Results are keyed by metric id, so each attribution type gets its own
-  // analysis rather than sharing one snapshot
-  const analyses = (["paired", "ownershipByExposureCount"] as const).map(
-    (attributionType) => ({
-      interleavingId: `interleaving-demo-${attributionType}`,
-      attributionType,
-    }),
+  const { interleaving } = await api<{ interleaving: { id: string } }>(
+    "POST",
+    "/interleaving",
+    {
+      name: "Interleaving demo",
+      status: "running",
+      // Analyze the whole seeded window (data starts ~14 days back)
+      dateStarted: new Date(Date.now() - 15 * DAY_MS).toISOString(),
+      trackingKey: TRACKING_KEY,
+      hashAttribute: "id",
+      seed: "interleaving-demo",
+      variations: VARIATIONS.map((key) => ({
+        id: key,
+        key,
+        name: key,
+        config: "{}",
+      })),
+      datasource: DATASOURCE_ID,
+      interleavingQueryId: interleavingQuery.id,
+      userIdType: "user_id",
+      metrics: metrics.map((m) => ({ id: m.id, analyses: ANALYSES })),
+    },
   );
-  const startDate = new Date(Date.now() - 15 * DAY_MS).toISOString();
-  for (const { interleavingId, attributionType } of analyses) {
-    const { snapshot } = await api<{ snapshot: Snapshot }>(
-      "POST",
-      `/interleaving/${interleavingId}/update`,
-      {
-        trackingKey: TRACKING_KEY,
-        interleavingQueryId: interleavingQuery.id,
-        userIdType: "user_id",
-        variationNames: VARIATIONS,
-        metrics: metrics.map((m) => ({ id: m.id, attributionType })),
-        startDate,
-        endDate: null,
-      },
-    );
-    console.log(`Started ${interleavingId}: snapshot ${snapshot.id}`);
-  }
+  const { snapshot: started } = await api<{ snapshot: Snapshot }>(
+    "POST",
+    `/interleaving/${interleaving.id}/update`,
+  );
+  console.log(
+    `Created interleaving ${interleaving.id}; snapshot ${started.id}`,
+  );
 
-  const snapshots = await Promise.all(
-    analyses.map((a) => waitForSnapshot(a.interleavingId)),
-  );
-  analyses.forEach(({ attributionType }, i) => {
-    const snapshot = snapshots[i];
-    console.log(`\n${attributionType}: ${snapshot.status}`);
-    if (snapshot.status === "error") {
-      console.log(snapshot.error);
-      return;
-    }
-    const [control, treatment] = snapshot.results?.[0]?.variations ?? [];
-    console.table(
-      metrics.map((m) => {
-        const c = control?.metrics[m.id];
-        const t = treatment?.metrics[m.id];
+  const snapshot = await waitForSnapshot(interleaving.id);
+  console.log(`\n${snapshot.status}`);
+  if (snapshot.status === "error") {
+    console.log(snapshot.error);
+    return;
+  }
+  const [control, treatment] = snapshot.results?.[0]?.variations ?? [];
+  console.table(
+    metrics.flatMap((m) =>
+      ANALYSES.map((analysis) => {
+        const key = interleavingResultKey(m.id, analysis);
+        const c = control?.metrics[key];
+        const t = treatment?.metrics[key];
         return {
           metric: m.name,
+          analysis: interleavingAnalysisKey(analysis),
           users: t?.users,
           [VARIATIONS[0]]: c?.cr,
           [VARIATIONS[1]]: t?.cr,
@@ -360,8 +373,8 @@ async function main() {
           error: t?.errorMessage,
         };
       }),
-    );
-  });
+    ),
+  );
 }
 
 main().catch((e) => {

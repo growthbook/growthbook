@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { postgresDialect } from "shared/dialects";
-import type { AttributionType } from "shared/validators";
+import type { InterleavingAnalysis } from "shared/validators";
 import { getInterleavingMetricQuery } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 
 // The demo storefront's telemetry schema (local-groceries-international):
@@ -29,13 +29,18 @@ const baseParams = {
   exposureQuery: EXPOSURE_QUERY,
   userIdType: "user_id",
   trackingKey: "featured-products-ranker",
-  variationNames: ["buyers-picks", "price-low"] as [string, string],
+  variationKeys: ["buyers-picks", "price-low"] as [string, string],
   startDate: new Date("2020-01-01"),
   endDate: null,
   factTableSql: FACT_TABLE_SQL,
 };
-const proportionMetric = (attributionType: AttributionType) => ({
-  attributionType,
+const PAIRED: InterleavingAnalysis = { type: "paired" };
+const OWNERSHIP: InterleavingAnalysis = {
+  type: "ownership",
+  attribution: "exposureCount",
+};
+const proportionMetric = (analysis: InterleavingAnalysis) => ({
+  analysis,
   metricType: "proportion" as const,
   valueColumn: null,
 });
@@ -44,18 +49,15 @@ describe("getInterleavingMetricQuery", () => {
   it("generates paired and ownership SQL and (optionally) writes them for live execution", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric("paired")],
+      metrics: [proportionMetric(PAIRED)],
     });
     const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric("ownershipByExposureCount")],
+      metrics: [proportionMetric(OWNERSHIP)],
     });
     const both = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [
-        proportionMetric("paired"),
-        proportionMetric("ownershipByExposureCount"),
-      ],
+      metrics: [proportionMetric(PAIRED), proportionMetric(OWNERSHIP)],
     });
 
     // Structural assertions on both variants
@@ -76,8 +78,8 @@ describe("getInterleavingMetricQuery", () => {
     // Escapes quotes in variation names
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [proportionMetric("ownershipByExposureCount")],
-      variationNames: ["o'brien", "control"] as [string, string],
+      metrics: [proportionMetric(OWNERSHIP)],
+      variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
 

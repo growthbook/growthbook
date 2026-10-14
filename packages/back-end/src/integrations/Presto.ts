@@ -15,7 +15,10 @@ import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
-import { getQueryTagString } from "back-end/src/util/integration";
+import {
+  getQueryTagString,
+  toOptionalNumber,
+} from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
@@ -209,10 +212,12 @@ export default class Presto extends SqlIntegration {
           });
 
           if (stats) {
-            statistics.executionDurationMs = Number(stats.wallTimeMillis);
-            statistics.bytesProcessed = Number(stats.processedBytes);
-            statistics.rowsProcessed = Number(stats.processedRows);
-            statistics.physicalWrittenBytes = Number(
+            statistics.executionDurationMs = toOptionalNumber(
+              stats.wallTimeMillis,
+            );
+            statistics.bytesProcessed = toOptionalNumber(stats.processedBytes);
+            statistics.rowsProcessed = toOptionalNumber(stats.processedRows);
+            statistics.physicalWrittenBytes = toOptionalNumber(
               // @ts-expect-error - From our testing this does exist but types are not happy
               stats.physicalWrittenBytes,
             );

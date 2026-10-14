@@ -192,8 +192,7 @@
                           "app/visual/design-import",
                           "app/visual/running-on-your-site",
                           "app/visual/preview-and-qa",
-                          "app/visual/troubleshooting",
-                          "app/visual/legacy"
+                          "app/visual/troubleshooting"
                         ]
                       },
                       "app/url-redirects"
@@ -299,7 +298,11 @@
                   },
                   "integrations/vercel",
                   "integrations/framer",
-                  "integrations/slack",
+                  {
+                    "group": "Slack",
+                    "root": "integrations/slack",
+                    "pages": ["integrations/slack/legacy-webhooks"]
+                  },
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
@@ -1136,6 +1139,17 @@
                   "api/AutoRuns/operation/updateAutoRun",
                   "api/AutoRuns/operation/appendAutoRunArtifact"
                 ]
+              },
+              {
+                "group": "Populations",
+                "tag": "BETA",
+                "pages": [
+                  "api/Populations/operation/listPopulations",
+                  "api/Populations/operation/createPopulation",
+                  "api/Populations/operation/getPopulation",
+                  "api/Populations/operation/updatePopulation",
+                  "api/Populations/operation/deletePopulation"
+                ]
               }
             ]
           },
@@ -1224,6 +1238,7 @@
               "api/NamespaceExperimentMember_model",
               "api/Organization_model",
               "api/PaginationFields_model",
+              "api/Population_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",
@@ -1270,7 +1285,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Open App",
       "href": "https://app.growthbook.io/"
     }
   },
@@ -1670,6 +1685,10 @@
     {
       "source": "/event-trackers/missing-event-tracker-docs",
       "destination": "/event-trackers/custom"
+    },
+    {
+      "source": "/app/visual/legacy",
+      "destination": "/app/visual"
     }
   ]
 }

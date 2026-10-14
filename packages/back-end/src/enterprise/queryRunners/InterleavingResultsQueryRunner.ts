@@ -1,7 +1,8 @@
 import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import {
-  InterleavingMetricConfig,
+  InterleavingAnalysis,
+  interleavingResultKey,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
@@ -23,6 +24,7 @@ import {
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import { sqlAnalysisKind } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 
 export type InterleavingResultsQueryParams = {
   snapshotSettings: InterleavingSnapshotSettings;
@@ -32,22 +34,25 @@ export type InterleavingQueryRunResult = {
   results: ExperimentReportResultDimension[];
 };
 
-/** Variations shown in the results UI: the two ranker list names. */
+/** Variations shown in the results UI: the two rankers. */
 export function getInterleavingReportVariations(
-  variationNames: [string, string],
+  variations: InterleavingSnapshotSettings["variations"],
 ): ExperimentReportVariation[] {
-  return variationNames.map((name, index) => ({
-    id: String(index),
-    name,
+  return variations.map((v, index) => ({
+    id: v.id,
+    name: v.name,
     weight: 0.5,
     index,
   }));
 }
 
+// One (metric, analysis) pair; results are keyed by interleavingResultKey
+type AnalysisEntry = { metricId: string; analysis: InterleavingAnalysis };
+
 type MetricGroup = {
   factTableId: string;
   // Ordered: index i maps to the query's m{i}_ column prefix
-  metricConfigs: InterleavingMetricConfig[];
+  entries: AnalysisEntry[];
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -90,6 +95,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       }
     > = {};
     for (const config of settings.metrics) {
+      const kinds = config.analyses.map(sqlAnalysisKind);
       const metric = metricMap.get(config.id);
       if (!metric || !isFactMetric(metric)) {
         throw new Error(`Interleaving metric not found: ${config.id}`);
@@ -118,7 +124,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         );
       }
       if (
-        config.attributionType === "paired" &&
+        kinds.includes("paired") &&
         !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
       ) {
         throw new Error(
@@ -136,31 +142,33 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
       const group = (groups[factTable.id] = groups[factTable.id] ?? {
         factTableId: factTable.id,
-        metricConfigs: [],
+        entries: [],
         queryMetrics: [],
         factTableSql: factTable.sql,
       });
-      group.metricConfigs.push(config);
-      group.queryMetrics.push({
-        attributionType: config.attributionType,
-        metricType: metric.metricType as FactMetricInterface["metricType"] &
-          ("mean" | "proportion"),
-        valueColumn,
-      });
+      for (const analysis of config.analyses) {
+        group.entries.push({ metricId: config.id, analysis });
+        group.queryMetrics.push({
+          analysis,
+          metricType: metric.metricType as FactMetricInterface["metricType"] &
+            ("mean" | "proportion"),
+          valueColumn,
+        });
+      }
     }
 
     const queries: Queries = [];
     for (const group of Object.values(groups)) {
       this.metricGroups[group.factTableId] = {
         factTableId: group.factTableId,
-        metricConfigs: group.metricConfigs,
+        entries: group.entries,
       };
 
       const sql = this.integration.getInterleavingMetricQuery({
         exposureQuery: settings.query,
         userIdType: settings.userIdType,
         trackingKey: settings.trackingKey,
-        variationNames: settings.variationNames,
+        variationKeys: [settings.variations[0].key, settings.variations[1].key],
         startDate: settings.startDate,
         endDate: settings.endDate,
         factTableSql: group.factTableSql,
@@ -208,21 +216,23 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       >[];
       const row = rows[0];
 
-      group.metricConfigs.forEach((config, i) => {
+      group.entries.forEach(({ metricId, analysis }, i) => {
+        const key = interleavingResultKey(metricId, analysis);
         if (!row) {
-          treatmentMetrics[config.id] = {
+          treatmentMetrics[key] = {
             value: 0,
             cr: 0,
             users: 0,
             errorMessage: "NO_ROWS_RETURNED",
           };
-          baselineMetrics[config.id] = { value: 0, cr: 0, users: 0 };
+          baselineMetrics[key] = { value: 0, cr: 0, users: 0 };
           return;
         }
 
         const col = (name: string) => row[`m${i}_${name}`] || 0;
+        const kind = sqlAnalysisKind(analysis);
 
-        switch (config.attributionType) {
+        switch (kind) {
           case "paired": {
             const stats: PairedSufficientStats = {
               users: col("users"),
@@ -240,12 +250,12 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             const test = pairedDeltaTest(stats);
             const crControl = stats.sum_n > 0 ? stats.sum_y / stats.sum_n : 0;
             const crTreatment = stats.sum_n > 0 ? stats.sum_x / stats.sum_n : 0;
-            baselineMetrics[config.id] = {
+            baselineMetrics[key] = {
               value: stats.sum_y,
               cr: crControl,
               users: stats.users,
             };
-            treatmentMetrics[config.id] = {
+            treatmentMetrics[key] = {
               value: stats.sum_x,
               cr: crTreatment,
               users: stats.users,
@@ -257,7 +267,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             };
             return;
           }
-          case "ownershipByExposureCount": {
+          case "ownership": {
             const prefT = col("users_pref_treatment");
             const prefC = col("users_pref_control");
             const usersExposed = row.users_exposed || 0;
@@ -268,12 +278,12 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
               users_pref_control: prefC,
               users_tied: ties,
             });
-            baselineMetrics[config.id] = {
+            baselineMetrics[key] = {
               value: prefC,
               cr: usersExposed > 0 ? prefC / usersExposed : 0,
               users: usersExposed,
             };
-            treatmentMetrics[config.id] = {
+            treatmentMetrics[key] = {
               value: prefT,
               cr: usersExposed > 0 ? prefT / usersExposed : 0,
               users: usersExposed,
@@ -286,10 +296,8 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             return;
           }
           default: {
-            const unknownType: never = config;
-            throw new Error(
-              `Unknown attribution type: ${JSON.stringify(unknownType)}`,
-            );
+            const unknownKind: never = kind;
+            throw new Error(`Unknown analysis kind: ${unknownKind}`);
           }
         }
       });

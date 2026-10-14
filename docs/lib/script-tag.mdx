@@ -5,6 +5,8 @@ sidebarTitle: HTML Script Tag
 toc_max_heading_level: 5
 ---
 
+import ScriptTagEventTracking from "/snippets/partials/sdk-event-tracking/_script-tag.mdx";
+
 We provide an HTML `<script>` tag option for easily integrating GrowthBook into any website.
 
 This option is quick to add. AI Visual Editor experiments run when the page loads and do not require code. Feature flag experiments still require you to evaluate the flag in code (for example with `isOn`). Adding the script does not enroll users in those experiments by itself.
@@ -43,7 +45,8 @@ Besides the Client Key, there are some additional settings you can define with `
 
 - `data-api-host` - Defaults to GrowthBook Cloud's https://cdn.growthbook.io. This must be set to your own domain instead if self-hosting or using the GrowthBook Proxy.
 - `data-decryption-key` - Required if you enabled encryption in your SDK Connection settings in GrowthBook
-- `data-tracking` - Set to `growthbook` to send experiment view events that already fired to GrowthBook's warehouse. This does not enroll users in an experiment.
+- `data-tracking` - Comma-separated list of where to send experiment view events: `growthbook`, `gtag`, `gtm`, or `segment`. Defaults to `gtag,gtm,segment`, and `none` turns tracking off. This reports exposures that already happened; it does not enroll users in an experiment.
+- `data-event-ingestor-host` and `data-event-transport` - Options for [GrowthBook event tracking](#growthbook).
 
 All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js). Here's an example:
 
@@ -125,7 +128,13 @@ document.dispatchEvent(new CustomEvent("growthbookrefresh"));
 
 ## Tracking Experiment Views
 
-When a user is included in an experiment, a tracking event is fired. There is built-in support for Segment.io (`analytics.js`), GA4 (`gtag`), and Google Tag Manager (`dataLayer`).
+When a user is included in an experiment, a tracking event is fired. There is built-in support for GrowthBook, Segment.io (`analytics.js`), GA4 (`gtag`), and Google Tag Manager (`dataLayer`).
+
+### GrowthBook
+
+Send experiment view, feature usage, and custom events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<ScriptTagEventTracking />
 
 ### Segment.io
 

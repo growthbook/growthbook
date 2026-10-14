@@ -1,42 +1,14 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
+import {
+  interleavingMetricConfigValidator,
+  interleavingVariationValidator,
+} from "./interleaving";
 import { queryPointerValidator } from "./queries";
 
-// Per-metric analysis config. "paired" is only allowed when the metric's
-// fact table has both item_id and interleave_id columns; the ownership types
-// only require item_id.
-export const interleavingMetricConfigValidator = z.discriminatedUnion(
-  "attributionType",
-  [
-    z
-      .object({
-        id: z.string(),
-        attributionType: z.literal("paired"),
-      })
-      .strict(),
-    z
-      .object({
-        id: z.string(),
-        attributionType: z.literal("ownershipByExposureCount"),
-      })
-      .strict(),
-    // z
-    //   .object({
-    //     id: z.string(),
-    //     attributionType: z.literal("ownershipByEventCount"),
-    //     // Metric whose event counts determine ownership
-    //     ownershipMetricId: z.string(),
-    //   })
-    //   .strict(),
-  ],
-);
-export type InterleavingMetricConfig = z.infer<
-  typeof interleavingMetricConfigValidator
->;
-export type AttributionType = InterleavingMetricConfig["attributionType"];
-
 /**
- * Frozen, self-contained settings for a single interleaving snapshot run
+ * Frozen, self-contained settings for a single interleaving snapshot run,
+ * copied from the parent Interleaving and its Interleaving Query
  * (contextual-bandit-snapshot pattern: `.strict()` and feature-specific).
  */
 export const interleavingSnapshotSettingsValidator = z
@@ -47,7 +19,12 @@ export const interleavingSnapshotSettingsValidator = z
     interleavingQueryId: z.string(),
     query: z.string(),
     userIdType: z.string(),
-    variationNames: z.tuple([z.string(), z.string()]),
+    // Control first. `key` is matched against the exposure items' `variation`;
+    // `name` is what results display.
+    variations: z.tuple([
+      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
+      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
+    ]),
     metrics: z.array(interleavingMetricConfigValidator),
     startDate: z.date(),
     endDate: z.date().nullable().optional(),

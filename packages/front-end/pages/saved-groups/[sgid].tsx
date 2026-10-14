@@ -1442,7 +1442,7 @@ export default function EditSavedGroupPage() {
                   </Flex>
                   <Flex direction="row" gap="2">
                     <Text weight="medium">IF</Text>
-                    <Box>
+                    <Box flexGrow="1" minWidth="0">
                       <ConditionDisplay
                         condition={displayedSavedGroup?.condition || ""}
                         savedGroups={[]}

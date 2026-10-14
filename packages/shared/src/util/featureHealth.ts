@@ -3,7 +3,11 @@ import {
   ExperimentHealthSettings,
 } from "shared/types/experiment";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { GroupMap } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { createV1SavedGroupsOperatorHandler } from "../sdk-versioning/saved-groups/strategy-references-v1";
+import { conditionHasSavedGroupErrors } from "../sdk-versioning/saved-groups/errors";
+import { forEachSavedGroupIdInCondition } from "../sdk-versioning/saved-groups/referenced-ids";
 import {
   RampScheduleInterface,
   isReadyForApproval,
@@ -18,13 +22,18 @@ import {
   TempRolloutStaleReason,
   validateFeatureValue,
 } from "./features";
-import { getRulesForEnvironment, includeExperimentInPayload } from ".";
+import {
+  getRulesForEnvironment,
+  includeExperimentInPayload,
+  recursiveWalk,
+} from ".";
 
-export type FeatureHealthSeverity = "high" | "medium" | "low";
+export type FeatureHealthSeverity = "critical" | "high" | "medium" | "low";
 
 // Ranked most urgent first (mirrors experiment status precedence): live
 // rollouts in trouble, misconfiguration, blocking decisions, cleanup.
 export const FEATURE_HEALTH_SIGNAL_SEVERITY = {
+  "broken-saved-group": "critical",
   "safe-rollout-rollback-now": "high",
   "safe-rollout-unhealthy": "high",
   "safe-rollout-no-data": "high",
@@ -95,6 +104,54 @@ function isInvalidValue(feature: FeatureInterface, value: string): boolean {
   }
 }
 
+// A saved group targeting cannot resolve: one that no longer exists, a
+// reference cycle, a chain past the depth limit, or an unusable group. The
+// payload serves such a group as empty: a rule targeting it matches nobody,
+// and one excluding it matches everybody. Nothing errors, so it must be loud.
+export function hasBrokenSavedGroupReference(
+  targeting: {
+    condition?: string;
+    savedGroups?: FeatureRule["savedGroups"];
+    prerequisites?: { condition: string }[];
+  },
+  groupMap: GroupMap,
+): boolean {
+  for (const prerequisite of targeting.prerequisites ?? []) {
+    if (
+      hasBrokenSavedGroupReference(
+        { condition: prerequisite.condition },
+        groupMap,
+      )
+    ) {
+      return true;
+    }
+  }
+  for (const entry of targeting.savedGroups ?? []) {
+    for (const id of entry.ids) {
+      if (conditionBreaks({ $savedGroups: [id] }, groupMap)) return true;
+    }
+  }
+  if (!targeting.condition || targeting.condition === "{}") return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(targeting.condition);
+  } catch {
+    return false;
+  }
+  return conditionBreaks(parsed, groupMap);
+}
+
+function conditionBreaks(condition: unknown, groupMap: GroupMap): boolean {
+  let missing = false;
+  forEachSavedGroupIdInCondition(condition, (id) => {
+    if (!groupMap.has(id)) missing = true;
+  });
+  if (missing) return true;
+  const resolved = structuredClone(condition);
+  recursiveWalk(resolved, createV1SavedGroupsOperatorHandler(groupMap));
+  return conditionHasSavedGroupErrors(resolved);
+}
+
 export function computeFeatureHealth({
   feature,
   environments,
@@ -104,6 +161,7 @@ export function computeFeatureHealth({
   safeRollouts,
   healthSettings,
   knownExperimentIds,
+  groupMap,
 }: {
   feature: FeatureInterface;
   environments: string[];
@@ -115,6 +173,9 @@ export function computeFeatureHealth({
   // Every live experiment id referenced by the feature, regardless of the
   // caller's read permissions, so unreadable experiments are not reported as missing.
   knownExperimentIds?: Set<string>;
+  // The saved groups the feature's targeting reaches, without values. When
+  // absent, saved-group references are not checked.
+  groupMap?: GroupMap;
 }): FeatureHealthEntry[] {
   const rules = (feature.rules ?? []).filter(isLiveRule);
   const known = knownExperimentIds ?? new Set(experimentMap.keys());
@@ -214,6 +275,24 @@ export function computeFeatureHealth({
     if (status === "rollback-now") add("safe-rollout-rollback-now");
     else if (status === "unhealthy") add("safe-rollout-unhealthy");
     else if (status === "no-data") add("safe-rollout-no-data");
+  }
+
+  if (groupMap) {
+    const breaks = (
+      targeting: Parameters<typeof hasBrokenSavedGroupReference>[0],
+    ) => hasBrokenSavedGroupReference(targeting, groupMap);
+    if (breaks({ prerequisites: feature.prerequisites })) {
+      add("broken-saved-group");
+    }
+    for (const rule of rules) {
+      // An experiment-ref rule is served with its experiment's latest phase
+      // targeting.
+      const phase =
+        rule.type === "experiment-ref"
+          ? experimentMap.get(rule.experimentId)?.phases?.slice(-1)[0]
+          : undefined;
+      if (breaks(rule) || (phase && breaks(phase))) add("broken-saved-group");
+    }
   }
 
   // Counted per rule (plus the default value), not per variation.

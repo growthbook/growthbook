@@ -1,4 +1,5 @@
 import {
+  InterleavingInterface,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
@@ -10,15 +11,6 @@ import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRun
 
 type Context = ReqContext | ApiReqContext;
 
-/**
- * Snapshot settings minus the fields frozen from the Interleaving Query.
- * `userIdType` is the caller's pick among the query's declared identifiers.
- */
-export type InterleavingSnapshotRunSettings = Omit<
-  InterleavingSnapshotSettings,
-  "datasourceId" | "query"
->;
-
 async function getIntegration(context: Context, datasourceId: string) {
   const ds = await getDataSourceById(context, datasourceId);
   if (!ds) {
@@ -28,43 +20,76 @@ async function getIntegration(context: Context, datasourceId: string) {
 }
 
 /**
- * Freeze settings from the experiment config and its Interleaving Query,
- * create a snapshot, and kick off its metric queries. Returns the new
- * snapshot; the runner completes asynchronously.
+ * Freeze the analysis inputs from an Interleaving and its Interleaving Query.
  */
-export async function runInterleavingSnapshot(
+async function getInterleavingSnapshotSettings(
   context: Context,
-  runSettings: InterleavingSnapshotRunSettings,
-): Promise<InterleavingSnapshotInterface> {
-  if (!context.hasPremiumFeature("interleaving")) {
-    context.throwPlanDoesNotAllowError(
-      "Interleaving experiments require an Enterprise plan.",
-    );
-  }
-  if (runSettings.metrics.length === 0) {
+  interleaving: InterleavingInterface,
+): Promise<InterleavingSnapshotSettings> {
+  if (interleaving.metrics.length === 0) {
     throw new Error(
       "Add at least one metric to this interleaving experiment before updating results",
     );
   }
 
   const interleavingQuery = await context.models.interleavingQueries.getById(
-    runSettings.interleavingQueryId,
+    interleaving.interleavingQueryId,
   );
   if (!interleavingQuery) {
     context.throwNotFoundError(
-      `Interleaving query not found: ${runSettings.interleavingQueryId}`,
+      `Interleaving query not found: ${interleaving.interleavingQueryId}`,
     );
   }
-  if (!interleavingQuery.userIdTypes.includes(runSettings.userIdType)) {
+  if (interleavingQuery.datasourceId !== interleaving.datasource) {
     throw new Error(
-      `Interleaving query "${interleavingQuery.name}" doesn't declare the "${runSettings.userIdType}" identifier type`,
+      `Interleaving query "${interleavingQuery.name}" belongs to a different Data Source than this interleaving experiment`,
     );
   }
-  const settings: InterleavingSnapshotSettings = {
-    ...runSettings,
-    datasourceId: interleavingQuery.datasourceId,
+  if (!interleavingQuery.userIdTypes.includes(interleaving.userIdType)) {
+    throw new Error(
+      `Interleaving query "${interleavingQuery.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
+    );
+  }
+
+  const [a, b] = interleaving.variations;
+  return {
+    interleavingId: interleaving.id,
+    trackingKey: interleaving.trackingKey,
+    datasourceId: interleaving.datasource,
+    interleavingQueryId: interleavingQuery.id,
     query: interleavingQuery.query,
+    userIdType: interleaving.userIdType,
+    variations: [
+      { id: a.id, key: a.key, name: a.name },
+      { id: b.id, key: b.key, name: b.name },
+    ],
+    metrics: interleaving.metrics,
+    // A draft has no dateStarted; analyze from when it was configured
+    startDate: interleaving.dateStarted ?? interleaving.dateCreated,
+    endDate: interleaving.dateStopped ?? null,
   };
+}
+
+/**
+ * Create a snapshot for an interleaving experiment and kick off its metric
+ * queries. Returns the new snapshot; the runner completes asynchronously.
+ */
+export async function runInterleavingSnapshot(
+  context: Context,
+  interleavingId: string,
+): Promise<InterleavingSnapshotInterface> {
+  if (!context.hasPremiumFeature("interleaving")) {
+    context.throwPlanDoesNotAllowError(
+      "Interleaving experiments require an Enterprise plan.",
+    );
+  }
+
+  const interleaving =
+    await context.models.interleavings.getById(interleavingId);
+  if (!interleaving) {
+    context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
+  }
+  const settings = await getInterleavingSnapshotSettings(context, interleaving);
 
   const integration = await getIntegration(context, settings.datasourceId);
   if (!context.permissions.canRunExperimentQueries(integration.datasource)) {

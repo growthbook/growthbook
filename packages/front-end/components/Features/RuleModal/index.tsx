@@ -62,7 +62,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useAuth } from "@/services/auth";
 import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -596,26 +596,22 @@ export default function RuleModal({
   // a holdout added in that same draft is picked up. Falls back to the merged
   // feature's holdout when the target revision isn't in context (e.g. a new
   // draft branched from the viewed version carries that holdout forward).
-  const revisionsCtx = useFeatureRevisionsContext();
   // The draft the rule is written into (it may differ from the viewed one) and
   // the revision that draft was created from. Only an active draft counts: a
   // discarded or published revision's envelope is not what the save lands in.
+  const targetRevisions = useFeatureRevisions(feature.id, [
+    targetVersion,
+    revisionList.find((r) => r.version === targetVersion)?.baseVersion,
+  ]);
   const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
     !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
-  const targetDraft = [
-    revisionsCtx?.revisions.find((r) => r.version === targetVersion),
-    draftRevision,
-  ].find(isActiveDraft);
-  const targetDraftBase = revisionsCtx?.revisions.find(
-    (r) => r.version === targetDraft?.baseVersion,
-  );
+  const targetRevision = targetRevisions.get(targetVersion);
+  const targetDraft = [targetRevision, draftRevision].find(isActiveDraft);
+  const targetDraftBase = targetRevisions.get(targetDraft?.baseVersion);
   const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
-  const targetHoldoutId = useMemo(() => {
-    const targetRev = revisionsCtx?.revisions.find(
-      (r) => r.version === targetVersion,
-    );
-    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
-  }, [revisionsCtx, targetVersion, feature.holdout]);
+  const targetHoldoutId = (
+    targetRevision ? targetRevision.holdout : feature.holdout
+  )?.id;
 
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -2488,7 +2484,10 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit && conflictResolved && !rampImpactBlocksSubmit
+              : canSubmit &&
+                conflictResolved &&
+                !rampImpactBlocksSubmit &&
+                !targetRevisions.loading
         }
         disabledMessage={
           hasRampPage && step === 0

@@ -1,4 +1,5 @@
 import { DashboardInterface } from "shared/enterprise";
+import type { PopulationInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -33,6 +34,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
@@ -315,6 +317,29 @@ export class Permissions {
     segment: Pick<SegmentInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(segment, "createSegments");
+  };
+
+  public canCreatePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
+  };
+
+  public canUpdatePopulation = (
+    existing: Pick<PopulationInterface, "projects">,
+    updates: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "managePopulations",
+    );
+  };
+
+  public canDeletePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
   };
 
   public canCreateVisualChange = (
@@ -601,21 +626,45 @@ export class Permissions {
     );
   };
 
-  public canViewInterleavingModal = (
-    project?: string,
-    allProjects?: { id: string }[],
+  public canCreateInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
   ): boolean => {
-    if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "createAnalyses",
-        ),
-      );
-    }
     return this.checkProjectFilterPermission(
-      { projects: project ? [project] : [] },
+      { projects: interleaving.project ? [interleaving.project] : [] },
       "createAnalyses",
+    );
+  };
+
+  public canUpdateInterleaving = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  // Starting/stopping changes what the generated pseudo flag serves, so it
+  // needs the same environment-scoped permission as running an experiment.
+  public canRunInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      environments,
+      "runExperiments",
     );
   };
 

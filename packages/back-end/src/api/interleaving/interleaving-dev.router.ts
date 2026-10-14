@@ -1,22 +1,42 @@
 // TEMPORARY dev-only routes for exercising interleaving analysis end to end
-// (see src/scripts/seed-interleaving-demo.ts). There is no Interleaving
-// experiment model yet, so `:id` is a free-form interleaving id that snapshots
-// are keyed by. Remove this file and its line in api.router.ts before landing.
+// (see src/scripts/seed-interleaving-demo.ts). The Interleaving model has no
+// REST API yet, so this exposes create + run + latest snapshot. Remove this
+// file and its line in api.router.ts before landing.
 import { z } from "zod";
-import { interleavingSnapshotSettingsValidator } from "shared/validators";
+import { interleavingValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { runInterleavingSnapshot } from "back-end/src/enterprise/services/interleavingAnalysis";
 
 const paramsSchema = z.object({ id: z.string() }).strict();
 
+const postInterleaving = createApiRequestHandler({
+  paramsSchema: z.never(),
+  bodySchema: interleavingValidator
+    .omit({
+      id: true,
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+      dateStarted: true,
+      dateStopped: true,
+    })
+    .extend({
+      dateStarted: z.coerce.date().optional(),
+      dateStopped: z.coerce.date().optional(),
+    }),
+  querySchema: z.never(),
+  responseSchema: z.object({ interleaving: z.unknown() }),
+  method: "post" as const,
+  path: "/interleaving",
+  operationId: "devPostInterleaving",
+  excludeFromSpec: true,
+})(async (req) => ({
+  interleaving: await req.context.models.interleavings.create(req.body),
+}));
+
 const postInterleavingUpdate = createApiRequestHandler({
   paramsSchema,
-  bodySchema: interleavingSnapshotSettingsValidator
-    .omit({ interleavingId: true, datasourceId: true, query: true })
-    .extend({
-      startDate: z.coerce.date(),
-      endDate: z.coerce.date().nullable().optional(),
-    }),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: z.object({ snapshot: z.unknown() }),
   method: "post" as const,
@@ -24,10 +44,7 @@ const postInterleavingUpdate = createApiRequestHandler({
   operationId: "devPostInterleavingUpdate",
   excludeFromSpec: true,
 })(async (req) => ({
-  snapshot: await runInterleavingSnapshot(req.context, {
-    ...req.body,
-    interleavingId: req.params.id,
-  }),
+  snapshot: await runInterleavingSnapshot(req.context, req.params.id),
 }));
 
 const getInterleavingSnapshot = createApiRequestHandler({
@@ -53,6 +70,7 @@ const getInterleavingSnapshot = createApiRequestHandler({
 });
 
 export const interleavingDevRoutes = [
+  postInterleaving,
   postInterleavingUpdate,
   getInterleavingSnapshot,
 ];

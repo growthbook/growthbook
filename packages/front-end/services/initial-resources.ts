@@ -6,7 +6,11 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+  SchemaFormat,
+} from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -22,7 +26,9 @@ import {
   getDefaultFactMetricProps,
 } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
+import { eventSchemas } from "@/services/eventSchema";
 import {
+  getInitialSettings,
   getTablePrefix,
   LANGFUSE_TABLES,
   langfuseProjectClause,
@@ -1147,6 +1153,102 @@ export function getInitialDatasourceResources({
 
   return {
     factTables: [],
+  };
+}
+
+// Merges a tracker's settings into an existing Data Source's instead of
+// replacing them. Query ids are prefixed so they don't collide, and queries
+// already there (e.g. Firebase's on a GA4 Data Source) are skipped.
+export function getDatasourceTemplateSettings({
+  datasource,
+  template,
+  schemaOptions,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: SchemaFormat;
+  schemaOptions: Record<string, string>;
+}): DataSourceSettings {
+  const initial = getInitialSettings(
+    template,
+    datasource.params,
+    schemaOptions,
+  );
+  const settings = datasource.settings;
+  const existingTypes = new Set(
+    (settings.userIdTypes || []).map((t) => t.userIdType),
+  );
+  const existingExposure = settings.queries?.exposure || [];
+  const existingJoins = settings.queries?.identityJoins || [];
+  const label =
+    eventSchemas.find((s) => s.value === template)?.label ?? template;
+
+  const exposure = initial.queries.exposure
+    .map((q) => ({
+      ...q,
+      id: `${template}_${q.id}`,
+      name: `${label}: ${q.name}`,
+    }))
+    .filter(
+      (q) =>
+        !existingExposure.some((e) => e.id === q.id || e.query === q.query),
+    );
+  const identityJoins = initial.queries.identityJoins.filter(
+    (join) =>
+      !existingJoins.some(
+        (e) =>
+          e.ids.length === join.ids.length &&
+          join.ids.every((id) => e.ids.includes(id)),
+      ),
+  );
+
+  return {
+    ...settings,
+    userIdTypes: [
+      ...(settings.userIdTypes || []),
+      ...initial.userIdTypes.filter((t) => !existingTypes.has(t.userIdType)),
+    ],
+    queries: {
+      ...settings.queries,
+      exposure: [...existingExposure, ...exposure],
+      identityJoins: [...existingJoins, ...identityJoins],
+    },
+  };
+}
+
+// Skips fact tables the Data Source already has, so re-running adds nothing.
+export function getDatasourceTemplateResources({
+  datasource,
+  template,
+  schemaOptions,
+  existingFactTables,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: SchemaFormat;
+  schemaOptions: Record<string, string>;
+  existingFactTables: Pick<
+    FactTableInterface,
+    "name" | "datasource" | "archived"
+  >[];
+}): InitialDatasourceResources {
+  const existingNames = new Set(
+    existingFactTables
+      .filter((f) => f.datasource === datasource.id && !f.archived)
+      .map((f) => f.name),
+  );
+  const resources = getInitialDatasourceResources({
+    datasource: {
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        schemaFormat: template,
+        schemaOptions,
+      },
+    },
+  });
+  return {
+    factTables: resources.factTables.filter(
+      (f) => !existingNames.has(f.factTable.name),
+    ),
   };
 }
 

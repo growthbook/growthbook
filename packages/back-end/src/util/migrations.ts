@@ -554,10 +554,13 @@ export function upgradeV0Feature(
   return newFeature;
 }
 
+// Runs on every organization read, and `doc` lists every user, so this copies
+// only the parts it may write to and shares the rest with `doc`. Copy a nested
+// value here before writing to it. Callers edit the result: never reuse `doc`.
 export function upgradeOrganizationDoc(
   doc: OrganizationInterface,
 ): OrganizationInterface {
-  const org = cloneDeep(doc);
+  const org: OrganizationInterface = { ...doc };
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   // Add settings from config.json
@@ -647,11 +650,11 @@ export function upgradeOrganizationDoc(
     designer: "collaborator",
     developer: "experimenter",
   };
-  org.members.forEach((m) => {
-    if (m.role in legacyRoleMap) {
-      m.role = legacyRoleMap[m.role];
-    }
-  });
+  if (org.members.some((m) => m.role in legacyRoleMap)) {
+    org.members = org.members.map((m) =>
+      m.role in legacyRoleMap ? { ...m, role: legacyRoleMap[m.role] } : m,
+    );
+  }
 
   // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
   // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
@@ -682,7 +685,14 @@ export function upgradeOrganizationDoc(
     delete org.settings.postStratificationDisabled;
   }
 
-  healPriorSettings(org.settings?.metricDefaults?.priorSettings);
+  // Copy first: healPriorSettings edits its argument in place
+  if (org.settings.metricDefaults?.priorSettings) {
+    org.settings.metricDefaults = {
+      ...org.settings.metricDefaults,
+      priorSettings: { ...org.settings.metricDefaults.priorSettings },
+    };
+    healPriorSettings(org.settings.metricDefaults.priorSettings);
+  }
 
   return org;
 }
