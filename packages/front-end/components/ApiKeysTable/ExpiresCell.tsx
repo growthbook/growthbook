@@ -9,6 +9,7 @@ import {
 import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
 /**
@@ -52,22 +53,14 @@ const ExpiryText: FC<{ expiresAt: ExpiresAt }> = ({ expiresAt }) => {
       </Tooltip>
     );
   }
-  if (status === "expiring-soon") {
-    return (
-      <Tooltip content={datetime(expiresAt as string | Date)}>
-        <span>
-          <Badge
-            color="amber"
-            variant="soft"
-            label={`Expires ${ago(expiresAt as string | Date)}`}
-          />
-        </span>
-      </Tooltip>
-    );
-  }
+  const relative = ago(expiresAt as string | Date);
   return (
     <Tooltip content={datetime(expiresAt as string | Date)}>
-      <span>{ago(expiresAt as string | Date)}</span>
+      {status === "expiring-soon" ? (
+        <HelperText status="warning">{relative}</HelperText>
+      ) : (
+        <span>{relative}</span>
+      )}
     </Tooltip>
   );
 };

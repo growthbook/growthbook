@@ -49,6 +49,7 @@ const EditProjectsForm: FC<{
         customClassName="label-overflow-ellipsis"
         helpText={`Assign this ${entityName} to specific projects`}
       />
+      <div style={{ height: 200 }} />
     </ModalStandard>
   );
 };

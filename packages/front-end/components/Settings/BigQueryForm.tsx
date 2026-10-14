@@ -32,6 +32,8 @@ export function BigQueryAdvancedSettings({
   );
 }
 
+export type BigQueryTestStatus = "success" | "warning" | "danger";
+
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
@@ -39,6 +41,8 @@ const BigQueryForm: FC<{
   projects?: string[];
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  /** Reports the in-form connection test. `null` means untested or credentials changed since. */
+  onTestResult?: (status: BigQueryTestStatus | null) => void;
 }> = ({
   params,
   setParams,
@@ -46,6 +50,7 @@ const BigQueryForm: FC<{
   datasourceId,
   projects,
   onParamChange,
+  onTestResult,
 }) => {
   const cloud = isCloud();
   const authType = cloud ? "json" : (params.authType ?? "json");
@@ -54,10 +59,14 @@ const BigQueryForm: FC<{
     authType,
   );
   const [testConnectionResults, setTestConnectionResults] = useState<{
-    status: "success" | "danger" | "warning";
+    status: BigQueryTestStatus;
     message: string;
     datasetOptions: string[];
   } | null>(null);
+
+  useEffect(() => {
+    onTestResult?.(testConnectionResults?.status ?? null);
+  }, [testConnectionResults, onTestResult]);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   // Without a saved Data Source, testing requires permission to create one in these projects.

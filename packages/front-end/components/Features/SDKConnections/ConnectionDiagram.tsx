@@ -231,7 +231,7 @@ export default function ConnectionDiagram({
                   host={connection.proxy.host}
                   id={connection.id}
                   mutate={mutate}
-                  showButton={true}
+                  showButton={canUpdate}
                 />
               }
             />

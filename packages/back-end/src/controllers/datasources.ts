@@ -80,7 +80,6 @@ import {
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  getQueriesByDatasource,
   getQueriesByIds,
   getQueryById,
   updateQueryIfRunning,
@@ -522,9 +521,8 @@ export async function putDataSource(
     }
   }
 
-  // If changing projects, make sure the user has access to the new projects as well.
-  // An empty list is "All Projects" and must still be checked and saved.
-  if (Array.isArray(projects)) {
+  // If changing projects, make sure the user has access to the new projects as well
+  if (projects) {
     if (!context.permissions.canUpdateDataSourceSettings({ projects })) {
       context.permissions.throwPermissionError();
     }
@@ -572,7 +570,7 @@ export async function putDataSource(
       updates.settings = settings;
     }
 
-    if (Array.isArray(projects)) {
+    if (projects) {
       updates.projects = projects;
     }
 
@@ -1613,31 +1611,6 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
-  });
-}
-
-export async function getDataSourceQueries(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const datasourceObj = await getDataSourceById(context, id);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
-  );
-
-  const queries = await getQueriesByDatasource(context.org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    queries,
   });
 }
 

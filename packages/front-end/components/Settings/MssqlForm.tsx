@@ -16,17 +16,15 @@ const MssqlForm: FC<{
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
+      <HostWarning
+        host={params.server ?? ""}
+        setHost={(host) => {
+          setParams({
+            server: host,
+          });
+        }}
+      />
       <div className="row">
-        <div className="col-md-12">
-          <HostWarning
-            host={params.server ?? ""}
-            setHost={(host) => {
-              setParams({
-                server: host,
-              });
-            }}
-          />
-        </div>
         <div className="form-group col-md-12">
           <label>Server</label>
           <input

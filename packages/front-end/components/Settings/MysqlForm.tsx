@@ -12,17 +12,15 @@ const MysqlForm: FC<{
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
+      <HostWarning
+        host={params.host}
+        setHost={(host) => {
+          setParams({
+            host,
+          });
+        }}
+      />
       <div className="row">
-        <div className="col-md-12">
-          <HostWarning
-            host={params.host}
-            setHost={(host) => {
-              setParams({
-                host,
-              });
-            }}
-          />
-        </div>
         <div className="form-group col-md-12">
           <label>Host</label>
           <input
