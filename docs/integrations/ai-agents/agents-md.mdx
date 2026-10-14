@@ -51,7 +51,15 @@ Write `description` in Markdown with:
 - `POST /api/v2/features/{id}` publishes immediately. For changes that need review, open a draft with `POST /api/v2/features/{id}/revisions` and request review on it.
 - Experiments are created as drafts. Don't start or stop them.
 - Don't enable production environments, publish drafts, or archive anything unless a person asked you to.
+
+### When you're blocked
+- If GrowthBook blocks a request (approval required, a warning, a Custom Hook, schema validation, a permission error, or a duplicate key), stop and tell a person what blocked you and why.
+- Don't retry with override fields (`ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassDuplicateKeyCheck`, `skipChecklist`, `overrideDraftLimit`, `force`), a different key, a different API key, or another workaround unless a person explicitly asked you to.
 ```
+
+## Give agents a key that can't bypass review
+
+Instructions help, but permissions are what actually stop a change. GrowthBook skips an approval requirement automatically when the caller has **Bypass draft approvals** access, without any flag in the request. Give agents a Personal Access Token or Secret Key whose role doesn't include that access, so a change that needs review always waits for a person.
 
 ## Keep agents on your key format
 
