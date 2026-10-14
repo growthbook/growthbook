@@ -33,6 +33,7 @@ import {
 import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
 import {
   confirmationLink,
+  gateNotices,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -155,7 +156,7 @@ export async function publishFeatureRevision(
   // the org REST setting), so `canForceMergeStaleBase` is the permission — matching
   // the sequential backstop below. Approval, however, is also bypassed by the REST
   // setting (`canUseRestApiBypass`).
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     // On the interactive path also honor the query alias (`?ignoreWarnings=true`)
     // via context.ignoreWarnings, matching the other entities. NOT on the armed
     // path: a background context has ignoreWarnings always-true, and its
@@ -260,6 +261,7 @@ export async function publishFeatureRevision(
       ],
       environments: envsToCheck,
       bypassing: bypassed,
+      notices: gateNotices(skipped),
       project: feature.project,
       summary: `Publish revision ${revision.version} of ${feature.id}`,
       links: [confirmationLink("feature", feature.id)],

@@ -107,6 +107,7 @@ import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ConfirmationModel } from "back-end/src/models/ConfirmationModel";
+import { ConfirmationAttemptModel } from "back-end/src/models/ConfirmationAttemptModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { QueryLogModel } from "back-end/src/models/QueryLogModel";
@@ -168,6 +169,7 @@ export type ModelName =
   | "slackTaskClaims"
   | "apiKeys"
   | "confirmations"
+  | "confirmationAttempts"
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
@@ -232,6 +234,7 @@ export const modelClasses = {
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   confirmations: ConfirmationModel,
+  confirmationAttempts: ConfirmationAttemptModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
@@ -420,6 +423,7 @@ export class ReqContextClass {
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       confirmations: new ConfirmationModel(this),
+      confirmationAttempts: new ConfirmationAttemptModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),

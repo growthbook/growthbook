@@ -14,15 +14,25 @@ import {
   HttpVerb,
   RequestSchemas,
 } from "shared/api-spec";
+import type { ConfirmationNotice } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { PublishBlockedError } from "back-end/src/revisions/publishGates";
-import { holdAtRoute } from "back-end/src/services/confirmations";
+import {
+  hookErrorText,
+  PublishBlockedError,
+} from "back-end/src/revisions/publishGates";
+import {
+  gateNotices,
+  holdAtRoute,
+  recordRefusal,
+} from "back-end/src/services/confirmations";
+import { logger } from "back-end/src/util/logger";
 import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
   ConfirmationRequiredError,
+  CustomHookError,
   MergeConflictError,
   SoftWarningError,
 } from "./errors";
@@ -193,6 +203,8 @@ export async function runApiHandler(
   status: number;
   body: unknown;
   headers?: Record<string, string>;
+  // What a handler's refusal said, for a held retry that skips past it.
+  refusal?: ConfirmationNotice[];
 }> {
   const allErrors: string[] = [];
   if (schemas.params && !(schemas.params instanceof ZodNever)) {
@@ -267,8 +279,32 @@ export async function runApiHandler(
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
-    return { status: e.status || 400, body };
+    const status = e.status || 400;
+    return {
+      status,
+      body,
+      ...(status < 500 && { refusal: refusalNotices(e) }),
+    };
   }
+}
+
+function refusalNotices(e: Error): ConfirmationNotice[] {
+  if (e instanceof PublishBlockedError) return gateNotices(e.gates);
+  if (e instanceof SoftWarningError) {
+    return [
+      { severity: "warning", messages: [e.message, ...e.warnings], via: null },
+    ];
+  }
+  if (e instanceof CustomHookError) {
+    return [
+      {
+        severity: "error",
+        messages: [e.message, ...e.details.hooks.map(hookErrorText)],
+        via: null,
+      },
+    ];
+  }
+  return [{ severity: "error", messages: [e.message], via: null }];
 }
 
 export type OpenApiRoute<
@@ -392,7 +428,7 @@ export function createApiRequestHandler<
       ResponseSchema
     > = async (req, res, next) => {
       try {
-        const { status, body, headers } = await runApiHandler(
+        const { status, body, headers, refusal } = await runApiHandler(
           req,
           {
             params: paramsSchema,
@@ -401,6 +437,15 @@ export function createApiRequestHandler<
           },
           handler,
         );
+        if (refusal) {
+          const { context } = req as unknown as ApiRequestLocals;
+          await recordRefusal(context, req, refusal).catch((e) =>
+            logger.error(
+              e,
+              "Failed to keep a refused request for confirmation",
+            ),
+          );
+        }
         if (headers) res.set(headers);
         return res
           .status(status)

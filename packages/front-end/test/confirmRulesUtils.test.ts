@@ -1,7 +1,6 @@
 import {
   actionsOf,
   CATEGORIES,
-  describeActions,
   mergeConfirmRules,
   toggleAction,
 } from "@/components/Settings/confirmRulesUtils";
@@ -42,20 +41,6 @@ describe("toggleAction", () => {
     expect(
       toggleAction(toggleAction(["*"], "feature.delete"), "feature.delete"),
     ).toEqual(["*"]);
-  });
-});
-
-describe("describeActions", () => {
-  it("groups actions by category with their environments", () => {
-    expect(
-      describeActions([
-        { action: "feature.publish", environments: ["production"] },
-        { action: "override.skipHooks", environments: [] },
-        { action: "feature.archive", environments: ["production"] },
-      ]),
-    ).toBe(
-      "Feature Flags (publish, archive) in production; Overrides (skip hooks)",
-    );
   });
 });
 

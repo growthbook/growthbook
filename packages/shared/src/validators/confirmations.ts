@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { eventUserRequestedBy } from "./event-user";
+import { bypassViaValues } from "./shared";
 
 // `model.action`, model-first like webhook events. `override.*` labels are the
 // checks a request skips, whatever it changes.
@@ -123,6 +124,17 @@ export const confirmationLinkValidator = z.strictObject({
 });
 export type ConfirmationLink = z.infer<typeof confirmationLinkValidator>;
 
+// Server text worth weighing before deciding: a check the request skips, in
+// its own words, or what the agent's last try at the same request returned.
+export const confirmationNoticeValidator = z.strictObject({
+  severity: z.enum(["error", "warning"]),
+  messages: z.array(z.string()).min(1),
+  // How the request gets past it: a flag it sent, or a policy its caller's
+  // authority bypasses. Null for text from a refused attempt.
+  via: z.enum(bypassViaValues).nullable(),
+});
+export type ConfirmationNotice = z.infer<typeof confirmationNoticeValidator>;
+
 export const confirmationValidator = baseSchema.safeExtend({
   // Who confirms: the token's owner, or the member an org key assumes. Null
   // when the key acts as itself: any member allowed to do the action decides.
@@ -140,6 +152,10 @@ export const confirmationValidator = baseSchema.safeExtend({
   actions: z.array(confirmActionValidator),
   summary: z.string(),
   links: z.array(confirmationLinkValidator),
+  notices: z.array(confirmationNoticeValidator),
+  // Set when the notices come from the agent's last refused attempt rather
+  // than checks run for this request.
+  lastAttemptAt: z.date().nullable(),
   fingerprint: z.string(),
   status: z.enum(confirmationStatuses),
   response: confirmationResponseValidator,
@@ -151,6 +167,18 @@ export const confirmationValidator = baseSchema.safeExtend({
   deleteAt: z.date(),
 });
 export type ConfirmationInterface = z.infer<typeof confirmationValidator>;
+
+// A write refused for a key with confirmation on, kept briefly so a retry that
+// skips the failed checks can show what they said.
+export const confirmationAttemptValidator = baseSchema.safeExtend({
+  apiKeyId: z.string(),
+  requestHash: z.string(),
+  notices: z.array(confirmationNoticeValidator),
+  deleteAt: z.date(),
+});
+export type ConfirmationAttemptInterface = z.infer<
+  typeof confirmationAttemptValidator
+>;
 
 export const apiConfirmationValidator = z.strictObject({
   id: z.string(),

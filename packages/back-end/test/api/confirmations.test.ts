@@ -104,6 +104,18 @@ function asKey(
   return context;
 }
 
+const reviews = {
+  requireReviews: [
+    {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: [],
+    },
+  ],
+};
+const everything = { confirmRules: [{ actions: ["*"] }] };
+
 function asUser(id: string) {
   const context = new ReqContextClass({
     org,
@@ -385,17 +397,6 @@ describe("confirmations", () => {
 
   it("asks about a direct update only once its checks pass", async () => {
     await seed("production");
-    const reviews = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    const everything = { confirmRules: [{ actions: ["*"] }] };
     const archive = () =>
       auth(request(app).post(`/api/v2/features/${FLAG}`)).send({
         archived: true,
@@ -435,6 +436,56 @@ describe("confirmations", () => {
       { action: "override.draftLimit", environments: [] },
     ]);
     expect((await createDraft("")).status).toBe(200);
+  });
+
+  it("shows the checks a publish skips, in their own words", async () => {
+    await seed("production");
+    setReqContext(asKey({ ...pat, ...everything }, reviews));
+    const held = await publish();
+    expect(held.status).toBe(202);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [
+        {
+          severity: "error",
+          messages: expect.arrayContaining([expect.stringMatching(/approv/i)]),
+          via: "bypassApprovalPermission",
+        },
+      ],
+      lastAttemptAt: null,
+    });
+  });
+
+  it("shows what refused the agent's last try when the retry skips it", async () => {
+    await seed("production");
+    setReqContext(
+      asKey(
+        { ...pat, confirmRules: [{ actions: ["override.*"] }] },
+        { maxConcurrentDrafts: 1 },
+      ),
+    );
+    const createDraft = (query: string) =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions${query}`),
+      ).send({});
+
+    const refused = await createDraft("");
+    expect(refused.status).toBe(409);
+    const held = await createDraft("?overrideDraftLimit=true");
+    expect(held.status).toBe(202);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [
+        { severity: "error", messages: [refused.body.message], via: null },
+      ],
+      lastAttemptAt: expect.any(Date),
+    });
   });
 
   it("lets only the member an org key assumes confirm, and replays as them", async () => {

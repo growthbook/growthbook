@@ -1,10 +1,12 @@
 import { createHash } from "crypto";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import type {
   ExperimentInterface,
   ExperimentPhase,
   ApiConfirmation,
   ConfirmationInterface,
+  ConfirmationNotice,
   ConfirmLabel,
   ConfirmRule,
   ConfirmationLink,
@@ -17,6 +19,8 @@ import type { ReqContext } from "back-end/types/request";
 import type {
   BypassedGate,
   BypassVia,
+  PublishGate,
+  SkippedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   BadRequestError,
@@ -38,6 +42,8 @@ const OVERRIDE_LABELS: Record<BypassVia, ConfirmLabel | null> = {
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const asRecord = (v: unknown) =>
+  (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
 
 // Every key answers only to its own rules, so scripts and CI keep working.
 // App sessions are never held.
@@ -99,6 +105,70 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   };
 }
 
+type HeldRequest = {
+  method: string;
+  path: string;
+  query: Record<string, unknown>;
+  body: unknown;
+};
+
+// The request as it is stored and replayed.
+function heldRequest(req: {
+  method: string;
+  originalUrl: string;
+  query?: unknown;
+  body?: unknown;
+}): HeldRequest {
+  return JSON.parse(
+    JSON.stringify({
+      method: req.method,
+      path: req.originalUrl.split("?")[0],
+      query: req.query ?? {},
+      body: req.body ?? {},
+    }),
+  );
+}
+
+// The same request without its skip flags, so a retry that adds them finds the
+// refusal it is skipping past.
+function attemptHash(request: HeldRequest) {
+  const flags = Object.keys(CONFIRM_OVERRIDE_FLAGS);
+  return hash([
+    request.method,
+    request.path,
+    omit(asRecord(request.query), flags),
+    omit(asRecord(request.body), flags),
+  ]);
+}
+
+// Checks in their own words: ones a request skips, or ones that refused it.
+export const gateNotices = (
+  gates: (PublishGate | SkippedGate)[],
+): ConfirmationNotice[] =>
+  gates
+    .filter((gate) => gate.messages.length)
+    .map((gate) => ({
+      severity: gate.severity === "blocker" ? "error" : "warning",
+      messages: gate.messages,
+      via: "via" in gate ? gate.via : null,
+    }));
+
+// Keeps what a refused write said, for keys that may retry it past the checks.
+export async function recordRefusal(
+  context: ReqContext,
+  req: { method: string; originalUrl: string; query?: unknown; body?: unknown },
+  notices: ConfirmationNotice[],
+) {
+  if (!context.isApiRequest || !context.apiKey) return;
+  if (!context.apiKeyData?.confirmRules || req.method === "GET") return;
+  await context.models.confirmationAttempts.record(
+    context.apiKey,
+    attemptHash(heldRequest(req)),
+    notices,
+    new Date(Date.now() + TTL_MS),
+  );
+}
+
 // Call after a handler's checks and before its first write. Holds the request
 // (202) when a rule matches; lets a confirmed replay through unchanged.
 export async function requireConfirmation(
@@ -113,6 +183,8 @@ export async function requireConfirmation(
     links: ConfirmationLink[];
     // Anything that must not change between hold and run, e.g. a revision's dateUpdated.
     pin: unknown;
+    // What the checks this request skips said.
+    notices?: ConfirmationNotice[];
   },
 ): Promise<void> {
   const environments = opts.environments ?? [];
@@ -146,14 +218,7 @@ export async function requireConfirmation(
       "This action needs a person's confirmation, which only a direct API request can ask for.",
     );
   }
-  const request = JSON.parse(
-    JSON.stringify({
-      method: req.method,
-      path: req.originalUrl.split("?")[0],
-      query: req.query ?? {},
-      body: req.body ?? {},
-    }),
-  );
+  const request = heldRequest(req);
   // An org key naming a member holds per member, and replays as the same request.
   const auditUser = context.auditUser;
   const requestedBy =
@@ -165,6 +230,16 @@ export async function requireConfirmation(
     requestedBy?.id,
     assumedRole,
   ]);
+  // Without fresh check text, a retry that skips checks shows what they said
+  // when the same request was refused.
+  const skipping = actions.some(({ action }) => action.startsWith("override."));
+  const lastAttempt =
+    !opts.notices?.length && skipping
+      ? await context.models.confirmationAttempts.findLatest(
+          context.apiKey,
+          attemptHash(request),
+        )
+      : null;
   const now = Date.now();
   const confirmation =
     (await confirmations.findPending(context.apiKey, requestHash)) ??
@@ -179,6 +254,8 @@ export async function requireConfirmation(
       actions,
       summary: opts.summary,
       links: opts.links,
+      notices: lastAttempt?.notices ?? opts.notices ?? [],
+      lastAttemptAt: lastAttempt?.dateUpdated ?? null,
       fingerprint,
       status: "pending",
       response: null,
@@ -202,8 +279,6 @@ export async function requireConfirmation(
   );
 }
 
-const asRecord = (v: unknown) =>
-  (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
 // At least as loose as any handler reads a flag, so every skip it honors is held.
 const asks = (v: unknown) =>
   v === true || (typeof v === "string" && stringToBoolean(v));

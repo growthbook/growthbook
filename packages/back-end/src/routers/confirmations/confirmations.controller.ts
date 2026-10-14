@@ -51,6 +51,8 @@ export const getConfirmation = async (
     status: 200,
     confirmation: toApiConfirmation(c),
     links: c.links,
+    notices: c.notices,
+    lastAttemptAt: c.lastAttemptAt,
     request: { method: c.method, path: c.path, query: c.query, body: c.body },
     requester: {
       personal: !!c.userId && !c.assumedRole,

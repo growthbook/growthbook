@@ -17,6 +17,7 @@ import {
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import {
   confirmationLink,
+  gateNotices,
   REVISION_PUBLISH_LABEL,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -209,6 +210,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
       ),
     ],
     bypassing: plan.items.flatMap((item) => item.bypassedGates),
+    notices: gateNotices(plan.items.flatMap((item) => item.skippedGates)),
     summary: `Publish ${links.map((link) => link.label).join(", ")}`,
     links,
     pin: plan.items.map((item) => item.baseline),

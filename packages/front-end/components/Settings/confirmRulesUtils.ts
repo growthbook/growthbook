@@ -88,19 +88,3 @@ export function mergeConfirmRules(rules: ConfirmRule[]): ConfirmRule[] {
   }
   return [...byEnvironments.values()];
 }
-
-// "Feature Flags (publish, archive) in production; Overrides (skip hooks)"
-export function describeActions(
-  actions: { action: string; environments: string[] }[],
-): string {
-  return CATEGORIES.flatMap((category) => {
-    const mine = actions.filter((a) => categoryOf(a.action) === category);
-    if (!mine.length) return [];
-    const envs = [...new Set(mine.flatMap((a) => a.environments))];
-    return [
-      `${CATEGORY_TITLES[category]} (${mine.map((a) => verbOf(a.action)).join(", ")})${
-        envs.length ? ` in ${envs.join(", ")}` : ""
-      }`,
-    ];
-  }).join("; ");
-}

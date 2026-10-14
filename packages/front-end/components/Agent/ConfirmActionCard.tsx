@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Markdown from "@/components/Markdown/Markdown";
@@ -106,9 +107,8 @@ export function RequestLine({
 }) {
   return (
     <Flex
-      align="center"
+      align="start"
       gap="2"
-      wrap="wrap"
       style={{
         padding: "6px 8px",
         borderRadius: "var(--radius-2)",
@@ -118,12 +118,20 @@ export function RequestLine({
       <MethodPill method={method} />
       <code
         style={{
+          minWidth: 0,
           fontSize: 12,
+          lineHeight: "18px",
           color: "var(--gray-12)",
-          overflowWrap: "anywhere",
+          overflowWrap: "break-word",
         }}
       >
-        {path}
+        {/* Breaks after a "/" or "-", so the path wraps beside the method. */}
+        {path.split(/(?<=[/-])/).map((part, i) => (
+          <Fragment key={i}>
+            {part}
+            <wbr />
+          </Fragment>
+        ))}
       </code>
     </Flex>
   );
@@ -154,6 +162,7 @@ function MethodPill({ method }: { method: string }) {
         background: colors.bg,
         color: colors.fg,
         fontSize: 11,
+        lineHeight: "16px",
         fontWeight: 600,
         letterSpacing: 0.3,
         fontFamily: "var(--font-mono, monospace)",
