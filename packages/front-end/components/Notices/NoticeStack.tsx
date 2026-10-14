@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import clsx from "clsx";
@@ -8,7 +7,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppNotice } from "./notices";
 import styles from "./NoticeStack.module.scss";
@@ -25,14 +24,12 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   return (
     <Flex align="center" gap="2" flexShrink="0">
       <Tooltip
-        body={
-          top.details ? (
-            <Box className={styles["notice-tooltip"]}>{top.details}</Box>
-          ) : null
-        }
-        shouldDisplay={!!top.details}
+        content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
+        enabled={!!top.details}
       >
-        <NoticePill notice={top} onUpgrade={setUpgrade} />
+        <Flex display="inline-flex">
+          <NoticePill notice={top} onUpgrade={setUpgrade} />
+        </Flex>
       </Tooltip>
       {rest.length ? (
         <Popover
@@ -128,10 +125,7 @@ function NoticeCallout({
   notice: AppNotice;
   onUpgrade: (upgrade: Upgrade) => void;
 }) {
-  const { pathname } = useRouter();
-  const upgrade = notice.upgrade;
-  // Already on the page it points to
-  const href = notice.href !== pathname ? notice.href : undefined;
+  const { href, upgrade } = notice;
   return (
     <Callout status={notice.severity} size="sm">
       <Text size="inherit" weight="semibold">
