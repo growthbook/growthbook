@@ -13,7 +13,7 @@ import type {
 } from "shared/validators";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
-import { matchConfirmRules, stringToBoolean } from "shared/util";
+import { ARMING_FIELDS, matchConfirmRules, stringToBoolean } from "shared/util";
 import { CONFIRM_OVERRIDE_FLAGS } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
@@ -110,20 +110,19 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   };
 }
 
-type HeldRequest = {
-  method: string;
-  path: string;
-  query: Record<string, unknown>;
-  body: unknown;
-};
-
-// The request as it is stored and replayed.
-function heldRequest(req: {
+type HeldRequest = Pick<
+  ConfirmationInterface,
+  "method" | "path" | "query" | "body"
+>;
+type IncomingRequest = {
   method: string;
   originalUrl: string;
   query?: unknown;
   body?: unknown;
-}): HeldRequest {
+};
+
+// The request as it is stored and replayed.
+function heldRequest(req: IncomingRequest): HeldRequest {
   return JSON.parse(
     JSON.stringify({
       method: req.method,
@@ -161,11 +160,12 @@ export const gateNotices = (
 // Keeps what a refused write said, for keys that may retry it past the checks.
 export async function recordRefusal(
   context: ReqContext,
-  req: { method: string; originalUrl: string; query?: unknown; body?: unknown },
+  req: IncomingRequest,
   notices: ConfirmationNotice[],
 ) {
-  if (!context.isApiRequest || !context.apiKey) return;
-  if (!context.apiKeyData?.confirmRules || req.method === "GET") return;
+  if (!context.apiKey || !rulesFor(context).length || req.method === "GET") {
+    return;
+  }
   await context.models.confirmationAttempts.record(
     context.apiKey,
     attemptHash(heldRequest(req)),
@@ -319,9 +319,7 @@ export async function holdAtRoute(
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
   const body = asRecord(req.body);
-  const arms =
-    body.autoPublishOnApproval === true ||
-    (body.scheduledPublishAt ?? null) !== null;
+  const arms = ARMING_FIELDS.some((field) => !!body[field]);
   await requireConfirmation(context, {
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
