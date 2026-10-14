@@ -256,12 +256,23 @@ export type ContextualSseTrajectoryEntry = {
  * from the per-(split, variation) SSE trajectory.
  */
 export type ContextualBicTrajectoryEntry = {
-  /** Number of splits after applying this split (>= 1). */
+  /**
+   * Resulting number of splits this candidate would produce if applied (>= 1).
+   */
   numSplits: number;
   logLikelihoodRatio: number;
+  /** Full gate penalty: base BIC `K*ln(N)` plus the EBIC multiplicity term. */
   penalty: number;
   /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
   deltaBic: number;
+  /**
+   * Number of candidate splits searched for this split (M).
+   */
+  numCandidates?: number;
+  /**
+   * EBIC multiplicity penalty `2*gamma*ln(M)` included in `penalty`.
+   */
+  multiplicityPenalty?: number;
 };
 
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
