@@ -149,12 +149,24 @@ export async function requireConfirmation(
       body: req.body ?? {},
     }),
   );
-  const requestHash = hash([request, fingerprint]);
+  // An org key naming a member holds per member, and replays as the same request.
+  const auditUser = context.auditUser;
+  const requestedBy =
+    auditUser?.type === "api_key" ? (auditUser.requestedBy ?? null) : null;
+  const assumedRole = auditUser?.type === "api_key" && !!auditUser.assumedRole;
+  const requestHash = hash([
+    request,
+    fingerprint,
+    requestedBy?.id,
+    assumedRole,
+  ]);
   const now = Date.now();
   const confirmation =
     (await confirmations.findPending(context.apiKey, requestHash)) ??
     (await confirmations.create({
-      userId: context.apiKeyData?.userId ?? null,
+      userId: context.actingPerson?.id ?? null,
+      requestedBy,
+      assumedRole,
       apiKeyId: context.apiKey,
       project: opts.project,
       ...request,

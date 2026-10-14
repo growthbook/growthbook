@@ -3,6 +3,7 @@ import type { Permissions } from "shared/permissions";
 import type { ReqContext } from "back-end/types/request";
 import { dispatchInternal, HttpMethod } from "back-end/src/agent/dispatcher";
 import { getContextForApiKeyIdInOrg } from "back-end/src/services/organizations";
+import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { toApiConfirmation } from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -90,7 +91,13 @@ export async function decideConfirmation(
   }
   if (decision === "reject") return toApiConfirmation(claimed);
 
-  const requester = await getContextForApiKeyIdInOrg(context.org, c.apiKeyId);
+  const requester = await getContextForApiKeyIdInOrg(
+    context.org,
+    encodeArmingApiKeyId(
+      c.apiKeyId,
+      c.assumedRole ? c.requestedBy?.id : undefined,
+    ),
+  );
   if (!requester) {
     await confirmations.updateWithCas(id, ["status"], () => ({
       status: "expired",

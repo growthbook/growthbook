@@ -28,7 +28,8 @@ type ConfirmationResponse = {
   };
   requester: {
     personal: boolean;
-    name: string | null;
+    person: string | null;
+    assumedRole: boolean;
     keyDescription: string | null;
   };
   forEmail: string | null;
@@ -172,7 +173,14 @@ export default function ConfirmationPage() {
             <>
               Personal access token for{" "}
               <Text size="inherit" weight="semibold" color="text-high">
-                {requester.name ?? "a former member"}
+                {requester.person ?? "a former member"}
+              </Text>
+            </>
+          ) : requester.person ? (
+            <>
+              API key {requester.assumedRole ? "acting as" : "for"}{" "}
+              <Text size="inherit" weight="semibold" color="text-high">
+                {requester.person}
               </Text>
             </>
           ) : (

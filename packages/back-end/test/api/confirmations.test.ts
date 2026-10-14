@@ -67,16 +67,31 @@ const bot = keyDoc("key_bot", {
   confirmRules: [{ actions: ["feature.*"] }],
 });
 const ci = keyDoc("key_ci", { role: "admin" });
+const assumer = keyDoc("key_assume", {
+  role: "admin",
+  requesterPermissions: "assume",
+  confirmRules: [{ actions: ["feature.*"] }],
+});
 
 function asKey(
   key: ApiKeyInterface,
   settings: Partial<OrganizationInterface["settings"]> = {},
+  // A member named with X-GrowthBook-Requested-By, as the middleware records one.
+  requestedBy?: { id: string; name: string; email: string },
 ) {
   const context = new ReqContextClass({
     org: { ...org, settings: { ...org.settings, ...settings } },
     auditUser: key.userId
       ? { type: "api_key", apiKey: key.id, id: key.userId, name: key.userId }
-      : { type: "api_key", apiKey: key.id || "", name: key.description || "" },
+      : {
+          type: "api_key",
+          apiKey: key.id || "",
+          name: key.description || "",
+          ...(requestedBy && {
+            requestedBy,
+            assumedRole: key.requesterPermissions === "assume",
+          }),
+        },
     ...(key.userId
       ? { user: { id: key.userId, email: `${key.userId}@test.com` } }
       : { role: key.role }),
@@ -110,7 +125,7 @@ async function seed(env: string) {
   );
   await mongoose.connection
     .collection("apikeys")
-    .insertMany([pat, engineerPat, bot, ci]);
+    .insertMany([pat, engineerPat, bot, ci, assumer]);
   await mongoose.connection.collection("features").insertOne({
     id: FLAG,
     organization: ORG_ID,
@@ -401,6 +416,35 @@ describe("confirmations", () => {
       { action: "override.draftLimit", environments: [] },
     ]);
     expect((await createDraft("")).status).toBe(200);
+  });
+
+  it("lets only the member an org key assumes confirm, and replays as them", async () => {
+    await seed("production");
+    const engineer = {
+      id: "u_engineer",
+      name: "u_engineer",
+      email: "u_engineer@test.com",
+    };
+    setReqContext(asKey(assumer, {}, engineer));
+
+    const held = await publish();
+    expect(held.status).toBe(202);
+    const id = held.body.confirmation.id;
+    await expect(
+      decideConfirmation(asUser("u_admin"), id, "confirm"),
+    ).rejects.toThrow();
+
+    const done = await decideConfirmation(asUser("u_engineer"), id, "confirm");
+    expect(done.status).toBe("completed");
+    expect(done.response?.status).toBe(200);
+    const revision = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: FLAG, version: 2 });
+    expect(revision?.publishedBy).toMatchObject({
+      apiKey: "key_assume",
+      requestedBy: { id: "u_engineer" },
+      assumedRole: true,
+    });
   });
 
   it("leaves an org key without rules alone", async () => {

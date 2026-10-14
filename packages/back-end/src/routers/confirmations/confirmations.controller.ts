@@ -44,16 +44,19 @@ export const getConfirmation = async (
   const context = getContextFromReq(req);
   const c = await getConfirmationForDecider(context, req.params.id);
   const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
-  // A personal token acts for its owner; an org key only for itself.
+  // Who confirms: a personal token's owner, or the member an org key assumes.
   const owner = c.userId ? await getUserById(c.userId) : null;
+  const person = owner ?? c.requestedBy;
   res.status(200).json({
     status: 200,
     confirmation: toApiConfirmation(c),
     links: c.links,
     request: { method: c.method, path: c.path, query: c.query, body: c.body },
     requester: {
-      personal: !!c.userId,
-      name: owner?.name || owner?.email || null,
+      personal: !!c.userId && !c.assumedRole,
+      // The token's owner, or the member an org key assumed or named.
+      person: person ? person.name || person.email : null,
+      assumedRole: c.assumedRole,
       keyDescription: key?.description || null,
     },
     forEmail: owner && c.userId !== context.userId ? owner.email : null,

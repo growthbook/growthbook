@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
+import { eventUserRequestedBy } from "./event-user";
 
 // `model.action`, model-first like webhook events. `override.*` labels are the
 // checks a request skips, whatever it changes.
@@ -110,8 +111,12 @@ export const confirmationLinkValidator = z.strictObject({
 export type ConfirmationLink = z.infer<typeof confirmationLinkValidator>;
 
 export const confirmationValidator = baseSchema.safeExtend({
-  // Null when an org key names no one: any member allowed to do the action decides.
+  // Who confirms: the token's owner, or the member an org key assumes. Null
+  // when the key acts as itself: any member allowed to do the action decides.
   userId: z.string().nullable(),
+  // The member an org key named with X-GrowthBook-Requested-By.
+  requestedBy: eventUserRequestedBy.nullable(),
+  assumedRole: z.boolean(),
   apiKeyId: z.string(),
   project: z.string(),
   method: z.string(),
