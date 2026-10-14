@@ -3,6 +3,7 @@ import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { PermissionError } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -1446,6 +1447,15 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
+            if (
+              ds.params &&
+              !context.permissions.canUpdateDataSourceParams(existing)
+            ) {
+              context.permissions.throwPermissionError();
+            }
+            if (!context.permissions.canUpdateDataSourceSettings(existing)) {
+              context.permissions.throwPermissionError();
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -1475,6 +1485,14 @@ export async function importConfig(
             };
             await updateDataSource(context, existing, updates);
           } else {
+            if (
+              !context.permissions.canCreateDataSource({
+                projects: [],
+                type: ds.type,
+              })
+            ) {
+              context.permissions.throwPermissionError();
+            }
             await createDataSource(
               context,
               ds.name || k,
@@ -1486,6 +1504,7 @@ export async function importConfig(
             );
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
       }),
@@ -1541,6 +1560,13 @@ export async function importConfig(
 
         try {
           const existing = await findDimensionById(k, organization.id);
+          if (
+            existing
+              ? !context.permissions.canUpdateDimension()
+              : !context.permissions.canCreateDimension()
+          ) {
+            context.permissions.throwPermissionError();
+          }
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
@@ -1557,6 +1583,7 @@ export async function importConfig(
             });
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
       }),
