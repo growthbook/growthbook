@@ -383,12 +383,14 @@ export default function FeatureVariationsInput({
                 <tr>
                   {!hideVariationIds && (
                     <th className="pl-3 pr-0">
-                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
+                      {!valueAsId && !hideValueField && editingIds
+                        ? "#"
+                        : "Key"}
                     </th>
                   )}
                   {!hideVariationIds &&
                     !hideValueField &&
-                    (editingIds || valueAsId) && <th>Id</th>}
+                    (editingIds || valueAsId) && <th>Key</th>}
                   {hideVariationIds && !hideValueField && !valueAsId && (
                     <th>Value to Force</th>
                   )}

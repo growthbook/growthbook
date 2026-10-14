@@ -32,6 +32,7 @@ import {
   funnelStepValidator,
   funnelOrderingValidator,
   funnelSettingsValidator,
+  conditionalInlineFiltersValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -58,6 +59,9 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // value -> extra column to prompt for when this column is filtered to that
+  // value; see getInlineFilterPromptColumns in shared/experiments.
+  conditionalInlineFilters?: ConditionalInlineFilters;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
@@ -136,6 +140,15 @@ export type FactTableDefinition = Omit<
   columns: FactTableColumnDefinition[];
 };
 
+// Slim shape returned by GET /fact-tables?ids= — just enough to resolve
+// dimension/column availability (real `jsonFields`, unlike FactTableDefinition)
+// for a small id set, without shipping `sql` or the rest of the org-wide
+// metadata (name, datasource, tags, ...).
+export type FullFactTableColumns = Pick<
+  FactTableInterface,
+  "id" | "columns" | "userIdTypes"
+>;
+
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
 >;
@@ -173,6 +186,9 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+export type ConditionalInlineFilters = z.infer<
+  typeof conditionalInlineFiltersValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,

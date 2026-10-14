@@ -2,12 +2,14 @@ import type { SqlDialect } from "shared/types/sql";
 import { buildJourneySql } from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
+import {
+  postgresDialect,
+  clickHouseDialect,
+  bigQueryDialect,
+  snowflakeDialect,
+  mysqlDialect,
+  baseDialect,
+} from "shared/dialects";
 
 const eventsFactTable: FactTableInterface = {
   id: "events",

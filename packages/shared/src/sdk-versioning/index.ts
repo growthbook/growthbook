@@ -36,6 +36,7 @@ type SDKData = {
 type SDKVersionData = {
   version: string;
   capabilities?: string[];
+  prerelease?: boolean;
 };
 
 export const sdks: SDKRecords = {
@@ -104,19 +105,30 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
+const getPublishedVersions = (
+  language: SDKLanguage = "other",
+): SDKVersionData[] =>
+  (getSdkData(language)?.versions || []).filter((v) => !v.prerelease);
+
 export const getSDKVersions = (language: SDKLanguage = "other"): string[] => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
-  return versions.map((v) => v.version);
+  return getPublishedVersions(language).map((v) => v.version);
 };
 
 export const getLatestSDKVersion = (
   language: SDKLanguage = "other",
 ): string => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
-  const current = versions?.[0];
-  return current?.version || "0.0.0";
+  return getPublishedVersions(language)[0]?.version || "0.0.0";
+};
+
+const getLatestOrGivenSDKVersion = (
+  language: SDKLanguage = "other",
+  version?: string,
+): string => {
+  const latest = getLatestSDKVersion(language);
+  if (!version) return latest;
+  return paddedVersionString(version) > paddedVersionString(latest)
+    ? version
+    : latest;
 };
 
 export const getDefaultSDKVersion = (
@@ -171,7 +183,10 @@ export const getConnectionSDKCapabilities = (
         "min-ver-intersection-loose-unmarshalling",
       ].includes(strategy)
         ? connection.sdkVersion
-        : getLatestSDKVersion(connection.languages?.[0]),
+        : getLatestOrGivenSDKVersion(
+            connection.languages?.[0],
+            connection.sdkVersion,
+          ),
     );
   }
   let capabilities: SDKCapability[] = [];
@@ -236,8 +251,7 @@ export const getSDKCapabilityVersion = (
   language: SDKLanguage = "other",
   capability: SDKCapability,
 ): string | null => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
+  const versions = getPublishedVersions(language);
   for (let i = versions.length - 1; i >= 0; i--) {
     const data = versions[i];
     if (data.capabilities?.includes(capability)) {
@@ -268,4 +282,5 @@ export function getMinSupportedSDKVersions(
 
 export * from "./types";
 export * from "./sdk-payload";
+export * from "./saved-groups";
 export * from "./resolveConstants";

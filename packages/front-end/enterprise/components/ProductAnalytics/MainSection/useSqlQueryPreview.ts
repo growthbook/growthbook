@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QueryExecutionResult, type SqlDataset } from "shared/validators";
+import { mapColumnTypeToExplorationType } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
@@ -122,9 +123,12 @@ export default function useSqlQueryPreview({
         }
 
         const columns = response.columns ?? [];
-        const columnTypes = Object.fromEntries(
-          columns.map((column) => [column.name, column.dataType ?? "other"]),
-        ) as SqlDataset["columnTypes"];
+        const columnTypes: SqlDataset["columnTypes"] = Object.fromEntries(
+          columns.map((column) => [
+            column.name,
+            mapColumnTypeToExplorationType(column.dataType),
+          ]),
+        );
         const timestampColumn =
           columns.find((column) => column.dataType === "date")?.name ?? null;
 

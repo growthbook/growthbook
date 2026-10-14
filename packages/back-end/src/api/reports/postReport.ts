@@ -65,7 +65,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
   // ownership, so an owner-less report can only be managed by admins.
   const ownerId =
     (await resolveOwnerToUserId(owner, req.context, { strict: true })) ??
-    req.context.userId;
+    req.context.actingUserId;
 
   const phaseIndex = Math.max(experiment.phases.length - 1, 0);
   const latestSnapshot = await getLatestSuccessfulSnapshot({
@@ -84,6 +84,14 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
     trackingKey: experiment.trackingKey || experiment.id,
   } as ExperimentReportAnalysisSettings;
+  // Legacy experiments store no identifier; keep the one the snapshot ran on.
+  if (
+    !analysisSettings.exposureQueryIdentifierType &&
+    latestSnapshot.settings.exposureQueryId === analysisSettings.exposureQueryId
+  ) {
+    analysisSettings.exposureQueryIdentifierType =
+      latestSnapshot.settings.exposureQueryIdentifierType;
+  }
 
   if (statsEngine) {
     analysisSettings.statsEngine = statsEngine;
@@ -205,7 +213,8 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
 
     return {
       report: await resolveOwnerEmail(
-        toReportApiInterface(
+        await toReportApiInterface(
+          req.context,
           { ...report, snapshot: newSnapshot.id },
           newSnapshot,
         ),
@@ -220,7 +229,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     return {
       report: {
         ...(await resolveOwnerEmail(
-          toReportApiInterface({ ...report, snapshot: "" }),
+          await toReportApiInterface(req.context, { ...report, snapshot: "" }),
           req.context,
         )),
         snapshotStatus: "error" as const,

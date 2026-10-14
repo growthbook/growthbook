@@ -1,4 +1,5 @@
 import type { OrganizationInterface } from "shared/types/organization";
+import type { JSONSchemaDef } from "shared/types/feature";
 import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
@@ -11,6 +12,7 @@ import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { stampApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -24,7 +26,7 @@ import {
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
-import { assertValidProjectIds } from "./v2Shared";
+import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -37,6 +39,7 @@ export type RevisionMetadataBody = {
   tags?: string[];
   neverStale?: boolean;
   customFields?: Record<string, unknown>;
+  jsonSchema?: Omit<JSONSchemaDef, "date"> & { date?: Date };
   [k: string]: unknown;
 };
 
@@ -92,6 +95,25 @@ export async function setRevisionMetadata(
       metadataFields.customFields as Record<string, unknown>,
       context,
       metadataFields.project ?? feature.project,
+    );
+  }
+
+  if (metadataFields.jsonSchema) {
+    if (
+      metadataFields.jsonSchema.enabled &&
+      !context.hasPremiumFeature("json-validation")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "JSON schema validation requires a premium plan.",
+      );
+    }
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: metadataFields.jsonSchema.enabled,
+      baseConfig: feature.baseConfig,
+    });
+    metadataFields.jsonSchema = stampApiJsonSchema(
+      metadataFields.jsonSchema,
+      feature.valueType,
     );
   }
 

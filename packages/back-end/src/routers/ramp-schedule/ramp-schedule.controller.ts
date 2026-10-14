@@ -6,6 +6,7 @@ import {
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   collectRampPlanActions,
+  mergedRampPlan,
   rampPatchEntriesForTargets,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
@@ -332,7 +333,7 @@ export const putRampSchedule = async (
       await validateRampPlanPatches(
         context,
         rampPatchEntriesForTargets(
-          collectRampPlanActions(updates),
+          collectRampPlanActions(mergedRampPlan(updates, fresh)),
           fresh.targets,
           () => feature,
         ),

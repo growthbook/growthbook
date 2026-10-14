@@ -152,6 +152,15 @@ export function getExperimentVariationUnitsFromHealth(
   );
 }
 
+// Units exposed across all variations, per the snapshot's health data;
+// undefined when the snapshot recorded none.
+export function getExperimentTotalUnitsFromHealth(
+  snapshot: ExperimentSnapshotInterface,
+): number | undefined {
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  return units?.length ? units.reduce((sum, n) => sum + n, 0) : undefined;
+}
+
 export function getSafeRolloutSRMValue(
   safeRolloutSnapshot: SafeRolloutSnapshotInterface,
 ): number | undefined {

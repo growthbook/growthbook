@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ApiContextualBanditInterface,
@@ -6,8 +7,8 @@ import {
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { Box } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
+import { Box, Separator } from "@radix-ui/themes";
+import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -15,9 +16,12 @@ import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
+import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import ContextualBanditDecisionMetricSettings, {
   conversionWindowFormValuesFromMetricWindow,
@@ -35,6 +39,8 @@ type FormValues = {
   banditBurnInUnit: "hours" | "days";
   banditConversionWindowValue?: number;
   banditConversionWindowUnit: "hours" | "days";
+  increaseBanditExploration: boolean;
+  priorSampleSize: number;
 };
 
 /**
@@ -44,6 +50,9 @@ type FormValues = {
  * window reuse the same `ContextualBanditDecisionMetricSettings` component as the
  * creation flow, so editing behaves identically to creating.
  */
+/** Prior variation sample size applied the first time a user enables exploration. */
+const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 50;
+
 export default function ContextualBanditAnalysisMetricsModal({
   cb,
   mutate,
@@ -53,7 +62,7 @@ export default function ContextualBanditAnalysisMetricsModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const { datasources, getDatasourceById, getExperimentMetricById } =
     useDefinitions();
   const { organization } = useUser();
@@ -104,8 +113,13 @@ export default function ContextualBanditAnalysisMetricsModal({
       banditBurnInUnit: cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialConversionWindow.value,
       banditConversionWindowUnit: initialConversionWindow.unit,
+      increaseBanditExploration: (cb.priorSampleSize ?? 0) > 0,
+      priorSampleSize: cb.priorSampleSize ?? 0,
     },
   });
+
+  const increaseBanditExploration = form.watch("increaseBanditExploration");
+  const priorSampleSizeId = useId();
 
   const watchedDatasource = form.watch("datasource");
   const watchedQueryId = form.watch("exposureQueryId");
@@ -205,9 +219,21 @@ export default function ContextualBanditAnalysisMetricsModal({
             !!data.banditConversionWindowValue &&
             !!data.banditConversionWindowUnit;
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
+          const priorSampleSize = data.increaseBanditExploration
+            ? Number(data.priorSampleSize)
+            : 0;
+          if (
+            data.increaseBanditExploration &&
+            (!Number.isInteger(priorSampleSize) || priorSampleSize < 1)
+          ) {
+            throw new Error(
+              "Enter a prior variation sample size of at least 1, or turn off Increase Bandit exploration.",
+            );
+          }
+
+          await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+            params: { id: cb.id },
+            body: {
               datasource: data.datasource || undefined,
               contextualBanditQueryId: data.exposureQueryId || undefined,
               contextualAttributes,
@@ -222,7 +248,8 @@ export default function ContextualBanditAnalysisMetricsModal({
               conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
-            }),
+              priorSampleSize,
+            },
           });
           mutate();
         })}
@@ -326,6 +353,53 @@ export default function ContextualBanditAnalysisMetricsModal({
           project={cb.project}
           autoApplyDefaults={false}
         />
+
+        <Separator size="4" my="4" />
+
+        <Box mb="2">
+          <Switch
+            label="Increase Bandit exploration"
+            description="Shrink variation mean estimates toward a shared mean to facilitate model exploration."
+            value={increaseBanditExploration}
+            onChange={(v) => {
+              form.setValue("increaseBanditExploration", v);
+              if (v) {
+                const current = Number(form.getValues("priorSampleSize")) || 0;
+                if (current < 1) {
+                  form.setValue(
+                    "priorSampleSize",
+                    DEFAULT_PRIOR_ARM_SAMPLE_SIZE,
+                  );
+                }
+              } else {
+                form.setValue("priorSampleSize", 0);
+              }
+            }}
+          />
+        </Box>
+
+        {increaseBanditExploration ? (
+          <TextField
+            mb="3"
+            id={priorSampleSizeId}
+            type="number"
+            min={1}
+            step={1}
+            style={{ width: 90 }}
+            label={
+              <Text
+                as="label"
+                htmlFor={priorSampleSizeId}
+                weight="semibold"
+                size="md"
+              >
+                Prior variation sample size{" "}
+                <Tooltip body="The number of prior (pseudo) observations used to shrink each variation mean toward a shared mean. The larger the prior sample size, the stronger the exploration." />
+              </Text>
+            }
+            {...form.register("priorSampleSize", { valueAsNumber: true })}
+          />
+        ) : null}
       </ModalStandard>
     </FormProvider>
   );

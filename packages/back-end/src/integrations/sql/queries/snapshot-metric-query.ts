@@ -69,7 +69,7 @@ export function getSnapshotMetricQuery(
     activationMetric,
   );
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
@@ -494,7 +494,8 @@ WITH
               id: metric.id,
               ratioMetric,
               regressionAdjusted,
-              isPercentileCapped,
+              isUpperPercentileCapped: isPercentileCapped,
+              isLowerPercentileCapped: false,
               capCoalesceMetric,
               capCoalesceCovariate,
               capCoalesceDenominator,
@@ -504,9 +505,8 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
-          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
-          denominatorIsPercentileCapped,
+          denominatorIsUpperPercentileCapped: denominatorIsPercentileCapped,
         })
       : `
   -- One row per variation/dimension with aggregations

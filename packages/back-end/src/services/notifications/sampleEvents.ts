@@ -120,6 +120,7 @@ const sampleExperiment = (
   ],
   settings: {
     datasourceId: "ds_notification_test",
+    assignmentQuery: { id: "user_id", identifierType: "user_id" },
     assignmentQueryId: "user_id",
     experimentId: "checkout-cta",
     segmentId: "",
@@ -190,28 +191,25 @@ const sampleExperimentDiff: DiffResult = {
 };
 
 const sampleRevision = (): FeatureRevisionWebhookPayload => ({
-  featureId: "checkout-banner",
-  baseVersion: 2,
+  id: "frev_notification_test",
   version: 3,
-  comment: "Adjust checkout banner copy",
-  date: nowIso(),
+  baseVersion: 2,
   status: "draft",
-  createdBy: "Notification Test User",
-  publishedBy: "Notification Test User",
-  defaultValue: "false",
-  rules: {
-    [TEST_ENVIRONMENT]: [
-      {
-        id: "rule-rollout",
-        type: "rollout",
-        value: "true",
-        coverage: 0.5,
-      },
-    ],
+  title: "Adjust checkout banner copy",
+  comment: "Shorter banner copy for mobile",
+  dateCreated: "2026-01-01T00:00:00.000Z",
+  dateUpdated: "2026-01-01T00:00:00.000Z",
+  authorId: "u_notification_test",
+  author: {
+    type: "dashboard",
+    id: "u_notification_test",
+    name: "Notification Test User",
+    email: "notifications@example.com",
   },
-  definitions: { [TEST_ENVIRONMENT]: "false" },
-  environmentsEnabled: { [TEST_ENVIRONMENT]: true },
-  prerequisites: [],
+  feature: { id: "checkout-banner" },
+  featureId: "checkout-banner",
+  date: "2026-01-01T00:00:00.000Z",
+  createdBy: "Notification Test User",
 });
 
 const sampleRamp = (): RampScheduleStartedPayload => ({
@@ -331,6 +329,38 @@ const sampleEvents = {
     object: "feature",
     data: { object: { ...sampleRamp(), targetStepIndex: 0 } },
   }),
+  "feature.rampSchedule.actions.errorPaused": () => ({
+    event: "feature.rampSchedule.actions.errorPaused",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        status: "paused",
+        reason:
+          'Rule "fr_banner" on "checkout-banner" is a force rule with no hash attribute, so this ramp cannot control its coverage.',
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.stepHeld": () => ({
+    event: "feature.rampSchedule.actions.stepHeld",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        reason: "Experiment health: SRM check failed — holding step (p=0.0004)",
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.paused": () => ({
+    event: "feature.rampSchedule.actions.paused",
+    object: "feature",
+    data: { object: { ...sampleRamp(), status: "paused" } },
+  }),
+  "feature.rampSchedule.actions.resumed": () => ({
+    event: "feature.rampSchedule.actions.resumed",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
   "feature.rampSchedule.actions.step.approvalRequired": () => ({
     event: "feature.rampSchedule.actions.step.approvalRequired",
     object: "feature",
@@ -389,6 +419,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",
@@ -404,6 +435,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",
@@ -419,6 +451,7 @@ const sampleEvents = {
       object: {
         ...sampleRevision(),
         reviewer: {
+          type: "dashboard",
           id: "reviewer-notification-test",
           name: "Review Bot",
           email: "review@example.com",
@@ -477,8 +510,80 @@ const sampleEvents = {
       object: {
         type: "srm",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         threshold: 0.001,
+        // A 62/38 split on a 50/50 phase: clearly beyond the threshold.
+        pValue: 0.00042,
+        durationDays: 12,
+        variations: [
+          { name: "Control", users: 6213, weight: 0.5 },
+          { name: "Treatment", users: 3787, weight: 0.5 },
+        ],
+      },
+    },
+  }),
+  "experiment.status.started": () => ({
+    event: "experiment.status.started",
+    object: "experiment",
+    data: {
+      object: {
+        type: "started",
+        experimentId: "exp_checkout_cta",
+        experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
+        phaseName: "Main",
+        goalMetricNames: ["Checkout starts", "Revenue per visitor"],
+        linkedFeatureCount: 1,
+        visualChangesetCount: 0,
+        urlRedirectCount: 0,
+      },
+    },
+  }),
+  "experiment.status.stopped": () => ({
+    event: "experiment.status.stopped",
+    object: "experiment",
+    data: {
+      object: {
+        type: "stopped",
+        experimentId: "exp_checkout_cta",
+        experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
+        results: "won",
+        enableTemporaryRollout: true,
+        releasedVariationName: "Treatment",
+        reason: "Treatment increased checkout starts.",
+        winningVariationName: "Treatment",
+        winningVariationIndex: 1,
+        totalUsers: 48200,
+        durationDays: 21,
+        goalMetric: {
+          metricId: "met_checkout_start",
+          metricName: "Checkout starts",
+          snapshotId: "snp_sample",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: {
+            variationId: "var_control",
+            variationName: "Control",
+            users: 24100,
+            value: 0.051,
+          },
+          variations: [
+            {
+              variationId: "var_treatment",
+              variationName: "Treatment",
+              variationIndex: 1,
+              users: 24100,
+              value: 0.0541,
+              uplift: 0.061,
+              upliftStddev: 0.012,
+              ci: [0.038, 0.084],
+              chanceToWin: 0.991,
+              significant: true,
+            },
+          ],
+        },
       },
     },
   }),
@@ -488,6 +593,7 @@ const sampleEvents = {
     data: {
       object: {
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         variationId: "var_treatment",
         variationName: "Treatment",
@@ -506,6 +612,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is above the decision threshold.",
       },
@@ -518,6 +625,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is underperforming the baseline.",
       },
@@ -530,6 +638,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription:
           "The result reached power but needs stakeholder review.",

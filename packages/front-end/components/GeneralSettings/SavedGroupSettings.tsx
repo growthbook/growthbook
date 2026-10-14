@@ -2,12 +2,13 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Frame from "@/ui/Frame";
+import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 
 export default function SavedGroupSettings() {
   return (
     <ConnectSettingsForm>
-      {({ register }) => (
+      {({ register, watch, setValue }) => (
         <Frame>
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
@@ -17,6 +18,20 @@ export default function SavedGroupSettings() {
             </Box>
 
             <Flex align="start" direction="column" flexGrow="1" pt="6">
+              <Box mb="6" width="100%">
+                <Checkbox
+                  id="enforceSavedGroupProjectScope"
+                  label="Enforce Saved Group Project scope"
+                  description="Validate new Saved Group references and additional targeting Projects, including nested groups. Existing references keep working through edits and publication. Blocks group changes that introduce scope violations. Off by default."
+                  disabled={hasFileConfig()}
+                  value={watch("enforceSavedGroupProjectScope") ?? false}
+                  setValue={(value) =>
+                    setValue("enforceSavedGroupProjectScope", value, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </Box>
               <Box mb="6" width="100%" mt="2">
                 <Text as="label" className="font-weight-semibold" size="3">
                   ID List size limit

@@ -55,7 +55,7 @@ it("composes filtering and delivery into a flat stored configuration", () => {
     method: "POST",
     headers: {},
     slack: { teamId: "T1", channelId: "C1" },
-    notificationSettings: { type: "image", cardFormat: "compact" },
+    notificationSettings: { type: "image", cardFormat: "light" },
   };
   expect(eventWebHookInterface.parse(webhook)).toEqual(webhook);
   const { excludeBookkeepingUpdates, ...existingWebhook } = webhook;

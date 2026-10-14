@@ -1,3 +1,7 @@
+import { BuiltInChecklistItemKey } from "shared/validators";
+
+export { BuiltInChecklistItemKey } from "shared/validators";
+
 export interface ChecklistTask {
   task: string;
   completionType: "manual" | "auto";
@@ -22,4 +26,5 @@ export interface ExperimentLaunchChecklistInterface {
   updatedByUserId: string;
   tasks: ChecklistTask[];
   projectId: string;
+  hiddenBuiltInItems?: BuiltInChecklistItemKey[];
 }

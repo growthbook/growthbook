@@ -32,6 +32,7 @@ import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiCopy, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
+import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import {
@@ -297,6 +298,8 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -327,6 +330,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   showCopyButton = true,
   size,
   legacyHeight,
+  maxMenuHeight,
   valueTitles = true,
   labelSize,
   labelWeight = "semibold",
@@ -580,7 +584,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                                   >
                                     Select an option or create one
                                   </div>
-                                  <components.MenuList {...props} />
+                                  <VirtualizedMenuList {...props} />
                                 </>
                               );
                             },
@@ -588,6 +592,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                         : {
                             DropdownIndicator: CustomDropdownIndicator,
                             IndicatorSeparator: () => null,
+                            MenuList: VirtualizedMenuList,
                           }),
                   }}
                   {...(creatable && noMenu
@@ -602,6 +607,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                       }
                     : {})}
                   closeMenuOnSelect={closeMenuOnSelect}
+                  maxMenuHeight={maxMenuHeight}
                   autoFocus={autoFocus}
                   value={selected}
                   {...(creatable

@@ -1,3 +1,5 @@
+import { validateCappingSettingsValueEntered } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -516,6 +518,9 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (!edit || !isEqual(value.cappingSettings, current.cappingSettings)) {
+      validateCappingSettingsValueEntered(value.cappingSettings, false);
+    }
     const {
       winRisk,
       loseRisk,
@@ -628,7 +633,7 @@ const MetricForm: FC<MetricFormProps> = ({
             form.setValue("sql", sql);
             // If they manually edit the sql back to the default, we'll allow it to be
             // automatically updated again upon datasource/type/name change.  If they
-            // have editted it to something else, we'll make sure not to overwrite any
+            // have edited it to something else, we'll make sure not to overwrite any
             // of their changes automatically.
             setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
           }}

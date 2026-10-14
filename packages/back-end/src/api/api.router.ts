@@ -19,10 +19,12 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -60,7 +62,7 @@ import { informationSchemaTablesRoutes } from "./information-schema-tables/infor
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
-import { getOpenApiRoutesForApiConfig } from "./ApiModel";
+import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -76,6 +78,7 @@ const API_MODELS: ModelClass[] = [
   LearningModel,
   HoldoutModel,
   AutoRunModel,
+  PopulationModel,
 ];
 
 const router = Router();
@@ -104,6 +107,10 @@ router.get("/v1/openapi.yaml", (req, res) => {
 });
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
+
+// Usage telemetry for calls from the GrowthBook MCP server. Mounted before the
+// rate limiter so rate-limited calls are counted too.
+router.use(trackMcpRequestCompletion as unknown as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {

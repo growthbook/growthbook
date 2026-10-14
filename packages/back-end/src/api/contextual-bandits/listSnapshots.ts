@@ -1,12 +1,10 @@
-import {
-  ContextualBanditSnapshotInterface,
-  listContextualBanditSnapshotsValidator,
-} from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { ContextualBanditSnapshotInterface } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { loadContextualBanditForRead } from "./_shared";
 
 export const listContextualBanditSnapshots = createApiRequestHandler(
-  listContextualBanditSnapshotsValidator,
+  contextualBanditEndpoints.listContextualBanditSnapshots,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,

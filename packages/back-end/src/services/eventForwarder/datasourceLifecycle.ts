@@ -59,7 +59,8 @@ async function deleteEventForwarderAndTeardown({
 
   switch (sinkType) {
     case "bigquery":
-    case "snowflake": {
+    case "snowflake":
+    case "databricks": {
       logger.info(
         {
           organizationId: context.org.id,

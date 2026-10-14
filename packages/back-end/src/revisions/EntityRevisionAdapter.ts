@@ -264,6 +264,9 @@ export interface EntityRevisionAdapter<
     // because they re-read first and mean to write over what they found.
     options?: {
       isRevert?: boolean;
+      // Internal recovery restores the state a failed write displaced. Unlike
+      // an intentional revert, this must not strand a partially applied repair.
+      isCompensation?: boolean;
       guarded?: boolean;
       // Called the moment the ENTITY write lands, before any cascade — so a
       // caller learns what was persisted even when a later step throws and the

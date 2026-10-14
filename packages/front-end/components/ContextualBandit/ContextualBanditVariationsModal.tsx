@@ -1,9 +1,10 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { FormProvider, useForm } from "react-hook-form";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -41,7 +42,7 @@ export default function ContextualBanditVariationsModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
   const originalById = new Map(cb.variations.map((v) => [v.id, v]));
@@ -125,6 +126,7 @@ export default function ContextualBanditVariationsModal({
                 id: string;
                 name?: string;
                 description?: string;
+                key?: string;
               } = { id: v.id };
               if (v.name !== prev.name) patch.name = v.name;
               const prevDescription = prev.description ?? "";
@@ -132,9 +134,8 @@ export default function ContextualBanditVariationsModal({
               if (nextDescription !== prevDescription) {
                 patch.description = nextDescription;
               }
-              return patch.name !== undefined || patch.description !== undefined
-                ? [patch]
-                : [];
+              if (v.key !== prev.key) patch.key = v.key;
+              return Object.keys(patch).length > 1 ? [patch] : [];
             });
 
           if (addedVariations.length > 0 && linkedFeatures.length > 0) {
@@ -182,25 +183,27 @@ export default function ContextualBanditVariationsModal({
             return;
           }
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
-            method: "POST",
-            body: JSON.stringify({
-              addVariations,
-              removeVariationIds,
-              updateVariations,
-            }),
-          });
+          await restApiCall(
+            contextualBanditEndpoints.updateContextualBanditVariations,
+            {
+              params: { id: cb.id },
+              body: {
+                addVariations,
+                removeVariationIds,
+                updateVariations,
+              },
+            },
+          );
           mutate();
         })}
       >
         <FeatureVariationsInput
           label={null}
-          valueAsId
-          hideVariationIds
           hideSplits
           hideCoverage
           showDescriptions
           showPreview={false}
+          startEditingIndexes
           // Splits are hidden and weights are reconciled server-side, so the
           // weight is a placeholder the input requires but never shows. The
           // no-op setWeight is needed because FeatureVariationsInput only

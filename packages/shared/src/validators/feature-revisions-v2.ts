@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
+import { apiEventUser, REVIEW_VERDICT_NOTE } from "./event-user";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -19,7 +21,7 @@ import {
 } from "./feature-revisions";
 import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
+import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -61,8 +63,10 @@ const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
     .describe(
       "The rule state to roll back to (the rollback/jump-to-start anchor). " +
         'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
-        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
-        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
         "the anchor from the rule's current coverage (and returns a warning if " +
         "that isn't 0%); on update of a live schedule, omitting it leaves the " +
         "existing anchor unchanged.",
@@ -267,7 +271,7 @@ const safeRolloutCreateInputV2 = namedSchema(
       safeRolloutFields: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           maxDuration: z
             .object({
@@ -760,8 +764,7 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   path: "/features/:id/revisions/:version/submit-review",
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
-  description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts when `blockSelfApproval` is enabled.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+  description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts when \`blockSelfApproval\` is enabled.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -798,8 +801,7 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   path: "/features/:id/revisions/:version/undo-review",
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
-  description:
-    "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved. If the retraction resolves the revision to `approved` and auto-publish-on-approval is armed, the revision is published.",
+  description: `Reviewer retracts their own verdict. ${REVIEW_VERDICT_NOTE} The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding \`Requested Changes\` → \`changes-requested\`, else any outstanding \`Approved\` → \`approved\`, else \`pending-review\`. Existing review comments are preserved. If the retraction resolves the revision to \`approved\` and auto-publish-on-approval is armed, the revision is published.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -811,17 +813,6 @@ export const postFeatureRevisionUndoReviewV2Validator = {
 const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
 
 const okResponse = z.object({ status: z.literal(200) }).strict();
-
-// Sanitized actor for log entries — never exposes API key secrets.
-const apiRevisionLogUser = z
-  .object({
-    type: z.enum(["dashboard", "api_key", "system"]),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict()
-  .nullable();
 
 const apiRevisionLogEntry = z
   .object({
@@ -839,7 +830,7 @@ const apiRevisionLogEntry = z
     subject: z.string(),
     value: z.string().describe("JSON-encoded payload for the entry"),
     timestamp: z.string().meta({ format: "date-time" }),
-    user: apiRevisionLogUser,
+    user: apiEventUser.nullable(),
   })
   .strict();
 
@@ -1002,7 +993,7 @@ export const putFeatureRevisionMetadataV2Validator = {
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),

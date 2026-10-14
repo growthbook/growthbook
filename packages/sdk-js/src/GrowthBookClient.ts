@@ -9,6 +9,7 @@ import type {
   EventLogger,
   EventProperties,
   Experiment,
+  ExperimentViewedSubCallback,
   FeatureApiResponse,
   FeatureDefinitions,
   FeatureResult,
@@ -410,6 +411,8 @@ export class UserScopedGrowthBook<
       this._userContext.trackedExperiments || new Set();
     this._userContext.trackedFeatureUsage =
       this._userContext.trackedFeatureUsage || {};
+    this._userContext.experimentViewedSubs =
+      this._userContext.experimentViewedSubs || new Set();
     this._userContext.devLogs = this.logs;
 
     if (plugins) {
@@ -462,6 +465,16 @@ export class UserScopedGrowthBook<
   }
   public setFeatureUsageCallback(cb: FeatureUsageCallback) {
     this._userContext.onFeatureUsage = cb;
+  }
+  // Internal — first-party plugin use only.
+  // Fires once per deduped experiment assignment for this user.
+  public _subscribeExperimentViewed(
+    cb: ExperimentViewedSubCallback,
+  ): () => void {
+    const subs = (this._userContext.experimentViewedSubs =
+      this._userContext.experimentViewedSubs || new Set());
+    subs.add(cb);
+    return () => subs.delete(cb);
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();

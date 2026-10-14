@@ -7,6 +7,7 @@ import {
 import { AttributeMap } from "shared/types/feature";
 import {
   GroupMap,
+  SavedGroupForPayload,
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
@@ -20,6 +21,19 @@ function getTimestamp(date: Date | string): number {
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;
+
+// An empty Saved Group scope is shared everywhere. A consumer targeting all
+// projects (null) can therefore only use an unscoped group.
+export function isSavedGroupAvailableForProjects(
+  group: Pick<SavedGroupInterface, "projects">,
+  projects: readonly string[] | null,
+): boolean {
+  return (
+    !group.projects?.length ||
+    (projects !== null && projects.every((p) => group.projects!.includes(p)))
+  );
+}
+
 export const ID_LIST_DATATYPES: SDKAttributeType[] = [
   "number",
   "string",
@@ -68,18 +82,21 @@ export function getSavedGroupsValuesFromInterfaces(
   ) as SavedGroupsValues;
 }
 
+// Accepts (string | number)[] because a GroupMap's values may already have been
+// coerced upstream, unlike a raw SavedGroupInterface whose values are always
+// strings. Re-coercing an already-numeric value is a no-op.
 export function getTypedSavedGroupValues(
-  values: string[],
+  values: (string | number)[],
   type?: string,
-): string[] | number[] {
+): (string | number)[] {
   if (type === "number") {
-    return values.map((v) => parseFloat(v));
+    return values.map((v) => (typeof v === "number" ? v : parseFloat(v)));
   }
   return values;
 }
 
 export function getSavedGroupValueType(
-  group: SavedGroupInterface,
+  group: SavedGroupForPayload,
   organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;

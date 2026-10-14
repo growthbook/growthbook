@@ -1,6 +1,7 @@
 import type { Response } from "express";
-import type { SkillSummary } from "shared/ai-chat";
+import type { OrgSkillSummary } from "shared/ai-chat";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { postGeneralAgentChat } from "back-end/src/agent/general-agent";
 import { makeListChats } from "back-end/src/routers/utils/chat-controllers";
 import { listSkillSummaries } from "back-end/src/agent/skills";
@@ -20,9 +21,8 @@ export const listChats = makeListChats("general");
 
 export const listSkills = async (
   req: AuthRequest,
-  res: Response<{ status: 200; skills: SkillSummary[] }>,
+  res: Response<{ status: 200; skills: OrgSkillSummary[] }>,
 ): Promise<Response> => {
-  return res
-    .status(200)
-    .json({ status: 200, skills: [...listSkillSummaries()] });
+  const { org } = getContextFromReq(req);
+  return res.status(200).json({ status: 200, skills: listSkillSummaries(org) });
 };

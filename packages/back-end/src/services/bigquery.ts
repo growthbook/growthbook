@@ -2,6 +2,66 @@ import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryMetadata } from "shared/types/query";
 import { logger } from "back-end/src/util/logger";
 
+const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;
+const URL_SCHEME_WITH_AUTHORITY = /^[a-z][a-z\d+.-]*:\/\//i;
+const HOST_WITH_PORT = /^[^/:]+:\d+(?:\/|$)/;
+const TRAILING_SLASHES = /\/+$/;
+const BIGQUERY_API_PATH_SUFFIX = /\/bigquery\/v2$/;
+
+export function normalizeBigQueryApiEndpoint(
+  apiEndpoint?: unknown,
+): string | undefined {
+  if (apiEndpoint === undefined) return undefined;
+  if (typeof apiEndpoint !== "string") {
+    throw new Error("BigQuery API endpoint must be a string.");
+  }
+
+  const endpoint = apiEndpoint.trim();
+  if (!endpoint) return undefined;
+
+  let url: URL;
+  try {
+    if (
+      endpoint.startsWith("//") ||
+      endpoint.includes("\\") ||
+      Array.from(endpoint).some(
+        (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
+      ) ||
+      (URL_SCHEME.test(endpoint) &&
+        !URL_SCHEME_WITH_AUTHORITY.test(endpoint) &&
+        !HOST_WITH_PORT.test(endpoint))
+    ) {
+      throw new Error();
+    }
+    url = new URL(
+      URL_SCHEME_WITH_AUTHORITY.test(endpoint)
+        ? endpoint
+        : `https://${endpoint}`,
+    );
+  } catch {
+    throw new Error("BigQuery API endpoint must be a valid HTTP or HTTPS URL.");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("BigQuery API endpoint must use HTTP or HTTPS.");
+  }
+  if (url.username || url.password) {
+    throw new Error(
+      "BigQuery API endpoint cannot contain embedded credentials.",
+    );
+  }
+  if (endpoint.includes("?") || endpoint.includes("#")) {
+    throw new Error(
+      "BigQuery API endpoint cannot contain a query string or fragment.",
+    );
+  }
+
+  // The SDK automatically appends /bigquery/v2 to apiEndpoint
+  const path = url.pathname
+    .replace(TRAILING_SLASHES, "")
+    .replace(BIGQUERY_API_PATH_SUFFIX, "");
+  return `${url.origin}${path}`;
+}
+
 export type BigQueryDataType =
   | "STRING"
   | "BYTES"

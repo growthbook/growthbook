@@ -19,6 +19,7 @@ import {
   escapeSlackMrkdwn,
   truncateSlackText,
 } from "back-end/src/util/slack.util";
+import { postNpsResponseToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -114,7 +115,7 @@ export async function getUser(req: AuthRequest, res: Response) {
 
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
-    throw new Error(lastError || "Must login with SSO");
+    throw new Error(lastError || "Must log in with SSO");
   }
 
   return res.status(200).json({
@@ -291,6 +292,17 @@ export async function postNpsResponse(
       email: req.email,
       disposition,
       preview: isPreview,
+    });
+  }
+
+  if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
+    postNpsResponseToLicenseServer({
+      email: req.email,
+      score,
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
+      respondedAt: new Date().toISOString(),
+    }).catch((e) => {
+      logger.error(e, "Failed to forward NPS response to license server");
     });
   }
 

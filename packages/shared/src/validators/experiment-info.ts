@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { ownerEmailField } from "./owner-field";
 
 export const experimentInfoSignificance = z
   .object({
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
     variationId: z.string(),
     variationName: z.string(),
@@ -25,6 +27,7 @@ export const experimentInfoScheduledStatusUpdate = z
   .object({
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     // "kept-running": a soft end date was reached but the experiment was left
     // running (notify), optionally with an EDF-recommended winner to review.
     action: z.enum(["started", "stopped", "kept-running"]),

@@ -27,13 +27,14 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
   params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 ): string {
   // Aggregated table is keyed on the exposure id type, so no identity join.
-  const baseIdType = params.exposureQuery.userIdType;
+  const baseIdType = params.exposureQuery.identifierType;
 
   // Capping is applied later in the statistics query.
   const sortedMetrics = cloneDeep(params.metrics)
     .map((m) => ({
       ...m,
       cappingSettings: { type: "" as const, value: 0 },
+      lowerCappingSettings: null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
   const paramsMetricsSorted: {
@@ -164,6 +165,7 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
                   valueCol: `c.${m.alias}_covariate_value`,
                   metric: m.metric,
                   columnRef: m.metric.numerator,
+                  preserveType: true,
                 })} AS ${encodeMetricIdForColumnName(m.id)}_value`
               : "";
             const denominatorCol = includeDenominator
@@ -171,6 +173,7 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
                   valueCol: `c.${m.alias}_covariate_denominator`,
                   metric: m.metric,
                   columnRef: m.metric.denominator,
+                  preserveType: true,
                 })} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
               : "";
             return `${numeratorCol}${denominatorCol}`;

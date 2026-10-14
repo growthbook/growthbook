@@ -124,7 +124,12 @@ export interface BulkPublishableAdapter {
     context: Context,
     revision: BulkRevisionRef,
     baseline: ClaimBaseline,
-    options: { isApprovalBypass: boolean; comment?: string },
+    options: {
+      entityPreImage: Record<string, unknown>;
+      isApprovalBypass: boolean;
+      comment?: string;
+      desiredState: Record<string, unknown>;
+    },
   ): Promise<boolean>;
 
   /**

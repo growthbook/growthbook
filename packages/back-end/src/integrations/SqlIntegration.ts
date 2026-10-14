@@ -26,6 +26,7 @@ import {
   usesBackslashStringEscapes,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
@@ -122,7 +123,12 @@ import {
   RunQueryMetadata,
 } from "shared/types/query";
 import { conversionWindowToSeconds } from "shared/funnels";
-import { MissingDatasourceParamsError } from "back-end/src/util/errors";
+import {
+  getErrorMessage,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
+import { getWarehouseErrorCode } from "back-end/src/util/integration";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -280,6 +286,8 @@ function getFunnelPassthroughColumns({
   return cols;
 }
 
+const MAX_LOG_ERROR_LENGTH = 100;
+
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
 {
@@ -296,7 +304,13 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback | undefined,
     metadata: RunQueryMetadata,
   ): Promise<QueryResponse>;
-  abstract getSqlDialect(): SqlDialect;
+  getSqlDialect(): SqlDialect {
+    const dialect = getDataSourceSqlDialect(this.datasource.type);
+    if (!dialect) {
+      throw new Error(`${this.datasource.type} is not a SQL Data Source`);
+    }
+    return dialect;
+  }
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {
     this.wrapRunQuery();
@@ -328,12 +342,74 @@ export default abstract class SqlIntegration
       }
       metadata = {
         ...metadata,
-        userId: this.context.userId,
-        userName: this.context.userName,
+        userId: this.context.actingUserId,
+        userName: this.context.actingUserName,
         ...this.additionalMetadata,
       };
-      return originalRunQuery.call(this, sql, setExternalId, metadata);
+      const startedAt = new Date();
+      let externalId: string | undefined;
+      try {
+        const response = await originalRunQuery.call(
+          this,
+          sql,
+          async (id, idMetadata) => {
+            externalId = id;
+            await setExternalId?.(id, idMetadata);
+          },
+          metadata,
+        );
+        void this.recordQueryLog(metadata, startedAt, externalId, {
+          response,
+        });
+        return response;
+      } catch (e) {
+        void this.recordQueryLog(metadata, startedAt, externalId, {
+          error: getErrorMessage(e),
+          errorCode: getWarehouseErrorCode(e),
+        });
+        throw e;
+      }
     };
+  }
+
+  // One row per warehouse query; not awaited, so it never delays or fails the query
+  private async recordQueryLog(
+    metadata: RunQueryMetadata,
+    startedAt: Date,
+    externalId: string | undefined,
+    outcome:
+      | { response: QueryResponse }
+      | { error: string; errorCode?: string },
+  ) {
+    const response = "response" in outcome ? outcome.response : undefined;
+    try {
+      await this.context.models.queryLogs.create({
+        datasource: this.datasource.id,
+        datasourceType: this.datasource.type,
+        // A few integration-internal callers still omit metadata
+        queryType: metadata.queryType || "unknown",
+        status: response ? "succeeded" : "failed",
+        startedAt,
+        durationMs: Date.now() - startedAt.getTime(),
+        externalId,
+        queryId: metadata.queryId,
+        experimentId: metadata.experimentId,
+        factTableIds: metadata.factTableIds,
+        snapshotTriggeredBy: metadata.snapshotTriggeredBy,
+        snapshotType: metadata.snapshotType,
+        userId: metadata.userId || undefined,
+        rowsReturned: response?.rows.length,
+        statistics: response?.statistics,
+        // Just enough for a short preview in the UI
+        error:
+          "error" in outcome
+            ? outcome.error.slice(0, MAX_LOG_ERROR_LENGTH)
+            : undefined,
+        errorCode: "error" in outcome ? outcome.errorCode : undefined,
+      });
+    } catch (e) {
+      logger.warn(e, `Failed to record query log for ${this.datasource.id}`);
+    }
   }
 
   setAdditionalQueryMetadata(additionalQueryMetadata: AdditionalQueryMetadata) {
@@ -870,20 +946,23 @@ export default abstract class SqlIntegration
     sql: string,
     timestampCols: string[] | undefined,
     queryType: QueryType,
+    /** Metadata only */
+    factTableId: string | null,
   ): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
-    const results = await this.runQuery(sql, undefined, { queryType }).catch(
-      (e) => {
-        // If the user forgets to include a timestamp column in their SQL
-        // The error message from the db will be confusing, so make it more clear.
-        for (const col of timestampCols ?? []) {
-          if (e.message.includes(col)) {
-            throw new Error(`The column '${col}' is required. ${e.message}`);
-          }
+    const results = await this.runQuery(sql, undefined, {
+      queryType,
+      ...(factTableId && { factTableIds: [factTableId] }),
+    }).catch((e) => {
+      // If the user forgets to include a timestamp column in their SQL
+      // The error message from the db will be confusing, so make it more clear.
+      for (const col of timestampCols ?? []) {
+        if (e.message.includes(col)) {
+          throw new Error(`The column '${col}' is required. ${e.message}`);
         }
-        throw e;
-      },
-    );
+      }
+      throw e;
+    });
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
@@ -1623,9 +1702,11 @@ export default abstract class SqlIntegration
 
   public async runColumnsTopValuesQuery(
     sql: string,
+    factTableId: string | null,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql, undefined, {
       queryType: "columnTopValues",
+      ...(factTableId && { factTableIds: [factTableId] }),
     });
 
     return {
@@ -1698,7 +1779,7 @@ export default abstract class SqlIntegration
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.userIdType} ${this.getSqlDialect().getDataType("string")}
+      ${exposureQuery.identifierType} ${this.getSqlDialect().getDataType("string")}
       , variation ${this.getSqlDialect().getDataType("string")}
       , first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
       ${
@@ -1732,13 +1813,13 @@ export default abstract class SqlIntegration
       this.datasource.settings,
       {
         objects: [
-          [exposureQuery.userIdType],
+          [exposureQuery.identifierType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
           segment ? [segment.userIdType || "user_id"] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: settings.experimentId,
       },
     );
@@ -2039,7 +2120,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.identifierType;
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -2084,7 +2165,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.identifierType;
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2191,12 +2272,12 @@ export default abstract class SqlIntegration
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
+        objects: [[exposureQuery.identifierType], factTable?.userIdTypes || []],
         // TODO(incremental-refresh): this gets all identities from history
         // of experiment, which we think is right, but could be improved
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2658,7 +2739,7 @@ export default abstract class SqlIntegration
     );
 
     const idTypeObjects = [
-      [exposureQuery.userIdType],
+      [exposureQuery.identifierType],
       ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
@@ -2669,7 +2750,7 @@ export default abstract class SqlIntegration
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
+        forcedBaseIdType: exposureQuery.identifierType,
         experimentId: params.settings.experimentId,
       },
     );

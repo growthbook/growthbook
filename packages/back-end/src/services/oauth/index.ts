@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { OAuthDcrRequest } from "shared/validators";
+import { isSafeOAuthRedirectUri, OAuthDcrRequest } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,
@@ -231,6 +231,10 @@ export async function getAuthorizeInfo(params: {
       "invalid_request",
       "redirect_uri is not registered for this client",
     );
+  }
+  // Also covers clients registered before DCR rejected these schemes.
+  if (!isSafeOAuthRedirectUri(params.redirectUri)) {
+    throw new OAuthError("invalid_request", "redirect_uri is not allowed");
   }
   return {
     clientId: client.clientId,

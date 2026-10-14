@@ -40,6 +40,7 @@ jest.mock("back-end/src/models/MetricModel", () => ({
           name: "Goal",
           datasource: "ds_1",
           metricType: "mean",
+          numerator: { factTableId: "ftb_1" },
         },
       ],
     ]),
@@ -106,6 +107,10 @@ function makeCb(
     datasource: "ds_1",
     contextualBanditQueryId: "cbq_1",
     contextualAttributes: ["country"],
+    variations: [
+      { id: "v0", key: "0", name: "Control", screenshots: [] },
+      { id: "v1", key: "1", name: "Treatment", screenshots: [] },
+    ],
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
@@ -284,7 +289,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       const [statsSettings, forwardedRows, runParams] =
         runContextualStatsEngineMock.mock.calls[0];
-      expect(statsSettings.varIds).toEqual(["v0", "v1"]);
+      expect(statsSettings.variations).toEqual([
+        { id: "v0", key: "0" },
+        { id: "v1", key: "1" },
+      ]);
       expect(statsSettings.contextualAttributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");

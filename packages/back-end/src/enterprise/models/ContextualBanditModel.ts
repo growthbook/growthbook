@@ -10,11 +10,17 @@ import {
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
   assertContextualAttributesValid,
+  cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  contextualBanditApiSpec,
   ContextualBanditInterface,
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  refreshContextualBanditEndpoint,
+  startContextualBanditEndpoint,
+  stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
   VariationWeightPair,
 } from "shared/validators";
 import {
@@ -27,15 +33,10 @@ import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import {
-  cancelContextualBanditEndpoint,
-  contextualBanditApiSpec,
-  refreshContextualBanditEndpoint,
-  startContextualBanditEndpoint,
-  stopContextualBanditEndpoint,
-  updateVariationsContextualBanditEndpoint,
-} from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
@@ -72,6 +73,7 @@ const BaseClass = MakeModelClass({
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
+    priorSampleSize: 0,
     banditModelVersion: 1,
     currentLeafWeights: [],
     banditVersion: 0,
@@ -266,6 +268,7 @@ export function toApiContextualBandit(
     decisionMetric: doc.decisionMetric,
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
+    priorSampleSize: doc.priorSampleSize ?? 0,
     holdoutPercent: doc.holdoutPercent,
     banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
@@ -283,6 +286,14 @@ export function toApiContextualBandit(
 }
 
 export class ContextualBanditModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): ContextualBanditInterface {
+    const doc = legacyDoc as ContextualBanditInterface;
+    return {
+      ...doc,
+      priorSampleSize: doc.priorSampleSize ?? 0,
+    };
+  }
+
   protected toApiInterface(
     doc: ContextualBanditInterface,
   ): ApiContextualBanditInterface {
@@ -347,6 +358,29 @@ export class ContextualBanditModel extends BaseClass {
         doc,
       );
     }
+
+    // Targeting reaches the SDK payload through the linked feature's rule, so it
+    // gets the rule write checks. Changed fields only, as on feature rules.
+    await validateChangedRuleReferences(
+      [doc],
+      previousDoc ? [previousDoc] : [],
+      this.context,
+    );
+    await assertValidExperimentPrerequisites(
+      this.context,
+      doc.prerequisites,
+      previousDoc?.prerequisites,
+    );
+    assertRegisteredAttributes(
+      this.context,
+      { hashAttribute: doc.hashAttribute, condition: doc.condition },
+      "contextual bandit",
+      previousDoc && {
+        hashAttribute: previousDoc.hashAttribute,
+        condition: previousDoc.condition,
+      },
+      doc.project || undefined,
+    );
   }
 
   public override async handleApiList(
@@ -385,6 +419,7 @@ export class ContextualBanditModel extends BaseClass {
       banditModelVersion: 1,
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,
+      priorSampleSize: body.priorSampleSize ?? 0,
       hashAttribute: body.hashAttribute ?? "id",
       variations: body.variations.map((v) => ({
         ...v,
@@ -480,7 +515,9 @@ export class ContextualBanditModel extends BaseClass {
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
     if (changes.variations !== undefined) {
-      set.variations = changes.variations;
+      set.variations = contextualBanditValidator.shape.variations.parse(
+        changes.variations,
+      );
     }
     if (changes.variationWeights !== undefined) {
       set.variationWeights = changes.variationWeights;

@@ -28,7 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
@@ -41,6 +41,7 @@ import track from "@/services/track";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -59,6 +60,14 @@ function toPersistedJSONFields(
       field,
       { ...value, datatype: value.datatype ?? "" },
     ]),
+  );
+}
+
+function toConditionalInlineFilters(
+  mappings: { value: string; column: string }[],
+): Record<string, string> {
+  return Object.fromEntries(
+    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
   );
 }
 
@@ -113,6 +122,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     }
   };
 
+  const [valueMappings, setValueMappings] = useState<
+    { value: string; column: string }[]
+  >(() =>
+    Object.entries(existing?.conditionalInlineFilters ?? {}).map(
+      ([value, column]) => ({ value, column }),
+    ),
+  );
   const form = useForm<CreateColumnProps>({
     defaultValues: {
       column: existing?.column || "",
@@ -263,6 +279,31 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     deleted: false,
   };
 
+  // Other string columns a conditional prompt can key off.
+  // Columns (or JSON fields) that can be prompted for alongside this one
+  const mappingColumnOptions: SingleValue[] = [];
+  factTable.columns.forEach((c) => {
+    if (c.deleted || c.column === existing?.column) return;
+    if (c.datatype === "json") {
+      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
+        if (
+          f.datatype === "string" ||
+          f.datatype === "boolean" ||
+          !f.datatype
+        ) {
+          mappingColumnOptions.push({
+            label: `${c.name || c.column}.${field}`,
+            value: `${c.column}.${field}`,
+          });
+        }
+      });
+      return;
+    }
+    if (canInlineFilterColumn(factTable, c.column)) {
+      mappingColumnOptions.push({ label: c.name || c.column, value: c.column });
+    }
+  });
+
   return (
     <Modal
       trackingEventModalType=""
@@ -280,6 +321,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
+            conditionalInlineFilters: value.alwaysInlineFilter
+              ? toConditionalInlineFilters(valueMappings)
+              : {},
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -333,7 +377,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({
+              ...value,
+              conditionalInlineFilters: value.alwaysInlineFilter
+                ? toConditionalInlineFilters(valueMappings)
+                : undefined,
+            }),
           });
         }
         mutateDefinitions();
@@ -1008,9 +1057,101 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}
             setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
-            label="Prompt all metrics to filter on this column"
+            label="Prompt metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
+          {form.watch("alwaysInlineFilter") &&
+            mappingColumnOptions.length > 0 && (
+              <Frame mt="2" ml="4" py="4" px="4">
+                <Text size="2" weight="medium">
+                  Secondary filters
+                </Text>
+                <Text as="p" size="1" color="gray" mb="2">
+                  When certain values are chosen, prompt for an additional
+                  filter.
+                </Text>
+                <Flex direction="column" gap="2">
+                  {valueMappings.map((m, i) => (
+                    <Flex key={i} gap="2" align="center">
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.value}
+                        createable
+                        onChange={(value) =>
+                          setValueMappings((prev) =>
+                            // A value maps once; a duplicate would overwrite on save
+                            prev.some((x, j) => j !== i && x.value === value)
+                              ? prev
+                              : prev.map((x, j) =>
+                                  j === i ? { ...x, value } : x,
+                                ),
+                          )
+                        }
+                        options={topValues
+                          .filter(
+                            (v) =>
+                              v === m.value ||
+                              !valueMappings.some((x) => x.value === v),
+                          )
+                          .map((v) => ({ label: v, value: v }))}
+                        placeholder="Value..."
+                      />
+                      <Text>→</Text>
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.column}
+                        onChange={(column) =>
+                          setValueMappings((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, column } : x,
+                            ),
+                          )
+                        }
+                        options={mappingColumnOptions}
+                        placeholder="Filter on..."
+                      />
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Remove"
+                        onClick={() =>
+                          setValueMappings((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        <PiX size={14} />
+                      </RadixButton>
+                    </Flex>
+                  ))}
+                  {valueMappings.every((m) => m.value && m.column) && (
+                    <Flex>
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        icon={<PiPlus size={14} />}
+                        onClick={() =>
+                          setValueMappings((prev) => [
+                            ...prev,
+                            { value: "", column: "" },
+                          ])
+                        }
+                      >
+                        Add value
+                      </RadixButton>
+                    </Flex>
+                  )}
+                </Flex>
+              </Frame>
+            )}
         </div>
       )}
     </Modal>

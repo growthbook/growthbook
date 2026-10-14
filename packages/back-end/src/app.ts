@@ -145,12 +145,14 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import {
@@ -314,8 +316,15 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// 2mb default; 10mb for screenshot upload and visual-editor AI image
-// gen (the latter accepts a base64-encoded reference image).
+// Inbound Slack traffic (Events API + Interactivity). Mounted ahead of the
+// global JSON parser because Slack signs the raw request bytes (see the
+// router). It only registers /events and /interactions; everything else under
+// this prefix falls through to the session-authed slackIntegrationRouter below.
+// Never add those two paths to that router.
+app.use("/integrations/slack", slackActionsRouter);
+
+// 2mb default; 10mb for screenshot upload and the visual-editor AI routes
+// that accept base64-encoded images.
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
@@ -329,10 +338,14 @@ app.use((req, res, next) => {
   const isVisualEditorFigmaToVariant =
     req.method === "POST" &&
     req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  // AI edits carry up to two base64 image attachments.
+  const isVisualEditorEdit =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/edit";
   const needsLargeBody =
     isScreenshotUpload ||
     isVisualEditorImageGen ||
-    isVisualEditorFigmaToVariant;
+    isVisualEditorFigmaToVariant ||
+    isVisualEditorEdit;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
@@ -431,6 +444,7 @@ const INTERNAL_API_ALLOWED_HEADERS = [
   "Authorization",
   "X-Organization",
   "X-SSO-Connection-ID",
+  "X-GrowthBook-Requested-By",
   "x-no-compression",
   ...GROWTHBOOK_TRACKING_HEADERS,
 ];
@@ -635,6 +649,7 @@ if (IS_CLOUD) {
     subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
+  app.get("/billing/usage/by-key", subscriptionController.getUsageByKey);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -720,6 +735,7 @@ app.get(
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+app.use(queryLogsRouter);
 
 // Metric Groups
 app.use(metricGroupRouter);
@@ -941,6 +957,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
+app.get("/feature/:id/code-refs", featuresController.getFeatureCodeRefs);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
@@ -1076,6 +1093,10 @@ app.get(
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
+app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
@@ -1106,7 +1127,6 @@ app.post(
   datasourcesController.postResumeEventForwarder,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
-app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
   "/datasource/:id/query/:queryId/cancel",
   datasourcesController.cancelDataSourceQuery,
@@ -1170,7 +1190,8 @@ app.get(
 app.use("/events", eventsRouter);
 app.use(eventWebHooksRouter);
 
-// Slack integration
+// Slack integration settings (session-authed). /events and /interactions on
+// this prefix belong to slackActionsRouter, mounted before the JSON parser.
 app.use("/integrations/slack", slackIntegrationRouter);
 
 // Data Export

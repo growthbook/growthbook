@@ -1,14 +1,19 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getFactTableIdsForMetrics,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  resolveExposureQueryForAnalysis,
+  buildUnitsQuerySettingsFromSnapshot,
+} from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -140,9 +145,12 @@ export const startExperimentResultQueries = async (
   // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
   // exposure query, and an unknown id throws a clear error rather than generating
   // an invalid query with an empty user id type.
-  const resolvedExposureQuery = getExposureQuery(
-    integration.datasource,
-    snapshotSettings.exposureQueryId || "",
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    getExposureQuery(
+      integration.datasource,
+      snapshotSettings.exposureQueryId || "",
+    ),
+    snapshotSettings.exposureQueryIdentifierType,
   );
 
   const snapshotDimensions: Dimension[] = (
@@ -342,6 +350,7 @@ export const startExperimentResultQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "experimentMultiMetric",
       }),
     );
@@ -383,6 +392,7 @@ export const startExperimentResultQueries = async (
                 setExternalId,
                 queryMetadata,
               ),
+            metadata: { factTableIds: getFactTableIdsForMetrics(m) },
             queryType: "experimentMultiMetric",
           }),
         );
@@ -510,9 +520,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+  prepareAnalysisData(
+    params: Pick<ExperimentResultsQueryParams, "metricMap" | "variationNames">,
+  ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+  }
+
+  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -647,10 +663,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
-    await errorSnapshotIfStillRunning(this.context, this.model.id, {
-      queries: this.model.queries,
-      error,
-    });
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
+    await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      { queries: this.model.queries, error },
+      "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
+    );
   }
 
   async updateModel({
@@ -659,12 +681,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause = "query",
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -682,9 +706,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
+    // The cancel owns report.snapshot for a cancelled run: it deletes the run
+    // or moves the report back to its latest successful snapshot.
     if (
+      failureCause !== "cancelled" &&
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)
     ) {

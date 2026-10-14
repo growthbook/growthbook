@@ -20,12 +20,18 @@ import {
 } from "./remoteStreamConstants";
 import { parseSSEEvents } from "./parseSSE";
 import { processSSEEvent } from "./processSSEEvent";
-import { useTypewriter } from "./useTypewriter";
+import {
+  FINISHED_DRAIN_TICKS,
+  TYPEWRITER_INTERVAL_MS,
+  useTypewriter,
+} from "./useTypewriter";
 
 export function useAIChat({
   endpoint,
   buildRequestBody,
   toolStatusLabels = {},
+  toolPreparingLabels = {},
+  pauseIncompleteMarkdownLinks = false,
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
@@ -59,7 +65,7 @@ export function useAIChat({
   const [loading, setLoading] = useState(false);
   /** True only while fetching historical messages for a conversation (not AI generation). */
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-  /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
+  /** True while this tab owns the request started by `sendMessage`. */
   const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [isRemoteStream, setIsRemoteStream] = useState(false);
@@ -70,6 +76,10 @@ export function useAIChat({
   /** True while sendMessage is executing — used to prevent the conversation-load
    *  effect from overwriting state during an active send. */
   const isSendingRef = useRef(false);
+  /** Flips true once the local stream ends so the typewriter drains its buffer. */
+  const streamCompleteRef = useRef(false);
+  /** Bumped on every conversation switch, so a finishing turn can tell it was left. */
+  const conversationSwitchesRef = useRef(0);
   const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -83,6 +93,8 @@ export function useAIChat({
   onConversationLoadedRef.current = onConversationLoaded;
   const toolStatusLabelsRef = useRef(toolStatusLabels);
   toolStatusLabelsRef.current = toolStatusLabels;
+  const toolPreparingLabelsRef = useRef(toolPreparingLabels);
+  toolPreparingLabelsRef.current = toolPreparingLabels;
   const onSSEEventRef = useRef(onSSEEvent);
   onSSEEventRef.current = onSSEEvent;
   const onStreamAcceptedRef = useRef(onStreamAccepted);
@@ -108,8 +120,34 @@ export function useAIChat({
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } =
-    useTypewriter(activeTurnItemsRef);
+  const { displayedTextMap, displayedTextMapRef, clearDisplayedText } =
+    useTypewriter(
+      activeTurnItemsRef,
+      pauseIncompleteMarkdownLinks,
+      streamCompleteRef,
+    );
+
+  // Swapping in the persisted reply ends the animation, so let buffered text
+  // finish typing first. Capped: a paused Markdown link never finishes.
+  const waitForTypewriterDrain = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const deadline =
+          Date.now() + (FINISHED_DRAIN_TICKS + 10) * TYPEWRITER_INTERVAL_MS;
+        const check = () => {
+          const shown = displayedTextMapRef.current;
+          const drained = activeTurnItemsRef.current.every(
+            (item) =>
+              item.kind !== "text" ||
+              (shown.get(item.id)?.length ?? 0) >= item.content.length,
+          );
+          if (drained || Date.now() >= deadline) resolve();
+          else window.setTimeout(check, TYPEWRITER_INTERVAL_MS);
+        };
+        check();
+      }),
+    [displayedTextMapRef],
+  );
 
   const setActive = useCallback(
     (items: ActiveTurnItem[]) => {
@@ -282,10 +320,13 @@ export function useAIChat({
 
   const syncMessagesFromServer = useCallback(async () => {
     if (!getConversationEndpoint) return;
+    const switches = conversationSwitchesRef.current;
     try {
       const data = await apiCall<ConversationLoadResponse>(
         getConversationEndpoint(conversationId),
       );
+      // The user moved to another chat mid-fetch; don't overwrite it.
+      if (conversationSwitchesRef.current !== switches) return;
       setMessages(data.messages ?? []);
       onConversationLoadedRef.current?.(data);
       setError(null);
@@ -354,6 +395,7 @@ export function useAIChat({
       setActive([]);
       setWaitingForNextStep(false);
       isSendingRef.current = true;
+      streamCompleteRef.current = false;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -394,8 +436,8 @@ export function useAIChat({
           return;
         }
 
-        onStreamAcceptedRef.current?.();
         setIsLocalStream(true);
+        onStreamAcceptedRef.current?.();
 
         const reader = response.body?.getReader();
         if (!reader) {
@@ -423,6 +465,7 @@ export function useAIChat({
               activeTurnItemsRef.current,
               toolStatusLabelsRef.current,
               nextId,
+              toolPreparingLabelsRef.current,
             );
             if (result.activeTurnItems) setActive(result.activeTurnItems);
             if (result.waitingForNextStep !== undefined)
@@ -442,6 +485,7 @@ export function useAIChat({
           });
         }
       } finally {
+        streamCompleteRef.current = true;
         const wasCancelled = userCancelledRef.current;
         const durationMs = Date.now() - sendStartMs;
         userCancelledRef.current = false;
@@ -452,26 +496,35 @@ export function useAIChat({
         } else if (wasCancelled) {
           onMessageCancelledRef.current?.({ durationMs });
         }
-        setWaitingForNextStep(false);
-        setLoading(false);
-        setIsLocalStream(false);
-        abortControllerRef.current = null;
+        // Before loading clears, so a new send can't race the swap below.
+        const switches = conversationSwitchesRef.current;
+        if (streamCompletedOk) await waitForTypewriterDrain();
+        // Release this request only if a newer one hasn't taken its place.
+        if (abortControllerRef.current === controller) {
+          setIsLocalStream(false);
+          abortControllerRef.current = null;
+        }
+        // Switching chats already reset this state for the new conversation.
+        if (conversationSwitchesRef.current === switches) {
+          setWaitingForNextStep(false);
+          setLoading(false);
 
-        if (getConversationEndpoint && streamCompletedOk) {
-          // Normal completion — sync the persisted messages from the server.
-          await syncMessagesFromServer();
-        } else if (getConversationEndpoint && wasCancelled) {
-          // User cancelled — give the backend a moment to flush and persist the
-          // partial response before syncing, then show whatever was saved.
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          await syncMessagesFromServer();
-        } else if (getConversationEndpoint) {
-          // Navigation / new-chat abort — don't sync, just clear.
-          setActive([]);
-        } else {
-          // No server persistence — commit whatever was streamed locally.
-          finalizeTurn();
-          setActive([]);
+          if (getConversationEndpoint && streamCompletedOk) {
+            // Normal completion — sync the persisted messages from the server.
+            await syncMessagesFromServer();
+          } else if (getConversationEndpoint && wasCancelled) {
+            // User cancelled — give the backend a moment to flush and persist the
+            // partial response before syncing, then show whatever was saved.
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            await syncMessagesFromServer();
+          } else if (getConversationEndpoint) {
+            // Navigation / new-chat abort — don't sync, just clear.
+            setActive([]);
+          } else {
+            // No server persistence — commit whatever was streamed locally.
+            finalizeTurn();
+            setActive([]);
+          }
         }
       }
     },
@@ -486,6 +539,7 @@ export function useAIChat({
       finalizeTurn,
       syncMessagesFromServer,
       getConversationEndpoint,
+      waitForTypewriterDrain,
       nextId,
       clearRemotePoll,
     ],
@@ -496,6 +550,7 @@ export function useAIChat({
   // ---------------------------------------------------------------------------
 
   const newChat = useCallback(() => {
+    conversationSwitchesRef.current++;
     abortControllerRef.current?.abort();
     clearRemotePoll();
     const newId = crypto.randomUUID();
@@ -520,6 +575,7 @@ export function useAIChat({
   const loadConversation = useCallback(
     async (id: string) => {
       if (id === conversationId) return;
+      conversationSwitchesRef.current++;
       abortControllerRef.current?.abort();
       clearRemotePoll();
       if (conversationStorageKey) {

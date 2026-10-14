@@ -191,6 +191,12 @@ const putVisualChangesetBody = z
         "URL patterns that determine which pages this visual changeset applies to",
       )
       .optional(),
+    allowRunningExperiment: z
+      .boolean()
+      .describe(
+        "Also accept the write when the experiment is running. Off by default so a stale editor can't change a live test. When set, the change reaches live traffic immediately and the caller needs the runExperiments permission on the affected environments; the write is audited.",
+      )
+      .optional(),
     visualChanges: z
       .array(
         z
@@ -251,6 +257,12 @@ const visualChangeBody = z
     css: z.string().optional(),
     js: z.string().optional(),
     variation: z.string(),
+    allowRunningExperiment: z
+      .boolean()
+      .describe(
+        "Also accept the write when the experiment is running. Off by default so a stale editor can't change a live test. When set, the change reaches live traffic immediately and the caller needs the runExperiments permission on the affected environments; the write is audited.",
+      )
+      .optional(),
     domMutations: z
       .array(
         z

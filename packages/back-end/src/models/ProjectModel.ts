@@ -21,6 +21,7 @@ import {
   updateOrganization,
 } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
+import { ApiKeyModel } from "./ApiKeyModel";
 
 function slugify(text: string): string {
   return text
@@ -56,6 +57,7 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     description: "",
     settings: {},
+    owner: "",
   },
 });
 
@@ -127,6 +129,10 @@ export class ProjectModel extends BaseClass {
       getCollection<TeamInterface>("teams").updateMany(
         { organization: this.context.org.id, "projectRoles.project": doc.id },
         { $pull: { projectRoles: { project: doc.id } } },
+      ),
+      ApiKeyModel.dangerousRemoveProjectRolesForProject(
+        this.context.org.id,
+        doc.id,
       ),
     ]);
     for (const result of cleanups) {
@@ -334,6 +340,7 @@ export class ProjectModel extends BaseClass {
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
       allowTargeting: project.allowTargeting ?? true,
+      owner: project.owner ?? "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

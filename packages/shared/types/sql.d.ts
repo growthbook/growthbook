@@ -1,5 +1,5 @@
 import type { SqlLanguage } from "sql-formatter";
-import type { DataType } from "./integrations";
+import type { DataType, FactMetricPercentileData } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
@@ -201,13 +201,7 @@ export interface SqlDialect {
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      sourceIndex: number;
-    }[],
+    values: FactMetricPercentileData[],
     metricTable: string,
     where?: string,
   ) => string;

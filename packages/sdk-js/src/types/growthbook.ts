@@ -142,6 +142,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  contextualBanditRef?: string;
 };
 
 export type ExperimentOverride = {
@@ -231,6 +232,12 @@ export type CustomEventSubCallback = (
   properties: Readonly<Record<string, unknown>>,
 ) => void;
 
+export type ExperimentViewedSubCallback = (
+  experiment: Readonly<Experiment<unknown>>,
+  result: Readonly<Result<unknown>>,
+  user: TrackingUserContext,
+) => void;
+
 export type Plugin = (
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
@@ -313,7 +320,7 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -340,7 +347,7 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -352,7 +359,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -399,6 +406,7 @@ export type UserContext = {
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
   featureUsageSubs?: Set<FeatureUsageSubCallback>;
+  experimentViewedSubs?: Set<ExperimentViewedSubCallback>;
 };
 
 export type StackContext = {
@@ -489,7 +497,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -502,9 +510,7 @@ export type GrowthBookPayload = FeatureApiResponse;
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
   fetch: any;
-
   SubtleCrypto: any;
-
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };
@@ -616,7 +622,19 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+/** The v1 shape: an ID list's values. New code should use SavedGroupsPayload. */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+/** The savedGroupReferencesV2 shape of one saved group, of any type. */
+export type SavedGroupPayloadEntry =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+/** The `savedGroups` payload field. Entries may use either shape above. */
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupPayloadEntry
+>;
 
 export type BaseLog = {
   timestamp: string;

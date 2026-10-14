@@ -154,6 +154,8 @@ export const aiAgentPendingActionValidator = z.object({
   path: z.string(),
   query: z.record(z.string(), z.string()).optional(),
   body: z.unknown().optional(),
+  /** Verb-first label for the change, e.g. "Launch experiment checkout-redesign". */
+  title: z.string().optional(),
   /** Short human-readable description shown in the confirmation prompt. */
   summary: z.string(),
   createdAt: z.number(),

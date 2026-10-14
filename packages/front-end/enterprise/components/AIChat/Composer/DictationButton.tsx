@@ -23,12 +23,9 @@ const ICONS = {
 export default function DictationButton({
   dictation: { available, status, toggle, micRef },
   disabled = false,
-  primary = false,
 }: {
   dictation: Dictation;
   disabled?: boolean;
-  /** Takes the send button's filled treatment when there's nothing to send. */
-  primary?: boolean;
 }) {
   if (!available) return null;
 
@@ -41,8 +38,7 @@ export default function DictationButton({
     <button
       ref={micRef}
       type="button"
-      // Shared geometry, so "filled" is just the send button's class.
-      className={`${primary && status === "idle" ? styles.sendButton : styles.dictateButton}${
+      className={`${styles.dictateButton}${
         recording ? ` ${styles.dictateButtonActive}` : ""
       }`}
       onClick={toggle}
