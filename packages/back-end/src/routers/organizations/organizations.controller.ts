@@ -1591,6 +1591,9 @@ export async function putOrganization(
       context.permissions.throwPermissionError();
     }
   }
+  if (licenseKey && !context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
   if (settings) {
     (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
       if (k === "environments") {

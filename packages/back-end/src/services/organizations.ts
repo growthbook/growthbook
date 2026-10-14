@@ -187,8 +187,16 @@ export async function setLicenseKey(
     );
   }
 
+  const license = await licenseInit(
+    { ...org, licenseKey },
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
+  if (license?.organizationId && license.organizationId !== org.id) {
+    throw new Error("This license key belongs to a different organization");
+  }
   org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(
