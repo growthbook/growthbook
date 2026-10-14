@@ -1,7 +1,30 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import {
+  API_USER_AGENT,
+  MAX_WEBHOOK_TIMEOUT_MS,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "./secrets";
+
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 30000;
+
+// Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_MS later still applies to stored webhooks
+export function getWebhookTimeoutMs(timeoutMs?: number) {
+  return Math.min(
+    timeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS,
+    MAX_WEBHOOK_TIMEOUT_MS,
+  );
+}
+
+export function validateWebhookTimeoutMs(timeoutMs?: number) {
+  if (timeoutMs !== undefined && timeoutMs > MAX_WEBHOOK_TIMEOUT_MS) {
+    throw new Error(
+      `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_MS / 1000} seconds`,
+    );
+  }
+}
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;

@@ -115,6 +115,7 @@ export const createEventWebHook = async (
     payloadType,
     method = "POST",
     headers = {},
+    timeoutMs,
   } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
@@ -129,6 +130,7 @@ export const createEventWebHook = async (
     payloadType,
     method,
     headers,
+    timeoutMs,
   });
 
   return res.json({ eventWebHook: created });

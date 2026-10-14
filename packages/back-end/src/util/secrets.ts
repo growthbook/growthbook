@@ -233,6 +233,13 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
 
+// Upper bound for the per-webhook request timeout users can configure
+export const MAX_WEBHOOK_TIMEOUT_MS = parseEnvInt(
+  process.env.MAX_WEBHOOK_TIMEOUT_MS,
+  120000,
+  { min: 1000, name: "MAX_WEBHOOK_TIMEOUT_MS" },
+);
+
 // Must exceed the idle timeout of any load balancer in front of us, or the LB
 // reuses connections we already closed and returns spurious 502s to clients.
 export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(

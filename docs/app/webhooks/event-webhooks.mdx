@@ -32,6 +32,8 @@ You can also add your own custom headers. The format of custom headers is a JSON
 }
 ```
 
+Each request waits up to 30 seconds for a response by default. You can set a different timeout (in seconds) per webhook. The maximum is 2 minutes on GrowthBook Cloud and configurable with `MAX_WEBHOOK_TIMEOUT_MS` when self-hosting.
+
 ## Slack notifications
 
 For most teams, the [GrowthBook Slack app](/integrations/slack) is the easiest way to get notifications in Slack. It supports per-channel filters and image cards.

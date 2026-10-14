@@ -2215,9 +2215,12 @@ export async function testSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  await fireSdkWebhook(context, webhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  // This request blocks on the fetch, so use the default timeout rather than the configured one
+  await fireSdkWebhook(context, { ...webhook, timeoutMs: undefined }).catch(
+    () => {
+      // Do nothing, already being logged in Mongo
+    },
+  );
   res.status(200).json({
     status: 200,
   });

@@ -13,6 +13,7 @@ import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
   CancellableFetchReturn,
+  getWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
@@ -145,7 +146,7 @@ async function runWebhookFetch({
   const payloadFormat = webhook.payloadFormat || "standard";
   const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
-  const requestTimeout = 30000;
+  const requestTimeout = getWebhookTimeoutMs(webhook.timeoutMs);
   const maxContentSize = 1000;
   const jsonPayload = JSON.stringify(payload);
 

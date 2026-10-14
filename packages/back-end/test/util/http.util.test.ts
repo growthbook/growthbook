@@ -3,6 +3,8 @@ import {
   cancellableFetch,
   getAuthProxyForUrl,
   getHttpOptions,
+  getWebhookTimeoutMs,
+  validateWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
@@ -11,6 +13,7 @@ let mockUseProxy = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   WEBHOOK_PROXY: "http://smokescreen.test:4750",
+  MAX_WEBHOOK_TIMEOUT_MS: 120000,
   get USE_PROXY() {
     return mockUseProxy;
   },
@@ -90,5 +93,19 @@ describe("getAuthProxyForUrl", () => {
     "https://10.0.0.5/keys",
   ])("keeps the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");
+  });
+});
+
+describe("webhook timeouts", () => {
+  it("defaults to 30s and clamps to MAX_WEBHOOK_TIMEOUT_MS", () => {
+    expect(getWebhookTimeoutMs(undefined)).toBe(30000);
+    expect(getWebhookTimeoutMs(5000)).toBe(5000);
+    expect(getWebhookTimeoutMs(500000)).toBe(120000);
+  });
+
+  it("rejects timeouts above the max on save", () => {
+    expect(() => validateWebhookTimeoutMs(undefined)).not.toThrow();
+    expect(() => validateWebhookTimeoutMs(120000)).not.toThrow();
+    expect(() => validateWebhookTimeoutMs(120001)).toThrow("120 seconds");
   });
 });

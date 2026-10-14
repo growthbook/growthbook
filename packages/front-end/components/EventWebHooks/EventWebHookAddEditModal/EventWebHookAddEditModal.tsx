@@ -180,6 +180,7 @@ const EventWebHookAddEditSettings = ({
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
+  const timeoutMs = form.watch("timeoutMs");
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
 
@@ -303,6 +304,25 @@ const EventWebHookAddEditSettings = ({
                 )}
               </>
             }
+          />
+        </Box>
+      )}
+
+      {isDetailedWebhook && (
+        <Box mt="4">
+          <Field
+            label="Timeout (seconds)"
+            type="number"
+            min={1}
+            placeholder="30"
+            value={timeoutMs ? timeoutMs / 1000 : ""}
+            onChange={(evt) => {
+              form.setValue(
+                "timeoutMs",
+                evt.target.value ? Number(evt.target.value) * 1000 : undefined,
+              );
+              handleFormValidation();
+            }}
           />
         </Box>
       )}
@@ -547,6 +567,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
+      timeoutMs: z.number().int().min(1000).optional(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);

@@ -40,6 +40,7 @@ export type EventWebHookEditParams = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: string;
+  timeoutMs?: number;
 };
 
 export const notificationEventNames = publicNotificationEventNames;

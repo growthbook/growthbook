@@ -20,6 +20,9 @@ export const webhookMethods = [
   "PATCH",
 ] as const;
 
+// Upper bound is enforced server-side by MAX_WEBHOOK_TIMEOUT_MS
+export const webhookTimeoutMsValidator = z.number().int().min(1000);
+
 export const webhookSchema = z.strictObject({
   id: z.string(),
   organization: z.string(),
@@ -45,6 +48,7 @@ export const webhookSchema = z.strictObject({
   managedBy: managedByValidator.optional(),
   consecutiveFailures: z.number().optional(),
   disabled: z.boolean().optional(),
+  timeoutMs: webhookTimeoutMsValidator.optional(),
 });
 
 export type WebhookPayloadFormat = z.infer<typeof payloadFormatValidator>;
@@ -57,6 +61,7 @@ export const createSdkWebhookValidator = z
     payloadKey: z.string().optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
+    timeoutMs: webhookTimeoutMsValidator.optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();

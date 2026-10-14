@@ -2,7 +2,10 @@ import {
   EventWebHookInterface,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  getWebhookTimeoutMs,
+} from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { SecretsReplacer } from "back-end/src/util/secrets";
 import {
@@ -21,7 +24,7 @@ export async function sendEventWebhook<DataType>({
   method: EventWebHookMethod;
   applySecrets: SecretsReplacer;
 }): Promise<EventWebHookResult> {
-  const requestTimeout = 30000;
+  const requestTimeout = getWebhookTimeoutMs(eventWebHook.timeoutMs);
   const maxContentSize = 1000;
 
   try {

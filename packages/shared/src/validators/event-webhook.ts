@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
 import { notificationSettingsSchema } from "./notification-card";
+import { webhookTimeoutMsValidator } from "./webhooks";
 
 export const eventWebHookPayloadTypes = [
   "raw",
@@ -76,6 +77,7 @@ export const notificationDeliverySchema = z
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
+    timeoutMs: webhookTimeoutMsValidator.optional(),
     slack: slackEventWebHookMetadata.optional(),
     notificationSettings: notificationSettingsSchema.optional(),
   })
@@ -109,6 +111,7 @@ export const eventWebHookRequestBodySchema = notificationFiltersSchema.extend(
     payloadType: true,
     method: true,
     headers: true,
+    timeoutMs: true,
   }).shape,
 );
 

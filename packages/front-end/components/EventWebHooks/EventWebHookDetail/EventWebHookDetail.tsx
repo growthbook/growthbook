@@ -424,6 +424,7 @@ export const EventWebHookDetailContainer = ({
               "environments",
               "method",
               "headers",
+              "timeoutMs",
             ]),
           ),
         },

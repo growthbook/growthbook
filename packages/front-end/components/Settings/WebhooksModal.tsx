@@ -54,7 +54,10 @@ interface SdkWebhookInputs {
   payloadFormat: WebhookPayloadFormat;
   httpMethod: WebhookMethod;
   headers: string;
+  timeoutSeconds: string;
 }
+
+const timeoutSecondsToMs = (s: string) => (s ? Number(s) * 1000 : undefined);
 
 function getWebhookFromType(
   type: WebhookType,
@@ -65,6 +68,7 @@ function getWebhookFromType(
   headers: string;
   payloadFormat: WebhookPayloadFormat;
   payloadKey?: string;
+  timeoutMs?: number;
 } {
   switch (type) {
     case "cloudflare":
@@ -104,6 +108,7 @@ function getWebhookFromType(
         headers: inputs.headers,
         payloadFormat: inputs.payloadFormat,
         payloadKey: inputs.key,
+        timeoutMs: timeoutSecondsToMs(inputs.timeoutSeconds),
       };
   }
 }
@@ -167,6 +172,7 @@ export function CreateSDKWebhookModal({
       payloadFormat: "standard",
       httpMethod: "POST",
       headers: "{}",
+      timeoutSeconds: "",
     },
   });
 
@@ -412,6 +418,15 @@ export function CreateSDKWebhookModal({
               key="http_method"
             />
 
+            <Field
+              label="Timeout (seconds)"
+              type="number"
+              min={1}
+              placeholder="30"
+              {...form.register("timeoutSeconds")}
+              key="http_timeout"
+            />
+
             <CodeTextArea
               label="Headers"
               language="json"
@@ -535,6 +550,9 @@ const EditSDKWebhooksModal: FC<{
       payloadKey: current?.payloadKey || "",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
+      timeoutSeconds: current?.timeoutMs
+        ? String(current.timeoutMs / 1000)
+        : "",
       sdkid: sdkConnectionId,
     },
   });
@@ -555,6 +573,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutMs: timeoutSecondsToMs(value.timeoutSeconds),
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -569,6 +588,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutMs: timeoutSecondsToMs(value.timeoutSeconds),
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -680,6 +700,14 @@ const EditSDKWebhooksModal: FC<{
       />
 
       {headerJsonEditor()}
+
+      <Field
+        label="Timeout (seconds)"
+        type="number"
+        min={1}
+        placeholder="30"
+        {...form.register("timeoutSeconds")}
+      />
 
       {form.watch("httpMethod") !== "GET" && (
         <>
