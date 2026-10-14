@@ -115,17 +115,29 @@ export async function getQueryById(
   return doc ? toInterface(doc) : null;
 }
 
-export async function getQueriesByDatasource(
+// Queries still in flight; querylogs only gets a row once a query finishes
+export async function getRunningQueriesByDatasource(
   organization: string,
   datasource: string,
-  limit: number = 50,
-) {
-  const docs = await QueryModel.find({ organization, datasource })
-    .limit(limit)
-    .sort({
-      createdAt: -1,
-    });
-  return docs.map((doc) => toInterface(doc));
+): Promise<
+  Pick<
+    QueryInterface,
+    "id" | "queryType" | "status" | "createdAt" | "startedAt"
+  >[]
+> {
+  const docs = await QueryModel.find(
+    { organization, datasource, status: { $in: ["running", "queued"] } },
+    { id: 1, queryType: 1, status: 1, createdAt: 1, startedAt: 1, _id: 0 },
+  )
+    .sort({ createdAt: -1 })
+    .limit(50);
+  return docs.map((d) => ({
+    id: d.id,
+    queryType: d.queryType,
+    status: d.status,
+    createdAt: d.createdAt,
+    startedAt: d.startedAt,
+  }));
 }
 
 export async function countRunningQueries(

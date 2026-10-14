@@ -342,8 +342,8 @@ export default abstract class SqlIntegration
       }
       metadata = {
         ...metadata,
-        userId: this.context.userId,
-        userName: this.context.userName,
+        userId: this.context.actingUserId,
+        userName: this.context.actingUserName,
         ...this.additionalMetadata,
       };
       const startedAt = new Date();
