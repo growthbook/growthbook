@@ -12,6 +12,8 @@
  * zod at the read site (back-end services/plan-limits.ts).
  */
 export type AppFeatures = {
+  // Added ahead of the flag's creation in GrowthBook's own account
+  "eppo-importer": boolean;
   "papercups-config": Record<string, unknown>;
   "show-experiment-groups": boolean;
   "show-experiment-targeting": boolean;
