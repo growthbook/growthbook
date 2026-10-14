@@ -1,19 +1,29 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { createFilter } from "react-select";
 import {
   PiCaretDown,
   PiCaretRight,
   PiCheckBold,
+  PiPlusBold,
   PiTrash,
 } from "react-icons/pi";
 import { ConfirmRule } from "shared/validators";
-import { useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import EnvironmentScopeCell from "@/components/Settings/EnvironmentScopeCell";
 import { SingleValue } from "@/components/Forms/SelectField";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./ConfirmRulesField.module.scss";
 import {
   ALL,
@@ -22,6 +32,7 @@ import {
   CATEGORIES,
   CATEGORY_TITLES,
   categoryOf,
+  covers,
   isCategory,
   toggleAction,
   isCatchAll,
@@ -29,6 +40,14 @@ import {
 } from "./confirmRulesUtils";
 
 const search = createFilter<SingleValue>();
+
+const WIDTHS = ["4%", "47%", "43%", "6%"];
+
+const PLUS = (
+  <Text color="text-low">
+    <PiPlusBold size={11} />
+  </Text>
+);
 
 // One row per category, selectable as a whole (`feature.*`); a caret reveals
 // its actions.
@@ -80,13 +99,9 @@ function ActionsField({
       return next;
     });
 
-  // Picked itself, or covered by "*" or its category
-  const checked = (v: string) =>
-    [v, ALL, `${categoryOf(v)}.*`].some((x) => value.includes(x));
-
   return (
     <MultiSelectField
-      label="Actions"
+      aria-label="Actions"
       value={value}
       options={options}
       sort={false}
@@ -121,12 +136,13 @@ function ActionsField({
           value.find((v) => !next.includes(v));
         if (clicked) onChange(toggleAction(value, clicked));
       }}
+      containerClassName="mb-0"
       formatOptionLabel={(option, meta) => {
         if (meta.context !== "menu") return option.label;
         const category = isCategory(option.value)
           ? categoryOf(option.value)
           : null;
-        const isChecked = checked(option.value);
+        const isChecked = covers(value, option.value);
         return (
           <Flex align="center" gap="1" data-action={option.value}>
             <Flex
@@ -180,54 +196,72 @@ export default function ConfirmRulesField({
   value: ConfirmRule[];
   setValue: (rules: ConfirmRule[]) => void;
 }) {
-  const environments = useEnvironments();
-  const envOptions = environments.map((e) => ({ label: e.id, value: e.id }));
   const update = (i: number, rule: ConfirmRule) =>
     setValue(value.map((r, j) => (j === i ? rule : r)));
 
+  // Laid out like the permissions table: any rule that matches holds.
   return (
-    <Box>
-      {value.map((rule, i) => (
-        // minmax(0, …) keeps long chip lists from pushing past half the row.
-        <Grid
-          key={i}
-          columns="minmax(0, 1fr) minmax(0, 1fr) auto"
-          gap="3"
-          align="end"
-          mb="3"
-        >
-          <ActionsField
-            value={rule.actions}
-            onChange={(actions) => update(i, { ...rule, actions })}
-          />
-          <MultiSelectField
-            label="Environments"
-            placeholder="All Environments"
-            value={rule.environments ?? []}
-            options={envOptions}
-            onChange={(envs) =>
-              update(i, {
-                ...rule,
-                environments: envs.length ? envs : undefined,
-              })
-            }
-          />
-          <Button
-            variant="ghost"
-            color="red"
-            aria-label="Remove rule"
-            onClick={() => setValue(value.filter((_, j) => j !== i))}
-          >
-            <PiTrash />
-          </Button>
-        </Grid>
-      ))}
-      <Button
-        variant="ghost"
-        onClick={() => setValue([...value, { actions: [] }])}
-      >
-        Add rule
-      </Button>
-    </Box>
+    <Table variant="surface" layout="fixed">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader width={WIDTHS[0]} />
+          <TableColumnHeader width={WIDTHS[1]}>Actions</TableColumnHeader>
+          <TableColumnHeader width={WIDTHS[2]}>Environments</TableColumnHeader>
+          <TableColumnHeader width={WIDTHS[3]} />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {value.map((rule, i) => (
+          <TableRow key={i} style={{ verticalAlign: "middle" }}>
+            <TableCell width={WIDTHS[0]}>{i > 0 && PLUS}</TableCell>
+            <TableCell width={WIDTHS[1]}>
+              <ActionsField
+                value={rule.actions}
+                onChange={(actions) => update(i, { ...rule, actions })}
+              />
+            </TableCell>
+            <TableCell width={WIDTHS[2]}>
+              <EnvironmentScopeCell
+                environments={rule.environments ?? null}
+                onChange={(next) =>
+                  update(i, {
+                    ...rule,
+                    environments: next?.length ? next : undefined,
+                  })
+                }
+              />
+            </TableCell>
+            <TableCell width={WIDTHS[3]}>
+              <Flex align="center" justify="end">
+                <Tooltip content="Remove rule">
+                  <IconButton
+                    variant="ghost"
+                    color="red"
+                    radius="full"
+                    size="3"
+                    style={{ margin: 0 }}
+                    aria-label="Remove rule"
+                    onClick={() => setValue(value.filter((_, j) => j !== i))}
+                  >
+                    <PiTrash size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Flex>
+            </TableCell>
+          </TableRow>
+        ))}
+        <TableRow style={{ verticalAlign: "middle" }}>
+          <TableCell width={WIDTHS[0]}>{PLUS}</TableCell>
+          <TableCell colSpan={3}>
+            <Link
+              weight="medium"
+              onClick={() => setValue([...value, { actions: [] }])}
+            >
+              Add rule
+            </Link>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
   );
 }

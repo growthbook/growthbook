@@ -308,6 +308,8 @@ export type MultiSelectFieldProps = Omit<
   legacyHeight?: boolean;
   /** Tallest the open menu grows before it scrolls, in px (default 300). */
   maxMenuHeight?: number;
+  /** Names the control when its visible label isn't the `label` prop. */
+  "aria-label"?: string;
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -342,6 +344,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   size,
   legacyHeight,
   maxMenuHeight,
+  "aria-label": ariaLabel,
   valueTitles = true,
   labelSize,
   labelWeight = "semibold",
@@ -543,6 +546,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     node.getBoundingClientRect()
                   }
                   id={id}
+                  aria-label={ariaLabel}
                   ref={ref}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}

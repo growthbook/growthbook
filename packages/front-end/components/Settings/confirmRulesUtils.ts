@@ -1,4 +1,4 @@
-import { CONFIRM_LABELS } from "shared/validators";
+import { CONFIRM_LABELS, type ConfirmRule } from "shared/validators";
 
 export type Category =
   (typeof CONFIRM_LABELS)[number] extends `${infer C}.${string}` ? C : never;
@@ -64,6 +64,29 @@ export function toggleAction(value: string[], clicked: string): string[] {
     ALL,
     ...CATEGORIES.flatMap((c) => [`${c}.*`, ...actionsOf(c)]),
   ].filter((v) => selected.has(v));
+}
+
+// Picked itself, or covered by "*" or its category.
+export const covers = (actions: string[], action: string) =>
+  [action, ALL, `${categoryOf(action)}.*`].some((a) => actions.includes(a));
+
+// Rules for the same environments act as one rule, so they save as one, with
+// actions a wildcard already covers folded into it.
+export function mergeConfirmRules(rules: ConfirmRule[]): ConfirmRule[] {
+  const byEnvironments = new Map<string, ConfirmRule>();
+  for (const rule of rules) {
+    const key = [...(rule.environments ?? [])].sort().join(",");
+    const into = byEnvironments.get(key) ?? { ...rule, actions: [] };
+    byEnvironments.set(key, {
+      ...into,
+      actions: rule.actions.reduce(
+        (actions, action) =>
+          covers(actions, action) ? actions : toggleAction(actions, action),
+        into.actions,
+      ),
+    });
+  }
+  return [...byEnvironments.values()];
 }
 
 // "Feature Flags (publish, archive) in production; Overrides (skip hooks)"

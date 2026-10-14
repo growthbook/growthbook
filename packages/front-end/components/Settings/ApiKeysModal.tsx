@@ -12,9 +12,8 @@ import {
   getExpirationProblem,
   latestEditedExpiration,
 } from "shared/api-key-expiration";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import isEqual from "lodash/isEqual";
-import { PiGear } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -31,6 +30,7 @@ import ApiKeyExpirationField from "./ApiKeyExpirationField";
 import ConfirmRulesField, {
   SUGGESTED_CONFIRM_RULES,
 } from "./ConfirmRulesField";
+import { mergeConfirmRules } from "./confirmRulesUtils";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -138,7 +138,6 @@ const ApiKeysModal: FC<{
   const [rules, setRules] = useState<ConfirmRule[]>(
     source?.confirmRules ?? SUGGESTED_CONFIRM_RULES,
   );
-  const confirmRules = requireConfirmation ? rules : null;
   // The default holds everything; the editor stays tucked away until asked for,
   // unless this key already has rules of its own.
   const [customizing, setCustomizing] = useState(
@@ -151,9 +150,10 @@ const ApiKeysModal: FC<{
     personalAccessToken && (orgSupportsRoles() || !!source?.scoped);
 
   const onSubmit = form.handleSubmit(async (value) => {
-    if (confirmRules?.some((rule) => !rule.actions.length)) {
+    if (requireConfirmation && rules.some((rule) => !rule.actions.length)) {
       throw new Error("Choose at least one action for each confirmation rule.");
     }
+    const confirmRules = requireConfirmation ? mergeConfirmRules(rules) : null;
     const { role, ...rest } = roleState;
     const patScope = scoped ? { scopedRole: role, ...rest } : {};
     const orgKeyFields = { ...rest, requesterHeader, requesterPermissions };
@@ -240,41 +240,6 @@ const ApiKeysModal: FC<{
         setValue={setExpiresAt}
         existing={existingKey}
       />
-      <Checkbox
-        label="Require confirmation"
-        description={
-          personalAccessToken
-            ? "Hold these actions until you confirm them in GrowthBook."
-            : "Hold these actions until someone allowed to make the change confirms it in GrowthBook."
-        }
-        value={requireConfirmation}
-        setValue={(on) => {
-          setRequireConfirmation(on);
-          if (on && !rules.length) setRules(SUGGESTED_CONFIRM_RULES);
-        }}
-        mb={requireConfirmation ? "2" : "3"}
-      />
-      {requireConfirmation && !customizing && (
-        <Box pl="5" mb="3">
-          <Link weight="medium" onClick={() => setCustomizing(true)}>
-            <Flex align="center" gap="1">
-              <PiGear /> Customize behavior
-            </Flex>
-          </Link>
-        </Box>
-      )}
-      {requireConfirmation && customizing && (
-        <Box mb="3">
-          <ConfirmRulesField
-            value={rules}
-            // No rules left holds nothing, so the checkbox goes off with them.
-            setValue={(next) => {
-              setRules(next);
-              if (!next.length) setRequireConfirmation(false);
-            }}
-          />
-        </Box>
-      )}
       {canDeleteSource && (
         <Box mt="3">
           <Checkbox
@@ -284,6 +249,49 @@ const ApiKeysModal: FC<{
           />
         </Box>
       )}
+      <Box mt="6">
+        <Heading as="h4" size="sm" mb="1">
+          Confirmation (HITL)
+        </Heading>
+        <Text as="p" color="text-mid" mb="3">
+          Human-in-the-loop: Show a confirmation page before applying risky
+          changes.
+        </Text>
+        <Checkbox
+          label="Require confirmation"
+          value={requireConfirmation}
+          setValue={(on) => {
+            setRequireConfirmation(on);
+            if (on && !rules.length) setRules(SUGGESTED_CONFIRM_RULES);
+          }}
+        />
+        {requireConfirmation && !customizing && (
+          <Box pl="5" mt="2">
+            <Text color="text-mid">
+              Confirmation on all risky actions.{" "}
+              <Link weight="medium" onClick={() => setCustomizing(true)}>
+                Customize behavior
+              </Link>
+            </Text>
+          </Box>
+        )}
+        {requireConfirmation && customizing && (
+          <Box mt="3">
+            <ConfirmRulesField
+              value={rules}
+              // No rules left holds nothing, so the checkbox goes off with them,
+              // and turning it back on starts from the default again.
+              setValue={(next) => {
+                setRules(next);
+                if (!next.length) {
+                  setRequireConfirmation(false);
+                  setCustomizing(false);
+                }
+              }}
+            />
+          </Box>
+        )}
+      </Box>
       {canScopeToken && (
         <Box mt="6">
           <Heading as="h4" size="sm" mb="1">

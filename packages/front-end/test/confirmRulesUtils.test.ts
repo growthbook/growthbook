@@ -2,6 +2,7 @@ import {
   actionsOf,
   CATEGORIES,
   describeActions,
+  mergeConfirmRules,
   toggleAction,
 } from "@/components/Settings/confirmRulesUtils";
 
@@ -55,5 +56,38 @@ describe("describeActions", () => {
     ).toBe(
       "Feature Flags (publish, archive) in production; Overrides (skip hooks)",
     );
+  });
+});
+
+describe("mergeConfirmRules", () => {
+  it("merges rules for the same environments, in any order", () => {
+    expect(
+      mergeConfirmRules([
+        { actions: ["feature.publish"], environments: ["prod", "staging"] },
+        { actions: ["experiment.stop"] },
+        { actions: ["feature.archive"], environments: ["staging", "prod"] },
+      ]),
+    ).toEqual([
+      {
+        actions: ["feature.publish", "feature.archive"],
+        environments: ["prod", "staging"],
+      },
+      { actions: ["experiment.stop"] },
+    ]);
+  });
+
+  it("folds actions a wildcard already covers", () => {
+    expect(
+      mergeConfirmRules([
+        { actions: ["*"] },
+        { actions: ["feature.*", "experiment.*"] },
+      ]),
+    ).toEqual([{ actions: ["*"] }]);
+    expect(
+      mergeConfirmRules([
+        { actions: ["feature.publish"] },
+        { actions: ["feature.*"] },
+      ]),
+    ).toEqual([{ actions: ["feature.*"] }]);
   });
 });
