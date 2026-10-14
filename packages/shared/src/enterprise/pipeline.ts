@@ -161,6 +161,7 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   activationMetric: string | null | undefined;
   metrics: ExperimentMetricDefinition[];
   experimentType: ExperimentInterface["type"];
+  isClusterExperiment: boolean | undefined;
 }): string | null {
   if (!params.orgHasIncrementalPipelineFeature) {
     return "Organization does not have access to Incremental Pipeline mode.";
@@ -182,6 +183,10 @@ export function getIncrementalPipelineUnsupportedReason(params: {
 
   if (params.activationMetric) {
     return "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.";
+  }
+
+  if (params.isClusterExperiment) {
+    return "Cluster experiments are not supported with Incremental Pipeline mode. Results will be computed with a Full Refresh.";
   }
 
   if (params.metrics.length === 0) {
