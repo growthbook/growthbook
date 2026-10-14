@@ -7,6 +7,7 @@ import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { toApiConfirmation } from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 const REVISION_MODELS = {
   feature: "feature",
@@ -16,7 +17,7 @@ const REVISION_MODELS = {
 } as const;
 
 // For keys that name no one: the decider must be allowed to do the action
-// themselves. `null` environments mean "any", where an empty list fails closed.
+// themselves, in each of these environments.
 function deciderCan(
   p: Permissions,
   action: ConfirmLabel,
@@ -24,17 +25,16 @@ function deciderCan(
   envs: string[],
 ): boolean {
   const [model, verb] = action.split(".");
-  const scope = envs.length ? envs : null;
   if (model in REVISION_MODELS) {
     return p.canRevisionAction(
       REVISION_MODELS[model as keyof typeof REVISION_MODELS],
       verb === "delete" || verb === "archive" ? "delete" : "publish",
       { project },
-      scope,
+      envs,
     );
   }
   if (model === "rampSchedule") {
-    return p.canRevisionAction("feature", "publish", { project }, scope);
+    return p.canRevisionAction("feature", "publish", { project }, envs);
   }
   if (model === "experiment") return p.canRunExperiment({ project }, envs);
   // Overrides: warnings need no authority; the rest need bypass rights.
@@ -44,13 +44,26 @@ function deciderCan(
   );
 }
 
-export function canDecide(
+export async function canDecide(
   context: ReqContext,
   c: ConfirmationInterface,
-): boolean {
+): Promise<boolean> {
   if (c.userId) return c.userId === context.userId;
+  // A hold that didn't know where the change lands could land anywhere, so
+  // the decider must be allowed everywhere.
+  const projects = c.project
+    ? [c.project]
+    : ["", ...(await context.models.projects.getAll()).map((p) => p.id)];
+  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
   return c.actions.every(({ action, environments }) =>
-    deciderCan(context.permissions, action, c.project, environments),
+    projects.every((project) =>
+      deciderCan(
+        context.permissions,
+        action,
+        project,
+        environments.length ? environments : allEnvironments,
+      ),
+    ),
   );
 }
 
@@ -72,7 +85,9 @@ export async function decideConfirmation(
   note?: string,
 ) {
   const c = await getConfirmationForDecider(context, id);
-  if (!canDecide(context, c)) context.permissions.throwPermissionError();
+  if (!(await canDecide(context, c))) {
+    context.permissions.throwPermissionError();
+  }
 
   const confirmations = context.models.confirmations;
   const claimed = await confirmations.updateWithCas(id, ["status"], (doc) =>

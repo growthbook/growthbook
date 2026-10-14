@@ -20,6 +20,7 @@ const members = {
   u_admin: "admin",
   u_viewer: "readonly",
   u_engineer: "engineer",
+  u_dev: "engineer",
 };
 const org = {
   id: ORG_ID,
@@ -30,8 +31,9 @@ const org = {
   members: Object.entries(members).map(([id, role]) => ({
     id,
     role,
-    environments: [],
-    limitAccessByEnvironment: false,
+    // Can publish only in dev.
+    environments: id === "u_dev" ? ["dev"] : [],
+    limitAccessByEnvironment: id === "u_dev",
     projectRoles: [],
   })),
   settings: {
@@ -353,6 +355,27 @@ describe("confirmations", () => {
     );
     expect(done.response?.status).toBe(200);
     expect(await enabled()).toBe(false);
+  });
+
+  it("asks a key's decider to be allowed everywhere a hold can't place", async () => {
+    await seed("production");
+    setReqContext(asKey({ ...bot, ...everything }));
+    const held = await auth(
+      request(app).post(`/api/v1/features/${FLAG}/toggle`),
+    ).send({ environments: { production: false } });
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
+    ]);
+
+    await expect(
+      decideConfirmation(asUser("u_dev"), held.body.confirmation.id, "confirm"),
+    ).rejects.toThrow(/permission/i);
+    const done = await decideConfirmation(
+      asUser("u_engineer"),
+      held.body.confirmation.id,
+      "confirm",
+    );
+    expect(done.response?.status).toBe(200);
   });
 
   it("leaves an approved draft for a confirmable publish instead of auto-publishing it", async () => {

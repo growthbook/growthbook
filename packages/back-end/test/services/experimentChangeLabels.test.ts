@@ -33,16 +33,35 @@ describe("experimentChangeLabels", () => {
   });
 
   it("names a new phase, a re-randomize and edits to past phases or dates", () => {
+    const labels = (changes: Partial<ExperimentInterface>) =>
+      experimentChangeLabels(running, changes);
+    expect(labels({ bucketVersion: 2 })).toEqual(["experiment.phases"]);
     expect(
-      experimentChangeLabels(running, {
-        bucketVersion: 2,
+      labels({ phases: [phase({ name: "First" }), phase(), phase()] }),
+    ).toEqual(["experiment.phases"]);
+    expect(
+      labels({
         phases: [
           phase({ name: "First", dateStarted: new Date("2025-12-01") }),
           phase(),
-          phase({ name: "Next" }),
         ],
-      }).sort(),
+      }),
     ).toEqual(["experiment.phases"]);
+  });
+
+  it("names any other change to what a live experiment serves", () => {
+    expect(experimentChangeLabels(running, { archived: true })).toEqual([
+      "experiment.other",
+    ]);
+    expect(experimentChangeLabels(running, { trackingKey: "new-key" })).toEqual(
+      ["experiment.other"],
+    );
+    expect(
+      experimentChangeLabels(
+        { ...running, status: "draft" },
+        { archived: true },
+      ),
+    ).toEqual([]);
   });
 
   it("ignores echoed fields, and counts only status on a draft", () => {

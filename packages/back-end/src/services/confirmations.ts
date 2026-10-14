@@ -27,6 +27,7 @@ import {
   ConfirmationRequiredError,
 } from "back-end/src/util/errors";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 const TTL_MS = 60 * 60 * 1000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -394,6 +395,13 @@ const RERANDOMIZE_FIELDS = [
   "bucketVersion",
   "minBucketVersion",
 ] as const;
+// Payload fields with no label of their own.
+const OTHER_LIVE_FIELDS = PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.filter(
+  (field) =>
+    field !== "phases" &&
+    field !== "status" &&
+    !(RERANDOMIZE_FIELDS as readonly string[]).includes(field),
+);
 
 // Omitted, null, "" and [] all mean "none", so echoing a field back isn't a change.
 const normalize = (v: unknown) =>
@@ -438,6 +446,10 @@ export function experimentChangeLabels(
         }
       }
     });
+  }
+  const live = existing as Partial<ExperimentInterface>;
+  if (OTHER_LIVE_FIELDS.some((f) => changed(live[f], changes[f]))) {
+    labels.add("experiment.other");
   }
   return [...labels];
 }

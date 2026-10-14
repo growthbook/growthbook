@@ -2101,6 +2101,7 @@ export const updateExperimentValidator = {
     "experiment.targeting",
     "experiment.traffic",
     "experiment.phases",
+    "experiment.other",
   ] as const,
   confirmationInHandler: true,
   operationId: "updateExperiment",

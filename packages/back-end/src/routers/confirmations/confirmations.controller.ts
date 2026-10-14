@@ -61,7 +61,7 @@ export const getConfirmation = async (
       keyDescription: key?.description || null,
     },
     forEmail: owner && c.userId !== context.userId ? owner.email : null,
-    canDecide: canDecide(context, c),
+    canDecide: await canDecide(context, c),
   });
 };
 

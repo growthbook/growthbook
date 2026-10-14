@@ -16798,6 +16798,7 @@ paths:
         - experiment.targeting
         - experiment.traffic
         - experiment.phases
+        - experiment.other
         - override.ignoreWarnings
   /v1/experiments/{id}/start-checklist:
     get:
