@@ -14,6 +14,8 @@ import {
   ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getClusterMetricAnalysisLevel,
+  ClusterMetricAnalysisLevel,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
@@ -176,6 +178,8 @@ export function getSnapshotSettingsFromReportArgs(
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
     exposureQueryIdentifierType: args.exposureQueryIdentifierType,
+    isClusterExperiment: experiment?.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment?.clusterSubUnitIdentifier,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -608,6 +612,46 @@ export function getReportSnapshotSettings({
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );
 
+  const isClusterExperiment =
+    !!report.experimentAnalysisSettings.isClusterExperiment &&
+    !!report.experimentAnalysisSettings.clusterSubUnitIdentifier;
+  const clusterSubUnitIdentifier =
+    report.experimentAnalysisSettings.clusterSubUnitIdentifier;
+
+  const clusterAnalysisLevelCache = new Map<
+    string,
+    ClusterMetricAnalysisLevel | null
+  >();
+  const getClusterAnalysisLevel = (
+    metricId: string,
+  ): ClusterMetricAnalysisLevel | null => {
+    if (!isClusterExperiment || !clusterSubUnitIdentifier) return null;
+    const cached = clusterAnalysisLevelCache.get(metricId);
+    if (cached !== undefined) return cached;
+    const metric = metricMap.get(metricId);
+    const level =
+      metric && isFactMetric(metric)
+        ? getClusterMetricAnalysisLevel(metric, {
+            clusterIdentifier: exposureQueryIdentifierType,
+            clusterSubUnitIdentifier,
+            getFactTable: (factTableId) => factTableMap.get(factTableId),
+            datasourceSettings: datasource?.settings,
+          })
+        : null;
+    clusterAnalysisLevelCache.set(metricId, level);
+    return level;
+  };
+  const getMetricJoinIdentifierType = (
+    metricId: string,
+  ): string | undefined => {
+    if (!isClusterExperiment || !clusterSubUnitIdentifier) {
+      return exposureQueryIdentifierType;
+    }
+    return getClusterAnalysisLevel(metricId) === "cluster"
+      ? exposureQueryIdentifierType
+      : clusterSubUnitIdentifier;
+  };
+
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.goalMetrics,
@@ -617,7 +661,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: getMetricJoinIdentifierType(m),
       datasource,
     }),
   );
@@ -629,7 +673,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: getMetricJoinIdentifierType(m),
       datasource,
     }),
   );
@@ -641,7 +685,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      identifierType: exposureQueryIdentifierType,
+      identifierType: getMetricJoinIdentifierType(m),
       datasource,
     }),
   );
@@ -704,6 +748,12 @@ export function getReportSnapshotSettings({
     )
     .filter(isDefined);
 
+  const clusterLevelMetricIds = isClusterExperiment
+    ? metricSettings
+        .map((m) => m.id)
+        .filter((id) => getClusterAnalysisLevel(id) === "cluster")
+    : [];
+
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
     activationMetric:
@@ -733,6 +783,10 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: report.experimentAnalysisSettings.isClusterExperiment,
+    clusterSubUnitIdentifier:
+      report.experimentAnalysisSettings.clusterSubUnitIdentifier,
+    ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",

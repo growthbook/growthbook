@@ -53,6 +53,8 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
+  getClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -662,6 +664,30 @@ export function getSnapshotSettings({
     experiment.exposureQueryIdentifierType,
   );
 
+  const clusterSubUnitIdentifier = experiment.isClusterExperiment
+    ? experiment.clusterSubUnitIdentifier
+    : undefined;
+  const metricJoinIdentifierType =
+    clusterSubUnitIdentifier ?? exposureQueryIdentifierType;
+  // In a cluster experiment, metrics that can't reach the sub-unit are analyzed
+  // per cluster instead.
+  const isJoinable = (metricId: string) =>
+    isJoinableMetric({
+      metricId,
+      metricMap,
+      factTableMap,
+      identifierType: metricJoinIdentifierType,
+      datasource,
+    }) ||
+    (!!clusterSubUnitIdentifier &&
+      isJoinableMetric({
+        metricId,
+        metricMap,
+        factTableMap,
+        identifierType: exposureQueryIdentifierType,
+        datasource,
+      }));
+
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
@@ -707,39 +733,15 @@ export function getSnapshotSettings({
   let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
   let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
   let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isJoinable);
 
   // filter invalid metrics (holdouts)
   if (experiment.type === "holdout") {
@@ -824,6 +826,25 @@ export function getSnapshotSettings({
       }),
     )
     .filter(isDefined);
+
+  const clusterLevelMetricIds =
+    clusterSubUnitIdentifier && datasource
+      ? metricSettings
+          .map((m) => m.id)
+          .filter((id) => {
+            const metric = metricMap.get(id);
+            return (
+              !!metric &&
+              isFactMetric(metric) &&
+              getClusterMetricAnalysisLevel(metric, {
+                clusterIdentifier: exposureQueryIdentifierType,
+                clusterSubUnitIdentifier,
+                getFactTable: (factTableId) => factTableMap.get(factTableId),
+                datasourceSettings: datasource.settings,
+              }) === "cluster"
+            );
+          })
+      : [];
 
   // JIT initialize banditEvents in memory if missing
   if (
@@ -914,6 +935,9 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: experiment.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+    ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -3468,6 +3492,12 @@ export async function toExperimentApiInterface(
         await getExposureQueriesForDatasource(context, experiment.datasource),
       ),
       assignmentQueryId: experiment.exposureQueryId || "",
+      ...(experiment.isClusterExperiment !== undefined
+        ? { isClusterExperiment: experiment.isClusterExperiment }
+        : {}),
+      ...(experiment.clusterSubUnitIdentifier
+        ? { clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier }
+        : {}),
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -4741,6 +4771,52 @@ export type PostExperimentApiPayload = z.infer<
   assignmentQueryIdentifierType?: string;
 };
 
+export function assertClusterExperimentMetricsSupported({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricMap,
+  metricGroups,
+  clusterIdentifier,
+  clusterSubUnitIdentifier,
+  factTableMap,
+  datasource,
+}: {
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  clusterIdentifier?: string | null;
+  clusterSubUnitIdentifier?: string | null;
+  factTableMap?: FactTableMap;
+  datasource?: DataSourceInterface | null;
+}): void {
+  const metricIds = getAllMetricIdsFromExperiment(
+    { goalMetrics, secondaryMetrics, guardrailMetrics },
+    false,
+    metricGroups,
+  );
+  for (const id of metricIds) {
+    const metric = metricMap.get(id);
+    // Existence/datasource are validated separately; only check known metrics.
+    if (!metric) continue;
+    const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterIdentifier,
+      clusterSubUnitIdentifier,
+      getFactTable: factTableMap
+        ? (factTableId) => factTableMap.get(factTableId)
+        : undefined,
+      datasourceSettings: datasource?.settings,
+    });
+    if (!eligibility.allowed) {
+      throw new Error(
+        `Metric "${metric.name || id}" cannot be used in a cluster experiment: ${eligibility.reason}`,
+      );
+    }
+  }
+}
+
 export function postExperimentApiPayloadToInterface(
   payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
@@ -4797,7 +4873,6 @@ export function postExperimentApiPayloadToInterface(
       },
     },
   ];
-
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
@@ -4832,6 +4907,12 @@ export function postExperimentApiPayloadToInterface(
       "",
     /** Parsed by the caller, which has the data source's queries. */
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+    ...(payload.isClusterExperiment !== undefined
+      ? { isClusterExperiment: payload.isClusterExperiment }
+      : {}),
+    ...(payload.clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier }
+      : {}),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4925,7 +5006,9 @@ export function postExperimentApiPayloadToInterface(
 
 export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
->;
+> & {
+  assignmentQueryIdentifierType?: string;
+};
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
@@ -5143,6 +5226,9 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
+    assignmentQueryIdentifierType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -5197,6 +5283,13 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
+    ...(assignmentQueryIdentifierType !== undefined
+      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
+      : {}),
+    ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
+    ...(clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier }
+      : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

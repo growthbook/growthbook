@@ -372,6 +372,7 @@ const unsupportedReasonBaseParams = {
   activationMetric: null,
   metrics: [makeFactMetric()],
   experimentType: "standard",
+  isClusterExperiment: false,
 };
 
 describe("getIncrementalPipelineUnsupportedReason", () => {
@@ -418,6 +419,17 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
       }),
     ).toBe(
       "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.",
+    );
+  });
+
+  it("flags cluster experiments", () => {
+    expect(
+      getIncrementalPipelineUnsupportedReason({
+        ...unsupportedReasonBaseParams,
+        isClusterExperiment: true,
+      }),
+    ).toBe(
+      "Cluster experiments are not supported with Incremental Pipeline mode. Results will be computed with a Full Refresh.",
     );
   });
 

@@ -18,6 +18,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
@@ -314,20 +315,27 @@ export function getMetricSettingsForStatsEngine(
     applyMetricOverrides(denominator, settings);
   }
 
-  const ratioMetric = isRatioMetric(metric, denominator);
+  // Cluster-level metrics are a standard analysis with the cluster as the unit.
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+
+  const ratioMetric = isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator) &&
-    // block RA for ratio metrics from non-optimized fact metrics
-    (!isRatioMetric(metric, denominator) || optimizedFactMetric);
-  const mainMetricType = quantileMetric
-    ? "quantile"
-    : isBinomialMetric(metric)
-      ? "binomial"
-      : "count";
-  // Fact ratio metrics contain denominator
-  if (isFactMetric(metric) && ratioMetric) {
+    (isClusterMetric ||
+      !isRatioMetric(metric, denominator) ||
+      optimizedFactMetric);
+  const mainMetricType = isClusterMetric
+    ? "count"
+    : quantileMetric
+      ? "quantile"
+      : isBinomialMetric(metric)
+        ? "binomial"
+        : "count";
+  // Fact ratio metrics (and every cluster metric) carry the denominator on the
+  // metric row itself.
+  if (isClusterMetric || (isFactMetric(metric) && ratioMetric)) {
     denominator = metric;
   }
 
@@ -349,9 +357,10 @@ export function getMetricSettingsForStatsEngine(
                 : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
-      denominator_metric_type: isBinomialMetric(denominator)
-        ? "binomial"
-        : "count",
+      denominator_metric_type:
+        isClusterMetric || !isBinomialMetric(denominator)
+          ? "count"
+          : "binomial",
     }),
     ...(regressionAdjusted && {
       covariate_metric_type: mainMetricType,
@@ -368,7 +377,8 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
-    compute_uncapped_metric: eligibleForUncappedMetric(metric),
+    compute_uncapped_metric:
+      !isClusterMetric && eligibleForUncappedMetric(metric),
   };
 }
 

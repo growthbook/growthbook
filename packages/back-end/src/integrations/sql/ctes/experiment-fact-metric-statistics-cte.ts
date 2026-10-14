@@ -33,6 +33,7 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName,
     factTablesWithIndices,
     percentileTableIndices,
+    isClusterExperiment = false,
   }: {
     dimensionCols: DimensionColumnData[];
     metricData: FactMetricData[];
@@ -53,6 +54,7 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     percentileTableIndices: Set<number>;
+    isClusterExperiment?: boolean;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
@@ -97,42 +99,75 @@ export function getExperimentFactMetricStatisticsCTE(
             const numeratorLowerPct = isLowerPercentileCappedMetric(
               data.metric,
             );
+            const numeratorCapRef = (col: string): string =>
+              isClusterExperiment
+                ? `m.${data.alias}_${col}`
+                : `cap${numeratorSuffix}.${data.alias}_${col}`;
+            const denominatorCapRef = (col: string): string =>
+              isClusterExperiment
+                ? `m.${data.alias}_${col}`
+                : `cap${denominatorCapSuffix}.${data.alias}_${col}`;
+            const clusterRollupRef = (col: string): string =>
+              dialect.castToFloat(`COALESCE(m.${data.alias}_${col}, 0)`);
+            const capMain = isClusterExperiment
+              ? clusterRollupRef("value")
+              : data.capCoalesceMetric;
+            const capDenominator = isClusterExperiment
+              ? clusterRollupRef("denominator")
+              : data.capCoalesceDenominator;
+            const capCovariate = isClusterExperiment
+              ? clusterRollupRef("covariate_value")
+              : data.capCoalesceCovariate;
+            const capDenominatorCovariate = isClusterExperiment
+              ? clusterRollupRef("covariate_denominator")
+              : data.capCoalesceDenominatorCovariate;
+            const uncappedMain = isClusterExperiment
+              ? clusterRollupRef("value_uncapped")
+              : data.uncappedCoalesceMetric;
+            const uncappedDenominator = isClusterExperiment
+              ? clusterRollupRef("denominator_uncapped")
+              : data.uncappedCoalesceDenominator;
+            const uncappedCovariate = isClusterExperiment
+              ? clusterRollupRef("covariate_value_uncapped")
+              : data.uncappedCoalesceCovariate;
+            const uncappedDenominatorCovariate = isClusterExperiment
+              ? clusterRollupRef("covariate_denominator_uncapped")
+              : data.uncappedCoalesceDenominatorCovariate;
             const numeratorPercentileCapCols = [
               numeratorUpperPct
                 ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
+                    , MAX(COALESCE(${numeratorCapRef("value_cap")}, 0)) as ${data.alias}_main_cap_value`
                 : "",
               numeratorLowerPct
                 ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower`
+                    , MAX(COALESCE(${numeratorCapRef("value_cap_lower")}, 0)) as ${data.alias}_main_cap_value_lower`
                 : "",
             ].join("");
-            const ratioDenominatorPercentileCapCols = data.ratioMetric
-              ? [
-                  numeratorUpperPct
-                    ? `
-                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
-                    : "",
-                  numeratorLowerPct
-                    ? `
-                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap_lower, 0)) as ${data.alias}_denominator_cap_value_lower`
-                    : "",
-                ].join("")
-              : "";
+            const ratioDenominatorPercentileCapCols =
+              data.ratioMetric && !data.isClusterRatioConversion
+                ? [
+                    numeratorUpperPct
+                      ? `
+                    , MAX(COALESCE(${denominatorCapRef("denominator_cap")}, 0)) as ${data.alias}_denominator_cap_value`
+                      : "",
+                    numeratorLowerPct
+                      ? `
+                    , MAX(COALESCE(${denominatorCapRef("denominator_cap_lower")}, 0)) as ${data.alias}_denominator_cap_value_lower`
+                      : "",
+                  ].join("")
+                : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
               data.computeUncappedMetric
                 ? `
-                , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
-                , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
+                , SUM(${uncappedMain}) AS ${data.alias}_main_sum_uncapped 
+                , SUM(POWER(${uncappedMain}, 2)) AS ${data.alias}_main_sum_squares_uncapped
                 `
                 : ""
             }${numeratorPercentileCapCols}
-            , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
-            , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-              data.alias
-            }_main_sum_squares
+            , SUM(${capMain}) AS ${data.alias}_main_sum
+            , SUM(POWER(${capMain}, 2)) AS ${data.alias}_main_sum_squares
             ${
               data.quantileMetric === "event"
                 ? `
@@ -142,9 +177,7 @@ export function getExperimentFactMetricStatisticsCTE(
               , SUM(POWER(COALESCE(m.${data.alias}_n_events, 0), 2)) AS ${
                 data.alias
               }_denominator_sum_squares
-              , SUM(COALESCE(m.${data.alias}_n_events, 0) * ${
-                data.capCoalesceMetric
-              }) AS ${data.alias}_main_denominator_sum_product
+              , SUM(COALESCE(m.${data.alias}_n_events, 0) * ${capMain}) AS ${data.alias}_main_denominator_sum_product
               , SUM(COALESCE(m.${data.alias}_n_events, 0)) AS ${
                 data.alias
               }_quantile_n
@@ -177,15 +210,15 @@ export function getExperimentFactMetricStatisticsCTE(
                 ${
                   data.computeUncappedMetric
                     ? `
-                    , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
-                    , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
-                    , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
+                    , SUM(${uncappedDenominator}) AS ${data.alias}_denominator_sum_uncapped 
+                    , SUM(POWER(${uncappedDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
+                    , SUM(${uncappedMain} * ${uncappedDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
                     `
                     : ""
                 }${ratioDenominatorPercentileCapCols}
-                , SUM(${data.capCoalesceDenominator}) AS 
+                , SUM(${capDenominator}) AS 
                   ${data.alias}_denominator_sum
-                , SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                , SUM(POWER(${capDenominator}, 2)) AS 
                   ${data.alias}_denominator_sum_squares
                 ${
                   data.regressionAdjusted
@@ -193,30 +226,30 @@ export function getExperimentFactMetricStatisticsCTE(
                   ${
                     data.computeUncappedMetric
                       ? `
-                      , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
-                      , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
-                      , SUM(${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum_uncapped 
-                      , SUM(POWER(${data.uncappedCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares_uncapped
-                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
-                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product_uncapped
-                      , SUM(${data.uncappedCoalesceCovariate} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product_uncapped
-                      , SUM(${data.uncappedCoalesceCovariate} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product_uncapped
-                      , SUM(${data.uncappedCoalesceDenominator} * ${data.uncappedCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product_uncapped`
+                      , SUM(${uncappedCovariate}) AS ${data.alias}_covariate_sum_uncapped
+                      , SUM(POWER(${uncappedCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
+                      , SUM(${uncappedDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum_uncapped 
+                      , SUM(POWER(${uncappedDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares_uncapped
+                      , SUM(${uncappedMain} * ${uncappedCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
+                      , SUM(${uncappedMain} * ${uncappedDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product_uncapped
+                      , SUM(${uncappedCovariate} * ${uncappedDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product_uncapped
+                      , SUM(${uncappedCovariate} * ${uncappedDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product_uncapped
+                      , SUM(${uncappedDenominator} * ${uncappedDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product_uncapped`
                       : ""
                   }
-                  , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
-                  , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
-                  , SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum
-                  , SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares
-                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product
-                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
-                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product
-                  , SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product
-                  , SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product
-                  , SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                  , SUM(${capCovariate}) AS ${data.alias}_covariate_sum
+                  , SUM(POWER(${capCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
+                  , SUM(${capDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum
+                  , SUM(POWER(${capDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares
+                  , SUM(${capMain} * ${capDenominator}) AS ${data.alias}_main_denominator_sum_product
+                  , SUM(${capMain} * ${capCovariate}) AS ${data.alias}_main_covariate_sum_product
+                  , SUM(${capMain} * ${capDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product
+                  , SUM(${capCovariate} * ${capDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product
+                  , SUM(${capCovariate} * ${capDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product
+                  , SUM(${capDenominator} * ${capDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
                   `
                     : `
-                    , SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                    , SUM(${capDenominator} * ${capMain}) AS ${data.alias}_main_denominator_sum_product
                   `
                 }` /*ends ifelse regressionAdjusted*/
                 : ` 
@@ -226,15 +259,15 @@ export function getExperimentFactMetricStatisticsCTE(
                   ${
                     data.computeUncappedMetric
                       ? `
-                      , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
-                      , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
-                      , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
+                      , SUM(${uncappedCovariate}) AS ${data.alias}_covariate_sum_uncapped
+                      , SUM(POWER(${uncappedCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
+                      , SUM(${uncappedMain} * ${uncappedCovariate}) AS ${data.alias}_main_covariate_sum_product_uncapped
                       `
                       : ""
                   }  
-                , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
-                , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
-                , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                , SUM(${capCovariate}) AS ${data.alias}_covariate_sum
+                , SUM(POWER(${capCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
+                , SUM(${capMain} * ${capCovariate}) AS ${data.alias}_main_covariate_sum_product
                 `
                   : ""
               }
@@ -268,7 +301,7 @@ export function getExperimentFactMetricStatisticsCTE(
         )`
         }
         ${
-          percentileTableIndices.has(index)
+          percentileTableIndices.has(index) && !isClusterExperiment
             ? `
           CROSS JOIN ${capValueTableName}${suffix} cap${suffix}
         `

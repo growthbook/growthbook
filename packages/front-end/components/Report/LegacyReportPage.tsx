@@ -306,7 +306,10 @@ export default function LegacyReportPage({
                       activationMetric={!!report.args.activationMetric}
                       datasourceId={report.args.datasource}
                       exposureQueryId={report.args.exposureQueryId}
-                      userIdType={report.args.userIdType}
+                      userIdType={
+                        report.args.exposureQueryIdentifierType ??
+                        report.args.userIdType
+                      }
                       labelClassName="mr-2"
                       disabled={true}
                     />
