@@ -502,6 +502,7 @@ export default function MetricEditor({
                   form={form}
                   type={metricType}
                   autoFocus={false}
+                  className=""
                 />
               ) : (
                 <DataList
