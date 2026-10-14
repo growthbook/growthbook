@@ -25,6 +25,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
@@ -138,6 +139,11 @@ export default function MetricWorkspace({
       ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
       : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
   const [error, setError] = useState<string | null>(null);
+  // The bottom Save is far below this error, so bring it into view.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
   // for the overwhelmingly common case (a fresh create, or an ordinary
@@ -159,27 +165,28 @@ export default function MetricWorkspace({
   const router = useRouter();
   const baseline = useRef("");
   const leaving = useRef(false);
+  // Runs once the user confirms they want to drop unsaved changes.
+  const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
   const snapshot = () =>
     JSON.stringify(form.getValues(), (key, value) =>
       key === "rowFilters" && Array.isArray(value)
         ? value.filter((rf) => !isEmptyInlineFilterPlaceholder(rf))
         : value,
     );
+  const isDirty = () => !leaving.current && snapshot() !== baseline.current;
   useEffect(() => {
     if (!isEditing) return;
     leaving.current = false;
     baseline.current = snapshot();
-    const isDirty = () => !leaving.current && snapshot() !== baseline.current;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty()) e.preventDefault();
     };
-    const onRouteChangeStart = () => {
-      if (
-        !isDirty() ||
-        window.confirm("Leave without saving? Your changes will be lost.")
-      ) {
-        return;
-      }
+    const onRouteChangeStart = (url: string) => {
+      if (!isDirty()) return;
+      setConfirmLeave(() => () => {
+        leaving.current = true;
+        router.push(url);
+      });
       router.events.emit("routeChangeError");
       // Next's pages router only cancels a route change when a handler throws.
       throw new Error("Navigation cancelled to keep unsaved metric changes");
@@ -275,6 +282,11 @@ export default function MetricWorkspace({
   }
 
   function handleDiscard() {
+    if (isDirty()) setConfirmLeave(() => discard);
+    else discard();
+  }
+
+  function discard() {
     if (onCancel) {
       leaving.current = true;
       onCancel();
@@ -285,8 +297,7 @@ export default function MetricWorkspace({
     setIsEditing(false);
   }
 
-  // Mirrors FactMetricModal's own early return (fromTemplate && no
-  // factTableId -> FieldMappingModal): complete the seed before showing the
+  // A template with no fact table yet: complete the seed before showing the
   // normal edit form at all. onMapped resyncs the form with the completed
   // seed and drops into the ordinary edit view - no separate page-level
   // "mapped" state needed. duplicateFrom.numerator is re-checked here (not
@@ -296,7 +307,7 @@ export default function MetricWorkspace({
     return (
       <TemplateFieldMapping
         template={{ ...duplicateFrom, numerator: duplicateFrom.numerator }}
-        onCancel={handleDiscard}
+        onCancel={discard}
         onMapped={(mapped) => {
           resync(mapped);
           setNeedsMapping(false);
@@ -304,6 +315,21 @@ export default function MetricWorkspace({
       />
     );
   }
+
+  const leaveDialog = confirmLeave && (
+    <ConfirmDialog
+      title="Discard unsaved changes?"
+      content="Your changes to this metric will be lost."
+      yesText="Discard"
+      noText="Keep editing"
+      color="red"
+      onConfirm={() => {
+        setConfirmLeave(null);
+        confirmLeave();
+      }}
+      onCancel={() => setConfirmLeave(null)}
+    />
+  );
 
   const actionRow = isEditing && (
     <Flex
@@ -336,7 +362,12 @@ export default function MetricWorkspace({
 
   return (
     <Flex direction="column" gap="3">
-      {isEditing && error && <Callout status="error">{error}</Callout>}
+      {leaveDialog}
+      {isEditing && error && (
+        <Callout ref={errorRef} status="error">
+          {error}
+        </Callout>
+      )}
       {actionRow}
       <MetricEditor
         form={form}

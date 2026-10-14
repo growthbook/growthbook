@@ -274,10 +274,6 @@ export function fromFactMetricFormValues(
     result.lowerCappingSettings = null;
   }
 
-  if (result.cappingSettings?.type && !result.cappingSettings.value) {
-    throw new Error("Capped Value cannot be 0");
-  }
-
   if (!result.datasource) {
     throw new Error("Must select a Data Source");
   }
