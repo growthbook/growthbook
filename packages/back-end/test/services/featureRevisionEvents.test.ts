@@ -12,13 +12,6 @@ jest.mock("back-end/src/models/EventModel", () => ({
 jest.mock("back-end/src/util/logger", () => ({
   logger: { error: jest.fn() },
 }));
-// The real services/features pulls in a heavy model/integration chain that
-// this unit test must not load. Only referenced inside dispatch functions,
-// which these tests never call.
-jest.mock("back-end/src/services/features", () => ({
-  revisionToApiInterface: jest.fn(),
-  toApiRevision: jest.fn(),
-}));
 jest.mock("back-end/src/services/audit", () => ({
   auditDetailsUpdate: jest.fn(),
 }));

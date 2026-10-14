@@ -15,6 +15,8 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
+  assumesRequesterRole,
+  requesterHeaderPolicy,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -77,6 +79,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import { isExpired } from "shared/api-key-expiration";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
@@ -124,7 +127,13 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
-import { migrateApiKey } from "back-end/src/util/api-key.util";
+import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  decodeArmingApiKeyId,
+  isArmingApiKeyId,
+  SECRET_API_KEY_ID,
+} from "back-end/src/util/armingApiKeyId";
+import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1875,38 +1884,88 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
-// An org API key as a principal, built the way the request middleware builds
-// it. Null when the key is gone, disabled or user-bound (stamped as its user).
+// An API key as a principal, built the way the request middleware builds it.
+// Null when the key is gone or disabled. Unscoped PATs are stamped as their
+// user and never arrive here; a scoped one runs as its user under its cap.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
-  apiKeyId: string,
+  armingId: string,
 ): Promise<ApiReqContext | null> {
-  const key =
-    apiKeyId === SECRET_API_KEY_ID
-      ? secretApiKeyDoc(org)
-      : await getContextForAgendaJobByOrgObject(org).models.apiKeys.getById(
-          apiKeyId,
-        );
-  if (!key || key.disabled || key.userId || !key.role) return null;
+  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
+  const key = await getOrgApiKey(org, apiKeyId);
+  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+    return null;
+  }
+  // Armed while assuming a member, it replays only while the key still would.
+  if (
+    requesterId &&
+    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
+  ) {
+    return null;
+  }
+  const user = key.userId ? await getUserById(key.userId) : null;
+  if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
+    return null;
+  }
+  // Super-admin authority bypasses roles, so a scoped token never carries it.
+  const superAdmin = !!user?.superAdmin && !key.scoped;
+  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+    return null;
+  }
+  // Like a user who armed it and left, a requester who left fires nothing.
+  const requester = requesterId ? await getUserById(requesterId) : null;
+  if (
+    requesterId &&
+    (key.userId || !requester || !org.members.some((m) => m.id === requesterId))
+  ) {
+    return null;
+  }
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
   return new ReqContextClass({
     org,
-    auditUser: {
-      type: "api_key",
-      apiKey: apiKeyId,
-      name: key.description || "",
-    },
+    auditUser: apiKeyEventUser({
+      apiKeyId,
+      key,
+      owner: user,
+      requester: requester && {
+        id: requester.id,
+        name: requester.name || "",
+        email: requester.email,
+      },
+    }),
+    user: user
+      ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
+      : undefined,
     role: key.role,
     apiKey: apiKeyId,
     apiKeyData: key,
-    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
-    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
-      org.id,
-    ),
+    teams,
+    restrictedProjects,
+    userPermissions: getKeyPermissionsForRequest({
+      apiKey: key,
+      requesterId,
+      org,
+      teams,
+      restrictedProjects,
+    }),
   });
 }
 
-// The self-hosted env-var key has no document; the middleware synthesizes one.
-const SECRET_API_KEY_ID = "SECRET_API_KEY";
+// An org API key by id, including the self-hosted env-var key.
+export async function getOrgApiKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiKeyInterface | null> {
+  return apiKeyId === SECRET_API_KEY_ID
+    ? secretApiKeyDoc(org)
+    : await getContextForAgendaJobByOrgObject(
+        org,
+      ).models.apiKeys.dangerousGetById(apiKeyId);
+}
+
 function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
   if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
   return migrateApiKey({
@@ -1917,11 +1976,6 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
     role: SECRET_API_KEY_ROLE,
     dateCreated: new Date(),
   });
-}
-
-// An org API key id that can be recorded as an armer and resolved later.
-export function isArmingApiKeyId(id: string | undefined): id is string {
-  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the

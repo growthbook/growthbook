@@ -9,6 +9,7 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
+import { assumingKeyOf, type EventUser } from "../validators/event-user";
 
 // Role-bearing fields only, so the front end can resolve without member lists.
 export type RoleSourceTeam = Pick<
@@ -26,7 +27,11 @@ import {
 } from "./permissions.constants";
 import { Permissions } from "./permissionsClass";
 import type { RevisionModel } from "./revisionPermissions";
-import { roleSupportsEnvLimit, roleToPermissionMap } from "./permissions.utils";
+import {
+  allowedEnvironments,
+  roleSupportsEnvLimit,
+  roleToPermissionMap,
+} from "./permissions.utils";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: readonly Permission[] = ENV_SCOPED_PERMISSIONS;
@@ -330,6 +335,68 @@ export function getRolePermissions(
   return permissions;
 }
 
+function intersectUserPermission(
+  a: UserPermission,
+  b: UserPermission,
+): UserPermission {
+  const permissions: PermissionsObject = {};
+  const envGrants = new Map<
+    string,
+    NonNullable<UserPermission["envGrants"]>[0]
+  >();
+  for (const p of Object.keys(a.permissions) as Permission[]) {
+    if (!a.permissions[p] || !b.permissions[p]) continue;
+    permissions[p] = true;
+    const envsA = allowedEnvironments(a, p);
+    const envsB = allowedEnvironments(b, p);
+    const envs =
+      envsA === null
+        ? envsB
+        : envsB === null
+          ? envsA
+          : envsA.filter((e) => envsB.includes(e));
+    // Every granted permission gets a grant, so the legacy fallback never applies.
+    const key = envs === null ? "*" : JSON.stringify([...envs].sort());
+    const grant = envGrants.get(key);
+    if (grant) grant.permissions.push(p);
+    else
+      envGrants.set(key, {
+        limitAccessByEnvironment: envs !== null,
+        environments: envs ?? [],
+        permissions: [p],
+      });
+  }
+  const grants = [...envGrants.values()];
+  const unrestricted =
+    !grants.length || grants.some((g) => !g.limitAccessByEnvironment);
+  return {
+    limitAccessByEnvironment: !unrestricted,
+    environments: unrestricted
+      ? []
+      : [...new Set(grants.flatMap((g) => g.environments))],
+    permissions,
+    envGrants: grants,
+  };
+}
+
+// Exact: hasPermission(result, …) === hasPermission(a, …) && hasPermission(b, …).
+export function intersectUserPermissions(
+  a: UserPermissions,
+  b: UserPermissions,
+): UserPermissions {
+  const projects: UserPermissions["projects"] = {};
+  for (const p of new Set([
+    ...Object.keys(a.projects),
+    ...Object.keys(b.projects),
+  ])) {
+    projects[p] = intersectUserPermission(
+      a.projects[p] ?? a.global,
+      b.projects[p] ?? b.global,
+    );
+  }
+  return { global: intersectUserPermission(a.global, b.global), projects };
+}
+
 // Shared so hook props and the required-approver gate agree on "in team X".
 export function teamsForMember(
   userId: string,
@@ -426,8 +493,41 @@ export type ApprovalCoverageArgs = {
   // Authority is required in all of them.
   projects: string[];
   footprint: ReviewAuthorityFootprint;
-  approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
+  approvers: Approver[];
 };
+
+// An approval given through an org key assuming the reviewer's role counts
+// only where the key's own role covers too; a gone key covers nothing.
+type Approver = {
+  id: string;
+  roleInfo: MemberRoleWithProjects | null;
+  assumingKeyRole?: MemberRoleWithProjects | null;
+};
+
+type Approval = { userId: string; user?: EventUser };
+
+// The roles coverage needs for these approvals: each reviewer's, and the key's
+// behind any approval made while assuming the reviewer's role.
+export function approvalRoleIds(approvals: Approval[]): string[] {
+  return approvals.flatMap((a) => {
+    const key = assumingKeyOf(a.user);
+    return key ? [a.userId, key] : [a.userId];
+  });
+}
+
+export function approvalApprovers(
+  approvals: Approval[],
+  roleFor: (id: string) => MemberRoleWithProjects | null,
+): Approver[] {
+  return approvals.map((a) => {
+    const key = assumingKeyOf(a.user);
+    return {
+      id: a.userId,
+      roleInfo: roleFor(a.userId),
+      ...(key ? { assumingKeyRole: roleFor(key) } : {}),
+    };
+  });
+}
 
 // Uses CURRENT rules — an approval is not a snapshot of authority. One
 // deliberate exception: restricted-project denial is NOT applied here, so an
@@ -463,18 +563,19 @@ export function assessGoverningApprovalCoverage({
     Object.fromEntries(approverProjects.map((p) => [p, [] as string[]]));
   let hasCoveringApproval = false;
 
-  for (const { id, roleInfo } of approvers) {
-    const permissions = roleInfo
-      ? new Permissions(getRolePermissions(roleInfo, org, teams))
-      : null;
-    const coversPrimary =
-      !!permissions &&
-      permissions.canReviewRevision(model, projects, footprint);
-    const covered = permissions
-      ? approverProjects.filter((project) =>
-          permissions.canReviewRevision(model, [project], footprint),
-        )
-      : [];
+  for (const { id, roleInfo, assumingKeyRole } of approvers) {
+    const roles =
+      assumingKeyRole === undefined ? [roleInfo] : [roleInfo, assumingKeyRole];
+    const held = roles.filter((r): r is MemberRoleWithProjects => r !== null);
+    const permissions =
+      held.length === roles.length
+        ? held.map((r) => new Permissions(getRolePermissions(r, org, teams)))
+        : [];
+    const canReview = (scope: string[]) =>
+      permissions.length > 0 &&
+      permissions.every((p) => p.canReviewRevision(model, scope, footprint));
+    const coversPrimary = canReview(projects);
+    const covered = approverProjects.filter((project) => canReview([project]));
     if (coversPrimary) {
       hasCoveringApproval = true;
       primaryCoveringApproverIds.push(id);

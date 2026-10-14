@@ -17,6 +17,7 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
+import { eventUserIdentity, eventUserPerson } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -40,6 +41,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
@@ -48,6 +50,7 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
+import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
@@ -57,6 +60,7 @@ import {
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
@@ -88,6 +92,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
@@ -103,6 +108,7 @@ import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { QueryLogModel } from "back-end/src/models/QueryLogModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
@@ -126,6 +132,7 @@ export type ModelName =
   | "urlRedirects"
   | "metricAnalysis"
   | "populationData"
+  | "populations"
   | "savedQueries"
   | "metricGroups"
   | "segments"
@@ -170,10 +177,12 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
+  | "interleavings"
   | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs"
-  | "aiCredentials";
+  | "aiCredentials"
+  | "queryLogs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -186,6 +195,7 @@ export const modelClasses = {
   urlRedirects: UrlRedirectModel,
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
+  populations: PopulationModel,
   savedQueries: SavedQueryDataModel,
   metricGroups: MetricGroupModel,
   segments: SegmentModel,
@@ -220,6 +230,7 @@ export const modelClasses = {
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
+  queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
@@ -230,6 +241,7 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavings: InterleavingModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
@@ -262,6 +274,10 @@ export class ReqContextClass {
   // self-referentially so nested evaluations inherit it. Request-scoped only —
   // never cache one across requests.
   public scanContextOverride?: ReqContextClass;
+
+  // The requester whose read access bounds what guard warnings name, when this
+  // context is an admin overlay (bulk publish) rather than the requester's own.
+  public warningReaderContext?: ReqContextClass;
 
   // Proposed feature states for the bulk publisher's overlay scan context,
   // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
@@ -362,6 +378,7 @@ export class ReqContextClass {
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      populations: new PopulationModel(this),
       savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
@@ -397,6 +414,7 @@ export class ReqContextClass {
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
+      queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
@@ -407,6 +425,7 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavings: new InterleavingModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
@@ -418,17 +437,81 @@ export class ReqContextClass {
   public email = "";
   public userName = "";
   public superAdmin = false;
+
+  // The person a request acts for: the signed-in user, a personal token's
+  // owner, or the member whose role an org key assumes. Use it for owners,
+  // `mine` and anything that needs a person.
+  public get actingPerson(): {
+    id: string;
+    name: string;
+    email: string;
+  } | null {
+    if (this.userId) {
+      return { id: this.userId, name: this.userName, email: this.email };
+    }
+    const person = eventUserPerson(this.auditUser);
+    return person?.id
+      ? { id: person.id, name: person.name || "", email: person.email || "" }
+      : null;
+  }
+
+  // Who the request acts as for authorship, contributions and verdicts: its
+  // person, else the org key itself. Empty for the system.
+  public get actorId(): string {
+    return this.userId || eventUserIdentity(this.auditUser) || "";
+  }
+
+  // The org key behind a request that acts as the key itself.
+  public get keyActingAsItself(): string | null {
+    return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
+  }
+
+  // An org key assuming a member's role may use that member's author rights
+  // only where its own role allows the action too, so it never does more than
+  // the key alone could. `check` runs against the key's own permissions.
+  public authorRightsAllow(check: (context: this) => boolean): boolean {
+    if (!this.assumingKeyPermissions) return true;
+    const keyContext: this = Object.create(this);
+    keyContext.permissions = this.assumingKeyPermissions;
+    return check(keyContext);
+  }
+
+  public get actingUserId(): string {
+    return this.actingPerson?.id ?? "";
+  }
+
+  public get actingUserName(): string {
+    return this.actingPerson?.name ?? "";
+  }
+
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
+  private assumingKeyPermissions: Permissions | null = null;
 
   protected userPermissions: UserPermissions;
+
+  // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
+  // with the work), a user as themselves, an org key as itself with its requester.
+  public get armer(): { userId?: string; apiKey?: string } {
+    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.userId) return { userId: this.userId };
+    if (!this.apiKey) return {};
+    return {
+      apiKey: encodeArmingApiKeyId(this.apiKey, this.actingPerson?.id),
+    };
+  }
+
+  public get armerId(): string | null {
+    return this.armer.userId || this.armer.apiKey || null;
+  }
 
   public constructor({
     org,
@@ -440,6 +523,7 @@ export class ReqContextClass {
     apiKeyData,
     req,
     restrictedProjects = [],
+    userPermissions,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -455,6 +539,7 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
+    userPermissions?: UserPermissions;
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -479,12 +564,16 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(
-        user,
-        org,
-        teams || [],
-        restrictedProjects,
-      );
+      this.scopedApiKey = !!apiKeyData?.scoped;
+      this.userPermissions = apiKeyData?.userId
+        ? getPersonalAccessTokenPermissions(
+            apiKeyData,
+            user,
+            org,
+            teams || [],
+            restrictedProjects,
+          )
+        : getUserPermissions(user, org, teams || [], restrictedProjects);
     }
     // If an API key or background job is making this request
     else {
@@ -498,12 +587,16 @@ export class ReqContextClass {
         environments: [] as string[],
       };
 
-      this.userPermissions = getRolePermissions(
+      const rolePermissions = getRolePermissions(
         { ...roleInfo, role },
         org,
         teams || [],
         restrictedProjects,
       );
+      this.userPermissions = userPermissions ?? rolePermissions;
+      if (userPermissions) {
+        this.assumingKeyPermissions = new Permissions(rolePermissions);
+      }
     }
 
     this.permissions = new Permissions(this.userPermissions);
@@ -685,6 +778,8 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
+          requestedBy: apiKeyUser?.requestedBy,
+          assumedRole: apiKeyUser?.assumedRole,
         }
       : this.userId
         ? {

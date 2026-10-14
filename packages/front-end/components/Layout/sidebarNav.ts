@@ -140,7 +140,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|populations)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -153,6 +153,12 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
+      },
+      {
+        name: "Populations",
+        href: "/populations",
+        path: /^populations/,
+        filter: ({ gb }) => !!gb?.isOn("populations"),
       },
       {
         name: "Segments",
@@ -305,6 +311,14 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^settings\/keys/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canCreateApiKey() ||
+          permissionsUtils.canDeleteApiKey(),
+      },
+      {
+        name: "Manage PATs",
+        href: "/settings/personal-access-tokens",
+        path: /^settings\/personal-access-tokens/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings() ||
           permissionsUtils.canDeleteApiKey(),
       },
       {

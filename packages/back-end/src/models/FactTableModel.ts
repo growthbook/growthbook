@@ -168,7 +168,7 @@ export function createPropsToInterface(
 ): FactTableInterface {
   const props = {
     ...rawProps,
-    owner: rawProps.owner || context.userId,
+    owner: rawProps.owner || context.actingUserId,
   };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
@@ -735,6 +735,10 @@ export async function createColumn(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   return column;
 }
@@ -960,6 +964,10 @@ export async function deleteColumn(
         columns,
       },
     },
+  );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
   );
 
   // A virtual column may be referenced by metric auto-slices; remove those.

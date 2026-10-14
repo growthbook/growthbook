@@ -49,7 +49,7 @@ import {
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
-import { isArmingApiKeyId } from "back-end/src/services/organizations";
+import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -526,7 +526,7 @@ export async function executeExperimentStart(
       // The job fires a start as its armer, so a stop derived here is theirs.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context,
+        context.armer,
       ),
     },
   });
@@ -706,7 +706,7 @@ export async function approveScheduledExperimentStart({
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },
-      context,
+      context.armer,
     ),
   };
   await validateExperimentChange({ context, experiment, changes });

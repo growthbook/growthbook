@@ -142,6 +142,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  contextualBanditRef?: string;
 };
 
 export type ExperimentOverride = {

@@ -1,9 +1,8 @@
-import { FeatureRule } from "shared/validators";
+import { eventUserToApiEventUser, FeatureRule } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import {
-  eventUserToApiEventUser,
   revisionToApiInterface,
   revisionToApiInterfaceV2,
 } from "back-end/src/services/features";
@@ -203,10 +202,13 @@ describe("revision author serialization", () => {
       });
     });
 
-    it("maps an api_key actor without exposing the apiKey field", () => {
-      const mapped = eventUserToApiEventUser(apiKeyUser);
-      expect(mapped).toEqual({ type: "api_key", id: "u2", name: "CI Bot" });
-      expect(mapped).not.toHaveProperty("apiKey");
+    it("pairs an api_key actor's key ID with its name", () => {
+      expect(eventUserToApiEventUser(apiKeyUser)).toEqual({
+        type: "api_key",
+        apiKey: "key_abc123",
+        id: "u2",
+        name: "CI Bot",
+      });
     });
 
     it("maps a system actor", () => {
@@ -247,17 +249,6 @@ describe("revision author serialization", () => {
       name: "U",
       email: "u@x",
     });
-  });
-
-  it("never exposes the api_key actor's apiKey on v2", () => {
-    const api = revisionToApiInterfaceV2(revWith(apiKeyUser, null));
-    expect(api.createdBy).toEqual({
-      type: "api_key",
-      id: "u2",
-      name: "CI Bot",
-    });
-    expect(api.createdBy).not.toHaveProperty("apiKey");
-    expect(api.publishedBy).toBeUndefined();
   });
 
   it("omits authors for null users on v2", () => {

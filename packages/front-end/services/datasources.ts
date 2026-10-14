@@ -892,6 +892,11 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
+// False for trackers that fall back to the generic custom query.
+export function hasEventTrackerSql(type: SchemaFormat): boolean {
+  return getSchemaObject(type) !== CustomSchema;
+}
+
 export function getTablePrefix(params: DataSourceParams) {
   // Postgres / Redshift
   if ("defaultSchema" in params && params.defaultSchema) {
