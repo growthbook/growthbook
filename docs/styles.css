@@ -505,3 +505,42 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   white-space: nowrap;
   word-wrap: break-word;
 }
+
+/* "Start for free" navbar CTA: a light sweep across the button every 5s. */
+#topbar-cta-button > a {
+  overflow: hidden;
+}
+
+#topbar-cta-button > a::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: topbar-cta-shine 5s ease-in-out infinite;
+}
+
+@keyframes topbar-cta-shine {
+  0% {
+    left: -75%;
+  }
+  18%,
+  100% {
+    left: 125%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #topbar-cta-button > a::after {
+    animation: none;
+  }
+}
