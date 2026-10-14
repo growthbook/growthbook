@@ -122,6 +122,7 @@ describe("removePopulationStep", () => {
 describe("getPopulationDraftIssue", () => {
   const complete: PopulationDraft = {
     name: "Buyers",
+    description: "",
     datasource: "ds_1",
     userIdTypes: ["user_id"],
     steps: [step("a", { windowSettings: anyTime }), step("b")],

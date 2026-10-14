@@ -17,23 +17,22 @@ export default function PopulationMoreMenu({
   population,
   onDuplicated,
   onDeleted,
-  showEdit = true,
+  onAuditLog,
 }: {
   population: ApiPopulation;
   onDuplicated: (copy: ApiPopulation) => Promise<unknown> | void;
   onDeleted: () => Promise<unknown> | void;
-  showEdit?: boolean;
+  onAuditLog?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
 
-  const canEdit =
-    showEdit && permissionsUtil.canUpdatePopulation(population, population);
+  const canEdit = permissionsUtil.canUpdatePopulation(population, population);
   const canDuplicate = permissionsUtil.canCreatePopulation(population);
   const canDelete = permissionsUtil.canDeletePopulation(population);
-  if (!canEdit && !canDuplicate && !canDelete) return null;
+  if (!canEdit && !canDuplicate && !canDelete && !onAuditLog) return null;
 
   return (
     <DropdownMenu
@@ -63,6 +62,19 @@ export default function PopulationMoreMenu({
           Edit
         </DropdownMenuItem>
       )}
+      {onAuditLog && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpen(false);
+            onAuditLog();
+          }}
+        >
+          Audit log
+        </DropdownMenuItem>
+      )}
+      {(canEdit || onAuditLog) && (canDuplicate || canDelete) && (
+        <DropdownMenuSeparator />
+      )}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
@@ -86,7 +98,6 @@ export default function PopulationMoreMenu({
           Duplicate
         </DropdownMenuItem>
       )}
-      {canDuplicate && canDelete && <DropdownMenuSeparator />}
       {canDelete && (
         <DropdownMenuItem
           color="red"

@@ -169,7 +169,8 @@ const HistoryTable: FC<{
     | "factTable"
     | "datasource"
     | "apiKey"
-    | "project";
+    | "project"
+    | "population";
   showName?: boolean;
   showType?: boolean;
   id?: string;

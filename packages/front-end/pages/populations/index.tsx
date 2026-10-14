@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
@@ -6,11 +6,11 @@ import { getPopulationStepsLabel } from "shared/populations";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
 import Table, {
   TableBody,
   TableCell,
@@ -24,6 +24,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import Owner from "@/components/Avatar/Owner";
 import ProjectBadges from "@/components/ProjectBadges";
+import PopulationSearchFilters from "@/components/Search/PopulationSearchFilters";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -32,20 +33,19 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
-const ALL_DATASOURCES = "__all__";
 const CREATE_POPULATION_DOCS =
   "https://docs.growthbook.io/api/Populations/operation/createPopulation";
 
 export default function PopulationsPage() {
+  const router = useRouter();
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
-  const { project, getFactTableById, getDatasourceById, datasources } =
+  const { project, getFactTableById, getDatasourceById, getProjectById } =
     useDefinitions();
   const { getOwnerDisplay } = useUser();
   const { populations, loading, error, mutate } = usePopulations(project, {
     enabled: populationsEnabled,
   });
-  const [datasourceFilter, setDatasourceFilter] = useState(ALL_DATASOURCES);
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canCreatePopulation({
     projects: project ? [project] : [],
@@ -62,22 +62,17 @@ export default function PopulationsPage() {
       identifierLabel: p.userIdTypes.join(", "),
       datasourceName: getDatasourceById(p.datasource)?.name || p.datasource,
       ownerName: getOwnerDisplay(p.owner),
+      projectNames: p.projects.map((id) => getProjectById(id)?.name || id),
     }),
-    [getFactTableById, getDatasourceById, getOwnerDisplay],
-  );
-
-  const filterResults = useCallback(
-    (items: typeof populationsWithLabels) =>
-      datasourceFilter === ALL_DATASOURCES
-        ? items
-        : items.filter((p) => p.datasource === datasourceFilter),
-    [datasourceFilter],
+    [getFactTableById, getDatasourceById, getOwnerDisplay, getProjectById],
   );
 
   const {
     items,
     searchInputProps,
     isFiltered,
+    syntaxFilters,
+    setSearchValue,
     clear,
     SortableTableColumnHeader,
   } = useSearch({
@@ -92,7 +87,19 @@ export default function PopulationsPage() {
       "ownerName",
       "datasourceName",
     ],
-    filterResults,
+    updateSearchQueryOnChange: true,
+    searchTermFilters: {
+      has: (item) => (item.projects.length ? ["project", "projects"] : []),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      description: (item) => item.description,
+      id: (item) => item.id,
+      owner: (item) => [item.owner, item.ownerName],
+      datasource: (item) => [item.datasource, item.datasourceName],
+      project: (item) => [...item.projectNames, ...item.projects],
+      identifier: (item) => item.userIdTypes,
+    },
   });
 
   if (!populationsEnabled) {
@@ -102,19 +109,9 @@ export default function PopulationsPage() {
     return <LoadingOverlay />;
   }
 
-  const selectableDatasources = datasources.filter((d) =>
-    populations.some((p) => p.datasource === d.id),
-  );
-  // A Project switch can remove the selected Data Source from this list.
-  // Updating during render makes React retry before painting a table with
-  // every row filtered out.
-  if (
-    !error &&
-    datasourceFilter !== ALL_DATASOURCES &&
-    !selectableDatasources.some((d) => d.id === datasourceFilter)
-  ) {
-    setDatasourceFilter(ALL_DATASOURCES);
-  }
+  const addButton = canCreate ? (
+    <LinkButton href="/populations/new">Add Population</LinkButton>
+  ) : null;
 
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
@@ -132,9 +129,7 @@ export default function PopulationsPage() {
             </Text>
           </Box>
         </Box>
-        {canCreate && (
-          <LinkButton href="/populations/new">New population</LinkButton>
-        )}
+        {addButton}
       </Flex>
 
       {error ? (
@@ -166,42 +161,25 @@ export default function PopulationsPage() {
               View the API docs
             </LinkButton>
           }
-          rightButton={
-            canCreate ? (
-              <LinkButton href="/populations/new">New population</LinkButton>
-            ) : null
-          }
+          rightButton={addButton}
         />
       ) : (
         <>
-          <Flex justify="between" align="center" gap="3" mb="3" wrap="wrap">
-            <Flex gap="3" align="center" wrap="wrap">
-              <Box width={{ initial: "100%", sm: "300px" }}>
-                <TextField
-                  type="search"
-                  placeholder="Search populations"
-                  aria-label="Search populations"
-                  {...searchInputProps}
-                />
-              </Box>
-              <Select
-                value={datasourceFilter}
-                setValue={setDatasourceFilter}
-                size="md"
-              >
-                <SelectItem value={ALL_DATASOURCES}>
-                  All Data Sources
-                </SelectItem>
-                {selectableDatasources.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </Select>
-            </Flex>
-            <Text color="text-mid">
-              {items.length} {items.length === 1 ? "population" : "populations"}
-            </Text>
+          <Flex justify="between" mb="3" gap="3" align="center" wrap="wrap">
+            <Box width={{ initial: "100%", sm: "40%" }}>
+              <TextField
+                type="search"
+                placeholder="Search..."
+                aria-label="Search populations"
+                {...searchInputProps}
+              />
+            </Box>
+            <PopulationSearchFilters
+              populations={populations}
+              searchInputProps={searchInputProps}
+              setSearchValue={setSearchValue}
+              syntaxFilters={syntaxFilters}
+            />
           </Flex>
 
           <Table variant="list" stickyHeader roundedCorners className="appbox">
@@ -230,50 +208,85 @@ export default function PopulationsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <Flex direction="column">
-                      <Link href={`/populations/${p.id}`} weight="medium">
-                        {p.name}
-                      </Link>
-                      {p.description && (
-                        <Text size="sm" color="text-low">
-                          {p.description}
-                        </Text>
-                      )}
-                    </Flex>
-                  </TableCell>
-                  <TableCell>{p.datasourceName}</TableCell>
-                  <TableCell>
-                    <ProjectBadges
-                      resourceType="population"
-                      projectIds={
-                        p.projects.length > 0 ? p.projects : undefined
+              {items.map((p) => {
+                const href = `/populations/${p.id}`;
+                return (
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      if (
+                        e.target instanceof HTMLElement &&
+                        e.target.closest("a, button, [role=menu]")
+                      ) {
+                        return;
                       }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Text size="sm" color="text-mid" mono>
-                      {p.identifierLabel}
-                    </Text>
-                  </TableCell>
-                  <TableCell>{p.stepsLabel}</TableCell>
-                  <TableCell title={datetime(p.dateUpdated)}>
-                    {date(p.dateUpdated)}
-                  </TableCell>
-                  <TableCell>
-                    <Owner ownerId={p.owner} />
-                  </TableCell>
-                  <TableCell style={{ width: 40 }}>
-                    <PopulationMoreMenu
-                      population={p}
-                      onDuplicated={() => mutate()}
-                      onDeleted={() => mutate()}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+                      if (
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.button === 1
+                      ) {
+                        window.open(href, "_blank");
+                        return;
+                      }
+                      e.preventDefault();
+                      router.push(href);
+                    }}
+                  >
+                    <TableCell>
+                      <Flex direction="column">
+                        <Link href={href} weight="medium">
+                          {p.name}
+                        </Link>
+                        {p.description && (
+                          <Text size="sm" color="text-low">
+                            {p.description}
+                          </Text>
+                        )}
+                      </Flex>
+                    </TableCell>
+                    <TableCell>{p.datasourceName}</TableCell>
+                    <TableCell>
+                      <ProjectBadges
+                        resourceType="population"
+                        projectIds={
+                          p.projects.length > 0 ? p.projects : undefined
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Flex gap="1" wrap="wrap">
+                        {p.userIdTypes.map((t) => (
+                          <Badge
+                            key={t}
+                            label={t}
+                            color="gray"
+                            variant="solid"
+                          />
+                        ))}
+                      </Flex>
+                    </TableCell>
+                    <TableCell>{p.stepsLabel}</TableCell>
+                    <TableCell title={datetime(p.dateUpdated)}>
+                      {date(p.dateUpdated)}
+                    </TableCell>
+                    <TableCell>
+                      <Owner ownerId={p.owner} />
+                    </TableCell>
+                    <TableCell
+                      style={{ width: 40 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PopulationMoreMenu
+                        population={p}
+                        onDuplicated={() => mutate()}
+                        onDeleted={() => mutate()}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {!items.length && isFiltered && (
                 <TableRow>
                   <TableCell colSpan={8} style={{ textAlign: "center" }}>
@@ -283,10 +296,9 @@ export default function PopulationsPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         clear();
-                        setDatasourceFilter(ALL_DATASOURCES);
                       }}
                     >
-                      Clear filters
+                      Clear search field
                     </a>
                   </TableCell>
                 </TableRow>

@@ -14,6 +14,7 @@ import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 import PageHead from "@/components/Layout/PageHead";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -63,6 +64,7 @@ export default function PopulationEditor({
     if (population) {
       return {
         name: population.name,
+        description: population.description,
         datasource: population.datasource,
         userIdTypes: population.userIdTypes,
         steps: population.steps,
@@ -71,6 +73,7 @@ export default function PopulationEditor({
     const datasource = eligibleDatasources[0]?.id ?? "";
     return {
       name: "",
+      description: "",
       datasource,
       userIdTypes: defaultUserIdTypes(datasource),
       steps: [newPopulationStep({ isFirst: true })],
@@ -102,6 +105,7 @@ export default function PopulationEditor({
   const save = async () => {
     const body = {
       name: draft.name.trim(),
+      description: draft.description,
       userIdTypes: draft.userIdTypes,
       steps: draft.steps,
     };
@@ -221,6 +225,24 @@ export default function PopulationEditor({
               ))}
             </Select>
           </Grid>
+
+          <Box mb="4">
+            <Text as="label" htmlFor="population-description" weight="semibold">
+              Description
+            </Text>
+            <Box mt="1">
+              <MarkdownInput
+                id="population-description"
+                value={draft.description}
+                setValue={(description) =>
+                  setDraft((d) => ({ ...d, description }))
+                }
+                placeholder="Who is in this population, and what is it used for?"
+                hidePreview
+                maxRows={6}
+              />
+            </Box>
+          </Box>
 
           <Box pt="4" style={{ borderTop: "1px solid var(--gray-a5)" }}>
             <Heading as="h2" size="md" mb="1">

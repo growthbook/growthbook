@@ -5,7 +5,6 @@ import { describePopulationStep } from "shared/populations";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Owner from "@/components/Avatar/Owner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function PopulationDefinition({
@@ -30,19 +29,33 @@ export default function PopulationDefinition({
       <Box asChild mb="4" pl="4">
         <ol style={{ margin: 0 }}>
           {population.steps.map((step, i) => {
-            const factTable = getFactTableById(step.source.factTableId);
+            const factTableId = step.source.factTableId;
+            const factTable = getFactTableById(factTableId);
+            const factTableName = factTable?.name || factTableId;
+            const sentence = describePopulationStep({
+              steps: population.steps,
+              index: i,
+              factTableName,
+              aggregateColumnName: factTable?.columns.find(
+                (c) => c.column === step.aggregateFilterColumn,
+              )?.name,
+              unit,
+            });
+            const nameAt = sentence.indexOf(factTableName);
             return (
               <li key={i}>
                 <Text size="sm">
-                  {describePopulationStep({
-                    steps: population.steps,
-                    index: i,
-                    factTableName: factTable?.name || step.source.factTableId,
-                    aggregateColumnName: factTable?.columns.find(
-                      (c) => c.column === step.aggregateFilterColumn,
-                    )?.name,
-                    unit,
-                  })}
+                  {factTable && nameAt >= 0 ? (
+                    <>
+                      {sentence.slice(0, nameAt)}
+                      <Link href={`/fact-tables/${factTableId}`}>
+                        {factTableName}
+                      </Link>
+                      {sentence.slice(nameAt + factTableName.length)}
+                    </>
+                  ) : (
+                    sentence
+                  )}
                 </Text>
               </li>
             );
@@ -57,12 +70,6 @@ export default function PopulationDefinition({
         pt="3"
         style={{ borderTop: "1px solid var(--gray-a5)" }}
       >
-        <Text size="sm" color="text-mid">
-          Owner
-        </Text>
-        <Box>
-          <Owner ownerId={population.owner} />
-        </Box>
         <Text size="sm" color="text-mid">
           Created
         </Text>

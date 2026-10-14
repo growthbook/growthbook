@@ -5,6 +5,7 @@ import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 
 export type PopulationDraft = {
   name: string;
+  description: string;
   datasource: string;
   userIdTypes: string[];
   steps: PopulationStep[];
