@@ -3,6 +3,7 @@
 ## **1.8.1** - Unreleased
 
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add remote saved groups, whose IDs are looked up outside the payload: the `remoteGroupIds` option, `setRemoteGroupIds`, `GrowthBookClient.addRemoteSavedGroups`, `redisResolver`, and the `savedGroupReferencesRemote` capability
 
 ## **1.8.0** - Sep 29, 2026
 
