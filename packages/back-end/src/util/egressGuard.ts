@@ -70,9 +70,13 @@ function guard<T extends http.Agent>(agent: T): T {
   return agent;
 }
 
-const httpAgent = guard(new http.Agent({ lookup: guardedLookup }));
-const httpsAgent = guard(new https.Agent({ lookup: guardedLookup }));
+export const guardedAgents = {
+  httpAgent: guard(new http.Agent({ lookup: guardedLookup })),
+  httpsAgent: guard(new https.Agent({ lookup: guardedLookup })),
+};
 
 export function getGuardedAgent(url: URL) {
-  return url.protocol === "http:" ? httpAgent : httpsAgent;
+  return url.protocol === "http:"
+    ? guardedAgents.httpAgent
+    : guardedAgents.httpsAgent;
 }

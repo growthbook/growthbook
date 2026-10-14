@@ -1,8 +1,10 @@
 import http from "http";
+import type { AddressInfo } from "net";
 import {
   getGuardedAgent,
   isBlockedAddress,
 } from "back-end/src/util/egressGuard";
+import { cancellableFetch } from "back-end/src/util/http.util";
 
 let mockBlockPrivate = false;
 jest.mock("back-end/src/util/secrets", () => ({
@@ -69,4 +71,51 @@ describe("getGuardedAgent", () => {
       "are not allowed",
     );
   });
+});
+
+describe("cancellableFetch", () => {
+  const abortOptions = { maxTimeMs: 2000, maxContentSize: 1000 };
+  let server: http.Server;
+  let base: string;
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      const location = { "/to-http": "http:", "/to-https": "https:" }[
+        req.url ?? ""
+      ];
+      if (location) {
+        res.writeHead(302, { Location: `${location}//169.254.169.254/` });
+      } else {
+        res.writeHead(200);
+      }
+      res.end("ok");
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    base = `http://localhost:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(() => {
+    server.close();
+  });
+
+  it("allows a permitted URL", async () => {
+    const { responseWithoutBody, stringBody } = await cancellableFetch(
+      `${base}/ok`,
+      {},
+      abortOptions,
+    );
+    expect(responseWithoutBody.status).toBe(200);
+    expect(stringBody).toBe("ok");
+  });
+
+  it.each(["/to-http", "/to-https"])(
+    "rejects a redirect from %s to a blocked address",
+    async (path) => {
+      await expect(
+        cancellableFetch(`${base}${path}`, {}, abortOptions),
+      ).rejects.toThrow("Requests to 169.254.169.254 are not allowed");
+    },
+  );
 });
