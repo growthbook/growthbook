@@ -22,6 +22,13 @@ A Remote Group has a name and an attribute, like an [ID List](/features/targetin
 
 Rules that use a Remote Group match no one until the user's groups have been looked up. If the lookup fails or times out, the user is treated as being in no Remote Groups, including for "not in group" rules.
 
+<Warning>
+**Make sure a group is loaded before rules use it**
+
+A lookup can't tell a group that hasn't been loaded yet from a user who isn't in it. Until a group's IDs are loaded, a "not in group" rule can match everyone. Before publishing rules that use a new group, check that its version shows as loaded in the **Data stores** column on the group's page. The GrowthBook Proxy handles this for you; see below.
+
+</Warning>
+
 ## Creating a Remote Group
 
 Go to **SDK Configuration** → **Saved Groups**, open the **Remote Groups** tab, and click **Add Remote Group**. Choose a name and the attribute the IDs belong to. The attribute must be a `string` or `number`; `secureString` attributes aren't supported, because the lookup needs the raw value.
@@ -74,7 +81,7 @@ Rules check Remote Groups against the user's list of group IDs, in the internal 
 
 ### GrowthBook Proxy with Remote Evaluation
 
-With [remote evaluation](/self-host/remote-evaluation), the Proxy loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything. IDs sent by the client are ignored, so users can't add themselves to a group.
+With [remote evaluation](/self-host/remote-evaluation), the Proxy loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything. IDs sent by the client are ignored, so users can't add themselves to a group. Rules that use a group the Proxy's Redis hasn't loaded yet don't match anyone, so a "not in group" rule never matches everyone while a group is loading.
 
 See [Loading IDs into Redis](#loading-ids-into-redis) for the Proxy settings.
 
@@ -103,7 +110,7 @@ const scoped = gb.createScopedInstance(userContext);
 scoped.isOn("my-feature");
 ```
 
-`redisResolver` reads the Redis keys the GrowthBook loader writes. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match.
+`redisResolver` reads the Redis keys the GrowthBook loader writes. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match. Unlike the Proxy, `redisResolver` doesn't check whether a group has been loaded, so make sure it has before using it in "not in group" rules.
 
 If you look up groups some other way, pass them directly with the `remoteGroupIds` option, or with `growthbook.setRemoteGroupIds([...])` on a `GrowthBook` instance.
 
