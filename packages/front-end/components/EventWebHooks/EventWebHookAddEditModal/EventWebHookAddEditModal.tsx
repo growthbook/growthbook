@@ -45,14 +45,17 @@ type EventWebHookAddEditModalProps = {
 
 const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
 
+// These types hide the method, headers, and timeout fields, so their values
+// are forced here for both validation and submit
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
     method: EventWebHookMethod;
     headers: string;
+    timeoutSeconds: null;
   };
 } = {
-  slack: { method: "POST", headers: "{}" },
-  discord: { method: "POST", headers: "{}" },
+  slack: { method: "POST", headers: "{}", timeoutSeconds: null },
+  discord: { method: "POST", headers: "{}", timeoutSeconds: null },
 };
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
