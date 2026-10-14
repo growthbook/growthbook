@@ -137,7 +137,6 @@ export interface SDKConnectionInterface {
 
 export interface ProxyTestResult {
   status: number;
-  body: string;
   error: string;
   version: string;
   url: string;
