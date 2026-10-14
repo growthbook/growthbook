@@ -74,7 +74,7 @@ export function getMetricPreviewUnavailableReason(
     metric.metricType === "mean" &&
     metric.numerator?.column === "$$distinctDates"
   ) {
-    return "Active Days cannot be previewed outside an experiment: each daily value would be 1.";
+    return "Active days cannot be previewed outside an experiment: each daily value would be 1.";
   }
   if (
     metric.metricType === "retention" ||

@@ -78,7 +78,7 @@ describe("getDraftMetricPreview", () => {
   });
 });
 
-it("allows unit-count previews but disables Active Days and population-dependent rates", () => {
+it("allows unit-count previews but disables Active days and population-dependent rates", () => {
   expect(
     getMetricPreviewUnavailableReason({
       metricType: "proportion",
@@ -102,7 +102,7 @@ it("allows unit-count previews but disables Active Days and population-dependent
       metricType: "mean",
       numerator: { factTableId: "ft_1", column: "$$distinctDates" },
     }),
-  ).toContain("Active Days");
+  ).toContain("Active days");
   expect(
     getMetricPreviewUnavailableReason({
       metricType: "mean",
