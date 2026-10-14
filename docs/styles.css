@@ -506,6 +506,21 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   word-wrap: break-word;
 }
 
+/* "Open App" navbar link: Mintlify renders every navbar link as an outlined
+   pill, so drop the pill to keep it secondary to "Start for free". */
+.navbar-link > a[href*="utm_content=open-app"] {
+  border-color: transparent;
+  background: transparent;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.navbar-link > a[href*="utm_content=open-app"]:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 /* "Start for free" navbar CTA: a quick light sweep across the button every
    5s, followed by a sparkle twinkling over the end of "free". */
 #topbar-cta-button > a {
