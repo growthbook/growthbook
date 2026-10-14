@@ -9,6 +9,8 @@ import { cancellableFetch } from "back-end/src/util/http.util";
 let mockBlockPrivate = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
+  WEBHOOK_PROXY: "",
+  USE_PROXY: false,
   get WEBHOOK_BLOCK_PRIVATE_NETWORKS() {
     return mockBlockPrivate;
   },
