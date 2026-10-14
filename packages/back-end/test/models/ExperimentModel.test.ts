@@ -1,5 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import { generateSliceString } from "shared/experiments";
 import {
   ExperimentModel,
   getPayloadKeys,
@@ -159,6 +160,8 @@ describe("ExperimentModel", () => {
   });
 
   describe("removeMetricFromExperiments", () => {
+    const sliceId = `fact__123?${generateSliceString({ country: "US" })}`;
+
     beforeAll(connectTestMongo);
     afterAll(disconnectTestMongo);
     beforeEach(async () => {
@@ -169,9 +172,9 @@ describe("ExperimentModel", () => {
       { metricId: "met_123", references: ["met_123"] },
       {
         metricId: "fact__123",
-        references: ["fact__123", "fact__123?dim:country:US"],
+        references: ["fact__123", sliceId],
       },
-      { metricId: "fact__123", references: ["fact__123?dim:country:US"] },
+      { metricId: "fact__123", references: [sliceId] },
     ])(
       "removes $references when deleting $metricId",
       async ({ metricId, references }) => {
