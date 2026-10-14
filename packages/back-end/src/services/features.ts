@@ -4,6 +4,7 @@ import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -93,6 +94,7 @@ import {
   EventUser,
   eventUserLegacyLabel,
   eventUserToApiEventUser,
+  featureRule,
   HoldoutInterface,
   resolveSavedGroupsInput,
   eventUserIdentity,
@@ -3034,14 +3036,27 @@ export function getApiFeatureObjV2({
 const scrubRuleValue = (v: string | undefined): string | undefined =>
   v === undefined ? v : (stripConfigExtends(v) ?? v);
 
+// Keys each stored rule type declares. Stored rules can carry undeclared keys
+// (e.g. form defaults like `coverage` on a force rule), which the strict v1
+// write schemas reject, so the v1 read model only echoes declared ones.
+// `rampScheduleId` is a legacy stored key the write schemas accept as an echo.
+const v1EchoedRuleKeys = new Map<string, Set<string>>(
+  featureRule.options.map((schema) => [
+    schema.shape.type.value,
+    new Set([...Object.keys(schema.shape), "rampScheduleId"]),
+  ]),
+);
+
 // v1 (env-bucketed) REST shape of a stored rule. Everything it emits must be
 // accepted by the v1 write schema so a GET → POST round-trip survives. Sparse
 // fields (`savedGroups`, `scheduleRules`, `variations`) are deliberately not
 // defaulted to `[]`; consumers null-check them.
 export function normalizeRuleForFeatureEnv(rule: FeatureRule): ApiFeatureRule {
+  const echoedKeys = v1EchoedRuleKeys.get(rule.type);
+  const declared = echoedKeys ? pick(rule, [...echoedKeys]) : rule;
   return {
     // v2 scope is implied by the environment bucket the rule is emitted in.
-    ...omit(rule, ["allEnvironments", "environments"]),
+    ...omit(declared, ["allEnvironments", "environments"]),
     ...(rule.type === "rollout" || rule.type === "experiment"
       ? { coverage: rule.coverage ?? 1 }
       : {}),
