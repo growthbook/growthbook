@@ -33,7 +33,7 @@ export default function DatasourcePicker({
         >
           <Flex align="center" gap="2">
             <Text weight="medium">
-              {current?.name || "Select a data source"}
+              {current?.name || "Select a Data Source"}
             </Text>
             <ChevronDownIcon />
           </Flex>
@@ -51,12 +51,12 @@ export default function DatasourcePicker({
             confirmation={
               !selected && confirmChange
                 ? {
-                    confirmationTitle: "Change data source",
+                    confirmationTitle: "Change Data Source",
                     cta: "Change",
                     ctaColor: "violet",
                     submit: () => onChange(ds.id),
                     getConfirmationContent: async () =>
-                      `Changing the data source clears the fact tables you've chosen. Switch to "${ds.name}"?`,
+                      `Changing the Data Source clears the fact tables you've chosen. Switch to "${ds.name}"?`,
                   }
                 : undefined
             }

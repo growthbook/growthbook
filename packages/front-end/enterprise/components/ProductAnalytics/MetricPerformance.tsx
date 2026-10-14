@@ -91,7 +91,7 @@ function PerformanceChart({
         <Callout status="warning" size="sm">
           {config
             ? "Changes not applied. Run the query to refresh."
-            : "Complete the metric definition and filters, then run the query."}
+            : "Complete the metric definition, then run the query."}
         </Callout>
       )}
       {(config || exploration) && (
@@ -109,16 +109,17 @@ function PerformanceChart({
           loading={loading}
           error={error}
         />
-      ) : (
+      ) : error ? null : (
         <PreviewEmptyState
           description={
             config
               ? "Run the query to see live sample data for the last 7 days."
-              : "Configure a filter to see live sample data for the last 7 days."
+              : "Complete the metric definition to see live sample data for the last 7 days."
           }
         />
       )}
-      {/* MetricPreviewChart renders nothing for an error, so show it here. */}
+      {/* MetricPreviewChart renders nothing for an error, so show it here
+          in place of the chart or empty state. */}
       {error && !loading && <Callout status="error">{error}</Callout>}
       <Box className={styles.footer}>
         {exploration && !outdated ? (
