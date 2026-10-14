@@ -3,6 +3,7 @@ import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { getPopulationStepsLabel } from "shared/populations";
+import { truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -241,7 +242,7 @@ export default function PopulationsPage() {
                         </Link>
                         {p.description && (
                           <Text size="sm" color="text-low">
-                            {p.description}
+                            {truncateString(p.description, 80)}
                           </Text>
                         )}
                       </Flex>
