@@ -356,7 +356,7 @@ export default function FactMetricList({
         )}
         <Box ml="auto">
           <Tooltip
-            content={`You don't have permission to add metrics to this fact table`}
+            content="You don't have permission to add Fact Metrics to this fact table."
             enabled={!canCreateMetrics}
           >
             {canCreateMetrics ? (
@@ -366,7 +366,12 @@ export default function FactMetricList({
                 Add metric
               </LinkButton>
             ) : (
-              <Button disabled>Add metric</Button>
+              // A disabled button gets no hover, so the span shows the tooltip.
+              <span style={{ cursor: "not-allowed" }}>
+                <Button disabled style={{ pointerEvents: "none" }}>
+                  Add metric
+                </Button>
+              </span>
             )}
           </Tooltip>
         </Box>

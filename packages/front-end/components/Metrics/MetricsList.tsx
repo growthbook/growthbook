@@ -44,6 +44,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
+import UILink from "@/ui/Link";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -457,7 +458,6 @@ const MetricsList = (): React.ReactElement => {
   const canCreateLegacyMetric =
     !disableLegacyMetricCreation &&
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
-  const canAddFactMetric = hasFactTables && canCreateFactMetric;
   // Orgs that already have legacy metrics can keep making them, but only as
   // an explicit choice next to the fact metric flow.
   const showLegacyOption = canCreateLegacyMetric && hasLegacyMetrics;
@@ -553,7 +553,7 @@ const MetricsList = (): React.ReactElement => {
         <MetricForm
           current={{ projects: project ? [project] : [] }}
           edit={false}
-          header="New legacy SQL metric"
+          header="New Legacy SQL Metric"
           source="metrics-list-legacy"
           onClose={() => setShowLegacyForm(false)}
         />
@@ -591,13 +591,18 @@ const MetricsList = (): React.ReactElement => {
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
             <Tooltip
-              content="You don't have permission to add metrics in this project."
-              enabled={!canAddFactMetric}
+              content="You don't have permission to add Fact Metrics in this Project."
+              enabled={!canCreateFactMetric}
             >
-              {canAddFactMetric ? (
+              {canCreateFactMetric ? (
                 <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
               ) : (
-                <Button disabled>Add metric</Button>
+                // A disabled button gets no hover, so the span shows the tooltip.
+                <span style={{ cursor: "not-allowed" }}>
+                  <Button disabled style={{ pointerEvents: "none" }}>
+                    Add metric
+                  </Button>
+                </span>
               )}
             </Tooltip>
             {showLegacyOption && (
@@ -609,7 +614,7 @@ const MetricsList = (): React.ReactElement => {
                     variant="ghost"
                     color="gray"
                     radius="full"
-                    size="1"
+                    size="2"
                     highContrast
                     aria-label="More metric options"
                   >
@@ -620,7 +625,7 @@ const MetricsList = (): React.ReactElement => {
               >
                 <DropdownMenuItem
                   confirmation={{
-                    confirmationTitle: "Create a legacy SQL metric?",
+                    confirmationTitle: "Create a Legacy SQL Metric?",
                     cta: "Continue with legacy SQL metric",
                     ctaColor: "violet",
                     submit: () => setShowLegacyForm(true),
@@ -628,14 +633,14 @@ const MetricsList = (): React.ReactElement => {
                       <Flex direction="column" gap="2">
                         <Text as="p" mb="0">
                           Legacy SQL metrics are no longer the recommended way
-                          to define metrics. Fact metrics support more metric
+                          to define metrics. Fact Metrics support more metric
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
                         <Text as="p" mb="0">
-                          <Link href="/fact-metrics/new">
-                            Create a fact metric instead
-                          </Link>
+                          <UILink href="/fact-metrics/new">
+                            Create a Fact Metric instead
+                          </UILink>
                         </Text>
                       </Flex>
                     ),

@@ -219,7 +219,11 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     }
                     imageLeft={false}
                     onClick={(finished) => {
-                      router.push(finished ? "/metrics" : "/fact-metrics/new");
+                      router.push(
+                        finished
+                          ? "/metrics"
+                          : `/fact-metrics/new?${new URLSearchParams({ returnUrl: router.asPath }).toString()}`,
+                      );
                     }}
                   />
                   <GetStartedStep

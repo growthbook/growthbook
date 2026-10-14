@@ -540,7 +540,7 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 19
+      "count": 16
     }
   },
   "packages/front-end/components/FactTables/FactTableAutoSliceSelector.tsx": {

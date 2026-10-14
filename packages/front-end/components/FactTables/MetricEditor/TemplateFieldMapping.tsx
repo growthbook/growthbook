@@ -178,13 +178,13 @@ export default function TemplateFieldMapping({
       </Text>
       {!hasSqlDatasource ? (
         <Callout status="info" mb="3">
-          Connect a SQL Data Source before adding a metric.{" "}
-          <Link href="/datasources">View Data Sources</Link>
+          Connect a SQL Data Source to create a metric.{" "}
+          <Link href="/datasources">Connect Data Source</Link>
         </Callout>
       ) : !availableFactTables.length ? (
         <Callout status="info" mb="3">
-          Create a fact table before adding a metric.{" "}
-          <Link href="/fact-tables">View fact tables</Link>
+          Create a fact table to define your metric.{" "}
+          <Link href="/fact-tables">Go to fact tables</Link>
         </Callout>
       ) : null}
       <Flex direction="column" gap="3">

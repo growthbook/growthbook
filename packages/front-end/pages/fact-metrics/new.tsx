@@ -41,6 +41,8 @@ export default function NewFactMetricPage() {
   }>(null);
 
   const returnUrl = getSafeReturnUrl(router.query.returnUrl);
+  const backLabel =
+    returnUrl === "/metrics" ? "Back to all metrics" : "Go back";
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
 
@@ -57,7 +59,7 @@ export default function NewFactMetricPage() {
     return (
       <Callout status="error">
         Could not find the requested fact table.{" "}
-        <Link href={returnUrl}>Go back</Link>
+        <Link href={returnUrl}>{backLabel}</Link>
       </Callout>
     );
   }
@@ -86,7 +88,7 @@ export default function NewFactMetricPage() {
     return (
       <Callout status="error">
         Could not find the metric to duplicate.{" "}
-        <Link href={returnUrl}>Go back</Link>
+        <Link href={returnUrl}>{backLabel}</Link>
       </Callout>
     );
   }
@@ -179,7 +181,7 @@ export default function NewFactMetricPage() {
       {!canCreate ? (
         <Callout status="error">
           You don&apos;t have permission to create Fact Metrics in this Project.{" "}
-          <Link href={returnUrl}>Go back</Link>
+          <Link href={returnUrl}>{backLabel}</Link>
         </Callout>
       ) : !hasDatasource ? (
         <Callout status="info">
@@ -194,7 +196,7 @@ export default function NewFactMetricPage() {
       ) : templateError ? (
         <Callout status="error" mb="3">
           Failed to parse metric template: {templateError}{" "}
-          <Link href={returnUrl}>Go back</Link>
+          <Link href={returnUrl}>{backLabel}</Link>
         </Callout>
       ) : missingCommercialFeature ? (
         <UpgradeMessage

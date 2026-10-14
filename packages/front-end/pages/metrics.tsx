@@ -58,7 +58,7 @@ const MetricsPage = (): React.ReactElement => {
               </>
             ) : (
               <Tooltip
-                body="You don't have permission to add metrics in this project."
+                body="You don't have permission to add Fact Metrics in this Project."
                 shouldDisplay={!canCreateMetric}
               >
                 {canCreateMetric ? (
