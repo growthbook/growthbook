@@ -1,3 +1,4 @@
+import { ConditionInterface, evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
   FeatureRule,
@@ -2711,6 +2712,13 @@ describe("validatePrerequisiteCondition", () => {
 });
 
 describe("validateCondition operator structure", () => {
+  const sdkInput = {
+    value: true,
+    tags: ["a"],
+    items: [{ id: 1 }],
+    nested: [[1]],
+  };
+
   it.each([
     [{ $not: null }, "$not cannot be null"],
     [{ $or: null }, "$or cannot be null"],
@@ -2723,12 +2731,20 @@ describe("validateCondition operator structure", () => {
       { items: { $elemMatch: { id: 1, $and: [null] } } },
       "$and cannot contain null",
     ],
+    [{ nested: { $all: [{ $elemMatch: null }] } }, "$elemMatch cannot be null"],
+    [
+      { nested: { $alli: [{ $elemMatch: null }] } },
+      "$elemMatch cannot be null",
+    ],
   ])("rejects %j", (condition, error) => {
     expect(validateCondition(JSON.stringify(condition))).toEqual({
       success: false,
       empty: false,
       error,
     });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).toThrow();
   });
 
   // These evaluate without throwing today, so existing flags keep saving.
@@ -2743,11 +2759,15 @@ describe("validateCondition operator structure", () => {
     { tags: { $elemMatch: { $eq: "a" } } },
     { items: { $elemMatch: { id: 1 } } },
     { tags: { $elemMatch: { $and: [null] } } },
+    { nested: { $all: [[1]] } },
   ])("accepts %j", (condition) => {
     expect(validateCondition(JSON.stringify(condition))).toEqual({
       success: true,
       empty: false,
     });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).not.toThrow();
   });
 });
 

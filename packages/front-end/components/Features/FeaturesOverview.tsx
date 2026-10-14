@@ -570,7 +570,7 @@ export default function FeaturesOverview({
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
     r.forEach((rule, i) => {
-      if (seenRuleIds.has(rule.id)) return;
+      if (rule.enabled === false || seenRuleIds.has(rule.id)) return;
       seenRuleIds.add(rule.id);
       (rule.prerequisites ?? []).forEach((p, j) => {
         const error = getMalformedPrereqConditionError(p.condition);

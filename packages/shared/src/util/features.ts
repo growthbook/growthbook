@@ -2693,6 +2693,11 @@ function findMalformedOperatorValue(value: unknown): string | null {
     } else if (op === "$not" || op === "$size") {
       const err = findMalformedOperatorValue(operand);
       if (err) return err;
+    } else if ((op === "$all" || op === "$alli") && Array.isArray(operand)) {
+      for (const item of operand) {
+        const err = findMalformedOperatorValue(item);
+        if (err) return err;
+      }
     }
   }
   return null;
