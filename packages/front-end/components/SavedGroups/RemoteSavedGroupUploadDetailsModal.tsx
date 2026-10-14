@@ -97,13 +97,7 @@ export function LoadSummary({
   return (
     <Flex align="center" gap="1">
       <Text>{parts.join(", ")}</Text>
-      {differs && (
-        <Tooltip content={LOAD_COUNT_DIFFERS}>
-          <span>
-            <LoadCountWarningIcon />
-          </span>
-        </Tooltip>
-      )}
+      {differs && <LoadCountWarning />}
     </Flex>
   );
 }
@@ -111,8 +105,20 @@ export function LoadSummary({
 const LOAD_COUNT_DIFFERS =
   "The number of values loaded doesn't match the file. The file may contain duplicates, which are removed at load time.";
 
-function LoadCountWarningIcon() {
-  return <PiWarningCircle style={{ color: "var(--amber-11)" }} />;
+function LoadCountWarning() {
+  return (
+    <Tooltip content={LOAD_COUNT_DIFFERS}>
+      {/* Focusable with a name, so keyboard and screen reader users get the note */}
+      <span
+        tabIndex={0}
+        role="img"
+        aria-label={LOAD_COUNT_DIFFERS}
+        style={{ display: "inline-flex" }}
+      >
+        <PiWarningCircle style={{ color: "var(--amber-11)" }} />
+      </span>
+    </Tooltip>
+  );
 }
 
 /** A store's load status, explaining a count that differs from the file's. */
@@ -123,13 +129,7 @@ function LoadStatusCell({ load, idCount }: { load: Load; idCount?: number }) {
       <Text>{describeLoad(status)}</Text>
       {status.type === "loaded" &&
         idCount !== undefined &&
-        status.rowCount !== idCount && (
-          <Tooltip content={LOAD_COUNT_DIFFERS}>
-            <span>
-              <LoadCountWarningIcon />
-            </span>
-          </Tooltip>
-        )}
+        status.rowCount !== idCount && <LoadCountWarning />}
     </Flex>
   );
 }

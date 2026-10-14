@@ -21,6 +21,7 @@ export default function CopyableValue({ value }: { value: string }) {
           <IconButton
             type="button"
             variant="ghost"
+            color="gray"
             size="1"
             aria-label="Copy"
             onClick={(e) => {
