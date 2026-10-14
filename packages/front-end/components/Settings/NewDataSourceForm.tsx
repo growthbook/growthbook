@@ -76,7 +76,7 @@ const NewDataSourceForm: FC<{
   showBackButton = true,
 }) => {
   const {
-    hasManagedWarehouse,
+    datasources,
     projects: allProjects,
     project,
     mutateDefinitions,
@@ -113,12 +113,10 @@ const NewDataSourceForm: FC<{
     ...initial,
   });
 
-  // Cloud, no Managed Warehouse anywhere in the org (not just the ones this
-  // user can see, since the org is limited to one), and either free or on a
-  // usage-based paid plan.
+  // Cloud, no managed warehouse yet, and is either free OR on a usage-based paid plan
   const showManagedWarehouse =
     isCloud() &&
-    !hasManagedWarehouse &&
+    !datasources.some((d) => d.type === "growthbook_clickhouse") &&
     (!license || !!license?.orbSubscription);
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
