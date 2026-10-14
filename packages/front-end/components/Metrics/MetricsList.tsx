@@ -600,8 +600,12 @@ const MetricsList = (): React.ReactElement => {
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
             <Tooltip
-              content="You don't have permission to add Fact Metrics in this Project."
-              enabled={!canCreateFactMetric}
+              content={
+                !canCreateFactMetric
+                  ? "You don't have permission to add Fact Metrics in this Project."
+                  : "Create a Fact Table before adding a metric."
+              }
+              enabled={!canAddFactMetric}
             >
               {!canAddFactMetric ? (
                 // A disabled button gets no hover, so the span shows the tooltip.
