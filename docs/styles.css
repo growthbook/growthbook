@@ -565,17 +565,18 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   }
 }
 
+/* Starts at 7% (350ms), the moment the shine's trailing edge clears "free". */
 @keyframes topbar-cta-sparkle {
   0%,
-  8% {
+  7% {
     opacity: 0;
     transform: scale(0) rotate(0deg);
   }
-  12% {
+  10% {
     opacity: 1;
     transform: scale(1) rotate(45deg);
   }
-  18%,
+  15%,
   100% {
     opacity: 0;
     transform: scale(0) rotate(90deg);
