@@ -45,9 +45,10 @@ export type EventWebHookEditParams = {
   timeoutSeconds?: number | null;
 };
 
-// Blank is null rather than undefined so an edit clears the stored value
-export const timeoutSecondsFromInput = (v: string) =>
-  v === "" ? null : Number(v);
+// Blank is null rather than undefined so an edit clears the stored value.
+// react-hook-form also runs this on a null default value, so null must stay null.
+export const timeoutSecondsFromInput = (v: string | null | undefined) =>
+  v ? Number(v) : null;
 
 // Self-hosted caps are only known to the server, which rejects the save
 export const timeoutError = (n?: number | null) => {

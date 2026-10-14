@@ -7,7 +7,10 @@ import {
 describe("webhook timeout form helpers", () => {
   it("maps a blank input to null so an edit clears the stored value", () => {
     expect(timeoutSecondsFromInput("")).toBeNull();
+    expect(timeoutSecondsFromInput(null)).toBeNull();
+    expect(timeoutSecondsFromInput(undefined)).toBeNull();
     expect(timeoutSecondsFromInput("45")).toBe(45);
+    expect(timeoutSecondsFromInput("0")).toBe(0);
   });
 
   it("accepts blank, unset, and whole seconds of at least 1", () => {
