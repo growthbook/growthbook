@@ -97,8 +97,8 @@ function PerformanceChart({
       {(config || exploration) && (
         <Flex align="center" justify="between" gap="2" wrap="wrap">
           {controls}
-          <Text size="sm" color="text-mid" title="Last 7 complete days (UTC)">
-            Last 7 days (UTC)
+          <Text size="sm" color="text-mid">
+            Last 7 complete days (UTC)
           </Text>
         </Flex>
       )}
@@ -124,19 +124,20 @@ function PerformanceChart({
       <Box className={styles.footer}>
         {exploration && !outdated ? (
           // Once results are current, re-running is a quiet refresh.
-          <Flex justify="center">
+          <Flex justify="center" align="center" gap="3">
             <Tooltip content={datetime(exploration.dateUpdated)}>
-              <Button
-                variant="ghost"
-                icon={<PiArrowClockwise />}
-                disabled={loading || !isSubmittable}
-                onClick={() => handleSubmit({ force: true })}
-              >
-                {loading
-                  ? "Refreshing…"
-                  : `Refreshed ${ago(exploration.dateUpdated)}`}
-              </Button>
+              <Text size="sm" color="text-mid">
+                Updated {ago(exploration.dateUpdated)}
+              </Text>
             </Tooltip>
+            <Button
+              variant="ghost"
+              icon={<PiArrowClockwise />}
+              disabled={loading || !isSubmittable}
+              onClick={() => handleSubmit({ force: true })}
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </Button>
           </Flex>
         ) : (
           <Button
