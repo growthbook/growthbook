@@ -675,7 +675,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       {editProjectsOpen && (
         <EditProjectsForm
           label={<>Projects</>}
-          helpText="Only Projects where you have permission to update Data Sources are listed."
           cancel={() => setEditProjectsOpen(false)}
           entityName="Data Source"
           mutate={() => {

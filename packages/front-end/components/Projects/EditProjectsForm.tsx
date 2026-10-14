@@ -12,7 +12,6 @@ const EditProjectsForm: FC<{
   mutate: () => void;
   label: ReactElement;
   entityName?: string;
-  helpText?: string;
 }> = ({
   value = [],
   permissionRequired,
@@ -21,7 +20,6 @@ const EditProjectsForm: FC<{
   mutate,
   entityName,
   label,
-  helpText = `Assign this ${entityName} to specific projects`,
 }) => {
   const form = useForm({
     defaultValues: {
@@ -49,8 +47,9 @@ const EditProjectsForm: FC<{
         options={useProjectOptions(permissionRequired, value)}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"
-        helpText={helpText}
+        helpText={`Assign this ${entityName} to specific projects`}
       />
+      <div style={{ height: 200 }} />
     </ModalStandard>
   );
 };
