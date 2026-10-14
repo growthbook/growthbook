@@ -314,7 +314,7 @@ function AggregateFilterInput({
       ...(column &&
       column !== "$$count" &&
       !factTable?.columns.some((col) => col.column === column)
-        ? [{ label: column, value: column }]
+        ? [{ label: `Sum of ${column}`, value: column }]
         : []),
     ],
     [factTable, column],
