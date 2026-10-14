@@ -51,6 +51,10 @@ const querySchema = new mongoose.Schema({
   runAtEnd: Boolean,
   cachedQueryUsed: String,
   cacheKey: String,
+  resolvedWindow: {
+    startDate: Date,
+    endDate: Date,
+  },
 });
 
 querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
@@ -498,6 +502,7 @@ export async function createCompletedQuery(
     rawResult,
     statistics,
     cacheKey,
+    resolvedWindow,
   }: {
     datasource: string;
     language: QueryLanguage;
@@ -507,6 +512,7 @@ export async function createCompletedQuery(
     rawResult: Record<string, unknown>[];
     statistics?: QueryStatistics;
     cacheKey?: string;
+    resolvedWindow?: { startDate: Date; endDate: Date };
   },
 ): Promise<QueryInterface> {
   const now = new Date();
@@ -544,6 +550,7 @@ export async function createCompletedQuery(
     hasChunkedResults,
     statistics,
     cacheKey,
+    resolvedWindow,
     dependencies: [],
   };
   try {

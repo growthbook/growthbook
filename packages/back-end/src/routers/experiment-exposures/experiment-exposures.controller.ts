@@ -1,9 +1,13 @@
 import type { Response } from "express";
-import { snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
+import { getValidDate, snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import { getActivePhaseIndex } from "shared/experiments";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
-import type { ResolvedExposureQuery } from "shared/types/integrations";
+import type {
+  ExperimentExposuresQueryParams,
+  ResolvedExposureQuery,
+} from "shared/types/integrations";
 import {
   formatQueryExecutionErrorForApi,
   parseOptionalInt,
@@ -42,6 +46,8 @@ type ExposuresResponse = {
   cached?: boolean;
   /** When the query actually ran — the cached run's time on a cache hit. */
   ranAt?: string;
+  startDate?: string;
+  endDate?: string;
   /** A `cache: "required"` read found nothing, and nothing was run. */
   noCachedResult?: boolean;
 };
@@ -150,18 +156,22 @@ export async function postExposures(
     return;
   }
 
+  const queryParams: ExperimentExposuresQueryParams = {
+    experimentId: experiment.id,
+    experimentTrackingKey: experiment.trackingKey,
+    exposureQuery: resolvedExposureQuery,
+    startDate,
+    endDate,
+    dimensions,
+    phase: { index: String(getActivePhaseIndex(experiment)) },
+    customFields: experiment.customFields,
+    rowFilters,
+    limit: BUFFER_SIZE,
+  };
+
   let sql: string;
   try {
-    sql = integration.getExperimentExposuresQuery({
-      experimentId: experiment.id,
-      experimentTrackingKey: experiment.trackingKey,
-      exposureQuery: resolvedExposureQuery,
-      startDate,
-      endDate,
-      dimensions,
-      rowFilters,
-      limit: BUFFER_SIZE,
-    });
+    sql = integration.getExperimentExposuresQuery(queryParams);
   } catch (e) {
     res.status(200).json({
       ...emptyBody,
@@ -180,12 +190,19 @@ export async function postExposures(
     window,
     rowFilters,
     limit: BUFFER_SIZE,
+    phase: queryParams.phase,
+    customFields: queryParams.customFields,
   });
   const cacheTTLMins = parseOptionalInt(datasource.settings?.queryCacheTTLMins);
 
   let rawRows: Record<string, unknown>[];
   let cached = false;
   let ranAt = new Date();
+  let ranSql = sql;
+  let ranWindow: { startDate: Date; endDate: Date } | undefined = {
+    startDate,
+    endDate,
+  };
   try {
     const recent =
       cache === "required"
@@ -212,31 +229,33 @@ export async function postExposures(
       rawRows = recent.rawResult;
       cached = true;
       if (recent.createdAt) ranAt = recent.createdAt;
+      ranSql = recent.query;
+      const cachedWindow = recent.resolvedWindow;
+      ranWindow =
+        cachedWindow?.startDate && cachedWindow?.endDate
+          ? cachedWindow
+          : undefined;
     } else if (cache === "required") {
       res.status(200).json({ ...emptyBody, sql, noCachedResult: true });
       return;
     } else {
-      const result = await runExperimentExposuresQuery(integration, {
-        experimentId: experiment.id,
-        experimentTrackingKey: experiment.trackingKey,
-        exposureQuery: resolvedExposureQuery,
-        startDate,
-        endDate,
-        dimensions,
-        rowFilters,
-        limit: BUFFER_SIZE,
-      });
+      const result = await runExperimentExposuresQuery(
+        integration,
+        queryParams,
+      );
       rawRows = result.rows;
+      ranSql = result.sql;
       try {
         await createCompletedQuery(context, {
           datasource: datasource.id,
           language: "sql",
-          query: sql,
+          query: ranSql,
           displayTitle: "Experiment Exposures",
           queryType: "experimentExposures",
           rawResult: rawRows,
           statistics: result.statistics,
           cacheKey,
+          resolvedWindow: { startDate, endDate },
         });
       } catch (e) {
         // Caching is best-effort; never fail the request because of it.
@@ -269,8 +288,10 @@ export async function postExposures(
     extraColumns,
     truncated,
     valuesTruncated,
-    sql,
+    sql: ranSql,
     cached,
     ranAt: ranAt.toISOString(),
+    startDate: ranWindow && getValidDate(ranWindow.startDate).toISOString(),
+    endDate: ranWindow && getValidDate(ranWindow.endDate).toISOString(),
   });
 }

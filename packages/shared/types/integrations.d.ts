@@ -939,6 +939,8 @@ export type ExperimentExposuresQueryParams = {
   startDate: Date;
   endDate: Date;
   dimensions: string[];
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
   rowFilters?: RowFilter[];
   limit: number;

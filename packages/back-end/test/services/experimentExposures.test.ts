@@ -263,6 +263,23 @@ describe("getExposuresCacheKey", () => {
     );
   });
 
+  it("separates runs that compile under a different phase", () => {
+    // The rolling key is time-insensitive, so a `cache: "required"` read is
+    // matched on this hash alone. Without the phase it would serve rows the
+    // exposure query built for a different phase.
+    expect(getExposuresCacheKey({ ...base, phase: { index: "1" } })).not.toBe(
+      getExposuresCacheKey({ ...base, phase: { index: "0" } }),
+    );
+  });
+
+  it("separates runs that compile with different custom fields", () => {
+    expect(
+      getExposuresCacheKey({ ...base, customFields: { region: "us" } }),
+    ).not.toBe(
+      getExposuresCacheKey({ ...base, customFields: { region: "eu" } }),
+    );
+  });
+
   it("separates a filtered run from an unfiltered one", () => {
     // This is what lets the panel show cached rows beside an empty filter
     // panel: an unfiltered probe can only ever match an unfiltered run.

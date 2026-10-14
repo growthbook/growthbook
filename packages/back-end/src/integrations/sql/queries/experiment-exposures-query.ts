@@ -71,6 +71,8 @@ export function getExperimentExposuresQuery(
       startDate: params.startDate,
       endDate: params.endDate,
       experimentId: params.experimentTrackingKey,
+      phase: params.phase,
+      customFields: params.customFields,
     },
     dialect,
   );
@@ -135,6 +137,11 @@ export function getExperimentExposuresQuery(
       AND ${rowFilterWhere}`
     : "";
 
+  const whereAndOrderBy = `WHERE ${quoteColumnIdentifier("experiment_id", dialect)} = '${trackingKey}'
+      AND ${quoteColumnIdentifier("timestamp", dialect)} >= ${dialect.toTimestamp(params.startDate)}
+      AND ${quoteColumnIdentifier("timestamp", dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
+    ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}`;
+
   // SELECT * rather than an explicit column list: every column the exposure
   // query returns is surfaced behind the expandable row, and aliasing would
   // reintroduce the identifier-folding mismatch described in
@@ -144,12 +151,7 @@ export function getExperimentExposuresQuery(
     WITH __exposureQuery AS (
       ${compiledExposureQuery}
     )
-    SELECT * FROM __exposureQuery
-    WHERE ${quoteColumnIdentifier("experiment_id", dialect)} = '${trackingKey}'
-      AND ${quoteColumnIdentifier("timestamp", dialect)} >= ${dialect.toTimestamp(params.startDate)}
-      AND ${quoteColumnIdentifier("timestamp", dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
-    ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}
-    ${dialect.paginate(limit, 0)}
+    ${dialect.selectStarLimit("__exposureQuery", limit, whereAndOrderBy)}
     `,
     dialect.formatDialect,
   );

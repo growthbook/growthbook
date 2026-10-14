@@ -31,6 +31,7 @@ export interface RecordsQueryMeta {
   truncated: boolean;
   ranAt?: string;
   valuesTruncated?: boolean;
+  window?: ResolvedWindow | null;
 }
 
 export interface RecordsQueryConfig<TRow, TResponse> {
@@ -136,7 +137,7 @@ export default function useRecordsQuery<TRow, TResponse>({
       if (!canRun || !isActive) return;
 
       const resolvedRange = calculateProductAnalyticsDateRange(range);
-      const resolved: ResolvedWindow = {
+      const requested: ResolvedWindow = {
         startDate: resolvedRange.startDate.toISOString(),
         endDate: resolvedRange.endDate.toISOString(),
       };
@@ -149,8 +150,8 @@ export default function useRecordsQuery<TRow, TResponse>({
         method: "POST",
         body: JSON.stringify(
           configRef.current.buildParams({
-            startDate: resolved.startDate,
-            endDate: resolved.endDate,
+            startDate: requested.startDate,
+            endDate: requested.endDate,
             rollingWindow: isRollingDateRange(range),
             rowFilters: filters,
             cache,
@@ -163,7 +164,9 @@ export default function useRecordsQuery<TRow, TResponse>({
           setData(response);
           setAppliedDateRange(range);
           setAppliedRowFilters(filters);
-          setAppliedWindow(resolved);
+          setAppliedWindow(
+            configRef.current.selectMeta?.(response)?.window ?? null,
+          );
           setVisibleWindow(null);
         })
         .catch((e: unknown) => {

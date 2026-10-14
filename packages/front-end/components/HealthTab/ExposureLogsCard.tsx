@@ -5,6 +5,7 @@ import {
   isManagedWarehousePendingQueryError,
   isManagedWarehouseUnavailable,
   resolveAnalysisIdentifierType,
+  truncateString,
 } from "shared/util";
 import type { ExperimentExposureRecord } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -16,7 +17,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
-import { formatTimestamp, truncate } from "@/components/Diagnostics/format";
+import { formatTimestamp } from "@/components/Diagnostics/format";
 import { RecordsColumn } from "@/components/Diagnostics/types";
 import type {
   ColumnTopValue,
@@ -34,6 +35,8 @@ interface ExposuresResponse {
   error?: string;
   cached?: boolean;
   ranAt?: string;
+  startDate?: string;
+  endDate?: string;
   noCachedResult?: boolean;
 }
 
@@ -94,6 +97,10 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       truncated: data.truncated,
       valuesTruncated: data.valuesTruncated,
       ranAt: data.ranAt,
+      window:
+        data.startDate && data.endDate
+          ? { startDate: data.startDate, endDate: data.endDate }
+          : null,
     }),
     selectNoCachedResult: (data) => data.noCachedResult === true,
     buildParams: ({
@@ -139,7 +146,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
         render: (r) =>
           r.userId ? (
             <Text size="sm" mono title={r.userId}>
-              {truncate(r.userId, 24)}
+              {truncateString(r.userId, 24)}
             </Text>
           ) : (
             <Empty />

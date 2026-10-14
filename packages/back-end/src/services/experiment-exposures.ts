@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
+import type { PhaseSQLVar } from "shared/types/sql";
 import { columnNamesMatch } from "back-end/src/util/sql";
 
 // 100 rows x 40 columns x 1000 chars caps a page at roughly 4MB of JSON.
@@ -21,6 +22,8 @@ export interface ExposuresCacheKeyParams {
   window: ExposuresWindow;
   rowFilters: RowFilter[];
   limit: number;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
 }
 
 function windowCacheKeyPart(window: ExposuresWindow): unknown[] {
@@ -46,6 +49,8 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
           f.values ?? [],
         ]),
         params.limit,
+        params.phase?.index ?? "",
+        params.customFields ?? {},
       ]),
     )
     .digest("hex");

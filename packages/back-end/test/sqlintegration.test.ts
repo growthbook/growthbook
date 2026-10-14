@@ -1962,6 +1962,40 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toMatch(/SELECT\s+\*/);
   });
 
+  it("applies the phase filter the analysis applies", () => {
+    const phaseParams = {
+      ...params,
+      exposureQuery: {
+        ...params.exposureQuery,
+        query:
+          "SELECT * FROM t WHERE eid = '{{experimentId}}'{{#if phase.index}} AND phase_index = {{phase.index}}{{/if}}",
+      },
+    };
+
+    expect(
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...phaseParams,
+        phase: { index: "2" },
+      }),
+    ).toContain("phase_index = 2");
+    expect(
+      getExperimentExposuresQuery(bigQueryDialect, phaseParams),
+    ).not.toContain("phase_index");
+  });
+
+  it("substitutes custom fields", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      exposureQuery: {
+        ...params.exposureQuery,
+        query:
+          "SELECT * FROM t WHERE eid = '{{experimentId}}'{{#if customFields.region}} AND region = '{{customFields.region}}'{{/if}}",
+      },
+      customFields: { region: "emea" },
+    });
+    expect(sql).toContain("'emea'");
+  });
+
   it("fetches one extra row to detect a truncated buffer", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, params);
     expect(sql).toMatch(/LIMIT\s+1001/);
@@ -1980,7 +2014,6 @@ describe("getExperimentExposuresQuery", () => {
       limit: 5000,
     });
     expect(sql).toMatch(/LIMIT\s+1001/);
-    expect(sql).toMatch(/OFFSET\s+0/);
   });
 
   it("escapes quotes in the tracking key and filter values", () => {
@@ -2192,19 +2225,19 @@ describe("getExperimentExposuresQuery", () => {
     ).toThrow(/incomplete/);
   });
 
-  it("uses dialect-specific pagination", () => {
+  it("uses the dialect's row limit, keeping the filter and ordering", () => {
     expect(getExperimentExposuresQuery(bigQueryDialect, params)).toMatch(
-      /LIMIT\s+1001\s+OFFSET\s+0/,
+      /LIMIT\s+1001/,
     );
-    // SQL Server has no LIMIT keyword.
+    // SQL Server has no LIMIT keyword; TOP goes on the SELECT, so the WHERE and
+    // ORDER BY still have to survive.
     const mssql = getExperimentExposuresQuery(mssqlDialect, params);
     expect(mssql).not.toMatch(/\bLIMIT\b/);
-    expect(mssql).toMatch(
-      /OFFSET\s+0\s+ROWS\s+FETCH\s+NEXT\s+1001\s+ROWS\s+ONLY/,
-    );
-    // Trino puts OFFSET before LIMIT.
+    expect(mssql).toMatch(/SELECT\s+TOP\s+1001\s+\*/);
+    expect(mssql).toMatch(/WHERE/);
+    expect(mssql).toMatch(/ORDER\s+BY/);
     expect(getExperimentExposuresQuery(prestoDialect, params)).toMatch(
-      /OFFSET\s+0\s+LIMIT\s+1001/,
+      /LIMIT\s+1001/,
     );
   });
 });

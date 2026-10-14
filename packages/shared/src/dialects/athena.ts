@@ -4,9 +4,6 @@ import { baseDialect } from "./base";
 
 export const athenaDialect: SqlDialect = {
   ...baseDialect,
-  // Trino grammar puts OFFSET before LIMIT; the reverse is a syntax error.
-  paginate: (limit: number, offset: number) =>
-    `OFFSET ${offset} LIMIT ${limit}`,
   concatStrings: (parts: string[]) => parts.join(" || "),
   formatDialect: "trino",
   toTimestamp: (date: Date) =>

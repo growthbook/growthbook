@@ -183,6 +183,7 @@ export interface QueryInterface {
   runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   cacheKey?: string;
+  resolvedWindow?: { startDate: Date; endDate: Date };
   statistics?: QueryStatistics;
   externalId?: string;
   // Integration-specific side-data for managing the external job (e.g.
