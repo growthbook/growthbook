@@ -7,6 +7,7 @@ import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
+import { apiEventUser, eventUser } from "./event-user";
 
 export const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
 
@@ -304,7 +305,14 @@ export const rampScheduleValidator = baseSchema
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.date().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: eventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),
@@ -693,7 +701,14 @@ export const apiRampScheduleInterface = namedSchema(
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.iso.datetime().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: apiEventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),

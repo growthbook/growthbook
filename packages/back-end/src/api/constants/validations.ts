@@ -87,7 +87,7 @@ export async function discardIfJustCreated(
   try {
     await context.models.revisions.close(
       revision.id,
-      context.userId,
+      context.actorId,
       {
         authorizedByFlow:
           "this flow created the draft moments ago and is unwinding its own failure",
