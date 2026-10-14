@@ -64,7 +64,7 @@ export const getConfirmation = async (
 };
 
 export const postConfirm = async (
-  req: AuthRequest<unknown, { id: string }>,
+  req: AuthRequest<{ note?: string }, { id: string }>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
@@ -72,6 +72,7 @@ export const postConfirm = async (
     context,
     req.params.id,
     "confirm",
+    req.body.note,
   );
   res.status(200).json({ status: 200, confirmation });
 };

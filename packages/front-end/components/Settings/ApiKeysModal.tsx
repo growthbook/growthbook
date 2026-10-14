@@ -251,11 +251,10 @@ const ApiKeysModal: FC<{
       )}
       <Box mt="6">
         <Heading as="h4" size="sm" mb="1">
-          Confirmation (HITL)
+          Human-in-the-loop
         </Heading>
         <Text as="p" color="text-mid" mb="3">
-          Human-in-the-loop: Show a confirmation page before applying risky
-          changes.
+          Risky actions wait for a person to confirm them.
         </Text>
         <Checkbox
           label="Require confirmation"
@@ -268,7 +267,7 @@ const ApiKeysModal: FC<{
         {requireConfirmation && !customizing && (
           <Box pl="5" mt="2">
             <Text color="text-mid">
-              Confirmation on all risky actions.{" "}
+              All actions.{" "}
               <Link weight="medium" onClick={() => setCustomizing(true)}>
                 Customize behavior
               </Link>

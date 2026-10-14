@@ -85111,7 +85111,7 @@ components:
                 - body
               additionalProperties: false
             - type: 'null'
-        rejectionNote:
+        note:
           anyOf:
             - type: string
             - type: 'null'
@@ -85123,7 +85123,7 @@ components:
         - url
         - expiresAt
         - response
-        - rejectionNote
+        - note
       additionalProperties: false
     monitoring:
       type: object

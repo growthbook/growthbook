@@ -143,7 +143,8 @@ export const confirmationValidator = baseSchema.safeExtend({
   fingerprint: z.string(),
   status: z.enum(confirmationStatuses),
   response: confirmationResponseValidator,
-  rejectionNote: z.string().nullable(),
+  // Left by the person who decided, for the agent.
+  note: z.string().nullable(),
   decidedBy: z.string().nullable(),
   decidedAt: z.date().nullable(),
   expiresAt: z.date(),
@@ -159,7 +160,7 @@ export const apiConfirmationValidator = z.strictObject({
   url: z.string(),
   expiresAt: z.string(),
   response: confirmationResponseValidator,
-  rejectionNote: z.string().nullable(),
+  note: z.string().nullable(),
 });
 export type ApiConfirmation = z.infer<typeof apiConfirmationValidator>;
 

@@ -8,6 +8,7 @@ import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { CONFIRM_MODEL_BY_TAG } from "shared/validators";
 import type { decideConfirmation as Decide } from "back-end/src/services/confirmationDecisions";
 import { ReqContextClass } from "back-end/src/services/context";
+import { findAuditByEntity } from "back-end/src/models/AuditModel";
 import { setupApp } from "./api.setup";
 
 // A held REST write runs only after its person confirms it in the app.
@@ -235,12 +236,24 @@ describe("confirmations", () => {
     await expect(
       decideConfirmation(asUser("u_admin"), id, "confirm"),
     ).rejects.toThrow();
-    const done = await decideConfirmation(asUser("u_torres"), id, "confirm");
+    const done = await decideConfirmation(
+      asUser("u_torres"),
+      id,
+      "confirm",
+      "Ship it",
+    );
     expect(done).toMatchObject({
       status: "completed",
       response: { status: 200 },
+      note: "Ship it",
     });
     expect(await featureVersion()).toBe(2);
+    expect(await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).toContainEqual(
+      expect.objectContaining({
+        event: "apiKey.confirm",
+        user: expect.objectContaining({ id: "u_torres" }),
+      }),
+    );
     expect((await poll(id)).body.confirmation.status).toBe("completed");
   });
 
@@ -275,9 +288,15 @@ describe("confirmations", () => {
     await decideConfirmation(asUser("u_torres"), id, "reject", "Not yet");
     expect((await poll(id)).body.confirmation).toMatchObject({
       status: "rejected",
-      rejectionNote: "Not yet",
+      note: "Not yet",
     });
     expect(await featureVersion()).toBe(1);
+    expect(await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).toContainEqual(
+      expect.objectContaining({
+        event: "apiKey.reject",
+        user: expect.objectContaining({ id: "u_torres" }),
+      }),
+    );
   });
 
   it("lets any member allowed to publish decide for a key that names no one, once", async () => {

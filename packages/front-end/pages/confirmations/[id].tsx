@@ -104,7 +104,7 @@ export default function ConfirmationPage() {
     try {
       await apiCall(`/confirmations/${id}/${decision}`, {
         method: "POST",
-        body: JSON.stringify(decision === "reject" && note ? { note } : {}),
+        body: JSON.stringify(note ? { note } : {}),
       });
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Something went wrong.");
@@ -189,8 +189,8 @@ export default function ConfirmationPage() {
       {outcome ? (
         <Callout status={outcome.status} mb="4">
           {outcome.text}
-          {confirmation.rejectionNote ? (
-            <Box mt="2">Note: {confirmation.rejectionNote}</Box>
+          {confirmation.note ? (
+            <Box mt="2">Note: {confirmation.note}</Box>
           ) : null}
         </Callout>
       ) : null}
@@ -259,7 +259,7 @@ export default function ConfirmationPage() {
             minRows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            helpText="Sent back to the agent if you reject."
+            helpText="Sent back to the agent with your decision."
           />
           <Flex gap="3" mt="4">
             <Button

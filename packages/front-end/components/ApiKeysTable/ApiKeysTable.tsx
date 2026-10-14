@@ -1,6 +1,6 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCard } from "react-icons/pi";
+import { PiIdentificationCard, PiShieldCheck } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   apiKeyToggleRequiresAdmin,
@@ -174,21 +174,22 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   </Tooltip>
                 )}
                 {requesterHeaderPolicy(key) === "required" && (
-                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
-                    <Flex
-                      align="start"
-                      gap="1"
-                      mt="1"
-                      width="fit-content"
-                      style={{ color: "var(--brown-10)" }}
-                    >
-                      {/* One text line tall, so the icon sits on the first row. */}
-                      <Flex flexShrink="0" align="center" height="16px">
-                        <PiIdentificationCard size={18} />
-                      </Flex>
-                      <Text size="sm">Requester required</Text>
-                    </Flex>
-                  </Tooltip>
+                  <KeyTrait
+                    icon={<PiIdentificationCard size={18} />}
+                    color="var(--brown-10)"
+                    tooltip="Every request must name a member with X-GrowthBook-Requested-By"
+                  >
+                    Requester required
+                  </KeyTrait>
+                )}
+                {key.confirmRules && (
+                  <KeyTrait
+                    icon={<PiShieldCheck size={18} />}
+                    color="var(--violet-11)"
+                    tooltip="Risky actions made with this key wait for a person to confirm them."
+                  >
+                    Human-in-the-loop
+                  </KeyTrait>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
@@ -295,3 +296,28 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     </>
   );
 };
+
+// A setting worth seeing at a glance, under the key's description.
+function KeyTrait({
+  icon,
+  color,
+  tooltip,
+  children,
+}: {
+  icon: ReactNode;
+  color: string;
+  tooltip: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <Flex align="start" gap="1" mt="1" width="fit-content" style={{ color }}>
+        {/* One text line tall, so the icon sits on the first row. */}
+        <Flex flexShrink="0" align="center" height="16px">
+          {icon}
+        </Flex>
+        <Text size="sm">{children}</Text>
+      </Flex>
+    </Tooltip>
+  );
+}

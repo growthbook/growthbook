@@ -95,7 +95,7 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
     url: `${APP_ORIGIN}/confirmations/${c.id}`,
     expiresAt: c.expiresAt.toISOString(),
     response: c.response,
-    rejectionNote: c.rejectionNote,
+    note: c.note,
   };
 }
 
@@ -182,7 +182,7 @@ export async function requireConfirmation(
       fingerprint,
       status: "pending",
       response: null,
-      rejectionNote: null,
+      note: null,
       decidedBy: null,
       decidedAt: null,
       expiresAt: new Date(now + TTL_MS),

@@ -6,6 +6,7 @@ import { getContextForApiKeyIdInOrg } from "back-end/src/services/organizations"
 import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { toApiConfirmation } from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 
 const REVISION_MODELS = {
   feature: "feature",
@@ -80,7 +81,7 @@ export async function decideConfirmation(
           status: decision === "confirm" ? "running" : "rejected",
           decidedBy: context.userId ?? null,
           decidedAt: new Date(),
-          rejectionNote: decision === "reject" ? note || null : null,
+          note: note || null,
         }
       : null,
   );
@@ -89,6 +90,17 @@ export async function decideConfirmation(
       "This request was already decided or has expired.",
     );
   }
+  const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
+  await context.auditLog({
+    event: decision === "confirm" ? "apiKey.confirm" : "apiKey.reject",
+    entity: { object: "apiKey", id: c.apiKeyId, name: key?.description },
+    details: auditDetailsCreate({
+      confirmation: c.id,
+      summary: c.summary,
+      actions: c.actions,
+      note: claimed.note,
+    }),
+  });
   if (decision === "reject") return toApiConfirmation(claimed);
 
   const requester = await getContextForApiKeyIdInOrg(

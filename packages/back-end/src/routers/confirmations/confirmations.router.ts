@@ -9,6 +9,7 @@ const router = express.Router();
 const ConfirmationsController = wrapController(rawConfirmationsController);
 
 const idParams = z.strictObject({ id: z.string() });
+const decisionBody = z.strictObject({ note: z.string().optional() });
 
 router.get("/labels", ConfirmationsController.getConfirmationLabels);
 
@@ -20,16 +21,13 @@ router.get(
 
 router.post(
   "/:id/confirm",
-  validateRequestMiddleware({ params: idParams }),
+  validateRequestMiddleware({ params: idParams, body: decisionBody }),
   ConfirmationsController.postConfirm,
 );
 
 router.post(
   "/:id/reject",
-  validateRequestMiddleware({
-    params: idParams,
-    body: z.strictObject({ note: z.string().optional() }),
-  }),
+  validateRequestMiddleware({ params: idParams, body: decisionBody }),
   ConfirmationsController.postReject,
 );
 
