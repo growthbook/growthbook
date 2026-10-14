@@ -14,10 +14,8 @@ import Callout from "@/ui/Callout";
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
-  const canManageWebhooks =
-    permissionsUtil.canCreateEventWebhook() ||
-    permissionsUtil.canUpdateEventWebhook() ||
-    permissionsUtil.canDeleteEventWebhook();
+  const canManageWebhooks = permissionsUtil.canManageSomeEventWebhooks();
+  const canManageSecrets = permissionsUtil.canManageWebhookSecrets();
 
   const { apiCall } = useAuth();
 
@@ -48,10 +46,17 @@ const WebhooksPage: FC = () => {
         <div className="mt-5">
           <h2>Webhook Secrets</h2>
           <p>
-            Define secret variables that can be used within your webhook
-            endpoints or headers. Simply reference them using Handlebars syntax.
+            {canManageSecrets
+              ? "Define secret variables that can be used within your webhook endpoints or headers. Simply reference them using Handlebars syntax."
+              : "Reference webhook secrets in your endpoints or headers using Handlebars syntax."}{" "}
             For example, <code>{"{{ MY_SECRET }}"}</code>.
           </p>
+          {!canManageSecrets && (
+            <Callout status="info" mb="3">
+              Webhook secrets are shared by every webhook, so managing them
+              requires access that is not limited by environment or Project.
+            </Callout>
+          )}
           <table className="table gbtable appbox">
             <thead>
               <tr>
@@ -80,41 +85,48 @@ const WebhooksPage: FC = () => {
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
-                    <MoreMenu useRadix={false}>
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditSecretId(secret.id);
-                        }}
-                      >
-                        Edit
-                      </a>
-                      <DeleteButton
-                        useRadix={false}
-                        onClick={async () => {
-                          await apiCall<void>(`/webhook-secrets/${secret.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutateDefinitions();
-                        }}
-                        className="dropdown-item"
-                        displayName="Webhook Secret"
-                        text="Delete Secret"
-                      />
-                    </MoreMenu>
+                    {canManageSecrets && (
+                      <MoreMenu useRadix={false}>
+                        <a
+                          href="#"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditSecretId(secret.id);
+                          }}
+                        >
+                          Edit
+                        </a>
+                        <DeleteButton
+                          useRadix={false}
+                          onClick={async () => {
+                            await apiCall<void>(
+                              `/webhook-secrets/${secret.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            await mutateDefinitions();
+                          }}
+                          className="dropdown-item"
+                          displayName="Webhook Secret"
+                          text="Delete Secret"
+                        />
+                      </MoreMenu>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
-            Add Webhook Secret
-          </Button>
+          {canManageSecrets && (
+            <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
+              Add Webhook Secret
+            </Button>
+          )}
         </div>
       </div>
-      {newSecretOpen && (
+      {newSecretOpen && canManageSecrets && (
         <WebhookSecretModal
           close={() => {
             setNewSecretOpen(false);

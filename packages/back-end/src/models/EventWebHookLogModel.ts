@@ -46,6 +46,10 @@ const eventWebHookLogSchema = new mongoose.Schema({
     type: Object,
     required: true,
   },
+  filters: {
+    type: Object,
+    required: false,
+  },
 });
 
 eventWebHookLogSchema.index({ eventWebHookId: 1 });
@@ -81,6 +85,7 @@ type CreateEventWebHookLogOptions = {
   url: string;
   method: EventWebHookMethod;
   payload: Record<string, unknown>;
+  filters: EventWebHookLogInterface["filters"];
   result:
     | {
         state: "error";
@@ -106,6 +111,7 @@ export const createEventWebHookLog = async ({
   event,
   url,
   method,
+  filters,
   result: resultState,
 }: CreateEventWebHookLogOptions): Promise<EventWebHookLogInterface> => {
   const now = new Date();
@@ -122,6 +128,7 @@ export const createEventWebHookLog = async ({
     responseCode: resultState.responseCode,
     responseBody: resultState.responseBody,
     payload,
+    filters,
   });
 
   return toInterface(doc);
