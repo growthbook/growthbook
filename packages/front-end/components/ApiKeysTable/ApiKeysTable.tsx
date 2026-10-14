@@ -307,7 +307,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   );
 };
 
-// A setting worth seeing at a glance, under the key's description.
 function KeyTrait({
   icon,
   color,

@@ -136,7 +136,6 @@ function ActionsField({
           value.find((v) => !next.includes(v));
         if (clicked) onChange(toggleAction(value, clicked));
       }}
-      containerClassName="mb-0"
       formatOptionLabel={(option, meta) => {
         if (meta.context !== "menu") return option.label;
         const category = isCategory(option.value)

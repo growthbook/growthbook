@@ -121,7 +121,6 @@ type IncomingRequest = {
   body?: unknown;
 };
 
-// The request as it is stored and replayed.
 function heldRequest(req: IncomingRequest): HeldRequest {
   return JSON.parse(
     JSON.stringify({

@@ -4,7 +4,6 @@ import Text from "@/ui/Text";
 import styles from "@/components/Confirmations/RequestDetails.module.scss";
 import { describeWebhookError } from "./webhookErrors";
 
-// A webhook's last error: who failed, what the endpoint said, and the raw body.
 export default function WebhookErrorDetails({
   name,
   error,

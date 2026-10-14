@@ -5,7 +5,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
 import { AppNotice } from "./notices";
 
-// Plan, license and usage-limit notices for this organization.
 export default function useAccountPlanNotices(): AppNotice[] {
   const permissionsUtil = usePermissionsUtil();
   const { usage, license, licenseError, seatsInUse } = useUser();

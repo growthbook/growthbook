@@ -29,7 +29,6 @@ import styles from "@/components/Notices/NoticeStack.module.scss";
 const isSevere = (level: SdkPayloadSizeLevel) =>
   level === "danger" || level === "over-limit";
 
-// A list row's payload warning, with the same advice as the connection's page.
 export function PayloadSizeRowWarning({
   connection,
 }: {
@@ -160,7 +159,6 @@ export function PayloadSizeCallout({
   );
 }
 
-// How big the payload is and the ways to shrink it.
 function PayloadSizeAdvice({
   connection,
   size,
@@ -249,7 +247,6 @@ const connectionsNoun = (count: number) =>
 const pluralConnections = (count: number) =>
   `${count} ${connectionsNoun(count)}`;
 
-// SDK Connections whose payload is large enough to warn about.
 export function usePayloadSizeNotices(): AppNotice[] {
   const { sdkPayloadSizeAlerts } = useUser();
   if (!sdkPayloadSizeAlerts.length) return [];

@@ -2,7 +2,6 @@ import { CSSProperties } from "react";
 import { IconType } from "react-icons";
 import { PiShield } from "react-icons/pi";
 
-// A shield with a smaller glyph on it, for settings that guard a change.
 export default function ShieldBadgeIcon({
   icon: Icon,
   scale,

@@ -53,7 +53,6 @@ export default function EnvironmentScopeCell({
     <Box>
       <MultiSelectField
         aria-label="Environments"
-        containerClassName="mb-0"
         showCopyButton={false}
         value={environments ?? [ALL_ENVIRONMENTS]}
         options={[
