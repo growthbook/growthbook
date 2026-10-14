@@ -506,7 +506,8 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   word-wrap: break-word;
 }
 
-/* "Start for free" navbar CTA: a light sweep across the button every 5s. */
+/* "Start for free" navbar CTA: a quick light sweep across the button every
+   5s, followed by a sparkle twinkling in the top-right corner. */
 #topbar-cta-button > a {
   overflow: hidden;
 }
@@ -529,18 +530,60 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   animation: topbar-cta-shine 5s ease-in-out infinite;
 }
 
+#topbar-cta-button > a::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  clip-path: polygon(
+    50% 0%,
+    61% 39%,
+    100% 50%,
+    61% 61%,
+    50% 100%,
+    39% 61%,
+    0% 50%,
+    39% 39%
+  );
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+  animation: topbar-cta-sparkle 5s ease-in-out infinite;
+}
+
 @keyframes topbar-cta-shine {
   0% {
     left: -75%;
   }
-  18%,
+  10%,
   100% {
     left: 125%;
   }
 }
 
+@keyframes topbar-cta-sparkle {
+  0%,
+  8% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  18%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(90deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  #topbar-cta-button > a::after {
+  #topbar-cta-button > a::after,
+  #topbar-cta-button > a::before {
     animation: none;
   }
 }
