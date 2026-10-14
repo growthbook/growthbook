@@ -20,10 +20,7 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
-import {
-  isTestableDataSourceType,
-  TestableDataSourceType,
-} from "shared/validators";
+import { isTestableDataSourceType } from "shared/validators";
 import { BigQueryTestStatus } from "@/components/Settings/BigQueryForm";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -248,25 +245,18 @@ export default function ConnectDataSourceLayout({
     setHasError(false);
 
     try {
-      const body: {
-        type: TestableDataSourceType;
-        params: Record<string, unknown>;
-        projects?: string[];
-        datasourceId?: string;
-      } = {
-        type: datasource.type,
-        params: (datasource.params || {}) as Record<string, unknown>,
-        projects: datasource.projects,
-      };
-      if (existing && datasource.id) {
-        body.datasourceId = datasource.id;
-      }
-
       const res = await apiCall<{ status: number; message?: string }>(
         "/datasources/test-connection",
         {
           method: "POST",
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            type: datasource.type,
+            params: datasource.params || {},
+            projects: datasource.projects,
+            ...(existing && datasource.id
+              ? { datasourceId: datasource.id }
+              : {}),
+          }),
         },
       );
       if (res.status > 200) {
@@ -462,7 +452,6 @@ export default function ConnectDataSourceLayout({
         lg: '"form instructions" "footer instructions"',
       }}
       height={{ initial: "auto", lg: "calc(100dvh - 56px)" }}
-      maxHeight={{ initial: "none", lg: "calc(100dvh - 56px)" }}
       overflow={{ initial: "visible", lg: "hidden" }}
     >
       <Box
@@ -565,9 +554,7 @@ export default function ConnectDataSourceLayout({
                 disabled={testStatus === "running" || isSampleData}
                 loading={testStatus === "running"}
                 icon={<PiArrowClockwise />}
-                onClick={async () => {
-                  await runTest();
-                }}
+                onClick={runTest}
               >
                 {testStatus === "idle"
                   ? "Test connection"
@@ -631,13 +618,7 @@ export default function ConnectDataSourceLayout({
               {saveHint}
             </Text>
           ) : null}
-          <Button
-            disabled={!canSave}
-            loading={saving}
-            onClick={async () => {
-              await handleSave();
-            }}
-          >
+          <Button disabled={!canSave} loading={saving} onClick={handleSave}>
             {existing ? "Save changes" : "Create Data Source"}
           </Button>
         </Flex>

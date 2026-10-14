@@ -152,7 +152,6 @@ export const docSections = {
   eventForwarder: "/app/event-forwarder",
   eventForwarderSnowflake: "/app/event-forwarder#snowflake",
   eventForwarderZerobus: "/app/event-forwarder#finding-your-zerobus-endpoint",
-  ipAddresses: "/ip-addresses",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",

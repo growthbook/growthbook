@@ -15,10 +15,6 @@ export type SetupInstructionStep = {
     section: DocSection;
     label: string;
   };
-  /**
-   * Rendered verbatim. Author keywords in the case you want shown; values
-   * filled from the form (users, passwords, identifiers) keep their case.
-   */
   code?: string;
   /** Shown under the code block. Backticks render as inline code. */
   codeNote?: string;
@@ -32,10 +28,6 @@ const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if your Event For
 
 type ParamsBag = Partial<Record<string, unknown>>;
 
-function asRecord(params: Partial<DataSourceParams> | undefined): ParamsBag {
-  return (params ?? {}) as ParamsBag;
-}
-
 function field(params: ParamsBag, key: string, fallback: string): string {
   const value = params[key];
   if (typeof value === "string" && value.trim()) return value.trim();
@@ -43,25 +35,6 @@ function field(params: ParamsBag, key: string, fallback: string): string {
     return String(value);
   }
   return fallback;
-}
-
-function withEventForwarderWrite(
-  steps: SetupInstructionStep[],
-  writeStep: SetupInstructionStep | null,
-): SetupInstructionStep[] {
-  if (!writeStep) return steps;
-  // Insert write access before the final "enter credentials" style step when
-  // present; otherwise append.
-  const last = steps[steps.length - 1];
-  if (
-    last &&
-    /enter credentials|test the connection|add .+ in growthbook/i.test(
-      last.title,
-    )
-  ) {
-    return [...steps.slice(0, -1), writeStep, last];
-  }
-  return [...steps, writeStep];
 }
 
 const TEST_CONNECTION = "Enter the fields, then run the connection test.";
@@ -111,67 +84,14 @@ function passwordFor(
       };
 }
 
-function postgresLikeSteps(
-  params: ParamsBag,
-  opts: {
-    userFallback: string;
-    databaseFallback: string;
-    schemaFallback: string;
-    portFallback: string;
-    createUserSql: (
-      user: string,
-      passwordLiteral: string,
-      database: string,
-      schema: string,
-    ) => string;
-    networkDescription: (port: string) => string;
-    includeEgressIp?: boolean;
-    sqlDialect: SqlDialect;
-  },
-): SetupInstructionStep[] {
-  const user = field(params, "user", opts.userFallback);
-  const database = field(params, "database", opts.databaseFallback);
-  const schema = field(params, "defaultSchema", opts.schemaFallback);
-  const port = field(params, "port", opts.portFallback);
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-    params,
-    opts.sqlDialect,
-  );
-
-  return [
-    {
-      title: "Create a read-only user",
-      description:
-        "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-      code: opts.createUserSql(
-        user,
-        passwordLiteral,
-        database,
-        schema || "public",
-      ),
-      codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
-    },
-    {
-      title: "Allow network access",
-      description: opts.networkDescription(port),
-      code: opts.includeEgressIp ? `${CLOUD_EGRESS_IP}/32` : undefined,
-    },
-    {
-      title: "Enter credentials and test",
-      description: TEST_CONNECTION,
-    },
-  ];
-}
-
 export function getDataSourceSetupInstructions(
   type: DataSourceType,
   setup: ConnectSetupKind,
   params?: Partial<DataSourceParams>,
-  opts: { existing?: boolean } = {},
+  { existing = false }: { existing?: boolean } = {},
 ): SetupInstructionStep[] {
-  const p = asRecord(params);
+  const p = (params ?? {}) as ParamsBag;
   const isEventForwarder = setup === "event_forwarder";
-  const existing = opts.existing ?? false;
 
   switch (type) {
     case "bigquery": {
@@ -205,23 +125,26 @@ gcloud projects add-iam-policy-binding ${projectId} \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
         },
-        {
-          title: "Enter credentials and test",
-          description: "Upload the JSON key, then run the connection test.",
-        },
       ];
 
-      if (!isEventForwarder) return steps;
-
-      return withEventForwarderWrite(steps, {
-        title: "Grant write access for Event Forwarder",
-        description: "Grant BigQuery Data Editor on the destination dataset.",
-        code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
+      if (isEventForwarder) {
+        steps.push({
+          title: "Grant write access for Event Forwarder",
+          description: "Grant BigQuery Data Editor on the destination dataset.",
+          code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
   OPTIONS (location = "${location}");
 GRANT \`roles/bigquery.dataEditor\`
   ON SCHEMA \`${projectId}\`.growthbook_events
   TO "serviceAccount:${sa}";`,
+        });
+      }
+
+      steps.push({
+        title: "Enter credentials and test",
+        description: "Upload the JSON key, then run the connection test.",
       });
+
+      return steps;
     }
 
     case "snowflake": {
@@ -522,25 +445,38 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
 
     case "postgres": {
       const cloud = isCloud();
-      return postgresLikeSteps(p, {
-        userFallback: "growthbook",
-        databaseFallback: "your_database",
-        schemaFallback: "public",
-        portFallback: "5432",
-        includeEgressIp: cloud,
-        sqlDialect: "quote-only",
-        createUserSql: (user, passwordLiteral, database, schema) =>
-          `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
+      const user = field(p, "user", "growthbook");
+      const database = field(p, "database", "your_database");
+      const schema = field(p, "defaultSchema", "public");
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "quote-only",
+      );
+      return [
+        {
+          title: "Create a read-only user",
+          description:
+            "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
+          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-        networkDescription: () =>
-          cloud
+          codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
+        },
+        {
+          title: "Allow network access",
+          description: cloud
             ? "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP."
             : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
-      });
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
+        },
+        {
+          title: "Enter credentials and test",
+          description: TEST_CONNECTION,
+        },
+      ];
     }
 
     case "mysql": {

@@ -28,24 +28,16 @@ const PASSWORD_USER_TYPES = new Set<DataSourceType>([
   "mssql",
 ]);
 
-function parseSetup(value: string | string[] | undefined): ConnectSetupKind {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return raw === "event_forwarder" ? "event_forwarder" : "custom";
-}
-
-function parseSchemaFormat(value: string | string[] | undefined): SchemaFormat {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return "custom";
-  return raw as SchemaFormat;
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function parseType(
   value: string | string[] | undefined,
 ): DataSourceType | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !isTestableDataSourceType(raw)) return null;
-  // Exclude Mixpanel from the new connect page — it's deprecated for direct use.
-  if (raw === "mixpanel") return null;
+  const raw = first(value);
+  // Mixpanel is deprecated for direct use, so the new connect page skips it.
+  if (!raw || raw === "mixpanel" || !isTestableDataSourceType(raw)) return null;
   return raw;
 }
 
@@ -60,8 +52,11 @@ const NewDataSourceConnectPage: FC = () => {
   // was already copied.
   const [generatedPassword] = useState(() => generateStrongPassword());
   const type = parseType(router.query.type);
-  const setup = parseSetup(router.query.setup);
-  const schemaFormat = parseSchemaFormat(router.query.schema);
+  const setup: ConnectSetupKind =
+    first(router.query.setup) === "event_forwarder"
+      ? "event_forwarder"
+      : "custom";
+  const schemaFormat = (first(router.query.schema) || "custom") as SchemaFormat;
 
   useEffect(() => {
     if (ready && !enabled) {
@@ -93,11 +88,7 @@ const NewDataSourceConnectPage: FC = () => {
     } as Partial<DataSourceInterfaceWithParams>;
   }, [type, project, orgId, generatedPassword]);
 
-  if (!ready || !enabled) {
-    return <LoadingOverlay />;
-  }
-
-  if (!router.isReady) {
+  if (!ready || !enabled || !router.isReady) {
     return <LoadingOverlay />;
   }
 

@@ -8,7 +8,6 @@ import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSou
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,22 +21,14 @@ const EditDataSourceConnectPage: FC = () => {
   const { enabled, ready: flagReady } = useNewDataSourceOnboarding();
   const { orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
+  const { mutateDefinitions } = useDefinitions();
   const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready: definitionsReady,
-    error: definitionsError,
-  } = useDefinitions();
-
-  const definitionDataSource = getDatasourceById(did);
-  const {
-    data: currentDataSource,
-    error: currentDataSourceError,
+    data: d,
+    error,
     mutate: mutateCurrentDataSource,
   } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
     shouldRun: () => !!did,
   });
-  const d = currentDataSource || definitionDataSource;
 
   useEffect(() => {
     if (flagReady && !enabled) {
@@ -49,32 +40,16 @@ const EditDataSourceConnectPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  if (definitionsError || currentDataSourceError) {
+  if (error) {
     return (
       <Box px="6" py="5">
-        <Callout status="error">
-          {definitionsError || currentDataSourceError?.message}
-        </Callout>
+        <Callout status="error">{error.message}</Callout>
       </Box>
     );
-  }
-
-  if (!definitionsReady || (!currentDataSource && !currentDataSourceError)) {
-    return <LoadingOverlay />;
   }
 
   if (!d) {
-    return (
-      <Box px="6" py="5">
-        <Callout status="error">
-          Data Source{" "}
-          <Text as="span" mono>
-            {did}
-          </Text>{" "}
-          does not exist.
-        </Callout>
-      </Box>
-    );
+    return <LoadingOverlay />;
   }
 
   const isManagedWarehouse = d.type === "growthbook_clickhouse";

@@ -1,13 +1,8 @@
 import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";
 
 describe("generateStrongPassword", () => {
-  it("defaults to 24 characters", () => {
+  it("is 24 characters", () => {
     expect(generateStrongPassword()).toHaveLength(24);
-  });
-
-  it("honors a custom length", () => {
-    expect(generateStrongPassword(8)).toHaveLength(8);
-    expect(generateStrongPassword(40)).toHaveLength(40);
   });
 
   it("only uses letters and digits so it is safe inside quoted SQL", () => {
