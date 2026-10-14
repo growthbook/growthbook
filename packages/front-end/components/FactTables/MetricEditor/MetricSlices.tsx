@@ -1,5 +1,4 @@
 import { UseFormReturn } from "react-hook-form";
-import { Flex } from "@radix-ui/themes";
 import { FactTableDefinition } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import Frame from "@/ui/Frame";
@@ -33,9 +32,11 @@ export default function MetricSlices({
       <Heading as="h4" size="sm" mb="1">
         Slices
       </Heading>
-      <Text as="p" color="text-mid" mb="3">
-        Break experiment results down by a column, such as revenue by device.
-      </Text>
+      {(!canEdit || sliceColumns.length > 0) && (
+        <Text as="p" color="text-mid" mb="3">
+          Break experiment results down by a column, such as revenue by device.
+        </Text>
+      )}
       {!canEdit ? (
         <DataList
           data={[
@@ -66,13 +67,10 @@ export default function MetricSlices({
           placeholder="Select columns to slice by..."
         />
       ) : (
-        <Flex direction="column" gap="1">
-          <Text color="text-mid">
-            {factTable.name} has no slice columns yet. Turn on auto slices for a
-            column on the fact table to slice this metric by it.
-          </Text>
-          <Link href={`/fact-tables/${factTable.id}`}>Go to fact table</Link>
-        </Flex>
+        <Text color="text-mid">
+          No slice columns on this fact table.{" "}
+          <Link href={`/fact-tables/${factTable.id}`}>Add one</Link>
+        </Text>
       )}
     </Frame>
   );
