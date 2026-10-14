@@ -13,6 +13,61 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
+type PhaseLike = {
+  name?: string;
+  dateStarted?: string | Date;
+  dateEnded?: string | Date | null;
+};
+
+function phaseNameFromDates(
+  phases: PhaseLike[] | undefined,
+  start?: string | Date,
+): string | undefined {
+  if (!phases?.length) return undefined;
+  const latestName = phases[phases.length - 1]?.name;
+  if (!start) return latestName;
+
+  const startMs = new Date(start).getTime();
+  if (Number.isNaN(startMs)) return latestName;
+
+  const exact = phases.findIndex(
+    (phase) =>
+      phase.dateStarted && new Date(phase.dateStarted).getTime() === startMs,
+  );
+  if (exact >= 0) return phases[exact]?.name;
+
+  const containing = phases.find((phase) => {
+    if (!phase.dateStarted) return false;
+    const phaseStart = new Date(phase.dateStarted).getTime();
+    const phaseEnd = phase.dateEnded
+      ? new Date(phase.dateEnded).getTime()
+      : Infinity;
+    return startMs >= phaseStart && startMs <= phaseEnd;
+  });
+  return containing?.name ?? latestName;
+}
+
+function getReportPhaseName(
+  report: ReportInterface,
+  experiment: ExperimentInterfaceStringDates,
+): string {
+  if (report.type === "experiment-snapshot") {
+    const phases = report.experimentMetadata?.phases?.length
+      ? report.experimentMetadata.phases
+      : experiment.phases;
+    return (
+      phaseNameFromDates(
+        phases,
+        report.experimentAnalysisSettings?.dateStarted,
+      ) || "Unknown"
+    );
+  }
+
+  return (
+    phaseNameFromDates(experiment.phases, report.args?.startDate) || "Unknown"
+  );
+}
+
 export default function ExperimentReportsList({
   experiment,
 }: {
@@ -66,7 +121,8 @@ export default function ExperimentReportsList({
             <th>Title</th>
             <th>Description</th>
             <th>Status</th>
-            <th className="d-none d-md-table-cell">Last Updated </th>
+            <th>Phase</th>
+            <th className="d-none d-md-table-cell">Last Updated</th>
             <th>By</th>
             <th></th>
           </tr>
@@ -135,6 +191,7 @@ export default function ExperimentReportsList({
                     isOwner={filteredReport.isOwner}
                   />
                 </td>
+                <td>{getReportPhaseName(report, experiment)}</td>
                 <td
                   title={datetime(report.dateUpdated)}
                   className="d-none d-md-table-cell"
@@ -168,7 +225,7 @@ export default function ExperimentReportsList({
           })}
           {!reports.length && (
             <tr>
-              <td colSpan={3} align={"center"}>
+              <td colSpan={7} align={"center"}>
                 No custom reports created
               </td>
             </tr>
