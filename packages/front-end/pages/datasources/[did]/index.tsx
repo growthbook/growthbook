@@ -53,11 +53,10 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
-import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
 import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
+import LinkButton from "@/ui/LinkButton";
 import AddEventTrackerModal, {
   getAddableEventTrackers,
 } from "@/components/Settings/EditDataSource/AddEventTrackerModal";
@@ -212,10 +211,6 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
-  const canOpenInExplorer =
-    supportsSQL &&
-    !!d.properties?.supportsInformationSchema &&
-    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -257,13 +252,9 @@ const DataSourcePage: FC = () => {
           />
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          <OpenInExplorerButton
-            enabled={canOpenInExplorer}
-            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
-              d.id,
-            )}`}
-            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
-          />
+          <LinkButton href={`/datasources/queries/${did}`} variant="outline">
+            View usage
+          </LinkButton>
           {(canUpdateConnectionParams ||
             canUpdateDataSourceSettings ||
             canDelete) && (
@@ -341,14 +332,6 @@ const DataSourcePage: FC = () => {
                   View SQL Explorer
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setDropdownOpen(false);
-                  router.push(`/datasources/queries/${did}`);
-                }}
-              >
-                View Queries
-              </DropdownMenuItem>
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
@@ -445,6 +428,7 @@ const DataSourcePage: FC = () => {
           )}
           {canUpdateDataSourceSettings && projects.length > 0 && (
             <Link
+              aria-label="Edit Projects"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjectsOpen(true);
@@ -690,16 +674,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       </Box>
       {editProjectsOpen && (
         <EditProjectsForm
-          label={
-            <>
-              Projects{" "}
-              <Tooltip
-                body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Data Sources."
-                }
-              />
-            </>
-          }
+          label={<>Projects</>}
           cancel={() => setEditProjectsOpen(false)}
           entityName="Data Source"
           mutate={() => {

@@ -18,17 +18,15 @@ export type SetupInstructionStep = {
   code?: string;
   /** Shown under the code block. Backticks render as inline code. */
   codeNote?: string;
-  /** When true, skip the all-caps transform (e.g. JSON policies, IAM role ids). */
-  preserveCase?: boolean;
 };
 
 const CLOUD_EGRESS_IP = "52.70.79.40";
+// Event Forwarder ingestors write from the egress IP, plus this one when the
+// eu-west-1 region is selected.
+const EU_INGESTOR_IP = "54.74.233.97";
+const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if your Event Forwarder data region is eu-west-1.`;
 
 type ParamsBag = Partial<Record<string, unknown>>;
-
-function asRecord(params: Partial<DataSourceParams> | undefined): ParamsBag {
-  return (params ?? {}) as ParamsBag;
-}
 
 function field(params: ParamsBag, key: string, fallback: string): string {
   const value = params[key];
@@ -39,74 +37,60 @@ function field(params: ParamsBag, key: string, fallback: string): string {
   return fallback;
 }
 
-function withEventForwarderWrite(
-  steps: SetupInstructionStep[],
-  writeStep: SetupInstructionStep | null,
-): SetupInstructionStep[] {
-  if (!writeStep) return steps;
-  // Insert write access before the final "enter credentials" style step when
-  // present; otherwise append.
-  const last = steps[steps.length - 1];
-  if (
-    last &&
-    /enter credentials|test the connection|add .+ in growthbook/i.test(
-      last.title,
-    )
-  ) {
-    return [...steps.slice(0, -1), writeStep, last];
-  }
-  return [...steps, writeStep];
-}
-
 const TEST_CONNECTION = "Enter the fields, then run the connection test.";
 
-function postgresLikeSteps(
-  params: ParamsBag,
-  opts: {
-    userFallback: string;
-    databaseFallback: string;
-    schemaFallback: string;
-    portFallback: string;
-    createUserSql: (user: string, database: string, schema: string) => string;
-    networkDescription: (port: string) => string;
-    includeEgressIp?: boolean;
-  },
-): SetupInstructionStep[] {
-  const user = field(params, "user", opts.userFallback);
-  const database = field(params, "database", opts.databaseFallback);
-  const schema = field(params, "defaultSchema", opts.schemaFallback);
-  const port = field(params, "port", opts.portFallback);
+// New connections start with a generated password in the form, so the SQL
+// reads it from there and the two cannot drift. When the field is blank
+// (editing a saved connection keeps the stored secret) fall back to a
+// placeholder and say so.
+const PASSWORD_PLACEHOLDER = "use-a-strong-password";
 
-  return [
-    {
-      title: "Create a read-only user",
-      description:
-        "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-      code: opts.createUserSql(user, database, schema || "public"),
-      codeNote:
-        "Replace `public` with your analytics schema if events live elsewhere.",
-    },
-    {
-      title: "Allow network access",
-      description: opts.networkDescription(port),
-      code: opts.includeEgressIp
-        ? `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`
-        : undefined,
-    },
-    {
-      title: "Enter credentials and test",
-      description: TEST_CONNECTION,
-    },
-  ];
+/**
+ * How a warehouse reads a single-quoted string literal.
+ * - "quote-only": only `'` is special (Postgres with the default
+ *   standard_conforming_strings, MSSQL).
+ * - "backslash": `\` is also an escape character (MySQL by default, Snowflake,
+ *   and Redshift, which keeps PostgreSQL 8.0 escape processing).
+ */
+type SqlDialect = "quote-only" | "backslash";
+
+function sqlStringLiteral(value: string, dialect: SqlDialect): string {
+  let escaped = value.replace(/'/g, "''");
+  if (dialect === "backslash") {
+    escaped = escaped.replace(/\\/g, "\\\\");
+  }
+  return `'${escaped}'`;
+}
+
+/**
+ * The password literal for a CREATE USER command plus the note shown under
+ * it. Uses the exact form value (no trimming, since the form sends it as-is)
+ * and only falls back to the placeholder when the field is empty.
+ */
+function passwordFor(
+  params: ParamsBag,
+  dialect: SqlDialect,
+): { literal: string; note: string } {
+  const raw = params.password;
+  const password = typeof raw === "string" && raw.length > 0 ? raw : null;
+  return password === null
+    ? {
+        literal: `'${PASSWORD_PLACEHOLDER}'`,
+        note: `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`,
+      }
+    : {
+        literal: sqlStringLiteral(password, dialect),
+        note: "The password matches the Password field.",
+      };
 }
 
 export function getDataSourceSetupInstructions(
   type: DataSourceType,
   setup: ConnectSetupKind,
   params?: Partial<DataSourceParams>,
+  { existing = false }: { existing?: boolean } = {},
 ): SetupInstructionStep[] {
-  const p = asRecord(params);
+  const p = (params ?? {}) as ParamsBag;
   const isEventForwarder = setup === "event_forwarder";
 
   switch (type) {
@@ -122,8 +106,6 @@ export function getDataSourceSetupInstructions(
           description:
             "Grant BigQuery Data Viewer, Metadata Viewer, and Job User. Console steps are in the {link}.",
           docLink: { section: "bigquery", label: "BigQuery guide" },
-          // Role ids such as roles/bigquery.jobUser are case-sensitive.
-          preserveCase: true,
           code: `gcloud iam service-accounts create growthbook \\
   --project=${projectId}
 gcloud projects add-iam-policy-binding ${projectId} \\
@@ -139,29 +121,30 @@ gcloud projects add-iam-policy-binding ${projectId} \\
         {
           title: "Create a JSON key",
           description: "In the console: Manage keys → Add key → JSON.",
-          preserveCase: true,
           code: `gcloud iam service-accounts keys create \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
         },
-        {
-          title: "Enter credentials and test",
-          description: "Upload the JSON key, then run the connection test.",
-        },
       ];
 
-      if (!isEventForwarder) return steps;
-
-      return withEventForwarderWrite(steps, {
-        title: "Grant write access for Event Forwarder",
-        description: "Grant BigQuery Data Editor on the destination dataset.",
-        preserveCase: true,
-        code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
+      if (isEventForwarder) {
+        steps.push({
+          title: "Grant write access for Event Forwarder",
+          description: "Grant BigQuery Data Editor on the destination dataset.",
+          code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
   OPTIONS (location = "${location}");
 GRANT \`roles/bigquery.dataEditor\`
   ON SCHEMA \`${projectId}\`.growthbook_events
   TO "serviceAccount:${sa}";`,
+        });
+      }
+
+      steps.push({
+        title: "Enter credentials and test",
+        description: "Upload the JSON key, then run the connection test.",
       });
+
+      return steps;
     }
 
     case "snowflake": {
@@ -170,16 +153,22 @@ GRANT \`roles/bigquery.dataEditor\`
       const warehouse = field(p, "warehouse", "COMPUTE_WH");
       const database = field(p, "database", "ANALYTICS");
       const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
+      // Match SnowflakeForm: connections saved before authMethod existed used
+      // a password; new connections default to key-pair.
       const authMethod =
-        typeof p.authMethod === "string" ? p.authMethod : "key-pair";
+        typeof p.authMethod === "string"
+          ? p.authMethod
+          : existing
+            ? "password"
+            : "key-pair";
       const workloadProvider =
         typeof p.workloadIdentityProvider === "string"
           ? p.workloadIdentityProvider
           : "AWS";
+      const snowflakePassword = passwordFor(p, "backslash");
       const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
--- Read access for analysis
 GRANT USAGE ON DATABASE ${database}
   TO ROLE ${role};
 GRANT USAGE ON ALL SCHEMAS
@@ -190,10 +179,7 @@ GRANT SELECT ON ALL TABLES
   TO ROLE ${role};`;
 
       let createUserCode: string;
-      let preserveUserSqlCase = false;
       if (authMethod === "workload-identity") {
-        // ARNs, issuer URLs, and subjects are case-sensitive.
-        preserveUserSqlCase = true;
         const identityBinding =
           workloadProvider === "AZURE"
             ? `CREATE USER ${user}
@@ -222,7 +208,7 @@ ${readGrants}`;
       } else {
         const authLine =
           authMethod === "password"
-            ? "PASSWORD = '<password>'"
+            ? `PASSWORD = ${snowflakePassword.literal}`
             : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
         createUserCode = `CREATE ROLE ${role};
 CREATE USER ${user}
@@ -235,7 +221,6 @@ ${readGrants}`;
       if (isEventForwarder && authMethod !== "workload-identity") {
         createUserCode += `
 
--- Write access for Event Forwarder
 GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
 CREATE SCHEMA ${database}.${efSchema};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
@@ -258,22 +243,21 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
           title: "Create a user and grant access",
           description: userStepDescription,
           code: createUserCode,
-          preserveCase: preserveUserSqlCase,
+          codeNote:
+            authMethod === "password" ? snowflakePassword.note : undefined,
         },
         {
           title: "Allow network access",
-          description: isEventForwarder
-            ? "If a network policy restricts IPs, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
-            : "Only if a network policy restricts IPs.",
-          code: isEventForwarder
-            ? undefined
-            : `CREATE NETWORK POLICY GROWTHBOOK_POLICY
-  ALLOWED_IP_LIST = ('${CLOUD_EGRESS_IP}');
+          description: "Only if a network policy restricts IPs.",
+          code: `CREATE NETWORK POLICY GROWTHBOOK_POLICY
+  ALLOWED_IP_LIST = (${
+    isEventForwarder
+      ? `'${CLOUD_EGRESS_IP}', '${EU_INGESTOR_IP}'`
+      : `'${CLOUD_EGRESS_IP}'`
+  });
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
-          docLink: isEventForwarder
-            ? { section: "ipAddresses", label: "IP addresses guide" }
-            : undefined,
+          codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -292,8 +276,7 @@ ALTER USER ${user}
       const usingOauth = isEventForwarder || authType === "oauth-m2m";
       const principal = "`<service-principal-application-id>`";
 
-      let grantCode = `-- Read access for analysis
-GRANT USE CATALOG ON CATALOG ${catalog}
+      let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
   TO ${principal};
 GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
   TO ${principal};`;
@@ -301,7 +284,6 @@ GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
       if (isEventForwarder) {
         grantCode += `
 
--- Write access for Event Forwarder (Unity Catalog)
 GRANT USE SCHEMA, CREATE TABLE
   ON SCHEMA ${catalog}.growthbook
   TO ${principal};`;
@@ -330,22 +312,17 @@ GRANT USE SCHEMA, CREATE TABLE
             ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
             : "Replace the application ID and schema.",
           code: grantCode,
-          preserveCase: true,
         },
       ];
 
       steps.push({
         title: "Allow network access",
-        description: isEventForwarder
-          ? "If IP access lists are on, allow GrowthBook Cloud and the Event Forwarder addresses in the {link}."
-          : "Only if IP access lists are on.",
+        description: "Only if IP access lists are on.",
         code: isEventForwarder
-          ? undefined
-          : `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
-        docLink: isEventForwarder
-          ? { section: "ipAddresses", label: "IP addresses guide" }
-          : undefined,
+          ? `${CLOUD_EGRESS_IP}/32
+${EU_INGESTOR_IP}/32`
+          : `${CLOUD_EGRESS_IP}/32`,
+        codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
       });
 
       steps.push({
@@ -362,6 +339,10 @@ ${CLOUD_EGRESS_IP}/32`,
       const user = field(p, "user", "growthbook_user");
       const schema = field(p, "defaultSchema", "public");
       const port = field(p, "port", "5439");
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "backslash",
+      );
 
       return [
         {
@@ -372,18 +353,19 @@ ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Configure security settings",
           description: `Turn on publicly accessible. Allow inbound TCP ${port} from this IP.`,
-          code: `# Security group inbound rule
-Protocol: TCP
+          code: `Protocol: TCP
 Port: ${port}
 Source: ${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Create a read-only user",
           description: "Run in the query editor.",
-          code: `CREATE USER ${user} WITH PASSWORD 'securepassword';
+          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
+GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
+          codeNote: passwordNote,
         },
         {
           title: "Enter credentials and test",
@@ -416,7 +398,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
     }
   ]
 }`,
-          preserveCase: true,
         },
         {
           title: "Create an access key",
@@ -454,8 +435,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
         {
           title: "Allow network access",
           description: "If ClickHouse is behind a firewall, allow this IP.",
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          code: `${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",
@@ -465,44 +445,65 @@ ${CLOUD_EGRESS_IP}/32`,
 
     case "postgres": {
       const cloud = isCloud();
-      return postgresLikeSteps(p, {
-        userFallback: "growthbook",
-        databaseFallback: "your_database",
-        schemaFallback: "public",
-        portFallback: "5432",
-        includeEgressIp: cloud,
-        createUserSql: (user, database, schema) =>
-          `CREATE USER ${user} WITH PASSWORD 'use-a-strong-password';
+      const user = field(p, "user", "growthbook");
+      const database = field(p, "database", "your_database");
+      const schema = field(p, "defaultSchema", "public");
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "quote-only",
+      );
+      return [
+        {
+          title: "Create a read-only user",
+          description:
+            "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
+          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-        networkDescription: () =>
-          cloud
+          codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
+        },
+        {
+          title: "Allow network access",
+          description: cloud
             ? "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP."
             : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
-      });
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
+        },
+        {
+          title: "Enter credentials and test",
+          description: TEST_CONNECTION,
+        },
+      ];
     }
 
     case "mysql": {
+      const cloud = isCloud();
       const user = field(p, "user", "growthbook");
       const database = field(p, "database", "your_database");
       const port = field(p, "port", "3306");
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "backslash",
+      );
       return [
         {
           title: "Create a read-only user",
           description:
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
-          code: `CREATE USER '${user}'@'%' IDENTIFIED BY 'use-a-strong-password';
+          code: `CREATE USER '${user}'@'%' IDENTIFIED BY ${passwordLiteral};
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
+          codeNote: passwordNote,
         },
         {
           title: "Allow network access",
-          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal instead of localhost.`,
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          description: cloud
+            ? `Allow port ${port} from this IP.`
+            : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -512,22 +513,29 @@ ${CLOUD_EGRESS_IP}/32`,
     }
 
     case "mssql": {
+      const cloud = isCloud();
       const user = field(p, "user", "growthbook");
       const schema = field(p, "defaultSchema", "dbo");
       const port = field(p, "port", "1433");
+      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+        p,
+        "quote-only",
+      );
       return [
         {
           title: "Create a read-only login",
           description: "Grant SELECT on the schema.",
-          code: `CREATE LOGIN ${user} WITH PASSWORD = 'use-a-strong-password';
+          code: `CREATE LOGIN ${user} WITH PASSWORD = ${passwordLiteral};
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
+          codeNote: passwordNote,
         },
         {
           title: "Allow network access",
-          description: `Allow port ${port} from this IP. On Docker, use host.docker.internal as the server instead of localhost.`,
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          description: cloud
+            ? `Allow port ${port} from this IP.`
+            : "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
+          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
         },
         {
           title: "Enter credentials and test",
@@ -547,8 +555,7 @@ ${CLOUD_EGRESS_IP}/32`,
         {
           title: "Allow network access",
           description: "If Vertica is firewalled, allow this IP.",
-          code: `# GrowthBook Cloud egress IP
-${CLOUD_EGRESS_IP}/32`,
+          code: `${CLOUD_EGRESS_IP}/32`,
         },
         {
           title: "Enter credentials and test",

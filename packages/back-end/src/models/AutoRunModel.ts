@@ -77,12 +77,10 @@ export class AutoRunModel extends BaseClass {
   }
 
   // Stamped from the session, never accepted from the caller, so "my last run" is
-  // trustworthy and a client cannot attribute a run to someone else.
-  protected async processApiCreateBody(rawBody: unknown) {
-    return {
-      ...(rawBody as object),
-      createdBy: this.context.userId || null,
-    } as never;
+  // trustworthy and a client cannot attribute a run to someone else. An org
+  // key leaves the run ownerless, even when it names a member.
+  protected async beforeCreate(doc: AutoRunDoc) {
+    doc.createdBy = this.context.userId || null;
   }
 
   // A run stops being in-progress the moment an outcome is recorded.

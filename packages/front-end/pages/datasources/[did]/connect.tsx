@@ -1,5 +1,6 @@
 import { FC, useEffect } from "react";
 import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
@@ -9,7 +10,6 @@ import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
@@ -21,21 +21,12 @@ const EditDataSourceConnectPage: FC = () => {
   const { orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready: definitionsReady,
-    error: definitionsError,
-  } = useDefinitions();
-
-  const definitionDataSource = getDatasourceById(did);
-  const {
-    data: currentDataSource,
-    error: currentDataSourceError,
+    data: d,
+    error,
     mutate: mutateCurrentDataSource,
   } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
     shouldRun: () => !!did,
   });
-  const d = currentDataSource || definitionDataSource;
 
   useEffect(() => {
     if (flagReady && !enabled) {
@@ -47,28 +38,16 @@ const EditDataSourceConnectPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  if (definitionsError || currentDataSourceError) {
+  if (error) {
     return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          {definitionsError || currentDataSourceError?.message}
-        </Callout>
-      </div>
+      <Box px="6" py="5">
+        <Callout status="error">{error.message}</Callout>
+      </Box>
     );
-  }
-
-  if (!definitionsReady || (!currentDataSource && !currentDataSourceError)) {
-    return <LoadingOverlay />;
   }
 
   if (!d) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          Data Source <code>{did}</code> does not exist.
-        </Callout>
-      </div>
-    );
+    return <LoadingOverlay />;
   }
 
   const isManagedWarehouse = d.type === "growthbook_clickhouse";
@@ -88,7 +67,7 @@ const EditDataSourceConnectPage: FC = () => {
 
   if (!canUpdateConnectionParams) {
     return (
-      <div className="container pagecontents">
+      <Box px="6" py="5">
         <PageHead
           breadcrumb={[
             { display: "Data Sources", href: "/datasources" },
@@ -99,11 +78,12 @@ const EditDataSourceConnectPage: FC = () => {
         <Callout status="error">
           You cannot edit connection info for this Data Source.
         </Callout>
-      </div>
+      </Box>
     );
   }
 
-  const setup = d.eventForwarderConfig != null ? "event_forwarder" : "custom";
+  const setup =
+    (d.eventForwarderConfig ?? null) !== null ? "event_forwarder" : "custom";
 
   return (
     <>
@@ -123,7 +103,9 @@ const EditDataSourceConnectPage: FC = () => {
           router.push(`/datasources/${d.id}`);
         }}
         onSuccess={async () => {
-          await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+          // Definitions were already refreshed on save. The Data Source page
+          // shares this SWR key, so the revalidation lands there.
+          mutateCurrentDataSource();
           await router.push(`/datasources/${d.id}`);
         }}
       />

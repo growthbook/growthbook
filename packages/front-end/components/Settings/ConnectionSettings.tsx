@@ -3,7 +3,10 @@ import { ChangeEventHandler, ReactNode, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import AthenaForm from "./AthenaForm";
-import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
+import BigQueryForm, {
+  BigQueryAdvancedSettings,
+  BigQueryTestStatus,
+} from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import MixpanelForm from "./MixpanelForm";
@@ -23,6 +26,8 @@ export interface Props {
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
   beforeAdvancedSettings?: ReactNode;
+  /** BigQuery runs its connection test inside the form; this surfaces the result. */
+  onBigQueryTestResult?: (status: BigQueryTestStatus | null) => void;
 }
 
 export default function ConnectionSettings({
@@ -32,6 +37,7 @@ export default function ConnectionSettings({
   setDirty,
   hasError,
   beforeAdvancedSettings,
+  onBigQueryTestResult,
 }: Props) {
   const [advancedOpen, setAdvancedOpen] = useState(
     !!datasource.settings?.maxConcurrentQueries ||
@@ -204,6 +210,7 @@ export default function ConnectionSettings({
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
+          onTestResult={onBigQueryTestResult}
         />
       );
       break;
