@@ -115,9 +115,24 @@ export interface DbtManifest {
 // Subset of the /bulk-import/facts payload this tool emits. The API validates
 // the full shape; these types only keep the translator honest.
 export type WindowUnit = "minutes" | "hours" | "days" | "weeks";
+export type RowFilterOperator =
+  | "sql_expr"
+  | "="
+  | "!="
+  | "<"
+  | "<="
+  | ">"
+  | ">="
+  | "in"
+  | "not_in"
+  | "is_null"
+  | "not_null"
+  | "is_true"
+  | "is_false";
 export interface RowFilter {
-  operator: "sql_expr";
-  values: string[];
+  operator: RowFilterOperator;
+  column?: string;
+  values?: string[];
 }
 export interface ColumnRef {
   factTableId: string;
@@ -134,7 +149,7 @@ export interface FunnelStep {
 }
 export interface FactTableColumn {
   column: string;
-  datatype: "" | "number" | "string" | "date";
+  datatype: "" | "number" | "string" | "boolean" | "date";
   isVirtual?: boolean;
   sql?: string;
 }
@@ -259,6 +274,79 @@ function matches(
       .join(".*");
     return new RegExp(`^${re}$`).test(name);
   });
+}
+
+type Literal = { kind: "string" | "number" | "boolean"; value: string };
+function literal(raw: string): Literal | null {
+  if (/^'(?:[^']|'')*'$/.test(raw)) {
+    return { kind: "string", value: raw.slice(1, -1).replace(/''/g, "'") };
+  }
+  if (/^-?(\d+\.?\d*|\.\d+)$/.test(raw)) return { kind: "number", value: raw };
+  if (/^(true|false)$/i.test(raw)) {
+    return { kind: "boolean", value: raw.toLowerCase() };
+  }
+  return null;
+}
+
+const COMPARISON = /^\s*([A-Za-z_]\w*)\s*(<=|>=|<>|!=|=|<|>)\s*(.+?)\s*$/;
+const IN_LIST = /^\s*([A-Za-z_]\w*)\s+(not\s+)?in\s*\(\s*(.+?)\s*\)\s*$/i;
+const NULL_CHECK = /^\s*([A-Za-z_]\w*)\s+is\s+(not\s+)?null\s*$/i;
+
+// Structured row filters are compiled by GrowthBook with no warehouse round
+// trip, unlike sql_expr, which is test-run against the warehouse on every
+// create. Numeric and boolean literals also need the column typed, or the
+// value is quoted as a string. Anything this doesn't match stays sql_expr.
+export function parseRowFilter(sql: string): {
+  filter: RowFilter & { column: string };
+  datatype?: "number" | "boolean";
+} | null {
+  const hint = (lit: Literal) =>
+    lit.kind === "string" ? {} : { datatype: lit.kind };
+
+  const nullCheck = NULL_CHECK.exec(sql);
+  if (nullCheck) {
+    return {
+      filter: {
+        operator: nullCheck[2] ? "not_null" : "is_null",
+        column: nullCheck[1],
+      },
+    };
+  }
+
+  const inList = IN_LIST.exec(sql);
+  if (inList) {
+    const lits = inList[3].split(",").map((v) => literal(v.trim()));
+    const first = lits[0];
+    if (!first || !lits.every((l) => l && l.kind === first.kind)) return null;
+    if (first.kind === "boolean") return null;
+    return {
+      filter: {
+        operator: inList[2] ? "not_in" : "in",
+        column: inList[1],
+        values: lits.map((l) => (l as Literal).value),
+      },
+      ...hint(first),
+    };
+  }
+
+  const cmp = COMPARISON.exec(sql);
+  if (!cmp) return null;
+  const [, column, rawOp, rawValue] = cmp;
+  const lit = literal(rawValue);
+  if (!lit) return null;
+  const op = rawOp === "<>" ? "!=" : rawOp;
+  if (lit.kind === "boolean") {
+    if (op !== "=" && op !== "!=") return null;
+    const truthy = (lit.value === "true") === (op === "=");
+    return {
+      filter: { operator: truthy ? "is_true" : "is_false", column },
+      datatype: "boolean",
+    };
+  }
+  return {
+    filter: { operator: op as RowFilterOperator, column, values: [lit.value] },
+    ...hint(lit),
+  };
 }
 
 interface MeasureDef {
@@ -508,12 +596,20 @@ export function translate(
       columns: [],
       factTableId: "",
     };
-    const rowFilters = def.filters.map(
-      (f): RowFilter => ({
-        operator: "sql_expr",
-        values: [renderFilter(f, usage)],
-      }),
-    );
+    // Pushed after the measure's own column so a measure's inferred type wins.
+    const filterColumns: FactTableColumn[] = [];
+    const rowFilters = def.filters.map((f): RowFilter => {
+      const sql = renderFilter(f, usage);
+      const parsed = parseRowFilter(sql);
+      if (!parsed) return { operator: "sql_expr", values: [sql] };
+      if (parsed.datatype) {
+        filterColumns.push({
+          column: parsed.filter.column,
+          datatype: parsed.datatype,
+        });
+      }
+      return parsed.filter;
+    });
     const ref: ColumnRef = { factTableId: "" };
     if (rowFilters.length) ref.rowFilters = rowFilters;
 
@@ -565,6 +661,7 @@ export function translate(
       default:
         throw new Unsupported(`unknown agg "${def.agg}"`);
     }
+    usage.columns.push(...filterColumns);
     return { usage, ref };
   }
 

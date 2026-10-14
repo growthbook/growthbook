@@ -10,26 +10,26 @@ This builds on the same bulk import API as the [GitHub metrics guide](/integrati
 
 ## How Definitions Map
 
-| dbt                                                 | GrowthBook                                                                              |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Semantic model                                      | Fact Table with `SELECT * FROM <model relation>`                                        |
-| `agg_time_dimension`                                | Fact Table timestamp column                                                             |
-| Entities                                            | Fact Table identifier types (see [Entities](#entities))                                 |
-| Measure or simple metric with `sum`, `max`, `count` | Mean metric                                                                             |
-| `count_distinct`                                    | Mean metric with count distinct aggregation                                             |
-| `average`                                           | Ratio metric: sum of the column over row count                                          |
-| `sum_boolean`                                       | Mean metric over a virtual column `CASE WHEN ... THEN 1 ELSE 0 END`                     |
-| `median`, `percentile`                              | Quantile metric                                                                         |
-| Measure `expr` that is not a plain column           | Virtual column on the Fact Table                                                        |
-| Metric `filter` on the model's own dimensions       | Row filter (SQL expression) on the metric                                               |
-| Metric `filter` on a dimension one join away        | A second Fact Table with a `LEFT JOIN`, shared by every metric that needs the same join |
-| Ratio metric                                        | Ratio metric                                                                            |
-| Cumulative metric with a `window`                   | The input metric with a lookback window                                                 |
-| Cumulative metric without a window                  | The input metric (an experiment already aggregates over its whole date range)           |
-| Conversion metric                                   | Two-step Funnel metric with a conversion window on the second step                      |
-| Derived metric of the form `a / b`                  | Ratio metric                                                                            |
-| `label`, `description`, `config.tags`               | Name, description, tags                                                                 |
-| `config.meta.growthbook.*`                          | Merged onto the Fact Table or Fact Metric (see [Overrides](#overrides))                 |
+| dbt                                                 | GrowthBook                                                                                                                                                                                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic model                                      | Fact Table with `SELECT * FROM <model relation>`                                                                                                                                                                                                |
+| `agg_time_dimension`                                | Fact Table timestamp column                                                                                                                                                                                                                     |
+| Entities                                            | Fact Table identifier types (see [Entities](#entities))                                                                                                                                                                                         |
+| Measure or simple metric with `sum`, `max`, `count` | Mean metric                                                                                                                                                                                                                                     |
+| `count_distinct`                                    | Mean metric with count distinct aggregation                                                                                                                                                                                                     |
+| `average`                                           | Ratio metric: sum of the column over row count                                                                                                                                                                                                  |
+| `sum_boolean`                                       | Mean metric over a virtual column `CASE WHEN ... THEN 1 ELSE 0 END`                                                                                                                                                                             |
+| `median`, `percentile`                              | Quantile metric                                                                                                                                                                                                                                 |
+| Measure `expr` that is not a plain column           | Virtual column on the Fact Table                                                                                                                                                                                                                |
+| Metric `filter` on the model's own dimensions       | Row filter on the metric. Simple comparisons (`=`, `!=`, `<`, `>`, `IN`, `IS NULL`, booleans) become structured filters; anything else is kept as a SQL expression, which GrowthBook test-runs against the warehouse when the metric is created |
+| Metric `filter` on a dimension one join away        | A second Fact Table with a `LEFT JOIN`, shared by every metric that needs the same join                                                                                                                                                         |
+| Ratio metric                                        | Ratio metric                                                                                                                                                                                                                                    |
+| Cumulative metric with a `window`                   | The input metric with a lookback window                                                                                                                                                                                                         |
+| Cumulative metric without a window                  | The input metric (an experiment already aggregates over its whole date range)                                                                                                                                                                   |
+| Conversion metric                                   | Two-step Funnel metric with a conversion window on the second step                                                                                                                                                                              |
+| Derived metric of the form `a / b`                  | Ratio metric                                                                                                                                                                                                                                    |
+| `label`, `description`, `config.tags`               | Name, description, tags                                                                                                                                                                                                                         |
+| `config.meta.growthbook.*`                          | Merged onto the Fact Table or Fact Metric (see [Overrides](#overrides))                                                                                                                                                                         |
 
 Both the legacy YAML spec (`semantic_models` with `measures`) and the dbt v1.12 spec (`semantic_model` nested under a model, measures replaced by simple metrics) are supported, because the CLI reads `manifest.json` rather than your YAML.
 
