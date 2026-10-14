@@ -2,58 +2,36 @@ import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import {
   InterleavingAnalysis,
-  interleavingResultKey,
+  InterleavingMetricResult,
   interleavingSignalMetricIds,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
-  INTERLEAVING_INTERLEAVE_ID_COLUMN,
-  INTERLEAVING_ITEM_ID_COLUMN,
 } from "shared/validators";
-import { isFactMetric } from "shared/experiments";
-import type { FactMetricInterface } from "shared/types/fact-table";
-import type { InterleavingMetricQueryMetric } from "shared/types/integrations";
 import type {
-  ExperimentReportResultDimension,
-  ExperimentReportVariation,
-} from "shared/types/report";
-import type { SnapshotVariation } from "shared/types/experiment-snapshot";
-import {
-  ownershipSignTest,
-  pairedDeltaTest,
-  PairedSufficientStats,
-} from "stats-ts";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+  InterleavingMetricQueryMetric,
+  InterleavingMetricQueryResponseRows,
+} from "shared/types/integrations";
+import { ownershipSignTest, pairedDeltaTest } from "stats-ts";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
-import { sqlAnalysisKind } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 
 export type InterleavingResultsQueryParams = {
   snapshotSettings: InterleavingSnapshotSettings;
 };
 
 export type InterleavingQueryRunResult = {
-  results: ExperimentReportResultDimension[];
+  results: InterleavingMetricResult[];
 };
 
-/** Variations shown in the results UI: the two rankers. */
-export function getInterleavingReportVariations(
-  variations: InterleavingSnapshotSettings["variations"],
-): ExperimentReportVariation[] {
-  return variations.map((v, index) => ({
-    id: v.id,
-    name: v.name,
-    weight: 0.5,
-    index,
-  }));
-}
-
-// One (metric, analysis) pair; results are keyed by interleavingResultKey
+// One (metric, analysis) pair; index i in a group maps to the m{i}_ columns
 type AnalysisEntry = { metricId: string; analysis: InterleavingAnalysis };
 
-type MetricGroup = {
-  factTableId: string;
-  // Ordered: index i maps to the query's m{i}_ column prefix
+// One query per fact table, keyed by the fact table id (also the query name)
+type FactTableGroup = {
+  factTableSql: string;
   entries: AnalysisEntry[];
+  queryMetrics: InterleavingMetricQueryMetric[];
+  signals: { id: string; factTableSql: string }[];
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -61,134 +39,65 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
   InterleavingResultsQueryParams,
   InterleavingQueryRunResult
 > {
-  private snapshotSettings?: InterleavingSnapshotSettings;
-  // One query per fact table, keyed by the query name (the fact table id)
-  private metricGroups: Record<string, MetricGroup> = {};
-
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
   }
 
+  // Derived from settings (not cached) so runAnalysis works on a fresh
+  // runner instance, e.g. when query status is refreshed after a restart
+  private async groupByFactTable(
+    settings: InterleavingSnapshotSettings,
+  ): Promise<Map<string, FactTableGroup>> {
+    const { metrics, signals } = await resolveInterleavingMetrics(
+      this.context,
+      settings,
+    );
+    const groups = new Map<string, FactTableGroup>();
+    for (const { config, metricType, valueColumn, factTable } of metrics) {
+      const group = groups.get(factTable.id) ?? {
+        factTableSql: factTable.sql,
+        entries: [],
+        queryMetrics: [],
+        signals: [],
+      };
+      groups.set(factTable.id, group);
+      for (const analysis of config.analyses) {
+        group.entries.push({ metricId: config.id, analysis });
+        group.queryMetrics.push({ analysis, metricType, valueColumn });
+      }
+    }
+    for (const group of groups.values()) {
+      const signalIds = new Set(
+        interleavingSignalMetricIds(group.entries.map((e) => e.analysis)),
+      );
+      group.signals = signals
+        .filter((s) => signalIds.has(s.id))
+        .map((s) => ({ id: s.id, factTableSql: s.factTable.sql }));
+    }
+    return groups;
+  }
+
   async startQueries(params: InterleavingResultsQueryParams): Promise<Queries> {
-    this.snapshotSettings = params.snapshotSettings;
     const settings = params.snapshotSettings;
 
+    const { integration } = this;
     if (
-      !this.integration.getInterleavingMetricQuery ||
-      !this.integration.runInterleavingMetricQuery
+      !integration.getInterleavingMetricQuery ||
+      !integration.runInterleavingMetricQuery
     ) {
       throw new Error(
         "This datasource does not support interleaving queries yet",
       );
     }
-
-    const metricMap = await getMetricMap(this.context);
-    const factTableMap = await getFactTableMap(this.context);
-
-    // Validate each metric and group by fact table
-    // Resolve a metric's fact table and check the columns interleaving needs
-    const getFactTable = (
-      metricId: string,
-      label: string,
-      requireInterleaveId: boolean,
-    ) => {
-      const metric = metricMap.get(metricId);
-      if (!metric || !isFactMetric(metric)) {
-        throw new Error(`${label} not found: ${metricId}`);
-      }
-      const factTable = metric.numerator
-        ? factTableMap.get(metric.numerator.factTableId)
-        : null;
-      if (!factTable) {
-        throw new Error(`Fact table not found for ${label} ${metricId}`);
-      }
-      if (!factTable.userIdTypes.includes(settings.userIdType)) {
-        throw new Error(
-          `${label} ${metricId} requires the '${settings.userIdType}' identifier type on its fact table`,
-        );
-      }
-      const hasColumn = (column: string) =>
-        factTable.columns.some((c) => c.column === column && !c.deleted);
-      if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
-        throw new Error(
-          `${label} ${metricId} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
-        );
-      }
-      if (
-        requireInterleaveId &&
-        !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
-      ) {
-        throw new Error(
-          `${label} ${metricId} needs an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on its fact table to be joined per impression`,
-        );
-      }
-      return { metric, factTable };
-    };
-
-    // Signal tables are joined per impression, so they always need interleave_id
-    const signals = interleavingSignalMetricIds(
-      settings.metrics.flatMap((m) => m.analyses),
-    ).map((id) => ({
-      id,
-      factTableSql: getFactTable(id, "Engagement signal metric", true).factTable
-        .sql,
-    }));
-
-    const groups: Record<
-      string,
-      MetricGroup & {
-        queryMetrics: InterleavingMetricQueryMetric[];
-        factTableSql: string;
-      }
-    > = {};
-    for (const config of settings.metrics) {
-      const kinds = config.analyses.map(sqlAnalysisKind);
-      const { metric, factTable } = getFactTable(
-        config.id,
-        "Interleaving metric",
-        kinds.includes("paired"),
-      );
-      if (metric.metricType !== "mean" && metric.metricType !== "proportion") {
-        throw new Error(
-          `Interleaving metrics must be mean or proportion metrics: ${config.id}`,
-        );
-      }
-
-      const numeratorColumn = metric.numerator?.column;
-      const valueColumn =
-        metric.metricType === "mean" &&
-        numeratorColumn &&
-        !numeratorColumn.startsWith("$$")
-          ? numeratorColumn
-          : null;
-
-      const group = (groups[factTable.id] = groups[factTable.id] ?? {
-        factTableId: factTable.id,
-        entries: [],
-        queryMetrics: [],
-        factTableSql: factTable.sql,
-      });
-      for (const analysis of config.analyses) {
-        group.entries.push({ metricId: config.id, analysis });
-        group.queryMetrics.push({
-          analysis,
-          metricType: metric.metricType as FactMetricInterface["metricType"] &
-            ("mean" | "proportion"),
-          valueColumn,
-        });
-      }
-    }
+    // Bound so the narrowing survives into the query's run callback
+    const runInterleavingMetricQuery =
+      integration.runInterleavingMetricQuery.bind(integration);
 
     const queries: Queries = [];
-    for (const group of Object.values(groups)) {
-      this.metricGroups[group.factTableId] = {
-        factTableId: group.factTableId,
-        entries: group.entries,
-      };
-
-      const sql = this.integration.getInterleavingMetricQuery({
+    for (const [factTableId, group] of await this.groupByFactTable(settings)) {
+      const sql = integration.getInterleavingMetricQuery({
         exposureQuery: settings.query,
         userIdType: settings.userIdType,
         trackingKey: settings.trackingKey,
@@ -197,23 +106,16 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         endDate: settings.endDate,
         factTableSql: group.factTableSql,
         metrics: group.queryMetrics,
-        signals: signals.filter((s) =>
-          group.entries.some(
-            (e) =>
-              e.analysis.type === "ownership" &&
-              e.analysis.attribution === "engagementSignal" &&
-              e.analysis.signalMetricId === s.id,
-          ),
-        ),
+        signals: group.signals,
       });
 
       queries.push(
         await this.startQuery({
-          name: group.factTableId,
+          name: factTableId,
           query: sql,
           dependencies: [],
           run: async (query, setExternalId, queryMetadata) => {
-            const res = await this.integration.runInterleavingMetricQuery!(
+            const res = await runInterleavingMetricQuery(
               query,
               setExternalId,
               queryMetadata,
@@ -229,44 +131,26 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<InterleavingQueryRunResult> {
-    const settings = this.snapshotSettings;
-    if (!settings) {
-      throw new Error(
-        "InterleavingResultsQueryRunner: snapshotSettings missing in runAnalysis",
-      );
-    }
+    const results: InterleavingMetricResult[] = [];
+    const groups = await this.groupByFactTable(this.model.frozenSettings);
 
-    const baselineMetrics: SnapshotVariation["metrics"] = {};
-    const treatmentMetrics: SnapshotVariation["metrics"] = {};
-    let maxUsers = 0;
+    for (const [factTableId, { entries }] of groups) {
+      // A single-row aggregate; QueryMap is untyped at this boundary
+      const rows = queryMap.get(factTableId)?.result as
+        | InterleavingMetricQueryResponseRows
+        | undefined;
+      const row = rows?.[0];
+      if (!row) {
+        throw new Error(
+          `Interleaving query for fact table ${factTableId} returned no rows`,
+        );
+      }
 
-    for (const group of Object.values(this.metricGroups)) {
-      const doc = queryMap.get(group.factTableId);
-      const rows = (doc?.result ?? doc?.rawResult ?? []) as Record<
-        string,
-        number
-      >[];
-      const row = rows[0];
-
-      group.entries.forEach(({ metricId, analysis }, i) => {
-        const key = interleavingResultKey(metricId, analysis);
-        if (!row) {
-          treatmentMetrics[key] = {
-            value: 0,
-            cr: 0,
-            users: 0,
-            errorMessage: "NO_ROWS_RETURNED",
-          };
-          baselineMetrics[key] = { value: 0, cr: 0, users: 0 };
-          return;
-        }
-
-        const col = (name: string) => row[`m${i}_${name}`] || 0;
-        const kind = sqlAnalysisKind(analysis);
-
-        switch (kind) {
+      entries.forEach(({ metricId, analysis }, i) => {
+        const col = (name: string) => row[`m${i}_${name}`];
+        switch (analysis.type) {
           case "paired": {
-            const stats: PairedSufficientStats = {
+            const stats = {
               users: col("users"),
               sum_x: col("sum_x"),
               sum_xx: col("sum_xx"),
@@ -278,74 +162,46 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
               sum_xn: col("sum_xn"),
               sum_yn: col("sum_yn"),
             };
-            maxUsers = Math.max(maxUsers, stats.users);
-            const test = pairedDeltaTest(stats);
-            const crControl = stats.sum_n > 0 ? stats.sum_y / stats.sum_n : 0;
-            const crTreatment = stats.sum_n > 0 ? stats.sum_x / stats.sum_n : 0;
-            baselineMetrics[key] = {
-              value: stats.sum_y,
-              cr: crControl,
+            const perExposure = (v: number) =>
+              stats.sum_n > 0 ? v / stats.sum_n : 0;
+            results.push({
+              metricId,
+              analysis,
               users: stats.users,
-            };
-            treatmentMetrics[key] = {
-              value: stats.sum_x,
-              cr: crTreatment,
-              users: stats.users,
-              expected: test.expected,
-              ci: [test.ci[0] ?? -Infinity, test.ci[1] ?? Infinity],
-              pValue: test.pValue ?? undefined,
-              uplift: test.uplift,
-              errorMessage: test.errorMessage ?? undefined,
-            };
+              control: { value: stats.sum_y, cr: perExposure(stats.sum_y) },
+              treatment: { value: stats.sum_x, cr: perExposure(stats.sum_x) },
+              test: pairedDeltaTest(stats),
+            });
             return;
           }
-          case "ownership":
-          case "signal": {
+          case "ownership": {
             const prefT = col("users_pref_treatment");
             const prefC = col("users_pref_control");
-            const usersExposed = row.users_exposed || 0;
-            const ties = Math.max(0, usersExposed - prefT - prefC);
-            maxUsers = Math.max(maxUsers, usersExposed);
-            const test = ownershipSignTest({
-              users_pref_treatment: prefT,
-              users_pref_control: prefC,
-              users_tied: ties,
+            const users = row.users_exposed;
+            const perUser = (v: number) => (users > 0 ? v / users : 0);
+            results.push({
+              metricId,
+              analysis,
+              users,
+              control: { value: prefC, cr: perUser(prefC) },
+              treatment: { value: prefT, cr: perUser(prefT) },
+              test: ownershipSignTest({
+                users_pref_treatment: prefT,
+                users_pref_control: prefC,
+                users_tied: Math.max(0, users - prefT - prefC),
+              }),
             });
-            baselineMetrics[key] = {
-              value: prefC,
-              cr: usersExposed > 0 ? prefC / usersExposed : 0,
-              users: usersExposed,
-            };
-            treatmentMetrics[key] = {
-              value: prefT,
-              cr: usersExposed > 0 ? prefT / usersExposed : 0,
-              users: usersExposed,
-              expected: test.expected,
-              ci: [test.ci[0] ?? -Infinity, test.ci[1] ?? Infinity],
-              pValue: test.pValue ?? undefined,
-              uplift: test.uplift,
-              errorMessage: test.errorMessage ?? undefined,
-            };
             return;
           }
           default: {
-            const unknownKind: never = kind;
-            throw new Error(`Unknown analysis kind: ${unknownKind}`);
+            const unknown: never = analysis;
+            throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
           }
         }
       });
     }
 
-    const dimension: ExperimentReportResultDimension = {
-      name: "All",
-      srm: 1,
-      variations: [
-        { users: maxUsers, metrics: baselineMetrics },
-        { users: maxUsers, metrics: treatmentMetrics },
-      ],
-    };
-
-    return { results: [dimension] };
+    return { results };
   }
 
   async getLatestModel(): Promise<InterleavingSnapshotInterface> {

@@ -1,0 +1,125 @@
+import { isFactMetric } from "shared/experiments";
+import type { FactTableInterface } from "shared/types/fact-table";
+import {
+  InterleavingMetricConfig,
+  interleavingSignalMetricIds,
+  INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_ITEM_ID_COLUMN,
+} from "shared/validators";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+
+type Context = ReqContext | ApiReqContext;
+
+export type InterleavingAnalysisInputs = {
+  datasourceId: string;
+  userIdType: string;
+  metrics: InterleavingMetricConfig[];
+};
+
+export type ResolvedInterleavingMetric = {
+  config: InterleavingMetricConfig;
+  metricType: "mean" | "proportion";
+  // Numerator column for mean metrics; null means count rows / existence
+  valueColumn: string | null;
+  factTable: FactTableInterface;
+};
+
+export type ResolvedInterleavingSignal = {
+  id: string;
+  factTable: FactTableInterface;
+};
+
+/**
+ * Load and validate the fact metrics an interleaving analysis reads. Used
+ * both when saving an Interleaving and when running a snapshot, so a bad
+ * setup is reported at save time with the same message it would fail with
+ * at run time.
+ */
+export async function resolveInterleavingMetrics(
+  context: Context,
+  { datasourceId, userIdType, metrics }: InterleavingAnalysisInputs,
+): Promise<{
+  metrics: ResolvedInterleavingMetric[];
+  signals: ResolvedInterleavingSignal[];
+}> {
+  const [metricMap, factTableMap] = await Promise.all([
+    getMetricMap(context),
+    getFactTableMap(context),
+  ]);
+
+  const resolve = (
+    metricId: string,
+    label: string,
+    needsInterleaveId: boolean,
+  ) => {
+    const metric = metricMap.get(metricId);
+    if (!metric || !isFactMetric(metric)) {
+      throw new Error(`${label} must be an existing fact metric: ${metricId}`);
+    }
+    if (metric.datasource !== datasourceId) {
+      throw new Error(
+        `${label} ${metricId} must belong to datasource ${datasourceId}`,
+      );
+    }
+    // Funnel metrics have no numerator
+    if (!metric.numerator) {
+      throw new Error(`${label} ${metricId} must read from a fact table`);
+    }
+    const factTable = factTableMap.get(metric.numerator.factTableId);
+    if (!factTable) {
+      throw new Error(`Fact table not found for ${label} ${metricId}`);
+    }
+    if (!factTable.userIdTypes.includes(userIdType)) {
+      throw new Error(
+        `${label} ${metricId} requires the '${userIdType}' identifier type on its fact table`,
+      );
+    }
+    const hasColumn = (column: string) =>
+      factTable.columns.some((c) => c.column === column && !c.deleted);
+    if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
+      throw new Error(
+        `${label} ${metricId} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
+      );
+    }
+    if (needsInterleaveId && !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)) {
+      throw new Error(
+        `${label} ${metricId} needs an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on its fact table to be joined per impression`,
+      );
+    }
+    return { metric, factTable };
+  };
+
+  return {
+    metrics: metrics.map((config) => {
+      const { metric, factTable } = resolve(
+        config.id,
+        "Interleaving metric",
+        config.analyses.some((a) => a.type === "paired"),
+      );
+      const { metricType } = metric;
+      if (metricType !== "mean" && metricType !== "proportion") {
+        throw new Error(
+          `Interleaving metrics must be mean or proportion metrics: ${config.id} is a ${metricType} metric`,
+        );
+      }
+      const column = metric.numerator.column;
+      return {
+        config,
+        metricType,
+        valueColumn:
+          metricType === "mean" && !column.startsWith("$$") ? column : null,
+        factTable,
+      };
+    }),
+    // Signal tables are joined per impression, so they always need interleave_id
+    signals: interleavingSignalMetricIds(
+      metrics.flatMap((m) => m.analyses),
+    ).map((id) => ({
+      id,
+      factTable: resolve(id, "Engagement signal metric", true).factTable,
+    })),
+  };
+}

@@ -21,20 +21,19 @@ const BaseClass = MakeModelClass({
 });
 
 export class InterleavingSnapshotModel extends BaseClass {
-  // Snapshot access follows the parent interleaving (contextual-bandit
-  // snapshot pattern): writes only happen in interleavingAnalysis.ts, which
-  // loads the parent (read-checked) and checks canRunExperimentQueries first.
-  protected canRead(): boolean {
-    return true;
+  // `project` is frozen from the parent Interleaving at creation, so
+  // snapshots carry their own project permissions
+  protected canRead(doc: InterleavingSnapshotInterface): boolean {
+    return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
-  protected canCreate(): boolean {
-    return true;
+  protected canCreate(doc: InterleavingSnapshotInterface): boolean {
+    return this.context.permissions.canCreateInterleaving(doc);
   }
-  protected canUpdate(): boolean {
-    return true;
+  protected canUpdate(existing: InterleavingSnapshotInterface): boolean {
+    return this.canCreate(existing);
   }
-  protected canDelete(): boolean {
-    return true;
+  protected canDelete(doc: InterleavingSnapshotInterface): boolean {
+    return this.canCreate(doc);
   }
 
   protected hasPremiumFeature(): boolean {

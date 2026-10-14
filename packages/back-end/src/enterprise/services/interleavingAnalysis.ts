@@ -31,6 +31,11 @@ async function getInterleavingSnapshotSettings(
       "Add at least one metric to this interleaving experiment before updating results",
     );
   }
+  if (!interleaving.dateStarted) {
+    throw new Error(
+      "Start this interleaving experiment before updating results",
+    );
+  }
 
   const interleavingQuery = await context.models.interleavingQueries.getById(
     interleaving.interleavingQueryId,
@@ -64,8 +69,7 @@ async function getInterleavingSnapshotSettings(
       { id: b.id, key: b.key, name: b.name },
     ],
     metrics: interleaving.metrics,
-    // A draft has no dateStarted; analyze from when it was configured
-    startDate: interleaving.dateStarted ?? interleaving.dateCreated,
+    startDate: interleaving.dateStarted,
     endDate: interleaving.dateStopped ?? null,
   };
 }
@@ -98,6 +102,7 @@ export async function runInterleavingSnapshot(
 
   const snapshot = await context.models.interleavingSnapshots.create({
     interleavingId: settings.interleavingId,
+    project: interleaving.project,
     status: "running",
     queries: [],
     runStarted: null,
@@ -123,14 +128,10 @@ export async function cancelInterleavingSnapshot(
   if (snapshot.status !== "running" && snapshot.status !== "pending") {
     return false;
   }
-  const datasourceId = snapshot.frozenSettings?.datasourceId;
-  if (!datasourceId) {
-    throw new Error(`Snapshot ${snapshot.id} has no frozen settings`);
-  }
   const runner = new InterleavingResultsQueryRunner(
     context,
     snapshot,
-    await getIntegration(context, datasourceId),
+    await getIntegration(context, snapshot.frozenSettings.datasourceId),
     false,
   );
   await runner.cancelQueries();

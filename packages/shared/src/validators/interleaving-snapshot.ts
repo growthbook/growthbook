@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import {
+  interleavingAnalysisValidator,
   interleavingMetricConfigValidator,
   interleavingVariationValidator,
 } from "./interleaving";
@@ -35,17 +36,54 @@ export type InterleavingSnapshotSettings = z.infer<
   typeof interleavingSnapshotSettingsValidator
 >;
 
+// One ranker's side of a result. `cr` is per engaged impression for the
+// paired analysis and per exposed user for ownership analyses.
+const interleavingResultSideValidator = z
+  .object({ value: z.number(), cr: z.number() })
+  .strict();
+
+// Treatment vs control, as returned by stats-ts (pairedDeltaTest or
+// ownershipSignTest). `ci` bounds are null when unbounded.
+const interleavingTestResultValidator = z
+  .object({
+    expected: z.number(),
+    ci: z.tuple([z.number().nullable(), z.number().nullable()]),
+    uplift: z
+      .object({ dist: z.string(), mean: z.number(), stddev: z.number() })
+      .strict(),
+    pValue: z.number().nullable(),
+    errorMessage: z.string().nullable(),
+    pValueErrorMessage: z.string().nullable(),
+  })
+  .strict();
+
+/** Result of one (metric, analysis) pair. */
+export const interleavingMetricResultValidator = z
+  .object({
+    metricId: z.string(),
+    analysis: interleavingAnalysisValidator,
+    // Users the analysis is over: engaged users (paired) or exposed users
+    users: z.number(),
+    control: interleavingResultSideValidator,
+    treatment: interleavingResultSideValidator,
+    test: interleavingTestResultValidator,
+  })
+  .strict();
+export type InterleavingMetricResult = z.infer<
+  typeof interleavingMetricResultValidator
+>;
+
 export const interleavingSnapshotValidator = baseSchema
   .extend({
     interleavingId: z.string(),
+    // Frozen from the parent so snapshot permissions don't need a parent load
+    project: z.string().optional(),
     status: z.enum(["pending", "running", "success", "error"]),
     error: z.string().optional(),
     runStarted: z.date().nullable(),
     queries: z.array(queryPointerValidator),
-    frozenSettings: interleavingSnapshotSettingsValidator.optional(),
-    // results typed loosely for Mongo storage;
-    // the runner produces and the front-end consumes the real type
-    results: z.array(z.unknown()).optional(),
+    frozenSettings: interleavingSnapshotSettingsValidator,
+    results: z.array(interleavingMetricResultValidator).optional(),
   })
   .strict();
 

@@ -40,22 +40,23 @@ export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
 export type InterleavingAnalysis = z.infer<
   typeof interleavingAnalysisValidator
 >;
+export type InterleavingSignalAnalysis = Extract<
+  InterleavingAnalysis,
+  { attribution: "engagementSignal" }
+>;
 
-// Identity of an analysis within a metric. Results are keyed by (metric id,
-// analysis key), so this has to stay stable.
+export function isSignalAnalysis(
+  a: InterleavingAnalysis,
+): a is InterleavingSignalAnalysis {
+  return a.type === "ownership" && a.attribution === "engagementSignal";
+}
+
+// Identity of an analysis within a metric; used to reject duplicates.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
-  switch (a.type) {
-    case "paired":
-      return "paired";
-    case "ownership":
-      return a.attribution === "engagementSignal"
-        ? `ownership:engagementSignal:${a.signalMetricId}`
-        : `ownership:${a.attribution}`;
-    default: {
-      const unknown: never = a;
-      throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
-    }
+  if (isSignalAnalysis(a)) {
+    return `ownership:engagementSignal:${a.signalMetricId}`;
   }
+  return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
 }
 
 // Distinct engagement-signal metric ids used by a list of analyses.
@@ -63,22 +64,8 @@ export function interleavingSignalMetricIds(
   analyses: InterleavingAnalysis[],
 ): string[] {
   return [
-    ...new Set(
-      analyses.flatMap((a) =>
-        a.type === "ownership" && a.attribution === "engagementSignal"
-          ? [a.signalMetricId]
-          : [],
-      ),
-    ),
+    ...new Set(analyses.filter(isSignalAnalysis).map((a) => a.signalMetricId)),
   ];
-}
-
-// Key of one (metric, analysis) pair in snapshot results.
-export function interleavingResultKey(
-  metricId: string,
-  a: InterleavingAnalysis,
-): string {
-  return `${metricId}::${interleavingAnalysisKey(a)}`;
 }
 
 export const interleavingMetricConfigValidator = z

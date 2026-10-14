@@ -118,9 +118,9 @@ describe("getInterleavingMetricQuery", () => {
     // Signal joins need interleave_id on exposures even without paired
     expect(sql).toContain("e.interleave_id AS interleave_id");
     expect(sql).not.toContain("__credited");
-    expect(sql).toMatch(/COALESCE\(ss_0\.share_t, 0\)\s*\) AS wins_t_1/);
-    expect(sql).toMatch(/COALESCE\(ss_1\.share_t, 0\)\s*\) AS wins_t_2/);
-    expect(sql).toMatch(/\* ui\.share_t\) AS wins_t_3/);
+    expect(sql).toContain("ea.value_1 * ss_0.share_t, 0)) AS wins_t_1");
+    expect(sql).toContain("ea.value_2 * ss_1.share_t, 0)) AS wins_t_2");
+    expect(sql).toContain("ea.value_3 * ui.share_t, 0)) AS wins_t_3");
     expect(sql).toContain("m3_users_pref_treatment");
 
     expect(() =>

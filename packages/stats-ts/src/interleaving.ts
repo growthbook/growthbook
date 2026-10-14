@@ -12,10 +12,10 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 //   metric total on treatment-drafted competitive items, Y = same for
 //   control, N = shared competitive-exposure denominator.
 //
-// ownershipSignTest: Airbnb-style fallback (arXiv:2508.00751) when no
-//   interleave_id exists. Engagement is attributed by per-user item-ownership
-//   shares; each user reduces to the sign of (treatment wins - control wins);
-//   the test is a binomial sign test over non-tied users.
+// ownershipSignTest: Airbnb-style (arXiv:2508.00751). Engagement is
+//   attributed by per-user item-ownership shares (from exposure counts or an
+//   engagement signal); each user reduces to the sign of (treatment wins -
+//   control wins); the test is a binomial sign test over non-tied users.
 // ---------------------------------------------------------------------------
 
 // Cross-user joint sufficient statistics for the paired estimator.
