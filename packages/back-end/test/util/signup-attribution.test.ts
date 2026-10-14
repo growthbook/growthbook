@@ -48,6 +48,12 @@ describe("getOrgSignupAttribution", () => {
     expect(getOrgSignupAttribution({ utm_source: "" })).toBeUndefined();
   });
 
+  it("drops empty values alongside real ones", () => {
+    expect(
+      getOrgSignupAttribution({ utm_source: "docs", referrer: "" }),
+    ).toEqual({ utm_source: "docs" });
+  });
+
   it("keeps known fields and drops unknown passthrough keys", () => {
     expect(
       getOrgSignupAttribution({

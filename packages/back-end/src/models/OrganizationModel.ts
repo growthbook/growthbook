@@ -87,7 +87,8 @@ const organizationSchema = new mongoose.Schema({
       },
     ],
   },
-  // Same fields as the Zod schema, so the two can't drift
+  // Same fields as the Zod schema, so the two can't drift. Assumes every
+  // attribution field is a string.
   signupAttribution: Object.fromEntries(
     Object.keys(signupAttributionSchema.shape).map((key) => [key, String]),
   ),

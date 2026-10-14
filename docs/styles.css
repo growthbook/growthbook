@@ -512,6 +512,8 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   --cta-cycle: 5s;
   position: relative;
   overflow: hidden;
+  /* Keeps the sparkle's z-index from stacking above Mintlify menus */
+  isolation: isolate;
 }
 
 #topbar-cta-button > a::after {
@@ -532,6 +534,8 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   animation: topbar-cta-shine var(--cta-cycle) ease-in-out infinite;
 }
 
+/* The sparkle's offsets and its 7% start are tuned to the "Start for free"
+   label. Retune them if the label in docs.json changes. */
 #topbar-cta-button > a::before {
   content: "";
   position: absolute;

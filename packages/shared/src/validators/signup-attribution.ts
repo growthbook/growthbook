@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-// Stored on the organization document at creation.
+// Stored on the organization document at creation. Keep every field a
+// string: the Mongoose schema derives String paths from these keys.
 export const signupAttributionSchema = z.object({
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),

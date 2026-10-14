@@ -42,16 +42,17 @@ export function parseAttributionCookie(
 
 /**
  * Narrow a parsed gb_attr cookie to the known fields we persist on the
- * organization document. Returns undefined when there is nothing to store.
+ * organization document, dropping empty values. Returns undefined when there
+ * is nothing to store. The parse can't throw here: the input already passed
+ * the same field checks, and unknown keys are stripped rather than rejected.
  */
 export function getOrgSignupAttribution(
   attribution: AttributionCookie,
 ): SignupAttribution | undefined {
-  const result = signupAttributionSchema.safeParse(attribution);
-  if (!result.success) return undefined;
-  const fields = Object.entries(result.data).filter(([, value]) => !!value);
-  if (!fields.length) return undefined;
-  return Object.fromEntries(fields);
+  const fields = Object.entries(
+    signupAttributionSchema.parse(attribution),
+  ).filter(([, value]) => !!value);
+  return fields.length ? Object.fromEntries(fields) : undefined;
 }
 
 /**
