@@ -167,7 +167,10 @@ export default function ConnectDataSourceLayout({
     (next: Partial<DataSourceInterfaceWithParams>) => {
       setDatasource(next);
       setDirty(true);
-      if (next.params !== datasource.params) {
+      // ConnectionSettings rebuilds `params` on every change, including
+      // advanced settings, so compare by value. Only real connection changes
+      // should invalidate the test and trigger a server-side re-test on save.
+      if (!isEqual(next.params, datasource.params)) {
         setParamsDirty(true);
         resetTest();
       }
@@ -536,13 +539,7 @@ export default function ConnectDataSourceLayout({
             existing={existing}
             hasError={hasError}
             setDatasource={updateDatasource}
-            setDirty={(next) => {
-              setDirty(next);
-              if (next) {
-                setParamsDirty(true);
-                resetTest();
-              }
-            }}
+            setDirty={setDirty}
             onBigQueryTestResult={setBigQueryTestStatus}
           />
         </Frame>

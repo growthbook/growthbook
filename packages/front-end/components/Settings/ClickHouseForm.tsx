@@ -11,17 +11,15 @@ const ClickHouseForm: FC<{
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
+      <HostWarning
+        host={params.url}
+        setHost={(url) => {
+          setParams({
+            url,
+          });
+        }}
+      />
       <div className="row">
-        <div className="col-md-12">
-          <HostWarning
-            host={params.url}
-            setHost={(url) => {
-              setParams({
-                url,
-              });
-            }}
-          />
-        </div>
         <div className="form-group col-md-12">
           <label>URL</label>
           <input
