@@ -540,6 +540,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    // Same check the field shows, including the Cloud cap
+    if (timeoutError(formValues.timeoutSeconds)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),
@@ -566,7 +568,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
-      timeoutSeconds: z.number().int().min(1).nullish(),
+      timeoutSeconds: z.number().nullish(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);
