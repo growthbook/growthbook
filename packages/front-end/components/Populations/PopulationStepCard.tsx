@@ -28,14 +28,15 @@ import {
 } from "@/components/FactTables/rowFilterUtils";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 type WindowSettings = PopulationStep["windowSettings"];
 
 const WINDOW_UNITS: { value: WindowSettings["windowUnit"]; label: string }[] = [
-  { value: "minutes", label: "minutes" },
-  { value: "hours", label: "hours" },
-  { value: "days", label: "days" },
-  { value: "weeks", label: "weeks" },
+  { value: "minutes", label: "Minutes" },
+  { value: "hours", label: "Hours" },
+  { value: "days", label: "Days" },
+  { value: "weeks", label: "Weeks" },
 ];
 
 const DEFAULT_AGGREGATE_FILTER = ">=2";
@@ -184,6 +185,7 @@ export default function PopulationStepCard({
         {step.aggregateFilterColumn !== undefined && (
           <StepRow label="having">
             <AggregateFilterInput
+              stepNumber={index + 1}
               factTable={factTable}
               column={step.aggregateFilterColumn}
               filter={step.aggregateFilter ?? ""}
@@ -272,6 +274,7 @@ function StepRow({
 }
 
 function AggregateFilterInput({
+  stepNumber,
   factTable,
   column,
   filter,
@@ -279,6 +282,7 @@ function AggregateFilterInput({
   onChange,
   onRemove,
 }: {
+  stepNumber: number;
   factTable: Omit<FactTableInterface, "sql"> | null;
   column: string;
   filter: string;
@@ -333,13 +337,14 @@ function AggregateFilterInput({
           value={filter}
           onChange={(e) => onChange(column, e.target.value)}
           placeholder=">=3,<10"
-          aria-label="Aggregate filter"
+          aria-label={`Step ${stepNumber} aggregate filter`}
           style={{ width: 120 }}
         />
       ) : (
         <>
           <Select
             size="sm"
+            aria-label={`Step ${stepNumber} aggregate operator`}
             value={operator}
             setValue={(op) => {
               setOperator(op);
@@ -348,7 +353,7 @@ function AggregateFilterInput({
           >
             {POPULATION_AGGREGATE_OPERATORS.map((o) => (
               <SelectItem key={o.operator} value={o.operator}>
-                {o.label}
+                {capitalizeFirstLetter(o.label)}
               </SelectItem>
             ))}
           </Select>
@@ -361,7 +366,7 @@ function AggregateFilterInput({
               setValue(e.target.value);
               onChange(column, `${operator}${e.target.value}`);
             }}
-            aria-label="Aggregate filter value"
+            aria-label={`Step ${stepNumber} aggregate filter value`}
             style={{ width: 80 }}
           />
         </>
@@ -373,7 +378,7 @@ function AggregateFilterInput({
         variant="ghost"
         color="gray"
         size={radixSize("sm")}
-        aria-label="Remove aggregate filter"
+        aria-label={`Remove step ${stepNumber} aggregate filter`}
         onClick={onRemove}
       >
         <PiX />
@@ -399,6 +404,7 @@ function WindowInput({
     <Flex align="center" gap="2" wrap="wrap">
       <Select
         size="sm"
+        aria-label={`Step ${index + 1} window type`}
         value={value.type || "any"}
         setValue={(v) => {
           const type = v === "any" ? "" : (v as WindowSettings["type"]);
@@ -409,11 +415,11 @@ function WindowInput({
           });
         }}
       >
-        <SelectItem value="any">at any time</SelectItem>
+        <SelectItem value="any">At any time</SelectItem>
         {anchorIndex !== null && (
-          <SelectItem value="conversion">within</SelectItem>
+          <SelectItem value="conversion">Within</SelectItem>
         )}
-        <SelectItem value="lookback">in the last</SelectItem>
+        <SelectItem value="lookback">In the last</SelectItem>
       </Select>
       {value.type && (
         <>
@@ -425,11 +431,12 @@ function WindowInput({
             onChange={(e) =>
               onChange({ ...value, windowValue: Number(e.target.value) })
             }
-            aria-label="Window length"
+            aria-label={`Step ${index + 1} window length`}
             style={{ width: 72 }}
           />
           <Select
             size="sm"
+            aria-label={`Step ${index + 1} window unit`}
             value={value.windowUnit}
             setValue={(windowUnit) =>
               onChange({

@@ -291,15 +291,7 @@ export default function PopulationsPage() {
                 <TableRow>
                   <TableCell colSpan={8} style={{ textAlign: "center" }}>
                     No matching Populations.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
+                    <Link onClick={() => clear()}>Clear search field</Link>
                   </TableCell>
                 </TableRow>
               )}

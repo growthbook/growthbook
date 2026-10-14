@@ -1,4 +1,5 @@
 import type { PopulationStep } from "shared/validators";
+import type { PopulationRuleFactTable } from "shared/populations";
 import {
   getDefaultPopulationUserIdType,
   getPopulationDraftIssue,
@@ -133,6 +134,17 @@ describe("removePopulationStep", () => {
 });
 
 describe("getPopulationDraftIssue", () => {
+  const factTable = (
+    id: string,
+    extra: Partial<PopulationRuleFactTable> = {},
+  ): PopulationRuleFactTable => ({
+    id,
+    datasource: "ds_1",
+    userIdTypes: ["user_id"],
+    columns: [],
+    ...extra,
+  });
+  const factTables = [factTable("a"), factTable("b")];
   const complete: PopulationDraft = {
     name: "Buyers",
     description: "",
@@ -140,29 +152,26 @@ describe("getPopulationDraftIssue", () => {
     userIdTypes: ["user_id"],
     steps: [step("a", { windowSettings: anyTime }), step("b")],
   };
+  const issue = (draft: PopulationDraft, tables = factTables) =>
+    getPopulationDraftIssue(draft, tables);
 
   it("accepts a complete draft", () => {
-    expect(getPopulationDraftIssue(complete)).toBeNull();
+    expect(issue(complete)).toBeNull();
   });
 
   it("requires a name", () => {
-    expect(getPopulationDraftIssue({ ...complete, name: "  " })).toBe(
-      "Enter a name.",
-    );
+    expect(issue({ ...complete, name: "  " })).toBe("Enter a name.");
   });
 
   it("requires a fact table on every step", () => {
-    expect(
-      getPopulationDraftIssue({
-        ...complete,
-        steps: [complete.steps[0], step("")],
-      }),
-    ).toBe("Choose a fact table for step 2.");
+    expect(issue({ ...complete, steps: [complete.steps[0], step("")] })).toBe(
+      "Choose a fact table for step 2.",
+    );
   });
 
   it("requires complete row filters", () => {
     expect(
-      getPopulationDraftIssue({
+      issue({
         ...complete,
         steps: [
           step("a", {
@@ -185,15 +194,15 @@ describe("getPopulationDraftIssue", () => {
         }),
       ],
     });
-    expect(getPopulationDraftIssue(withAggregate(">="))).toBe(
+    expect(issue(withAggregate(">="))).toBe(
       "Finish the aggregate filter in step 1.",
     );
-    expect(getPopulationDraftIssue(withAggregate(">=3,<10"))).toBeNull();
+    expect(issue(withAggregate(">=3,<10"))).toBeNull();
   });
 
   it("requires a window length when a window is set", () => {
     expect(
-      getPopulationDraftIssue({
+      issue({
         ...complete,
         steps: [
           complete.steps[0],
@@ -203,5 +212,61 @@ describe("getPopulationDraftIssue", () => {
         ],
       }),
     ).toBe("Enter a window length for step 2.");
+  });
+
+  it("limits how many fact tables the steps read from", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    expect(
+      issue(
+        {
+          ...complete,
+          steps: ids.map((id, i) =>
+            step(id, i === 0 ? { windowSettings: anyTime } : {}),
+          ),
+        },
+        ids.map((id) => factTable(id)),
+      ),
+    ).toBe(
+      "Populations can read from at most 5 distinct fact tables (this one reads from 6).",
+    );
+  });
+
+  it("flags a fact table that doesn't support the identifier type", () => {
+    expect(issue({ ...complete, userIdTypes: ["anonymous_id"] })).toBe(
+      "Fact table a does not support identifier types: anonymous_id.",
+    );
+  });
+
+  it("doesn't reject JSON sub-field aggregates the slim fact table can't type", () => {
+    expect(
+      issue(
+        {
+          ...complete,
+          steps: [
+            step("a", {
+              windowSettings: anyTime,
+              aggregateFilterColumn: "props.quantity",
+              aggregateFilter: ">=1",
+            }),
+          ],
+        },
+        [
+          factTable("a", {
+            columns: [
+              {
+                dateCreated: new Date(0),
+                dateUpdated: new Date(0),
+                name: "props",
+                description: "",
+                column: "props",
+                datatype: "json",
+                numberFormat: "",
+                deleted: false,
+              },
+            ],
+          }),
+        ],
+      ),
+    ).toBeNull();
   });
 });

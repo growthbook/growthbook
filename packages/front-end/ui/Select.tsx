@@ -28,6 +28,9 @@ type SelectProps = {
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
+  /** Names the trigger for assistive tech when there is no visible `label`. */
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -49,6 +52,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     triggerClassName,
     align = "start",
     container,
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledBy,
     ...containerProps
   }: SelectProps,
   ref,
@@ -75,6 +80,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           autoFocus={autoFocus}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}

@@ -39,8 +39,13 @@ export default function PopulationEditor({
   const restApiCall = useRestApiCall();
   const refreshPopulations = useRefreshPopulations();
   const permissionsUtil = usePermissionsUtil();
-  const { project, datasources, factTables, getDatasourceById } =
-    useDefinitions();
+  const {
+    project,
+    datasources,
+    factTables,
+    _factTablesIncludingArchived: allFactTables,
+    getDatasourceById,
+  } = useDefinitions();
 
   const eligibleDatasources = useMemo(
     () =>
@@ -96,7 +101,7 @@ export default function PopulationEditor({
     ? permissionsUtil.canUpdatePopulation(population, { projects })
     : permissionsUtil.canCreatePopulation({ projects });
   const issue = canSave
-    ? getPopulationDraftIssue(draft)
+    ? getPopulationDraftIssue(draft, allFactTables)
     : "You don't have permission to save this Population.";
 
   const userIdTypeOptions =
@@ -273,8 +278,9 @@ export default function PopulationEditor({
             </Heading>
             <Box mb="3">
               <Text size="sm" color="text-mid">
-                Members match every step, in order. Each step sets one date. A
-                member&apos;s joined date comes from the last step.
+                Members match every step, in order. The joined date comes from
+                the last step, or the last &quot;has&quot; step requiring a
+                positive match.
               </Text>
             </Box>
 

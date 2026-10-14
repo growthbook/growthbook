@@ -516,6 +516,29 @@ describe("getPopulationRuleViolations", () => {
       ]);
     });
 
+    it("skips JSON sub-field types only when told they are unknown", () => {
+      const slimEvents: PopulationRuleFactTable = {
+        ...events,
+        columns: events.columns.map((c) => ({ ...c, jsonFields: undefined })),
+      };
+      const input = {
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [withAggregate("props.quantity"), withAggregate("country")],
+        factTables: [slimEvents],
+      };
+
+      expect(getPopulationRuleViolations(input)).toEqual([
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'country' must be a numeric column or "$$count" (step 2).`,
+      ]);
+      expect(
+        getPopulationRuleViolations({ ...input, jsonFieldTypesUnknown: true }),
+      ).toEqual([
+        `Aggregate filter column 'country' must be a numeric column or "$$count" (step 2).`,
+      ]);
+    });
+
     it("leaves a missing fact table to the existence check", () => {
       expect(
         getPopulationRuleViolations({

@@ -1,6 +1,10 @@
 import omit from "lodash/omit";
 import type { PopulationStep } from "shared/validators";
-import { isValidPopulationAggregateFilter } from "shared/populations";
+import {
+  getPopulationRuleViolations,
+  isValidPopulationAggregateFilter,
+  type PopulationRuleFactTable,
+} from "shared/populations";
 import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 
 export type PopulationDraft = {
@@ -100,7 +104,11 @@ export function removePopulationStep(
 }
 
 // The first reason the draft can't be saved yet, or null when it's complete.
-export function getPopulationDraftIssue(draft: PopulationDraft): string | null {
+// Incomplete fields come first, then the same rules the server enforces.
+export function getPopulationDraftIssue(
+  draft: PopulationDraft,
+  factTables: PopulationRuleFactTable[],
+): string | null {
   if (!draft.name.trim()) return "Enter a name.";
   if (!draft.datasource) return "Choose a Data Source.";
   if (!draft.userIdTypes.length) return "Choose an identifier type.";
@@ -121,5 +129,12 @@ export function getPopulationDraftIssue(draft: PopulationDraft): string | null {
       return `Enter a window length for step ${n}.`;
     }
   }
-  return null;
+  const [violation] = getPopulationRuleViolations({
+    datasource: draft.datasource,
+    userIdTypes: draft.userIdTypes,
+    steps: draft.steps,
+    factTables,
+    jsonFieldTypesUnknown: true,
+  });
+  return violation ?? null;
 }
