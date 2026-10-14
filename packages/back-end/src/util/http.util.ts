@@ -11,15 +11,15 @@ import {
 const DEFAULT_WEBHOOK_TIMEOUT_MS = 30000;
 
 // Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_MS later still applies to stored webhooks
-export function getWebhookTimeoutMs(timeoutMs?: number) {
+export function getWebhookTimeoutMs(timeoutMs?: number | null) {
   return Math.min(
     timeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS,
     MAX_WEBHOOK_TIMEOUT_MS,
   );
 }
 
-export function validateWebhookTimeoutMs(timeoutMs?: number) {
-  if (timeoutMs !== undefined && timeoutMs > MAX_WEBHOOK_TIMEOUT_MS) {
+export function validateWebhookTimeoutMs(timeoutMs?: number | null) {
+  if (typeof timeoutMs === "number" && timeoutMs > MAX_WEBHOOK_TIMEOUT_MS) {
     throw new Error(
       `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_MS / 1000} seconds`,
     );

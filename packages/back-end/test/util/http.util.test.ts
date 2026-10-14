@@ -99,6 +99,7 @@ describe("getAuthProxyForUrl", () => {
 describe("webhook timeouts", () => {
   it("defaults to 30s and clamps to MAX_WEBHOOK_TIMEOUT_MS", () => {
     expect(getWebhookTimeoutMs(undefined)).toBe(30000);
+    expect(getWebhookTimeoutMs(null)).toBe(30000);
     expect(getWebhookTimeoutMs(5000)).toBe(5000);
     expect(getWebhookTimeoutMs(500000)).toBe(120000);
   });

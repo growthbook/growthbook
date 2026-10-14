@@ -20,8 +20,13 @@ export const webhookMethods = [
   "PATCH",
 ] as const;
 
-// Upper bound is enforced server-side by MAX_WEBHOOK_TIMEOUT_MS
-export const webhookTimeoutMsValidator = z.number().int().min(1000);
+// Whole seconds; null clears it back to the default. Upper bound is enforced server-side by MAX_WEBHOOK_TIMEOUT_MS
+export const webhookTimeoutMsValidator = z
+  .number()
+  .int()
+  .min(1000)
+  .multipleOf(1000)
+  .nullable();
 
 export const webhookSchema = z.strictObject({
   id: z.string(),

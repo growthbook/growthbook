@@ -42,12 +42,12 @@ export type EventWebHookEditParams = {
   headers: string;
   // Kept as the typed seconds string until submit, then converted to timeoutMs
   timeoutSeconds?: string;
-  timeoutMs?: number;
+  timeoutMs?: number | null;
 };
 
-// Whole seconds only, so the native number input's step of 1 matches validation
-export const timeoutSecondsToMs = (s?: string) =>
-  s ? Number(s) * 1000 : undefined;
+// Whole seconds only, so the native number input's step of 1 matches validation.
+// Blank is null rather than undefined so an edit clears the stored value.
+export const timeoutSecondsToMs = (s?: string) => (s ? Number(s) * 1000 : null);
 
 export const timeoutError = (s?: string) => {
   if (!s) return undefined;
