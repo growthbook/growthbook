@@ -59,7 +59,7 @@
               {
                 "group": "Quickstart",
                 "root": "quick-start",
-                "pages": ["quick-start/wizard"]
+                "pages": ["setup-wizard"]
               },
               "command-palette",
               {
@@ -1328,7 +1328,7 @@
   "redirects": [
     {
       "source": "/integrations/ai-agents/wizard",
-      "destination": "/quick-start/wizard"
+      "destination": "/setup-wizard"
     },
     {
       "source": "/app/fact-tables",
