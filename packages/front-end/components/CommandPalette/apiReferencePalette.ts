@@ -5,11 +5,12 @@ import type { ApiReferenceSection } from "@/components/docSections";
  * Rows for Cmd+K: links into the REST API reference.
  *
  * The reference has one page per operation, grouped by resource in the
- * docs.json API navigation. Each resource row opens the first page of its
- * group, via an `api*` entry in `apiReferenceSections` so the docs link check
- * validates it. `getDocSectionsForCommandPalette` skips those entries, so each
- * resource is listed once. `tag` is the OpenAPI tag, kept for search and the
- * row id.
+ * docs.json API navigation. Each resource row opens the resource's list
+ * endpoint where its group has one, otherwise the group's first page, via an
+ * `api*` entry in `apiReferenceSections` so the docs link check validates it.
+ * `getDocSectionsForCommandPalette` skips those entries and `apiIntroduction`
+ * (the overview row below), so each destination is listed once. `tag` is the
+ * OpenAPI tag, kept for search and the row id.
  */
 export interface ApiReferencePaletteRow {
   id: string;

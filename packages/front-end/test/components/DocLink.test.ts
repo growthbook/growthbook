@@ -1,5 +1,6 @@
 import {
   docTitleForSection,
+  docUrl,
   getDocSectionsForCommandPalette,
 } from "@/components/DocLink";
 import { getApiReferencePaletteRows } from "@/components/CommandPalette/apiReferencePalette";
@@ -58,8 +59,17 @@ describe("Cmd+K docs and API reference rows", () => {
     );
 
     expect(new Set(apiUrls).size).toBe(apiUrls.length);
-    // The overview row shares its URL with the `apiIntroduction` docs row.
-    expect(apiRows.slice(1).filter((r) => docUrls.has(r.url))).toEqual([]);
+    expect(apiRows.filter((r) => docUrls.has(r.url))).toEqual([]);
     expect(apiRows.slice(1).every((r) => !r.url.includes("#"))).toBe(true);
+  });
+
+  it("lists the REST API overview exactly once", () => {
+    const overviewUrl = docUrl("apiIntroduction");
+    const allUrls = [
+      ...getDocSectionsForCommandPalette(),
+      ...getApiReferencePaletteRows(),
+    ].map((r) => r.url);
+
+    expect(allUrls.filter((url) => url === overviewUrl)).toHaveLength(1);
   });
 });

@@ -151,7 +151,8 @@ export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
 
 /**
  * Stable rows for indexing documentation in the command palette. REST API
- * reference entries are skipped: `apiReferencePalette.ts` lists them.
+ * reference entries and the API overview (`apiIntroduction`) are skipped:
+ * `apiReferencePalette.ts` lists them.
  */
 export function getDocSectionsForCommandPalette(): {
   section: DocSection;
@@ -160,7 +161,10 @@ export function getDocSectionsForCommandPalette(): {
   tags: string;
 }[] {
   return (Object.keys(docSections) as DocSection[])
-    .filter((section) => !(section in apiReferenceSections))
+    .filter(
+      (section) =>
+        section !== "apiIntroduction" && !(section in apiReferenceSections),
+    )
     .map((section) => ({
       section,
       title: docTitleForSection(section),

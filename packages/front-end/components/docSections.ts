@@ -11,9 +11,10 @@
 export const docsOrigin = "https://docs.growthbook.io";
 
 /**
- * REST API reference, one entry per resource: the first page of that
- * resource's group in the docs.json API navigation. Cmd+K lists these through
- * `apiReferencePalette.ts`, so they are left out of the generic docs rows.
+ * REST API reference, one entry per resource: the resource's list endpoint
+ * where its docs.json API group has one, otherwise the group's first page.
+ * Cmd+K lists these through `apiReferencePalette.ts`, so they are left out of
+ * the generic docs rows.
  */
 export const apiReferenceSections = {
   apiProjects: "/api/projects/operation/listProjects",
@@ -39,11 +40,11 @@ export const apiReferenceSections = {
   apiAttributes: "/api/attributes/operation/listAttributes",
   apiUsage: "/api/usage/operation/getMetricUsage",
   apiCustomFields: "/api/CustomFields/operation/listCustomFields",
-  apiDashboards: "/api/Dashboards/operation/getDashboard",
+  apiDashboards: "/api/Dashboards/operation/listDashboards",
   apiExperimentTemplates:
-    "/api/ExperimentTemplates/operation/getExperimentTemplate",
-  apiMetricGroups: "/api/MetricGroups/operation/getMetricGroup",
-  apiTeams: "/api/Teams/operation/getTeam",
+    "/api/ExperimentTemplates/operation/listExperimentTemplates",
+  apiMetricGroups: "/api/MetricGroups/operation/listMetricGroups",
+  apiTeams: "/api/Teams/operation/listTeams",
 };
 
 export type ApiReferenceSection = keyof typeof apiReferenceSections;
