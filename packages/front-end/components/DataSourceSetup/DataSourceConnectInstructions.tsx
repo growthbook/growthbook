@@ -34,10 +34,11 @@ function CommandBlock({ code }: { code: string }) {
           fontFamily: "var(--font-mono, monospace)",
           fontSize: 12,
           lineHeight: 1.75,
-          // Wrap long lines in place of a horizontal scrollbar. The copy
-          // button still copies the unwrapped `code`.
+          // Wrap long lines in place of a horizontal scrollbar; a token only
+          // breaks mid-word when it is wider than the pane on its own. The
+          // copy button still copies the unwrapped `code`.
           whiteSpace: "pre-wrap",
-          overflowWrap: "anywhere",
+          overflowWrap: "break-word",
           color: "var(--color-text-high)",
         }}
       >

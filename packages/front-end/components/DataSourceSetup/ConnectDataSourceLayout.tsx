@@ -549,7 +549,7 @@ export default function ConnectDataSourceLayout({
           </Text>
         ) : null}
         <Button variant="ghost" onClick={onCancel}>
-          Cancel
+          {existing ? "Cancel" : "Back"}
         </Button>
         <Button disabled={!canSave} loading={saving} onClick={handleSave}>
           {existing ? "Save changes" : "Create Data Source"}
