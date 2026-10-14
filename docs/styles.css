@@ -509,6 +509,8 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
 /* "Start for free" navbar CTA: a quick light sweep across the button every
    5s, followed by a sparkle twinkling over the end of "free". */
 #topbar-cta-button > a {
+  --cta-cycle: 5s;
+  position: relative;
   overflow: hidden;
 }
 
@@ -527,17 +529,18 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   );
   transform: skewX(-20deg);
   pointer-events: none;
-  animation: topbar-cta-shine 5s ease-in-out infinite;
+  animation: topbar-cta-shine var(--cta-cycle) ease-in-out infinite;
 }
 
 #topbar-cta-button > a::before {
   content: "";
   position: absolute;
-  top: 7px;
-  right: 11px;
+  top: 0.5em;
+  right: 0.8em;
+  /* Above the label, which Mintlify renders at z-index 10 */
   z-index: 20;
-  width: 9px;
-  height: 9px;
+  width: 0.65em;
+  height: 0.65em;
   background: #fff;
   clip-path: polygon(
     50% 0%,
@@ -552,7 +555,7 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
-  animation: topbar-cta-sparkle 5s ease-in-out infinite;
+  animation: topbar-cta-sparkle var(--cta-cycle) ease-in-out infinite;
 }
 
 @keyframes topbar-cta-shine {
