@@ -16,7 +16,6 @@ import {
 } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
-import { BigQueryTestStatus } from "@/components/Settings/BigQueryForm";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -40,24 +39,6 @@ import DataSourceConnectInstructions, {
 } from "./DataSourceConnectInstructions";
 
 type TestStatus = "idle" | "running" | "passed" | "failed";
-
-// Fields BigQueryForm's test covers. Changing any of them invalidates a
-// previously saved or tested connection.
-const BIGQUERY_CREDENTIAL_KEYS = [
-  "authType",
-  "projectId",
-  "apiEndpoint",
-  "clientEmail",
-  "privateKey",
-] as const;
-
-function paramValue(
-  params: Partial<DataSourceInterfaceWithParams>["params"] | undefined,
-  key: string,
-): string {
-  const value = (params as Partial<Record<string, unknown>> | undefined)?.[key];
-  return typeof value === "string" ? value : "";
-}
 
 const DATA_SOURCE_TYPE_ABBR: Record<DataSourceType, string> = {
   bigquery: "BQ",
@@ -109,8 +90,6 @@ export default function ConnectDataSourceLayout({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testMessage, setTestMessage] = useState<string | null>(null);
-  const [bigQueryTestStatus, setBigQueryTestStatus] =
-    useState<BigQueryTestStatus | null>(null);
   const [saving, setSaving] = useState(false);
   // Incremented whenever the params a test would cover change, so a response
   // from an earlier test cannot approve credentials it never saw.
@@ -199,32 +178,10 @@ export default function ConnectDataSourceLayout({
       ? "You don't have permission to create a Data Source for All Projects. Select a Project."
       : null;
 
-  // BigQuery verifies the connection from the form above, which also loads
-  // datasets so the user can choose a default dataset. The form reports its
-  // result here and clears it whenever a credential field changes.
-  const isBigQuery = datasource.type === "bigquery";
-  const bigQueryDefaultDataset =
-    isBigQuery && datasource.params && "defaultDataset" in datasource.params
-      ? (datasource.params.defaultDataset || "").trim()
-      : "";
-  const bigQueryCredentialsDirty =
-    isBigQuery &&
-    BIGQUERY_CREDENTIAL_KEYS.some(
-      (key) =>
-        paramValue(datasource.params, key) !== paramValue(initial.params, key),
-    );
-  // Saved credentials that have not been touched were verified when saved.
-  const needsBigQueryTest =
-    isBigQuery && !isSampleData && (!existing || bigQueryCredentialsDirty);
-  // "warning" means connected but no datasets were found; credentials are valid.
-  const bigQueryTestPassed =
-    bigQueryTestStatus === "success" || bigQueryTestStatus === "warning";
-
   const canTest =
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
-    !isSampleData &&
-    !isBigQuery;
+    !isSampleData;
 
   const runTest = async () => {
     if (
@@ -289,8 +246,6 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     projectPermissionError === null &&
     (!needsSuccessfulTest || testStatus === "passed") &&
-    (!needsBigQueryTest || bigQueryTestPassed) &&
-    (!isBigQuery || !!bigQueryDefaultDataset) &&
     (existing ? dirty : true);
 
   const saveHint = (() => {
@@ -302,17 +257,6 @@ export default function ConnectDataSourceLayout({
     }
     if (projectPermissionError !== null) {
       return "Select a Project to continue";
-    }
-    // BigQuery's test lives inside the form ("Test Connection" button), not
-    // in the Connection Test section, so point at that control.
-    if (needsBigQueryTest && bigQueryTestStatus === null) {
-      return "Use Test Connection above to continue";
-    }
-    if (needsBigQueryTest && bigQueryTestStatus === "danger") {
-      return "Fix the connection and run Test Connection again to continue";
-    }
-    if (isBigQuery && !bigQueryDefaultDataset) {
-      return "Choose a default dataset to continue";
     }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";
@@ -526,7 +470,7 @@ export default function ConnectDataSourceLayout({
             hasError={hasError}
             setDatasource={updateDatasource}
             setDirty={setDirty}
-            onBigQueryTestResult={setBigQueryTestStatus}
+            connectionOnly
           />
         </Frame>
 
