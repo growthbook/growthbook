@@ -120,6 +120,11 @@
           }
         },
         { "name": "min_order_total", "agg": "min", "expr": "order_total" },
+        {
+          "name": "distinct_order_totals",
+          "agg": "count_distinct",
+          "expr": "order_total"
+        },
         { "name": "order_cost", "agg": "sum", "expr": "cost_amount" },
         {
           "name": "net_revenue",
@@ -479,6 +484,31 @@
           "entity": "user",
           "calculation": "conversion_rate",
           "window": { "count": 7, "granularity": "day" },
+          "constant_properties": null
+        }
+      },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.distinct_order_totals": {
+      "name": "distinct_order_totals",
+      "type": "simple",
+      "type_params": { "measure": { "name": "distinct_order_totals" } },
+      "filter": null,
+      "config": { "meta": {} },
+      "tags": []
+    },
+    "metric.jaffle.visit_to_buy_by_visit": {
+      "name": "visit_to_buy_by_visit",
+      "type": "conversion",
+      "type_params": {
+        "conversion_type_params": {
+          "base_measure": { "name": "visits" },
+          "conversion_measure": { "name": "buys" },
+          "entity": "visit_id",
+          "calculation": "conversion_rate",
+          "window": { "count": 1, "granularity": "hour" },
           "constant_properties": null
         }
       },

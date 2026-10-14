@@ -20,13 +20,14 @@ This builds on the same bulk import API as the [GitHub metrics guide](/integrati
 | `average`                                           | Ratio metric: sum of the column over row count                                                                                                                                                                                                  |
 | `sum_boolean`                                       | Mean metric over a virtual column `CASE WHEN ... THEN 1 ELSE 0 END`                                                                                                                                                                             |
 | `median`, `percentile`                              | Quantile metric                                                                                                                                                                                                                                 |
-| Measure `expr` that is not a plain column           | Virtual column on the Fact Table                                                                                                                                                                                                                |
+| Measure `expr` that is not a plain column           | Virtual column on the Fact Table, named `<measure>_vc`                                                                                                                                                                                          |
+| `count` of a column that can be null                | Adds an `IS NOT NULL` row filter so it matches `COUNT(column)`; counting a primary or unique entity adds nothing                                                                                                                                |
 | Metric `filter` on the model's own dimensions       | Row filter on the metric. Simple comparisons (`=`, `!=`, `<`, `>`, `IN`, `IS NULL`, booleans) become structured filters; anything else is kept as a SQL expression, which GrowthBook test-runs against the warehouse when the metric is created |
 | Metric `filter` on a dimension one join away        | A second Fact Table with a `LEFT JOIN`, shared by every metric that needs the same join                                                                                                                                                         |
 | Ratio metric                                        | Ratio metric                                                                                                                                                                                                                                    |
-| Cumulative metric with a `window`                   | The input metric with a lookback window                                                                                                                                                                                                         |
+| Cumulative metric with a `window`                   | The input metric with a lookback window. Months, quarters and years become 30, 91 and 365 days, with a note in the output                                                                                                                       |
 | Cumulative metric without a window                  | The input metric (an experiment already aggregates over its whole date range)                                                                                                                                                                   |
-| Conversion metric                                   | Two-step Funnel metric with a conversion window on the second step                                                                                                                                                                              |
+| Conversion metric                                   | Two-step Funnel metric with a conversion window on the second step. The `entity` must map to a Data Source identifier type, because funnels join events on the experiment's unit                                                                |
 | Derived metric of the form `a / b`                  | Ratio metric                                                                                                                                                                                                                                    |
 | `label`, `description`, `config.tags`               | Name, description, tags                                                                                                                                                                                                                         |
 | `config.meta.growthbook.*`                          | Merged onto the Fact Table or Fact Metric (see [Overrides](#overrides))                                                                                                                                                                         |
@@ -110,6 +111,8 @@ By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archiv
 
 dbt has no vocabulary for conversion windows, capping, inverse metrics, priors or projects. Set those under `config.meta.growthbook` on a metric or semantic model, using the field names from the [Fact Metric](/api/fact-metrics/operation/postFactMetric) and [Fact Table](/api/fact-tables/operation/postFactTable) API docs. They are merged last and win over the translated values.
 
+Fields the sync derives from dbt (name, description, tags, lookback windows) are always sent, so removing them in dbt removes them in GrowthBook. Fields that only come from `meta.growthbook` are left untouched when you delete the key, because the API keeps omitted settings. To clear one, set it explicitly, for example `cappingSettings: { type: none }`.
+
 ```yml
 metrics:
   - name: revenue
@@ -130,7 +133,7 @@ metrics:
 
 ### Models Without a Semantic Model
 
-A plain dbt model can also become a Fact Table by describing it in GrowthBook's own terms under `meta.growthbook`. `userIdTypes` marks it as a Fact Table; `metrics` entries use the Fact Metric API fields plus an `id`, and their numerators default to this table.
+A plain dbt model can also become a Fact Table by describing it in GrowthBook's own terms under `meta.growthbook`. `userIdTypes` marks it as a Fact Table; `metrics` entries use the Fact Metric API fields plus an `id`, and their numerators default to this table. The timestamp and identifier columns are declared for you; the rest are detected from the SQL.
 
 ```yml
 models:
