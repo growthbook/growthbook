@@ -112,7 +112,7 @@ export const apiCreateCustomFieldBody = z.strictObject({
     .string()
     .min(1)
     .describe(
-      "Permanent key used in API payloads (e.g. `jira_ticket`). Lowercase letters, numbers, hyphens, and underscores. Put the label in `name`.",
+      "Unique, permanent key used in API payloads (e.g. `jira_ticket`). Lowercase letters, numbers, hyphens, and underscores. Put the label in `name`.",
     ),
   name: z.string().describe("The display name of the custom field"),
   description: z

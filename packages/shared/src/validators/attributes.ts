@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 import {
+  ATTRIBUTE_PROPERTY_DESCRIPTION,
   MARKDOWN_DESCRIPTION,
   PROJECTS_DESCRIPTION,
   TAGS_DESCRIPTION,
@@ -43,11 +44,7 @@ export const apiAttributeValidator = namedSchema(
 // Corresponds to postAttribute path requestBody
 const postAttributeBody = z
   .object({
-    property: z
-      .string()
-      .describe(
-        "Permanent attribute name as your SDK passes it (e.g. `userId`).",
-      ),
+    property: z.string().describe(ATTRIBUTE_PROPERTY_DESCRIPTION),
     datatype: z
       .enum([
         "boolean",

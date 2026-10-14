@@ -10,7 +10,7 @@ export const TAGS_DESCRIPTION =
   "Tags for filtering and grouping. Use these instead of encoding groups in names.";
 
 export const FEATURE_KEY_DESCRIPTION =
-  "Permanent key, shown as the Feature Flag's name in the UI and used in code. Keep it short and follow your organization's key format if it has one, otherwise kebab-case (e.g. `checkout-express-pay`). Put context in `description`.";
+  "Unique, permanent key, shown as the Feature Flag's name in the UI and used in code. Keep it short. If `featureRegexValidator` in `GET /api/v1/settings` is set, follow it (`featureKeyExample` shows the format); otherwise use kebab-case (e.g. `checkout-express-pay`). Put context in `description`.";
 
 export const FEATURE_DESCRIPTION =
   "Markdown. What the Feature Flag gates and why, rollout plan, and links. Put context here, not in the key.";
@@ -22,7 +22,7 @@ export const EXPERIMENT_NAME_DESCRIPTION =
   "Short display name (e.g. `Express checkout button`). Put reasoning in `hypothesis` and context in `description`.";
 
 export const EXPERIMENT_TRACKING_KEY_DESCRIPTION =
-  "Key sent with exposure events. Keep it short and follow your organization's tracking key format if it has one, otherwise kebab-case (usually the Feature Flag key). Changing it after launch splits exposures across two keys.";
+  "Key sent with exposure events. Keep it short, in kebab-case (usually the Feature Flag key). If your organization requires a tracking key format, a key that doesn't match is rejected with `invalid_tracking_key`. Changing it after launch splits exposures across two keys.";
 
 export const EXPERIMENT_HYPOTHESIS_DESCRIPTION =
   "Markdown. If we change X, metric Y will move because Z.";
@@ -62,10 +62,13 @@ export const REQUEST_REVIEW_COMMENT_DESCRIPTION =
   "Markdown. What changed and why, for reviewers. Replaces the draft's comment; leaving it out clears it.";
 
 export const PUBLISH_COMMENT_DESCRIPTION =
-  "Note recorded in the revision history for this publish. Becomes the draft's comment only if the draft has none.";
+  "Note recorded in the audit log for this publish. Becomes the draft's comment only if the draft has none.";
+
+export const REVERT_COMMENT_IGNORED_DESCRIPTION =
+  "Currently ignored. Use `title` to describe the revert.";
 
 export const PROJECTS_DESCRIPTION =
-  "Project IDs. Use Projects instead of prefixing names.";
+  "Project IDs that can use this. An empty list means all Projects. Projects control access and availability, so don't use them as labels.";
 
 export const ENVIRONMENT_PROJECTS_DESCRIPTION =
   "Limits which Projects can use this environment. Omit to allow all Projects.";
@@ -74,4 +77,10 @@ export const ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION =
   "Limits which Projects can use this environment. Omit to keep the current list; send `[]` to allow all Projects.";
 
 export const REVIEW_COMMENT_DESCRIPTION =
-  "Markdown. Why you approved or requested changes.";
+  'Markdown. Why you approved, requested changes or commented. A comment alone doesn\'t approve; send `action: "approve"` to approve.';
+
+export const REVIEW_ACTION_DESCRIPTION =
+  "`approve`, `request-changes` or `comment`. Defaults to `comment`, which doesn't change whether the draft is approved.";
+
+export const ATTRIBUTE_PROPERTY_DESCRIPTION =
+  "Attribute name exactly as your SDK passes it (e.g. `userId`). The API can't rename it, and renaming it in the UI doesn't update SDK code or targeting conditions.";

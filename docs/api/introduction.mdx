@@ -66,10 +66,10 @@ curl https://api.growthbook.io/api/v1/features \
 
 People review what the API creates in the GrowthBook UI.
 
-- Keep keys and names short (2-5 words). Follow your organization's key format, or use kebab-case if it has none. Feature Flag keys can't be changed after creation, and an experiment's tracking key shouldn't change after launch.
+- Keep keys and names short (2-5 words). Follow your organization's Feature Flag key format (`featureRegexValidator` and `featureKeyExample` in `GET /v1/settings`), or use kebab-case if it has none. Feature Flag keys can't be changed after creation, and an experiment's tracking key shouldn't change after launch.
 - Put context (why, plan, tickets, links) in `description`, not in names or keys.
-- Group with tags and Projects (`tags`, `project` or `projects`, depending on the endpoint), not name prefixes.
-- To create a Feature Flag disabled, list every environment in `environments` with `enabled: false`. An environment you leave out uses its default state, which may be enabled.
+- Group with `tags`, not name prefixes. Projects (`project` or `projects`) control access and where a resource can be used, so set them deliberately instead of using them as labels.
+- To create a Feature Flag disabled with `POST /v2/features`, list every environment in `environments` with `enabled: false` (on `POST /v1/features`, each entry also needs `rules: []`). An environment you leave out uses its default state, which may be enabled.
 - Leave publishing and production changes to a person unless asked.
 - If a request is blocked (an approval requirement, a warning, a Custom Hook, schema validation or a permission error), stop and ask a person. Don't retry with an override field, a different key or another workaround unless a person asked you to.
 

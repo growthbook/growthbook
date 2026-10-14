@@ -18,7 +18,6 @@ import { booleanQueryField, savedGroupTargeting } from "./shared";
 import {
   GENERIC_NAME_DESCRIPTION,
   MARKDOWN_DESCRIPTION,
-  PROJECTS_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
 
@@ -378,7 +377,12 @@ export const apiUpdateHoldoutBody = z.strictObject({
     .max(MAX_DESCRIPTION_LENGTH)
     .describe(MARKDOWN_DESCRIPTION)
     .optional(),
-  projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+  projects: z
+    .array(z.string())
+    .describe(
+      "Project IDs this Holdout applies to. Send an empty array for All Projects.",
+    )
+    .optional(),
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   archived: z.boolean().optional(),

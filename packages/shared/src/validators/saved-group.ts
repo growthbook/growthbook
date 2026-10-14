@@ -183,6 +183,8 @@ const postSavedGroupBody = z
 const updateSavedGroupBody = z
   .object({
     name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
+    // No `.max()`: the handler only checks a changed description, so a client
+    // echoing back an older, longer description still succeeds.
     description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
     condition: z
       .string()
@@ -250,7 +252,7 @@ export const postSavedGroupValidator = {
   path: "/saved-groups",
   exampleRequest: {
     body: {
-      name: "internal-users",
+      name: "Internal users",
       values: ["userId-123", "userId-345", "userId-678"],
       attributeKey: "userId",
       owner: "",

@@ -12,7 +12,6 @@ import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   EXPERIMENT_HYPOTHESIS_DESCRIPTION,
-  MARKDOWN_DESCRIPTION,
   TAGS_DESCRIPTION,
 } from "./api-field-descriptions";
 
@@ -133,12 +132,16 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   type: z.enum(["standard"]),
   hypothesis: z
     .string()
-    .describe(`Default hypothesis. ${EXPERIMENT_HYPOTHESIS_DESCRIPTION}`)
+    .describe(
+      `Default hypothesis for experiments created from this template. ${EXPERIMENT_HYPOTHESIS_DESCRIPTION}`,
+    )
     .optional(),
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
-    .describe(`Default description. ${MARKDOWN_DESCRIPTION}`)
+    .describe(
+      "Default description for experiments created from this template. Markdown.",
+    )
     .optional(),
   tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   customFields: z.record(z.string(), z.string()).optional(),

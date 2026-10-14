@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_SAVED_GROUP_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiEventUser,
   actorIdField,
@@ -28,6 +27,7 @@ import { namedSchema } from "./openapi-helpers";
 import {
   NEW_DRAFT_COMMENT_DESCRIPTION,
   NEW_DRAFT_TITLE_DESCRIPTION,
+  REVERT_COMMENT_IGNORED_DESCRIPTION,
   REVIEW_COMMENT_DESCRIPTION,
   REVISION_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
@@ -396,7 +396,10 @@ export const postSavedGroupRevisionRevertValidator = {
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
       title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
-      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      comment: z
+        .string()
+        .describe(REVERT_COMMENT_IGNORED_DESCRIPTION)
+        .optional(),
       // `ignoreWarnings` ALONE on every Saved Group body: the dependents guard
       // soft-warns and asks for this acknowledgment, and a strict body must
       // accept the retry. Saved Groups have no schema or validation hooks, so
@@ -494,11 +497,7 @@ export const putSavedGroupRevisionMetadataValidator = {
       ...newDraftMetadataFields,
       name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z
-        .string()
-        .max(MAX_SAVED_GROUP_DESCRIPTION_LENGTH)
-        .describe(SAVED_GROUP_DESCRIPTION)
-        .optional(),
+      description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
       projects: z.array(z.string()).optional(),
     })
     .strict(),

@@ -143,19 +143,22 @@ info:
     People review what the API creates in the GrowthBook UI.
 
 
-    - Keep keys and names short (2-5 words). Follow your organization's key
-    format, or use kebab-case if it has none. Feature Flag keys can't be changed
-    after creation, and an experiment's tracking key shouldn't change after
-    launch.
+    - Keep keys and names short (2-5 words). Follow your organization's Feature
+    Flag key format (`featureRegexValidator` and `featureKeyExample` in `GET
+    /v1/settings`), or use kebab-case if it has none. Feature Flag keys can't be
+    changed after creation, and an experiment's tracking key shouldn't change
+    after launch.
 
     - Put context (why, plan, tickets, links) in `description`, not in names or
     keys.
 
-    - Group with tags and Projects (`tags`, `project` or `projects`, depending
-    on the endpoint), not name prefixes.
+    - Group with `tags`, not name prefixes. Projects (`project` or `projects`)
+    control access and where a resource can be used, so set them deliberately
+    instead of using them as labels.
 
-    - To create a Feature Flag disabled, list every environment in
-    `environments` with `enabled: false`. An environment you leave out uses its
+    - To create a Feature Flag disabled with `POST /v2/features`, list every
+    environment in `environments` with `enabled: false` (on `POST /v1/features`,
+    each entry also needs `rules: []`). An environment you leave out uses its
     default state, which may be enabled.
 
     - Leave publishing and production changes to a person unless asked.
@@ -960,10 +963,11 @@ paths:
                 id:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    Permanent key, shown as the Feature Flag's name in the UI
-                    and used in code. Keep it short and follow your
-                    organization's key format if it has one, otherwise
-                    kebab-case (e.g. `checkout-express-pay`). Put context in
+                    Unique, permanent key, shown as the Feature Flag's name in
+                    the UI and used in code. Keep it short. If
+                    `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    follow it (`featureKeyExample` shows the format); otherwise
+                    use kebab-case (e.g. `checkout-express-pay`). Put context in
                     `description`.
                   type: string
                   minLength: 1
@@ -7942,6 +7946,10 @@ paths:
                 comment:
                   type: string
                 action:
+                  description: >-
+                    `approve`, `request-changes` or `comment`. Defaults to
+                    `comment`, which doesn't change whether the draft is
+                    approved.
                   type: string
                   enum:
                     - approve
@@ -8441,7 +8449,9 @@ paths:
 
 
         The `id` is the Feature Flag's permanent name in the UI and code. Keep
-        it short (`checkout-express-pay`) and put context in `description`.
+        it short (`checkout-express-pay`) and put context in `description`. To
+        create it disabled, list every environment in `environments` with
+        `enabled: false`.
 
 
         ### Config-backed features (Config mode)
@@ -8503,10 +8513,11 @@ paths:
                 id:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    Permanent key, shown as the Feature Flag's name in the UI
-                    and used in code. Keep it short and follow your
-                    organization's key format if it has one, otherwise
-                    kebab-case (e.g. `checkout-express-pay`). Put context in
+                    Unique, permanent key, shown as the Feature Flag's name in
+                    the UI and used in code. Keep it short. If
+                    `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    follow it (`featureKeyExample` shows the format); otherwise
+                    use kebab-case (e.g. `checkout-express-pay`). Put context in
                     `description`.
                   type: string
                   minLength: 1
@@ -9271,8 +9282,11 @@ paths:
                         additionalProperties: false
                 environments:
                   description: >-
-                    Per-environment enabled state. V2 rules are specified on the
-                    top-level `rules` field.
+                    Per-environment enabled state, keyed by environment ID. An
+                    environment you leave out uses its "Default state for new
+                    features" setting, which may be enabled. To create the
+                    Feature Flag disabled, list every environment with `enabled:
+                    false`. Rules go on the top-level `rules` field.
                   type: object
                   propertyNames:
                     type: string
@@ -9280,6 +9294,9 @@ paths:
                     type: object
                     properties:
                       enabled:
+                        description: >-
+                          Whether the Feature Flag is enabled in this
+                          environment.
                         type: boolean
                     additionalProperties: false
                 prerequisites:
@@ -10176,6 +10193,9 @@ paths:
                     type: object
                     properties:
                       enabled:
+                        description: >-
+                          Whether the Feature Flag is enabled in this
+                          environment.
                         type: boolean
                     additionalProperties: false
                 prerequisites:
@@ -11359,13 +11379,13 @@ paths:
                     - type: 'null'
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11477,13 +11497,13 @@ paths:
                     additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11565,13 +11585,13 @@ paths:
                     - type: 'null'
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11642,13 +11662,13 @@ paths:
                   type: boolean
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11721,13 +11741,13 @@ paths:
                   type: boolean
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -12331,13 +12351,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13073,13 +13093,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13174,13 +13194,13 @@ paths:
               properties:
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13255,13 +13275,13 @@ paths:
                     type: string
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13935,13 +13955,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -14020,13 +14040,13 @@ paths:
               properties:
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -14280,9 +14300,16 @@ paths:
               type: object
               properties:
                 comment:
-                  description: Markdown. Why you approved or requested changes.
+                  description: >-
+                    Markdown. Why you approved, requested changes or commented.
+                    A comment alone doesn't approve; send `action: "approve"` to
+                    approve.
                   type: string
                 action:
+                  description: >-
+                    `approve`, `request-changes` or `comment`. Defaults to
+                    `comment`, which doesn't change whether the draft is
+                    approved.
                   type: string
                   enum:
                     - approve
@@ -14976,8 +15003,8 @@ paths:
               properties:
                 comment:
                   description: >-
-                    Note recorded in the revision history for this publish.
-                    Becomes the draft's comment only if the draft has none.
+                    Note recorded in the audit log for this publish. Becomes the
+                    draft's comment only if the draft has none.
                   type: string
                 bypassApproval:
                   description: >-
@@ -15578,9 +15605,10 @@ paths:
                   type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short and follow your
-                    organization's tracking key format if it has one, otherwise
-                    kebab-case (usually the Feature Flag key). Changing it after
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
                     launch splits exposures across two keys.
                   type: string
                 bypassDuplicateKeyCheck:
@@ -16347,9 +16375,10 @@ paths:
                   type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short and follow your
-                    organization's tracking key format if it has one, otherwise
-                    kebab-case (usually the Feature Flag key). Changing it after
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
                     launch splits exposures across two keys.
                   type: string
                 bypassDuplicateKeyCheck:
@@ -20943,8 +20972,9 @@ paths:
               properties:
                 property:
                   description: >-
-                    Permanent attribute name as your SDK passes it (e.g.
-                    `userId`).
+                    Attribute name exactly as your SDK passes it (e.g.
+                    `userId`). The API can't rename it, and renaming it in the
+                    UI doesn't update SDK code or targeting conditions.
                   type: string
                 datatype:
                   description: The attribute datatype
@@ -20983,7 +21013,10 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
-                  description: Project IDs. Use Projects instead of prefixing names.
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -21079,7 +21112,10 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
-                  description: Project IDs. Use Projects instead of prefixing names.
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -22409,7 +22445,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/saved-groups' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"name":"internal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
+              -d '{"name":"Internal users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
   /v1/saved-groups-revisions:
     get:
       operationId: listSavedGroupRevisions
@@ -23106,7 +23142,6 @@ paths:
                     Short note (max 100 characters) on who is in the Saved Group
                     and why.
                   type: string
-                  maxLength: 100
                 projects:
                   type: array
                   items:
@@ -23603,7 +23638,10 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: Markdown. Why you approved or requested changes.
+                  description: >-
+                    Markdown. Why you approved, requested changes or commented.
+                    A comment alone doesn't approve; send `action: "approve"` to
+                    approve.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -24147,7 +24185,7 @@ paths:
                   description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
-                  description: Markdown. What changed and why, for reviewers.
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -25448,7 +25486,10 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: Markdown. Why you approved or requested changes.
+                  description: >-
+                    Markdown. Why you approved, requested changes or commented.
+                    A comment alone doesn't approve; send `action: "approve"` to
+                    approve.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -26025,7 +26066,7 @@ paths:
                   description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
-                  description: Markdown. What changed and why, for reviewers.
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -28602,7 +28643,10 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: Markdown. Why you approved or requested changes.
+                  description: >-
+                    Markdown. Why you approved, requested changes or commented.
+                    A comment alone doesn't approve; send `action: "approve"` to
+                    approve.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -29198,7 +29242,7 @@ paths:
                   description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
-                  description: Markdown. What changed and why, for reviewers.
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -52668,9 +52712,10 @@ paths:
                     type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short and follow your
-                    organization's tracking key format if it has one, otherwise
-                    kebab-case (usually the Feature Flag key). Changing it after
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
                     launch splits exposures across two keys.
                   type: string
                 hashAttribute:
@@ -52825,9 +52870,10 @@ paths:
                     type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short and follow your
-                    organization's tracking key format if it has one, otherwise
-                    kebab-case (usually the Feature Flag key). Changing it after
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
                     launch splits exposures across two keys.
                   type: string
                 hashAttribute:
@@ -53463,9 +53509,9 @@ paths:
               properties:
                 id:
                   description: >-
-                    Permanent key used in API payloads (e.g. `jira_ticket`).
-                    Lowercase letters, numbers, hyphens, and underscores. Put
-                    the label in `name`.
+                    Unique, permanent key used in API payloads (e.g.
+                    `jira_ticket`). Lowercase letters, numbers, hyphens, and
+                    underscores. Put the label in `name`.
                   type: string
                   minLength: 1
                 name:
@@ -53855,7 +53901,10 @@ paths:
                   items:
                     type: string
                 projects:
-                  description: Project IDs. Use Projects instead of prefixing names.
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -53921,7 +53970,10 @@ paths:
                   items:
                     type: string
                 projects:
-                  description: Project IDs. Use Projects instead of prefixing names.
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -54496,13 +54548,14 @@ paths:
                     - standard
                 hypothesis:
                   description: >-
-                    Default hypothesis. Markdown. If we change X, metric Y will
-                    move because Z.
+                    Default hypothesis for experiments created from this
+                    template. Markdown. If we change X, metric Y will move
+                    because Z.
                   type: string
                 description:
                   description: >-
-                    Default description. Markdown. Put context here, not in the
-                    name.
+                    Default description for experiments created from this
+                    template. Markdown.
                   type: string
                   maxLength: 10000
                 tags:
@@ -54702,13 +54755,14 @@ paths:
                     - standard
                 hypothesis:
                   description: >-
-                    Default hypothesis. Markdown. If we change X, metric Y will
-                    move because Z.
+                    Default hypothesis for experiments created from this
+                    template. Markdown. If we change X, metric Y will move
+                    because Z.
                   type: string
                 description:
                   description: >-
-                    Default description. Markdown. Put context here, not in the
-                    name.
+                    Default description for experiments created from this
+                    template. Markdown.
                   type: string
                   maxLength: 10000
                 tags:
@@ -54956,13 +55010,14 @@ paths:
                               - standard
                           hypothesis:
                             description: >-
-                              Default hypothesis. Markdown. If we change X,
-                              metric Y will move because Z.
+                              Default hypothesis for experiments created from
+                              this template. Markdown. If we change X, metric Y
+                              will move because Z.
                             type: string
                           description:
                             description: >-
-                              Default description. Markdown. Put context here,
-                              not in the name.
+                              Default description for experiments created from
+                              this template. Markdown.
                             type: string
                             maxLength: 10000
                           tags:
@@ -62001,7 +62056,9 @@ paths:
                   type: string
                   maxLength: 10000
                 projects:
-                  description: Project IDs. Use Projects instead of prefixing names.
+                  description: >-
+                    Project IDs this Holdout applies to. Send an empty array for
+                    All Projects.
                   type: array
                   items:
                     type: string
@@ -72738,7 +72795,7 @@ components:
             name)
           type: string
         description:
-          description: Put context here, not in the name.
+          description: What the column contains.
           type: string
           maxLength: 10000
         alwaysInlineFilter:
@@ -72874,7 +72931,7 @@ components:
             name)
           type: string
         description:
-          description: Put context here, not in the name.
+          description: What the column contains.
           type: string
           maxLength: 10000
         alwaysInlineFilter:

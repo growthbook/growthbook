@@ -29,8 +29,8 @@ import {
   MARKDOWN_DESCRIPTION,
   NEW_DRAFT_COMMENT_DESCRIPTION,
   NEW_DRAFT_TITLE_DESCRIPTION,
+  REVERT_COMMENT_IGNORED_DESCRIPTION,
   REVIEW_COMMENT_DESCRIPTION,
-  REVISION_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
 } from "./api-field-descriptions";
 
@@ -372,7 +372,10 @@ export const postConstantRevisionRevertValidator = {
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
       title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
-      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      comment: z
+        .string()
+        .describe(REVERT_COMMENT_IGNORED_DESCRIPTION)
+        .optional(),
       ...publishOverrideBodyFields,
     })
     .strict(),

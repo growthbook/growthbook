@@ -983,7 +983,7 @@ export const apiFactTableColumnValidator = namedSchema(
       description: z
         .string()
         .max(MAX_DESCRIPTION_LENGTH)
-        .describe(PLAIN_DESCRIPTION)
+        .describe("What the column contains.")
         .optional(),
       alwaysInlineFilter: z
         .boolean()

@@ -688,7 +688,10 @@ export const postFeatureRuleV2 = z.union([
 ]);
 
 const postFeatureEnvironmentV2 = z.object({
-  enabled: z.boolean().optional(),
+  enabled: z
+    .boolean()
+    .describe("Whether the Feature Flag is enabled in this environment.")
+    .optional(),
 });
 
 // ---- V2 PostFeaturePayload ----
@@ -739,7 +742,7 @@ export const postFeatureBodyV2 = z
     environments: z
       .record(z.string(), postFeatureEnvironmentV2)
       .describe(
-        "Per-environment enabled state. V2 rules are specified on the top-level `rules` field.",
+        'Per-environment enabled state, keyed by environment ID. An environment you leave out uses its "Default state for new features" setting, which may be enabled. To create the Feature Flag disabled, list every environment with `enabled: false`. Rules go on the top-level `rules` field.',
       )
       .optional(),
     prerequisites: z
@@ -884,7 +887,7 @@ export const postFeatureV2Validator = {
   description:
     "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
     "### Naming for human review\n\n" +
-    "The `id` is the Feature Flag's permanent name in the UI and code. Keep it short (`checkout-express-pay`) and put context in `description`.\n\n" +
+    "The `id` is the Feature Flag's permanent name in the UI and code. Keep it short (`checkout-express-pay`) and put context in `description`. To create it disabled, list every environment in `environments` with `enabled: false`.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the Feature Flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +

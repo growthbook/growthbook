@@ -22,7 +22,10 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
-import { RULE_DESCRIPTION } from "./api-field-descriptions";
+import {
+  REVIEW_ACTION_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // ---- Shared param schemas ----
 
@@ -340,7 +343,10 @@ export const postFeatureRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),

@@ -27,8 +27,11 @@ import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   FEATURE_DESCRIPTION,
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
   PUBLISH_COMMENT_DESCRIPTION,
   REQUEST_REVIEW_COMMENT_DESCRIPTION,
+  REVIEW_ACTION_DESCRIPTION,
   REVIEW_COMMENT_DESCRIPTION,
   REVISION_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
@@ -48,18 +51,11 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z
-    .string()
-    .optional()
-    .describe(
-      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+  revisionTitle: z.string().optional().describe(NEW_DRAFT_TITLE_DESCRIPTION),
   revisionComment: z
     .string()
     .optional()
-    .describe(
-      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION),
 };
 
 // ---- Shared response schemas ----
@@ -783,7 +779,10 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   bodySchema: z
     .object({
       comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
