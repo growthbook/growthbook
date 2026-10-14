@@ -45,11 +45,17 @@ export type EventWebHookEditParams = {
   timeoutMs?: number;
 };
 
+// Whole seconds only, so the native number input's step of 1 matches validation
 export const timeoutSecondsToMs = (s?: string) =>
-  s ? Math.round(Number(s) * 1000) : undefined;
+  s ? Number(s) * 1000 : undefined;
 
-export const timeoutError = (s?: string) =>
-  s && Number(s) < 1 ? "Enter at least 1 second." : undefined;
+export const timeoutError = (s?: string) => {
+  if (!s) return undefined;
+  const n = Number(s);
+  return Number.isInteger(n) && n >= 1
+    ? undefined
+    : "Enter a whole number of seconds, at least 1.";
+};
 
 export const notificationEventNames = publicNotificationEventNames;
 

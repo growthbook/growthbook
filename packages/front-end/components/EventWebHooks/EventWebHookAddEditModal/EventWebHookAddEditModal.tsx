@@ -317,11 +317,9 @@ const EventWebHookAddEditSettings = ({
             min={1}
             placeholder="30"
             error={timeoutError(form.watch("timeoutSeconds"))}
-            {...form.register("timeoutSeconds")}
-            onChange={(evt) => {
-              form.setValue("timeoutSeconds", evt.target.value);
-              handleFormValidation();
-            }}
+            {...form.register("timeoutSeconds", {
+              onChange: handleFormValidation,
+            })}
           />
         </Box>
       )}
