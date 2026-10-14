@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
+import type { ApiPopulation } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -16,6 +18,13 @@ export default function EditPopulationPage() {
   const { population, loading, error } = usePopulation(
     populationsEnabled && typeof pid === "string" ? pid : undefined,
   );
+  // Like the edit modals, the form is seeded once and saving is
+  // last-write-wins. SWR keeps refetching on focus, and reseeding the form
+  // would discard unsaved edits.
+  const [startingCopy, setStartingCopy] = useState<ApiPopulation | null>(null);
+  if (population && startingCopy?.id !== population.id) {
+    setStartingCopy(population);
+  }
 
   if (!populationsEnabled) {
     return <Custom404 />;
@@ -27,14 +36,9 @@ export default function EditPopulationPage() {
       </Box>
     );
   }
-  if (loading || !population) {
+  if (loading || !startingCopy) {
     return <LoadingOverlay />;
   }
-  // A cached copy can render first, so remount once the fresh one arrives.
-  return (
-    <PopulationEditor
-      key={`${population.id}-${population.dateUpdated}`}
-      population={population}
-    />
-  );
+
+  return <PopulationEditor key={startingCopy.id} population={startingCopy} />;
 }

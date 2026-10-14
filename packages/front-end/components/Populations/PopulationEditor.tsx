@@ -18,6 +18,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useRefreshPopulations } from "@/hooks/usePopulations";
 import PopulationStepCard from "./PopulationStepCard";
 import {
   getDefaultPopulationUserIdType,
@@ -36,6 +37,7 @@ export default function PopulationEditor({
 }) {
   const router = useRouter();
   const restApiCall = useRestApiCall();
+  const refreshPopulations = useRefreshPopulations();
   const permissionsUtil = usePermissionsUtil();
   const { project, datasources, factTables, getDatasourceById } =
     useDefinitions();
@@ -122,12 +124,14 @@ export default function PopulationEditor({
         params: { id: population.id },
         body,
       });
+      await refreshPopulations(population.id);
       await router.push(`/populations/${population.id}`);
     } else {
       const { population: created } = await restApiCall(
         populationEndpoints.createPopulation,
         { body: { ...body, datasource: draft.datasource, projects } },
       );
+      await refreshPopulations();
       await router.push(`/populations/${created.id}`);
     }
   };

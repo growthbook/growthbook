@@ -20,7 +20,7 @@ import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PopulationDefinition from "@/components/Populations/PopulationDefinition";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
-import { usePopulation } from "@/hooks/usePopulations";
+import { usePopulation, useRefreshPopulations } from "@/hooks/usePopulations";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
@@ -32,7 +32,8 @@ export default function PopulationPage() {
   const { pid } = router.query;
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
-  const { population, loading, error, mutate } = usePopulation(
+  const refreshPopulations = useRefreshPopulations();
+  const { population, loading, error } = usePopulation(
     populationsEnabled && typeof pid === "string" ? pid : undefined,
   );
   const { getDatasourceById, getProjectById, projects } = useDefinitions();
@@ -67,9 +68,7 @@ export default function PopulationPage() {
       body,
     });
   };
-  const refresh = async () => {
-    await mutate();
-  };
+  const refresh = () => refreshPopulations(population.id);
 
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
@@ -124,8 +123,14 @@ export default function PopulationPage() {
         <Box pr="2">
           <PopulationMoreMenu
             population={population}
-            onDuplicated={(copy) => router.push(`/populations/${copy.id}`)}
-            onDeleted={() => router.push("/populations")}
+            onDuplicated={async (copy) => {
+              await refreshPopulations();
+              await router.push(`/populations/${copy.id}`);
+            }}
+            onDeleted={async () => {
+              await refreshPopulations();
+              await router.push("/populations");
+            }}
             onAuditLog={() => setAuditLogOpen(true)}
           />
         </Box>
