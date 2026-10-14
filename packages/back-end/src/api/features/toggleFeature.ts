@@ -38,6 +38,7 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function toggleFeatureCore(
@@ -168,6 +169,22 @@ export async function toggleFeatureCore(
           },
         ]
       : [];
+
+  await holdFeatureUpdate(
+    context,
+    feature,
+    {
+      archived: null,
+      envEnabled: changedToggles,
+      defaultValue: false,
+      rules: false,
+      metadata: [],
+      prerequisites: false,
+      holdout: false,
+    },
+    bypassedGates,
+    Object.keys(changedToggles),
+  );
 
   const revision = await createRevision({
     context,

@@ -34,6 +34,7 @@ import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureD
 import {
   confirmationLink,
   gateNotices,
+  rampActionLabel,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -254,9 +255,7 @@ export async function publishFeatureRevision(
           : []),
         // Ramp plans staged on the draft (feature ramp-schedule routes) apply now.
         ...(revision.rampActions ?? []).map(({ mode }) =>
-          mode === "create"
-            ? ("rampSchedule.start" as const)
-            : ("rampSchedule.edit" as const),
+          rampActionLabel(mode),
         ),
       ],
       environments: envsToCheck,

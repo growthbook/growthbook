@@ -235,7 +235,12 @@ export const postFeatureRevisionPublishValidator = {
 export const postFeatureRevisionRevertValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
-  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_LABELS] as const,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_LABELS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRevert",
   summary: "Revert the feature to a prior revision",
   description:

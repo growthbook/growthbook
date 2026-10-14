@@ -50,6 +50,10 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -447,6 +451,19 @@ export async function revertFeatureRevision(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes, targetRevision);
+  await requireConfirmation(context, {
+    labels: [
+      "feature.publish",
+      ...(changes.archived === true && !feature.archived
+        ? (["feature.archive"] as const)
+        : []),
+    ],
+    bypassing: bypassedGates,
+    project: feature.project,
+    summary: `Revert ${feature.id} to revision ${targetRevision.version}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

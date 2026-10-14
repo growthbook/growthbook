@@ -4244,6 +4244,7 @@ paths:
               -d '{"revision":3,"comment":"Bug found"}'
       x-growthbook-confirmation:
         - feature.publish
+        - feature.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -7792,6 +7793,8 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.publish
   /v1/features/{id}/revisions/{version}/submit-review:
     post:
       operationId: postFeatureRevisionSubmitReview
@@ -8279,6 +8282,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.publish
+        - feature.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -10349,6 +10353,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.publish
+        - feature.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -13974,6 +13979,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.publish
   /v2/features/{id}/revisions/{version}/schedule-publish:
     post:
       operationId: postFeatureRevisionSchedulePublishV2
@@ -15069,6 +15076,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.publish
+        - feature.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -18523,7 +18531,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.other
+        - feature.publish
     put:
       operationId: updateContextualBanditLinkedFeature
       summary: Replace a Contextual Bandit's rule on a linked feature
@@ -18652,7 +18660,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.other
+        - feature.publish
     delete:
       operationId: deleteContextualBanditLinkedFeature
       summary: Unlink a feature from a Contextual Bandit
@@ -18715,7 +18723,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.other
+        - feature.publish
   /v1/snapshots/{id}:
     get:
       operationId: getExperimentSnapshot
@@ -23293,6 +23301,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - override.ignoreWarnings
+        - savedGroup.publish
   /v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review:
     post:
       operationId: postSavedGroupRevisionSubmitReview
@@ -25124,6 +25133,7 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - constant.publish
   /v1/constants-revisions/{key}/{version}/submit-review:
     post:
       operationId: postConstantRevisionSubmitReview
@@ -28227,6 +28237,7 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - config.publish
   /v1/configs-revisions/{key}/{version}/submit-review:
     post:
       operationId: postConfigRevisionSubmitReview
@@ -29098,9 +29109,15 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.publish
+        - feature.archive
         - savedGroup.publish
+        - savedGroup.archive
         - constant.publish
+        - constant.archive
         - config.publish
+        - config.archive
+        - rampSchedule.start
+        - rampSchedule.edit
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks

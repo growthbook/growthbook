@@ -173,6 +173,7 @@ async function seed(env: string) {
     status,
     defaultValue: "false",
     rules,
+    environmentsEnabled: { dev: true, production: true },
     dateCreated: now,
     dateUpdated: now,
     ...(status === "published" ? { datePublished: now } : {}),
@@ -329,7 +330,7 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(2);
   });
 
-  it("holds a route-level action before its handler runs", async () => {
+  it("holds a toggle, then applies it once confirmed", async () => {
     await seed("production");
     setReqContext(asKey(pat));
     const enabled = async () =>
@@ -344,7 +345,7 @@ describe("confirmations", () => {
     ).send({ environments: { production: false } });
     expect(held.status).toBe(202);
     expect(held.body.confirmation.summary).toBe(
-      "Toggle a feature in one or more environments",
+      `Update ${FLAG}: turn off in production`,
     );
     expect(await enabled()).toBe(true);
 
@@ -357,12 +358,30 @@ describe("confirmations", () => {
     expect(await enabled()).toBe(false);
   });
 
+  it("holds a toggle that steps over a required review", async () => {
+    await seed("production");
+    setReqContext(
+      asKey({ ...pat, confirmRules: [{ actions: ["override.*"] }] }, reviews),
+    );
+    const held = await auth(
+      request(app).post(`/api/v1/features/${FLAG}/toggle`),
+    ).send({ environments: { production: false } });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "override.bypassApproval", environments: ["production"] },
+    ]);
+  });
+
   it("asks a key's decider to be allowed everywhere a hold can't place", async () => {
     await seed("production");
     setReqContext(asKey({ ...bot, ...everything }));
     const held = await auth(
-      request(app).post(`/api/v1/features/${FLAG}/toggle`),
-    ).send({ environments: { production: false } });
+      request(app).post(
+        `/api/v2/features/${FLAG}/revisions/2/schedule-publish`,
+      ),
+    ).send({
+      scheduledPublishAt: new Date(Date.now() + 86400000).toISOString(),
+    });
     expect(held.body.confirmation.actions).toEqual([
       { action: "feature.publish", environments: [] },
     ]);
@@ -375,7 +394,7 @@ describe("confirmations", () => {
       held.body.confirmation.id,
       "confirm",
     );
-    expect(done.response?.status).toBe(200);
+    expect(done.status).toBe("completed");
   });
 
   it("holds arming a publish as the publish itself", async () => {

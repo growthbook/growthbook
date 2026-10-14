@@ -64,6 +64,20 @@ export const REVISION_PUBLISH_LABEL: Record<
   config: "config.publish",
 };
 
+export const REVISION_ARCHIVE_LABEL: Record<
+  RevisionTargetType | "feature",
+  ConfirmLabel
+> = {
+  feature: "feature.archive",
+  "saved-group": "savedGroup.archive",
+  constant: "constant.archive",
+  config: "config.archive",
+};
+
+// A ramp plan staged on a draft starts a schedule or edits one when it lands.
+export const rampActionLabel = (mode: string): ConfirmLabel =>
+  mode === "create" ? "rampSchedule.start" : "rampSchedule.edit";
+
 const LINK_PATHS: Record<ConfirmationLink["type"], string> = {
   feature: "features",
   experiment: "experiment",
@@ -358,12 +372,14 @@ export function holdFeatureUpdate(
   feature: FeatureInterface,
   change: Parameters<typeof featureUpdateSummary>[1],
   bypassing: BypassedGate[],
+  environments?: string[],
 ) {
   return requireConfirmation(context, {
     labels: [
       "feature.publish",
       ...(change.archived ? (["feature.archive"] as const) : []),
     ],
+    environments,
     bypassing,
     project: feature.project,
     summary: featureUpdateSummary(feature.id, change),

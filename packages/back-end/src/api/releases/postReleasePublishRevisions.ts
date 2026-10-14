@@ -1,3 +1,4 @@
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { z } from "zod";
 import {
   postReleasePublishRevisionsValidator,
@@ -18,6 +19,8 @@ import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import {
   confirmationLink,
   gateNotices,
+  rampActionLabel,
+  REVISION_ARCHIVE_LABEL,
   REVISION_PUBLISH_LABEL,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -204,11 +207,20 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     ),
   );
   await requireConfirmation(req.context, {
-    labels: [
-      ...new Set(
-        plan.items.map(({ ref }) => REVISION_PUBLISH_LABEL[ref.entityType]),
-      ),
-    ],
+    // Each item as its own publish would hold it.
+    labels: plan.items.flatMap(
+      ({ ref, revision, desiredState, entityPreImage }) => [
+        REVISION_PUBLISH_LABEL[ref.entityType],
+        ...(desiredState.archived === true && entityPreImage.archived !== true
+          ? [REVISION_ARCHIVE_LABEL[ref.entityType]]
+          : []),
+        ...(ref.entityType === "feature"
+          ? ((revision.raw as FeatureRevisionInterface).rampActions ?? []).map(
+              ({ mode }) => rampActionLabel(mode),
+            )
+          : []),
+      ],
+    ),
     bypassing: plan.items.flatMap((item) => item.bypassedGates),
     notices: gateNotices(plan.items.flatMap((item) => item.skippedGates)),
     summary: `Publish ${links.map((link) => link.label).join(", ")}`,
