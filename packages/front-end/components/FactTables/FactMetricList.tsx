@@ -361,8 +361,8 @@ export default function FactMetricList({
           >
             {!canCreateMetrics ? (
               // A disabled button gets no hover, so the span shows the tooltip.
-              <span style={ cursor: "not-allowed" }>
-                <Button disabled style={ pointerEvents: "none" }>
+              <span style={{ cursor: "not-allowed" }}>
+                <Button disabled style={{ pointerEvents: "none" }}>
                   Add metric
                 </Button>
               </span>
