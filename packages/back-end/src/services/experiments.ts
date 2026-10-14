@@ -3157,7 +3157,7 @@ async function getQueryMapForAnalysis(
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
-): Promise<void> {
+): Promise<{ successCount: number; errorCount: number }> {
   // creates snapshot analyses in mongo and gets analysis parameters
   const analysisParamsMap = await getSnapshotAnalyses(context, params);
 
@@ -3168,6 +3168,11 @@ export async function createSnapshotAnalyses(
 
   // parses results and writes to mongo
   await writeSnapshotAnalyses(context, results, analysisParamsMap);
+
+  return {
+    successCount: results.filter((result) => !result.error).length,
+    errorCount: results.filter((result) => !!result.error).length,
+  };
 }
 
 export async function createSnapshotAnalysis(
