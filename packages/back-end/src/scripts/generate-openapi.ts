@@ -8,11 +8,7 @@ import {
   ApiErrorCode,
   CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
-import {
-  ARMING_FIELDS,
-  armedPublishAction,
-  routeConfirmation,
-} from "shared/util";
+import { armableActions, routeConfirmation } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
@@ -466,6 +462,10 @@ type RequestBody = {
 
 type Response = {
   description: string;
+  headers?: Record<
+    string,
+    { description: string; schema: z.core.JSONSchema.BaseSchema }
+  >;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
@@ -938,11 +938,30 @@ curl https://api.growthbook.io/api/v1/features \
         ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
           accepted.includes(flag) ? [action] : [],
         ),
-        ...(ARMING_FIELDS.some((field) => accepted.includes(field))
-          ? [armedPublishAction(tags)].filter((action) => action !== null)
-          : []),
+        ...armableActions(tags, accepted),
       ]),
     ];
+    if (actions.length > 0) {
+      responses["202"] = {
+        description:
+          "Held until a person confirms it in GrowthBook. Poll the Location until the confirmation completes.",
+        headers: {
+          Location: {
+            description: "The confirmation to poll",
+            schema: { type: "string" },
+          },
+          "Retry-After": {
+            description: "Seconds to wait before polling",
+            schema: { type: "integer" },
+          },
+        },
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ConfirmationHeld" },
+          },
+        },
+      };
+    }
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,

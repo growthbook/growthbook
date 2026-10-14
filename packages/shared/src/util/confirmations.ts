@@ -56,14 +56,46 @@ export function routeConfirmation(
 }
 
 // Request fields that arm a publish to run later, without anyone present.
-export const ARMING_FIELDS = ["autoPublishOnApproval", "scheduledPublishAt"];
+const ARMING_FIELDS = ["autoPublishOnApproval", "scheduledPublishAt"];
+// An experiment's schedule arms a start or stop the same way.
+const SCHEDULE_FIELD = "statusUpdateSchedule";
 
-// What arming a publish on this route holds as: the publish itself.
-export function armedPublishAction(
+const knownActions = (actions: string[]) =>
+  actions.filter((a): a is ConfirmAction =>
+    (CONFIRM_ACTIONS as readonly string[]).includes(a),
+  );
+
+// What a request arms to run later. Confirming the arming confirms the
+// action, which then runs unheld.
+export function armedActions(
   tags: readonly string[] | undefined,
-): ConfirmAction | null {
-  const action = `${routeModel(tags)}.publish`;
-  return (CONFIRM_ACTIONS as readonly string[]).includes(action)
-    ? (action as ConfirmAction)
-    : null;
+  body: Record<string, unknown>,
+): ConfirmAction[] {
+  const model = routeModel(tags);
+  const schedule = (body[SCHEDULE_FIELD] ?? {}) as Record<string, unknown>;
+  return knownActions([
+    ...(ARMING_FIELDS.some((field) => !!body[field])
+      ? [`${model}.publish`]
+      : []),
+    ...(model === "experiment" && schedule.startAt ? ["experiment.start"] : []),
+    ...(model === "experiment" && (schedule.stopAt || schedule.stopAfter)
+      ? ["experiment.stop"]
+      : []),
+  ]);
+}
+
+// What a route can arm, from the request fields it accepts.
+export function armableActions(
+  tags: readonly string[] | undefined,
+  fields: string[],
+): ConfirmAction[] {
+  const model = routeModel(tags);
+  return knownActions([
+    ...(ARMING_FIELDS.some((field) => fields.includes(field))
+      ? [`${model}.publish`]
+      : []),
+    ...(model === "experiment" && fields.includes(SCHEDULE_FIELD)
+      ? ["experiment.start", "experiment.stop"]
+      : []),
+  ]);
 }

@@ -49,6 +49,18 @@ describe("experimentChangeActions", () => {
     ).toEqual(["experiment.phases"]);
   });
 
+  it("names a field a replacement phase drops", () => {
+    expect(
+      experimentChangeActions(
+        {
+          ...running,
+          phases: [phase({ name: "First" }), phase({ seed: "s" })],
+        },
+        { phases: [phase({ name: "First" }), phase()] },
+      ),
+    ).toEqual(["experiment.phases"]);
+  });
+
   it("names any other change to what a live experiment serves", () => {
     expect(experimentChangeActions(running, { archived: true })).toEqual([
       "experiment.other",

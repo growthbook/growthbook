@@ -13,7 +13,7 @@ import type {
 } from "shared/validators";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
-import { ARMING_FIELDS, matchConfirmRules, stringToBoolean } from "shared/util";
+import { armedActions, matchConfirmRules, stringToBoolean } from "shared/util";
 import { CONFIRM_OVERRIDE_FLAGS } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
@@ -262,6 +262,7 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
+      requested: requested.map((action) => ({ action, environments })),
       summary: opts.summary,
       links: opts.links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
@@ -309,21 +310,17 @@ function requestedOverrides(context: ReqContext): ConfirmAction[] {
 export async function holdAtRoute(
   context: ReqContext,
   actions: readonly ConfirmAction[],
-  // Held when the request arms a publish to run later: confirming the arming
-  // confirms the publish, which then runs unheld.
-  armedPublish: ConfirmAction | null,
+  tags: readonly string[] | undefined,
   method: string,
   path: string,
   req: { params?: unknown; body?: unknown; query?: unknown },
   summary?: string,
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
-  const body = asRecord(req.body);
-  const arms = ARMING_FIELDS.some((field) => !!body[field]);
   await requireConfirmation(context, {
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
-      ...(arms && armedPublish ? [armedPublish] : []),
+      ...armedActions(tags, asRecord(req.body)),
     ],
     summary:
       summary ||
@@ -420,8 +417,11 @@ const OTHER_LIVE_FIELDS = PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.filter(
 // Omitted, null, "" and [] all mean "none", so echoing a field back isn't a change.
 const normalize = (v: unknown) =>
   v === null || v === "" || (Array.isArray(v) && !v.length) ? undefined : v;
+const differs = (before: unknown, after: unknown) =>
+  !isEqual(normalize(before), normalize(after));
+// An omitted top-level field is unchanged.
 const changed = (before: unknown, after: unknown) =>
-  after !== undefined && !isEqual(normalize(before), normalize(after));
+  after !== undefined && differs(before, after);
 
 // What an update does to a live experiment, in the Make Changes flow's terms.
 // Edits to a draft aren't live, so only starting it counts.
@@ -455,7 +455,8 @@ export function experimentChangeActions(
       if (!after[i]) return;
       const isLatest = i === before.length - 1;
       for (const [field, action] of PHASE_ACTIONS) {
-        if (changed(phase[field], after[i][field])) {
+        // A replacement phase drops what it omits, so compare it as sent.
+        if (differs(phase[field], after[i][field])) {
           actions.add(isLatest ? action : "experiment.phases");
         }
       }

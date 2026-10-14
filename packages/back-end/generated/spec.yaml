@@ -542,6 +542,12 @@ tags:
   - name: ConfigSchemaWarning_model
     x-displayName: Config Schema Warning
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaWarning" />
+  - name: Confirmation_model
+    x-displayName: Confirmation
+    description: <SchemaDefinition schemaRef="#/components/schemas/Confirmation" />
+  - name: ConfirmationHeld_model
+    x-displayName: Confirmation Held
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfirmationHeld" />
   - name: Constant_model
     x-displayName: Constant
     description: <SchemaDefinition schemaRef="#/components/schemas/Constant" />
@@ -2427,6 +2433,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4000,6 +4023,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4044,6 +4084,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4132,6 +4189,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4234,6 +4308,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4487,6 +4578,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4811,6 +4919,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4912,6 +5037,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5007,6 +5149,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5099,6 +5258,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5179,6 +5355,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5262,6 +5455,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -6207,6 +6417,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -6918,6 +7145,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7001,6 +7245,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7088,6 +7349,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7650,6 +7928,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7730,6 +8025,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7786,6 +8098,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8010,6 +8339,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8113,6 +8459,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8273,6 +8636,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -9224,6 +9604,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10128,6 +10525,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10167,6 +10581,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10250,6 +10681,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10345,6 +10793,23 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10683,6 +11148,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11154,6 +11636,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11267,6 +11766,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11364,6 +11880,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11452,6 +11985,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11529,6 +12079,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11609,6 +12176,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -12237,6 +12821,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -12974,6 +13575,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13052,6 +13670,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13135,6 +13770,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13820,6 +14472,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13898,6 +14567,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13972,6 +14658,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14077,6 +14780,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14680,6 +15400,23 @@ paths:
                   - draftDateUpdated
                   - conflicts
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14777,6 +15514,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14880,6 +15634,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15067,6 +15838,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -16011,6 +16799,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -16774,6 +17579,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -16929,6 +17751,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17132,6 +17971,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17243,6 +18099,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17328,6 +18201,23 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17747,6 +18637,23 @@ paths:
                 required:
                   - visualChangeset
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18523,6 +19430,23 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18652,6 +19576,23 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18715,6 +19656,23 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -21892,6 +22850,23 @@ paths:
                   - nModified
                   - visualChangeset
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -21980,6 +22955,23 @@ paths:
                   - nModified
                   - visualChangeId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22063,6 +23055,23 @@ paths:
                 required:
                   - nModified
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22183,6 +23192,23 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -22380,6 +23406,23 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22415,6 +23458,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22479,6 +23539,23 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22522,6 +23599,23 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23097,6 +24191,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23292,6 +24403,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23535,6 +24663,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23799,6 +24944,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23932,6 +25094,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24350,6 +25529,23 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24391,6 +25587,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24472,6 +25685,23 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24557,6 +25787,23 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25035,6 +26282,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25122,6 +26386,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25386,6 +26667,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25656,6 +26954,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25808,6 +27123,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26079,6 +27411,23 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -26780,6 +28129,23 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26821,6 +28187,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26912,6 +28295,23 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26996,6 +28396,23 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27088,6 +28505,23 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27450,6 +28884,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27574,6 +29025,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27686,6 +29154,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27745,6 +29230,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27868,6 +29370,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27991,6 +29510,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28139,6 +29675,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28226,6 +29779,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28540,6 +30110,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28777,6 +30364,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28931,6 +30535,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29101,6 +30722,23 @@ paths:
                   - bypassedGates
                   - warnings
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -33684,7 +35322,7 @@ paths:
                 type: object
                 properties:
                   confirmation:
-                    $ref: '#/components/schemas/confirmation'
+                    $ref: '#/components/schemas/Confirmation'
                 required:
                   - confirmation
                 additionalProperties: false
@@ -34307,6 +35945,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -34360,6 +36015,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34409,6 +36081,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34460,6 +36149,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34527,6 +36233,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34583,6 +36306,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34652,6 +36392,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34710,6 +36467,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34782,6 +36556,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34859,6 +36650,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34936,6 +36744,23 @@ paths:
                       - deleted
                       - rampScheduleId
                     additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35035,6 +36860,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35522,6 +37364,23 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35939,6 +37798,23 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -36446,6 +38322,23 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -36866,6 +38759,23 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -36979,6 +38889,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37861,6 +39788,23 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37903,6 +39847,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37998,6 +39959,23 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -52508,6 +54486,23 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -52701,6 +54696,23 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -52736,6 +54748,23 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -52908,6 +54937,23 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -60747,6 +62793,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -61317,6 +63380,23 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -61831,6 +63911,23 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -61838,6 +63935,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - experiment.other
+        - experiment.start
+        - experiment.stop
   /v1/holdouts:
     post:
       operationId: createHoldout
@@ -62024,11 +64123,31 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.start
+        - experiment.stop
     get:
       operationId: listHoldouts
       summary: Get all holdouts
@@ -62114,6 +64233,23 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -62174,6 +64310,23 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -62228,6 +64381,23 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -74077,6 +76247,102 @@ components:
       required:
         - requireReviewOn
       additionalProperties: false
+    Confirmation:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - rejected
+            - expired
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                enum:
+                  - feature.publish
+                  - feature.archive
+                  - feature.delete
+                  - feature.other
+                  - experiment.start
+                  - experiment.stop
+                  - experiment.targeting
+                  - experiment.traffic
+                  - experiment.phases
+                  - experiment.other
+                  - savedGroup.publish
+                  - savedGroup.archive
+                  - savedGroup.delete
+                  - savedGroup.other
+                  - constant.publish
+                  - constant.archive
+                  - constant.delete
+                  - constant.other
+                  - config.publish
+                  - config.archive
+                  - config.delete
+                  - config.other
+                  - rampSchedule.start
+                  - rampSchedule.pause
+                  - rampSchedule.progression
+                  - rampSchedule.approve
+                  - rampSchedule.edit
+                  - rampSchedule.delete
+                  - rampSchedule.other
+                  - override.ignoreWarnings
+                  - override.skipSchemaValidation
+                  - override.skipHooks
+                  - override.bypassApproval
+                  - override.restBypassesReviews
+                  - override.draftLimit
+              environments:
+                type: array
+                items:
+                  type: string
+            required:
+              - action
+              - environments
+            additionalProperties: false
+        summary:
+          type: string
+        url:
+          type: string
+        expiresAt:
+          type: string
+        response:
+          anyOf:
+            - type: object
+              properties:
+                status:
+                  type: number
+                body: {}
+              required:
+                - status
+                - body
+              additionalProperties: false
+            - type: 'null'
+        note:
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - id
+        - status
+        - actions
+        - summary
+        - url
+        - expiresAt
+        - response
+        - note
+      additionalProperties: false
     InformationSchemaTable:
       type: object
       properties:
@@ -82696,6 +84962,115 @@ components:
       required:
         - defaultValue
       additionalProperties: false
+    ConfirmationHeld:
+      type: object
+      properties:
+        confirmation:
+          $ref: '#/components/schemas/Confirmation'
+        message:
+          type: string
+      required:
+        - confirmation
+        - message
+      additionalProperties: false
+      $defs:
+        Confirmation:
+          id: Confirmation
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - running
+                - completed
+                - rejected
+                - expired
+            actions:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - feature.publish
+                      - feature.archive
+                      - feature.delete
+                      - feature.other
+                      - experiment.start
+                      - experiment.stop
+                      - experiment.targeting
+                      - experiment.traffic
+                      - experiment.phases
+                      - experiment.other
+                      - savedGroup.publish
+                      - savedGroup.archive
+                      - savedGroup.delete
+                      - savedGroup.other
+                      - constant.publish
+                      - constant.archive
+                      - constant.delete
+                      - constant.other
+                      - config.publish
+                      - config.archive
+                      - config.delete
+                      - config.other
+                      - rampSchedule.start
+                      - rampSchedule.pause
+                      - rampSchedule.progression
+                      - rampSchedule.approve
+                      - rampSchedule.edit
+                      - rampSchedule.delete
+                      - rampSchedule.other
+                      - override.ignoreWarnings
+                      - override.skipSchemaValidation
+                      - override.skipHooks
+                      - override.bypassApproval
+                      - override.restBypassesReviews
+                      - override.draftLimit
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - action
+                  - environments
+                additionalProperties: false
+            summary:
+              type: string
+            url:
+              type: string
+            expiresAt:
+              type: string
+            response:
+              anyOf:
+                - type: object
+                  properties:
+                    status:
+                      type: number
+                    body: {}
+                  required:
+                    - status
+                    - body
+                  additionalProperties: false
+                - type: 'null'
+            note:
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - id
+            - status
+            - actions
+            - summary
+            - url
+            - expiresAt
+            - response
+            - note
+          additionalProperties: false
     ConfigReferences:
       type: object
       properties:
@@ -85047,102 +87422,6 @@ components:
       required:
         - savedGroups
       additionalProperties: false
-    confirmation:
-      type: object
-      properties:
-        id:
-          type: string
-        status:
-          type: string
-          enum:
-            - pending
-            - running
-            - completed
-            - rejected
-            - expired
-        actions:
-          type: array
-          items:
-            type: object
-            properties:
-              action:
-                type: string
-                enum:
-                  - feature.publish
-                  - feature.archive
-                  - feature.delete
-                  - feature.other
-                  - experiment.start
-                  - experiment.stop
-                  - experiment.targeting
-                  - experiment.traffic
-                  - experiment.phases
-                  - experiment.other
-                  - savedGroup.publish
-                  - savedGroup.archive
-                  - savedGroup.delete
-                  - savedGroup.other
-                  - constant.publish
-                  - constant.archive
-                  - constant.delete
-                  - constant.other
-                  - config.publish
-                  - config.archive
-                  - config.delete
-                  - config.other
-                  - rampSchedule.start
-                  - rampSchedule.pause
-                  - rampSchedule.progression
-                  - rampSchedule.approve
-                  - rampSchedule.edit
-                  - rampSchedule.delete
-                  - rampSchedule.other
-                  - override.ignoreWarnings
-                  - override.skipSchemaValidation
-                  - override.skipHooks
-                  - override.bypassApproval
-                  - override.restBypassesReviews
-                  - override.draftLimit
-              environments:
-                type: array
-                items:
-                  type: string
-            required:
-              - action
-              - environments
-            additionalProperties: false
-        summary:
-          type: string
-        url:
-          type: string
-        expiresAt:
-          type: string
-        response:
-          anyOf:
-            - type: object
-              properties:
-                status:
-                  type: number
-                body: {}
-              required:
-                - status
-                - body
-              additionalProperties: false
-            - type: 'null'
-        note:
-          anyOf:
-            - type: string
-            - type: 'null'
-      required:
-        - id
-        - status
-        - actions
-        - summary
-        - url
-        - expiresAt
-        - response
-        - note
-      additionalProperties: false
     monitoring:
       type: object
       properties:
@@ -86050,6 +88329,8 @@ x-tagGroups:
       - ConfigSchemaSource_model
       - ConfigSchemaVerify_model
       - ConfigSchemaWarning_model
+      - Confirmation_model
+      - ConfirmationHeld_model
       - Constant_model
       - ConstantReferences_model
       - ConstantRevision_model

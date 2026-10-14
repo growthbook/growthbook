@@ -2,6 +2,7 @@ import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { eventUserRequestedBy } from "./event-user";
 import { bypassViaValues } from "./shared";
+import { namedSchema } from "./openapi-helpers";
 
 // `model.action`, model-first like webhook events. `override.*` actions are the
 // checks a request skips, whatever it changes.
@@ -89,10 +90,23 @@ export const CONFIRM_MODEL_BY_TAG = {
   "ramp-schedules": "rampSchedule",
 } as const satisfies Record<string, ConfirmModel>;
 
-// `actions` holds actions, whole categories ("override.*") or everything ("*");
-// omitted environments mean every environment.
+// What a rule can name: everything ("*"), a whole model ("override.*"), or one
+// action.
+const RULE_ACTIONS = new Set<string>([
+  "*",
+  ...CONFIRM_ACTIONS.map((action) => `${action.split(".")[0]}.*`),
+  ...CONFIRM_ACTIONS,
+]);
+
+// Omitted environments mean every environment.
 export const confirmRuleValidator = z.strictObject({
-  actions: z.array(z.string()).min(1),
+  actions: z
+    .array(
+      z.string().refine((action) => RULE_ACTIONS.has(action), {
+        message: "Unknown confirmation action",
+      }),
+    )
+    .min(1),
   environments: z.array(z.string()).optional(),
 });
 export const confirmRulesValidator = z.array(confirmRuleValidator);
@@ -149,7 +163,10 @@ export const confirmationValidator = baseSchema.safeExtend({
   query: z.record(z.string(), z.unknown()),
   body: z.unknown(),
   requestHash: z.string(),
+  // What the key's rules matched, shown as why it was held.
   actions: z.array(heldActionValidator),
+  // Everything the request does: a decider must be allowed all of it.
+  requested: z.array(heldActionValidator).optional(),
   summary: z.string(),
   links: z.array(confirmationLinkValidator),
   notices: z.array(confirmationNoticeValidator),
@@ -177,17 +194,29 @@ export const confirmationAttemptValidator = baseSchema.safeExtend({
   deleteAt: z.date(),
 });
 
-export const apiConfirmationValidator = z.strictObject({
-  id: z.string(),
-  status: z.enum(confirmationStatuses),
-  actions: z.array(heldActionValidator),
-  summary: z.string(),
-  url: z.string(),
-  expiresAt: z.string(),
-  response: confirmationResponseValidator,
-  note: z.string().nullable(),
-});
+export const apiConfirmationValidator = namedSchema(
+  "Confirmation",
+  z.strictObject({
+    id: z.string(),
+    status: z.enum(confirmationStatuses),
+    actions: z.array(heldActionValidator),
+    summary: z.string(),
+    url: z.string(),
+    expiresAt: z.string(),
+    response: confirmationResponseValidator,
+    note: z.string().nullable(),
+  }),
+);
 export type ApiConfirmation = z.infer<typeof apiConfirmationValidator>;
+
+// What a held write returns with its 202.
+export const apiConfirmationHeldValidator = namedSchema(
+  "ConfirmationHeld",
+  z.strictObject({
+    confirmation: apiConfirmationValidator,
+    message: z.string(),
+  }),
+);
 
 export const getConfirmationValidator = {
   method: "get" as const,

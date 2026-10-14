@@ -207,7 +207,12 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   await requireConfirmation(req.context, {
-    actions: ["savedGroup.publish"],
+    actions: [
+      "savedGroup.publish",
+      ...(desiredState.archived === true && !savedGroup.archived
+        ? (["savedGroup.archive"] as const)
+        : []),
+    ],
     bypassing: bypassed,
     notices: gateNotices(skipped),
     summary: `Publish revision ${revision.version} of ${savedGroup.groupName}`,

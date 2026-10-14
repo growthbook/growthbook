@@ -176,7 +176,14 @@ export default function ConfirmationPage() {
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<ConfirmationResponse>(
     `/confirmations/${id}`,
-    { shouldRun: () => !!id },
+    {
+      shouldRun: () => !!id,
+      // Stays current while open, until someone decides or it expires.
+      refreshInterval: (latest) =>
+        !latest || ["pending", "running"].includes(latest.confirmation.status)
+          ? 5000
+          : 0,
+    },
   );
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -241,7 +248,7 @@ export default function ConfirmationPage() {
     failure !== null
       ? {
           status: "error" as const,
-          text: `Confirmed, but it failed: ${failure.replace(/[.!?]?$/, ".")} Nothing was changed.`,
+          text: `Confirmed, but it failed: ${failure}`,
         }
       : OUTCOMES[confirmation.status];
   const pending = confirmation.status === "pending";

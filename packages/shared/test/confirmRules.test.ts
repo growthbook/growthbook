@@ -2,6 +2,7 @@ import {
   matchConfirmRules,
   routeConfirmation,
 } from "../src/util/confirmations";
+import { confirmRulesValidator } from "../src/validators/confirmations";
 
 const publishProd = {
   action: "feature.publish" as const,
@@ -53,5 +54,15 @@ describe("routeConfirmation", () => {
     expect(routeConfirmation("post", ["configs"], [])).toEqual([]);
     expect(routeConfirmation("get", ["configs"], undefined)).toEqual([]);
     expect(routeConfirmation("post", ["metrics"], undefined)).toEqual([]);
+  });
+});
+
+describe("confirmRulesValidator", () => {
+  it("takes everything, a whole model or one action, and rejects typos", () => {
+    const valid = (actions: string[]) =>
+      confirmRulesValidator.safeParse([{ actions }]).success;
+    expect(valid(["*", "override.*", "feature.publish"])).toBe(true);
+    expect(valid(["feature.publsh"])).toBe(false);
+    expect(valid(["features.*"])).toBe(false);
   });
 });

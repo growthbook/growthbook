@@ -5,7 +5,7 @@ import {
   ApiErrorCode,
   ConfirmAction,
 } from "shared/validators";
-import { armedPublishAction, routeConfirmation } from "shared/util";
+import { routeConfirmation } from "shared/util";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -419,7 +419,7 @@ export function createApiRequestHandler<
         await holdAtRoute(
           req.context,
           actions,
-          armedPublishAction(tags),
+          tags,
           method,
           path,
           req,
