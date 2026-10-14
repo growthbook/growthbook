@@ -23,7 +23,7 @@ Options:
   --exclude <list>      never sync these metrics/models (name globs or tag:<tag>)
   --dry-run             validate against the API without writing
   --strict              exit 1 if anything was skipped
-  --prune               delete api-managed Fact Tables/Metrics on the Data Source that are no longer in dbt
+  --prune               archive api-managed Fact Tables/Metrics on the Data Source that are no longer in dbt (and unarchive ones that return)
   --out <path>          write the payload to a file instead of calling the API
   -h, --help
 `;
@@ -186,7 +186,7 @@ async function prune(
   payload: BulkImportPayload,
 ) {
   const listAll = async (path: string, key: string) => {
-    const items: { id: string; managedBy?: string }[] = [];
+    const items: { id: string; managedBy: string; archived: boolean }[] = [];
     let offset = 0;
     for (;;) {
       const r = await api(
@@ -199,6 +199,7 @@ async function prune(
           items.push({
             id: item.id,
             managedBy: typeof item.managedBy === "string" ? item.managedBy : "",
+            archived: item.archived === true,
           });
         }
       }
@@ -207,20 +208,33 @@ async function prune(
     }
     return items.filter((i) => i.managedBy === "api");
   };
-  const remove = async (path: string, id: string) => {
-    const r = await api(`${path}/${id}`, { method: "DELETE" });
-    if (!r.ok) throw apiError(`Deleting ${id}`, r);
-    console.log(`Deleted ${id}`);
+  // Archive rather than delete so old experiment results keep resolving.
+  const setArchived = async (path: string, id: string, archived: boolean) => {
+    const r = await api(`${path}/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ archived }),
+    });
+    if (!r.ok)
+      throw apiError(`${archived ? "Archiving" : "Unarchiving"} ${id}`, r);
+    console.log(`${archived ? "Archived" : "Unarchived"} ${id}`);
+  };
+  const reconcile = async (path: string, key: string, keep: Set<string>) => {
+    for (const item of await listAll(path, key)) {
+      const stale = !keep.has(item.id);
+      if (stale !== item.archived) await setArchived(path, item.id, stale);
+    }
   };
 
-  const keepMetrics = new Set(payload.factMetrics.map((m) => `fact__${m.id}`));
-  for (const m of await listAll("/fact-metrics", "factMetrics")) {
-    if (!keepMetrics.has(m.id)) await remove("/fact-metrics", m.id);
-  }
-  const keepTables = new Set(payload.factTables.map((t) => t.id));
-  for (const t of await listAll("/fact-tables", "factTables")) {
-    if (!keepTables.has(t.id)) await remove("/fact-tables", t.id);
-  }
+  await reconcile(
+    "/fact-metrics",
+    "factMetrics",
+    new Set(payload.factMetrics.map((m) => `fact__${m.id}`)),
+  );
+  await reconcile(
+    "/fact-tables",
+    "factTables",
+    new Set(payload.factTables.map((t) => t.id)),
+  );
 }
 
 main().catch((e: unknown) => {
