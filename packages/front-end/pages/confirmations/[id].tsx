@@ -248,7 +248,7 @@ export default function ConfirmationPage() {
     failure !== null
       ? {
           status: "error" as const,
-          text: `Confirmed, but it failed: ${failure}`,
+          text: `Confirmed, but it failed: ${failure.replace(/[.!?]?$/, ".")} You can close this window.`,
         }
       : OUTCOMES[confirmation.status];
   const pending = confirmation.status === "pending";
