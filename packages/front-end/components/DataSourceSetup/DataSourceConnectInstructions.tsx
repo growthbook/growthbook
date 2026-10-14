@@ -34,8 +34,10 @@ function CommandBlock({ code }: { code: string }) {
           fontFamily: "var(--font-mono, monospace)",
           fontSize: 12,
           lineHeight: 1.75,
-          whiteSpace: "pre",
-          overflowX: "auto",
+          // Wrap long lines in place of a horizontal scrollbar. The copy
+          // button still copies the unwrapped `code`.
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
           color: "var(--color-text-high)",
         }}
       >

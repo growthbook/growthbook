@@ -7,12 +7,7 @@ import {
   useState,
 } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import {
-  PiArrowClockwise,
-  PiArrowLeft,
-  PiCheckBold,
-  PiXBold,
-} from "react-icons/pi";
+import { PiArrowClockwise, PiCheckBold, PiXBold } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import {
   DataSourceInterfaceWithParams,
@@ -594,8 +589,8 @@ export default function ConnectDataSourceLayout({
       <Flex
         gridArea="footer"
         align="center"
-        justify="between"
-        gap="3"
+        justify="end"
+        gap="4"
         wrap="wrap"
         px="6"
         py="4"
@@ -604,24 +599,17 @@ export default function ConnectDataSourceLayout({
           borderTop: "1px solid var(--gray-a5)",
         }}
       >
-        <Button
-          variant="ghost"
-          color="gray"
-          icon={<PiArrowLeft />}
-          onClick={onCancel}
-        >
-          Back
+        {saveHint ? (
+          <Text size="sm" color="text-mid">
+            {saveHint}
+          </Text>
+        ) : null}
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
         </Button>
-        <Flex align="center" gap="3">
-          {saveHint ? (
-            <Text size="sm" color="text-mid">
-              {saveHint}
-            </Text>
-          ) : null}
-          <Button disabled={!canSave} loading={saving} onClick={handleSave}>
-            {existing ? "Save changes" : "Create Data Source"}
-          </Button>
-        </Flex>
+        <Button disabled={!canSave} loading={saving} onClick={handleSave}>
+          {existing ? "Save changes" : "Create Data Source"}
+        </Button>
       </Flex>
     </Grid>
   );

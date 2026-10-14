@@ -10,7 +10,6 @@ import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
@@ -21,7 +20,6 @@ const EditDataSourceConnectPage: FC = () => {
   const { enabled, ready: flagReady } = useNewDataSourceOnboarding();
   const { orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { mutateDefinitions } = useDefinitions();
   const {
     data: d,
     error,
@@ -105,7 +103,9 @@ const EditDataSourceConnectPage: FC = () => {
           router.push(`/datasources/${d.id}`);
         }}
         onSuccess={async () => {
-          await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+          // Definitions were already refreshed on save. The Data Source page
+          // shares this SWR key, so the revalidation lands there.
+          mutateCurrentDataSource();
           await router.push(`/datasources/${d.id}`);
         }}
       />
