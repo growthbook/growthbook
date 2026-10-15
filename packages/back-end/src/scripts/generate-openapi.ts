@@ -946,8 +946,7 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
-    // Its own actions, an override for each skip flag it accepts, and the publish
-    // it can arm.
+    // Held for its own actions, a skip flag it accepts, or a publish it can arm.
     const accepted = [
       // Shared parameters are refs keyed by their name.
       ...parameters.map((p) =>
@@ -955,16 +954,13 @@ curl https://api.growthbook.io/api/v1/features \
       ),
       ...bodyFieldNames(requestBody?.content["application/json"].schema),
     ];
-    const actions = [
-      ...new Set([
-        ...routeConfirmation(method, tags, confirmation),
-        ...Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
-          accepted.includes(flag) ? [action] : [],
-        ),
-        ...armableActions(tags, accepted),
-      ]),
-    ];
-    if (actions.length > 0) {
+    if (
+      routeConfirmation(method, tags, confirmation).length > 0 ||
+      Object.keys(CONFIRM_OVERRIDE_FLAGS).some((flag) =>
+        accepted.includes(flag),
+      ) ||
+      armableActions(tags, accepted).length > 0
+    ) {
       responses["202"] = { $ref: "#/components/responses/ConfirmationHeld" };
     }
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
@@ -978,7 +974,6 @@ curl https://api.growthbook.io/api/v1/features \
       ...(requestBody !== undefined && { requestBody }),
       responses,
       "x-codeSamples": codeSamples,
-      ...(actions.length > 0 && { "x-growthbook-confirmation": actions }),
     };
   }
 

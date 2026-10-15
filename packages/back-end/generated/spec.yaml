@@ -2440,12 +2440,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.create
-        - feature.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/features/{id}:
     get:
       operationId: getFeature
@@ -4017,14 +4011,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/features/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
     delete:
       operationId: deleteFeature
       summary: Deletes a single feature
@@ -4065,8 +4051,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/features/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.delete
   /v1/features/{id}/toggle:
     post:
       operationId: toggleFeature
@@ -4158,13 +4142,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"reason":"Kill switch activated","environments":{"production":false}}'
-      x-growthbook-confirmation:
-        - feature.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/features/{id}/revert:
     post:
       operationId: revertFeature
@@ -4267,14 +4244,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"revision":3,"comment":"Bug found"}'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/feature-keys:
     get:
       operationId: getFeatureKeys
@@ -4522,10 +4491,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.draftLimit
   /v1/features/{id}/revisions/latest:
     get:
       operationId: getFeatureRevisionLatest
@@ -4850,9 +4815,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/default-value:
     put:
       operationId: putFeatureRevisionDefaultValue
@@ -4954,11 +4916,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/default-value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/features/{id}/revisions/{version}/prerequisites:
     put:
       operationId: putFeatureRevisionPrerequisites
@@ -5052,9 +5009,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/prerequisites'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/holdout:
     put:
       operationId: putFeatureRevisionHoldout
@@ -5147,9 +5101,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/holdout'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/archive:
     put:
       operationId: putFeatureRevisionArchive
@@ -5230,9 +5181,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/toggle:
     post:
       operationId: postFeatureRevisionToggle
@@ -5316,9 +5264,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/toggle'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules:
     post:
       operationId: postFeatureRevisionRuleAdd
@@ -6264,11 +6209,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/features/{id}/revisions/{version}/rules/{ruleId}:
     put:
       operationId: putFeatureRevisionRule
@@ -6978,11 +6918,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
     delete:
       operationId: deleteFeatureRevisionRule
       summary: Delete a rule from a draft revision
@@ -7064,9 +6999,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules/reorder:
     post:
       operationId: postFeatureRevisionRulesReorder
@@ -7154,9 +7086,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/reorder'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
       operationId: putFeatureRevisionRuleRampSchedule
@@ -7719,9 +7648,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
     delete:
       operationId: deleteFeatureRevisionRuleRampSchedule
       summary: Remove ramp schedule from a rule
@@ -7802,9 +7728,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/request-review:
     post:
       operationId: postFeatureRevisionRequestReview
@@ -7861,9 +7784,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
   /v1/features/{id}/revisions/{version}/submit-review:
     post:
       operationId: postFeatureRevisionSubmitReview
@@ -7937,8 +7857,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.review
   /v1/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatus
@@ -8092,9 +8010,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/publish:
     post:
       operationId: postFeatureRevisionPublish
@@ -8198,16 +8113,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - rampSchedule.start
-        - rampSchedule.edit
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/features/{id}/revisions/{version}/discard:
     post:
       operationId: postFeatureRevisionDiscard
@@ -8262,8 +8167,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
   /v1/features/{id}/revisions/{version}/revert:
     post:
       operationId: postFeatureRevisionRevert
@@ -8364,15 +8267,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v2/features:
     get:
       operationId: listFeaturesV2
@@ -9316,12 +9210,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v2/features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.create
-        - feature.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v2/features/{id}:
     get:
       operationId: getFeatureV2
@@ -10224,14 +10112,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v2/features/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
     delete:
       operationId: deleteFeatureV2
       summary: Deletes a single feature
@@ -10267,8 +10147,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v2/features/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.delete
   /v2/features/{id}/toggle:
     post:
       operationId: toggleFeatureV2
@@ -10353,13 +10231,6 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v2/features/{id}/toggle'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v2/features/{id}/revert:
     post:
       operationId: revertFeatureV2
@@ -10455,14 +10326,6 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v2/features/{id}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v2/feature-keys:
     get:
       operationId: getFeatureKeysV2
@@ -10797,10 +10660,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.draftLimit
   /v2/features/{id}/revisions/latest:
     get:
       operationId: getFeatureRevisionLatestV2
@@ -11272,9 +11131,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/default-value:
     put:
       operationId: putFeatureRevisionDefaultValueV2
@@ -11388,11 +11244,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/default-value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v2/features/{id}/revisions/{version}/prerequisites:
     put:
       operationId: putFeatureRevisionPrerequisitesV2
@@ -11488,9 +11339,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/prerequisites'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/holdout:
     put:
       operationId: putFeatureRevisionHoldoutV2
@@ -11579,9 +11427,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/holdout'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/archive:
     put:
       operationId: putFeatureRevisionArchiveV2
@@ -11659,9 +11504,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/toggle:
     post:
       operationId: postFeatureRevisionToggleV2
@@ -11742,9 +11584,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/toggle'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules:
     post:
       operationId: postFeatureRevisionRuleAddV2
@@ -12373,11 +12212,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v2/features/{id}/revisions/{version}/rules/{ruleId}:
     put:
       operationId: putFeatureRevisionRuleV2
@@ -13113,11 +12947,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules/{ruleId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
     delete:
       operationId: deleteFeatureRevisionRuleV2
       summary: Delete a rule from a draft revision
@@ -13194,9 +13023,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules/{ruleId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules/reorder:
     post:
       operationId: postFeatureRevisionRulesReorderV2
@@ -13280,9 +13106,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules/reorder'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
       operationId: putFeatureRevisionRuleRampScheduleV2
@@ -13968,9 +13791,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
     delete:
       operationId: deleteFeatureRevisionRuleRampScheduleV2
       summary: Remove ramp schedule from a rule
@@ -14049,9 +13869,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/request-review:
     post:
       operationId: postFeatureRevisionRequestReviewV2
@@ -14126,9 +13943,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
   /v2/features/{id}/revisions/{version}/schedule-publish:
     post:
       operationId: postFeatureRevisionSchedulePublishV2
@@ -14234,13 +14048,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v2/features/{id}/revisions/{version}/submit-review:
     post:
       operationId: postFeatureRevisionSubmitReviewV2
@@ -14309,8 +14116,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.review
   /v2/features/{id}/revisions/{version}/recall-review:
     post:
       operationId: postFeatureRevisionRecallReviewV2
@@ -14364,8 +14169,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
   /v2/features/{id}/revisions/{version}/undo-review:
     post:
       operationId: postFeatureRevisionUndoReviewV2
@@ -14420,8 +14223,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.review
   /v2/features/{id}/revisions/{version}/log:
     get:
       operationId: getFeatureRevisionLogV2
@@ -14519,8 +14320,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
     delete:
       operationId: deleteFeatureRevisionLogEntryV2
       summary: Delete an owned revision Comment entry
@@ -14571,8 +14370,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
   /v2/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatusV2
@@ -14859,8 +14656,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rebase/preview'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rebase:
     post:
       operationId: postFeatureRevisionRebaseV2
@@ -14958,9 +14753,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/publish:
     post:
       operationId: postFeatureRevisionPublishV2
@@ -15064,16 +14856,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - rampSchedule.start
-        - rampSchedule.edit
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v2/features/{id}/revisions/{version}/discard:
     post:
       operationId: postFeatureRevisionDiscardV2
@@ -15118,8 +14900,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
   /v2/features/{id}/revisions/{version}/reopen:
     post:
       operationId: postFeatureRevisionReopenV2
@@ -15168,8 +14948,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
   /v2/features/{id}/revisions/{version}/revert:
     post:
       operationId: postFeatureRevisionRevertV2
@@ -15261,15 +15039,6 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
-        - feature.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/archetypes:
     get:
       operationId: listArchetypes
@@ -15359,8 +15128,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/archetypes' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/archetypes/{id}:
     get:
       operationId: getArchetype
@@ -15451,8 +15218,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"New description"}'
-      x-growthbook-confirmation:
-        - other.write
     delete:
       operationId: deleteArchetype
       summary: Deletes a single archetype
@@ -15481,8 +15246,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/archetypes/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/experiments:
     get:
       operationId: listExperiments
@@ -16218,12 +15981,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.create
-        - experiment.start
-        - experiment.stop
-        - override.ignoreWarnings
-        - override.bypassDuplicateKeyCheck
   /v1/experiments/results:
     get:
       operationId: listExperimentResults
@@ -17006,16 +16763,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.draft
-        - experiment.start
-        - experiment.stop
-        - experiment.targeting
-        - experiment.traffic
-        - experiment.phases
-        - experiment.other
-        - override.ignoreWarnings
-        - override.bypassDuplicateKeyCheck
   /v1/experiments/{id}/start-checklist:
     get:
       operationId: getExperimentStartChecklist
@@ -17198,10 +16945,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.start
-        - override.ignoreWarnings
-        - override.skipChecklist
   /v1/experiments/{id}/start-checklist/manual/complete:
     post:
       operationId: postExperimentStartChecklistManualComplete
@@ -17260,8 +17003,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"keys":["Stakeholder sign-off","QA complete"]}'
-      x-growthbook-confirmation:
-        - experiment.draft
   /v1/experiments/{id}/stop:
     post:
       operationId: postExperimentStop
@@ -17377,9 +17118,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
-      x-growthbook-confirmation:
-        - experiment.stop
-        - override.ignoreWarnings
   /v1/experiments/{id}/schedule:
     put:
       operationId: putExperimentSchedule
@@ -17490,10 +17228,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"scheduledStopPlan":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
-      x-growthbook-confirmation:
-        - experiment.start
-        - experiment.stop
-        - experiment.other
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -17579,9 +17313,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"enableTemporaryRollout":false}'
-      x-growthbook-confirmation:
-        - experiment.stop
-        - override.ignoreWarnings
   /v1/experiments/{id}/snapshot:
     post:
       operationId: postExperimentSnapshot
@@ -17761,8 +17492,6 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot/upload'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.draft
   /v1/experiments/{id}/variation/{variationId}/screenshot:
     delete:
       operationId: deleteVariationScreenshot
@@ -17808,8 +17537,6 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.draft
   /v1/experiment-names:
     get:
       operationId: getExperimentNames
@@ -17886,8 +17613,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"comment":"This looks good to ship."}'
-      x-growthbook-confirmation:
-        - other.write
   /v1/experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -17992,8 +17717,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"editorUrl":"https://example.com/","urlPatterns":[{"type":"simple","pattern":"/","include":true}]}'
-      x-growthbook-confirmation:
-        - experiment.visualEditor
   /v1/contextual-bandits/{id}/current:
     get:
       operationId: getContextualBanditCurrentWeights
@@ -18768,9 +18491,6 @@ paths:
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
     put:
       operationId: updateContextualBanditLinkedFeature
       summary: Replace a Contextual Bandit's rule on a linked feature
@@ -18900,9 +18620,6 @@ paths:
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
     delete:
       operationId: deleteContextualBanditLinkedFeature
       summary: Unlink a feature from a Contextual Bandit
@@ -18966,9 +18683,6 @@ paths:
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.draft
-        - feature.publish
   /v1/snapshots/{id}:
     get:
       operationId: getExperimentSnapshot
@@ -19439,8 +19153,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/metrics' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.create
   /v1/metrics/{id}:
     get:
       operationId: getMetric
@@ -19859,8 +19571,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"net revenue","description":"revenue minus lacroix spend"}'
-      x-growthbook-confirmation:
-        - metric.edit
     delete:
       operationId: deleteMetric
       summary: Deletes a metric
@@ -19888,8 +19598,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/metrics/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.delete
   /v1/metrics/{id}/experiments:
     get:
       operationId: listMetricExperiments
@@ -20141,8 +19849,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Annual Subscribers","datasourceId":"ds_123abc","identifierType":"user_id","type":"SQL","query":"SELECT plan FROM subscribers WHERE plan = "}'
-      x-growthbook-confirmation:
-        - segment.create
   /v1/segments/{id}:
     get:
       operationId: getSegment
@@ -20267,8 +19973,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Region"}'
-      x-growthbook-confirmation:
-        - segment.edit
     delete:
       operationId: deleteSegment
       summary: Deletes a single segment
@@ -20298,8 +20002,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/segments/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - segment.delete
   /v1/dimensions:
     get:
       operationId: listDimensions
@@ -20403,8 +20105,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Country","datasourceId":"ds_123abc","identifierType":"user","query":"SELECT country FROM users"}'
-      x-growthbook-confirmation:
-        - dimension.create
   /v1/dimensions/{id}:
     get:
       operationId: getDimension
@@ -20499,8 +20199,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Region"}'
-      x-growthbook-confirmation:
-        - dimension.edit
     delete:
       operationId: deleteDimension
       summary: Deletes a single dimension
@@ -20531,8 +20229,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/dimensions/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - dimension.delete
   /v1/projects:
     get:
       operationId: listProjects
@@ -20677,8 +20373,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Project","description":"Super cool project"}'
-      x-growthbook-confirmation:
-        - project.create
   /v1/projects/{id}:
     get:
       operationId: getProject
@@ -20791,8 +20485,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary"}'
-      x-growthbook-confirmation:
-        - project.edit
     delete:
       operationId: deleteProject
       summary: Deletes a single project
@@ -20822,8 +20514,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/projects/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - project.delete
   /v1/environments:
     get:
       operationId: listEnvironments
@@ -20908,8 +20598,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"id":"new-env","description":"My new environment"}'
-      x-growthbook-confirmation:
-        - environment.create
   /v1/environments/{id}:
     put:
       operationId: putEnvironment
@@ -20961,8 +20649,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"My updated environment"}'
-      x-growthbook-confirmation:
-        - environment.edit
     delete:
       operationId: deleteEnvironment
       summary: Deletes a single environment
@@ -20991,8 +20677,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/environments/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - environment.delete
   /v1/attributes:
     get:
       operationId: listAttributes
@@ -21126,8 +20810,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"property":"foo","datatype":"boolean","description":"My new attribute"}'
-      x-growthbook-confirmation:
-        - attribute.create
   /v1/attributes/{property}:
     put:
       operationId: putAttribute
@@ -21219,8 +20901,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"My updated attribute"}'
-      x-growthbook-confirmation:
-        - attribute.edit
     delete:
       operationId: deleteAttribute
       summary: Deletes a single attribute
@@ -21249,8 +20929,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/attributes/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - attribute.delete
   /v1/sdk-connections:
     get:
       operationId: listSdkConnections
@@ -21386,8 +21064,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - sdkConnection.create
   /v1/sdk-connections/{id}:
     get:
       operationId: getSdkConnection
@@ -21515,8 +21191,6 @@ paths:
             curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - sdkConnection.edit
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
@@ -21545,8 +21219,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/sdk-connections/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - sdkConnection.delete
   /v1/sdk-connections/lookup/{key}:
     get:
       operationId: lookupSdkConnectionByKey
@@ -22231,8 +21903,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"editorUrl":"https://example.com/"}'
-      x-growthbook-confirmation:
-        - experiment.visualEditor
   /v1/visual-changesets/{id}/visual-change:
     post:
       operationId: postVisualChange
@@ -22322,8 +21992,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"variation":"var_abc123","domMutations":[]}'
-      x-growthbook-confirmation:
-        - experiment.visualEditor
   /v1/visual-changesets/{id}/visual-change/{visualChangeId}:
     put:
       operationId: putVisualChange
@@ -22407,8 +22075,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"css":"h1 { color: red; }"}'
-      x-growthbook-confirmation:
-        - experiment.visualEditor
   /v1/saved-groups:
     get:
       operationId: listSavedGroups
@@ -22527,9 +22193,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"internal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
-      x-growthbook-confirmation:
-        - savedGroup.create
-        - override.bypassApproval
   /v1/saved-groups-revisions:
     get:
       operationId: listSavedGroupRevisions
@@ -22728,13 +22391,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"values":["userId-123","userId-345"]}'
-      x-growthbook-confirmation:
-        - savedGroup.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
     delete:
       operationId: deleteSavedGroup
       summary: Deletes a single saved group
@@ -22763,8 +22419,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/saved-groups/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.delete
   /v1/saved-groups/{id}/archive:
     post:
       operationId: archiveSavedGroup
@@ -22829,13 +22483,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups/abc123/archive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/saved-groups/{id}/unarchive:
     post:
       operationId: unarchiveSavedGroup
@@ -22878,13 +22525,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups/abc123/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/saved-groups/{id}/references:
     get:
       operationId: getSavedGroupReferences
@@ -23090,8 +22730,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/latest:
     get:
       operationId: getSavedGroupRevisionLatest
@@ -23265,8 +22903,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/condition:
     put:
       operationId: putSavedGroupRevisionCondition
@@ -23331,8 +22967,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/condition'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/values:
     put:
       operationId: putSavedGroupRevisionValues
@@ -23400,8 +23034,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:
     put:
       operationId: putSavedGroupRevisionArchive
@@ -23477,9 +23109,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
-        - override.ignoreWarnings
   /v1/saved-groups-revisions/{savedGroupId}/{version}/items/add:
     post:
       operationId: postSavedGroupRevisionItemsAdd
@@ -23547,8 +23176,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/add'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove:
     post:
       operationId: postSavedGroupRevisionItemsRemove
@@ -23614,8 +23241,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/request-review:
     post:
       operationId: postSavedGroupRevisionRequestReview
@@ -23683,10 +23308,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
-        - override.ignoreWarnings
-        - savedGroup.publish
   /v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review:
     post:
       operationId: postSavedGroupRevisionSubmitReview
@@ -23761,8 +23382,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.review
   /v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review:
     post:
       operationId: postSavedGroupRevisionRecallReview
@@ -23811,8 +23430,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/reopen:
     post:
       operationId: postSavedGroupRevisionReopen
@@ -23860,8 +23477,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/schedule-publish:
     post:
       operationId: postSavedGroupRevisionSchedulePublish
@@ -23941,13 +23556,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/saved-groups-revisions/{savedGroupId}/{version}/undo-review:
     post:
       operationId: postSavedGroupRevisionUndoReview
@@ -24000,8 +23608,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.review
   /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
     get:
       operationId: getSavedGroupRevisionMergeStatus
@@ -24134,8 +23740,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/publish:
     post:
       operationId: postSavedGroupRevisionPublish
@@ -24215,14 +23819,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.publish
-        - savedGroup.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/saved-groups-revisions/{savedGroupId}/{version}/discard:
     post:
       operationId: postSavedGroupRevisionDiscard
@@ -24272,8 +23868,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/revert:
     post:
       operationId: postSavedGroupRevisionRevert
@@ -24355,14 +23949,6 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - savedGroup.publish
-        - savedGroup.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/constants:
     get:
       operationId: listConstants
@@ -24474,8 +24060,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"key":"config-snippet","name":"Config Snippet","type":"json","value":"{\"timeout\":30}"}'
-      x-growthbook-confirmation:
-        - constant.create
   /v1/constants-revisions:
     get:
       operationId: listConstantRevisions
@@ -24781,13 +24365,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"value":"{\"timeout\":60}"}'
-      x-growthbook-confirmation:
-        - constant.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
     delete:
       operationId: deleteConstant
       summary: Delete a single constant
@@ -24822,8 +24399,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/constants/config-snippet' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.delete
   /v1/constants/{key}/archive:
     post:
       operationId: archiveConstant
@@ -24906,13 +24481,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants/config-snippet/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/constants/{key}/unarchive:
     post:
       operationId: unarchiveConstant
@@ -24995,13 +24563,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants/config-snippet/unarchive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/constants-revisions/{key}:
     get:
       operationId: getConstantRevisions
@@ -25145,8 +24706,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/constants-revisions/{key}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/latest:
     get:
       operationId: getConstantRevisionLatest
@@ -25318,8 +24877,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/value:
     put:
       operationId: putConstantRevisionValue
@@ -25393,8 +24950,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/archive:
     put:
       operationId: putConstantRevisionArchive
@@ -25489,11 +25044,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/constants-revisions/{key}/{version}/request-review:
     post:
       operationId: postConstantRevisionRequestReview
@@ -25579,12 +25129,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - constant.publish
   /v1/constants-revisions/{key}/{version}/submit-review:
     post:
       operationId: postConstantRevisionSubmitReview
@@ -25659,8 +25203,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.review
   /v1/constants-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConstantRevisionRecallReview
@@ -25709,8 +25251,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/reopen:
     post:
       operationId: postConstantRevisionReopen
@@ -25758,8 +25298,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/schedule-publish:
     post:
       operationId: postConstantRevisionSchedulePublish
@@ -25858,13 +25396,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/constants-revisions/{key}/{version}/undo-review:
     post:
       operationId: postConstantRevisionUndoReview
@@ -25917,8 +25448,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.review
   /v1/constants-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConstantRevisionMergeStatus
@@ -26038,8 +25567,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/publish:
     post:
       operationId: postConstantRevisionPublish
@@ -26138,14 +25665,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.publish
-        - constant.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/constants-revisions/{key}/{version}/discard:
     post:
       operationId: postConstantRevisionDiscard
@@ -26195,8 +25714,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.draft
   /v1/constants-revisions/{key}/{version}/revert:
     post:
       operationId: postConstantRevisionRevert
@@ -26297,14 +25814,6 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - constant.publish
-        - constant.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/configs:
     get:
       operationId: listConfigs
@@ -26571,11 +26080,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"key":"checkout-flow","name":"Checkout Flow","value":{"timeout":30,"retries":3}}'
-      x-growthbook-confirmation:
-        - config.create
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/configs-revisions:
     get:
       operationId: listConfigRevisions
@@ -27276,13 +26780,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"value":{"timeout":60,"retries":3}}'
-      x-growthbook-confirmation:
-        - config.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
     delete:
       operationId: deleteConfig
       summary: Delete a single config
@@ -27317,8 +26814,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/configs/checkout-flow' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.delete
   /v1/configs/{key}/archive:
     post:
       operationId: archiveConfig
@@ -27410,13 +26905,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/archive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/configs/{key}/unarchive:
     post:
       operationId: unarchiveConfig
@@ -27498,13 +26986,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/configs/{key}/lock:
     post:
       operationId: lockConfig
@@ -27558,8 +27039,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/lock' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.other
   /v1/configs/{key}/unlock:
     post:
       operationId: unlockConfig
@@ -27598,8 +27077,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/unlock' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.other
   /v1/configs-revisions/{key}:
     get:
       operationId: getConfigRevisions
@@ -27742,8 +27219,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs-revisions/{key}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/latest:
     get:
       operationId: getConfigRevisionLatest
@@ -27967,11 +27442,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/configs-revisions/{key}/{version}/value:
     put:
       operationId: putConfigRevisionValue
@@ -28094,11 +27564,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/configs-revisions/{key}/{version}/property:
     put:
       operationId: putConfigRevisionProperty
@@ -28209,11 +27674,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
     delete:
       operationId: deleteConfigRevisionProperty
       summary: Remove one property from a config draft revision's value
@@ -28271,10 +27731,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
   /v1/configs-revisions/{key}/{version}/schema:
     put:
       operationId: putConfigRevisionSchema
@@ -28397,11 +27853,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/schema'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/configs-revisions/{key}/{version}/projection:
     put:
       operationId: putConfigRevisionProjection
@@ -28523,11 +27974,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/projection'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
     delete:
       operationId: deleteConfigRevisionProjection
       summary: Remove a config's per-source render projection on a draft
@@ -28582,8 +28028,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/projection'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/{version}/archive:
     put:
       operationId: putConfigRevisionArchive
@@ -28678,11 +28122,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
   /v1/configs-revisions/{key}/{version}/request-review:
     post:
       operationId: postConfigRevisionRequestReview
@@ -28768,12 +28207,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - config.publish
   /v1/configs-revisions/{key}/{version}/submit-review:
     post:
       operationId: postConfigRevisionSubmitReview
@@ -28848,8 +28281,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.review
   /v1/configs-revisions/{key}/{version}/undo-review:
     post:
       operationId: postConfigRevisionUndoReview
@@ -28902,8 +28333,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.review
   /v1/configs-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConfigRevisionRecallReview
@@ -28952,8 +28381,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/{version}/reopen:
     post:
       operationId: postConfigRevisionReopen
@@ -29001,8 +28428,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/{version}/schedule-publish:
     post:
       operationId: postConfigRevisionSchedulePublish
@@ -29101,13 +28526,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.publish
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/configs-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConfigRevisionMergeStatus
@@ -29240,8 +28658,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/{version}/publish:
     post:
       operationId: postConfigRevisionPublish
@@ -29344,14 +28760,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.publish
-        - config.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/configs-revisions/{key}/{version}/discard:
     post:
       operationId: postConfigRevisionDiscard
@@ -29401,8 +28809,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.draft
   /v1/configs-revisions/{key}/{version}/revert:
     post:
       operationId: postConfigRevisionRevert
@@ -29505,14 +28911,6 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - config.publish
-        - config.archive
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/releases/publish-revisions:
     post:
       operationId: postReleasePublishRevisions
@@ -29677,22 +29075,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/releases/publish-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - feature.publish
-        - feature.archive
-        - savedGroup.publish
-        - savedGroup.archive
-        - constant.publish
-        - constant.archive
-        - config.publish
-        - config.archive
-        - rampSchedule.start
-        - rampSchedule.edit
-        - override.ignoreWarnings
-        - override.skipSchemaValidation
-        - override.skipHooks
-        - override.bypassApproval
-        - override.restBypassesReviews
   /v1/custom-hooks:
     get:
       operationId: listCustomHooks
@@ -29794,8 +29176,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Require a description","hook":"validateFeature","code":"if (!feature.description) {\n  throw new Error(\"Feature must have a description\");\n}"}'
-      x-growthbook-confirmation:
-        - customHook.create
   /v1/custom-hooks/test:
     post:
       operationId: testCustomHook
@@ -29991,8 +29371,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"enabled":false}'
-      x-growthbook-confirmation:
-        - customHook.edit
     delete:
       operationId: deleteCustomHook
       summary: Delete a single custom hook
@@ -30027,8 +29405,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - customHook.delete
   /v1/custom-hooks/{id}/history:
     get:
       operationId: listCustomHookHistory
@@ -30119,8 +29495,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"auditId":"aud_123abc"}'
-      x-growthbook-confirmation:
-        - customHook.edit
   /v1/organizations:
     get:
       operationId: listOrganizations
@@ -30225,8 +29599,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary"}'
-      x-growthbook-confirmation:
-        - settings.other
   /v1/organizations/{id}:
     put:
       operationId: putOrganization
@@ -30276,8 +29648,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary","externalId":"subsidiary-123"}'
-      x-growthbook-confirmation:
-        - settings.other
   /v1/sdk-payload/{key}:
     get:
       operationId: getSdkPayload
@@ -30482,8 +29852,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Orders","datasource":"ds_abc123","userIdTypes":["id"],"sql":"SELECT * FROM orders"}'
-      x-growthbook-confirmation:
-        - factTable.create
   /v1/fact-tables/{id}:
     get:
       operationId: getFactTable
@@ -30658,8 +30026,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"New Fact Table Name"}'
-      x-growthbook-confirmation:
-        - factTable.edit
     delete:
       operationId: deleteFactTable
       summary: Deletes a single fact table
@@ -30690,8 +30056,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/fact-tables/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - factTable.delete
   /v1/fact-tables/{factTableId}/filters:
     get:
       operationId: listFactTableFilters
@@ -30785,8 +30149,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"High Value Order","value":"amount>100"}'
-      x-growthbook-confirmation:
-        - factTable.create
   /v1/fact-tables/{factTableId}/filters/{id}:
     get:
       operationId: getFactTableFilter
@@ -30875,8 +30237,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"value":"amount > 50"}'
-      x-growthbook-confirmation:
-        - factTable.edit
     delete:
       operationId: deleteFactTableFilter
       summary: Deletes a single fact table filter
@@ -30909,8 +30269,6 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - factTable.edit
   /v1/fact-tables/{factTableId}/virtual-columns:
     post:
       operationId: postFactTableVirtualColumn
@@ -30991,8 +30349,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"column":"revenue_vc","datatype":"number","sql":"price * quantity"}'
-      x-growthbook-confirmation:
-        - factTable.create
   /v1/fact-tables/{factTableId}/virtual-columns/{id}:
     post:
       operationId: updateFactTableVirtualColumn
@@ -31063,8 +30419,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"sql":"price * quantity * 1.1"}'
-      x-growthbook-confirmation:
-        - factTable.edit
     delete:
       operationId: deleteFactTableVirtualColumn
       summary: Delete a virtual (computed) column from a fact table
@@ -31097,8 +30451,6 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - factTable.edit
   /v1/fact-tables/{id}/aggregated-tables:
     get:
       operationId: getAggregatedFactTables
@@ -32010,8 +31362,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Purchased","metricType":"proportion","numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]},"priorSettings":{"override":false,"proper":false,"mean":0,"stddev":0.3}}'
-      x-growthbook-confirmation:
-        - metric.create
   /v1/fact-metrics/{id}:
     get:
       operationId: getFactMetric
@@ -32744,8 +32094,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Updated Metric Name"}'
-      x-growthbook-confirmation:
-        - metric.edit
     delete:
       operationId: deleteFactMetric
       summary: Deletes a single fact metric
@@ -32776,8 +32124,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/fact-metrics/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.delete
   /v1/fact-metrics/{id}/analysis:
     post:
       operationId: postFactMetricAnalysis
@@ -33862,11 +33208,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"factTables":[],"factTableFilters":[],"factMetrics":[]}'
-      x-growthbook-confirmation:
-        - factTable.create
-        - factTable.edit
-        - metric.create
-        - metric.edit
   /v1/code-refs:
     post:
       operationId: postCodeRefs
@@ -33935,8 +33276,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"branch":"main","repoName":"my-repo","refs":[{"filePath":"src/app.ts","startingLineNumber":16,"lines":"...","flagKey":"my-feature","contentHash":"abc123"}]}'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listCodeRefs
       summary: Get list of all code references for the current organization
@@ -34143,8 +33482,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/members/{id}/role' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.members
   /v1/members/{id}:
     delete:
       operationId: deleteMember
@@ -34173,8 +33510,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/members/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.members
   /v1/queries/{id}:
     get:
       operationId: getQuery
@@ -34292,8 +33627,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/settings/approvals' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - settings.approvals
   /v1/version:
     get:
       operationId: getVersion
@@ -34981,9 +34314,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/ramp-schedules' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.create
-        - rampSchedule.start
   /v1/ramp-schedules/{id}/actions/start:
     post:
       operationId: startRampSchedule
@@ -35039,8 +34369,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/start'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.start
   /v1/ramp-schedules/{id}/actions/pause:
     post:
       operationId: pauseRampSchedule
@@ -35090,8 +34418,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/pause'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.pause
   /v1/ramp-schedules/{id}/actions/resume:
     post:
       operationId: resumeRampSchedule
@@ -35143,8 +34469,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/resume'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.start
   /v1/ramp-schedules/{id}/actions/rollback:
     post:
       operationId: rollbackRampSchedule
@@ -35212,8 +34536,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/rollback'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.progression
   /v1/ramp-schedules/{id}/actions/restart:
     post:
       operationId: restartRampSchedule
@@ -35270,8 +34592,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/restart'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.start
   /v1/ramp-schedules/{id}/actions/jump:
     post:
       operationId: jumpRampSchedule
@@ -35341,8 +34661,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/jump'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.progression
   /v1/ramp-schedules/{id}/actions/complete:
     post:
       operationId: completeRampSchedule
@@ -35401,8 +34719,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/complete'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.progression
   /v1/ramp-schedules/{id}/actions/approve-step:
     post:
       operationId: approveStepRampSchedule
@@ -35475,8 +34791,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/approve-step'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.approve
   /v1/ramp-schedules/{id}/actions/add-target:
     post:
       operationId: addTargetRampSchedule
@@ -35554,8 +34868,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/add-target'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.other
   /v1/ramp-schedules/{id}/actions/eject-target:
     post:
       operationId: ejectTargetRampSchedule
@@ -35633,8 +34945,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.other
   /v1/ramp-schedules/{id}/actions/advance:
     post:
       operationId: apiAdvanceRampSchedule
@@ -35734,8 +35044,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/advance'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.approve
   /v1/ramp-schedules/{id}/status:
     get:
       operationId: getRampScheduleStatus
@@ -36223,8 +35531,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/set-monitoring-mode'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/ramp-schedules/{id}/actions/set-auto-update:
     post:
       operationId: setAutoUpdateRampSchedule
@@ -36642,8 +35948,6 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/set-auto-update'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/ramp-schedules/{id}/monitoring:
     put:
       operationId: updateRampScheduleMonitoring
@@ -37150,8 +36454,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/monitoring' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/ramp-schedules/{id}/lockdown:
     put:
       operationId: updateRampScheduleLockdown
@@ -37572,8 +36874,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/lockdown' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/ramp-schedules/{id}/steps:
     put:
       operationId: updateRampScheduleSteps
@@ -37687,8 +36987,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/steps' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/ramp-schedules/{id}/actions/refresh-monitoring:
     post:
       operationId: refreshMonitoringRampSchedule
@@ -38028,8 +37326,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/reports' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/reports/{id}:
     get:
       operationId: getReport
@@ -38152,8 +37448,6 @@ paths:
             curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/reports/{id}/settings:
     put:
       operationId: putReportSettings
@@ -38396,8 +37690,6 @@ paths:
             curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/settings'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/namespaces:
     get:
       operationId: listNamespaces
@@ -38493,8 +37785,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"displayName":"Checkout Flow","description":"Experiments on the checkout funnel","format":"multiRange","hashAttribute":"id"}'
-      x-growthbook-confirmation:
-        - experiment.create
   /v1/namespaces/{id}:
     get:
       operationId: getNamespace
@@ -38589,8 +37879,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"displayName":"Checkout v2","status":"inactive"}'
-      x-growthbook-confirmation:
-        - experiment.traffic
     delete:
       operationId: deleteNamespace
       summary: Delete a namespace
@@ -38631,8 +37919,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.traffic
   /v1/namespaces/{id}/memberships:
     get:
       operationId: getNamespaceMemberships
@@ -38728,8 +38014,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.traffic
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -38829,8 +38113,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/dashboards/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     put:
       operationId: updateDashboard
       summary: Update a single dashboard
@@ -45867,8 +45149,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/dashboards/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/dashboards:
     post:
       operationId: createDashboard
@@ -49435,8 +48715,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/dashboards' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listDashboards
       summary: Get all dashboards
@@ -53032,8 +52310,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v2/dashboards' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/dashboards/by-experiment/{experimentId}:
     get:
       operationId: getDashboardsForExperiment
@@ -53256,8 +52532,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
   /v1/contextual-bandits:
     post:
       operationId: createContextualBandit
@@ -53377,8 +52651,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.create
     get:
       operationId: listContextualBandits
       summary: Get all contextualBandits
@@ -53455,9 +52727,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/start' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.start
-        - feature.publish
   /v1/contextual-bandits/{id}/stop:
     post:
       operationId: stopContextualBandit
@@ -53493,8 +52762,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.stop
   /v1/contextual-bandits/{id}/refresh:
     post:
       operationId: refreshContextualBandit
@@ -53532,8 +52799,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.traffic
   /v1/contextual-bandits/{id}/variations:
     post:
       operationId: updateContextualBanditVariations
@@ -53672,8 +52937,6 @@ paths:
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/variations'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
   /v1/contextual-bandits/{id}/cancel:
     post:
       operationId: cancelContextualBandit
@@ -53772,8 +53035,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
     put:
       operationId: updateContextualBanditQuery
       summary: Update a single contextualBanditQuery
@@ -53834,8 +53095,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
   /v1/contextual-bandit-queries:
     post:
       operationId: createContextualBanditQuery
@@ -53902,8 +53161,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.create
     get:
       operationId: listContextualBanditQueries
       summary: Get all contextualBanditQueries
@@ -54055,8 +53312,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/custom-fields' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - customField.create
     get:
       operationId: listCustomFields
       summary: Get all custom fields
@@ -54117,8 +53372,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/custom-fields/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - customField.delete
     get:
       operationId: getCustomField
       summary: Get a single customField
@@ -54252,8 +53505,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/custom-fields/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - customField.edit
   /v1/metric-groups/{id}:
     get:
       operationId: getMetricGroup
@@ -54318,8 +53569,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/metric-groups/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.delete
     put:
       operationId: updateMetricGroup
       summary: Update a single metricGroup
@@ -54388,8 +53637,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/metric-groups/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.edit
   /v1/metric-groups:
     post:
       operationId: createMetricGroup
@@ -54458,8 +53705,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/metric-groups' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - metric.create
     get:
       operationId: listMetricGroups
       summary: Get all metricGroups
@@ -54630,8 +53875,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/teams/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.teams
     delete:
       operationId: deleteTeam
       summary: Delete a single team
@@ -54665,8 +53908,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.teams
   /v1/teams:
     post:
       operationId: createTeam
@@ -54779,8 +54020,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/teams' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.teams
     get:
       operationId: listTeams
       summary: Get all teams
@@ -54853,8 +54092,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/teams/{id}/members' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.teams
     delete:
       operationId: removeTeamMember
       summary: Remove members from team
@@ -54902,8 +54139,6 @@ paths:
             curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}/members'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - access.teams
   /v1/experiment-templates/{id}:
     get:
       operationId: getExperimentTemplate
@@ -54969,8 +54204,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     put:
       operationId: updateExperimentTemplate
       summary: Update a single experimentTemplate
@@ -55174,8 +54407,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/experiment-templates:
     post:
       operationId: createExperimentTemplate
@@ -55379,8 +54610,6 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/experiment-templates'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listExperimentTemplates
       summary: Get all experimentTemplates
@@ -55641,8 +54870,6 @@ paths:
             'https://api.growthbook.io/api/v1/experiment-templates/bulk-import'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/product-analytics/metric-exploration:
     post:
       operationId: postMetricExploration
@@ -60808,8 +60035,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     put:
       operationId: updateRampScheduleTemplate
       summary: Update a single rampScheduleTemplate
@@ -61154,8 +60379,6 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/ramp-schedule-templates:
     post:
       operationId: createRampScheduleTemplate
@@ -61499,8 +60722,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedule-templates' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listRampScheduleTemplates
       summary: Get all rampScheduleTemplates
@@ -61596,8 +60817,6 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.delete
     put:
       operationId: updateRampSchedule
       summary: Update a single rampSchedule
@@ -62167,8 +61386,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - rampSchedule.edit
   /v1/learnings/{id}:
     get:
       operationId: getLearning
@@ -62232,8 +61449,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     put:
       operationId: updateLearning
       summary: Update a single learning
@@ -62300,8 +61515,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/learnings:
     post:
       operationId: createLearning
@@ -62371,8 +61584,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/learnings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listLearnings
       summary: Get all learnings
@@ -62695,10 +61906,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/holdouts/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
-        - experiment.start
-        - experiment.stop
   /v1/holdouts:
     post:
       operationId: createHoldout
@@ -62892,10 +62099,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.create
-        - experiment.start
-        - experiment.stop
     get:
       operationId: listHoldouts
       summary: Get all holdouts
@@ -63009,8 +62212,6 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/start'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.start
   /v1/holdouts/{id}/start-analysis:
     post:
       operationId: startHoldoutAnalysis
@@ -63071,8 +62272,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/holdouts/{id}/start-analysis' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.other
   /v1/holdouts/{id}/stop:
     post:
       operationId: stopHoldout
@@ -63126,8 +62325,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - experiment.stop
   /v1/auto-runs:
     post:
       operationId: createAutoRun
@@ -63183,8 +62380,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/auto-runs' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     get:
       operationId: listAutoRuns
       summary: Get all autoRuns
@@ -63321,8 +62516,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/auto-runs/{id}/artifacts:
     post:
       operationId: appendAutoRunArtifact
@@ -63464,8 +62657,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/populations:
     get:
       operationId: listPopulations
@@ -63698,8 +62889,6 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/populations' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
   /v1/populations/{id}:
     get:
       operationId: getPopulation
@@ -63909,8 +63098,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
     delete:
       operationId: deletePopulation
       summary: Delete a single population
@@ -63943,8 +63130,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-      x-growthbook-confirmation:
-        - other.write
 components:
   parameters:
     limit:
