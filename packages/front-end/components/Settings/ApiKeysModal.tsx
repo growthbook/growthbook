@@ -39,10 +39,10 @@ const PRESET_HELP = {
       <span>
         Waits for confirmation before publishing, archiving or deleting,
         changing live experiments or ramps, skipping checks, or editing
-        settings, access, environments, SDK connections, metrics and the like.
+        settings, access, environments, SDK Connections, metrics and the like.
       </span>
       <span>
-        Creating things, drafts and reviews, and writes like dashboards and
+        Creating things, working on drafts, and writes like dashboards and
         comments run without confirmation.
       </span>
     </Flex>

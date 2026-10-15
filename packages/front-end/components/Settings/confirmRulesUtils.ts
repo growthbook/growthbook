@@ -78,7 +78,6 @@ export const isSingleAction = (category: Category) =>
 export const verbOf = (action: string) => {
   const verb = action.split(".")[1];
   if (verb === "other") return "other actions";
-  if (verb === "draft") return "drafts";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };
 
@@ -127,11 +126,12 @@ export function presetOf(rules: ConfirmRule[]) {
   return !more.length && (pick === ALL || pick === RECOMMENDED) ? pick : null;
 }
 
-// Some of a category's actions are picked, but not all of them.
-export function isPartlyPicked(picks: string[], category: Category) {
+// Some of what a row stands for is picked, but not all of it.
+export function isPartlyPicked(picks: string[], row: string) {
   const set = expand(picks);
-  const picked = actionsOf(category).filter((action) => set.has(action));
-  return picked.length > 0 && picked.length < actionsOf(category).length;
+  const actions = [...expand([row])];
+  const picked = actions.filter((action) => set.has(action));
+  return picked.length > 0 && picked.length < actions.length;
 }
 
 // Clicking a checked row unchecks everything it stands for, so a row checked

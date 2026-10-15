@@ -85,10 +85,11 @@ describe("recommended", () => {
 });
 
 it("tells a partly picked category from a fully picked or unpicked one", () => {
-  expect(isPartlyPicked(["recommended"], "feature")).toBe(true);
-  expect(isPartlyPicked(["recommended"], "override")).toBe(false);
-  expect(isPartlyPicked(["*"], "feature")).toBe(false);
-  expect(isPartlyPicked(["experiment.start"], "feature")).toBe(false);
+  expect(isPartlyPicked(["recommended"], "feature.*")).toBe(true);
+  expect(isPartlyPicked(["recommended"], "override.*")).toBe(false);
+  expect(isPartlyPicked(["*"], "feature.*")).toBe(false);
+  expect(isPartlyPicked(["experiment.start"], "feature.*")).toBe(false);
+  expect(isPartlyPicked(["feature.publish"], "recommended")).toBe(true);
 });
 
 it("names the preset a rule list amounts to, if any", () => {

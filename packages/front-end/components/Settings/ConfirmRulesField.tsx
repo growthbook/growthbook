@@ -6,6 +6,7 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiCheckBold,
+  PiMinusBold,
   PiPlusBold,
   PiTrash,
 } from "react-icons/pi";
@@ -84,7 +85,7 @@ function ActionsField({
       {
         label: "",
         options: [
-          { label: "Recommended", value: RECOMMENDED },
+          { label: "Recommended actions", value: RECOMMENDED },
           { label: "All actions", value: ALL },
         ],
       },
@@ -116,7 +117,7 @@ function ActionsField({
   // or picked inside stays as they left it.
   const [opened, setOpened] = useState<Partial<Record<Category, boolean>>>({});
   const partlyPicked = useMemo(
-    () => new Set(CATEGORIES.filter((c) => isPartlyPicked(value, c))),
+    () => new Set(CATEGORIES.filter((c) => isPartlyPicked(value, `${c}.*`))),
     [value],
   );
   const isOpen = (category: Category) =>
@@ -175,14 +176,22 @@ function ActionsField({
             : null;
         const header = isPreset(option.value) || isCategory(option.value);
         const isChecked = isPicked(value, option.value);
+        const isPartly =
+          !isChecked &&
+          option.value !== ALL &&
+          header &&
+          isPartlyPicked(value, option.value);
         const open = category ? isOpen(category) : false;
         return (
           <Flex align="center" gap="1" data-action={option.value}>
             <Flex
               flexShrink="0"
-              className={clsx(styles.check, isChecked && styles.checked)}
+              className={clsx(
+                styles.check,
+                (isChecked || isPartly) && styles.checked,
+              )}
             >
-              <PiCheckBold />
+              {isPartly ? <PiMinusBold /> : <PiCheckBold />}
             </Flex>
             {category ? (
               <IconButton
