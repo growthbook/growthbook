@@ -26,8 +26,8 @@ const roleInfoFields = {
   projectRoles: apiProjectRoles,
 };
 
-// As in updateMemberRole, an environment list is its own limit unless the
-// top-level limitAccessByEnvironment is sent.
+// As in updateMemberRole, an environment list is its own limit unless
+// limitAccessByEnvironment is sent.
 const roleInput = z
   .object({
     role: z
@@ -48,6 +48,7 @@ const roleInput = z
           project: z.string(),
           role: z.string(),
           environments: z.array(z.string()),
+          limitAccessByEnvironment: z.boolean().optional(),
           additionalRoles: apiAdditionalRoles,
         }),
       )

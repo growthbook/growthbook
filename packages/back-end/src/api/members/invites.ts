@@ -41,15 +41,20 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 type RoleInput = z.infer<typeof putInviteValidator.bodySchema>;
 
-// As in updateMemberRole, an environment list is its own limit unless the
-// top-level limitAccessByEnvironment is sent.
+// As in updateMemberRole, an environment list is its own limit unless
+// limitAccessByEnvironment is sent.
 function toRoleInfo(
   input: RoleInput,
   fallback: MemberRoleWithProjects,
 ): MemberRoleWithProjects {
-  const limit = <T extends { environments: string[] }>(e: T) => ({
+  const limit = <
+    T extends { environments: string[]; limitAccessByEnvironment?: boolean },
+  >(
+    e: T,
+  ) => ({
     ...e,
-    limitAccessByEnvironment: !!e.environments.length,
+    limitAccessByEnvironment:
+      e.limitAccessByEnvironment ?? !!e.environments.length,
   });
   return {
     role: input.role ?? fallback.role,
@@ -170,6 +175,16 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
   const { org } = req.context;
   const { email, ...input } = req.body;
 
+  // As in inviteUser, an existing invite is returned without revalidating.
+  const existing = findInvite(org.invites, normalizeInviteEmail(email));
+  if (existing) {
+    return {
+      invite: toApiInvite(existing),
+      inviteUrl: getInviteUrl(existing.key),
+      emailSent: true,
+    };
+  }
+
   // Only an omitted role takes the default's scoping. Plans without roles
   // only allow admin, as the app's invite form defaults to.
   const unscoped = (role: string) => ({
@@ -185,7 +200,7 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
   const roleInfo = toRoleInfo(input, fallback);
   await assertRoleInfoValid(req.context, roleInfo);
 
-  const { emailSent, inviteUrl } = await inviteUser({
+  const { emailSent, inviteUrl, created } = await inviteUser({
     organization: org,
     email,
     ...roleInfo,
@@ -197,9 +212,7 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
     normalizeInviteEmail(email),
   );
   if (!invite) throw new Error("Unable to create invite");
-  if (!findInvite(org.invites, invite.email)) {
-    await auditInvite(req, undefined, invite);
-  }
+  if (created) await auditInvite(req, undefined, invite);
 
   return { invite: toApiInvite(invite), inviteUrl, emailSent };
 });
