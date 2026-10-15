@@ -157,6 +157,7 @@ const postSavedGroupBody = z
       )
       .optional(),
     owner: optionalOwnerInputField,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     projects: z.array(z.string()).optional(),
     bypassApproval: z
       .boolean()
@@ -184,6 +185,7 @@ const updateSavedGroupBody = z
       )
       .optional(),
     owner: ownerInputField.optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     projects: z.array(z.string()).optional(),
     bypassApproval: z
       .boolean()

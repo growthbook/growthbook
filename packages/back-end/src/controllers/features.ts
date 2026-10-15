@@ -32,8 +32,6 @@ import {
   getAffectedEnvsForExperiment,
   getApplicableEnvIds,
   getRuleAttributeScopeProjectIds,
-  getDependentExperiments,
-  getDependentFeatures,
   getEffectiveRevisionHoldout,
   getRevertTargetArchived,
   getRevertTargetHoldout,
@@ -45,7 +43,6 @@ import {
   liveRevisionFromFeature,
   mergeResultHasChanges,
   mergeRevision,
-  namespacesToMap,
   normalizeTargetingInUpdates,
   normalizeTargetingProjects,
   reconcileMergeBaselines,
@@ -142,7 +139,6 @@ import {
   getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
-  getFeaturesWithPrerequisitesOn,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   getFeatureEnvStatus,
@@ -166,9 +162,10 @@ import {
   FeatureDefinitionSDKPayload,
   generateRuleId,
   getFeatureDefinitions,
+  getFeatureDependents,
+  getFeatureEvalDependencies,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
-  getSavedGroupMapForFeatureRevision,
   getLiveAndBaseRevisionsForFeature,
   getFeatureReviewFootprint,
   getFeatureReviewApproverProjects,
@@ -191,7 +188,6 @@ import {
   assertRevertLandingGuards,
   assertRevertValuesReadable,
 } from "back-end/src/services/revertGuards";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   assertConfigBackedFeatureValuesValid,
   configCheckedRuleValues,
@@ -279,7 +275,6 @@ import {
   removePendingFeatureDraftFromExperiment,
   removeLinkedFeatureFromExperiment,
   unlinkFeatureFromAllExperiments,
-  getAllPayloadExperiments,
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
@@ -6047,32 +6042,14 @@ export async function postFeatureEvaluate(
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
-  const experimentMap = await getAllPayloadExperiments(context);
-  const groupMap = await getSavedGroupMapForFeatureRevision(
-    context,
-    feature,
-    revision,
-    experimentMap,
-  );
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const constants = await getResolvableValues(context);
   const results = evaluateFeature({
+    ...(await getFeatureEvalDependencies(context, feature, revision)),
     feature,
     revision,
     attributes,
-    groupMap,
-    experimentMap,
-    environments,
     scrubPrerequisites,
     skipRulesWithPrerequisites,
     date,
-    safeRolloutMap,
-    namespaces: namespacesToMap(org.settings?.namespaces),
-    organization: org,
-    constants,
   });
 
   res.status(200).json({
@@ -7936,63 +7913,7 @@ export async function getFeaturesDependents(
     ? req.query.ids.split(",").filter(Boolean)
     : [];
 
-  if (!featureIds.length) {
-    return res.status(200).json({ status: 200, dependents: {} });
-  }
-
-  const allEnvIds = getEnvironments(context.org).map((e) => e.id);
-
-  // Dependents are one hop: only the features and experiments whose
-  // prerequisites name a requested flag can be one.
-  const [allFeatures, allExperiments] = await Promise.all([
-    getFeaturesWithPrerequisitesOn(context, featureIds, {
-      includeArchived: true,
-    }),
-    getAllExperimentsForStaleGraph(context, {
-      includeArchived: true,
-      prerequisiteIds: featureIds,
-    }),
-  ]);
-
-  const {
-    featuresMap,
-    reverseDependencyIndex,
-    experiments,
-    experimentDependencyIndex,
-  } = buildFeatureLookups(allFeatures, allExperiments);
-
-  const dependents: Record<
-    string,
-    { features: string[]; experiments: { id: string; name: string }[] }
-  > = {};
-
-  for (let i = 0; i < featureIds.length; i++) {
-    await yieldEventLoop(i);
-    const featureId = featureIds[i];
-    const feature = featuresMap.get(featureId);
-    if (!feature) {
-      dependents[featureId] = { features: [], experiments: [] };
-      continue;
-    }
-    dependents[featureId] = {
-      features: getDependentFeatures(
-        feature,
-        allFeatures,
-        allEnvIds,
-        reverseDependencyIndex,
-        featuresMap,
-      ),
-      experiments: getDependentExperiments(
-        feature,
-        experiments,
-        experimentDependencyIndex,
-      ).map((e) => ({
-        id: e.id,
-        name: e.name,
-      })),
-    };
-  }
-
+  const dependents = await getFeatureDependents(context, featureIds);
   return res.status(200).json({ status: 200, dependents });
 }
 
