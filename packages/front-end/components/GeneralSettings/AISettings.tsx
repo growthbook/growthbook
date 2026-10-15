@@ -541,7 +541,13 @@ export default function AISettings({
                         options={[
                           {
                             value: "",
-                            label: `Use default (${getModelDisplayLabel(AUTOCOMPLETE_AI_MODEL)})`,
+                            // Same rule as the server: the cheap tier needs
+                            // an Anthropic key (Cloud's managed one counts).
+                            label: `Use default (${getModelDisplayLabel(
+                              isCloud() || hasKeyForProvider("anthropic")
+                                ? AUTOCOMPLETE_AI_MODEL
+                                : defaultAIModel,
+                            )})`,
                           },
                           ...getAvailableAIModelOptions(
                             availableProviders,
