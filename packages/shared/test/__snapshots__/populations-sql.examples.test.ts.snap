@@ -1,0 +1,1495 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`example Population SQL Activated within a week of signing up 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-07-17 00:00:00'
+      AND (plan = 'free')
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND event_time >= '2026-07-17 00:00:00'
+      AND (
+        (
+          (event_name = 'page_view')
+          AND (path = '/pricing')
+        )
+        OR (event_name = 'trial_started')
+      )
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND (plan = 'free')
+      AND timestamp >= '2026-07-17 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'page_view')
+      AND (path = '/pricing')
+  ),
+  __pop_step2_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'trial_started')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= p.s0_ts + INTERVAL '86400 seconds'
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __pop_step2_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= COALESCE(p.s1_ts, p.s0_ts)
+      AND r.ts <= COALESCE(p.s1_ts, p.s0_ts) + INTERVAL '604800 seconds'
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step2 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      p.s1_ts,
+      a.match_ts AS s2_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step2
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Activated within a week of signing up on BigQuery 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-07-17 00:00:00'
+      AND (plan = 'free')
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND event_time >= '2026-07-17 00:00:00'
+      AND (
+        (
+          (event_name = 'page_view')
+          AND (path = '/pricing')
+        )
+        OR (event_name = 'trial_started')
+      )
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      CAST(timestamp as DATETIME) AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND (plan = 'free')
+      AND timestamp >= '2026-07-17 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      CAST(event_time as DATETIME) AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'page_view')
+      AND (path = '/pricing')
+  ),
+  __pop_step2_rows AS (
+    SELECT
+      uid AS unit_id,
+      CAST(event_time as DATETIME) AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'trial_started')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= DATETIME_ADD(p.s0_ts, INTERVAL 86400 SECOND)
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __pop_step2_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= COALESCE(p.s1_ts, p.s0_ts)
+      AND r.ts <= DATETIME_ADD(
+        COALESCE(p.s1_ts, p.s0_ts),
+        INTERVAL 604800 SECOND
+      )
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step2 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      p.s1_ts,
+      a.match_ts AS s2_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step2
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Activated within a week of signing up on ClickHouse 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= toDateTime('2026-10-15 00:00:00', 'UTC')
+      AND timestamp >= toDateTime('2026-07-17 00:00:00', 'UTC')
+      AND (plan = 'free')
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= toDateTime('2026-10-15 00:00:00', 'UTC')
+      AND event_time >= toDateTime('2026-07-17 00:00:00', 'UTC')
+      AND (
+        (
+          (event_name = 'page_view')
+          AND (path = '/pricing')
+        )
+        OR (event_name = 'trial_started')
+      )
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND (plan = 'free')
+      AND timestamp >= toDateTime('2026-07-17 00:00:00', 'UTC')
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'page_view')
+      AND (path = '/pricing')
+  ),
+  __pop_step2_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'trial_started')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= dateAdd (second, 86400, p.s0_ts)
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __pop_step2_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= COALESCE(p.s1_ts, p.s0_ts)
+      AND r.ts <= dateAdd (second, 604800, COALESCE(p.s1_ts, p.s0_ts))
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step2 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      p.s1_ts,
+      a.match_ts AS s2_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step2
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Activated within a week of signing up on Snowflake 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-07-17 00:00:00'
+      AND (plan = 'free')
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND event_time >= '2026-07-17 00:00:00'
+      AND (
+        (
+          (event_name = 'page_view')
+          AND (path = '/pricing')
+        )
+        OR (event_name = 'trial_started')
+      )
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND (plan = 'free')
+      AND timestamp >= '2026-07-17 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'page_view')
+      AND (path = '/pricing')
+  ),
+  __pop_step2_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'trial_started')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= DATEADD(second, 86400, p.s0_ts)
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __pop_step2_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= COALESCE(p.s1_ts, p.s0_ts)
+      AND r.ts <= DATEADD(second, 604800, COALESCE(p.s1_ts, p.s0_ts))
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step2 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      p.s1_ts,
+      a.match_ts AS s2_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_agg a ON (a.unit_id = p.unit_id)
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step2
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Bought before, but no visits or orders lately 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Orders)
+        SELECT
+          user_id,
+          ordered_at AS timestamp,
+          revenue,
+          country
+        FROM
+          shop.orders
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND (event_name = 'page_view')
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'page_view')
+  ),
+  __pop_step2_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts,
+      1 AS value
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND timestamp >= '2026-07-17 00:00:00'
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id,
+      SUM(
+        CASE
+          WHEN r.ts >= '2026-09-15 00:00:00' THEN 1
+          ELSE 0
+        END
+      ) AS total,
+      MAX(
+        CASE
+          WHEN r.ts < '2026-09-15 00:00:00' THEN r.ts
+        END
+      ) AS last_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CASE
+        WHEN a.last_ts + INTERVAL '2592000 seconds' > p.qualified_ts THEN a.last_ts + INTERVAL '2592000 seconds'
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+    WHERE
+      a.total = 0
+    UNION ALL
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CASE
+        WHEN p.s0_ts > p.qualified_ts THEN p.s0_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+    WHERE
+      p.unit_id NOT IN (
+        SELECT
+          unit_id
+        FROM
+          __pop_step1_agg
+      )
+  ),
+  __pop_step2_agg AS (
+    SELECT
+      r.unit_id,
+      SUM(r.value) AS total
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step2 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CASE
+        WHEN CAST('2026-10-15 00:00:00' AS TIMESTAMP) > p.qualified_ts THEN CAST('2026-10-15 00:00:00' AS TIMESTAMP)
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+      JOIN __pop_step2_agg a ON (a.unit_id = p.unit_id)
+    WHERE
+      NOT (a.total >= 1)
+    UNION ALL
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CASE
+        WHEN CAST('2026-10-15 00:00:00' AS TIMESTAMP) > p.qualified_ts THEN CAST('2026-10-15 00:00:00' AS TIMESTAMP)
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step1 p
+    WHERE
+      p.unit_id NOT IN (
+        SELECT
+          unit_id
+        FROM
+          __pop_step2_agg
+      )
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step2
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Ordered in the last 30 days 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Orders)
+        SELECT
+          user_id,
+          ordered_at AS timestamp,
+          revenue,
+          country
+        FROM
+          shop.orders
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-09-15 00:00:00'
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND timestamp >= '2026-09-15 00:00:00'
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step0
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Signed up, never ordered 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Orders)
+        SELECT
+          user_id,
+          ordered_at AS timestamp,
+          revenue,
+          country
+        FROM
+          shop.orders
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft1
+    WHERE
+      user_id IS NOT NULL
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      r.unit_id
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CASE
+        WHEN p.s0_ts > p.qualified_ts THEN p.s0_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+    WHERE
+      p.unit_id NOT IN (
+        SELECT
+          unit_id
+        FROM
+          __pop_step1_agg
+      )
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step1
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Signed up, then under 10 minutes active in their first week 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-08-16 00:00:00'
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND event_time >= '2026-08-16 00:00:00'
+      AND (event_name = 'session_end')
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND timestamp >= '2026-08-16 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      event_time AS ts,
+      COALESCE(
+        JSON_EXTRACT_PATH_TEXT(properties::json, 'seconds_active')::float,
+        0
+      ) AS value
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'session_end')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_running AS (
+    SELECT
+      r.unit_id,
+      r.ts,
+      r.value,
+      SUM(r.value) OVER (
+        PARTITION BY
+          r.unit_id
+        ORDER BY
+          r.ts ROWS BETWEEN UNBOUNDED PRECEDING
+          AND CURRENT ROW
+      ) AS running_total
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= p.s0_ts + INTERVAL '604800 seconds'
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      unit_id,
+      SUM(value) AS total,
+      COALESCE(
+        MIN(
+          CASE
+            WHEN running_total < 600 THEN ts
+          END
+        ),
+        MAX(ts)
+      ) AS match_ts
+    FROM
+      __pop_step1_running
+    GROUP BY
+      unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN p.s0_ts + INTERVAL '604800 seconds' > p.qualified_ts THEN p.s0_ts + INTERVAL '604800 seconds'
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+    WHERE
+      a.total < 600
+      AND p.s0_ts + INTERVAL '604800 seconds' <= CAST('2026-10-15 00:00:00' AS TIMESTAMP)
+    UNION ALL
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CAST(NULL AS TIMESTAMP) AS s1_ts,
+      CASE
+        WHEN p.s0_ts + INTERVAL '604800 seconds' > p.qualified_ts THEN p.s0_ts + INTERVAL '604800 seconds'
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+    WHERE
+      p.unit_id NOT IN (
+        SELECT
+          unit_id
+        FROM
+          __pop_step1_agg
+      )
+      AND p.s0_ts + INTERVAL '604800 seconds' <= CAST('2026-10-15 00:00:00' AS TIMESTAMP)
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step1
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Signed up, then under 10 minutes active in their first week on BigQuery 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Signups)
+        SELECT
+          user_id,
+          created_at AS timestamp,
+          plan
+        FROM
+          app.signups
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-08-16 00:00:00'
+  ),
+  __pop_ft1 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Events)
+        SELECT
+          uid,
+          event_time,
+          event_name,
+          path,
+          properties
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      event_time <= '2026-10-15 00:00:00'
+      AND event_time >= '2026-08-16 00:00:00'
+      AND (event_name = 'session_end')
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      CAST(timestamp as DATETIME) AS ts
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND timestamp >= '2026-08-16 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      uid AS unit_id,
+      CAST(event_time as DATETIME) AS ts,
+      COALESCE(
+        CAST(
+          JSON_VALUE(properties, '$.seconds_active') AS FLOAT64
+        ),
+        0
+      ) AS value
+    FROM
+      __pop_ft1
+    WHERE
+      uid IS NOT NULL
+      AND (event_name = 'session_end')
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      r.unit_id,
+      MIN(r.ts) AS match_ts
+    FROM
+      __pop_step0_rows r
+    GROUP BY
+      r.unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+  ),
+  __pop_step1_running AS (
+    SELECT
+      r.unit_id,
+      r.ts,
+      r.value,
+      SUM(r.value) OVER (
+        PARTITION BY
+          r.unit_id
+        ORDER BY
+          r.ts ROWS BETWEEN UNBOUNDED PRECEDING
+          AND CURRENT ROW
+      ) AS running_total
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+      AND r.ts <= DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND)
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      unit_id,
+      SUM(value) AS total,
+      COALESCE(
+        MIN(
+          CASE
+            WHEN running_total < 600 THEN ts
+          END
+        ),
+        MAX(ts)
+      ) AS match_ts
+    FROM
+      __pop_step1_running
+    GROUP BY
+      unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND) > p.qualified_ts THEN DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND)
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+    WHERE
+      a.total < 600
+      AND DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND) <= CAST(
+        CAST('2026-10-15 00:00:00' AS TIMESTAMP) as DATETIME
+      )
+    UNION ALL
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      CAST(CAST(NULL AS TIMESTAMP) as DATETIME) AS s1_ts,
+      CASE
+        WHEN DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND) > p.qualified_ts THEN DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND)
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+    WHERE
+      p.unit_id NOT IN (
+        SELECT
+          unit_id
+        FROM
+          __pop_step1_agg
+      )
+      AND DATETIME_ADD(p.s0_ts, INTERVAL 604800 SECOND) <= CAST(
+        CAST('2026-10-15 00:00:00' AS TIMESTAMP) as DATETIME
+      )
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step1
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;
+
+exports[`example Population SQL Spent $500, then ordered twice more 1`] = `
+"WITH
+  __pop_ft0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Fact Table (Orders)
+        SELECT
+          user_id,
+          ordered_at AS timestamp,
+          revenue,
+          country
+        FROM
+          shop.orders
+      ) t
+    WHERE
+      timestamp <= '2026-10-15 00:00:00'
+      AND timestamp >= '2026-04-18 00:00:00'
+  ),
+  __pop_step0_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts,
+      COALESCE(revenue, 0) AS value
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+      AND (country IN ('US', 'CA'))
+      AND timestamp >= '2026-04-18 00:00:00'
+  ),
+  __pop_step1_rows AS (
+    SELECT
+      user_id AS unit_id,
+      timestamp AS ts,
+      1 AS value
+    FROM
+      __pop_ft0
+    WHERE
+      user_id IS NOT NULL
+  ),
+  __pop_step0_running AS (
+    SELECT
+      r.unit_id,
+      r.ts,
+      r.value,
+      SUM(r.value) OVER (
+        PARTITION BY
+          r.unit_id
+        ORDER BY
+          r.ts ROWS BETWEEN UNBOUNDED PRECEDING
+          AND CURRENT ROW
+      ) AS running_total
+    FROM
+      __pop_step0_rows r
+  ),
+  __pop_step0_agg AS (
+    SELECT
+      unit_id,
+      SUM(value) AS total,
+      COALESCE(
+        MIN(
+          CASE
+            WHEN running_total >= 500 THEN ts
+          END
+        ),
+        MAX(ts)
+      ) AS match_ts
+    FROM
+      __pop_step0_running
+    GROUP BY
+      unit_id
+  ),
+  __pop_step0 AS (
+    SELECT
+      a.unit_id,
+      a.match_ts AS s0_ts,
+      a.match_ts AS qualified_ts
+    FROM
+      __pop_step0_agg a
+    WHERE
+      a.total >= 500
+  ),
+  __pop_step1_running AS (
+    SELECT
+      r.unit_id,
+      r.ts,
+      r.value,
+      SUM(r.value) OVER (
+        PARTITION BY
+          r.unit_id
+        ORDER BY
+          r.ts ROWS BETWEEN UNBOUNDED PRECEDING
+          AND CURRENT ROW
+      ) AS running_total
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id)
+    WHERE
+      r.ts >= p.s0_ts
+  ),
+  __pop_step1_agg AS (
+    SELECT
+      unit_id,
+      SUM(value) AS total,
+      COALESCE(
+        MIN(
+          CASE
+            WHEN running_total >= 2 THEN ts
+          END
+        ),
+        MAX(ts)
+      ) AS match_ts
+    FROM
+      __pop_step1_running
+    GROUP BY
+      unit_id
+  ),
+  __pop_step1 AS (
+    SELECT
+      p.unit_id,
+      p.s0_ts,
+      a.match_ts AS s1_ts,
+      CASE
+        WHEN a.match_ts > p.qualified_ts THEN a.match_ts
+        ELSE p.qualified_ts
+      END AS qualified_ts
+    FROM
+      __pop_step0 p
+      JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id)
+    WHERE
+      a.total >= 2
+  ),
+  __population_members AS (
+    SELECT
+      unit_id AS user_id,
+      qualified_ts AS joined_ts
+    FROM
+      __pop_step1
+  )
+SELECT
+  COUNT(*) AS members
+FROM
+  __population_members"
+`;

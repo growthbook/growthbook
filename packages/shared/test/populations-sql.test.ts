@@ -19,6 +19,7 @@ const dialect = {
     `${col} ${sign} INTERVAL '${amount} seconds'`,
   toTimestamp: (d: Date) => `'${d.toISOString().substring(0, 10)}'`,
   castToTimestamp: (col: string) => `CAST(${col} AS TIMESTAMP)`,
+  castUserDateCol: (col: string) => col,
   formatDialect: "",
 } as unknown as SqlDialect;
 
@@ -201,6 +202,20 @@ describe("getPopulationMembersCTEs", () => {
     expect(sql).toContain("r.ts <= p.s0_ts + INTERVAL '691200 seconds'");
   });
 
+  it("joins on the unit only and applies the window in WHERE", () => {
+    expect(
+      cte(
+        [
+          step("signups"),
+          step("orders", { windowSettings: window("conversion", 7) }),
+        ],
+        "__pop_step1_agg",
+      ),
+    ).toContain(
+      "JOIN __pop_step1_rows r ON (r.unit_id = p.unit_id) WHERE r.ts >= p.s0_ts AND r.ts <= p.s0_ts + INTERVAL '604800 seconds' GROUP BY r.unit_id",
+    );
+  });
+
   it("anchors on the latest recorded timestamp, skipping negations", () => {
     const steps = [
       step("signups"),
@@ -212,7 +227,7 @@ describe("getPopulationMembersCTEs", () => {
       "r.ts >= COALESCE(p.s1_ts, p.s0_ts)",
     );
     expect(cte(steps, "__pop_step2")).toBe(
-      "SELECT p.unit_id, p.s0_ts, p.s1_ts FROM __pop_step1 p WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step2_agg)",
+      "SELECT p.unit_id, p.s0_ts, p.s1_ts, CASE WHEN COALESCE(p.s1_ts, p.s0_ts) > p.qualified_ts THEN COALESCE(p.s1_ts, p.s0_ts) ELSE p.qualified_ts END AS qualified_ts FROM __pop_step1 p WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step2_agg)",
     );
   });
 
@@ -224,7 +239,9 @@ describe("getPopulationMembersCTEs", () => {
         aggregateFilterColumn: "revenue",
       }),
     ];
-    expect(cte(steps, "__pop_step1_rows")).toContain("revenue AS value");
+    expect(cte(steps, "__pop_step1_rows")).toContain(
+      "COALESCE(revenue, 0) AS value",
+    );
     expect(cte(steps, "__pop_step1_running")).toContain(
       "SUM(r.value) OVER (PARTITION BY r.unit_id ORDER BY r.ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total",
     );
@@ -261,7 +278,7 @@ describe("getPopulationMembersCTEs", () => {
     );
     expect(sql).toContain("WHERE a.total < 2 UNION ALL");
     expect(sql).toContain(
-      "CAST(NULL AS TIMESTAMP) AS s1_ts FROM __pop_step0 p WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step1_agg)",
+      "CAST(NULL AS TIMESTAMP) AS s1_ts, CASE WHEN p.s0_ts > p.qualified_ts THEN p.s0_ts ELSE p.qualified_ts END AS qualified_ts FROM __pop_step0 p WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step1_agg)",
     );
   });
 
@@ -278,25 +295,135 @@ describe("getPopulationMembersCTEs", () => {
         ],
         "__pop_step1",
       );
+    // ">=3" fails at zero rows, so its negation also keeps units with none.
     expect(negated(">=3")).toContain(
-      "WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step1_agg WHERE total >= 3)",
+      "JOIN __pop_step1_agg a ON (a.unit_id = p.unit_id) WHERE NOT (a.total >= 3) UNION ALL",
     );
-    expect(negated("<3")).toContain(
-      "WHERE p.unit_id IN (SELECT unit_id FROM __pop_step1_agg WHERE NOT (total < 3))",
+    expect(negated(">=3")).toContain(
+      "WHERE p.unit_id NOT IN (SELECT unit_id FROM __pop_step1_agg)",
+    );
+    expect(negated("<3")).toContain("WHERE NOT (a.total < 3)");
+    expect(negated("<3")).not.toContain("UNION ALL");
+  });
+});
+
+describe("qualification", () => {
+  const qualified = (steps: PopulationStep[]) =>
+    cte(steps, `__pop_step${steps.length - 1}`);
+
+  it("settles at the matching row when later rows can't undo the step", () => {
+    expect(
+      qualified([
+        step("signups"),
+        step("orders", {
+          aggregateFilter: ">=3",
+          aggregateFilterColumn: "$$count",
+          windowSettings: window("conversion", 7),
+        }),
+      ]),
+    ).toContain(
+      "CASE WHEN a.match_ts > p.qualified_ts THEN a.match_ts ELSE p.qualified_ts END AS qualified_ts",
+    );
+    // "Doesn't have fewer than 3" means 3 or more, which also can't be undone.
+    expect(
+      cte(
+        [
+          step("signups"),
+          step("orders", {
+            negation: true,
+            aggregateFilter: "<3",
+            aggregateFilterColumn: "$$count",
+          }),
+        ],
+        "__pop_step1_agg",
+      ),
+    ).toContain("MIN(CASE WHEN NOT (running_total < 3) THEN ts END)");
+  });
+
+  it("settles at the end of a conversion window, excluding open windows", () => {
+    const sql = qualified([
+      step("signups"),
+      step("orders", {
+        negation: true,
+        windowSettings: window("conversion", 7),
+      }),
+    ]);
+    expect(sql).toContain(
+      "CASE WHEN p.s0_ts + INTERVAL '604800 seconds' > p.qualified_ts",
+    );
+    expect(sql).toContain(
+      "AND p.s0_ts + INTERVAL '604800 seconds' <= CAST('2026-01-31' AS TIMESTAMP)",
     );
   });
 
-  it("dates members by their last recorded timestamp", () => {
+  it("settles a no-rows lookback at the last earlier row plus the window", () => {
+    const steps = [
+      step("signups", { windowSettings: window("lookback", 60) }),
+      step("orders", {
+        negation: true,
+        windowSettings: window("lookback", 30),
+      }),
+    ];
+    expect(cte(steps, "__pop_step1_agg")).toContain(
+      "SUM(CASE WHEN r.ts >= '2026-01-01' THEN 1 ELSE 0 END) AS total, MAX(CASE WHEN r.ts < '2026-01-01' THEN r.ts END) AS last_ts",
+    );
+    expect(qualified(steps)).toContain(
+      "CASE WHEN a.last_ts + INTERVAL '2592000 seconds' > p.qualified_ts",
+    );
+    expect(qualified(steps)).toContain("WHERE a.total = 0");
+    // Rows before the window are read, back to step 1's own lookback.
+    expect(cte(steps, "__pop_step1_rows")).not.toContain(">=");
+    expect(cte(steps, "__pop_ft1")).toContain("timestamp >= '2025-12-02'");
+  });
+
+  it("settles other lookbacks at asOf", () => {
+    expect(
+      qualified([
+        step("signups"),
+        step("orders", {
+          aggregateFilter: "<3",
+          aggregateFilterColumn: "$$count",
+          windowSettings: window("lookback", 30),
+        }),
+      ]),
+    ).toContain(
+      "CASE WHEN CAST('2026-01-31' AS TIMESTAMP) > p.qualified_ts THEN CAST('2026-01-31' AS TIMESTAMP) ELSE p.qualified_ts END",
+    );
+    expect(
+      cte(
+        [
+          step("orders", {
+            aggregateFilter: "<3",
+            aggregateFilterColumn: "$$count",
+            windowSettings: window("lookback", 30),
+          }),
+        ],
+        "__pop_step0",
+      ),
+    ).toContain("CAST('2026-01-31' AS TIMESTAMP) AS qualified_ts");
+  });
+
+  it("settles provisionally at the anchor with no window", () => {
+    expect(
+      qualified([step("signups"), step("orders", { negation: true })]),
+    ).toContain(
+      "CASE WHEN p.s0_ts > p.qualified_ts THEN p.s0_ts ELSE p.qualified_ts END",
+    );
+  });
+});
+
+describe("members", () => {
+  it("dates members by when they qualified", () => {
     expect(
       cte(
         [step("signups"), step("orders"), step("orders", { negation: true })],
         POPULATION_MEMBERS_TABLE,
       ),
     ).toBe(
-      "SELECT unit_id AS user_id, COALESCE(s1_ts, s0_ts) AS joined_ts FROM __pop_step2",
+      "SELECT unit_id AS user_id, qualified_ts AS joined_ts FROM __pop_step2",
     );
-    expect(cte([step("signups")], POPULATION_MEMBERS_TABLE)).toBe(
-      "SELECT unit_id AS user_id, s0_ts AS joined_ts FROM __pop_step0",
+    expect(cte([step("signups")], "__pop_step0")).toContain(
+      "a.match_ts AS s0_ts, a.match_ts AS qualified_ts",
     );
   });
 });

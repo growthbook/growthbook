@@ -113,6 +113,55 @@ function acceptsZero(conditions: AggregateFilterCondition[]): boolean {
   );
 }
 
+const ANY_ROW: AggregateFilterCondition[] = [{ operator: ">=", value: "1" }];
+
+type StepTest = {
+  // No aggregate filter: the step only asks whether any row matched.
+  anyRow: boolean;
+  sql: (total: string) => string;
+  matchesZeroRows: boolean;
+  // A unit that passes stays passing as more rows arrive (assuming values
+  // aren't negative), so the step settles at the row where it first passed.
+  // Otherwise it can only settle when its window ends.
+  settlesAtMatch: boolean;
+};
+
+function getStepTest(step: PopulationStep): StepTest {
+  const explicit = getAggregateConditions(step);
+  const conditions = explicit ?? ANY_ROW;
+  const filter = (total: string) => conditionsSql(total, conditions);
+  const isLowerBound = ({ operator }: AggregateFilterCondition) =>
+    operator === ">" || operator === ">=";
+  const isUpperBound = ({ operator }: AggregateFilterCondition) =>
+    operator === "<" || operator === "<=";
+  const matchesZeroRows = step.negation
+    ? !acceptsZero(conditions)
+    : acceptsZero(conditions);
+  const upwardClosed = step.negation
+    ? conditions.every(isUpperBound)
+    : conditions.every(isLowerBound);
+  return {
+    anyRow: !explicit,
+    sql: step.negation ? (total) => `NOT (${filter(total)})` : filter,
+    matchesZeroRows,
+    settlesAtMatch: upwardClosed && !matchesZeroRows,
+  };
+}
+
+// "Doesn't have a row in the last N" has held since the unit's last row before
+// the window plus N, so that step also reads rows from before its window.
+function tracksLastRowBeforeWindow(
+  step: PopulationStep,
+  index: number,
+): boolean {
+  return (
+    index > 0 &&
+    !!step.negation &&
+    !getAggregateConditions(step) &&
+    step.windowSettings.type === "lookback"
+  );
+}
+
 function getRowFilterConditions(
   step: PopulationStep,
   factTable: FactTableInterface,
@@ -148,6 +197,14 @@ const tsColumn = (stepIndex: number) => `s${stepIndex}_ts`;
  * windows. A "has" step whose filter also matches zero rows (such as "<3")
  * keeps units with no rows but records no timestamp for them. Negated steps
  * keep units the step would not match, and never record a timestamp.
+ *
+ * `joined_ts` is when the unit qualified: the latest time any step settled.
+ * A step that later rows can't undo settles at the row where it first passed.
+ * Any other step settles when its window ends: a conversion window's end
+ * (units whose window is still open at `asOf` are excluded), the unit's last
+ * row plus N for "doesn't have a row in the last N", and `asOf` for other
+ * lookbacks. With no window, it settles provisionally at its anchor, or at
+ * the row where it first passed when zero rows wouldn't pass.
  */
 export function getPopulationMembersCTEs({
   population,
@@ -190,7 +247,9 @@ export function getPopulationMembersCTEs({
     (s) => s.windowSettings.type === "conversion" && delaySeconds(s) < 0,
   );
   const getEarliestRow = (step: PopulationStep, index: number) => {
-    const own = getLookbackStart(step, asOf);
+    const own = tracksLastRowBeforeWindow(step, index)
+      ? null
+      : getLookbackStart(step, asOf);
     if (index === 0 || hasNegativeDelay) return own;
     if (!own || !firstStepStart) return own ?? firstStepStart;
     return own > firstStepStart ? own : firstStepStart;
@@ -241,20 +300,25 @@ export function getPopulationMembersCTEs({
     const unit = getFactTableIdColumnExpression(factTable, idType, dialect);
     const conditions = getAggregateConditions(step);
 
-    const select = [`${unit} AS unit_id`, `${timestamp} AS ts`];
+    // BigQuery needs DATETIME for interval arithmetic on the anchors.
+    const select = [
+      `${unit} AS unit_id`,
+      `${dialect.castUserDateCol(timestamp)} AS ts`,
+    ];
     if (conditions) {
       const column = step.aggregateFilterColumn ?? "$$count";
+      // A NULL total would fail every filter, even ones that accept zero.
       select.push(
         `${
           column === "$$count"
             ? "1"
-            : getColumnExpression(
+            : `COALESCE(${getColumnExpression(
                 column,
                 factTable,
                 dialect.jsonExtract,
                 "",
                 dialect.identifierQuote,
-              )
+              )}, 0)`
         } AS value`,
       );
     }
@@ -263,7 +327,9 @@ export function getPopulationMembersCTEs({
       `${unit} IS NOT NULL`,
       ...getRowFilterConditions(step, factTable, dialect),
     ];
-    const lookbackStart = getLookbackStart(step, asOf);
+    const lookbackStart = tracksLastRowBeforeWindow(step, index)
+      ? null
+      : getLookbackStart(step, asOf);
     if (lookbackStart) {
       where.push(`${timestamp} >= ${dialect.toTimestamp(lookbackStart)}`);
     }
@@ -293,59 +359,59 @@ export function getPopulationMembersCTEs({
   const coalesce = (columns: string[]) =>
     columns.length === 1 ? columns[0] : `COALESCE(${columns.join(", ")})`;
 
+  // Typed, since a bare string literal in a CASE with timestamps can make the
+  // result a string on some engines.
+  const asOfSql = dialect.castUserDateCol(
+    dialect.castToTimestamp(dialect.toTimestamp(asOf)),
+  );
+
   steps.forEach((step, index) => {
     const rowsTable = `__pop_step${index}_rows`;
     const prevTable = `__pop_step${index - 1}`;
     const aggTable = `__pop_step${index}_agg`;
-    const conditions = getAggregateConditions(step);
+    const test = getStepTest(step);
+    const lastRow = tracksLastRowBeforeWindow(step, index);
+    const { type, windowValue, windowUnit } = step.windowSettings;
+    const windowLength = windowSeconds(windowValue, windowUnit);
 
     let source = `FROM ${rowsTable} r`;
     let carried: string[] = [];
+    let anchor = "a.match_ts";
     if (index > 0) {
       carried = recordedTsColumns(index).reverse();
-      const anchor = coalesce(carried.map((c) => `p.${c}`).reverse());
-      const join = [`r.unit_id = p.unit_id`];
-      const { type, windowValue, windowUnit } = step.windowSettings;
+      anchor = coalesce(carried.map((c) => `p.${c}`).reverse());
+      // Older ClickHouse versions only allow equality in ON.
+      const window: string[] = [];
       if (type === "conversion") {
         const delay = delaySeconds(step);
-        join.push(`r.ts >= ${shift(dialect, anchor, delay)}`);
-        join.push(
-          `r.ts <= ${shift(dialect, anchor, delay + windowSeconds(windowValue, windowUnit))}`,
-        );
+        window.push(`r.ts >= ${shift(dialect, anchor, delay)}`);
+        window.push(`r.ts <= ${shift(dialect, anchor, delay + windowLength)}`);
       } else {
-        join.push(`r.ts >= ${anchor}`);
+        window.push(`r.ts >= ${anchor}`);
       }
-      source = `FROM ${prevTable} p\n        JOIN ${rowsTable} r ON (\n          ${join.join("\n          AND ")}\n        )`;
+      source = `FROM ${prevTable} p\n        JOIN ${rowsTable} r ON (r.unit_id = p.unit_id)\n        WHERE ${window.join("\n          AND ")}`;
     }
 
-    if (step.negation) {
+    // The row where the step's test is first met. MAX(ts) only applies when
+    // the total passes but no running total did, which takes negative values.
+    const needsRunningTotal =
+      !test.anyRow && !lastRow && (!step.negation || !test.matchesZeroRows);
+    if (lastRow) {
+      const windowStart = dialect.toTimestamp(
+        getLookbackStart(step, asOf) ?? asOf,
+      );
       ctes.push({
         name: aggTable,
         sql: `
-        SELECT r.unit_id${conditions ? ", SUM(r.value) AS total" : ""}
+        SELECT
+          r.unit_id,
+          SUM(CASE WHEN r.ts >= ${windowStart} THEN 1 ELSE 0 END) AS total,
+          MAX(CASE WHEN r.ts < ${windowStart} THEN r.ts END) AS last_ts
         ${source}
         GROUP BY r.unit_id
       `,
       });
-      // The step "would match" a unit with no rows when its filter accepts
-      // zero, so only units whose total fails the filter are kept.
-      const membership = !conditions
-        ? `NOT IN (SELECT unit_id FROM ${aggTable})`
-        : acceptsZero(conditions)
-          ? `IN (SELECT unit_id FROM ${aggTable} WHERE NOT (${conditionsSql("total", conditions)}))`
-          : `NOT IN (SELECT unit_id FROM ${aggTable} WHERE ${conditionsSql("total", conditions)})`;
-      ctes.push({
-        name: `__pop_step${index}`,
-        sql: `
-        SELECT ${["p.unit_id", ...carried.map((c) => `p.${c}`)].join(", ")}
-        FROM ${prevTable} p
-        WHERE p.unit_id ${membership}
-      `,
-      });
-      return;
-    }
-
-    if (conditions) {
+    } else if (needsRunningTotal) {
       const runningTable = `__pop_step${index}_running`;
       ctes.push({
         name: runningTable,
@@ -358,8 +424,6 @@ export function getPopulationMembersCTEs({
         ${source}
       `,
       });
-      // MAX(ts) only applies when the total meets the filter but no running
-      // total did, which takes negative values.
       ctes.push({
         name: aggTable,
         sql: `
@@ -367,7 +431,7 @@ export function getPopulationMembersCTEs({
           unit_id,
           SUM(value) AS total,
           COALESCE(
-            MIN(CASE WHEN ${conditionsSql("running_total", conditions)} THEN ts END),
+            MIN(CASE WHEN ${test.sql("running_total")} THEN ts END),
             MAX(ts)
           ) AS match_ts
         FROM ${runningTable}
@@ -375,61 +439,102 @@ export function getPopulationMembersCTEs({
       `,
       });
     } else {
+      const columns = ["r.unit_id"];
+      if (!step.negation) columns.push("MIN(r.ts) AS match_ts");
+      else if (!test.anyRow) columns.push("SUM(r.value) AS total");
       ctes.push({
         name: aggTable,
         sql: `
-        SELECT r.unit_id, MIN(r.ts) AS match_ts
+        SELECT ${columns.join(", ")}
         ${source}
         GROUP BY r.unit_id
       `,
       });
     }
 
-    const totalFilter = conditions
-      ? `WHERE ${conditionsSql("a.total", conditions)}`
-      : "";
+    // When the step settled for each unit; see getPopulationMembersCTEs.
+    let qualifiedWithRows = "a.match_ts";
+    let qualifiedWithoutRows = anchor;
+    const pending: string[] = [];
+    if (!test.settlesAtMatch) {
+      if (type === "conversion") {
+        const windowEnd = shift(
+          dialect,
+          anchor,
+          delaySeconds(step) + windowLength,
+        );
+        qualifiedWithRows = qualifiedWithoutRows = windowEnd;
+        pending.push(`${windowEnd} <= ${asOfSql}`);
+      } else if (lastRow) {
+        qualifiedWithRows = shift(dialect, "a.last_ts", windowLength);
+      } else if (type === "lookback") {
+        qualifiedWithRows = qualifiedWithoutRows = asOfSql;
+      } else if (test.matchesZeroRows) {
+        qualifiedWithRows = anchor;
+      }
+    }
+
+    const rowsTest = lastRow
+      ? "a.total = 0"
+      : test.anyRow
+        ? null
+        : test.sql("a.total");
+
     if (index === 0) {
       ctes.push({
         name: "__pop_step0",
         sql: `
-        SELECT a.unit_id, a.match_ts AS ${tsColumn(0)}
+        SELECT
+          a.unit_id,
+          a.match_ts AS ${tsColumn(0)},
+          ${qualifiedWithRows} AS qualified_ts
         FROM ${aggTable} a
-        ${totalFilter}
+        ${rowsTest ? `WHERE ${rowsTest}` : ""}
       `,
       });
       return;
     }
 
-    const carriedSelect = ["p.unit_id", ...carried.map((c) => `p.${c}`)];
-    const zeroRows =
-      conditions && acceptsZero(conditions)
-        ? `
-        UNION ALL
-        SELECT ${[...carriedSelect, `${dialect.castToTimestamp("NULL")} AS ${tsColumn(index)}`].join(", ")}
-        FROM ${prevTable} p
-        WHERE p.unit_id NOT IN (SELECT unit_id FROM ${aggTable})`
-        : "";
-    ctes.push({
-      name: `__pop_step${index}`,
-      sql: `
-        SELECT ${[...carriedSelect, `a.match_ts AS ${tsColumn(index)}`].join(", ")}
+    const select = (stepTs: string | null, qualified: string) =>
+      [
+        "p.unit_id",
+        ...carried.map((c) => `p.${c}`),
+        ...(stepTs === null ? [] : [`${stepTs} AS ${tsColumn(index)}`]),
+        `CASE WHEN ${qualified} > p.qualified_ts THEN ${qualified} ELSE p.qualified_ts END AS qualified_ts`,
+      ].join(",\n          ");
+    const nullTs = step.negation
+      ? null
+      : dialect.castUserDateCol(dialect.castToTimestamp("NULL"));
+
+    const branches: string[] = [];
+    if (!step.negation || !test.anyRow || lastRow) {
+      const where = [...(rowsTest ? [rowsTest] : []), ...pending];
+      branches.push(`
+        SELECT
+          ${select(step.negation ? null : "a.match_ts", qualifiedWithRows)}
         FROM ${prevTable} p
         JOIN ${aggTable} a ON (a.unit_id = p.unit_id)
-        ${totalFilter}${zeroRows}
+        ${where.length ? `WHERE ${where.join("\n          AND ")}` : ""}`);
+    }
+    if (test.matchesZeroRows) {
+      branches.push(`
+        SELECT
+          ${select(nullTs, qualifiedWithoutRows)}
+        FROM ${prevTable} p
+        WHERE ${[`p.unit_id NOT IN (SELECT unit_id FROM ${aggTable})`, ...pending].join("\n          AND ")}`);
+    }
+    ctes.push({
+      name: `__pop_step${index}`,
+      sql: `${branches.join("\n        UNION ALL")}
       `,
     });
   });
 
-  const lastIndex = steps.length - 1;
-  const joinedColumns = [
-    ...(steps[lastIndex].negation ? [] : [tsColumn(lastIndex)]),
-    ...recordedTsColumns(lastIndex),
-  ];
   ctes.push({
     name: POPULATION_MEMBERS_TABLE,
     sql: `
-        SELECT unit_id AS ${idType}, ${coalesce(joinedColumns)} AS joined_ts
-        FROM __pop_step${lastIndex}
+        SELECT unit_id AS ${idType}, qualified_ts AS joined_ts
+        FROM __pop_step${steps.length - 1}
       `,
   });
 
