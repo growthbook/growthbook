@@ -154,12 +154,17 @@ export function applyApiDataSourceSettings(
       ...existing.pipelineSettings,
       ...pipelineSettings,
     } as DataSourcePipelineSettings;
-    // A change must leave usable settings; an unchanged legacy echo passes
+    // A change must leave settings the GET contract and runners can use; an unchanged legacy echo passes
     if (!isEqual(merged, existing.pipelineSettings)) {
       const missing: string[] = (
-        ["allowWriting", "mode", "unitsTableRetentionHours"] as const
+        [
+          "allowWriting",
+          "mode",
+          "writeDataset",
+          "unitsTableRetentionHours",
+        ] as const
       ).filter((f) => merged[f] === undefined);
-      if (merged.allowWriting && !merged.writeDataset) {
+      if (merged.allowWriting && merged.writeDataset === "") {
         missing.push("writeDataset");
       }
       if (missing.length) {

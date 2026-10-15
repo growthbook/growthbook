@@ -58,6 +58,10 @@ export const apiDataSourceValidator = namedSchema(
           includesNameColumns: z.boolean(),
           dimensionColumns: z.array(z.string()),
           projects: z.array(z.string()),
+          error: z
+            .string()
+            .optional()
+            .describe("Why the last validation of this query failed"),
         }),
       ),
       identifierJoinQueries: z.array(
@@ -186,7 +190,7 @@ const dataSourceSettingsInput = {
     })
     .optional()
     .describe(
-      "Merged into the stored settings: fields left out keep their values, but any change must leave `allowWriting`, `mode` and `unitsTableRetentionHours` set, plus `writeDataset` when `allowWriting` is true. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
+      "Merged into the stored settings: fields left out keep their values, but any change must leave `allowWriting`, `mode`, `writeDataset` and `unitsTableRetentionHours` set, with a non-empty `writeDataset` when `allowWriting` is true. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
     ),
 };
 
