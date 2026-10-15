@@ -139,26 +139,33 @@ export function isAwaitingLoads(upload: ApiSavedGroupUpload): boolean {
 }
 
 /**
- * Who uploaded a version: a member's name, an API key's description (or "API
- * key" when it has none or the viewer can't list keys), or "Unknown" for
- * uploads from before authorship was recorded. Keys are looked up like the
- * activity log does.
+ * Who uploaded a version: a member's name, an API key's description with an
+ * "API" badge (or "API key" when it has none or the viewer can't list keys),
+ * or "Unknown" for uploads from before authorship was recorded. Keys are shown
+ * like the activity log shows them.
  */
-export function useUploaderDisplay(): (createdBy: string) => string {
+export function Uploader({ createdBy }: { createdBy: string }) {
   const { getUserDisplay } = useUser();
   const permissionsUtils = usePermissionsUtil();
   const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
     shouldRun: () => permissionsUtils.canCreateApiKey(),
   });
-  return (createdBy) => {
-    if (!createdBy) return "Unknown";
-    if (createdBy.startsWith("key_")) {
-      return (
-        data?.keys.find((k) => k.id === createdBy)?.description || "API key"
-      );
-    }
-    return getUserDisplay(createdBy, true);
-  };
+  if (!createdBy) return <>Unknown</>;
+  if (!createdBy.startsWith("key_")) {
+    return <>{getUserDisplay(createdBy, true)}</>;
+  }
+  const description = data?.keys.find((k) => k.id === createdBy)?.description;
+  if (!description) return <>API key</>;
+  return (
+    <Flex as="span" display="inline-flex" align="center" gap="1">
+      {description}
+      <Tooltip content="via API key">
+        <span>
+          <Badge variant="outline" label="API" size="xs" />
+        </span>
+      </Tooltip>
+    </Flex>
+  );
 }
 
 /** A store's load status, explaining a count that differs from the file's. */
@@ -220,7 +227,6 @@ export default function RemoteSavedGroupUploadDetailsModal({
   onDelete: () => void;
   close: () => void;
 }) {
-  const uploaderDisplay = useUploaderDisplay();
   const { download, downloadingVersion, downloadError } =
     useDownloadUpload(savedGroupId);
   const { data, error } = useApi<SavedGroupUploadDetails>(
@@ -281,7 +287,12 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 },
                 {
                   label: "Uploaded",
-                  value: `${datetime(upload.dateCreated)} by ${uploaderDisplay(upload.createdBy)}`,
+                  value: (
+                    <>
+                      {datetime(upload.dateCreated)} by{" "}
+                      <Uploader createdBy={upload.createdBy} />
+                    </>
+                  ),
                 },
                 {
                   label: "Content type",

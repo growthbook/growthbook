@@ -23,7 +23,7 @@ import RemoteSavedGroupUploadDetailsModal, {
   LoadSummary,
   LOAD_REPORT_POLL_MS,
   isAwaitingLoads,
-  useUploaderDisplay,
+  Uploader,
   UploadStatusBadge,
   useDownloadUpload,
 } from "@/components/SavedGroups/RemoteSavedGroupUploadDetailsModal";
@@ -323,7 +323,6 @@ export default function RemoteSavedGroupUploads({
   useVersionDisabledReason: string | null;
   onUseVersion: (version: number) => void;
 }) {
-  const uploaderDisplay = useUploaderDisplay();
   const { apiCall } = useAuth();
   const [uploadModal, setUploadModal] = useState(false);
   const [deleteVersion, setDeleteVersion] = useState<number | null>(null);
@@ -564,7 +563,7 @@ export default function RemoteSavedGroupUploads({
                 <TableCell>{formatByteSizeString(upload.size)}</TableCell>
                 <TableCell title={datetime(upload.dateCreated)}>
                   {ago(upload.dateCreated)} by{" "}
-                  {uploaderDisplay(upload.createdBy)}
+                  <Uploader createdBy={upload.createdBy} />
                 </TableCell>
                 <TableCell>
                   <LoadSummary
