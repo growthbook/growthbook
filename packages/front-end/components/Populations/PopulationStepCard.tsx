@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useMemo } from "react";
 import {
   Box,
   Flex,
@@ -11,8 +11,8 @@ import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import {
   getPopulationStepAnchorIndex,
-  parseSingleAggregateFilter,
   POPULATION_AGGREGATE_OPERATORS,
+  parseAggregateFilterForEditor,
 } from "shared/populations";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -290,14 +290,9 @@ function AggregateFilterInput({
   onChange: (column: string, filter: string) => void;
   onRemove: () => void;
 }) {
-  // Ranges such as ">=3,<10" can't be shown as one operator and value, so
-  // they stay editable as the raw filter text.
-  const [raw] = useState(
-    () => !!filter && parseSingleAggregateFilter(filter) === null,
-  );
-  const parsed = parseSingleAggregateFilter(filter);
-  const [operator, setOperator] = useState(parsed?.operator ?? ">=");
-  const [value, setValue] = useState(parsed?.value ?? "");
+  // Read from `filter` on every render rather than copying it into state, so
+  // the controls always show the step they belong to.
+  const parsedAggregateFilter = parseAggregateFilterForEditor(filter);
 
   const columnOptions = useMemo(
     () => [
@@ -331,7 +326,7 @@ function AggregateFilterInput({
           sort={false}
         />
       </Box>
-      {raw ? (
+      {!parsedAggregateFilter ? (
         <TextField
           size="sm"
           value={filter}
@@ -345,11 +340,10 @@ function AggregateFilterInput({
           <Select
             size="sm"
             aria-label={`Step ${stepNumber} aggregate operator`}
-            value={operator}
-            setValue={(op) => {
-              setOperator(op);
-              onChange(column, `${op}${value}`);
-            }}
+            value={parsedAggregateFilter.operator}
+            setValue={(op) =>
+              onChange(column, `${op}${parsedAggregateFilter.value}`)
+            }
           >
             {POPULATION_AGGREGATE_OPERATORS.map((o) => (
               <SelectItem key={o.operator} value={o.operator}>
@@ -361,11 +355,13 @@ function AggregateFilterInput({
             size="sm"
             type="number"
             min={0}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              onChange(column, `${operator}${e.target.value}`);
-            }}
+            value={parsedAggregateFilter.value}
+            onChange={(e) =>
+              onChange(
+                column,
+                `${parsedAggregateFilter.operator}${e.target.value}`,
+              )
+            }
             aria-label={`Step ${stepNumber} aggregate filter value`}
             style={{ width: 80 }}
           />
