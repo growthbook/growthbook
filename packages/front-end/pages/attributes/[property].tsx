@@ -110,6 +110,13 @@ export default function AttributeDetailPage() {
 
     for (const feature of features) {
       (feature.rules ?? []).forEach((rule) => {
+        if (
+          "hashAttribute" in rule &&
+          attributeKeys.includes(rule.hashAttribute)
+        ) {
+          attributeFeatureIds[rule.hashAttribute] ??= new Set<string>();
+          attributeFeatureIds[rule.hashAttribute].add(feature.id);
+        }
         try {
           const parsedCondition = JSON.parse(rule?.condition ?? "{}");
           recursiveWalk(parsedCondition, (node) => {

@@ -41,8 +41,10 @@ async function getArchetype(context: ApiReqContext, id: string) {
     );
   }
   const archetype = await getArchetypeById(id, context.org.id);
+  // Private archetypes are their owner's only, as in the app and listArchetypes.
   if (
     !archetype ||
+    (!archetype.isPublic && archetype.owner !== context.userId) ||
     !context.permissions.canReadMultiProjectResource(archetype.projects)
   ) {
     context.throwNotFoundError(`Archetype not found: ${id}`);
