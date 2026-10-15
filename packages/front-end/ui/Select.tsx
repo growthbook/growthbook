@@ -10,7 +10,6 @@ export type SelectSize = Size<"sm" | "md" | "lg">;
 
 type SelectProps = {
   label?: ReactNode;
-  "aria-label"?: string;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   defaultValue?: string;
@@ -36,7 +35,6 @@ type SelectProps = {
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   {
     label,
-    "aria-label": ariaLabel,
     labelSize,
     labelWeight = "semibold",
     defaultValue,
@@ -90,7 +88,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       >
         <RadixSelect.Trigger
           id={triggerId}
-          aria-label={ariaLabel}
           autoFocus={autoFocus}
           aria-label={ariaLabel}
           placeholder={placeholder}
