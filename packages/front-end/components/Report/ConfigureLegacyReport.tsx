@@ -1,3 +1,4 @@
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
@@ -79,6 +80,12 @@ export default function ConfigureLegacyReport({
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
+  const isHoldout = experiment?.type === "holdout";
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterfaceStringDates;
+  }>(`/holdout/${experiment?.holdoutId}`, {
+    shouldRun: () => isHoldout && !!experiment?.holdoutId,
+  });
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
 
@@ -199,6 +206,8 @@ export default function ConfigureLegacyReport({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment?.project,
+    holdoutProjects: isHoldout ? holdoutData?.holdout.projects : undefined,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: resolveAnalysisIdentifierType(

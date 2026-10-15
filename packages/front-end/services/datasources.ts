@@ -11,6 +11,9 @@ import {
   capitalizeFirstCharacter,
   resolveAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
+  getExposureQueryProjects,
+  isExposureQueryAvailableForProjects,
+  isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
@@ -1028,6 +1031,40 @@ export function isIdentifierUndeclared(
     !!identifierType &&
     !getExposureQueryIdentifierTypes(query).includes(identifierType)
   );
+}
+
+/** Of `exposureQueries`, those usable by a record in `project`. */
+export function getExposureQueriesForProject(
+  exposureQueries: ExposureQuery[],
+  project: string | undefined,
+  datasourceProjects: string[] | undefined,
+): ExposureQuery[] {
+  return exposureQueries.filter((q) =>
+    isProjectListValidForProject(
+      getExposureQueryProjects(q, datasourceProjects),
+      project,
+    ),
+  );
+}
+
+/**
+ * A data source's queries usable by a record in `project`, or, for a holdout,
+ * by every one of `holdoutProjects` (which takes precedence).
+ */
+export function getExposureQueriesInScope(
+  datasource: Pick<DataSourceInterfaceWithParams, "settings" | "projects">,
+  project: string | undefined,
+  holdoutProjects?: string[],
+): ExposureQuery[] {
+  const all = datasource.settings?.queries?.exposure ?? [];
+  return holdoutProjects
+    ? all.filter((q) =>
+        isExposureQueryAvailableForProjects(q, {
+          holdoutProjects,
+          datasourceProjects: datasource.projects,
+        }),
+      )
+    : getExposureQueriesForProject(all, project, datasource.projects);
 }
 
 /**

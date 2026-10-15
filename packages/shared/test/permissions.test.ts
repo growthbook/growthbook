@@ -1630,3 +1630,54 @@ describe("canManageFactTableVirtualColumn", () => {
     ).toBe(false);
   });
 });
+
+describe("assignment query permissions", () => {
+  const org: OrganizationInterface = {
+    id: "org_1",
+    name: "Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: { environments: [{ id: "production", description: "" }] },
+  };
+  // Read-only everywhere, analyst in prj_b only.
+  const p = new Permissions({
+    global: {
+      permissions: roleToPermissionMap("readonly", org),
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+    projects: {
+      prj_b: {
+        permissions: roleToPermissionMap("analyst", org),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
+  const datasource = { projects: ["prj_a", "prj_b", "prj_c"] };
+
+  it("needs the permission in every project the query covers", () => {
+    expect(p.canUpdateExposureQuery({ projects: ["prj_b"] }, datasource)).toBe(
+      true,
+    );
+    expect(
+      p.canUpdateExposureQuery({ projects: ["prj_b", "prj_c"] }, datasource),
+    ).toBe(false);
+  });
+
+  it("treats an unscoped query as covering the data source's projects", () => {
+    expect(p.canUpdateExposureQuery({ projects: [] }, datasource)).toBe(false);
+    expect(
+      p.canUpdateExposureQuery({ projects: [] }, { projects: ["prj_b"] }),
+    ).toBe(true);
+  });
+
+  it("allows adding a query when some project can hold it", () => {
+    expect(p.canAddExposureQuery(datasource)).toBe(true);
+    expect(p.canAddExposureQuery({ projects: [] })).toBe(true);
+    expect(p.canAddExposureQuery({ projects: ["prj_a"] })).toBe(false);
+  });
+});

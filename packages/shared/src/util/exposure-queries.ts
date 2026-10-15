@@ -1,10 +1,13 @@
-import { ExposureQuery } from "shared/types/datasource";
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import { DataSourceSettings, ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
 import type {
   ApiAssignmentQueryRef,
   ApiAssignmentQueryRefInput,
   AssignmentQueryField,
 } from "../validators/assignment-query-field";
+import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -129,8 +132,55 @@ export function flattenExposureQueryInput<
 
 type SelectableExposureQuery = Pick<
   ExposureQuery,
-  "id" | "name" | "userIdType" | "userIdTypes"
+  "id" | "name" | "userIdType" | "userIdTypes" | "projects"
 >;
+
+/**
+ * Where a selection is used: a single `project`, or `projects` that must all be
+ * covered (holdouts). Omit both to skip the check.
+ */
+export type AssignmentQueryScope = {
+  project?: string;
+  projects?: string[];
+  /**
+   * Inherited by queries without their own project scope. Required so a caller
+   * can't leave it out and treat those queries as available everywhere.
+   */
+  datasourceProjects: string[] | undefined;
+};
+
+function getAssignmentQueryScopeError(
+  query: Pick<ExposureQuery, "id" | "name" | "projects">,
+  { project, projects, datasourceProjects }: AssignmentQueryScope,
+): string | null {
+  const name = query.name || query.id;
+  if (projects) {
+    if (
+      isExposureQueryAvailableForProjects(query, {
+        holdoutProjects: projects,
+        datasourceProjects,
+      })
+    ) {
+      return null;
+    }
+    const scopeSource = query.projects?.length
+      ? "its own"
+      : "its data source's";
+    return projects.length
+      ? `Assignment query "${name}" isn't available for every project this holdout covers because of ${scopeSource} project scope`
+      : `Assignment query "${name}" is limited by ${scopeSource} project scope, so it can't be used by a holdout that covers all projects`;
+  }
+  if (
+    project !== undefined &&
+    !isProjectListValidForProject(
+      getExposureQueryProjects(query, datasourceProjects),
+      project,
+    )
+  ) {
+    return `Assignment query "${name}" isn't available for the selected project`;
+  }
+  return null;
+}
 
 export type ParsedAssignmentQuerySelection<
   Q extends SelectableExposureQuery = SelectableExposureQuery,
@@ -162,12 +212,14 @@ export function parseAssignmentQuerySelection<
     identifierType,
     onOmitted,
     field,
+    scope,
   }: {
     exposureQueryId: string;
     identifierType?: string;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     /** The REST field that errors tell the caller to set. */
     field?: string;
+    scope?: AssignmentQueryScope;
   },
 ): ParsedAssignmentQuerySelection<Q> {
   const query = exposureQueries.find((q) => q.id === exposureQueryId);
@@ -178,6 +230,8 @@ export function parseAssignmentQuerySelection<
     };
   }
   const name = query.name || query.id;
+  const scopeError = scope ? getAssignmentQueryScopeError(query, scope) : null;
+  if (scopeError) return { ok: false, error: scopeError };
   const declared = getExposureQueryIdentifierTypes(query);
   const identifierField = `${field ? `${field}.` : ""}identifierType`;
   if (identifierType) {
@@ -300,11 +354,14 @@ export function resolveAssignmentQuerySelectionChange(
     next,
     onOmitted,
     field,
+    scope,
   }: {
     previous: AssignmentQuerySelection | null;
     next: AssignmentQuerySelection;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     field?: string;
+    /** Only checked for a new or changed selection. */
+    scope?: AssignmentQueryScope;
   },
 ): AssignmentQuerySelectionChange {
   const kept = withKeptIdentifierType(previous, next);
@@ -323,10 +380,111 @@ export function resolveAssignmentQuerySelectionChange(
     identifierType: kept.identifierType,
     onOmitted,
     field,
+    scope,
   });
   return parsed.ok
     ? { ok: true, identifierType: parsed.identifierType, changed: true }
     : parsed;
+}
+
+/** A query's own projects, else its data source's. Empty means all projects. */
+export function getExposureQueryProjects(
+  query: Pick<ExposureQuery, "projects">,
+  datasourceProjects: string[] | undefined,
+): string[] {
+  return query.projects?.length ? query.projects : (datasourceProjects ?? []);
+}
+
+/**
+ * For resources spanning several projects (holdouts): the query must be usable
+ * by every one of them. A holdout with no projects covers all projects, so only
+ * a query unrestricted on both itself and its data source qualifies.
+ */
+export function isExposureQueryAvailableForProjects(
+  query: Pick<ExposureQuery, "projects">,
+  {
+    holdoutProjects,
+    datasourceProjects,
+  }: { holdoutProjects: string[]; datasourceProjects: string[] | undefined },
+): boolean {
+  const scope = getExposureQueryProjects(query, datasourceProjects);
+  if (!scope.length) return true;
+  if (!holdoutProjects.length) return false;
+  return holdoutProjects.every((project) => scope.includes(project));
+}
+
+export type ExposureQueryProjectScopeViolation = {
+  name: string;
+  /** The query's projects that the data source doesn't cover. */
+  projects: string[];
+};
+
+/**
+ * Each query's own projects must be a subset of the data source's. Empty
+ * data source projects means all projects; a query with none inherits them.
+ */
+export function getExposureQueryProjectScopeViolations(
+  exposureQueries: Pick<ExposureQuery, "name" | "projects">[],
+  datasourceProjects: string[],
+): ExposureQueryProjectScopeViolation[] {
+  if (!datasourceProjects.length) return [];
+  return exposureQueries.flatMap((query) => {
+    const projects = (query.projects ?? []).filter(
+      (project) => !datasourceProjects.includes(project),
+    );
+    return projects.length ? [{ name: query.name, projects }] : [];
+  });
+}
+
+/**
+ * Explains the violations from the side the user acted on: Projects removed
+ * from the data source, or a query scoped beyond it. `previousDatasourceProjects`
+ * is set only when the save changes the data source's projects.
+ */
+export function getExposureQueryProjectScopeError(
+  violations: ExposureQueryProjectScopeViolation[],
+  {
+    projectNames,
+    previousDatasourceProjects,
+  }: {
+    projectNames: Map<string, string>;
+    previousDatasourceProjects?: string[];
+  },
+): string {
+  const nameOf = (id: string) => projectNames.get(id) ?? id;
+  const wasDropped = (id: string) =>
+    previousDatasourceProjects !== undefined &&
+    (!previousDatasourceProjects.length ||
+      previousDatasourceProjects.includes(id));
+  const quoted = (names: string[]) => names.map((n) => `"${n}"`).join(", ");
+  const queriesUsing = (id: string) =>
+    violations.filter((v) => v.projects.includes(id)).map((v) => v.name);
+
+  const messages: string[] = [];
+  const dropped = [
+    ...new Set(violations.flatMap((v) => v.projects).filter(wasDropped)),
+  ];
+  if (dropped.length === 1) {
+    const name = nameOf(dropped[0]);
+    messages.push(
+      `Can't remove ${name} from this Data Source while assignment queries are scoped to it: ${quoted(queriesUsing(dropped[0]))}. Remove ${name} from those queries first.`,
+    );
+  } else if (dropped.length > 1) {
+    const list = dropped
+      .map((id) => `${nameOf(id)} (${quoted(queriesUsing(id))})`)
+      .join("; ");
+    messages.push(
+      `Can't remove these Projects from this Data Source while assignment queries are scoped to them: ${list}. Remove those Projects from the queries first.`,
+    );
+  }
+  for (const violation of violations) {
+    const outside = violation.projects.filter((id) => !wasDropped(id));
+    if (!outside.length) continue;
+    messages.push(
+      `Assignment query "${violation.name}" is scoped to ${outside.map(nameOf).join(", ")}, which ${outside.length === 1 ? "isn't one of" : "aren't among"} this Data Source's Projects.`,
+    );
+  }
+  return messages.join(" ");
 }
 
 /**
@@ -365,5 +523,75 @@ export function resolveExposureQueryForAnalysis(
   return {
     query: query.query,
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
+  };
+}
+
+/**
+ * Assignment queries added, changed or removed between two lists, matched by
+ * id. Validation errors are written by the server, so they don't count.
+ */
+export function getChangedExposureQueries<
+  Q extends { id?: string; error?: unknown },
+>(previous: Q[], next: Q[]): { previous: Q | null; next: Q | null }[] {
+  const byId = new Map(previous.filter((q) => q.id).map((q) => [q.id, q]));
+  const changes: { previous: Q | null; next: Q | null }[] = [];
+  for (const query of next) {
+    const before = query.id ? byId.get(query.id) : undefined;
+    if (before) byId.delete(query.id);
+    if (!before || !isEqual(omit(before, "error"), omit(query, "error"))) {
+      changes.push({ previous: before ?? null, next: query });
+    }
+  }
+  for (const removed of byId.values()) {
+    changes.push({ previous: removed, next: null });
+  }
+  return changes;
+}
+
+/**
+ * Settings with the assignment queries left out, normalized as JSON so values
+ * round-tripped through the client compare equal.
+ */
+function withoutExposureQueries(settings: DataSourceSettings | undefined) {
+  return JSON.parse(
+    JSON.stringify({
+      ...settings,
+      queries: omit(settings?.queries ?? {}, "exposure"),
+    }),
+  );
+}
+
+/**
+ * What a data source save changes, for permission checks. Any body field other
+ * than `settings`, including ones added to the endpoint later, counts as a
+ * change beyond the assignment queries.
+ */
+export function getDataSourceSaveChanges(
+  datasource: { settings?: DataSourceSettings },
+  {
+    settings,
+    ...otherFields
+  }: { settings?: DataSourceSettings; [field: string]: unknown },
+): {
+  changesOtherFields: boolean;
+  exposureQueryChanges: {
+    previous: ExposureQuery | null;
+    next: ExposureQuery | null;
+  }[];
+} {
+  return {
+    changesOtherFields:
+      Object.keys(otherFields).length > 0 ||
+      (settings !== undefined &&
+        !isEqual(
+          withoutExposureQueries(settings),
+          withoutExposureQueries(datasource.settings),
+        )),
+    exposureQueryChanges: settings
+      ? getChangedExposureQueries(
+          datasource.settings?.queries?.exposure ?? [],
+          settings.queries?.exposure ?? [],
+        )
+      : [],
   };
 }
