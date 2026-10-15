@@ -230,24 +230,34 @@ export default function AnalysisSettingsSummary({
     };
   });
 
-  const totalUnits = useMemo(() => {
+  const healthUnits = useMemo(() => {
     const healthVariationUnits =
       snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    // Fallback to using results for total units if health units not available
+    if (!healthVariationUnits?.length) return null;
+    return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+  }, [snapshot?.health?.traffic?.overall?.variationUnits]);
+  const resultsUnits = useMemo(() => {
     let totalUsers = 0;
     analysis?.results?.forEach((result) => {
       result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
-  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+  }, [analysis?.results]);
+  const totalUnits = healthUnits ?? resultsUnits;
 
-  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  // Cluster results are analyzed per cluster, so their unit counts are
+  // clusters, while health traffic counts sub-units.
+  const clusterSubUnitIdentifier = snapshot?.settings?.isClusterExperiment
+    ? snapshot.settings.clusterSubUnitIdentifier
+    : undefined;
+  const clusterIdentifier =
+    snapshot?.settings?.exposureQueryIdentifierType ?? userIdType;
+
+  // Convert an identifier type to a display name (e.g. "user_id" -> "User Ids")
+  const getUnitDisplayName = (identifierType: string | undefined) =>
+    identifierType
+      ? startCase(identifierType.split("_").join(" ")) + "s"
+      : "Units";
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -907,10 +917,25 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
-            {snapshot ? (
+            {snapshot && clusterSubUnitIdentifier ? (
+              <>
+                <Metadata
+                  label={getUnitDisplayName(clusterIdentifier)}
+                  value={numberFormatter.format(resultsUnits)}
+                  style={{ whiteSpace: "nowrap" }}
+                />
+                {healthUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                    value={numberFormatter.format(healthUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+              </>
+            ) : snapshot ? (
               <Metadata
-                label={unitDisplayName}
-                value={numberFormatter.format(totalUnits ?? 0)}
+                label={getUnitDisplayName(userIdType)}
+                value={numberFormatter.format(totalUnits)}
                 style={{ whiteSpace: "nowrap" }}
               />
             ) : null}
