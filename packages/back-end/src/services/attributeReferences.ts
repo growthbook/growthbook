@@ -24,8 +24,8 @@ export type AttributeReferencesMap = Record<
 
 /**
  * Features, experiments, and saved groups that reference each attribute key.
- * Walks rule/phase/group condition JSON, checks hashAttribute on rules and
- * experiments, and matches ID lists by attributeKey.
+ * Walks rule/phase/group condition JSON, checks hash and fallback attributes on
+ * rules and experiments, and matches ID lists by attributeKey.
  */
 export async function getAttributeReferences(
   context: ReqContext | ApiReqContext,
@@ -66,6 +66,8 @@ export async function getAttributeReferences(
     };
     for (const rule of feature.rules ?? []) {
       if ("hashAttribute" in rule) addFeature(rule.hashAttribute);
+      if ("fallbackAttribute" in rule && rule.fallbackAttribute)
+        addFeature(rule.fallbackAttribute);
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
         for (const nodeKey of extractConditionAttributeKeys(parsed)) {
@@ -91,6 +93,7 @@ export async function getAttributeReferences(
     };
 
     addExp(experiment.hashAttribute);
+    if (experiment.fallbackAttribute) addExp(experiment.fallbackAttribute);
 
     const phase = experiment.phases?.slice(-1)?.[0];
     try {

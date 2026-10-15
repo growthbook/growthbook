@@ -8,7 +8,7 @@ export const apiFeatureEvaluationValidator = namedSchema(
       environment: z.string(),
       enabled: z
         .boolean()
-        .describe("False when the flag is off in this environment"),
+        .describe("False when the flag is off in this environment or archived"),
       value: z
         .unknown()
         .describe("What the SDK would return. Null when disabled."),
