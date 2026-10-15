@@ -22,8 +22,10 @@ export function getPhaseBounds(phase?: {
   return { start: parse(phase?.dateStarted), end: parse(phase?.dateEnded) };
 }
 
-// The shared range control only offers calendar days for custom ranges, so a
-// range anchored to a phase edge is approximated to whole UTC days.
+// ponytail: the shared range control only offers calendar days for custom
+// ranges, so a range anchored to a phase edge is rounded out to whole UTC days
+// and can still reach past the phase (the warning says so). The upgrade path
+// is date-time support in the picker.
 function customDays(start: Date, end: Date): ExplorationDateRange {
   return {
     predefined: "customDateRange",
@@ -52,33 +54,13 @@ export function entirePhaseRange(
     : null;
 }
 
-function startOfUtcDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
-}
-
-function endOfUtcDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(23, 59, 59, 999);
-  return out;
-}
-
-/**
- * Whether the range reaches outside the phase. Custom ranges resolve to whole
- * calendar days, so they are judged against the phase's calendar days too;
- * otherwise the ranges above would flag themselves.
- */
+/** Whether the resolved range reaches outside the phase's actual timestamps. */
 export function rangeExceedsPhase(
   range: ExplorationDateRange,
   bounds: PhaseBounds,
 ): boolean {
   if (!bounds.start) return false;
   const { startDate, endDate } = calculateProductAnalyticsDateRange(range);
-  const wholeDays = range.predefined === "customDateRange";
-  if (startDate < (wholeDays ? startOfUtcDay(bounds.start) : bounds.start)) {
-    return true;
-  }
-  if (!bounds.end) return false;
-  return endDate > (wholeDays ? endOfUtcDay(bounds.end) : bounds.end);
+  if (startDate < bounds.start) return true;
+  return bounds.end !== null && endDate > bounds.end;
 }

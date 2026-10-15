@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { isEqual } from "lodash";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
@@ -8,7 +9,10 @@ import {
   resolveAnalysisIdentifierType,
   truncateString,
 } from "shared/util";
-import type { ExperimentExposureRecord } from "shared/validators";
+import type {
+  ExperimentExposureRecord,
+  ExplorationDateRange,
+} from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -284,25 +288,42 @@ export default function ExposureLogsCard({
   ) : null;
 
   // Rows outside the phase are shown as asked for, but with more than one
-  // phase they may belong to a different one, so offer ranges that don't.
+  // phase they may belong to a different one, so offer ranges closer to it.
+  // The picker rounds custom ranges to whole days, so a reset can still be
+  // flagged; a link is only offered when it would change the range.
   const entirePhase = entirePhaseRange(phaseBounds);
+  const resets = [
+    { label: "last 24 hours of the selected phase", range: defaultDateRange },
+    { label: "entire selected phase length", range: entirePhase },
+  ].filter(
+    (reset): reset is { label: string; range: ExplorationDateRange } =>
+      reset.range !== null && !isEqual(reset.range, query.dateRange),
+  );
   const phaseNote =
     experiment.phases.length > 1 &&
-    entirePhase &&
     rangeExceedsPhase(query.dateRange, phaseBounds) ? (
       <Callout status="warning" size="sm">
         Selected date range exceeds phase date range and may include exposures
-        from other phases. Reset to the{" "}
-        <Link
-          onClick={() => query.applyControls({ dateRange: defaultDateRange })}
-        >
-          last 24 hours
-        </Link>{" "}
-        of the selected phase or the{" "}
-        <Link onClick={() => query.applyControls({ dateRange: entirePhase })}>
-          entire selected phase length
-        </Link>
-        .
+        from other phases.
+        {resets.length > 0 && (
+          <>
+            {" "}
+            Reset to the{" "}
+            {resets.map((reset, i) => (
+              <span key={reset.label}>
+                {i > 0 && " or the "}
+                <Link
+                  onClick={() =>
+                    query.applyControls({ dateRange: reset.range })
+                  }
+                >
+                  {reset.label}
+                </Link>
+              </span>
+            ))}
+            .
+          </>
+        )}
       </Callout>
     ) : null;
 

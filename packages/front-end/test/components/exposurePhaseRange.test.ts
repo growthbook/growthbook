@@ -84,9 +84,29 @@ describe("exposurePhaseRange", () => {
     ).toBe(true);
   });
 
-  it("does not flag the ranges it offers as resets", () => {
-    expect(rangeExceedsPhase(phaseLast24Hours(ended), ended)).toBe(false);
+  it("flags a lookback on a phase younger than the lookback", () => {
+    const young = getPhaseBounds({ dateStarted: "2026-10-15T10:00:00.000Z" });
+    expect(rangeExceedsPhase(phaseLast24Hours(young), young)).toBe(true);
+  });
+
+  it("compares custom ranges on timestamps, so day rounding past a mid-day phase end is flagged", () => {
+    // The ended phase stops at 08:00 on Oct 10; the reset covers Oct 9-10 as
+    // whole days, so it reaches into whatever ran later on Oct 10.
+    expect(rangeExceedsPhase(phaseLast24Hours(ended), ended)).toBe(true);
     const whole = entirePhaseRange(ended);
-    expect(whole && rangeExceedsPhase(whole, ended)).toBe(false);
+    expect(whole && rangeExceedsPhase(whole, ended)).toBe(true);
+  });
+
+  it("does not flag a custom range inside the phase", () => {
+    expect(
+      rangeExceedsPhase(
+        {
+          predefined: "customDateRange",
+          startDate: "2026-10-03",
+          endDate: "2026-10-05",
+        },
+        ended,
+      ),
+    ).toBe(false);
   });
 });
