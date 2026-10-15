@@ -661,7 +661,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       { event: "feature.updated", object: { id: "checkout-flag" } },
       {
         event: "feature.revision.approved",
-        object: { featureId: "checkout-flag", version: 2 },
+        object: { feature: { id: "checkout-flag" }, version: 2 },
       },
       { event: "savedGroup.updated", object: { id: "group-1", name: "Beta" } },
       {

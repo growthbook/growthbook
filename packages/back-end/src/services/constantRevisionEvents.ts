@@ -10,10 +10,12 @@ import {
 } from "shared/types/events/base-types";
 import { constantPublishEnvironments } from "shared/util";
 import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
+import {
+  revisionReference,
+  webhookActor,
+} from "back-end/src/events/revisionReference";
 import { Context } from "back-end/src/models/BaseModel";
-import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
@@ -52,10 +54,14 @@ export async function dispatchConstantRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "constant") return;
   try {
-    const apiRevision = await toApiConstantRevision(
-      revision,
-      context as ApiReqContext,
-    );
+    const reference = {
+      ...(await revisionReference(context, revision)),
+      constant: {
+        id: revision.target.id,
+        key: revision.target.snapshot.key,
+        name: revision.target.snapshot.name,
+      },
+    };
     const snapshot = revision.target.snapshot as ConstantInterface;
     const liveForRouting = await context.models.constants.getById(
       revision.target.id,
@@ -93,11 +99,11 @@ export async function dispatchConstantRevisionEvent(
 
     switch (action.type) {
       case "created":
-        await emit("revision.created", apiRevision);
+        await emit("revision.created", reference);
         break;
       case "updated":
         await emit("revision.updated", {
-          ...apiRevision,
+          ...reference,
           change:
             action.change === "metadata" || action.change === "archive"
               ? action.change
@@ -105,31 +111,26 @@ export async function dispatchConstantRevisionEvent(
         });
         break;
       case "reviewRequested":
-        await emit("revision.reviewRequested", apiRevision);
+        await emit("revision.reviewRequested", reference);
         break;
       case "reviewed": {
-        const [user] = await context.getUsersByIds([action.userId]);
-        const reviewer = {
-          id: action.userId,
-          ...(user?.name ? { name: user.name } : {}),
-          ...(user?.email ? { email: user.email } : {}),
-        };
+        const reviewer = webhookActor(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
-            ...apiRevision,
+            ...reference,
             reviewer,
             reviewComment: action.comment ?? null,
           });
         } else if (action.decision === "request-changes") {
           await emit("revision.changesRequested", {
-            ...apiRevision,
+            ...reference,
             reviewer,
             reviewComment: action.comment ?? null,
           });
         } else {
           if (!action.comment) break;
           await emit("revision.commented", {
-            ...apiRevision,
+            ...reference,
             reviewer,
             reviewComment: action.comment,
           });
@@ -137,17 +138,17 @@ export async function dispatchConstantRevisionEvent(
         break;
       }
       case "rebased":
-        await emit("revision.rebased", apiRevision);
+        await emit("revision.rebased", reference);
         break;
       case "published":
         await emit("revision.published", {
-          ...apiRevision,
+          ...reference,
           ...bulkPublishFields(context),
         });
         break;
       case "publishFailed":
         await emit("revision.publishFailed", {
-          ...apiRevision,
+          ...reference,
           ...bulkPublishFields(context),
           failureReason: action.reason,
           terminal: action.terminal,
@@ -155,19 +156,19 @@ export async function dispatchConstantRevisionEvent(
         });
         break;
       case "discarded":
-        await emit("revision.discarded", apiRevision);
+        await emit("revision.discarded", reference);
         break;
       case "reopened":
-        await emit("revision.reopened", apiRevision);
+        await emit("revision.reopened", reference);
         break;
       case "recalled":
-        await emit("revision.recalled", apiRevision);
+        await emit("revision.recalled", reference);
         break;
       case "reviewRetracted":
-        await emit("revision.reviewRetracted", apiRevision);
+        await emit("revision.reviewRetracted", reference);
         break;
       case "publishScheduleChanged":
-        await emit("revision.publishScheduleChanged", apiRevision);
+        await emit("revision.publishScheduleChanged", reference);
         break;
       case "reverted": {
         const source = revision.revertedFrom
@@ -176,7 +177,7 @@ export async function dispatchConstantRevisionEvent(
               .catch(() => null)
           : null;
         await emit("revision.reverted", {
-          ...apiRevision,
+          ...reference,
           ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
