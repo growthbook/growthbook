@@ -38,7 +38,7 @@ import {
   contextualBanditHasServableVisualChanges,
   isFactMetricId,
 } from "shared/experiments";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
@@ -302,13 +302,12 @@ const BaseClass = MakeModelClass({
           const connections = await findSDKConnectionsByOrganization(
             req.context,
           );
-          const capabilities = getConnectionsSDKCapabilities({
-            connections,
-            project: cb.project ?? "",
-          });
           if (
-            !capabilities.includes("visualEditor") ||
-            !capabilities.includes("contextualBanditsAuto")
+            !someConnectionSupportsCapabilities({
+              connections,
+              capabilities: ["visualEditor", "contextualBanditsAuto"],
+              project: cb.project ?? "",
+            })
           ) {
             throw new BadRequestError(
               "None of the SDK Connections in this Contextual Bandit's Project support Contextual Bandit visual changes. Upgrade an SDK Connection to a supported version first.",
