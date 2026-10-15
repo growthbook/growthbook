@@ -1,5 +1,4 @@
 import { z } from "zod";
-import uniqid from "uniqid";
 import {
   deleteDataSourceValidator,
   postDataSourceInformationSchemaRefreshValidator,
@@ -70,13 +69,18 @@ export function applyApiDataSourceSettings(
       ...settings.queries,
       exposure: input.assignmentQueries.map((q) => {
         const match = q.id ? prev.get(q.id) : undefined;
+        const userIdTypes =
+          q.identifierTypes ??
+          (q.identifierType ? [q.identifierType] : match?.userIdTypes) ??
+          [];
         return {
           ...match,
-          // createDataSource doesn't save the ids it assigns while validating
-          id: q.id || uniqid("exq_"),
+          id: q.id ?? "",
           name: q.name,
           description: q.description ?? match?.description,
-          userIdType: q.identifierType,
+          // The model keeps a stored query's legacy identifier regardless
+          userIdType: match?.userIdType ?? userIdTypes[0] ?? "",
+          userIdTypes,
           query: q.sql,
           hasNameCol: q.includesNameColumns ?? match?.hasNameCol,
           dimensions: q.dimensionColumns ?? match?.dimensions ?? [],

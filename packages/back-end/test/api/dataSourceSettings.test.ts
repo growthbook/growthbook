@@ -13,6 +13,7 @@ describe("applyApiDataSourceSettings", () => {
           id: "exq_1",
           name: "Old",
           userIdType: "user_id",
+          userIdTypes: ["user_id"],
           query: "SELECT 1",
           dimensions: [],
           dimensionSlicesId: "dimslice_1",
@@ -38,7 +39,7 @@ describe("applyApiDataSourceSettings", () => {
           {
             id: "exq_1",
             name: "Renamed",
-            identifierType: "user_id",
+            identifierTypes: ["anon_id", "user_id"],
             sql: "SELECT 3",
           },
           { name: "Added", identifierType: "device_id", sql: "SELECT 4" },
@@ -56,12 +57,15 @@ describe("applyApiDataSourceSettings", () => {
       id: "exq_1",
       name: "Renamed",
       query: "SELECT 3",
+      userIdType: "user_id",
+      userIdTypes: ["anon_id", "user_id"],
       dimensionSlicesId: "dimslice_1",
     });
     expect(settings.queries?.exposure?.[1]).toMatchObject({
-      id: expect.stringMatching(/^exq_/),
+      id: "",
       name: "Added",
       userIdType: "device_id",
+      userIdTypes: ["device_id"],
       dimensions: [],
     });
     expect(settings.queries?.identityJoins).toEqual(
