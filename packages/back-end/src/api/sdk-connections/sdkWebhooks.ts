@@ -129,10 +129,25 @@ export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
       context.permissions.canUpdateSDKWebhook(c);
     const webhook = await getWebhookForUpdate(context, req.params.id, can);
     const { sdkConnections, ...updates } = req.body;
-    assertHeadersJson(context, updates.headers);
+    // Only changed values are checked, so an echoed GET response still saves
+    if (updates.headers !== (webhook.headers ?? "")) {
+      assertHeadersJson(context, updates.headers);
+    }
+    if (
+      updates.payloadFormat === "vercelNativeIntegration" &&
+      webhook.payloadFormat !== "vercelNativeIntegration"
+    ) {
+      context.throwBadRequestError(
+        "payloadFormat vercelNativeIntegration is managed by the Vercel integration",
+      );
+    }
 
     if (sdkConnections) {
-      await assertCanUseSDKConnections(context, sdkConnections, can);
+      await assertCanUseSDKConnections(
+        context,
+        sdkConnections.filter((id) => !webhook.sdks.includes(id)),
+        can,
+      );
     }
 
     // Reset failure state when the endpoint changes, as the app does

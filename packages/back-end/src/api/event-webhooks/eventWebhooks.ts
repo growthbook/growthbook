@@ -117,10 +117,18 @@ export const putEventWebhook = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-  await getWebhook(req.context, id);
+  const existing = await getWebhook(req.context, id);
+  const { timeoutSeconds, ...updates } = req.body;
   await updateEventWebHook(
     { eventWebHookId: id, organizationId: req.context.org.id },
-    req.body,
+    {
+      ...updates,
+      // Unchanged values skip the cap check, so a since-lowered cap still round-trips
+      ...(timeoutSeconds !== undefined &&
+      timeoutSeconds !== (existing.timeoutSeconds ?? null)
+        ? { timeoutSeconds }
+        : {}),
+    },
   );
   const updated = await getWebhook(req.context, id);
   return { eventWebhook: toApiEventWebhook(updated) };

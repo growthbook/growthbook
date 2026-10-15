@@ -173,6 +173,11 @@ export const putSdkWebhookValidator = {
   bodySchema: z
     .object({
       ...sdkWebhookFields,
+      payloadFormat: payloadFormatValidator
+        .optional()
+        .describe(
+          "`vercelNativeIntegration` is accepted only on webhooks that already use it",
+        ),
       sdkConnections: z
         .array(z.string())
         .min(1)
