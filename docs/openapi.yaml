@@ -21239,8 +21239,10 @@ paths:
                   additionalProperties: false
                 pipelineSettings:
                   description: >-
-                    Merged into the stored settings: experiment id lists left
-                    out keep their values. Send `[]` to clear
+                    Merged into the stored settings: fields left out keep their
+                    values, but a data source without pipeline settings needs
+                    `allowWriting`, `mode`, `writeDataset` and
+                    `unitsTableRetentionHours`. Send `[]` to clear
                     `excludedExperimentIds` or `incrementalOptInExperimentIds`,
                     and `includedExperimentIds: null` to apply the mode to every
                     experiment again (`[]` applies it to none).
@@ -21280,11 +21282,6 @@ paths:
                       type: array
                       items:
                         type: string
-                  required:
-                    - allowWriting
-                    - mode
-                    - writeDataset
-                    - unitsTableRetentionHours
                   additionalProperties: false
                 maxConcurrentQueries:
                   type: integer
@@ -21469,8 +21466,10 @@ paths:
                   additionalProperties: false
                 pipelineSettings:
                   description: >-
-                    Merged into the stored settings: experiment id lists left
-                    out keep their values. Send `[]` to clear
+                    Merged into the stored settings: fields left out keep their
+                    values, but a data source without pipeline settings needs
+                    `allowWriting`, `mode`, `writeDataset` and
+                    `unitsTableRetentionHours`. Send `[]` to clear
                     `excludedExperimentIds` or `incrementalOptInExperimentIds`,
                     and `includedExperimentIds: null` to apply the mode to every
                     experiment again (`[]` applies it to none).
@@ -21510,11 +21509,6 @@ paths:
                       type: array
                       items:
                         type: string
-                  required:
-                    - allowWriting
-                    - mode
-                    - writeDataset
-                    - unitsTableRetentionHours
                   additionalProperties: false
                 maxConcurrentQueries:
                   type: integer

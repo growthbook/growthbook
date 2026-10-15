@@ -16,8 +16,8 @@ import {
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { datasourceHasMetrics } from "back-end/src/models/MetricModel";
+import { datasourceHasFactTables } from "back-end/src/models/FactTableModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import { deleteInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "back-end/src/models/InformationSchemaTablesModel";
@@ -52,33 +52,33 @@ export async function deleteDataSourceWithChecks(
       "This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one.",
     );
   }
-  if ((await getMetricsByDatasource(context, datasource.id)).length > 0) {
+  // Org-wide: a dependent the caller can't read must still block the delete
+  if (await datasourceHasMetrics(context, datasource.id)) {
     throw new BadRequestError(
       "Please delete all metrics tied to this datasource first.",
     );
   }
-  const factMetrics = await context.models.factMetrics.getAllSorted({
-    datasourceId: datasource.id,
-  });
-  if (factMetrics.length > 0) {
+  if (
+    await context.models.factMetrics.dangerousHasAnyForDatasource(datasource.id)
+  ) {
     throw new BadRequestError(
       "Please delete all fact metrics tied to this datasource first.",
     );
   }
   // Deleting the data source removes its Event Forwarder and managed events tables
-  const cascadedFactTableIds = [
-    getEventForwarderEventsFactTableId(datasource.id),
-    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-  ];
-  const factTables = await getAllFactTablesForOrganization(context, {
-    datasourceId: datasource.id,
-  });
-  if (factTables.some((f) => !cascadedFactTableIds.includes(f.id))) {
+  if (
+    await datasourceHasFactTables(context, datasource.id, [
+      getEventForwarderEventsFactTableId(datasource.id),
+      MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+    ])
+  ) {
     throw new BadRequestError(
       "Please delete all fact tables tied to this datasource first.",
     );
   }
-  if ((await context.models.segments.getByDataSource(datasource.id)).length) {
+  if (
+    await context.models.segments.dangerousHasAnyForDataSource(datasource.id)
+  ) {
     throw new BadRequestError(
       "Please delete all segments tied to this datasource first.",
     );
@@ -173,8 +173,9 @@ export async function updateDataSourceWithChecks(
   if (settings) updates.settings = settings;
   if (projects) updates.projects = projects;
 
+  // The stored type, since REST updates don't send one
   if (
-    type === "google_analytics" &&
+    datasource.type === "google_analytics" &&
     params &&
     (params as GoogleAnalyticsParams).refreshToken
   ) {
