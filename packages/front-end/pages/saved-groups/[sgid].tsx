@@ -1339,16 +1339,14 @@ export default function EditSavedGroupPage() {
             onPublish={handlePublish}
             onDiscard={handleDiscard}
             onReopen={handleReopen}
-            // Rolling back writes the group, which needs Enterprise
-            onRevert={
-              remoteLocked
-                ? undefined
-                : (rev) => {
-                    setRevisionToRevert(rev);
-                    setConfirmRevert(true);
-                  }
-            }
+            onRevert={(rev) => {
+              setRevisionToRevert(rev);
+              setConfirmRevert(true);
+            }}
             publishBlockedReason={
+              remoteLocked ? REMOTE_LOCKED_REASON : undefined
+            }
+            revertBlockedReason={
               remoteLocked ? REMOTE_LOCKED_REASON : undefined
             }
             onCompareRevisions={
@@ -1457,9 +1455,10 @@ export default function EditSavedGroupPage() {
             )}
             {remoteLocked && (
               <Callout status="warning" mb="4">
-                Changing Remote Groups needs an Enterprise plan. Features and
-                experiments that use this group keep working, but you can&apos;t
-                upload IDs, change its version, publish drafts or roll back.{" "}
+                Changing Remote Groups needs an Enterprise plan. Feature Flags
+                and experiments that use this group keep working, but you
+                can&apos;t upload IDs, change its version, publish drafts or
+                roll back.{" "}
                 <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
               </Callout>
             )}
