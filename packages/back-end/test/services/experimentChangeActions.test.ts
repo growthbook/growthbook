@@ -74,6 +74,25 @@ describe("experimentChangeActions", () => {
         ],
       }).sort(),
     ).toEqual(["experiment.targeting", "experiment.traffic"]);
+    // A changed variation set reaches users; the reweight log doesn't.
+    expect(
+      experimentChangeActions(running, {
+        phases: [
+          phase({ name: "First" }),
+          phase({ variations: [{ id: "v0", status: "active" }] }),
+        ],
+      }),
+    ).toEqual(["experiment.traffic"]);
+    expect(
+      experimentChangeActions(running, {
+        phases: [
+          phase({ name: "First" }),
+          phase({
+            banditEvents: [{}] as unknown as ExperimentPhase["banditEvents"],
+          }),
+        ],
+      }),
+    ).toEqual([]);
   });
 
   it("names a new phase, a re-randomize and edits to past phases or dates", () => {

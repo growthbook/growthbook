@@ -674,20 +674,31 @@ export function holdFeatureUpdate(
   });
 }
 
-const PHASE_ACTIONS: [keyof ExperimentPhase, ConfirmAction][] = [
-  ["condition", "experiment.targeting"],
-  ["savedGroups", "experiment.targeting"],
-  ["prerequisites", "experiment.targeting"],
-  ["coverage", "experiment.traffic"],
-  ["variationWeights", "experiment.traffic"],
-  ["namespace", "experiment.traffic"],
-  ["seed", "experiment.phases"],
-  ["name", "experiment.phases"],
-  ["reason", "experiment.phases"],
-  ["dateStarted", "experiment.phases"],
-  ["dateEnded", "experiment.phases"],
-  ["lookbackStartDate", "experiment.phases"],
-];
+// What changing each phase field of a live experiment holds as, or null when it
+// never reaches users. Typed over every field, so a new one won't compile until
+// it's placed; when unsure, pick an action rather than null.
+const PHASE_FIELD_ACTIONS: Record<keyof ExperimentPhase, ConfirmAction | null> =
+  {
+    condition: "experiment.targeting",
+    savedGroups: "experiment.targeting",
+    prerequisites: "experiment.targeting",
+    coverage: "experiment.traffic",
+    variationWeights: "experiment.traffic",
+    namespace: "experiment.traffic",
+    variations: "experiment.traffic",
+    seed: "experiment.phases",
+    name: "experiment.phases",
+    reason: "experiment.phases",
+    dateStarted: "experiment.phases",
+    dateEnded: "experiment.phases",
+    lookbackStartDate: "experiment.phases",
+    // A log of past reweights; the weights themselves are variationWeights.
+    banditEvents: null,
+  };
+const PHASE_ACTIONS = Object.entries(PHASE_FIELD_ACTIONS).flatMap(
+  ([field, action]) =>
+    action ? [[field as keyof ExperimentPhase, action] as const] : [],
+);
 const RERANDOMIZE_FIELDS = [
   "hashAttribute",
   "fallbackAttribute",
