@@ -4,7 +4,7 @@ import {
   apiUpdateUrlRedirectBody,
   apiUrlRedirectValidator,
 } from "shared/validators";
-import { OpenApiModelSpec } from "shared/api-model";
+import { ApiUpdateZodObject, OpenApiModelSpec } from "shared/api-model";
 
 export const urlRedirectApiSpec = {
   modelSingular: "urlRedirect",
@@ -13,7 +13,10 @@ export const urlRedirectApiSpec = {
   apiInterface: apiUrlRedirectValidator,
   schemas: {
     createBody: apiCreateUrlRedirectBody,
-    updateBody: apiUpdateUrlRedirectBody,
+    // UpdateProps forbids the base keys this body echoes; handleApiUpdate drops them
+    updateBody: apiUpdateUrlRedirectBody as unknown as ApiUpdateZodObject<
+      typeof apiUrlRedirectValidator
+    >,
   },
   includeDefaultCrud: true,
   crudValidatorOverrides: {
