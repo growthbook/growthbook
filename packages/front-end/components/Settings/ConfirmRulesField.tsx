@@ -189,9 +189,11 @@ function ActionsField({
               className={clsx(
                 styles.check,
                 (isChecked || isPartly) && styles.checked,
+                isPartly && styles.partly,
               )}
             >
-              {isPartly ? <PiMinusBold /> : <PiCheckBold />}
+              {isPartly && <PiMinusBold className={styles.dash} />}
+              <PiCheckBold className={styles.tick} />
             </Flex>
             {category ? (
               <IconButton

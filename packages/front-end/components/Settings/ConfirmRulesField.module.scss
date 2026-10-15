@@ -6,6 +6,11 @@
   opacity: 1;
 }
 
+// A partly picked row shows a dash, and previews the full check a click gives.
+.partly .tick {
+  display: none;
+}
+
 // Ghost buttons pull themselves outward; keep the caret in its column.
 .caret {
   margin: 0;
@@ -22,5 +27,13 @@
   .checked {
     opacity: 1;
     color: var(--violet-11);
+  }
+
+  .partly .dash {
+    display: none;
+  }
+
+  .partly .tick {
+    display: inline;
   }
 }

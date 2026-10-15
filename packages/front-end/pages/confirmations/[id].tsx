@@ -49,17 +49,25 @@ const listJoin = (items: string[]) =>
     ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`
     : items[0];
 
-// What the change acts on, named by its links, stands out in its summary.
+// What the change acts on, named by its links, stands out in its summary:
+// the first whole-word mention of each.
 function withTargets(summary: string, links: ConfirmationLink[]): ReactNode {
   const labels = [...new Set(links.map((link) => link.label))]
     .filter(Boolean)
     .sort((a, b) => b.length - a.length);
   if (!labels.length) return summary;
+  const bolded = new Set<string>();
   return summary
-    .split(new RegExp(`(${labels.map(escapeRegExp).join("|")})`))
-    .map((part, i) =>
-      labels.includes(part) ? <strong key={i}>{part}</strong> : part,
-    );
+    .split(
+      new RegExp(
+        `(?<![\\w-])(${labels.map(escapeRegExp).join("|")})(?![\\w-])`,
+      ),
+    )
+    .map((part, i) => {
+      if (!labels.includes(part) || bolded.has(part)) return part;
+      bolded.add(part);
+      return <strong key={i}>{part}</strong>;
+    });
 }
 
 function SectionHeader({ children }: { children: ReactNode }) {

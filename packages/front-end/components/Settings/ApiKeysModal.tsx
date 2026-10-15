@@ -286,7 +286,7 @@ const ApiKeysModal: FC<{
               <Tooltip
                 content={allActions ? PRESET_HELP.all : PRESET_HELP.recommended}
               >
-                <strong>
+                <strong tabIndex={0}>
                   {allActions ? "all" : "recommended"} actions{" "}
                   <PiInfo style={{ position: "relative", top: "-1px" }} />
                 </strong>
