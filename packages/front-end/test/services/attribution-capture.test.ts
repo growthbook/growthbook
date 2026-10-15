@@ -37,10 +37,14 @@ function installCookieJar() {
   });
 }
 
-function readGbAttr(): Record<string, string> | null {
+type GbAttr = Record<string, string> & {
+  first_touch?: Record<string, string>;
+};
+
+function readGbAttr(): GbAttr | null {
   const m = document.cookie.match(/(?:^|; )gb_attr=([^;]*)/);
   if (!m) return null;
-  return JSON.parse(decodeURIComponent(m[1])) as Record<string, string>;
+  return JSON.parse(decodeURIComponent(m[1])) as GbAttr;
 }
 
 describe("captureAttribution", () => {
@@ -73,39 +77,62 @@ describe("captureAttribution", () => {
 
     captureAttribution();
 
-    expect(readGbAttr()).toEqual({
+    const touch = {
       utm_source: "linkedin",
       utm_medium: "cpc",
       li_fat_id: "abc123",
       referrer: "https://www.linkedin.com/",
       landing_page: `${ORIGIN}/signup`,
       touch_at: "2026-09-16T14:00:00.000Z",
-    });
+    };
+    // On the first visit, the first and last touch are the same
+    expect(readGbAttr()).toEqual({ ...touch, first_touch: touch });
   });
 
-  it("overwrites the cookie on a new paid-touch visit (last-touch)", () => {
-    visit("/signup?utm_source=first");
+  it("replaces the last touch on a new UTM visit but keeps the first touch", () => {
+    visit("/signup?utm_source=first&gclid=click");
     captureAttribution();
-    expect(readGbAttr()?.utm_source).toBe("first");
 
-    visit("/signup?utm_source=second&gclid=click");
+    vi.setSystemTime(new Date("2026-09-20T09:00:00.000Z"));
+    visit("/?utm_source=docs&utm_medium=navbar");
     captureAttribution();
 
     const cookie = readGbAttr();
-    expect(cookie?.utm_source).toBe("second");
-    expect(cookie?.gclid).toBe("click");
-    expect(cookie).not.toHaveProperty("li_fat_id");
+    expect(cookie).toMatchObject({
+      utm_source: "docs",
+      utm_medium: "navbar",
+      touch_at: "2026-09-20T09:00:00.000Z",
+    });
+    expect(cookie).not.toHaveProperty("gclid");
+    expect(cookie?.first_touch).toMatchObject({
+      utm_source: "first",
+      gclid: "click",
+      touch_at: "2026-09-16T14:00:00.000Z",
+    });
   });
 
-  it("keeps the existing cookie on a direct visit with no attribution params (first-touch)", () => {
+  it("keeps the first touch across several UTM visits", () => {
+    visit("/?utm_source=newsletter");
+    captureAttribution();
+    visit("/?utm_source=google");
+    captureAttribution();
+    visit("/?utm_source=docs");
+    captureAttribution();
+
+    const cookie = readGbAttr();
+    expect(cookie?.utm_source).toBe("docs");
+    expect(cookie?.first_touch).toMatchObject({ utm_source: "newsletter" });
+  });
+
+  it("leaves the cookie alone on a direct visit with no attribution params", () => {
     visit("/signup?utm_source=ads");
     captureAttribution();
+    const before = readGbAttr();
 
     visit("/getstarted");
     captureAttribution();
 
-    expect(readGbAttr()?.utm_source).toBe("ads");
-    expect(readGbAttr()?.landing_page).toBe(`${ORIGIN}/signup`);
+    expect(readGbAttr()).toEqual(before);
   });
 
   it("records a first visit even when there are no attribution params", () => {
@@ -114,10 +141,38 @@ describe("captureAttribution", () => {
 
     captureAttribution();
 
-    expect(readGbAttr()).toEqual({
+    const touch = {
       referrer: "https://news.ycombinator.com/",
       landing_page: `${ORIGIN}/getstarted`,
       touch_at: "2026-09-16T14:00:00.000Z",
-    });
+    };
+    expect(readGbAttr()).toEqual({ ...touch, first_touch: touch });
+  });
+
+  it("treats a cookie written before first_touch existed as the first touch", () => {
+    const legacy = {
+      utm_source: "linkedin",
+      li_fat_id: "abc",
+      touch_at: "2026-08-01T00:00:00.000Z",
+    };
+    document.cookie = `gb_attr=${encodeURIComponent(JSON.stringify(legacy))}`;
+
+    visit("/?utm_source=docs");
+    captureAttribution();
+
+    const cookie = readGbAttr();
+    expect(cookie?.utm_source).toBe("docs");
+    expect(cookie?.first_touch).toEqual(legacy);
+  });
+
+  it("replaces a cookie that isn't valid JSON", () => {
+    document.cookie = "gb_attr=not-json";
+
+    visit("/?utm_source=docs");
+    captureAttribution();
+
+    const cookie = readGbAttr();
+    expect(cookie?.utm_source).toBe("docs");
+    expect(cookie?.first_touch).toMatchObject({ utm_source: "docs" });
   });
 });

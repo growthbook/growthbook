@@ -41,6 +41,19 @@ describe("parseAttributionCookie", () => {
   });
 });
 
+describe("parseAttributionCookie first_touch", () => {
+  it("keeps first_touch so both touches reach the license server", () => {
+    const raw = JSON.stringify({
+      utm_source: "docs",
+      first_touch: { utm_source: "google", gclid: "g" },
+    });
+    expect(parseAttributionCookie({ cookies: { gb_attr: raw } })).toEqual({
+      utm_source: "docs",
+      first_touch: { utm_source: "google", gclid: "g" },
+    });
+  });
+});
+
 describe("reissueAttributionCookie", () => {
   it("does nothing when the cookie is missing", () => {
     const cookie = jest.fn();

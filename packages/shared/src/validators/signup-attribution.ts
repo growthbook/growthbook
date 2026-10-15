@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const attributionCookieSchema = z
+export const attributionTouchSchema = z
   .object({
     utm_source: z.string().optional(),
     utm_medium: z.string().optional(),
@@ -16,6 +16,15 @@ export const attributionCookieSchema = z
     touch_at: z.string().optional(),
   })
   .passthrough(); // Prevents new keys from breaking the cookie
+
+// Top-level fields are the last touch. first_touch is set on the first visit
+// and never overwritten. It's missing on cookies written before it existed,
+// and a malformed value is dropped rather than failing the whole cookie.
+export const attributionCookieSchema = attributionTouchSchema
+  .extend({
+    first_touch: attributionTouchSchema.optional().catch(undefined),
+  })
+  .passthrough();
 
 export type AttributionCookie = z.infer<typeof attributionCookieSchema>;
 

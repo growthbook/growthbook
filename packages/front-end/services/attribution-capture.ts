@@ -5,11 +5,14 @@
  * have their attribution captured.
  *
  * The cookie is set on Domain=.growthbook.io so it's shared across all
- * subdomains. The Webflow snippet uses identical logic — first-touch is
- * preserved against direct visits, last-touch wins on new UTM visits.
+ * subdomains. Its top-level fields hold the last touch: a new UTM visit
+ * replaces them, while a direct visit leaves them alone. `first_touch` holds
+ * the first touch and is never overwritten, so both reach the license
+ * server at sign-up. The Webflow snippet must follow the same logic.
  */
 
 const COOKIE = "gb_attr";
+const FIRST_TOUCH_KEY = "first_touch";
 const TTL_DAYS = 30;
 const ATTRIB_KEYS = [
   "utm_source",
@@ -49,11 +52,48 @@ function sanitizedLandingPage(): string {
   return window.location.origin + window.location.pathname;
 }
 
+type Touch = Record<string, string>;
+
+function entriesOf(value: unknown): [string, unknown][] | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  return Object.entries(value);
+}
+
+function stringFields(entries: [string, unknown][]): Touch {
+  const fields: Touch = {};
+  for (const [k, v] of entries) {
+    if (typeof v === "string") fields[k] = v;
+  }
+  return fields;
+}
+
+/**
+ * Split an existing cookie into its last touch (the top-level fields) and its
+ * first touch. Cookies written before first_touch existed have only a last
+ * touch, which is also the earliest touch we know about.
+ */
+function readCookie(): { last: Touch; first: Touch } | null {
+  const raw = getCookie(COOKIE);
+  if (!raw) return null;
+  let entries: [string, unknown][] | null;
+  try {
+    entries = entriesOf(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+  if (!entries) return null;
+  const last = stringFields(entries);
+  const firstEntries = entriesOf(new Map(entries).get(FIRST_TOUCH_KEY));
+  return { last, first: firstEntries ? stringFields(firstEntries) : last };
+}
+
 export function captureAttribution(): void {
   if (typeof window === "undefined") return;
 
   const params = new URLSearchParams(window.location.search);
-  const touch: Record<string, string> = {};
+  const touch: Touch = {};
   let hasNewTouch = false;
 
   for (const k of ATTRIB_KEYS) {
@@ -64,21 +104,17 @@ export function captureAttribution(): void {
     }
   }
 
-  const existing = getCookie(COOKIE);
+  const existing = readCookie();
 
-  if (hasNewTouch) {
-    touch.referrer = document.referrer || "";
-    touch.landing_page = sanitizedLandingPage();
-    touch.touch_at = new Date().toISOString();
-    setCookie(COOKIE, JSON.stringify(touch));
-  } else if (!existing) {
-    setCookie(
-      COOKIE,
-      JSON.stringify({
-        referrer: document.referrer || "",
-        landing_page: sanitizedLandingPage(),
-        touch_at: new Date().toISOString(),
-      }),
-    );
-  }
+  // A direct visit never changes an existing cookie
+  if (existing && !hasNewTouch) return;
+
+  touch.referrer = document.referrer || "";
+  touch.landing_page = sanitizedLandingPage();
+  touch.touch_at = new Date().toISOString();
+
+  setCookie(
+    COOKIE,
+    JSON.stringify({ ...touch, [FIRST_TOUCH_KEY]: existing?.first ?? touch }),
+  );
 }
