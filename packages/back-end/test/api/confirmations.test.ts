@@ -5,7 +5,10 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { decideConfirmation as Decide } from "back-end/src/services/confirmationDecisions";
+import type {
+  decideConfirmation as Decide,
+  retryStuckConfirmation as Retry,
+} from "back-end/src/services/confirmationDecisions";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findAuditByEntity } from "back-end/src/models/AuditModel";
 import { setupApp } from "./api.setup";
@@ -205,10 +208,11 @@ describe("confirmations", () => {
   // Loaded after the harness mocks auth; importing it up front would pull in
   // the API router with the real middleware.
   let decideConfirmation: typeof Decide;
+  let retryStuckConfirmation: typeof Retry;
 
   beforeAll(async () => {
     await isReady;
-    ({ decideConfirmation } = await import(
+    ({ decideConfirmation, retryStuckConfirmation } = await import(
       "back-end/src/services/confirmationDecisions"
     ));
     // Production builds the context from the real request; give the harness's
@@ -325,6 +329,43 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(1);
   });
 
+  it("reruns a confirmed request a restart cut off, giving up after three tries", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const cutOff = async (attempts: number) => {
+      const id = (await publish()).body.confirmation.id;
+      await mongoose.connection
+        .collection("confirmations")
+        .updateOne(
+          { id },
+          { $set: { status: "running", attempts, attemptedAt: new Date(0) } },
+        );
+      await retryStuckConfirmation(asUser("u_admin"), id);
+      return (await poll(id)).body.confirmation;
+    };
+
+    expect(await cutOff(3)).toMatchObject({
+      status: "completed",
+      response: {
+        status: 500,
+        body: { message: expect.stringContaining("Gave up") },
+      },
+    });
+    expect(await featureVersion()).toBe(1);
+    expect(await cutOff(1)).toMatchObject({
+      status: "completed",
+      response: { status: 200 },
+    });
+    expect(await featureVersion()).toBe(2);
+    expect(
+      (await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).map(
+        (a) => a.event,
+      ),
+    ).toEqual(
+      expect.arrayContaining(["apiKey.confirmFailure", "apiKey.confirmRetry"]),
+    );
+  });
+
   it("returns a rejection and its note to the agent", async () => {
     await seed("production");
     setReqContext(asKey(pat));
@@ -344,15 +385,12 @@ describe("confirmations", () => {
     );
   });
 
-  it("lets any member allowed to publish decide for a key that names no one, once", async () => {
+  it("lets anyone in the org decide for a key that names no one, once", async () => {
     await seed("dev");
     setReqContext(asKey(bot));
     const id = (await publish()).body.confirmation.id;
 
-    await expect(
-      decideConfirmation(asUser("u_viewer"), id, "confirm"),
-    ).rejects.toThrow(/permission/i);
-    const done = await decideConfirmation(asUser("u_admin"), id, "confirm");
+    const done = await decideConfirmation(asUser("u_viewer"), id, "confirm");
     expect(done.status).toBe("completed");
     await expect(
       decideConfirmation(asUser("u_torres"), id, "reject"),
@@ -400,31 +438,6 @@ describe("confirmations", () => {
     expect(held.body.confirmation.actions).toEqual([
       { action: "override.bypassApproval", environments: ["production"] },
     ]);
-  });
-
-  it("asks a key's decider to be allowed everywhere a hold can't place", async () => {
-    await seed("production");
-    setReqContext(asKey({ ...bot, ...everything }));
-    const held = await auth(
-      request(app).post(
-        `/api/v2/features/${FLAG}/revisions/2/schedule-publish`,
-      ),
-    ).send({
-      scheduledPublishAt: new Date(Date.now() + 86400000).toISOString(),
-    });
-    expect(held.body.confirmation.actions).toEqual([
-      { action: "feature.publish", environments: [] },
-    ]);
-
-    await expect(
-      decideConfirmation(asUser("u_dev"), held.body.confirmation.id, "confirm"),
-    ).rejects.toThrow(/permission/i);
-    const done = await decideConfirmation(
-      asUser("u_engineer"),
-      held.body.confirmation.id,
-      "confirm",
-    );
-    expect(done.status).toBe("completed");
   });
 
   it("holds arming a publish as the publish itself", async () => {
@@ -629,6 +642,28 @@ describe("confirmations", () => {
     });
   });
 
+  it("lets only the member a request names confirm it, assumed or not", async () => {
+    await seed("production");
+    setReqContext(
+      asKey(
+        bot,
+        {},
+        {
+          id: "u_engineer",
+          name: "u_engineer",
+          email: "u_engineer@test.com",
+        },
+      ),
+    );
+    const id = (await publish()).body.confirmation.id;
+    await expect(
+      decideConfirmation(asUser("u_admin"), id, "confirm"),
+    ).rejects.toThrow(/permission/i);
+    expect(
+      (await decideConfirmation(asUser("u_engineer"), id, "confirm")).status,
+    ).toBe("completed");
+  });
+
   it("lets only the member an org key assumes confirm, and replays as them", async () => {
     await seed("production");
     const engineer = {
@@ -656,24 +691,6 @@ describe("confirmations", () => {
       requestedBy: { id: "u_engineer" },
       assumedRole: true,
     });
-  });
-
-  it("replays an org key's request with no more than its confirmer may do", async () => {
-    await seed("production");
-    const { getContextForApiKeyIdInOrg } = await import(
-      "back-end/src/services/organizations"
-    );
-    const env = { projects: [], id: "production" };
-    expect(
-      (
-        await getContextForApiKeyIdInOrg(org, bot.id)
-      )?.permissions.canUpdateEnvironment(env, env),
-    ).toBe(true);
-    expect(
-      (
-        await getContextForApiKeyIdInOrg(org, bot.id, { id: "u_viewer" })
-      )?.permissions.canUpdateEnvironment(env, env),
-    ).toBe(false);
   });
 
   it("holds approving a draft as a review, not a draft edit", async () => {
@@ -787,12 +804,9 @@ describe("confirmations", () => {
         url: expect.stringMatching(/\/environments$/),
       },
     ]);
-    // Allowed to manage only the dev environment.
-    await expect(
-      decideConfirmation(asUser("u_dev"), id, "confirm"),
-    ).rejects.toThrow(/permission/i);
+    // Allowed to manage only dev, yet the key does the work.
     expect(
-      await decideConfirmation(asUser("u_admin"), id, "confirm"),
+      await decideConfirmation(asUser("u_dev"), id, "confirm"),
     ).toMatchObject({ status: "completed", response: { status: 200 } });
     const saved = await mongoose.connection
       .collection("organizations")

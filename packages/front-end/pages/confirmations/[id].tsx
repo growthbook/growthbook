@@ -307,8 +307,8 @@ export default function ConfirmationPage() {
       ) : null}
       {pending && !canDecide ? (
         <Callout status="warning" mb="4">
-          You don&apos;t have permission to make this change, so you can&apos;t
-          confirm it.
+          This request is for {requester.person ?? "someone else"}, so only they
+          can confirm it.
         </Callout>
       ) : null}
       {actionError ? (

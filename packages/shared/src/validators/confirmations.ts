@@ -251,7 +251,6 @@ export const confirmationValidator = baseSchema.safeExtend({
   // What the key's rules matched, shown as why it was held.
   actions: z.array(heldActionValidator),
   // Everything the request does: a decider must be allowed all of it.
-  requested: z.array(heldActionValidator).optional(),
   summary: z.string(),
   links: z.array(confirmationLinkValidator),
   notices: z.array(confirmationNoticeValidator),
@@ -265,6 +264,10 @@ export const confirmationValidator = baseSchema.safeExtend({
   note: z.string().nullable(),
   decidedBy: z.string().nullable(),
   decidedAt: z.date().nullable(),
+  // Runs of the confirmed request, and when the latest began; a run that never
+  // finished is tried again.
+  attempts: z.number().optional(),
+  attemptedAt: z.date().nullable().optional(),
   expiresAt: z.date(),
   deleteAt: z.date(),
 });

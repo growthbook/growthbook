@@ -279,7 +279,6 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
-      requested,
       summary,
       links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],

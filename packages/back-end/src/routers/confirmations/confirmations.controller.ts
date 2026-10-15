@@ -66,7 +66,7 @@ export const getConfirmation = async (
       assumedRole: c.assumedRole,
       keyDescription: key?.description || null,
     },
-    canDecide: await canDecide(context, c),
+    canDecide: canDecide(context, c),
   });
 };
 
