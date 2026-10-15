@@ -587,7 +587,7 @@ function pruneSavedGroup(attributes, { id, attributeKey }) {
 
 Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. For that user, the client evaluates the result the same as the full payload. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
 
-`options` can have `include` and `exclude` filters, and `prerequisites`. A filter can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. Filters read the `metadata` that SDK Connections can include for features, rules, and auto experiments. `prerequisites` is `"keep"` (the default) or `"filter"`.
+`options` can have `include` and `exclude` filters, and `prerequisites`. A filter can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. Filters read the `metadata` that SDK Connections can include for features, rules, and auto experiments. A feature in every project has `allProjects: true` instead of a `projects` list, and one in no project has neither. `prerequisites` is `"keep"` (the default) or `"filter"`.
 
 ```ts
 function reducePayload(
@@ -597,11 +597,15 @@ function reducePayload(
 ) {
   // Only an array counts, as with $in, and any one of its values is enough
   const has = (actual, want) => Array.isArray(want) && isIn(want, actual);
-  // An absent metadata.projects means all projects, unlike absent tags or custom fields
+  // A feature or experiment has to list one of the projects, or be in all of
+  // them. One without projects is in none, like one without tags.
   const inProjects = (meta = {}) =>
+    !include.projects || meta.allProjects || has(meta.projects, include.projects);
+  // A rule without projects applies wherever its feature is delivered
+  const ruleInProjects = (meta = {}) =>
     !include.projects || !meta.projects || has(meta.projects, include.projects);
-  // Kept when it matches every include filter and no exclude filter. A
-  // feature without projects isn't in an excluded project.
+  // Kept when it matches every include filter and no exclude filter. Only
+  // listed projects are excluded, so one in all projects stays.
   const matches = (meta = {}) => {
     const field = (name) => meta.customFields?.[name];
     const inFields = include.customFields ?? {};
@@ -650,7 +654,7 @@ function reducePayload(
     // another project keeps all of its rules.
     const scoped = inProjects(feature.metadata);
     const rules = feature.rules
-      ?.filter((rule) => !scoped || inProjects(rule.metadata))
+      ?.filter((rule) => !scoped || ruleInProjects(rule.metadata))
       .map(prune);
     // Stored before its parents are added, so a prerequisite cycle ends
     features[id] = rules ? { ...feature, rules } : feature;

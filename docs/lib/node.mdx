@@ -487,7 +487,7 @@ const payload = gbClient.reducePayload({
 
 Each filter is an array, and a feature only needs to match one of its values. A feature is kept when it matches every `include` filter and no `exclude` filter. `include` and `exclude` take the same filters, and you can pass either one or both.
 
-The `include` `projects` filter also removes rules that only apply to other projects. Features without a project apply to all projects, so `include` always keeps them and `exclude` never removes them.
+The `include` `projects` filter also removes rules that only apply to other projects. A feature without a project isn't in any project, so an `include` `projects` filter removes it, like a feature without tags. A feature set to target all projects matches every `include` `projects` filter, and `exclude` never removes it.
 
 `prerequisites` decides what happens when a feature you keep has a prerequisite the filters remove:
 

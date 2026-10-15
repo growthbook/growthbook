@@ -1386,14 +1386,20 @@ export function reducePayload(
   const has = (actual: unknown, want: unknown) =>
     Array.isArray(want) && isIn(actual, want);
 
-  // An absent `projects` means all projects, unlike absent tags or custom fields
-  const inProjects = (meta?: PayloadMetadata) =>
+  // A rule without projects applies wherever its feature is delivered
+  const ruleInProjects = (meta?: PayloadMetadata) =>
     !include.projects ||
     !meta ||
     !meta.projects ||
     has(meta.projects, include.projects);
-  // Kept when it matches every `include` filter and no `exclude` filter. A
-  // feature without projects isn't in an excluded project.
+  // A feature or experiment has to list one of the projects, or be in all of
+  // them. One without projects is in none, like one without tags.
+  const inProjects = (meta: PayloadMetadata) =>
+    !include.projects ||
+    !!meta.allProjects ||
+    has(meta.projects, include.projects);
+  // Kept when it matches every `include` filter and no `exclude` filter. Only
+  // listed projects are excluded, so one in all projects stays.
   const matches = (meta?: PayloadMetadata) => {
     const m = meta || {};
     const field = (k: string) => (m.customFields || {})[k];
@@ -1444,9 +1450,9 @@ export function reducePayload(
     if (!feature || added.has(id)) return;
     // Rules scoped to other projects aren't served. A prerequisite from
     // another project keeps its own, as on the server.
-    const scoped = inProjects(feature.metadata);
+    const scoped = inProjects(feature.metadata || {});
     const rules = feature.rules
-      ?.filter((r) => !scoped || inProjects(r.metadata))
+      ?.filter((r) => !scoped || ruleInProjects(r.metadata))
       .map(prune);
     // Stored before its parents are added, so a prerequisite cycle ends
     added.set(id, rules ? { ...feature, rules } : feature);

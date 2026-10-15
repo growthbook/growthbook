@@ -73,9 +73,13 @@ export interface FeatureDefinition<T = any> {
   metadata?: PayloadMetadata;
 }
 
-/** Sent when the SDK Connection opts in. An absent `projects` means all projects. */
+/**
+ * Sent when the SDK Connection opts in. A feature in every project has
+ * `allProjects` instead of `projects`, and one in no project has neither.
+ */
 export type PayloadMetadata = {
   projects?: string[];
+  allProjects?: boolean;
   tags?: string[];
   customFields?: Record<string, unknown>;
 };

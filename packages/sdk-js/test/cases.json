@@ -4039,7 +4039,7 @@
       }
     ],
     [
-      "filters features and auto experiments by project, keeping those with no project metadata",
+      "filters features and auto experiments by project, keeping those in all projects but not those in none",
       {
         "payload": {
           "features": {
@@ -4048,7 +4048,8 @@
               "metadata": { "projects": ["p1", "p2"] }
             },
             "f2": { "defaultValue": 2, "metadata": { "projects": ["p3"] } },
-            "f3": { "defaultValue": 3 }
+            "f3": { "defaultValue": 3 },
+            "f4": { "defaultValue": 4, "metadata": { "allProjects": true } }
           },
           "experiments": [
             {
@@ -4061,7 +4062,12 @@
               "variations": [{}, {}],
               "metadata": { "projects": ["p2"] }
             },
-            { "key": "e3", "variations": [{}, {}] }
+            { "key": "e3", "variations": [{}, {}] },
+            {
+              "key": "e4",
+              "variations": [{}, {}],
+              "metadata": { "allProjects": true }
+            }
           ]
         },
         "include": { "projects": ["p1"] }
@@ -4069,7 +4075,7 @@
       {
         "features": {
           "f1": { "defaultValue": 1, "metadata": { "projects": ["p1", "p2"] } },
-          "f3": { "defaultValue": 3 }
+          "f4": { "defaultValue": 4, "metadata": { "allProjects": true } }
         },
         "experiments": [
           {
@@ -4077,7 +4083,11 @@
             "variations": [{}, {}],
             "metadata": { "projects": ["p1"] }
           },
-          { "key": "e3", "variations": [{}, {}] }
+          {
+            "key": "e4",
+            "variations": [{}, {}],
+            "metadata": { "allProjects": true }
+          }
         ],
         "savedGroups": {}
       }
@@ -4172,7 +4182,7 @@
       }
     ],
     [
-      "excludes features and experiments that match any exclude filter, but not those without that metadata",
+      "excludes features and experiments that match any exclude filter, but not those without that metadata or in all projects",
       {
         "payload": {
           "features": {
@@ -4185,6 +4195,7 @@
               "metadata": { "projects": ["p1", "p2"] }
             },
             "f3": { "defaultValue": 3 },
+            "f6": { "defaultValue": 6, "metadata": { "allProjects": true } },
             "f4": {
               "defaultValue": 4,
               "metadata": { "customFields": { "platform": "ios" } }
@@ -4216,6 +4227,7 @@
       {
         "features": {
           "f3": { "defaultValue": 3 },
+          "f6": { "defaultValue": 6, "metadata": { "allProjects": true } },
           "f5": {
             "defaultValue": 5,
             "metadata": {
@@ -4877,7 +4889,7 @@
       }
     ],
     [
-      "filters by project drop rules scoped to other projects",
+      "filters by project drop rules scoped to other projects, but not rules without a project scope",
       {
         "payload": {
           "features": {
@@ -4895,7 +4907,12 @@
                   "condition": { "country": "US" },
                   "force": 2
                 },
-                { "condition": { "country": "CA" }, "force": 3 }
+                { "condition": { "country": "CA" }, "force": 3 },
+                {
+                  "metadata": { "tags": ["checkout"] },
+                  "key": "exp",
+                  "variations": [4, 5]
+                }
               ]
             }
           }
@@ -4913,7 +4930,12 @@
                 "condition": { "country": "US" },
                 "force": 2
               },
-              { "condition": { "country": "CA" }, "force": 3 }
+              { "condition": { "country": "CA" }, "force": 3 },
+              {
+                "metadata": { "tags": ["checkout"] },
+                "key": "exp",
+                "variations": [4, 5]
+              }
             ]
           }
         },
