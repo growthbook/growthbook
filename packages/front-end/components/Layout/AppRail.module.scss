@@ -1,0 +1,548 @@
+// AppRail.tsx: the side nav, as app-header-rail-handoff.md. The design's
+// hex values are mapped to the app's grey tokens, so dark mode follows:
+//   #f7f7f9 rail     → --slate-2       #ececf0 border  → --slate-4
+//   #ebebef dividers → --slate-4       #1c1f2e strong  → --slate-12
+//   #3a3e4f labels, #3f4250 icons, #2a2d3a items → --slate-12 mixed 20–25%
+//     toward --slate-11 (between the two steps, as the design)
+//   #6b6f80 muted    → --slate-11      #8a8ea0 chevron → --slate-10
+//   hover .06        → --slate-a3      current .07–.08 → --slate-a4
+// An org's custom colours (Settings → Appearance) set the --rail-* variables
+// inline (AppRail.tsx).
+
+.rail {
+  --rail-bg: var(--slate-2);
+  --rail-border: var(--slate-4);
+  // --slate-5 (set in review; was --slate-4). The keycaps' outline keeps
+  // --slate-4.
+  --rail-divider: var(--slate-5);
+  --rail-keycap: var(--slate-4);
+  --rail-hover: var(--slate-a3);
+  // Selected: --slate-a3 (set in review; was --slate-a4), the same as hover.
+  --rail-active: var(--slate-a3);
+  --rail-text: color-mix(in srgb, var(--slate-12) 80%, var(--slate-11));
+  --rail-text-strong: var(--slate-12);
+  --rail-icon: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+  --rail-muted: var(--slate-11);
+  --rail-chevron: var(--slate-10);
+
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  width: var(--app-rail-width, 240px);
+  display: flex;
+  flex-direction: column;
+  // The same layout collapsed and expanded (set in review), so the logo
+  // and every icon stay put as the rail opens and closes: 8px in from the
+  // left, a 32px icon column, items 8px apart. Expanded, the labels show
+  // to the right of the icons; the rail just gets wider.
+  gap: 8px;
+  padding: 8px 8px 12px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rail-border);
+  font-family: var(--default-font-family);
+  color: var(--rail-text);
+  transition: width 200ms ease;
+
+  // Below 1180px, the off-canvas drawer, as before: expanded, opened from
+  // the header's menu button.
+  @media (max-width: 1180px) {
+    width: 240px;
+    left: -240px;
+    transition: left 300ms ease;
+    &.drawerOpen {
+      left: 0;
+      box-shadow: 0 12px 24px rgba(12, 18, 37, 0.12);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Collapsed: only the icon column shows (the layout is the rail's).
+.collapsed {
+  align-items: flex-start;
+}
+
+// Logo: links home. The mark, centred over the icon column, in the same
+// place collapsed and expanded (set in review; expanded was the full logo,
+// 26px tall, further left); expanded, the wordmark beside it.
+.logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 40px;
+  // 16px from the mark's bottom to the Search row (set in review; was
+  // 26px): 14px under the mark in this box, -6px, and the rail's 8px gap.
+  // The mark stays put; Search and everything below move up.
+  margin-bottom: -6px;
+  border-radius: 6px;
+  text-decoration: none;
+
+  // Collapsed, the icon column's width; the logo's drawing, as wide as
+  // with the wordmark but without it, is clipped to it.
+  .collapsed & {
+    width: 32px;
+    overflow: hidden;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// The brand's logo (GrowthBookLogo.tsx; set in review; was the logomark
+// image, 24px with padding round the mark, and a separate wordmark image).
+// The mark where the image showed it: 5.2px in from the logo's left (so
+// it's centred over the icon column, as before) and its top 2.85px from
+// the box's top, 10.85px from the top of the nav. The box centres the
+// 22.85px-tall logo at 8.6px, so it moves up 5.7px.
+.brandLogo {
+  position: relative;
+  top: -5.7px;
+  flex-shrink: 0;
+  margin-left: 5.2px;
+}
+
+// The wordmark: the brand's navy, white in dark mode.
+.brandWordmark {
+  fill: #151e3d;
+}
+
+:global(.dark-theme) .brandWordmark {
+  fill: #fff;
+}
+
+// The mark: the brand's blues and purple; white in dark mode too (set in
+// review), as the brand's white logo.
+:global(.dark-theme) .brandMark {
+  fill: #fff;
+}
+
+.customLogo {
+  max-width: 100%;
+  max-height: 28px;
+  object-fit: contain;
+
+  .collapsed & {
+    max-width: 28px;
+  }
+}
+
+.divider {
+  flex-shrink: 0;
+  align-self: stretch;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--rail-divider);
+
+  .collapsed & {
+    width: 32px;
+  }
+}
+
+// The divider under Search: 12px above and below, the rail's 8px gap plus
+// 4px (set in review; was 14px, as the other divider).
+.searchDivider.searchDivider {
+  margin: 4px 0;
+}
+
+// The divider above the collapse toggle: 12px above and below, as the one
+// under Search, and full bleed, edge to edge of the rail (set in review;
+// was 14px, inset to the items).
+.rail .bottomDivider.bottomDivider {
+  width: auto;
+  margin: 4px -8px;
+}
+
+.spacer {
+  flex-grow: 1;
+  min-height: 16px;
+}
+
+// Collapsed items: 32×32 icon buttons, an 18px icon in each (set in
+// review; were 40×40 with 20px icons; tried 16px and 20px in these),
+// Radix's size-2 icon button.
+.iconItem {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rail-icon);
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--rail-hover);
+    color: var(--rail-text-strong);
+    text-decoration: none;
+  }
+}
+
+// Expanded rows: 32px tall (set in review; was 36px), the 18px icon where
+// the collapsed rail's is (7px in, centred in the 32px column), then a 14px
+// label at 500.
+.row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 7px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rail-text);
+  // 500 (set in review; tried 400). Selected, 600. A 20px line (fix, set in
+  // review; was 14px, line-height 1): the label clips what overflows it, so
+  // descenders (g, y, p) were cut off.
+  font: 500 14px/20px var(--default-font-family);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--rail-hover);
+    color: var(--rail-text-strong);
+    text-decoration: none;
+  }
+}
+
+.rowIcon {
+  flex-shrink: 0;
+  color: var(--rail-icon);
+}
+
+.rowLabel {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconItem,
+.row {
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+// The current page's section, collapsed or expanded (open or closed), or a
+// current single link: neutral grey, not violet, with its label at 600
+// (set in review), so the selection doesn't rest on the grey alone
+// (--slate-a3 is 1.14:1 against the rail).
+.active.active {
+  background: var(--rail-active);
+  color: var(--rail-text-strong);
+  font-weight: 600;
+
+  .rowIcon {
+    color: var(--rail-text-strong);
+  }
+}
+
+// The profile item while its menu is open: the selected grey only.
+.menuOpen.menuOpen {
+  background: var(--rail-active);
+  color: var(--rail-text-strong);
+
+  .rowIcon {
+    color: var(--rail-text-strong);
+  }
+}
+
+// Expanded: the open section's label and icon strongest. At 500, as the
+// other rows (set in review; was 600): only the selected section's is 600.
+.openSection {
+  color: var(--rail-text-strong);
+
+  .rowIcon {
+    color: var(--rail-text-strong);
+  }
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--rail-chevron);
+}
+
+// An open section's pages: its height eases open and closed (a one-row grid
+// from 0fr to 1fr), invisible and out of the tab order while closed.
+.subList {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  flex-shrink: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s linear 200ms;
+
+  // Opening a little slower than closing: 300ms (set in review; was
+  // 200ms), so the pages reveal more gently.
+  &[data-open="true"] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+      grid-template-rows 300ms ease,
+      visibility 0s linear 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &[data-open="true"] {
+      transition: none;
+    }
+  }
+}
+
+.subListInner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  // 8px above the first page and below the last (set in review; was 2px
+  // above, none below; tried 4px), as margins inside the clipped list: as
+  // padding, they'd keep part of each closed list showing, which pushed
+  // every item below down a little in the expanded rail (fix, set in
+  // review).
+  > :first-child {
+    margin-top: 8px;
+  }
+
+  > :last-child {
+    margin-bottom: 8px;
+  }
+}
+
+// A section's row and its pages, one item in the rail's column, so a
+// closed list adds no gap and the icons below stay where the collapsed
+// rail has them.
+.sectionGroup {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subItem {
+  display: flex;
+  align-items: center;
+  // 8px in from the section's label (set in review; was in line with it):
+  // 7px + the 18px icon + 10px, + 8px.
+  padding: 7px 10px 7px 43px;
+  border-radius: 6px;
+  color: var(--rail-icon);
+  font-size: 13px;
+  // 500, as the section's label (set in review; was 400, tried 400
+  // again). Current, 600.
+  font-weight: 500;
+  line-height: 18px;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--rail-hover);
+    color: var(--rail-text-strong);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+// The current page, in the expanded list or a popover.
+.current.current {
+  background: var(--slate-a3);
+  color: var(--slate-12);
+  font-weight: 600;
+
+  .rail & {
+    background: var(--rail-active);
+    color: var(--rail-text-strong);
+  }
+}
+
+// Search's ⌘K and the toggle's [ keycaps.
+.keycap {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--rail-keycap);
+  border-radius: 4px;
+  color: var(--rail-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+// Upgrade, in the violet accent (expanded: icon and label).
+.upgrade.upgrade {
+  color: var(--violet-11);
+
+  .rowIcon {
+    color: var(--violet-11);
+  }
+
+  &:hover {
+    color: var(--violet-12);
+  }
+}
+
+// The collapse / expand toggle: as the other items (set in review; its
+// label and icon were muted, the label at 400). Collapsed, its icon is
+// flipped horizontally.
+.toggleFlipped svg {
+  transform: scaleX(-1);
+}
+
+// A collapsed section's popover: 220px, right of the rail. It fades in
+// over 160ms, drifting 4px in from the rail, and fades out over 120ms (set
+// in review; was Popover's slide-in alone, sped up to 120ms, and it
+// vanished on close). Radix keeps it mounted until the fade-out ends. None
+// for reduced motion. Tripled, to outrank Popover's own animation rules.
+// Its padding (8px on top, 12px elsewhere) is set inline (AppRail.tsx),
+// as Popover's own is. The shadow and 1px outline are the All Projects
+// menu's (the experiments list's column menu's .menuShadow and
+// .menuOutline; set in review; was a 1px --slate-4 border and a larger
+// soft shadow).
+// The rail's own background, --slate-2 (set in review; was white). The
+// popover sits outside the rail on the page, so it doesn't take an org's
+// custom rail colour, which its grey text wasn't made for.
+.popover.popover.popover {
+  width: 220px;
+  box-sizing: border-box;
+  background: var(--slate-2);
+  border-radius: 8px;
+
+  &[data-state="open"] {
+    animation: rail-popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  &[data-state="closed"] {
+    animation: rail-popover-out 120ms ease-in both;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-state="open"],
+    &[data-state="closed"] {
+      animation: none;
+    }
+  }
+}
+
+@keyframes rail-popover-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rail-popover-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.popoverInner {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+// The section's name as written (set in review; was all caps with 0.05em
+// tracking).
+.eyebrow {
+  padding: 8px 10px 6px;
+  color: var(--slate-11);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.popoverItem {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px 7px 18px;
+  border-radius: 5px;
+  color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
+  font-size: 13px;
+  line-height: 18px;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--slate-a3);
+    color: var(--slate-12);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+// The side nav's tooltips (set in review): a subtle fade in, 120ms, every
+// time, including when one shows at once after another (Radix's skip
+// delay, which Radix Themes doesn't animate), and a 100ms fade out (it
+// vanished). Fade only, no slide. None for reduced motion. Tripled, to
+// outrank Radix Themes' animation.
+.railTooltip.railTooltip.railTooltip {
+  &[data-state="delayed-open"],
+  &[data-state="instant-open"] {
+    animation: rail-tooltip-in 120ms ease-out both;
+  }
+
+  &[data-state="closed"] {
+    animation: rail-tooltip-out 100ms ease-in both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-state] {
+      animation: none;
+    }
+  }
+}
+
+@keyframes rail-tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rail-tooltip-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

@@ -588,15 +588,6 @@ const ExperimentsPage = (): React.ReactElement => {
         .radix-themes.radix-themes.radix-themes {
           --color-background: var(--color-panel-solid);
         }
-        /* The top bar's breadcrumb lines up with the page's 32px left edge,
-          as on the experiment details page (set in review). Above 520px
-          only: below that the top bar drops to 8px for small screens, and
-          that's left alone. */
-        @media (min-width: 521px) {
-          [data-topbar][data-topbar] {
-            padding-left: var(--space-6);
-          }
-        }
         /* No shadow under the top bar here, even once scrolled (set in
           review), as on the experiment details page's Setup tab: the
           table's head sticks right under it with its own shadow, so the
@@ -622,24 +613,6 @@ const ExperimentsPage = (): React.ReactElement => {
           .experiments-view-name {
             animation: none;
           }
-        }
-        /* The breadcrumb's current page in --slate-11 at 500, as on the
-          experiment details page (set in review; tried --text-color-main,
-          the "Experiments" heading's colour), in place of @/ui/Breadcrumbs'
-          --color-text-high at semibold. It sets the colour inline, hence
-          !important. */
-        [data-topbar][data-topbar]
-          nav[aria-label="Breadcrumb"]
-          [aria-current="page"],
-        [data-topbar][data-topbar]
-          nav[aria-label="Breadcrumb"]
-          [aria-current="page"]
-          .rt-Text {
-          color: var(--slate-11) !important;
-          font-weight: var(--font-weight-medium) !important;
-          /* 13px, as the experiment details page's breadcrumb (set in
-            review; was 14px). */
-          font-size: 13px !important;
         }
         /* The search field's hover, as the experiment details page's fields
           (set in review; see SetupPage/_hoverOutline.scss): its outline

@@ -1,6 +1,10 @@
 @use "../../styles/colors.scss";
 
-$sidebarwidth: 240px;
+$sidebarwidth: var(--app-rail-width, 240px);
+// The app header (TopNav.tsx), as app-header-rail-handoff.md, but 44px tall
+// (set in review; the spec has 56px; tried 48px): white
+// (--color-panel-solid), no bottom border. A soft
+// shadow only once the page scrolls under it.
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -8,11 +12,16 @@ $sidebarwidth: 240px;
   top: 0;
   left: $sidebarwidth;
   right: 0;
-  height: 56px;
+  height: 44px;
   z-index: 1010;
-  background-color: var(--color-surface-solid);
-  box-shadow: 0px 0px 1px 0px var(--border-color-200);
-  padding: 0 16px;
+  background-color: var(--color-panel-solid);
+  box-shadow: none;
+  // 24px left, 32px right (set in review; tried 32px and 24px either side;
+  // the spec has 16px left, 20px right).
+  padding: 0 32px 0 24px;
+  transition:
+    left 200ms ease,
+    box-shadow 150ms ease;
   @media (max-width: 520px) {
     padding: 0 8px;
   }
@@ -25,10 +34,23 @@ $sidebarwidth: 240px;
       display: block;
     }
   }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
-// No shadow while the page is at the top (see TopNav.tsx).
-.topbar.noShadow {
-  box-shadow: none;
+// With the side nav, the last item is GrowthBot, an outline button (on
+// trial, set in review): 32px on the right, so its border lines up with the
+// page content's right edge (the details page's kebab). As a small ghost
+// button (8px padding, no border), 24px put its label there; as a medium
+// one, 20px. Phones keep their 8px.
+.topbar.withRail {
+  padding-right: 32px;
+  @media (max-width: 520px) {
+    padding-right: 8px;
+  }
+}
+.topbar.scrolled {
+  box-shadow: 0 1px 0 var(--slate-a3);
 }
 
 .topbarlite {
@@ -38,7 +60,7 @@ $sidebarwidth: 240px;
   top: 0;
   left: 0;
   right: 0;
-  height: 56px;
+  height: 44px;
   z-index: 1010;
   background-color: var(--color-surface-solid);
   border-bottom: 1px solid var(--slate-a3);
@@ -51,7 +73,7 @@ $sidebarwidth: 240px;
   display: flex;
   justify-content: space-between;
   position: fixed;
-  top: 56px;
+  top: 44px;
   left: $sidebarwidth;
   right: 0;
   height: 56px;
@@ -62,9 +84,9 @@ $sidebarwidth: 240px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: inline-block;
+  display: flex;
+  align-items: center;
   white-space: nowrap;
-  vertical-align: middle;
 }
 .mobilemenu {
   display: none;
@@ -79,6 +101,16 @@ $sidebarwidth: 240px;
   width: 100%;
 }
 
+// The right side: notices, Assistant, a divider, the avatar; 4px apart.
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+// TopNavLite's menu icons (kept for it).
 .dropdownItemIconColor {
   &:focus {
     svg {
@@ -87,40 +119,5 @@ $sidebarwidth: 240px;
   }
   svg {
     color: var(--text-color-muted);
-  }
-}
-
-.agentTrigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-color-main);
-  padding: 6px 8px;
-  margin-right: 4px;
-  border-radius: 6px;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-
-  &:hover {
-    background-color: var(--gray-a3);
-    color: var(--violet-11);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--violet-8);
-    outline-offset: 2px;
-  }
-}
-
-.agentTriggerActive {
-  background-color: var(--violet-a3);
-  color: var(--violet-11);
-
-  &:hover {
-    background-color: var(--violet-a4);
   }
 }

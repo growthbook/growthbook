@@ -634,62 +634,6 @@ export default function TabbedPage({
           .redesigned-tab-cards.redesigned-tab-cards .box {
             border-color: var(--gray-a5);
           }
-          /* Breadcrumb lines up with the page's 32px left edge. Above 520px
-            only: below that the top bar drops to 8px for small screens, and
-            that's left alone. */
-          @media (min-width: 521px) {
-            [data-topbar][data-topbar] {
-              padding-left: var(--space-6);
-            }
-          }
-          /* The breadcrumb's current page (the experiment's name) in
-            --slate-11 at 500 (set in review; tried --slate-12 and
-            --text-color-main, the page heading's colour), in place of
-            @/ui/Breadcrumbs' --color-text-high at semibold. It sets the
-            colour inline, hence !important. */
-          [data-topbar][data-topbar]
-            nav[aria-label="Breadcrumb"]
-            [aria-current="page"],
-          [data-topbar][data-topbar]
-            nav[aria-label="Breadcrumb"]
-            [aria-current="page"]
-            .rt-Text {
-            color: var(--slate-11) !important;
-            font-weight: var(--font-weight-medium) !important;
-            /* 13px, as the pages before it (set in review; was 14px). */
-            font-size: 13px !important;
-          }
-          /* The chevrons between crumbs at 12px (set in review; were
-            15px), with the crumbs' 13px. Sized here: @/ui/Breadcrumbs sets
-            them on the icon. */
-          [data-topbar][data-topbar]
-            nav[aria-label="Breadcrumb"]
-            span[aria-hidden="true"]
-            svg {
-            width: 12px;
-            height: 12px;
-            /* --slate-11, as the current page (set in review; was
-              --color-text-high). Set inline on the icon, hence
-              !important. */
-            color: var(--slate-11) !important;
-          }
-          /* 6px either side of each chevron (set in review; tried 8px;
-            @/ui/Breadcrumbs' gap between items is 4px). OFF THE SPACE
-            SCALE (--space-1 is 4px, --space-2 8px), so raw. */
-          [data-topbar][data-topbar] nav[aria-label="Breadcrumb"] > .rt-Flex {
-            gap: 6px !important;
-          }
-          /* The pages before it ("Experiments") as the experiments list's
-            names, its first column's values (set in review): 13px at 500 in
-            --gray-12, in place of the link's 14px bold. Underlined on hover,
-            as a link. */
-          [data-topbar][data-topbar]
-            nav[aria-label="Breadcrumb"]
-            a:not([aria-current="page"]) {
-            color: var(--gray-12) !important;
-            font-size: 13px !important;
-            font-weight: var(--font-weight-medium) !important;
-          }
         `}</style>
       ) : null}
       {compareModal && (

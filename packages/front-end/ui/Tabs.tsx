@@ -144,7 +144,7 @@ type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
 export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     // NB: Keep in sync with .experiment-tabs top property in global.scss
-    const TABS_HEADER_HEIGHT_PX = 55;
+    const TABS_HEADER_HEIGHT_PX = 43;
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
 

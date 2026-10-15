@@ -50,6 +50,13 @@ export default function InAppHelp() {
     }
   }, [config, commercialFeatures]);
 
+  // PROTOTYPE (app header and side nav redesign; set in review): the
+  // floating Help button and its panel are gone; help lives in the side
+  // nav's Help menu. The live-chat script above still loads for plans that
+  // have it.
+  const HIDE_FLOATING_HELP = true;
+  if (HIDE_FLOATING_HELP) return null;
+
   // Hide on presentation view (fullscreen present mode)
   if (router.pathname.startsWith("/present/")) return null;
 

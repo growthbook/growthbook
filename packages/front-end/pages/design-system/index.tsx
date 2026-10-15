@@ -52,7 +52,7 @@ type StoryEntry = {
   Stories: () => React.ReactNode;
 };
 
-const TOP_NAV_HEIGHT = 56;
+const TOP_NAV_HEIGHT = 44;
 const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
 const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;

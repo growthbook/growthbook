@@ -64,7 +64,7 @@ function getMaxWidth(size: Size) {
     case "fill":
       return "calc(100vw - 32px)";
     case "full":
-      return "calc(100vw - 240px)";
+      return "calc(100vw - var(--app-rail-width, 240px))";
   }
 }
 

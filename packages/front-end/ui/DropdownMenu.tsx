@@ -19,6 +19,7 @@ import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { radixSize, Size } from "@/ui/sizes";
 
@@ -59,6 +60,16 @@ type DropdownProps = {
   >["onCloseAutoFocus"];
   // A class on the open menu. Optional and additive.
   contentClassName?: string;
+  // The menu's distance from the trigger, as Radix's sideOffset. Optional;
+  // Radix's own when left out.
+  menuSideOffset?: number;
+  // A tooltip on the trigger (e.g. an icon-only trigger's name). Optional
+  // and additive. The tooltip wraps the menu's trigger, the order Radix
+  // supports, so both work on one element.
+  triggerTooltip?: React.ReactNode;
+  triggerTooltipSide?: "top" | "right" | "bottom" | "left";
+  triggerTooltipDelay?: number;
+  triggerTooltipClassName?: string;
 } & MarginProps;
 
 export function DropdownMenu({
@@ -71,6 +82,11 @@ export function DropdownMenu({
   menuMaxHeight,
   menuZIndex,
   contentClassName,
+  menuSideOffset,
+  triggerTooltip,
+  triggerTooltipSide,
+  triggerTooltipDelay,
+  triggerTooltipClassName,
   children,
   color,
   variant,
@@ -159,15 +175,33 @@ export function DropdownMenu({
         open={resolvedOpen}
         onOpenChange={handleOpenChange}
       >
-        <RadixDropdownMenu.Trigger
-          className={triggerClassName}
-          style={triggerStyle}
-          disabled={disabled}
-        >
-          {triggerComponent}
-        </RadixDropdownMenu.Trigger>
+        {triggerTooltip ? (
+          <UITooltip
+            content={triggerTooltip}
+            side={triggerTooltipSide}
+            delayDuration={triggerTooltipDelay}
+            className={triggerTooltipClassName}
+          >
+            <RadixDropdownMenu.Trigger
+              className={triggerClassName}
+              style={triggerStyle}
+              disabled={disabled}
+            >
+              {triggerComponent}
+            </RadixDropdownMenu.Trigger>
+          </UITooltip>
+        ) : (
+          <RadixDropdownMenu.Trigger
+            className={triggerClassName}
+            style={triggerStyle}
+            disabled={disabled}
+          >
+            {triggerComponent}
+          </RadixDropdownMenu.Trigger>
+        )}
         <RadixDropdownMenu.Content
           side={menuSide}
+          sideOffset={menuSideOffset}
           ref={contentRef}
           align={menuPlacement}
           color={color}
@@ -198,12 +232,15 @@ type DropdownContentProps = {
   children: AllowedChildren;
   trigger: AllowedChildren;
   triggerClassName?: string;
+  // A class on the open submenu. Optional and additive.
+  contentClassName?: string;
 } & MarginProps;
 
 export function DropdownSubMenu({
   children,
   trigger,
   triggerClassName,
+  contentClassName,
   ...props
 }: DropdownContentProps) {
   return (
@@ -211,7 +248,7 @@ export function DropdownSubMenu({
       <RadixDropdownMenu.SubTrigger className={triggerClassName}>
         {trigger}
       </RadixDropdownMenu.SubTrigger>
-      <RadixDropdownMenu.SubContent {...props}>
+      <RadixDropdownMenu.SubContent {...props} className={contentClassName}>
         {children}
       </RadixDropdownMenu.SubContent>
     </RadixDropdownMenu.Sub>

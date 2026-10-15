@@ -1,0 +1,87 @@
+// PrototypeControls.tsx: deliberately not the product's look, so it isn't
+// mistaken for UI: a dark panel with a dashed outline and monospace text,
+// the same in light and dark mode. Fixed in the lower-right corner, above
+// the page (and its sticky bars), below modals.
+.panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1040;
+  padding: 8px 12px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(17, 17, 17, 0.92);
+  color: #f2f2f2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.title {
+  margin-bottom: 6px;
+  color: #ffcc4d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+// The switch: a native checkbox (role="switch"), visually hidden, with a
+// track and thumb drawn beside it.
+.switchInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.switchTrack {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: #555;
+  transition: background-color 150ms ease;
+}
+
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 150ms ease;
+}
+
+.switchInput:checked + .switchTrack {
+  background: #ffb800;
+}
+
+.switchInput:checked + .switchTrack .switchThumb {
+  transform: translateX(12px);
+}
+
+.switchInput:focus-visible + .switchTrack {
+  outline: 2px solid #ffcc4d;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switchTrack,
+  .switchThumb {
+    transition: none;
+  }
+}

@@ -1,0 +1,225 @@
+// HeaderBreadcrumb.tsx and the header's project selector
+// (ProjectSelector.tsx's HeaderProjectSelector), as
+// app-header-rail-handoff.md. Hex values mapped to the app's grey tokens
+// (see AppRail.module.scss): #3f4250 → --slate-12 mixed 25% toward
+// --slate-11, hover .05 → --slate-a2 (between a2 and a3).
+//
+// The crumbs themselves are styled as the redesign's breadcrumb before the
+// new header (set in review): 13px at 500, the crumbs before the current
+// one in --gray-12 (underlined on hover), the current one in --slate-11,
+// 12px --slate-11 chevrons between them, 6px either side.
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.separator {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--slate-11);
+}
+
+// The chevron after the project selector: 4px closer to it (2px, set in
+// review), the button's own padding already adding space on that side.
+.afterProject {
+  margin-left: -4px;
+}
+
+// Multi-org users only: the org, plain text, not interactive.
+.org {
+  flex-shrink: 1;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gray-12);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+// The project selector's @/ui/Button (ghost,
+// grey, small): its label lays out the name, then the badge and chevron,
+// with the name truncating rather than the button growing past 280px.
+.headerButton {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 280px;
+
+  :global(.rt-Text) {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+}
+
+// Held to one project: the same contents, not a button.
+.projectStatic {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 0 8px;
+  color: var(--slate-12);
+  font-size: 12px;
+}
+
+.disabledWrap {
+  display: inline-flex;
+}
+
+.projectIcon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+}
+
+.projectName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demoBadge {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--orange-9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+// Its list: white, 8px corners, 240px wide, with the search field on top.
+// Its 12px padding is set inline (ProjectSelector.tsx), as Popover's own
+// is. The shadow and 1px outline are the experiments list's column menu's
+// (ExperimentsListTable.module.scss's .menuShadow and .menuOutline, set in
+// review; was a 1px --slate-4 border and a larger soft shadow).
+.projectMenu.projectMenu {
+  width: 240px;
+  box-sizing: border-box;
+  background: var(--color-panel-solid);
+  border-radius: 8px;
+}
+
+// 10px between the search field and the first option (set in review; was
+// 6px).
+.projectMenuInner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+// The search field as the experiments list's (pages/experiments/index.tsx,
+// set in review): 6px corners; its outline eases to --slate-9 on hover,
+// and while it's focused a firmer 1px --slate-11 outline replaces the
+// violet ring (distinct from hover, about 3.9:1 against the resting border,
+// so focus stays visible). The search icon 8px from the field's edge, as
+// from the placeholder. Instant for reduced motion.
+.projectMenu {
+  :global(.rt-TextFieldRoot.rt-variant-surface) {
+    transition: box-shadow 150ms ease;
+    border-radius: var(--radius-3);
+    --text-field-border-radius: var(--radius-3);
+  }
+
+  :global(.rt-TextFieldRoot.rt-variant-surface:hover:not(:focus-within)) {
+    box-shadow: inset 0 0 0 var(--text-field-border-width) var(--slate-9);
+  }
+
+  :global(.rt-TextFieldRoot.rt-variant-surface:focus-within) {
+    outline: none;
+    box-shadow: inset 0 0 0 var(--text-field-border-width) var(--slate-11);
+  }
+
+  :global(.rt-TextFieldRoot .rt-TextFieldSlot:not([data-side="right"])) {
+    margin-left: 0;
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.rt-TextFieldRoot.rt-variant-surface) {
+      transition: none;
+    }
+  }
+}
+
+.projectList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.projectOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--slate-a3);
+    color: var(--slate-12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+
+  &[aria-current="true"] {
+    background: var(--slate-a3);
+    color: var(--slate-12);
+    font-weight: 600;
+  }
+}
+
+// Section crumb: a link, --gray-12, underlined on hover.
+.section {
+  flex-shrink: 0;
+  color: var(--gray-12);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--gray-12);
+    text-decoration: underline;
+  }
+}
+
+.sectionText {
+  flex-shrink: 0;
+  color: var(--gray-12);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+// Object crumb: the current object's name in --slate-11, truncated.
+.objectText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--slate-11);
+  font-size: 13px;
+  font-weight: 500;
+}

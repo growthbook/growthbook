@@ -160,7 +160,7 @@ export default function FeaturesHeader({
 
   // Sticky tabs header — mirrors the experiment page pattern
   // NB: Keep in sync with .feature-tabs top property in global.scss
-  const TABS_HEADER_HEIGHT_PX = 55;
+  const TABS_HEADER_HEIGHT_PX = 43;
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();

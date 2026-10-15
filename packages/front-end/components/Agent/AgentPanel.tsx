@@ -628,7 +628,7 @@ export default function AgentPanel({
         // animates between the two states.
         left: "auto",
         width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
+          ? `calc((100vw - ${sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"}) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
         borderLeft: "1px solid var(--gray-a3)",

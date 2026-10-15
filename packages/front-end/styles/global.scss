@@ -10,8 +10,24 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+// Clears the app header (44px; TopNav.module.scss).
 main {
-  padding-top: 56px;
+  padding-top: 44px;
+}
+
+// The side nav's width (AppRail.tsx), for everything laid out beside it:
+// 240px expanded, 48px collapsed. Below 1180px the nav is an off-canvas
+// drawer, always expanded.
+:root {
+  --app-rail-width: 240px;
+}
+html.app-rail-collapsed {
+  --app-rail-width: 48px; // set in review; was 64px
+}
+@media (max-width: 1180px) {
+  html.app-rail-collapsed {
+    --app-rail-width: 240px;
+  }
 }
 
 body {
@@ -46,7 +62,11 @@ body {
 }
 
 .main {
-  padding-left: 240px;
+  padding-left: var(--app-rail-width, 240px);
+  transition: padding-left 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   &.product-analytics-explore-landing {
     display: flex;
     flex-direction: column;
@@ -536,8 +556,9 @@ pre {
     // NB: Keep the fallback in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     // also, make sure shared reports & shared experiments look good.
     // --experiment-tabs-top is set by the redesigned page's sticky title row
-    // (ExperimentHeader.tsx); everywhere else it's unset, so 55px.
-    top: var(--experiment-tabs-top, 55px);
+    // (ExperimentHeader.tsx); everywhere else it's unset, so 43px (the 44px
+    // header, less 1px).
+    top: var(--experiment-tabs-top, 43px);
     height: 40px;
     transition: 150ms all;
     .header-tabs {
@@ -619,7 +640,7 @@ pre {
 .feature-tabs {
   background-color: var(--color-background);
   // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
-  top: 55px;
+  top: 43px;
   height: 40px;
   transition: 150ms all;
 
@@ -3166,7 +3187,7 @@ html {
 @media (max-width: 1180px) {
   .main {
     padding-left: 0;
-    padding-top: 60px;
+    padding-top: 44px;
   }
   .sidebar.open {
     left: 0;

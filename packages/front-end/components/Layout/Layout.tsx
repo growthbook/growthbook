@@ -1,21 +1,9 @@
-import Link from "next/link";
-import { useState } from "react";
-import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsSearch } from "react-icons/bs";
-import { Flex } from "@radix-ui/themes";
-import { getGrowthBookBuild } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { inferDocUrl } from "@/components/DocLink";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { WhiteButton } from "@/ui/Button";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ProjectSelector from "./ProjectSelector";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import { SidebarLinkProps } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
-import styles from "./Layout.module.scss";
+import AppRail from "./AppRail";
+import PrototypeControls from "./PrototypeControls";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 
@@ -59,34 +47,12 @@ const otherPageTitles = [
   },
 ];
 
-const backgroundShade = (color: string) => {
-  // convert to RGB
-  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-  const c = +("0x" + color.slice(1).replace(color.length < 5 && /./g, "$&$&"));
-  const r = c >> 16;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
-  // http://alienryderflex.com/hsp.html
-  const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
-  if (hsp > 127.5) {
-    return "light";
-  } else {
-    return "dark";
-  }
-};
-
+// The app's frame: the side nav (AppRail) and the header (TopNav), as the
+// app header + side nav redesign. The upgrade button, org custom colours
+// and logo moved into AppRail; the build number is no longer shown.
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
-  const settings = useOrgSettings();
-  const permissionsUtil = usePermissionsUtil();
-  const { organization, canSubscribe } = useUser();
   const { breadcrumb } = usePageHead();
-
-  const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton =
-    canSubscribe &&
-    permissionsUtil.canManageBilling() &&
-    !organization.isVercelIntegration;
 
   // hacky:
   const router = useRouter();
@@ -121,170 +87,11 @@ const Layout = (): React.ReactElement => {
     }
   });
 
-  let customStyles = ``;
-  if (settings?.customized) {
-    const textColor =
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      backgroundShade(settings?.primaryColor) === "dark" ? "#fff" : "#444";
-
-    // we could support saving this CSS in the settings so it can be customized
-    customStyles = `
-      .sidebar { background-color: ${settings.primaryColor} !important; transition: none }
-      .sidebarlink { transition: none; } 
-      .sidebarlink:hover {
-        background-color: background-color: ${settings.secondaryColor} !important;
-      }
-      .sidebarlink a:hover, .sidebarlink.selected, .sublink.selected { background-color: ${settings.secondaryColor} !important; } 
-      .sublink {border-color: ${settings.secondaryColor} !important; }
-      .sublink:hover, .sublink:hover a { background-color: ${settings.secondaryColor} !important; }
-      .sidebarlink a, .sublink a {color: ${textColor}}
-      `;
-  }
-
-  const build = getGrowthBookBuild();
-
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="layout"
-          commercialFeature={null}
-        />
-      )}
-      {settings?.customized && (
-        <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
-      )}
-      <div
-        className={clsx(styles.sidebar, "sidebar mb-5", {
-          [styles.sidebaropen]: open,
-        })}
-      >
-        <div className="">
-          <div className="app-sidebar-header">
-            <div className="app-sidebar-logo">
-              <Link
-                href="/"
-                aria-current="page"
-                className="app-sidebar-logo active"
-                title="GrowthBook Home"
-                onClick={() => setOpen(false)}
-              >
-                <div className={styles.sidebarlogo}>
-                  {settings?.customized && settings?.logoPath ? (
-                    <>
-                      <img
-                        className={styles.userlogo}
-                        alt="GrowthBook"
-                        src={settings.logoPath}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <img
-                        className={styles.logo}
-                        alt="GrowthBook"
-                        src="/logo/growth-book-logomark-white.svg"
-                      />
-                      <img
-                        className={styles.logotext}
-                        alt="GrowthBook"
-                        src="/logo/growth-book-name-white.svg"
-                      />
-                    </>
-                  )}
-                </div>
-              </Link>
-            </div>
-            <div className={styles.mainmenu}>
-              <ul
-                onClick={(e) => {
-                  const t = (e.target as HTMLElement).closest("a");
-                  if (t && t.href && !t.className.match(/no-close/)) {
-                    setOpen(false);
-                  }
-                }}
-              >
-                <li>
-                  <a
-                    href="#"
-                    className={`${styles.closebutton} closebutton`}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <svg
-                      className="bi bi-x"
-                      width="1.9em"
-                      height="1.9em"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M11.854 4.146a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708-.708l7-7a.5.5 0 0 1 .708 0z"
-                      />
-                      <path
-                        fillRule="evenodd"
-                        d="M4.146 4.146a.5.5 0 0 0 0 .708l7 7a.5.5 0 0 0 .708-.708l-7-7a.5.5 0 0 0-.708 0z"
-                      />
-                    </svg>
-                  </a>
-                </li>
-                <li>
-                  <button
-                    className={styles.searchTrigger}
-                    onClick={() => {
-                      document.dispatchEvent(new Event("open-command-palette"));
-                    }}
-                  >
-                    <BsSearch size={13} />
-                    <span className={styles.searchTriggerLabel}>Search</span>
-                    <span className={styles.searchTriggerKbd}>
-                      {typeof navigator !== "undefined" &&
-                      /Mac|iPhone|iPad/.test(navigator.userAgent)
-                        ? "\u2318 K"
-                        : "Ctrl+K"}
-                    </span>
-                  </button>
-                </li>
-                <ProjectSelector />
-                {navlinks.map((v) => (
-                  <SidebarLink key={v.href} {...v} />
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <Flex p="3" direction="column" gap="4">
-          {showUpgradeButton && (
-            <WhiteButton onClick={() => setUpgradeModal(true)}>
-              <>Upgrade</>
-            </WhiteButton>
-          )}
-          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
-            <WhiteButton variant="outline">View docs</WhiteButton>
-          </a>
-        </Flex>
-        {build.sha && (
-          <div className="px-3 my-1 text-center">
-            <small>
-              <span className="text-muted">Build:</span>{" "}
-              <a
-                href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white"
-              >
-                {build.lastVersion}+{build.sha.substr(0, 7)}
-              </a>{" "}
-              {build.date && (
-                <span className="text-muted">({build.date.substr(0, 10)})</span>
-              )}
-            </small>
-          </div>
-        )}
-      </div>
+      <AppRail />
+      {/* PROTOTYPE ONLY: prototype settings, lower right (set in review). */}
+      <PrototypeControls />
 
       <TopNav
         pageTitle={pageTitle}

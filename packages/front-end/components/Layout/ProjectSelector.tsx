@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { FC, useEffect } from "react";
+import { FC, useEffect, useState } from "react";
+import { PiFolder, PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -9,7 +10,14 @@ import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
+import Button from "@/ui/Button";
+import { Popover } from "@/ui/Popover";
+import { TextField } from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
+import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
+import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import LetterAvatar from "./LetterAvatar";
+import headerStyles from "./HeaderBreadcrumb.module.scss";
 
 const demoBadge = {
   badgeText: "Demo",
@@ -89,7 +97,10 @@ function ProjectName({
   );
 }
 
-export default function ProjectSelector() {
+// The selector's state, shared by the sidebar's selector and the header's
+// (HeaderProjectSelector): the projects, sorted and searchable, and the one
+// project a user without global read access is held to.
+function useProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const current = getProjectById(project);
@@ -112,6 +123,181 @@ export default function ProjectSelector() {
       setProject(projects[0].id);
     }
   }, [projects, permissions, setProject]);
+
+  return {
+    projects,
+    project,
+    current,
+    setProject,
+    orgId,
+    permissions,
+    currentProjectIsDemoProject,
+    items,
+    searchInputProps,
+  };
+}
+
+// The header's project selector (app header redesign): a ghost button (a
+// folder icon, the project's name, a chevron) opening the same searchable
+// list, All Projects first, as the sidebar's. Disabled on pages that aren't
+// project-scoped (e.g. Settings).
+export function HeaderProjectSelector({
+  disabled = false,
+}: {
+  disabled?: boolean;
+}) {
+  const {
+    projects,
+    project,
+    current,
+    setProject,
+    orgId,
+    permissions,
+    items,
+    searchInputProps,
+  } = useProjectSelector();
+  const [open, setOpen] = useState(false);
+
+  if (!projects.length) return null;
+
+  const isDemo = (id: string) =>
+    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
+
+  // Held to one project: its name, no list.
+  if (projects.length === 1 && !permissions.check("readData", "")) {
+    return (
+      <span className={headerStyles.projectStatic}>
+        <PiFolder size={14} className={headerStyles.projectIcon} />
+        <span className={headerStyles.projectName}>{projects[0].name}</span>
+      </span>
+    );
+  }
+
+  const name = current?.name || "All Projects";
+  // @/ui/Button, ghost and grey, small (set in review; was a hand-built
+  // 32px button): the folder as its icon, then the name (no chevron; set in
+  // review). The
+  // label at 400 and --slate-12 (.ghostButton, as the redesign's grey
+  // Cancel buttons), 6px corners. preventDefault off, so the click reaches
+  // the popover's trigger.
+  const button = (
+    <Button
+      variant="ghost"
+      color="gray"
+      size="sm"
+      preventDefault={false}
+      className={clsx(
+        headerStyles.headerButton,
+        modalStandardStyles.ghostButton,
+      )}
+      style={{ borderRadius: "var(--radius-3)", color: "var(--slate-12)" }}
+      icon={<PiFolder size={14} className={headerStyles.projectIcon} />}
+      aria-label={`Project: ${name}${disabled ? " (not used on this page)" : ""}`}
+      disabled={disabled}
+    >
+      <span className={headerStyles.projectName}>{name}</span>
+      {current && isDemo(current.id) ? (
+        <span className={headerStyles.demoBadge} title={demoBadge.badgeTitle}>
+          {demoBadge.badgeText}
+        </span>
+      ) : null}
+    </Button>
+  );
+
+  if (disabled) {
+    return (
+      <Tooltip content="Projects don't apply to this page">
+        <span className={headerStyles.disabledWrap}>{button}</span>
+      </Tooltip>
+    );
+  }
+
+  const choose = (id: string) => {
+    setProject(id);
+    setOpen(false);
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={button}
+      side="bottom"
+      align="start"
+      sideOffset={4}
+      showArrow={false}
+      contentClassName={clsx(
+        headerStyles.projectMenu,
+        listTableStyles.menuShadow,
+        listTableStyles.menuOutline,
+      )}
+      // 12px all round (set in review; was none). Inline, as Popover sets
+      // its own padding inline.
+      contentStyle={{ padding: "var(--space-3)" }}
+      content={
+        <div className={headerStyles.projectMenuInner}>
+          {/* The experiments list's search field (set in review; was a
+            small one with "Search..."): @/ui/TextField at its default size,
+            the magnifying glass before the placeholder in --slate-9. */}
+          <TextField
+            placeholder="Search"
+            type="search"
+            aria-label="Search projects"
+            prepend={
+              <PiMagnifyingGlassBold
+                size={14}
+                style={{ color: "var(--slate-9)" }}
+              />
+            }
+            {...searchInputProps}
+          />
+          <div className={headerStyles.projectList} role="list">
+            <button
+              type="button"
+              className={headerStyles.projectOption}
+              aria-current={!project ? "true" : undefined}
+              onClick={() => choose("")}
+            >
+              All Projects
+            </button>
+            {items.map((p) => (
+              <button
+                type="button"
+                key={p.id}
+                className={headerStyles.projectOption}
+                aria-current={p.id === project ? "true" : undefined}
+                onClick={() => choose(p.id)}
+              >
+                <span className={headerStyles.projectName}>{p.name}</span>
+                {isDemo(p.id) ? (
+                  <span
+                    className={headerStyles.demoBadge}
+                    title={demoBadge.badgeTitle}
+                  >
+                    {demoBadge.badgeText}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+export default function ProjectSelector() {
+  const {
+    projects,
+    project,
+    current,
+    setProject,
+    orgId,
+    permissions,
+    currentProjectIsDemoProject,
+    items,
+    searchInputProps,
+  } = useProjectSelector();
 
   if (!projects.length) return null;
 

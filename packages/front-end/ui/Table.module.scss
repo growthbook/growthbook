@@ -196,7 +196,7 @@
   // rather than to the viewport.
   &[data-scroll-x="true"] {
     overflow: auto;
-    max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
+    max-height: calc(100vh - var(--table-sticky-top, 44px) - 24px);
     // The frame moves onto the scroll container, so it stays put while the
     // content scrolls under it. No top edge: the header draws its own, as in
     // the unbounded case.

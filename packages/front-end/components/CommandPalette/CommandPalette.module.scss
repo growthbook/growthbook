@@ -142,3 +142,77 @@
   margin: 0 2px;
   color: var(--text-color-mid);
 }
+
+// Its entrance and exit, as @/ui/Modal's fadeIn (Modal.module.scss; set in
+// review): the palette fades in over 320ms while drifting up 8px, and the
+// backdrop fades in with it, both easing out; closing plays it in reverse.
+// None for reduced motion.
+$fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+.backdrop[data-state="open"] {
+  animation: palette-backdrop-fade-in 320ms $fade-ease both;
+}
+
+.backdrop[data-state="closed"] {
+  animation: palette-backdrop-fade-out 320ms $fade-ease both;
+  pointer-events: none;
+}
+
+// Opening fills backwards only, so no transform is left on the dialog
+// after it (as the modal's).
+.dialog[data-state="open"] {
+  animation: palette-fade-in 320ms $fade-ease backwards;
+}
+
+.dialog[data-state="closed"] {
+  animation: palette-fade-out 320ms $fade-ease both;
+}
+
+@keyframes palette-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes palette-fade-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+// The backdrop's dim only: it holds the palette, so fading its opacity
+// would fade the palette twice.
+@keyframes palette-backdrop-fade-in {
+  from {
+    background-color: rgba(0, 0, 0, 0);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes palette-backdrop-fade-out {
+  from {
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop[data-state],
+  .dialog[data-state] {
+    animation: none;
+  }
+}

@@ -28,6 +28,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
+  // Optional: shifts the content along the trigger, as Radix's alignOffset.
+  alignOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -46,6 +48,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  /** Called when the content closes and would return focus to the trigger — call e.preventDefault() to leave focus alone. Optional. */
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onCloseAutoFocus"];
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -59,6 +65,7 @@ export function Popover({
   side = "bottom",
   align = "center",
   sideOffset,
+  alignOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -68,6 +75,7 @@ export function Popover({
   onFocusOutside,
   onInteractOutside,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   openOnHover = false,
   ...props
 }: PopoverProps) {
@@ -153,6 +161,7 @@ export function Popover({
               side={side}
               align={align}
               sideOffset={sideOffset}
+              alignOffset={alignOffset}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}
@@ -169,6 +178,7 @@ export function Popover({
                 disableDismiss ? (e) => e.preventDefault() : onInteractOutside
               }
               onFocusOutside={onFocusOutside}
+              onCloseAutoFocus={onCloseAutoFocus}
             >
               {showCloseButton && (
                 <RadixPopover.Close

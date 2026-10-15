@@ -191,21 +191,21 @@ function RailToggleIcon({ collapsed }: { collapsed: boolean }) {
 
 // NB: Keep in sync with .experiment-tabs top property in global.scss (its
 // fallback when --experiment-tabs-top isn't set)
-const TABS_HEADER_HEIGHT_PX = 55;
+const TABS_HEADER_HEIGHT_PX = 43;
 
 // The redesigned page's title row is sticky (set in review), at one fixed
 // height: 24px under the top nav and the 40px row, with no space below it.
 // The tab bar tucks 2px up under it, so the tab labels sit about 12px below
 // the header's buttons. A compact state was tried in review and dropped:
 // nothing in it ended up different. The row sets --experiment-tabs-top (the
-// top nav's 56px plus this height, less the tuck), which the tab bar's
+// top nav's 44px plus this height, less the tuck), which the tab bar's
 // sticky top, the page's scroll-padding-top and the Setup rail read.
 const TITLE_HEIGHT_PX = 64;
-// Where the title row pins: right under the 56px top nav, which is exactly
+// Where the title row pins: right under the 44px top nav, which is exactly
 // where it sits before any scroll (the page starts 56px down), so sticking
 // doesn't move it. (The tab bar elsewhere pins at 55px, 1px under the nav,
 // which made the row jump up 1px as scrolling began; fixed in review.)
-const TOP_NAV_PX = 56;
+const TOP_NAV_PX = 44;
 // The tab bar tucks this far up under the title row (which is layered above
 // it, and covers only the bar's empty top edge).
 const TABS_TUCK_PX = 2;
@@ -1404,7 +1404,9 @@ export default function ExperimentHeader({
                     isBandit || isHoldout
                       ? undefined
                       : {
-                          borderRadius: "var(--radius-2)",
+                          // 6px, as the header's other buttons (set in
+                          // review; was 4px).
+                          borderRadius: "var(--radius-3)",
                           // The dots in --slate-12, like the Test button's
                           // text (set in review), rather than the violet
                           // outline variant's --violet-a11.

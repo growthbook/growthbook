@@ -1,4 +1,6 @@
-$sidebarwidth: 240px;
+// The side nav's width: 240px, or 64px while it's collapsed (AppRail.tsx
+// puts .app-rail-collapsed on <html>; see global.scss).
+$sidebarwidth: var(--app-rail-width, 240px);
 $expandedwidth: 240px;
 $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;

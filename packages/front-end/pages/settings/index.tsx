@@ -58,6 +58,7 @@ import {
   parseSettingsHash,
 } from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
+import SettingsRedesignPlaceholder from "@/components/Layout/SettingsRedesignPlaceholder";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import useApi from "@/hooks/useApi";
@@ -706,4 +707,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
 };
 
-export default GeneralSettingsPage;
+// PROTOTYPE (app header + side nav redesign): Settings is being redesigned
+// as a single page, so for now the page is a placeholder. Set to false to
+// bring back General Settings.
+const SHOW_SETTINGS_REDESIGN_PLACEHOLDER = true;
+
+const SettingsPage = (): React.ReactElement =>
+  SHOW_SETTINGS_REDESIGN_PLACEHOLDER ? (
+    <SettingsRedesignPlaceholder />
+  ) : (
+    <GeneralSettingsPage />
+  );
+
+export default SettingsPage;

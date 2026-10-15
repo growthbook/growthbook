@@ -86,3 +86,11 @@
   ) {
   font-weight: var(--font-weight-regular);
 }
+
+// The redesigned header's buttons (Test, Start, Actions, Scheduled,
+// Share..., the kebab): 6px corners, --radius-3, as the experiments list's
+// buttons (set in review; Radix's 4px before). Not the round ghost kebab
+// of bandits and holdouts. Covers buttons added here later.
+.headerActions :global(.rt-BaseButton:not([data-radius="full"])) {
+  border-radius: var(--radius-3);
+}

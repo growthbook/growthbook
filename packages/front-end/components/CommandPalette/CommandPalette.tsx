@@ -128,50 +128,92 @@ function getSectionDisplayItems(
  * Lightweight wrapper that handles global Cmd/Ctrl+K and custom event listeners.
  * Only mounts the heavy CommandPalette (with data hooks) when the palette is open.
  */
+// The palette's entrance and exit, as @/ui/Modal's fadeIn (set in review):
+// it fades in over 320ms while drifting up 8px, the backdrop fading in with
+// it, and closing plays it in reverse (CommandPalette.module.scss). The
+// palette stays mounted for the exit. Instant for reduced motion.
+const PALETTE_FADE_MS = 320;
+
 export const CommandPaletteLauncher: FC = () => {
   const [open, setOpen] = useState(false);
+  // Playing its exit: still shown, until the fade has run.
+  const [closing, setClosing] = useState(false);
   const previousFocusRef = useRef<Element | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const show = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+    setClosing(false);
+    setOpen(true);
+  }, []);
+
+  const close = useCallback(() => {
+    if (previousFocusRef.current instanceof HTMLElement) {
+      previousFocusRef.current.focus();
+    }
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setOpen(false);
+      return;
+    }
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
+      setClosing(false);
+      setOpen(false);
+    }, PALETTE_FADE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  // Whether it's showing and not on its way out, for the ⌘K toggle.
+  const isShown = open && !closing;
+  const isShownRef = useRef(isShown);
+  isShownRef.current = isShown;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((prev) => {
-          if (!prev) {
-            previousFocusRef.current = document.activeElement;
-          }
-          return !prev;
-        });
+        if (isShownRef.current) {
+          close();
+        } else {
+          previousFocusRef.current = document.activeElement;
+          show();
+        }
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [close, show]);
 
   useEffect(() => {
     const handler = () => {
       previousFocusRef.current = document.activeElement;
-      setOpen(true);
+      show();
     };
     document.addEventListener("open-command-palette", handler);
     return () => document.removeEventListener("open-command-palette", handler);
-  }, []);
+  }, [show]);
 
   if (!open) return null;
 
-  return (
-    <CommandPalette
-      onClose={() => {
-        setOpen(false);
-        if (previousFocusRef.current instanceof HTMLElement) {
-          previousFocusRef.current.focus();
-        }
-      }}
-    />
-  );
+  return <CommandPalette closing={closing} onClose={close} />;
 };
 
-const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
+const CommandPalette: FC<{ closing: boolean; onClose: () => void }> = ({
+  closing,
+  onClose,
+}) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState<
@@ -495,9 +537,14 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
   return (
     <Portal>
-      <div className={styles.backdrop} onClick={closeAndReset}>
+      <div
+        className={styles.backdrop}
+        data-state={closing ? "closed" : "open"}
+        onClick={closing ? undefined : closeAndReset}
+      >
         <div
           className={styles.dialog}
+          data-state={closing ? "closed" : "open"}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleKeyDown}
           role="dialog"

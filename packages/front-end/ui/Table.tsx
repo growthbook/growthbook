@@ -4,8 +4,8 @@ import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Table.module.scss";
 
-/** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
-export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
+/** Standard top offset (px) for sticky table headers. Must be >= top nav height (44px) so the header's top border isn't covered. */
+export const DEFAULT_STICKY_TOP_OFFSET_PX = 44;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,

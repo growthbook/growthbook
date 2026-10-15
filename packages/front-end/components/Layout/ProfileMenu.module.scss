@@ -1,0 +1,373 @@
+// ProfileMenu.tsx: the header's avatar and its account menu, as
+// app-header-rail-handoff.md. Hex values mapped to the app's grey tokens (see
+// AppRail.module.scss): #ebebef → --slate-4, #1c1f2e → --slate-12, #6b6f80 →
+// --slate-11, #e9e9ee → --slate-4, hover .06 → --slate-a3, #d4243a →
+// --red-9. Radix's menu rules use :where(), so these doubled classes win.
+
+// The avatar: a 36px hit area holding the avatar. No fill of its own:
+// hover is on the avatar's circle only (set in review; was a 6px-cornered
+// fill over the whole hit area): its light purple a step darker
+// (--violet-a3 to --violet-a5) and a 1px --violet-8 outline. Focus rings the
+// circle.
+.avatarButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  // Pulled 6px right, into the header's padding (set in review), so the
+  // 24px circle, centred in the 36px area, ends at the padding's edge, in
+  // line with the page content. Keep in step with the avatar's size.
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+
+  :global(.rt-AvatarRoot) {
+    border-radius: 9999px;
+    transition: box-shadow 120ms ease;
+  }
+
+  :global(.rt-AvatarFallback) {
+    transition: background-color 120ms ease;
+  }
+
+  // Two initials at 11px (set in review; Radix's small avatar has 12px).
+  // One initial keeps Radix's 14px.
+  :global(.rt-AvatarRoot) {
+    --avatar-fallback-two-letters-font-size: 11px;
+  }
+
+  &:hover {
+    :global(.rt-AvatarRoot) {
+      box-shadow: 0 0 0 1px var(--violet-8);
+    }
+
+    :global(.rt-AvatarFallback) {
+      background-color: var(--violet-a5);
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    :global(.rt-AvatarRoot) {
+      outline: 2px solid var(--focus-8);
+      outline-offset: 2px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.rt-AvatarRoot),
+    :global(.rt-AvatarFallback) {
+      transition: none;
+    }
+  }
+}
+
+// Open: a 2px ring on the circle, and its hover shade. Doubled to stay
+// over the hover's 1px outline.
+.avatarOpen.avatarOpen {
+  :global(.rt-AvatarRoot) {
+    box-shadow: 0 0 0 2px var(--slate-12);
+  }
+
+  :global(.rt-AvatarFallback) {
+    background-color: var(--violet-a5);
+  }
+}
+
+// The avatar and its review dot.
+.avatarWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+// In the side nav (set in review): the rail's item, with a profile icon
+// as its icon. The review dot on the icon's top right, over the rail's
+// colour.
+.railItem {
+  .reviewDot {
+    top: -3px;
+    right: -3px;
+    border-color: var(--rail-bg);
+  }
+}
+
+// Pending reviews: an 11px red dot with a 2px white border, on the
+// avatar's top right.
+.reviewDot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 11px;
+  height: 11px;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  background: var(--red-9);
+  border: 2px solid var(--color-panel-solid);
+}
+
+// The menu (and Help's, HelpMenu.tsx, and their submenus): as wide as its
+// rows need (set in review; was 280px), 8px padding, 8px corners, and the
+// side nav section menus' shadow and 1px outline (the experiments list
+// column menu's .menuShadow and .menuOutline, added where it's used; was a
+// 1px --slate-4 border and a larger shadow). White.
+.menu.menu {
+  --base-menu-content-padding: 8px;
+  background: var(--color-panel-solid);
+  border-radius: 8px;
+
+  :global(.rt-BaseMenuSeparator) {
+    margin: 6px 4px;
+    background-color: var(--slate-4);
+  }
+}
+
+// Help's: at least 220px, as the side nav's section menus, and wider when
+// its rows need it (set in review; a fixed 220px clipped Join Slack
+// Community, so it scrolled sideways).
+.helpMenu.helpMenu {
+  min-width: 220px;
+}
+
+// A menu's header, as the section menus' (.eyebrow there).
+.eyebrow {
+  padding: 8px 10px 6px;
+  color: var(--slate-11);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+// Items: as the expanded side nav's rows (AppRail.module.scss's .row; set
+// in review; were 13px with 15px icons): 32px tall, the 18px icon 7px in,
+// 10px to a 14px label at 500, 6px corners; the label and icon in the
+// rail's greys, --slate-12 when highlighted, on --slate-a3.
+.item.item {
+  height: 32px;
+  min-height: 0;
+  padding: 0 10px 0 7px;
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--slate-12) 80%, var(--slate-11));
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+
+  &[data-highlighted],
+  &[data-state="open"] {
+    background: var(--slate-a3);
+    color: var(--slate-12);
+
+    .itemIcon {
+      color: var(--slate-12);
+    }
+  }
+
+  // Radix's submenu chevron hidden, with the slot that holds it (its
+  // margin pushed the row's own chevron in from the right; fix, set in
+  // review): the side nav's own is drawn instead (.chevron).
+  :global(.rt-BaseMenuShortcut):has(:global(.rt-BaseMenuSubTriggerIcon)) {
+    display: none;
+  }
+}
+
+.itemContent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+}
+
+// Help's "opens in a new tab" arrows: lighter than the icons, --slate-9
+// (set in review; tried --slate-11 and --slate-10), about 3.3:1 on white
+// (3.4:1 in dark mode), above the 3:1 icons need; the lightest step that
+// is.
+.externalIcon {
+  flex-shrink: 0;
+  color: var(--slate-9);
+}
+
+// A submenu's chevron, as the side nav's (AppRail.module.scss's .chevron;
+// set in review): Phosphor's bold caret, 12px, --slate-10.
+.chevron {
+  flex-shrink: 0;
+  color: var(--slate-10);
+}
+
+.itemLabel {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Pending Reviews' count: a 20px red pill, white 11px bold.
+.countBadge {
+  flex-shrink: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--red-9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.themeValue {
+  flex-shrink: 0;
+  color: var(--slate-11);
+  font-size: 12px;
+}
+
+// The identity row: a 36px avatar, the name at 14px/600 and the email at
+// 12px --slate-11. One target; no lasting highlight.
+.identity.identity {
+  height: auto;
+  min-height: 0;
+  padding: 10px;
+  border-radius: 5px;
+
+  &[data-highlighted] {
+    background: var(--slate-a3);
+  }
+}
+
+// The avatar top-aligned with the name (set in review; was centred).
+.identityContent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.identityText {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.identityName {
+  display: block;
+  color: var(--slate-12);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.identityEmail {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--slate-11);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+// The org line: under the email, in the identity row (set in review; was
+// its own line below the row, indented 58px), 4px below the email (set in
+// review; tried 2px).
+.orgLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--slate-11);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+// The organization selector: below the identity row, inset as its text
+// (10px), 8px above (set in review; was 4px) and 8px below; the select as
+// wide as the menu (set in review).
+.orgSelector {
+  padding: 8px 10px;
+}
+
+// The select, as the experiments list's search field (set in review): 6px
+// corners (--radius-3); its outline eases to --slate-9 over 150ms on hover,
+// and while it's focused or open a firmer 1px --slate-11 outline replaces
+// the violet focus ring (distinct from hover, so focus stays visible).
+// Instant for reduced motion. Tripled, to outrank Radix's rules and
+// global-radix-overrides.scss's (.gb-select--md's 4px corners, and the
+// violet outline while open).
+.orgSelectorTrigger.orgSelectorTrigger.orgSelectorTrigger {
+  width: 100%;
+  border-radius: var(--radius-3);
+  transition: box-shadow 150ms ease;
+
+  &:hover:not([data-state="open"]):not(:focus-visible) {
+    box-shadow: inset 0 0 0 1px var(--slate-9);
+  }
+
+  &:focus-visible,
+  &[data-state="open"] {
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--slate-11);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Its list (set in review): the hovered (or keyboard-highlighted) org on
+// --slate-a3 with --slate-12 text, as the side nav menus' items, in place of
+// the soft select's light violet; and the chosen one's check is Phosphor's
+// (regular, 14px), drawn as a mask in the text colour in place of Radix's.
+.orgSelectorMenu {
+  :global(.rt-SelectItem[data-highlighted]) {
+    background-color: var(--slate-a3);
+    color: var(--slate-12);
+  }
+
+  :global(.rt-SelectItemIndicatorIcon) {
+    display: none;
+  }
+
+  :global(.rt-SelectItemIndicator)::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}
+
+// Its value: the building icon, 6px, then the org's name.
+.orgSelectorValue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.orgSelectorIcon {
+  flex-shrink: 0;
+  color: var(--slate-11);
+}
+
+.orgName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -436,8 +436,8 @@ function App({
           start another page change. */
         .route-progress-veil {
           position: fixed;
-          top: 56px;
-          left: 240px;
+          top: 44px;
+          left: var(--app-rail-width, 240px);
           right: 0;
           bottom: 0;
           z-index: 1005;
