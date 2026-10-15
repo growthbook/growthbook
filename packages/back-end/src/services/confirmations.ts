@@ -454,6 +454,99 @@ async function describeRouteWrite(
   };
 }
 
+type Armable = {
+  autoPublishOnApproval?: boolean;
+  scheduledPublishAt?: Date | null;
+} | null;
+// Draft routes by API tag: how to load the revision they write to.
+const DRAFT_REVISIONS: Record<
+  string,
+  {
+    model: "feature" | "savedGroup" | "constant" | "config";
+    load: (
+      context: ReqContext,
+      params: Record<string, string>,
+    ) => Promise<Armable>;
+  }
+> = {
+  "feature-revisions": { model: "feature", load: loadFeatureRevision },
+  "feature-revisions-v2": { model: "feature", load: loadFeatureRevision },
+  "saved-group-revisions": {
+    model: "savedGroup",
+    load: (context, { savedGroupId, version }) =>
+      context.models.revisions.getByTargetAndVersion(
+        "saved-group",
+        savedGroupId,
+        Number(version),
+      ),
+  },
+  "constant-revisions": {
+    model: "constant",
+    load: async (context, { key, version }) => {
+      const constant = await context.models.constants.getByKey(key);
+      return constant
+        ? context.models.revisions.getByTargetAndVersion(
+            "constant",
+            constant.id,
+            Number(version),
+          )
+        : null;
+    },
+  },
+  "config-revisions": {
+    model: "config",
+    load: async (context, { key, version }) => {
+      const config = await context.models.configs.getByKey(key);
+      return config
+        ? context.models.revisions.getByTargetAndVersion(
+            "config",
+            config.id,
+            Number(version),
+          )
+        : null;
+    },
+  },
+};
+
+async function loadFeatureRevision(
+  context: ReqContext,
+  { id, version }: Record<string, string>,
+): Promise<Armable> {
+  const { getRevision } = await import(
+    "back-end/src/models/FeatureRevisionModel"
+  );
+  return getRevision({
+    context,
+    organization: context.org.id,
+    featureId: id,
+    feature: undefined,
+    version: Number(version),
+  });
+}
+
+// Editing a draft that's armed to publish later edits what that publish ships,
+// so it holds as the publish.
+async function armedRevisionActions(
+  context: ReqContext,
+  tags: readonly string[] | undefined,
+  actions: readonly ConfirmAction[],
+  params: Record<string, string>,
+): Promise<ConfirmAction[]> {
+  const draft = tags?.map((tag) => DRAFT_REVISIONS[tag]).find(Boolean);
+  if (
+    !draft ||
+    !params.version ||
+    !actions.includes(`${draft.model}.draft`) ||
+    !rulesFor(context).length
+  ) {
+    return [];
+  }
+  const revision = await draft.load(context, params).catch(() => null);
+  return revision?.autoPublishOnApproval || revision?.scheduledPublishAt
+    ? [`${draft.model}.publish`]
+    : [];
+}
+
 // The route-level hold: the endpoint's actions, with no environments, before the
 // handler loads anything. Nothing has run, so replay is always safe.
 export async function holdAtRoute(
@@ -471,6 +564,7 @@ export async function holdAtRoute(
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
       ...armedActions(tags, body),
+      ...(await armedRevisionActions(context, tags, actions, params)),
     ],
     describe: async () => {
       const route = await describeRouteWrite(
@@ -527,6 +621,26 @@ export function featureUpdateSummary(
     return `${capitalizeFirstCharacter(archive)} ${id}`;
   }
   return `Update ${id}: ${[archive, ...parts].filter(Boolean).join(", ")}`;
+}
+
+// A new flag is live wherever it starts enabled, so creating it there holds as a
+// publish too.
+export function holdFeatureCreate(
+  context: ReqContext,
+  feature: FeatureInterface,
+  environments: string[],
+) {
+  return requireConfirmation(context, {
+    actions: [
+      "feature.create",
+      ...(environments.length ? (["feature.publish"] as const) : []),
+    ],
+    environments,
+    project: feature.project,
+    summary: `Create ${feature.id}`,
+    links: [],
+    pin: null,
+  });
 }
 
 export function holdFeatureUpdate(
@@ -650,7 +764,13 @@ export function experimentChangeActions(
   if (schedule === null && existing.statusUpdateSchedule) {
     actions.add("experiment.other");
   }
-  if (existing.status === "draft") return [...actions];
+  if (existing.status === "draft") {
+    // A draft armed to start later ships whatever it holds then.
+    if (!actions.size && existing.statusUpdateSchedule?.startAt) {
+      actions.add("experiment.start");
+    }
+    return [...actions];
+  }
 
   if (RERANDOMIZE_FIELDS.some((f) => changed(existing[f], changes[f]))) {
     actions.add("experiment.phases");

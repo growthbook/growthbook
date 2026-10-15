@@ -2457,6 +2457,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.create
+        - feature.publish
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -9692,6 +9693,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.create
+        - feature.publish
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks

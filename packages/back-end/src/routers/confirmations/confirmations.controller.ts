@@ -46,6 +46,12 @@ export const getConfirmation = async (
   const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
   // Who confirms: a personal token's owner, or the member an org key assumes.
   const owner = c.userId ? await getUserById(c.userId) : null;
+  // A personal token's request is its owner's alone.
+  if (c.userId && c.userId !== context.userId) {
+    context.permissions.throwPermissionError(
+      `This request is for ${owner?.email ?? "someone else"}. Only they can see it.`,
+    );
+  }
   const person = owner ?? c.requestedBy;
   res.status(200).json({
     status: 200,
@@ -60,7 +66,6 @@ export const getConfirmation = async (
       assumedRole: c.assumedRole,
       keyDescription: key?.description || null,
     },
-    forEmail: owner && c.userId !== context.userId ? owner.email : null,
     canDecide: await canDecide(context, c),
   });
 };

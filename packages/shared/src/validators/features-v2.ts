@@ -882,7 +882,8 @@ export const postFeatureV2Validator = {
     "  ]\n" +
     "}\n" +
     "```",
-  confirmation: ["feature.create"] as const,
+  confirmation: ["feature.create", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

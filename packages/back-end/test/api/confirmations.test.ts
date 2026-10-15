@@ -688,6 +688,61 @@ describe("confirmations", () => {
     ]);
   });
 
+  it("holds creating a flag that starts on as a publish there", async () => {
+    await seed("production");
+    const recommended = keyDoc("key_recommended", {
+      role: "admin",
+      confirmRules: [{ actions: ["recommended"] }],
+    });
+    await mongoose.connection.collection("apikeys").insertOne(recommended);
+    setReqContext(asKey(recommended));
+    const create = (id: string, enabled: boolean) =>
+      auth(request(app).post("/api/v2/features")).send({
+        id,
+        owner: "owner@test.com",
+        valueType: "boolean",
+        defaultValue: "false",
+        environments: {
+          dev: { enabled: false },
+          production: { enabled },
+        },
+      });
+
+    expect((await create("off_everywhere", false)).status).toBe(200);
+    const held = await create("on_in_production", true);
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: ["production"] },
+    ]);
+  });
+
+  it("holds an edit to a draft armed to publish as the publish", async () => {
+    await seed("production");
+    const recommended = keyDoc("key_recommended", {
+      role: "admin",
+      confirmRules: [{ actions: ["recommended"] }],
+    });
+    await mongoose.connection.collection("apikeys").insertOne(recommended);
+    setReqContext(asKey(recommended));
+    const toggle = () =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions/2/toggle`),
+      ).send({ environment: "dev", enabled: false });
+
+    expect((await toggle()).status).toBe(200);
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: FLAG, version: 2 },
+        { $set: { autoPublishOnApproval: true } },
+      );
+    const held = await toggle();
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
+    ]);
+  });
+
   it("leaves an org key without rules alone", async () => {
     await seed("production");
     setReqContext(asKey(ci));

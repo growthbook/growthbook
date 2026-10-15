@@ -272,7 +272,7 @@ const ApiKeysModal: FC<{
       )}
       <Box mt="6">
         <Heading as="h4" size="sm" mb="1">
-          Human-in-the-loop
+          Human-in-the-Loop
         </Heading>
         <Text as="p" color="text-mid" mb="3">
           Risky actions wait for a person to confirm them.

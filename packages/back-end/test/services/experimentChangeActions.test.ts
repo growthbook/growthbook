@@ -29,6 +29,20 @@ describe("experimentChangeActions", () => {
     ).toEqual(["experiment.other"]);
   });
 
+  it("names an edit to a draft armed to start as the start", () => {
+    const draft = {
+      ...running,
+      status: "draft",
+    } as unknown as ExperimentInterface;
+    expect(experimentChangeActions(draft, { name: "Renamed" })).toEqual([]);
+    expect(
+      experimentChangeActions(
+        { ...draft, statusUpdateSchedule: { startAt: new Date() } },
+        { name: "Renamed" },
+      ),
+    ).toEqual(["experiment.start"]);
+  });
+
   it("names what a new latest phase changes from the old one", () => {
     expect(
       experimentChangeActions(running, {

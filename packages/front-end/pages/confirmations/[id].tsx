@@ -39,7 +39,6 @@ type ConfirmationResponse = {
     assumedRole: boolean;
     keyDescription: string | null;
   };
-  forEmail: string | null;
   canDecide: boolean;
 };
 
@@ -228,7 +227,6 @@ export default function ConfirmationPage() {
     lastAttemptAt,
     request,
     requester,
-    forEmail,
     canDecide,
   } = data;
   const hasQuery = Object.keys(request.query).length > 0;
@@ -307,13 +305,7 @@ export default function ConfirmationPage() {
           ) : null}
         </Callout>
       ) : null}
-      {pending && forEmail ? (
-        <Callout status="warning" mb="4">
-          This request is for {forEmail}. Only the person it was made for can
-          confirm it.
-        </Callout>
-      ) : null}
-      {pending && !forEmail && !canDecide ? (
+      {pending && !canDecide ? (
         <Callout status="warning" mb="4">
           You don&apos;t have permission to make this change, so you can&apos;t
           confirm it.
