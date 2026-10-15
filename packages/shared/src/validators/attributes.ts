@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  ATTRIBUTE_PROPERTY_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  PROJECTS_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 const enumFieldDescription =
   "Comma-separated list of allowed values. Required for the 'enum' datatype. " +
@@ -38,7 +44,7 @@ export const apiAttributeValidator = namedSchema(
 // Corresponds to postAttribute path requestBody
 const postAttributeBody = z
   .object({
-    property: z.string().describe("The attribute property"),
+    property: z.string().describe(ATTRIBUTE_PROPERTY_DESCRIPTION),
     datatype: z
       .enum([
         "boolean",
@@ -51,10 +57,7 @@ const postAttributeBody = z
         "secureString[]",
       ])
       .describe("The attribute datatype"),
-    description: z
-      .string()
-      .describe("The description of the new attribute")
-      .optional(),
+    description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
     hashAttribute: z
       .boolean()
@@ -65,8 +68,8 @@ const postAttributeBody = z
       .enum(["", "version", "date", "isoCountryCode"])
       .describe("The attribute's format")
       .optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
+    projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     customFields: z
       .record(z.string(), z.string())
       .describe(
@@ -92,10 +95,7 @@ const putAttributeBody = z
       ])
       .describe("The attribute datatype")
       .optional(),
-    description: z
-      .string()
-      .describe("The description of the new attribute")
-      .optional(),
+    description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
     hashAttribute: z
       .boolean()
@@ -106,8 +106,8 @@ const putAttributeBody = z
       .enum(["", "version", "date", "isoCountryCode"])
       .describe("The attribute's format")
       .optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
+    projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     customFields: z
       .record(z.string(), z.string())
       .describe(

@@ -13,6 +13,7 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -24,6 +25,18 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  FEATURE_DESCRIPTION,
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  PUBLISH_COMMENT_DESCRIPTION,
+  REQUEST_REVIEW_COMMENT_DESCRIPTION,
+  REVIEW_ACTION_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // ---- Shared param schemas ----
 
@@ -38,18 +51,11 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z
-    .string()
-    .optional()
-    .describe(
-      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+  revisionTitle: z.string().optional().describe(NEW_DRAFT_TITLE_DESCRIPTION),
   revisionComment: z
     .string()
     .optional()
-    .describe(
-      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION),
 };
 
 // ---- Shared response schemas ----
@@ -139,7 +145,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -309,7 +315,7 @@ export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
 
 const rulePatchSchemaV2 = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -420,15 +426,15 @@ export const postFeatureRevisionV2Validator = {
   paramsSchema: idParams,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      title: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z
     .object({
       overrideDraftLimit: booleanQueryField.describe(
-        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
       ),
     })
     .strict(),
@@ -475,7 +481,7 @@ export const postFeatureRevisionPublishV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
+      comment: z.string().describe(PUBLISH_COMMENT_DESCRIPTION).optional(),
       bypassApproval: bypassApprovalPublishBodyField,
       ...publishOverrideBodyFields,
     })
@@ -497,8 +503,8 @@ export const postFeatureRevisionRevertV2Validator = {
   bodySchema: z
     .object({
       strategy: z.enum(["draft", "publish"]).optional(),
-      comment: z.string().optional(),
-      title: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       // Same reason as the Saved Group and Config reverts: publishing a revert
       // that restores `archived` runs the bypassable dependent guard, and a
       // strict body without these rejects the acknowledgment it asks for.
@@ -714,7 +720,10 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
+      comment: z
+        .string()
+        .describe(REQUEST_REVIEW_COMMENT_DESCRIPTION)
+        .optional(),
       autoPublishOnApproval: z.boolean().optional(),
       // Same field, same rule as the schedule-publish endpoint below.
       scheduledPublishAt: z
@@ -769,8 +778,11 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -973,9 +985,9 @@ export const putFeatureRevisionMetadataV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      title: z.string().optional(),
-      description: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      description: z.string().describe(FEATURE_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
       targetingAllProjects: z

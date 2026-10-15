@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
+  FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -468,10 +469,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // Make sure the feature key example is valid
     if (
       transformedOrgSettings.featureKeyExample &&
-      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+      !new RegExp(FEATURE_KEY_PATTERN).test(
+        transformedOrgSettings.featureKeyExample,
+      )
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
+        "Feature key examples can only include letters, numbers, and the characters _, -, ., :, and |.",
       );
     }
 

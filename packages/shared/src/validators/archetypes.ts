@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { PLAIN_DESCRIPTION } from "./api-field-descriptions";
 
 // Corresponds to schemas/Archetype.yaml
 export const apiArchetypeValidator = namedSchema(
@@ -35,8 +36,14 @@ export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
 // Corresponds to payload-schemas/PostArchetypePayload.yaml
 const postArchetypeBody = z
   .object({
-    name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    name: z
+      .string()
+      .describe("Short display name (e.g. `Logged-out US visitor`)."),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     isPublic: z
       .boolean()
       .describe(
