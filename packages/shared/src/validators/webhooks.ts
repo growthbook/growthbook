@@ -28,6 +28,11 @@ export const webhookTimeoutSecondsValidator = z
   .min(1)
   .nullable();
 
+// REST shape of the timeout, on SDK and event webhooks alike
+export const apiWebhookTimeoutSeconds = webhookTimeoutSecondsValidator.describe(
+  "Request timeout in seconds, up to the server maximum (120 unless configured). Null uses the default.",
+);
+
 export const webhookSchema = z.strictObject({
   id: z.string(),
   organization: z.string(),
@@ -105,6 +110,7 @@ export const apiSdkWebhookValidator = namedSchema(
         .describe(
           "Set after repeated failures; changing the endpoint clears it",
         ),
+      timeoutSeconds: apiWebhookTimeoutSeconds,
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
     })
@@ -123,6 +129,7 @@ const sdkWebhookFields = {
     .string()
     .optional()
     .describe('JSON-encoded object, e.g. "{\\"X-Token\\": \\"abc\\"}"'),
+  timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
 };
 
 const sdkWebhookResponse = z

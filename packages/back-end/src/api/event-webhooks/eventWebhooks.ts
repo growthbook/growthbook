@@ -34,6 +34,7 @@ function toApiEventWebhook(w: EventWebHookInterface) {
     payloadType: w.payloadType,
     method: w.method,
     headers: w.headers,
+    timeoutSeconds: w.timeoutSeconds ?? null,
     signingKey: w.signingKey,
     lastRunAt: w.lastRunAt?.toISOString() ?? null,
     lastState: w.lastState,
