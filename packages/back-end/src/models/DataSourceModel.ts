@@ -11,6 +11,7 @@ import {
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -837,6 +838,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -871,11 +875,11 @@ export function toDataSourceApiInterface(
     ...(settings?.pipelineSettings
       ? { pipelineSettings: settings.pipelineSettings }
       : {}),
-    ...(settings?.maxConcurrentQueries
-      ? { maxConcurrentQueries: Number(settings.maxConcurrentQueries) }
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
       : {}),
-    ...(settings?.queryCacheTTLMins
-      ? { queryCacheTTLMins: Number(settings.queryCacheTTLMins) }
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
       : {}),
   };
 
