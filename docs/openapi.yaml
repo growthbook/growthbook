@@ -70416,6 +70416,10 @@ components:
                 type: array
                 items:
                   type: string
+              projects:
+                type: array
+                items:
+                  type: string
             required:
               - id
               - name
@@ -70425,6 +70429,7 @@ components:
               - sql
               - includesNameColumns
               - dimensionColumns
+              - projects
             additionalProperties: false
         identifierJoinQueries:
           type: array

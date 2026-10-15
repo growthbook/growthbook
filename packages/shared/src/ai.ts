@@ -52,8 +52,17 @@ export const AI_PROVIDER_META: Record<
   },
 };
 
+// Only ids the provider still serves. Retired ones come out; a stored setting
+// naming one reads as unset (getAllowedAIModel) and falls back to the default.
+// Audited 2026-10-12.
+// Newest generation first, larger tier first within it. The model pickers
+// keep this order, so it is also what admins see.
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
     // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
     // ids so a stored setting can't shift under an org when the alias moves.
     "gpt-5.6-sol",
@@ -62,16 +71,12 @@ export const AI_PROVIDER_MODEL_MAP = {
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
-    "gpt-5.2",
     "gpt-5.2-pro",
-    "gpt-5.1-codex",
-    "gpt-5.1-codex-max",
-    "gpt-5.1-codex-mini",
-    "gpt-5",
-    "gpt-5-nano",
-    "gpt-5-mini",
+    "gpt-5.2",
     "gpt-5-pro",
-    "gpt-5-codex",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
     // GPT-4 series
     "gpt-4.1",
     "gpt-4.1-mini",
@@ -88,8 +93,9 @@ export const AI_PROVIDER_MODEL_MAP = {
     // Current generation. These ids are complete as published — Anthropic
     // stopped issuing dated snapshots for them, so there is nothing to pin.
     "claude-opus-5-5",
-    "claude-opus-5",
     "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-5",
     "claude-sonnet-5",
     "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
@@ -97,41 +103,39 @@ export const AI_PROVIDER_MODEL_MAP = {
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
     // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
-    "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
-    "claude-opus-4-1-20250805",
+    "claude-haiku-4-5-20251001",
     "claude-opus-4-20250514",
     "claude-sonnet-4-20250514",
-    "claude-3-7-sonnet-20250219",
-    "claude-3-5-haiku-20241022",
-    "claude-3-haiku-20240307",
   ],
   // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
   // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
   // keeping them listed only misrepresents what an org is selecting.
-  xai: ["grok-4.6", "grok-4.5", "grok-4.3"],
+  xai: ["grok-4.7", "grok-4.6", "grok-4.5", "grok-4.3"],
   // Rolling aliases rather than dated snapshots. Mistral supports both, but
   // its dated ids (mistral-medium-2508) turn over far faster than we update
   // this list, and the previous pinned entries had all reached end of life —
-  // pixtral-12b in Dec 2025, Medium 3/3.1 on 2026-08-31. The tradeoff is that
-  // a model's behaviour can shift under an org when Mistral moves an alias.
+  // pixtral-12b in Dec 2025, Medium 3/3.1 on 2026-08-31, Pixtral Large on
+  // 2026-05-31. The tradeoff is that a model's behaviour can shift under an
+  // org when Mistral moves an alias.
   mistral: [
     "mistral-large-latest",
     "mistral-medium-latest",
     "mistral-small-latest",
-    "pixtral-large-latest",
   ],
   // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
   // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
     "gemini-3.7-flash",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",
@@ -145,6 +149,8 @@ export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5-5";
 // tool loops that must end in a large, exact JSON object, plus vision. It
 // gets the Opus tier while the general default stays on Sonnet.
 export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-opus-5-5";
+// Autocomplete runs on every pause in typing, so it gets the cheapest tier.
+export const AUTOCOMPLETE_AI_MODEL: AIModel = "claude-haiku-5-5";
 // Self-hosted has no managed key, so the default has to follow whichever
 // provider the admin actually configured. A fixed OpenAI default told an
 // admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
@@ -183,7 +189,7 @@ export function getProviderFromModel(model: AIModel): AIProvider {
 // should omit `temperature` for these models. Non-reasoning OpenAI models
 // (gpt-4*, gpt-4o*) and every other provider still accept it.
 export function isReasoningModel(model: AIModel): boolean {
-  return /^(o[0-9]|gpt-5)/.test(model);
+  return /^(o[0-9]|gpt-[5-9])/.test(model);
 }
 
 // Claude models that removed the sampling parameters: sending `temperature`
@@ -194,6 +200,7 @@ const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
   "claude-opus-5",
   "claude-sonnet-5-5",
   "claude-sonnet-5",
+  "claude-haiku-5-5",
   "claude-opus-4-8",
 ]);
 
@@ -219,9 +226,6 @@ const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
   "claude-haiku-4-5-20251001",
   "claude-opus-4-20250514",
   "claude-sonnet-4-20250514",
-  "claude-3-7-sonnet-20250219",
-  "claude-3-5-haiku-20241022",
-  "claude-3-haiku-20240307",
 ]);
 
 // How the AI SDK's Anthropic provider should produce schema-shaped output for
@@ -238,23 +242,11 @@ export function anthropicStructuredOutputMode(
 
 export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
 
-// Anthropic 400s when max_tokens exceeds the model's cap (other providers
-// clamp), so hand-maintain an entry for every model capped below the default.
-const MAX_OUTPUT_TOKENS_BY_MODEL: Readonly<Record<string, number>> = {
-  "claude-3-haiku-20240307": 4096,
-};
-
-export function getMaxOutputTokens(
-  model: AIModel,
-  desired: number = DEFAULT_MAX_OUTPUT_TOKENS,
-): number {
-  const modelMax = MAX_OUTPUT_TOKENS_BY_MODEL[model];
-  return modelMax === undefined ? desired : Math.min(desired, modelMax);
-}
-
 // Documented ceilings only: over-asking is a 400, not a clamp.
 const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-opus-5-5": 128000,
   "claude-opus-5": 128000,
+  "claude-haiku-5-5": 128000,
   "claude-sonnet-5-5": 128000,
   "claude-sonnet-5": 128000,
   "claude-opus-4-8": 128000,
@@ -269,9 +261,7 @@ export function resolveMaxOutputTokens(
   extended?: number,
 ): number {
   const ceiling = MODEL_MAX_OUTPUT_TOKENS[model];
-  const wanted =
-    ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
-  return getMaxOutputTokens(model, wanted);
+  return ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
 }
 
 // Whether a text model can accept image input (vision). The model
@@ -284,15 +274,13 @@ export function isVisionCapableModel(model: AIModel): boolean {
   if (model.startsWith("gemini-")) return true;
   // All Claude 3+ models (3, 3.5, 3.7, 4.x) accept image input.
   if (model.startsWith("claude-")) return true;
-  // OpenAI: gpt-4o*, gpt-4.1*, and the gpt-5 family see images. The
-  // o-series reasoning models do not.
+  // OpenAI: gpt-4o*, gpt-4.1*, and GPT-5 onward see images. The o-series
+  // reasoning models do not.
   if (/^gpt-4o/.test(model)) return true;
   if (/^gpt-4\.1/.test(model)) return true;
-  if (/^gpt-5/.test(model)) return true;
-  // Mistral: only the Pixtral vision line. The generalist models have gained
-  // vision in recent releases, but an alias can move off it, and routing an
-  // image at a text-only model fails opaquely — so stay conservative.
-  if (/^pixtral-/.test(model)) return true;
+  if (/^gpt-[5-9]/.test(model)) return true;
+  // Mistral's generalist models have gained vision, but an alias can move
+  // off it and routing an image at a text-only model fails opaquely.
   // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
   if (/^grok-4/.test(model)) return true;
   return false;
@@ -315,9 +303,9 @@ export function pickVisionModel(settings: {
   ) {
     return settings.visualEditorAIModel;
   }
-  if (settings.googleAPIKey) return "gemini-2.5-pro";
-  if (settings.openAIAPIKey) return "gpt-4o";
-  if (settings.anthropicAPIKey) return "claude-sonnet-4-5-20250929";
+  if (settings.googleAPIKey) return "gemini-3.8-flash";
+  if (settings.openAIAPIKey) return "gpt-6.1-sol";
+  if (settings.anthropicAPIKey) return "claude-sonnet-5-5";
   return null;
 }
 
@@ -708,6 +696,12 @@ export const AI_MODEL_SETTINGS = [
     fallback: CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   },
   {
+    key: "aiAutocompleteModel",
+    kind: "text",
+    label: "AI Assistant autocomplete model",
+    fallback: AUTOCOMPLETE_AI_MODEL,
+  },
+  {
     key: "visualEditorImageModel",
     kind: "image",
     label: "Visual Editor image model",
@@ -767,6 +761,7 @@ export const AI_PROMPT_TYPES = [
   "product-analytics-chat",
   "find-learnings-context",
   "general-chat",
+  "chat-autocomplete",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -806,6 +801,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "product-analytics-chat": "",
   "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
+  "chat-autocomplete": "", // Always uses the default prompt set in agent.controller.ts
 };
 
 // Prompt types that have default values and can be customized by users

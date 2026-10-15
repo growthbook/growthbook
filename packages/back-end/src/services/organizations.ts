@@ -3,6 +3,7 @@ import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { PermissionError } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -47,6 +48,7 @@ import {
   SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
   STTModel,
@@ -187,8 +189,16 @@ export async function setLicenseKey(
     );
   }
 
+  const license = await licenseInit(
+    { ...org, licenseKey },
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
+  if (license?.organizationId && license.organizationId !== org.id) {
+    throw new Error("This license key belongs to a different organization");
+  }
   org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(
@@ -345,6 +355,8 @@ export async function getAISettingsForOrg(
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
+  // Resolved AI Assistant autocomplete model.
+  autocompleteAIModel: AIModel;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 }> {
@@ -407,6 +419,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  // Cheapest tier unless the org picked one; it runs on every pause in
+  // typing. Cloud's managed Anthropic key covers it, self-hosted needs a key.
+  const autocompleteAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.aiAutocompleteModel,
+      keySource,
+    ) ||
+    (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
+
   const sttModel: STTModel | null = !aiEnabled
     ? null
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
@@ -432,6 +454,7 @@ export async function getAISettingsForOrg(
     sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
+    autocompleteAIModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
@@ -1438,6 +1461,20 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
+            if (
+              ds.params &&
+              !context.permissions.canUpdateDataSourceParams(existing)
+            ) {
+              context.permissions.throwPermissionError();
+            }
+            if (!context.permissions.canUpdateDataSourceSettings(existing)) {
+              context.permissions.throwPermissionError();
+            }
+            if (ds.type && ds.type !== existing.type) {
+              throw new Error(
+                "Cannot change the type of an existing data source. Create a new one instead.",
+              );
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -1450,7 +1487,6 @@ export async function importConfig(
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               description: ds.description || existing.description,
-              type: ds.type || existing.type,
               params,
               settings: {
                 ...existing.settings,
@@ -1467,6 +1503,14 @@ export async function importConfig(
             };
             await updateDataSource(context, existing, updates);
           } else {
+            if (
+              !context.permissions.canCreateDataSource({
+                projects: [],
+                type: ds.type,
+              })
+            ) {
+              context.permissions.throwPermissionError();
+            }
             await createDataSource(
               context,
               ds.name || k,
@@ -1478,6 +1522,7 @@ export async function importConfig(
             );
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
       }),
@@ -1533,6 +1578,13 @@ export async function importConfig(
 
         try {
           const existing = await findDimensionById(k, organization.id);
+          if (
+            existing
+              ? !context.permissions.canUpdateDimension()
+              : !context.permissions.canCreateDimension()
+          ) {
+            context.permissions.throwPermissionError();
+          }
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
@@ -1549,6 +1601,7 @@ export async function importConfig(
             });
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
       }),

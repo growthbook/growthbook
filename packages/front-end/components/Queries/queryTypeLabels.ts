@@ -60,6 +60,7 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
   trackedEvents: "Tracked event discovery",
   sessionReplayList: "Session replay list",
   sessionReplayDetail: "Session replay detail",
+  experimentExposures: "Experiment exposures",
   askDataAgentQuery: "Ask Data",
   experimentResults: "Experiment results (legacy)",
   testQuery: "Test query",
