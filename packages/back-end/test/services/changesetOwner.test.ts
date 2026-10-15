@@ -266,15 +266,15 @@ describe("ExperimentChangesetOwner", () => {
     });
 
     it.each([
-      ["a stopped", { status: "stopped" }],
-      ["an archived", { archived: true }],
-    ] as const)(
-      "rejects %s experiment even with the live-edit opt-in",
-      (_label, overrides) => {
+      { name: "a stopped", overrides: { status: "stopped" as const } },
+      { name: "an archived", overrides: { archived: true } },
+    ])(
+      "rejects $name experiment even with the live-edit opt-in",
+      ({ overrides }) => {
         const req = writeReq(makeContext());
         const owner = new ExperimentChangesetOwner(
           req.context,
-          makeExperiment(overrides as Partial<ExperimentInterface>),
+          makeExperiment(overrides),
         );
         expect(() =>
           owner.requireWrite(req, { ...opts, allowRunning: true }),
