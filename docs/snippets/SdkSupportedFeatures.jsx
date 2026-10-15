@@ -314,13 +314,13 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           contextualBandits: "≥ v1.7.0",
         },
         {
+          trackingPlugin: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
-        },
-        {
-          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -402,7 +402,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.2.0",
+      version: "3.2.1",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -764,7 +764,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "7.6.0",
+      version: "8.0.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -779,6 +779,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v8.0.0",
         },
         {
           trackingPlugin: "≥ v7.8.0",
@@ -820,7 +823,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.4",
+      version: "1.3.1",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [

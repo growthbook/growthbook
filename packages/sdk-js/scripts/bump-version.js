@@ -10,9 +10,6 @@
 // - The three commands at the end run in parallel and are not awaited. When
 //   one fails it calls process.exit(1), which can stop another one mid-write.
 //   A failed docs step once left javascript.json empty.
-// - The docs step (`cd ../../docs && pnpm gen-sdk-resources`) always fails,
-//   because docs/ has no package.json. Run
-//   `pnpm --filter shared gen-sdk-resources-for-docs` instead.
 // - generate-sdk-report reads the JSON files while prettier may still be
 //   rewriting them.
 
@@ -187,9 +184,9 @@ exec("pnpm --filter shared generate-sdk-report", (err, stdout) => {
   console.log(stdout);
 });
 
-// Update docs SDKInfo.ts
-exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout) => {
-  console.log("Updating docs SDKInfo.ts");
+// Update the SDK data in the docs snippets
+exec("pnpm --filter shared gen-sdk-resources-for-docs", (err, stdout) => {
+  console.log("Updating docs SDK snippets");
   if (err) {
     console.error(err);
     process.exit(1);
