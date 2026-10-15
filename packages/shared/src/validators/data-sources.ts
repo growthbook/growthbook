@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { apiInformationSchemaTableValidator } from "./information-schema-tables";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -224,7 +225,7 @@ export const postDataSourceValidator = {
   responseSchema: z.object({ dataSource: apiDataSourceValidator }).strict(),
   summary: "Create a data source",
   description:
-    "Tests the connection before saving. Google Analytics and the managed warehouse are set up in the app.",
+    "Tests the connection before saving. Google Analytics and the managed warehouse are set up in the app, as are the default identifier types and queries for a built-in `eventTracker`: with one other than `custom`, send `assignmentQueries` too.",
   operationId: "postDataSource",
   tags: ["data-sources"],
   method: "post" as const,
@@ -287,7 +288,7 @@ export const deleteDataSourceValidator = {
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a data source",
   description:
-    "Refused while it's the organization default, metrics, segments or dimensions still use it, or it has an Event Forwarder.",
+    "Refused while it's the organization default, metrics, fact metrics, fact tables, segments or dimensions still use it, or it has an Event Forwarder.",
   operationId: "deleteDataSource",
   tags: ["data-sources"],
   method: "delete" as const,
@@ -312,8 +313,12 @@ export const postInformationSchemaTableRefreshValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ tableId: z.string() }).strict(),
-  responseSchema: z.object({ queued: z.literal(true) }).strict(),
+  responseSchema: z
+    .object({ informationSchemaTable: apiInformationSchemaTableValidator })
+    .strict(),
   summary: "Refresh one table's columns",
+  description:
+    "Re-reads the table's columns from the warehouse and returns the updated table. A failed read returns an error and leaves the stored columns as they were.",
   operationId: "postInformationSchemaTableRefresh",
   tags: ["information-schema-tables"],
   method: "post" as const,
