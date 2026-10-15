@@ -162,14 +162,15 @@ export function getIncrementalRefreshMetricSources({
   );
 
   // One cache per table (except quantiles which have their own cache).
-  // Mirrors experimentQueries grouping rules
+  // Mirrors experimentQueries grouping rules.
+  //
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
   ) =>
-    `${clusterLevelMetricIds.has(metric.id) ? "cluster:" : ""}${factTableId}${
-      quantileMetricType(metric) ? "_qtile" : ""
-    }`;
+    `${
+      clusterLevelMetricIds.has(metric.id) ? "cluster_" : ""
+    }${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
