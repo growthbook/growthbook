@@ -28,6 +28,7 @@ type SelectProps = {
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
+  /** Names the trigger when the control has no visible `label` of its own. */
   "aria-label"?: string;
 } & MarginProps;
 
