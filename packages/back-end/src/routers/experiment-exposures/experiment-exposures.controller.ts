@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { getValidDate, snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
 import { SQL_ROW_LIMIT } from "shared/sql";
-import { clampWindowToPhase, getActivePhaseIndex } from "shared/experiments";
+import { getActivePhaseIndex } from "shared/experiments";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
 import type {
@@ -137,16 +137,8 @@ export async function postExposures(
     return;
   }
 
-  // Exposures outside the phase belong to a different phase (or none), so the
-  // window never reaches past the phase boundaries.
-  const { startDate, endDate } = clampWindowToPhase(
-    {
-      startDate: snapToMinuteStart(new Date(req.body.startDate)),
-      endDate: snapToMinuteEnd(new Date(req.body.endDate)),
-    },
-    experiment,
-    phaseIndex,
-  );
+  const startDate = snapToMinuteStart(new Date(req.body.startDate));
+  const endDate = snapToMinuteEnd(new Date(req.body.endDate));
   const window: ExposuresWindow = req.body.rollingWindow
     ? { kind: "rolling", windowMs }
     : { kind: "fixed", startDate, endDate };
@@ -163,16 +155,6 @@ export async function postExposures(
     extraColumns: [],
     truncated: false,
   };
-
-  if (startDate >= endDate) {
-    res.status(200).json({
-      ...emptyBody,
-      ranAt: new Date().toISOString(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-    });
-    return;
-  }
 
   // Outside the try below, whose catch turns throws into a 200 + error body.
   if (!integration.getExperimentExposuresQuery) {

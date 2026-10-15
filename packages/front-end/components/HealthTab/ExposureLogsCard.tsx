@@ -9,15 +9,11 @@ import {
   truncateString,
 } from "shared/util";
 import type { ExperimentExposureRecord } from "shared/validators";
-import {
-  clampWindowToPhase,
-  getLatestPhaseVariations,
-} from "shared/experiments";
-import { calculateProductAnalyticsDateRange } from "shared/enterprise";
-import { datetime } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -30,6 +26,12 @@ import type {
   FilterColumnSource,
 } from "@/components/FactTables/rowFilterUtils";
 import { datasourcesWithoutHealthData } from "./constants";
+import {
+  entirePhaseRange,
+  getPhaseBounds,
+  phaseLast24Hours,
+  rangeExceedsPhase,
+} from "./exposurePhaseRange";
 
 interface ExposuresResponse {
   records: ExperimentExposureRecord[];
@@ -100,11 +102,20 @@ export default function ExposureLogsCard({
   // for an explicit Refresh.
   const autoRun = !!datasource && isManagedWarehouse(datasource);
 
+  const phaseObj = experiment.phases[phase];
+  const phaseBounds = useMemo(() => getPhaseBounds(phaseObj), [phaseObj]);
+  // Once the phase has stopped, "now" is the wrong anchor for a lookback.
+  const defaultDateRange = useMemo(
+    () => phaseLast24Hours(phaseBounds),
+    [phaseBounds],
+  );
+
   const query = useRecordsQuery<ExperimentExposureRecord, ExposuresResponse>({
     endpoint: `/experiment/${experiment.id}/exposures`,
     canRun,
     autoRun,
     isActive: isTabActive,
+    defaultDateRange,
     selectRows: (data) => data.records,
     selectMeta: (data) => ({
       truncated: data.truncated,
@@ -272,20 +283,26 @@ export default function ExposureLogsCard({
     </Callout>
   ) : null;
 
-  // The server clamps the window to the phase; say so when that shortens
-  // what the timeframe control promises.
-  const requested = calculateProductAnalyticsDateRange(query.dateRange);
-  const clamped = clampWindowToPhase(requested, experiment, phase);
-  const startClamped = clamped.startDate > requested.startDate;
-  const endClamped = clamped.endDate < requested.endDate;
+  // Rows outside the phase are shown as asked for, but with more than one
+  // phase they may belong to a different one, so offer ranges that don't.
+  const entirePhase = entirePhaseRange(phaseBounds);
   const phaseNote =
-    startClamped || endClamped ? (
-      <Callout status="info" size="sm">
-        {startClamped && endClamped
-          ? `Showing exposures from this phase only, ${datetime(clamped.startDate)} to ${datetime(clamped.endDate)}.`
-          : startClamped
-            ? `Showing exposures since this phase started on ${datetime(clamped.startDate)}.`
-            : `Showing exposures up to when this phase ended on ${datetime(clamped.endDate)}.`}
+    experiment.phases.length > 1 &&
+    entirePhase &&
+    rangeExceedsPhase(query.dateRange, phaseBounds) ? (
+      <Callout status="warning" size="sm">
+        Selected date range exceeds phase date range and may include exposures
+        from other phases. Reset to the{" "}
+        <Link
+          onClick={() => query.applyControls({ dateRange: defaultDateRange })}
+        >
+          last 24 hours
+        </Link>{" "}
+        of the selected phase or the{" "}
+        <Link onClick={() => query.applyControls({ dateRange: entirePhase })}>
+          entire selected phase length
+        </Link>
+        .
       </Callout>
     ) : null;
 
