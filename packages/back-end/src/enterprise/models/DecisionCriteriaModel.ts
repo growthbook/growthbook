@@ -18,6 +18,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "decisionCriteria.delete",
   },
   globallyUniquePrimaryKeys: false,
+  defaultValues: { owner: "" },
   apiConfig: {
     modelKey: "decisionCriteria",
     openApiSpec: decisionCriteriaApiSpec,

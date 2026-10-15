@@ -1,8 +1,4 @@
-import { pick } from "lodash";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
+import { isNull, omitBy, pick } from "lodash";
 import { getScopedSettings } from "shared/settings";
 import {
   API_READ_ONLY_SETTING_KEYS,
@@ -10,11 +6,17 @@ import {
   getSettingsValidator,
 } from "shared/validators";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
+import { getDefaultRole, withDefaultRoleDefaults } from "shared/permissions";
 import {
-  pickDefaultRoleFields,
-  withDefaultRoleDefaults,
-} from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
@@ -66,15 +68,34 @@ export function toApiSettings(org: OrganizationInterface) {
         stored.approvalFlows?.savedGroups ?? [],
       ),
     },
-    // Legacy roles lack fields PUT requires, so fill them in to round-trip.
-    defaultRole: stored.defaultRole
-      ? withDefaultRoleDefaults(pickDefaultRoleFields(stored.defaultRole))
-      : filteredSettings.defaultRole,
+    // Stored values, not the effective ones the resolvers derive, so PUT can echo them.
+    regressionAdjustmentDays:
+      stored.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+    postStratificationEnabled:
+      stored.postStratificationEnabled ?? DEFAULT_POST_STRATIFICATION_ENABLED,
+    // The settings page stores these loosely; return them in the shape PUT accepts.
+    pValueCorrection: filteredSettings.pValueCorrection || null,
+    updateSchedule: toApiUpdateSchedule(filteredSettings.updateSchedule),
+    metricDefaults: omitBy(filteredSettings.metricDefaults, isNull),
+    defaultRole: toApiDefaultRole(org),
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
     preferredEnvironment: stored.preferredEnvironment ?? null,
   };
+}
+
+// Legacy roles lack fields PUT requires, so fill them in.
+export function toApiDefaultRole(org: OrganizationInterface) {
+  return withDefaultRoleDefaults(getDefaultRole(org));
+}
+
+// A cleared or edited hours input is stored as a string.
+function toApiUpdateSchedule(schedule: ExperimentUpdateSchedule | null) {
+  if (!schedule) return null;
+  const { hours, ...rest } = schedule;
+  const value = Number(hours);
+  return value > 0 ? { ...rest, hours: value } : rest;
 }
 
 /**

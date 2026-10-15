@@ -1,5 +1,6 @@
 import cronParser from "cron-parser";
-import { isEqual, pickBy } from "lodash";
+import { isEqual, omitBy, pick } from "lodash";
+import { getDefaultRole } from "shared/permissions";
 import {
   AGREEMENT_TYPE_AI,
   AI_AGREEMENT_VERSION,
@@ -21,14 +22,27 @@ import {
 } from "back-end/src/services/orgSettings";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { toApiSettings } from "./getSettings";
+import { toApiDefaultRole, toApiSettings } from "./getSettings";
 
 export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
   req,
 ) => {
   const { context } = req;
   const org = context.org;
-  const { acceptAiTerms, ...body } = req.body;
+  const { acceptAiTerms, ...requested } = req.body;
+  // A reset default role falls back to collaborator, so it is checked as one.
+  if (requested.defaultRole === null) {
+    requested.defaultRole = getDefaultRole({});
+  }
+
+  // Values echoed back unchanged from GET are dropped, so they skip every check.
+  const current: Record<string, unknown> = {
+    ...org.settings,
+    defaultRole: toApiDefaultRole(org),
+  };
+  const body: Partial<typeof requested> = omitBy(requested, (v, k) =>
+    isEqual(v ?? undefined, current[k] ?? undefined),
+  );
 
   // `null` resets a field, which still needs permission for that field.
   assertCanUpdateOrgSettings(context, body);
@@ -58,22 +72,22 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 
   validateOrgSettingsUpdate(context, changes);
 
-  // Echoed values skip these checks, so a stale stored reference still saves.
-  const changed: Partial<OrganizationSettings> = pickBy(
-    changes,
-    (v, k) => !isEqual(v, org.settings?.[k as keyof OrganizationSettings]),
-  );
-
-  if (changed.updateSchedule?.type === "cron") {
+  if (
+    changes.updateSchedule?.type === "cron" &&
+    !isEqual(
+      pick(changes.updateSchedule, ["type", "cron"]),
+      pick(org.settings?.updateSchedule, ["type", "cron"]),
+    )
+  ) {
     try {
-      cronParser.parseExpression(changed.updateSchedule.cron ?? "");
+      cronParser.parseExpression(changes.updateSchedule.cron ?? "");
     } catch (e) {
       throw new Error(`Invalid updateSchedule.cron: ${e.message}`);
     }
   }
 
   AI_MODEL_SETTINGS.forEach(({ key, kind }) => {
-    const model = changed[key];
+    const model = changes[key];
     if (model && !getProviderForAIModel(kind, model)) {
       throw new Error(`Unknown ${kind} model for ${key}: ${model}`);
     }
@@ -92,31 +106,31 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
   }
 
   if (
-    changed.defaultDataSource &&
-    !(await getDataSourceById(context, changed.defaultDataSource))
+    changes.defaultDataSource &&
+    !(await getDataSourceById(context, changes.defaultDataSource))
   ) {
-    throw new Error(`Unknown Data Source: ${changed.defaultDataSource}`);
+    throw new Error(`Unknown Data Source: ${changes.defaultDataSource}`);
   }
   if (
-    changed.defaultDecisionCriteriaId &&
+    changes.defaultDecisionCriteriaId &&
     !PRESET_DECISION_CRITERIAS.some(
-      (c) => c.id === changed.defaultDecisionCriteriaId,
+      (c) => c.id === changes.defaultDecisionCriteriaId,
     ) &&
     !(await context.models.decisionCriteria.getById(
-      changed.defaultDecisionCriteriaId,
+      changes.defaultDecisionCriteriaId,
     ))
   ) {
     throw new Error(
-      `Unknown decision criteria: ${changed.defaultDecisionCriteriaId}`,
+      `Unknown decision criteria: ${changes.defaultDecisionCriteriaId}`,
     );
   }
   if (
-    changed.preferredEnvironment &&
+    changes.preferredEnvironment &&
     !(settings.environments ?? []).some(
-      (e) => e.id === changed.preferredEnvironment,
+      (e) => e.id === changes.preferredEnvironment,
     )
   ) {
-    throw new Error(`Unknown environment: ${changed.preferredEnvironment}`);
+    throw new Error(`Unknown environment: ${changes.preferredEnvironment}`);
   }
 
   if (needsAiAgreement) {
