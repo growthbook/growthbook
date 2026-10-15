@@ -1,0 +1,55 @@
+Requires the GrowthBook Java SDK v0.11.1 or later.
+
+```java
+import growthbook.sdk.java.multiusermode.GrowthBookClient;
+import growthbook.sdk.java.multiusermode.configurations.Options;
+import growthbook.sdk.java.multiusermode.configurations.UserContext;
+import growthbook.sdk.java.plugin.tracking.GrowthBookTrackingPlugin;
+import growthbook.sdk.java.plugin.tracking.TrackingPluginConfig;
+import java.util.Collections;
+
+String clientKey = "YOUR_CLIENT_KEY";
+
+GrowthBookTrackingPlugin trackingPlugin = GrowthBookTrackingPlugin.of(
+    TrackingPluginConfig.builder()
+        .clientKey(clientKey)
+        .ingestorHost("https://us-east-1.gb-ingest.com")
+        .build()
+);
+
+GrowthBookClient client = new GrowthBookClient(
+    Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey(clientKey)
+        .plugins(Collections.singletonList(trackingPlugin))
+        .build()
+);
+
+if (!client.initialize()) {
+    client.shutdown();
+    throw new IllegalStateException("GrowthBook initialization failed");
+}
+
+UserContext user = UserContext.builder()
+    .attributesJson("{\"id\":\"user-123\"}")
+    .build();
+
+boolean enabled = client.isOn("my-feature", user);
+```
+
+The plugin automatically sends feature usage and experiment view events, with the user's attributes as context. The plugin doesn't inherit the client's SDK connection key, so pass it to both `TrackingPluginConfig` and `Options`.
+
+Keep one client for your application and create a separate tracking plugin for each client. At application shutdown, call `client.shutdown()` to flush pending events and release resources:
+
+```java
+client.shutdown();
+```
+
+Custom events aren't supported yet. Send them with the [Ingestion API](/app/managed-warehouse#ingestion-api).
+
+| Option         | Description                                                                        |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                                     |
+| `batchSize`    | Events to queue before sending. Default `100`.                                     |
+| `batchTimeout` | How long to wait before sending a partial batch. Default `Duration.ofSeconds(10)`. |
+| `closeTimeout` | Time budget for flushing events during shutdown. Default `Duration.ofSeconds(5)`.  |

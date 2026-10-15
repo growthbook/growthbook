@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
+import { apiEventUser } from "./event-user";
 
 // Legacy format (single range, inherits experiment's hashAttribute)
 const legacyNamespaceValue = z.object({
@@ -318,8 +319,11 @@ export const revisionScheduleResponseFields = {
     .string()
     .optional()
     .describe(
-      "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+      "User or API key the deferred publish runs as, re-checked when it fires. A key that assumed a member's role is recorded as `<keyId>:<memberId>`.",
     ),
+  autoPublishEnabledByUser: apiEventUser
+    .optional()
+    .describe("Who armed the deferred publish, with an API key's name"),
   scheduledPublishAt: z
     .string()
     .meta({ format: "date-time" })

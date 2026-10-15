@@ -3,6 +3,7 @@ import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { PermissionError } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -15,6 +16,8 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
+  assumesRequesterRole,
+  requesterHeaderPolicy,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -78,6 +81,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import { isExpired } from "shared/api-key-expiration";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
@@ -125,7 +129,13 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
-import { migrateApiKey } from "back-end/src/util/api-key.util";
+import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  decodeArmingApiKeyId,
+  isArmingApiKeyId,
+  SECRET_API_KEY_ID,
+} from "back-end/src/util/armingApiKeyId";
+import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -179,8 +189,16 @@ export async function setLicenseKey(
     );
   }
 
+  const license = await licenseInit(
+    { ...org, licenseKey },
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
+  if (license?.organizationId && license.organizationId !== org.id) {
+    throw new Error("This license key belongs to a different organization");
+  }
   org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(
@@ -1443,6 +1461,20 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
+            if (
+              ds.params &&
+              !context.permissions.canUpdateDataSourceParams(existing)
+            ) {
+              context.permissions.throwPermissionError();
+            }
+            if (!context.permissions.canUpdateDataSourceSettings(existing)) {
+              context.permissions.throwPermissionError();
+            }
+            if (ds.type && ds.type !== existing.type) {
+              throw new Error(
+                "Cannot change the type of an existing data source. Create a new one instead.",
+              );
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -1455,7 +1487,6 @@ export async function importConfig(
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               description: ds.description || existing.description,
-              type: ds.type || existing.type,
               params,
               settings: {
                 ...existing.settings,
@@ -1472,6 +1503,14 @@ export async function importConfig(
             };
             await updateDataSource(context, existing, updates);
           } else {
+            if (
+              !context.permissions.canCreateDataSource({
+                projects: [],
+                type: ds.type,
+              })
+            ) {
+              context.permissions.throwPermissionError();
+            }
             await createDataSource(
               context,
               ds.name || k,
@@ -1483,6 +1522,7 @@ export async function importConfig(
             );
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
       }),
@@ -1538,6 +1578,13 @@ export async function importConfig(
 
         try {
           const existing = await findDimensionById(k, organization.id);
+          if (
+            existing
+              ? !context.permissions.canUpdateDimension()
+              : !context.permissions.canCreateDimension()
+          ) {
+            context.permissions.throwPermissionError();
+          }
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
@@ -1554,6 +1601,7 @@ export async function importConfig(
             });
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
       }),
@@ -1894,15 +1942,20 @@ export async function getContextForAgendaJobByOrgId(
 // user and never arrive here; a scoped one runs as its user under its cap.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
-  apiKeyId: string,
+  armingId: string,
 ): Promise<ApiReqContext | null> {
-  const key =
-    apiKeyId === SECRET_API_KEY_ID
-      ? secretApiKeyDoc(org)
-      : await getContextForAgendaJobByOrgObject(
-          org,
-        ).models.apiKeys.dangerousGetById(apiKeyId);
-  if (!key || key.disabled || !key.role) return null;
+  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
+  const key = await getOrgApiKey(org, apiKeyId);
+  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+    return null;
+  }
+  // Armed while assuming a member, it replays only while the key still would.
+  if (
+    requesterId &&
+    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
+  ) {
+    return null;
+  }
   const user = key.userId ? await getUserById(key.userId) : null;
   if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
     return null;
@@ -1912,32 +1965,60 @@ export async function getContextForApiKeyIdInOrg(
   if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
     return null;
   }
+  // Like a user who armed it and left, a requester who left fires nothing.
+  const requester = requesterId ? await getUserById(requesterId) : null;
+  if (
+    requesterId &&
+    (key.userId || !requester || !org.members.some((m) => m.id === requesterId))
+  ) {
+    return null;
+  }
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
   return new ReqContextClass({
     org,
-    auditUser: user
-      ? {
-          type: "api_key",
-          apiKey: apiKeyId,
-          id: user.id,
-          name: user.name || "",
-          email: user.email,
-        }
-      : { type: "api_key", apiKey: apiKeyId, name: key.description || "" },
+    auditUser: apiKeyEventUser({
+      apiKeyId,
+      key,
+      owner: user,
+      requester: requester && {
+        id: requester.id,
+        name: requester.name || "",
+        email: requester.email,
+      },
+    }),
     user: user
       ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
       : undefined,
     role: key.role,
     apiKey: apiKeyId,
     apiKeyData: key,
-    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
-    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
-      org.id,
-    ),
+    teams,
+    restrictedProjects,
+    userPermissions: getKeyPermissionsForRequest({
+      apiKey: key,
+      requesterId,
+      org,
+      teams,
+      restrictedProjects,
+    }),
   });
 }
 
-// The self-hosted env-var key has no document; the middleware synthesizes one.
-const SECRET_API_KEY_ID = "SECRET_API_KEY";
+// An org API key by id, including the self-hosted env-var key.
+export async function getOrgApiKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiKeyInterface | null> {
+  return apiKeyId === SECRET_API_KEY_ID
+    ? secretApiKeyDoc(org)
+    : await getContextForAgendaJobByOrgObject(
+        org,
+      ).models.apiKeys.dangerousGetById(apiKeyId);
+}
+
 function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
   if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
   return migrateApiKey({
@@ -1948,11 +2029,6 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
     role: SECRET_API_KEY_ROLE,
     dateCreated: new Date(),
   });
-}
-
-// An org API key id that can be recorded as an armer and resolved later.
-export function isArmingApiKeyId(id: string | undefined): id is string {
-  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the
