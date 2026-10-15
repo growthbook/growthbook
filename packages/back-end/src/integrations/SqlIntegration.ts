@@ -166,6 +166,7 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
+import { getExperimentClusterUnitsQuery as getExperimentClusterUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-units-query";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -1087,6 +1088,16 @@ export default abstract class SqlIntegration
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
     return getExperimentAggregateUnitsQueryFromSql(
+      this.getSqlDialect(),
+      this.datasource,
+      params,
+    );
+  }
+
+  getExperimentClusterUnitsQuery(
+    params: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    return getExperimentClusterUnitsQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
       params,

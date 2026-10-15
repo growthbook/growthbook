@@ -32,7 +32,10 @@ import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
-import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import {
+  MAX_ROWS_CLUSTER_UNITS_QUERY,
+  N_STAR_VALUES,
+} from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -2395,5 +2398,62 @@ describe("cluster experiment ratio analysis - bigquery", () => {
         },
       ),
     ).toThrow("cannot share a query");
+  });
+
+  const buildClusterUnitsSql = (useUnitsTable: boolean): string =>
+    datasourceIntegration.getExperimentClusterUnitsQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable,
+      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
+    });
+
+  it("counts sub-units per cluster from the materialized units table", () => {
+    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
+
+    // One row per cluster: the cluster id, its variation, and its sub-unit count.
+    expect(normalized).toContain("region_id AS cluster_id");
+    expect(normalized).toContain("COUNT(DISTINCT user_id) AS units");
+    expect(normalized).toMatch(/GROUP BY region_id\s*,\s*variation/);
+
+    // Share of all sub-units: numerator over a window SUM of the full group-by,
+    // so the denominator is the whole-experiment total (not just returned rows).
+    expect(normalized).toMatch(
+      /SUM\(COUNT\(DISTINCT user_id\)\) OVER \(\s*\) AS pct/,
+    );
+
+    // Reads the already-built units table rather than rebuilding units inline.
+    expect(normalized).toContain("FROM proj.ds.units");
+    expect(normalized).not.toContain("__rawExperiment");
+    expect(normalized).not.toContain("__experimentUnits");
+
+    // Largest clusters first, and only the top few are returned (we never ship a
+    // row per cluster), so the biggest cluster is always the first row.
+    expect(normalized).toMatch(/ORDER BY units DESC/);
+    expect(normalized).toMatch(
+      new RegExp(`LIMIT ${MAX_ROWS_CLUSTER_UNITS_QUERY}`),
+    );
+  });
+
+  it("counts sub-units per cluster by building units inline when no units table", () => {
+    const normalized = buildClusterUnitsSql(false).replace(/\s+/g, " ").trim();
+
+    // Builds the sub-unit-grained units set inline, then rolls up to the cluster.
+    expect(normalized).toContain("__rawExperiment");
+    expect(normalized).toContain("__experimentUnits");
+    expect(normalized).toContain("FROM __experimentUnits");
+    expect(normalized).toContain("region_id AS cluster_id");
+    expect(normalized).toContain("COUNT(DISTINCT user_id) AS units");
+    expect(normalized).toMatch(
+      /SUM\(COUNT\(DISTINCT user_id\)\) OVER \(\s*\) AS pct/,
+    );
+    expect(normalized).toMatch(/GROUP BY region_id\s*,\s*variation/);
   });
 });
