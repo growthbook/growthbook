@@ -6,6 +6,10 @@ import {
   getSettingsValidator,
 } from "shared/validators";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
+import {
+  pickDefaultRoleFields,
+  withDefaultRoleDefaults,
+} from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -58,6 +62,10 @@ export function toApiSettings(org: OrganizationInterface) {
         stored.approvalFlows?.savedGroups ?? [],
       ),
     },
+    // Legacy roles lack fields PUT requires, so fill them in to round-trip.
+    defaultRole: stored.defaultRole
+      ? withDefaultRoleDefaults(pickDefaultRoleFields(stored.defaultRole))
+      : filteredSettings.defaultRole,
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     preferredEnvironment: stored.preferredEnvironment ?? null,
   };
