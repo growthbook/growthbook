@@ -128,6 +128,32 @@ describe("applyApiDataSourceSettings", () => {
         {},
       ),
     ).toThrow("pipelineSettings is missing");
+    // The GET contract always has writeDataset, even when writing is off
+    expect(() =>
+      applyApiDataSourceSettings(
+        {
+          pipelineSettings: {
+            allowWriting: false,
+            mode: "ephemeral",
+            unitsTableRetentionHours: 24,
+          },
+        },
+        {},
+      ),
+    ).toThrow("pipelineSettings is missing writeDataset");
+    expect(() =>
+      applyApiDataSourceSettings(
+        { pipelineSettings: { mode: "incremental" } },
+        {
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "ephemeral",
+            writeDataset: "",
+            unitsTableRetentionHours: 24,
+          },
+        },
+      ),
+    ).toThrow("pipelineSettings is missing writeDataset");
   });
 
   it("leaves a managed query untouched when its GET shape is posted back", () => {
