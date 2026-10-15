@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
+import { readOnlyEcho } from "./shared";
 
 const checklistTask = z
   .object({
@@ -9,9 +10,10 @@ const checklistTask = z
       .describe("`auto` items are checked off from the experiment itself"),
     url: z
       .string()
-      .regex(/^https?:\/\//i, "url must start with http:// or https://")
       .optional()
-      .describe("Optional link shown with the task"),
+      .describe(
+        "Optional link shown with the task. Saved with `https://` prepended unless it already starts with `http://` or `https://`.",
+      ),
     propertyKey: z
       .enum([
         "description",
@@ -96,6 +98,11 @@ export const putLaunchChecklistValidator = {
           }
         });
       }),
+      // The scope comes from the projectId query parameter, not the body
+      id: readOnlyEcho,
+      projectId: readOnlyEcho,
+      dateCreated: readOnlyEcho,
+      dateUpdated: readOnlyEcho,
     })
     .strict(),
   querySchema: scopeQuery,

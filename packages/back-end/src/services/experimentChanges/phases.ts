@@ -1,6 +1,11 @@
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
 import { getScopedSettings } from "shared/settings";
+import { validateCondition } from "shared/util";
+import {
+  PostExperimentPhaseBody,
+  resolveSavedGroupsInput,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -17,7 +22,9 @@ import {
   assertCanRunExperimentInAffectedEnvironments,
   assertValidExperimentPhases,
   getExperimentAttributeScopeProjects,
+  phaseWeightsFromTrafficSplit,
   resetExperimentBanditSettings,
+  toPhaseNamespaceValue,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributesScoped } from "back-end/src/services/attributes";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
@@ -158,18 +165,6 @@ export function getNewPhaseBucketing(
   }
 }
 
-export type NewPhaseTargeting = Partial<
-  Pick<
-    ExperimentPhase,
-    | "condition"
-    | "savedGroups"
-    | "prerequisites"
-    | "coverage"
-    | "namespace"
-    | "variationWeights"
-  >
->;
-
 /** Ends the running phase and starts another, carrying over any targeting not overridden. */
 export async function startNewExperimentPhase({
   context,
@@ -182,7 +177,7 @@ export async function startNewExperimentPhase({
   experimentId: string;
   releasePlan: NewPhaseReleasePlan;
   reason?: string;
-  targeting: NewPhaseTargeting;
+  targeting: Omit<PostExperimentPhaseBody, "releasePlan" | "reason">;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
     context,
@@ -196,13 +191,43 @@ export async function startNewExperimentPhase({
     );
   }
   const last = experiment.phases[experiment.phases.length - 1];
-  const next = {
-    condition: targeting.condition ?? last.condition,
-    savedGroups: targeting.savedGroups ?? last.savedGroups,
+  const condition = targeting.condition || targeting.targetingCondition;
+  for (const c of [
+    condition,
+    ...(targeting.prerequisites ?? []).map((p) => p.condition),
+  ]) {
+    if (!c) continue;
+    const res = validateCondition(c);
+    if (!res.success) {
+      throw new BadRequestError(`Invalid targeting condition: ${res.error}`);
+    }
+  }
+  const next: Pick<
+    ExperimentPhase,
+    | "condition"
+    | "savedGroups"
+    | "prerequisites"
+    | "coverage"
+    | "namespace"
+    | "variationWeights"
+  > = {
+    condition: condition || last.condition,
+    savedGroups: resolveSavedGroupsInput(targeting) ?? last.savedGroups,
     prerequisites: targeting.prerequisites ?? last.prerequisites,
     coverage: targeting.coverage ?? last.coverage,
-    namespace: targeting.namespace ?? last.namespace,
-    variationWeights: targeting.variationWeights ?? last.variationWeights,
+    namespace: targeting.namespace
+      ? toPhaseNamespaceValue(
+          targeting.namespace,
+          context.org.settings?.namespaces,
+        )
+      : last.namespace,
+    variationWeights:
+      targeting.variationWeights ??
+      phaseWeightsFromTrafficSplit(
+        targeting.trafficSplit,
+        last.variations.map((v) => v.id),
+      ) ??
+      last.variationWeights,
   };
   if (next.variationWeights.length !== last.variations.length) {
     throw new BadRequestError(

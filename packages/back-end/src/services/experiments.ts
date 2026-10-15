@@ -4618,7 +4618,7 @@ export const toNamespaceRange = (
  * org namespace is multiRange, the single range is promoted automatically. If
  * `ranges` is provided it is used as-is. Legacy namespaces always use `range`.
  */
-function toPhaseNamespaceValue(
+export function toPhaseNamespaceValue(
   apiNs:
     | {
         namespaceId: string;
@@ -4679,7 +4679,7 @@ function toPhaseNamespaceValue(
  * undefined when no trafficSplit is provided so callers can fall through to
  * their own default (e.g. an even split).
  */
-function phaseWeightsFromTrafficSplit(
+export function phaseWeightsFromTrafficSplit(
   trafficSplit: { variationId: string; weight: number }[] | undefined,
   variationIds: string[],
 ): number[] | undefined {

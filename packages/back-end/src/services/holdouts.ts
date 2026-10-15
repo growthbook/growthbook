@@ -313,7 +313,11 @@ export async function applyExperimentHoldoutChange(
       holdoutId,
       project: project ?? experiment.project,
     });
-  } else if (project !== undefined && current) {
+  } else if (
+    project !== undefined &&
+    project !== (experiment.project || "") &&
+    current
+  ) {
     await getHoldoutAvailableForProject({
       context,
       holdoutId: current,
