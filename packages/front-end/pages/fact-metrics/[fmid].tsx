@@ -279,14 +279,28 @@ export default function FactMetricPage() {
           )}
         </Flex>
         <Flex align="center" gap="2" pr="2" wrap="wrap">
-          {!isEditing && (
-            <Tooltip
-              content={REST_API_ONLY_EDIT_MESSAGE}
-              enabled={editViaApiOnly}
-            >
+          {!isEditing &&
+            (editViaApiOnly || !canEdit ? (
+              <Tooltip
+                content={
+                  editViaApiOnly
+                    ? REST_API_ONLY_EDIT_MESSAGE
+                    : "You don't have permission to edit this Fact Metric."
+                }
+              >
+                <span style={{ cursor: "not-allowed" }}>
+                  <Button
+                    variant="soft"
+                    disabled
+                    style={{ pointerEvents: "none" }}
+                  >
+                    Edit metric
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
               <Button
                 variant="soft"
-                disabled={!canEdit || editViaApiOnly}
                 onClick={() => {
                   setTab("overview");
                   setIsEditing(true);
@@ -294,8 +308,7 @@ export default function FactMetricPage() {
               >
                 Edit metric
               </Button>
-            </Tooltip>
-          )}
+            ))}
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
             disabledReason={

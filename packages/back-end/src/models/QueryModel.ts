@@ -5,6 +5,7 @@ import { QueryLanguage } from "shared/types/datasource";
 import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
+import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -49,6 +50,11 @@ const querySchema = new mongoose.Schema({
   dependencies: [String],
   runAtEnd: Boolean,
   cachedQueryUsed: String,
+  cacheKey: String,
+  resolvedWindow: {
+    startDate: Date,
+    endDate: Date,
+  },
 });
 
 querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
@@ -349,6 +355,40 @@ export async function getRecentQuery(
   return latest[0] ? toInterface(latest[0]) : null;
 }
 
+export async function getLatestQueryByCacheKey(
+  context: ReqContext,
+  datasource: string,
+  queryType: QueryType,
+  cacheKey: string,
+  cacheTTLMins?: number,
+) {
+  const ttl = cacheTTLMins ?? QUERY_CACHE_TTL_MINS;
+  const earliestDate = new Date();
+  earliestDate.setMinutes(earliestDate.getMinutes() - ttl);
+
+  const latest = await QueryModel.find({
+    organization: context.org.id,
+    datasource,
+    queryType,
+    cacheKey,
+    createdAt: {
+      $gt: earliestDate,
+    },
+    status: "succeeded",
+    // Exclude documents that were created from cache - they shouldn't reset the TTL
+    cachedQueryUsed: { $exists: false },
+  })
+    .sort({ createdAt: -1 })
+    .limit(1);
+
+  if (!latest[0]) return null;
+  const query = toInterface(latest[0]);
+  if (query.hasChunkedResults) {
+    await context.models.sqlResultChunks.addResultsToQueries([query]);
+  }
+  return query;
+}
+
 export async function getStaleQueries(): Promise<
   { id: string; organization: string }[]
 > {
@@ -463,29 +503,51 @@ export async function createNewQueryFromCached({
   return toInterface(doc);
 }
 
-export async function createCompletedQuery({
-  organization,
-  datasource,
-  language,
-  query,
-  displayTitle,
-  queryType,
-  rawResult,
-  statistics,
-}: {
-  organization: string;
-  datasource: string;
-  language: QueryLanguage;
-  query: string;
-  displayTitle?: string;
-  queryType: QueryType;
-  rawResult: Record<string, unknown>[];
-  statistics?: QueryStatistics;
-}): Promise<QueryInterface> {
+export async function createCompletedQuery(
+  context: ReqContext,
+  {
+    datasource,
+    language,
+    query,
+    displayTitle,
+    queryType,
+    rawResult,
+    statistics,
+    cacheKey,
+    resolvedWindow,
+  }: {
+    datasource: string;
+    language: QueryLanguage;
+    query: string;
+    displayTitle?: string;
+    queryType: QueryType;
+    rawResult: Record<string, unknown>[];
+    statistics?: QueryStatistics;
+    cacheKey?: string;
+    resolvedWindow?: { startDate: Date; endDate: Date };
+  },
+): Promise<QueryInterface> {
   const now = new Date();
+  const id = generateId("qry_");
+  const hasChunkedResults = rawResult.length > 0;
+  if (hasChunkedResults) {
+    try {
+      await context.models.sqlResultChunks.createFromResults(id, rawResult);
+    } catch (e) {
+      try {
+        await context.models.sqlResultChunks.deleteAllByQueryId(id);
+      } catch (cleanupError) {
+        logger.warn(
+          cleanupError,
+          "Failed to clean up incomplete SQL result chunks",
+        );
+      }
+      throw e;
+    }
+  }
   const data: QueryInterface = {
-    id: generateId("qry_"),
-    organization,
+    id,
+    organization: context.org.id,
     datasource,
     language,
     query,
@@ -496,12 +558,26 @@ export async function createCompletedQuery({
     startedAt: now,
     finishedAt: now,
     heartbeat: now,
-    rawResult,
+    rawResult: hasChunkedResults ? [] : rawResult,
+    hasChunkedResults,
     statistics,
+    cacheKey,
+    resolvedWindow,
     dependencies: [],
   };
-  const doc = await QueryModel.create(data);
-  return toInterface(doc);
+  try {
+    const doc = await QueryModel.create(data);
+    return toInterface(doc);
+  } catch (e) {
+    if (hasChunkedResults) {
+      try {
+        await context.models.sqlResultChunks.deleteAllByQueryId(id);
+      } catch (cleanupError) {
+        logger.warn(cleanupError, "Failed to clean up SQL result chunks");
+      }
+    }
+    throw e;
+  }
 }
 
 export function toQueryApiInterface(query: QueryInterface): ApiQuery {
