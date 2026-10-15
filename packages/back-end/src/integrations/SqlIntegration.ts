@@ -2926,7 +2926,11 @@ export default abstract class SqlIntegration
         .filter(
           (data) =>
             data.numeratorSourceIndex === i ||
-            (data.ratioMetric && data.denominatorSourceIndex === i) ||
+            // A cluster-ratio-conversion metric (mean/proportion/retention in a
+            // cluster experiment) has `ratioMetric === true` but no denominator
+            // cache column — its denominator is COUNT(DISTINCT sub_unit) computed
+            // in __clusterRollup.
+            (isRatioMetric(data.metric) && data.denominatorSourceIndex === i) ||
             data.funnelStepSourceIndices.includes(i),
         )
         .map((data) => {
@@ -2948,8 +2952,10 @@ export default abstract class SqlIntegration
               .join("\n");
           }
           const isNumeratorSide = data.numeratorSourceIndex === i;
+          // Only user-level (i.e., not cluster-level) ratio metrics have a materialized `_denominator_value`
+          // cache column.
           const isDenominatorSide =
-            data.ratioMetric && data.denominatorSourceIndex === i;
+            isRatioMetric(data.metric) && data.denominatorSourceIndex === i;
           const reAggFunction = data.numeratorAggFns.reAggregationFunction;
           const denomReAggFunction =
             data.denominatorAggFns.reAggregationFunction;
@@ -3132,7 +3138,7 @@ export default abstract class SqlIntegration
             .map((data) => {
               const numeratorHere = data.numeratorSourceIndex === i;
               const denominatorHere =
-                data.ratioMetric && data.denominatorSourceIndex === i;
+                isRatioMetric(data.metric) && data.denominatorSourceIndex === i;
               const funnelStepHere = data.funnelStepSourceIndices.includes(i);
               if (!numeratorHere && !denominatorHere && !funnelStepHere)
                 return "";
@@ -3352,7 +3358,7 @@ export default abstract class SqlIntegration
             metricColumnFilter: (data) => ({
               numerator: data.numeratorSourceIndex === i,
               denominator: !!(
-                data.ratioMetric && data.denominatorSourceIndex === i
+                isRatioMetric(data.metric) && data.denominatorSourceIndex === i
               ),
             }),
             covariatePairs: localCovariatePairs.map((p) => ({
