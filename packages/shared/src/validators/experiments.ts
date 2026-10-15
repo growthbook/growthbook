@@ -1389,7 +1389,7 @@ const apiVariationInput = z.object({
 export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
-const apiPhaseInput = z.object({
+export const apiPhaseInput = z.object({
   name: z.string().describe("Short phase label (e.g. `Main`)."),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),

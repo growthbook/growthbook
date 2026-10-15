@@ -1,10 +1,6 @@
 import { z } from "zod";
-import {
-  featurePrerequisite,
-  namespaceValue,
-  savedGroupTargeting,
-} from "./shared";
-import { apiExperimentWithEnhancedStatus } from "./experiments";
+import { readOnlyEcho } from "./shared";
+import { apiExperimentWithEnhancedStatus, apiPhaseInput } from "./experiments";
 
 const idParams = z
   .object({ id: z.string().describe("The experiment id") })
@@ -51,8 +47,21 @@ export const postExperimentRestartValidator = {
 };
 
 export const postExperimentPhaseValidator = {
-  bodySchema: z
-    .object({
+  // Same targeting fields and spellings as a phase on experiment update, so a
+  // phase from a GET response can be sent back with only the changes.
+  bodySchema: apiPhaseInput
+    .pick({
+      coverage: true,
+      namespace: true,
+      prerequisites: true,
+      condition: true,
+      targetingCondition: true,
+      savedGroups: true,
+      savedGroupTargeting: true,
+      variationWeights: true,
+      trafficSplit: true,
+    })
+    .extend({
       releasePlan: z
         .enum(["new-phase", "new-phase-same-seed", "new-phase-block-sticky"])
         .optional()
@@ -63,12 +72,11 @@ export const postExperimentPhaseValidator = {
         .string()
         .optional()
         .describe("Recorded on the phase being ended"),
-      condition: z.string().optional(),
-      savedGroups: z.array(savedGroupTargeting).optional(),
-      prerequisites: z.array(featurePrerequisite).optional(),
-      coverage: z.number().min(0).max(1).optional(),
-      namespace: namespaceValue.optional(),
-      variationWeights: z.array(z.number()).optional(),
+      name: readOnlyEcho,
+      dateStarted: readOnlyEcho,
+      dateEnded: readOnlyEcho,
+      reasonForStopping: readOnlyEcho,
+      seed: readOnlyEcho,
     })
     .strict()
     .describe(
@@ -90,6 +98,9 @@ export const postExperimentPhaseValidator = {
     body: { coverage: 0.5, reason: "Ramp to 50%" },
   },
 };
+export type PostExperimentPhaseBody = z.infer<
+  typeof postExperimentPhaseValidator.bodySchema
+>;
 
 export const deleteExperimentPhaseValidator = {
   bodySchema: z.never(),

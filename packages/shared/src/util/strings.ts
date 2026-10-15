@@ -14,3 +14,13 @@ export function stripLeadingUtf8ByteOrderMark(text: string): string {
     ? text.slice(UTF8_BYTE_ORDER_MARK.length)
     : text;
 }
+
+// Same as the app's checklist editor: anything without an http(s) scheme gets
+// https:// prepended, so no other scheme (e.g. javascript:) survives.
+export function normalizeChecklistTaskUrl(rawValue: string): string {
+  const match = rawValue.match(/^(https?):\/\//i);
+  if (match) {
+    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
+  }
+  return "https://" + rawValue;
+}

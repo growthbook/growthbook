@@ -18,7 +18,15 @@ function toApiLaunchChecklist(c: ExperimentLaunchChecklistInterface) {
   return {
     id: c.id,
     projectId: c.projectId,
-    tasks: c.tasks,
+    // Only the writable keys (stored tasks also carry a subdocument _id), so
+    // the response can be PUT back unchanged.
+    tasks: c.tasks.map((t) => ({
+      task: t.task,
+      completionType: t.completionType,
+      url: t.url || undefined,
+      propertyKey: t.propertyKey || undefined,
+      customFieldId: t.customFieldId || undefined,
+    })),
     dateCreated: c.dateCreated.toISOString(),
     dateUpdated: c.dateUpdated.toISOString(),
   };

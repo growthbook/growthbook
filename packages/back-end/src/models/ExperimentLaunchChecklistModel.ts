@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { normalizeChecklistTaskUrl } from "shared/util";
 import {
   ChecklistTask,
   BuiltInChecklistItemKey,
@@ -49,6 +50,13 @@ export const ExperimentLaunchChecklistModel =
     experimentLaunchChecklistSchema,
   );
 
+// Every write path (app and REST) stores task links the way the app's editor does
+function normalizeTaskUrls(tasks: ChecklistTask[]): ChecklistTask[] {
+  return tasks.map((t) =>
+    t.url ? { ...t, url: normalizeChecklistTaskUrl(t.url) } : t,
+  );
+}
+
 function toInterface(
   doc: ExperimentLaunchChecklistDocument,
 ): ExperimentLaunchChecklistInterface {
@@ -70,7 +78,7 @@ export async function createExperimentLaunchChecklist(
       dateUpdated: new Date(),
       updatedByUserId: createdByUserId,
       createdByUserId,
-      tasks,
+      tasks: normalizeTaskUrls(tasks),
       projectId,
       hiddenBuiltInItems,
     });
@@ -119,7 +127,7 @@ export async function updateExperimentLaunchChecklist(
       {
         dateUpdated: new Date(),
         updatedByUserId,
-        tasks,
+        tasks: normalizeTaskUrls(tasks),
         ...(hiddenBuiltInItems !== undefined && { hiddenBuiltInItems }),
       },
     );
