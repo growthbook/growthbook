@@ -110,11 +110,9 @@ export default function ContextualBanditLinkedChanges({
 
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="4" gap="3">
-        <Heading color="text-high" as="h4" size="sm" mb="0">
-          Linked Changes
-        </Heading>
-      </Flex>
+      <Heading color="text-high" as="h4" size="sm" mb="4">
+        Linked Changes
+      </Heading>
 
       {visualChangesets.length > 0 ? (
         <SDKCapabilityWarning

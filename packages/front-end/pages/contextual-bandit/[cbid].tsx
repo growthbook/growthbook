@@ -102,13 +102,11 @@ const ContextualBanditPage = (): ReactElement => {
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
   const canEditVariations = canEdit && cb.status !== "stopped";
-  const canAddLinkedChanges =
-    canEdit &&
-    canEditContextualBanditVisualChanges(cb) &&
-    permissionsUtil.canUpdateContextualBandit(
-      { project: cb.project },
-      { project: cb.project },
-    );
+  const canUpdate = permissionsUtil.canUpdateContextualBandit(
+    { project: cb.project },
+    { project: cb.project },
+  );
+  const canAddLinkedChanges = canEditVariations && canUpdate;
   const canAddVisualChanges =
     canAddLinkedChanges &&
     permissionsUtil.canCreateVisualChange({ project: cb.project });
@@ -119,12 +117,7 @@ const ContextualBanditPage = (): ReactElement => {
     canEditContextualBanditVisualChanges(cb) &&
     permissionsUtil.canUpdateVisualChange({ project: cb.project }) &&
     (cb.status !== "running" || canRun);
-  const canRemoveVisualChangesets =
-    canRun &&
-    permissionsUtil.canUpdateContextualBandit(
-      { project: cb.project },
-      { project: cb.project },
-    );
+  const canRemoveVisualChangesets = canRun && canUpdate;
   const mutateLinkedChanges = () => {
     mutate();
     mutateLinkedFeatures();
@@ -288,10 +281,7 @@ const ContextualBanditPage = (): ReactElement => {
               { params: { id: cb.id }, body },
             )
           }
-          mutate={() => {
-            mutate();
-            mutateVisualChangesets();
-          }}
+          mutate={mutateLinkedChanges}
           close={() => setVisualChangesetModalOpen(false)}
           source="cbid"
         />

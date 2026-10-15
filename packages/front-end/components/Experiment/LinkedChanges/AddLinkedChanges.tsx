@@ -64,7 +64,7 @@ export function linkedChangeSdkUnsupportedCopy(
 ): string {
   return (
     target.sdkUnsupportedCopy?.[type] ??
-    `The SDKs in this project don't support ${LINKED_CHANGES[type].header}. Upgrade your SDK(s) or add a supported SDK.`
+    `The SDKs in this Project don't support ${LINKED_CHANGES[type].header}. Upgrade your SDK(s) or add a supported SDK.`
   );
 }
 
@@ -77,10 +77,9 @@ export function linkedChangeSdkSupported(
   target: LinkedChangeTarget,
   connections: Partial<SDKConnectionInterface>[],
 ): boolean {
+  const base = LINKED_CHANGES[type].sdkCapabilityKey;
   const required: SDKCapability[] = [
-    ...(LINKED_CHANGES[type].sdkCapabilityKey
-      ? [LINKED_CHANGES[type].sdkCapabilityKey as SDKCapability]
-      : []),
+    ...(base ? [base] : []),
     ...(target.extraSdkCapabilities?.[type] ?? []),
   ];
   if (required.length === 0) return true;

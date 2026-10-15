@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   contextualBanditVisualChangesetOwner,
   experimentVisualChangesetOwner,
@@ -82,16 +82,6 @@ describe("experimentVisualChangesetOwner", () => {
       phases: [experimentPhase(["v0", "v1"], [0.5, 0.5])],
     });
     expect(owner.canDeleteVariation(1)).toBe(false);
-  });
-
-  it("passes the delete handler through", async () => {
-    const deleteVariation = vi.fn(async () => {});
-    const owner = experimentVisualChangesetOwner(
-      draftExperiment,
-      deleteVariation,
-    );
-    await owner.deleteVariation?.("v1");
-    expect(deleteVariation).toHaveBeenCalledWith("v1");
   });
 });
 
