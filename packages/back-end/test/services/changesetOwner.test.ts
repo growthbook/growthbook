@@ -910,6 +910,14 @@ describe("ContextualBanditChangesetOwner", () => {
     });
   });
 
+  it("skips the payload refresh when the bandit is gone", async () => {
+    const owner = makeStoredCbOwner(makeContext(), makeCb());
+    mockCbGetById.mockResolvedValue(null);
+    await expect(owner.refreshPayloads("updated")).resolves.toBe(undefined);
+    expect(mockVisualStateChanged).not.toHaveBeenCalled();
+    expect(owner.name).toBe(makeCb().name);
+  });
+
   it("renames the bandit and skips an unchanged name", async () => {
     const owner = makeStoredCbOwner(makeContext(), makeCb());
     expect(await owner.rename("CB one")).toBe("CB one");

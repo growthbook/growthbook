@@ -78542,8 +78542,6 @@ components:
           format: date-time
         hasVisualChangesets:
           type: boolean
-        hasURLRedirects:
-          type: boolean
       required:
         - id
         - dateCreated

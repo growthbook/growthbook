@@ -18,7 +18,11 @@ import {
   getLatestPhaseVariations,
   getVisibleVariations,
 } from "shared/experiments";
-import { generateVariationId, getAffectedEnvsForExperiment } from "shared/util";
+import {
+  changesetOwnerRef,
+  generateVariationId,
+  getAffectedEnvsForExperiment,
+} from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -546,12 +550,11 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 
   async refreshPayloads(event: ChangesetPayloadEvent): Promise<void> {
-    await this.reload();
-    this.cb = await onContextualBanditVisualStateChanged(
-      this.context,
-      this.cb,
-      { changesetDeleted: event === "deleted" },
-    );
+    const cb = await this.context.models.contextualBandits.getById(this.id);
+    if (!cb) return;
+    this.cb = await onContextualBanditVisualStateChanged(this.context, cb, {
+      changesetDeleted: event === "deleted",
+    });
   }
 
   async rename(name: string): Promise<string> {
@@ -681,20 +684,20 @@ export async function resolveChangesetOwner(
   context: Ctx,
   changeset: Pick<VisualChangesetInterface, "experiment" | "contextualBandit">,
 ): Promise<ChangesetOwner | null> {
-  if (changeset.contextualBandit) {
-    const cb = await context.models.contextualBandits.getById(
-      changeset.contextualBandit,
-    );
+  const ref = changesetOwnerRef(changeset);
+  if (!ref) return null;
+  if (ref.kind === "contextual-bandit") {
+    const cb = await context.models.contextualBandits.getById(ref.id);
     return cb ? new ContextualBanditChangesetOwner(context, cb) : null;
   }
-  const experiment = await getExperimentById(context, changeset.experiment);
+  const experiment = await getExperimentById(context, ref.id);
   return experiment ? new ExperimentChangesetOwner(context, experiment) : null;
 }
 
 export function ownerNotFoundMessage(
-  changeset: Pick<VisualChangesetInterface, "contextualBandit">,
+  changeset: Pick<VisualChangesetInterface, "experiment" | "contextualBandit">,
 ): string {
-  return changeset.contextualBandit
+  return changesetOwnerRef(changeset)?.kind === "contextual-bandit"
     ? "Contextual Bandit not found"
     : "Experiment not found";
 }

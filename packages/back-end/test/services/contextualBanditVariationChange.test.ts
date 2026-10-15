@@ -101,7 +101,9 @@ jest.mock("back-end/src/services/contextualBanditChanges", () => ({
   refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
 }));
 
-const findVisualChangesetsByContextualBanditMock = jest.fn();
+const findVisualChangesetsByContextualBanditMock = jest
+  .fn()
+  .mockResolvedValue([]);
 jest.mock("back-end/src/models/VisualChangesetModel", () => ({
   findVisualChangesetsByContextualBandit: (...args: unknown[]) =>
     findVisualChangesetsByContextualBanditMock(...args),
@@ -1546,6 +1548,7 @@ describe("activatePendingContextualBanditVariations with visual changesets", () 
 
   beforeEach(() => {
     findVisualChangesetsByContextualBanditMock.mockReset();
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([]);
   });
 
   it("keeps a visual-only CB's new arm pending until a changeset has content for it", async () => {
@@ -1682,7 +1685,37 @@ describe("activatePendingContextualBanditVariations with visual changesets", () 
     expect(activatedIds).toEqual(["v2"]);
   });
 
-  it("does not consult changesets for a CB without any", async () => {
+  it("checks stored changesets even when the hasVisualChangesets flag is stale", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([
+      changesetWith({ v0: "", v1: ".a{}", v2: "" }),
+    ]);
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: false,
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { activatedIds } = await activatePendingContextualBanditVariations(
+      context,
+      cb,
+      { bypassPermissionChecks: true },
+    );
+
+    expect(activatedIds).toEqual([]);
+    expect(findVisualChangesetsByContextualBanditMock).toHaveBeenCalledWith(
+      "cb_1",
+      context.org.id,
+    );
+  });
+
+  it("activates pending arms when the bandit has no changesets", async () => {
+    findVisualChangesetsByContextualBanditMock.mockResolvedValue([]);
     const cb = makeCb({
       status: "running",
       linkedFeatures: [],
@@ -1702,6 +1735,5 @@ describe("activatePendingContextualBanditVariations with visual changesets", () 
     );
 
     expect(activatedIds).toEqual(["v2"]);
-    expect(findVisualChangesetsByContextualBanditMock).not.toHaveBeenCalled();
   });
 });

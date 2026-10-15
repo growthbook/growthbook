@@ -2,7 +2,11 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  changesetOwnerRef,
+  includeExperimentInPayload,
+  hasVisualChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
@@ -2152,10 +2156,14 @@ export const getAllVisualExperiments = async (
 
   if (!visualChangesets.length) return [];
 
-  const visualChangesByExperimentId = visualChangesets.reduce<
+  const experimentOwned = visualChangesets.filter(
+    (c): c is VisualChangesetInterface & { experiment: string } =>
+      changesetOwnerRef(c)?.kind === "experiment",
+  );
+
+  const visualChangesByExperimentId = experimentOwned.reduce<
     Record<string, Array<VisualChange>>
   >((acc, c) => {
-    if (!c.experiment) return acc;
     if (!acc[c.experiment]) acc[c.experiment] = [];
     acc[c.experiment] = acc[c.experiment].concat(c.visualChanges);
     return acc;
@@ -2172,11 +2180,7 @@ export const getAllVisualExperiments = async (
     );
   };
 
-  return visualChangesets
-    .filter(
-      (c): c is VisualChangesetInterface & { experiment: string } =>
-        !!c.experiment,
-    )
+  return experimentOwned
     .map<VisualExperiment>((c) => ({
       experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
