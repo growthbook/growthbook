@@ -195,6 +195,9 @@
 // is.
 .externalIcon {
   flex-shrink: 0;
+  // 14px from the label at the least (the row's 10px gap and 4px more; set
+  // in review), so the widest, Join Slack Community, isn't crowded.
+  margin-left: 4px;
   color: var(--slate-9);
 }
 

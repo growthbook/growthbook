@@ -14,7 +14,6 @@ import clsx from "clsx";
 import { GenIcon, IconType } from "react-icons";
 import {
   PiArrowCircleUp,
-  PiCaretDownBold,
   PiCaretRightBold,
   PiChartLine,
   PiDatabase,
@@ -426,12 +425,13 @@ function ExpandedSection({
       >
         <Icon size={ICON_SIZE} className={styles.rowIcon} />
         <span className={styles.rowLabel}>{section.link.name}</span>
-        {/* 12px and bold (set in review; was 14px, regular). */}
-        {open ? (
-          <PiCaretDownBold size={12} className={styles.chevron} />
-        ) : (
-          <PiCaretRightBold size={12} className={styles.chevron} />
-        )}
+        {/* 12px and bold (set in review; was 14px, regular). One caret,
+          turning a quarter to point down as the section opens (set in
+          review; it was swapped for a down caret at once). */}
+        <PiCaretRightBold
+          size={12}
+          className={clsx(styles.chevron, open && styles.chevronOpen)}
+        />
       </button>
       <div
         id={listId}
@@ -740,6 +740,8 @@ export default function AppRail() {
           Icon={SearchIcon}
           label="Search"
           tooltip={`Search (${isMac() ? "⌘K" : "Ctrl+K"})`}
+          // After the same brief pause as the bottom items' (set in review).
+          tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
           onClick={() =>
             document.dispatchEvent(new Event("open-command-palette"))
           }
@@ -766,11 +768,16 @@ export default function AppRail() {
               section={section}
               active={activeSection === section.link.name}
               open={openSection === section.link.name}
-              onToggle={() =>
-                setOpenSection((o) =>
-                  o === section.link.name ? null : section.link.name,
-                )
-              }
+              onToggle={() => {
+                const opening = openSection !== section.link.name;
+                setOpenSection(opening ? section.link.name : null);
+                // Opening a section goes to its first page (set in review),
+                // unless the current page is already in it.
+                const first = section.pages[0];
+                if (opening && first && activeSection !== section.link.name) {
+                  void router.push(first.href);
+                }
+              }}
               route={route}
             />
           ),

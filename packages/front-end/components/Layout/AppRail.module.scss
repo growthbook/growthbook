@@ -236,6 +236,33 @@
   text-overflow: ellipsis;
 }
 
+// Hover, as the experiments list's rows (set in review; it switched at
+// once): the fill and the label and icon colours fade in over 150ms and out
+// over a slower 250ms, so moving down the rail leaves a soft trail rather
+// than a flicker. The same for the pages in an open section and in the
+// collapsed rail's menus. Instant for reduced motion.
+.iconItem,
+.row,
+.subItem,
+.popoverItem,
+.rowIcon {
+  transition:
+    background-color 250ms ease-out,
+    color 250ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.iconItem:hover,
+.row:hover,
+.row:hover .rowIcon,
+.subItem:hover,
+.popoverItem:hover {
+  transition-duration: 150ms;
+}
+
 .iconItem,
 .row {
   &:focus-visible {
@@ -278,9 +305,21 @@
   }
 }
 
+// The section's caret turns a quarter, right to down, as it opens, and back
+// as it closes, in step with its pages (set in review; it swapped at
+// once). Instant for reduced motion.
 .chevron {
   flex-shrink: 0;
   color: var(--rail-chevron);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
 }
 
 // An open section's pages: its height eases open and closed (a one-row grid
