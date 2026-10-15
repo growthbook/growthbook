@@ -189,7 +189,8 @@ export const putApprovalSettingsValidator = {
       targetingReviewMode: z.array(apiTargetingReviewRule),
     })
     .strict(),
-  summary:
+  summary: "Update approval settings",
+  description:
     "Replace the approval requirements for feature flags, configs and constants, for saved groups, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
   confirmation: ["settings.approvals"] as const,
   operationId: "putApprovalSettings",

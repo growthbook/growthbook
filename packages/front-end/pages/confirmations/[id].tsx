@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { ReactNode, useState } from "react";
+import escapeRegExp from "lodash/escapeRegExp";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiTimer } from "react-icons/pi";
 import type {
@@ -47,6 +48,19 @@ const listJoin = (items: string[]) =>
   items.length > 1
     ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`
     : items[0];
+
+// What the change acts on, named by its links, stands out in its summary.
+function withTargets(summary: string, links: ConfirmationLink[]): ReactNode {
+  const labels = [...new Set(links.map((link) => link.label))]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!labels.length) return summary;
+  return summary
+    .split(new RegExp(`(${labels.map(escapeRegExp).join("|")})`))
+    .map((part, i) =>
+      labels.includes(part) ? <strong key={i}>{part}</strong> : part,
+    );
+}
 
 function SectionHeader({ children }: { children: ReactNode }) {
   return (
@@ -304,8 +318,8 @@ export default function ConfirmationPage() {
 
       <Frame>
         <SectionHeader>The change</SectionHeader>
-        <Heading as="h2" size="md" mb="0">
-          {confirmation.summary}
+        <Heading as="h2" size="md" weight="medium" mb="0">
+          {withTargets(confirmation.summary, links)}
         </Heading>
         {environments.length ? (
           <Text as="div" color="text-mid" mt="1">

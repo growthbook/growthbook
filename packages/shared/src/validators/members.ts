@@ -153,7 +153,8 @@ export const updateMemberRoleValidator = {
       }),
     })
     .strict(),
-  summary:
+  summary: "Update a member's role",
+  description:
     "Update a member's global role (including any environment restrictions, if applicable). Can also update a member's project roles if your plan supports it.",
   confirmation: ["access.members"] as const,
   operationId: "updateMemberRole",

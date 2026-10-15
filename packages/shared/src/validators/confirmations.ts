@@ -190,7 +190,26 @@ const confirmationResponseValidator = z
 
 // A page the person can check before deciding.
 export const confirmationLinkValidator = z.strictObject({
-  type: z.enum(["feature", "experiment", "savedGroup", "constant", "config"]),
+  type: z.enum([
+    "feature",
+    "experiment",
+    "savedGroup",
+    "constant",
+    "config",
+    "environment",
+    "attribute",
+    "project",
+    "customHook",
+    "customField",
+    "team",
+    "sdkConnection",
+    "metric",
+    "factMetric",
+    "metricGroup",
+    "factTable",
+    "segment",
+    "dimension",
+  ]),
   label: z.string(),
   url: z.string(),
 });

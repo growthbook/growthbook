@@ -74,12 +74,26 @@ export const REVISION_MODEL = {
 export const rampScheduleAction = (mode: string): ConfirmAction =>
   mode === "create" ? "rampSchedule.start" : "rampSchedule.edit";
 
-const LINK_PATHS: Record<ConfirmationLink["type"], string> = {
-  feature: "features",
-  experiment: "experiment",
-  savedGroup: "saved-groups",
-  constant: "constants",
-  config: "configs",
+// Where each kind of thing lives in the app; some only have a list page.
+const LINK_PAGES: Record<ConfirmationLink["type"], (id: string) => string> = {
+  feature: (id) => `features/${id}`,
+  experiment: (id) => `experiment/${id}`,
+  savedGroup: (id) => `saved-groups/${id}`,
+  constant: (id) => `constants/${id}`,
+  config: (id) => `configs/${id}`,
+  environment: () => "environments",
+  attribute: (id) => `attributes/${id}`,
+  project: (id) => `project/${id}`,
+  customHook: () => "settings/custom-hooks",
+  customField: () => "settings/customfields",
+  team: (id) => `settings/team/${id}`,
+  sdkConnection: (id) => `sdks/${id}`,
+  metric: (id) => `metric/${id}`,
+  factMetric: (id) => `fact-metrics/${id}`,
+  metricGroup: (id) => `metric-groups/${id}`,
+  factTable: (id) => `fact-tables/${id}`,
+  segment: () => "segments",
+  dimension: () => "dimensions",
 };
 
 // Constants and configs are addressed by key, everything else by id.
@@ -88,7 +102,11 @@ export function confirmationLink(
   id: string,
   label = id,
 ): ConfirmationLink {
-  return { type, label, url: `${APP_ORIGIN}/${LINK_PATHS[type]}/${id}` };
+  return {
+    type,
+    label,
+    url: `${APP_ORIGIN}/${LINK_PAGES[type](encodeURIComponent(id))}`,
+  };
 }
 
 export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
@@ -169,6 +187,8 @@ export async function recordRefusal(
   );
 }
 
+type ConfirmationDescription = { summary: string; links: ConfirmationLink[] };
+
 // Call after a handler's checks and before its first write. Holds the request
 // (202) when a rule matches; lets a confirmed replay through unchanged.
 export async function requireConfirmation(
@@ -179,13 +199,15 @@ export async function requireConfirmation(
     environments?: string[];
     bypassing?: BypassedGate[];
     project?: string;
-    summary: string;
-    links: ConfirmationLink[];
     // Anything that must not change between hold and run, e.g. a revision's dateUpdated.
     pin: unknown;
     // What the checks this request skips said.
     notices?: ConfirmationNotice[];
-  },
+  } & (
+    | ConfirmationDescription
+    // Worked out only once something is held, when it costs a lookup.
+    | { describe: () => Promise<ConfirmationDescription> }
+  ),
 ): Promise<void> {
   const environments = opts.environments ?? [];
   const requested = [
@@ -200,7 +222,8 @@ export async function requireConfirmation(
   const held = matchConfirmRules(rulesFor(context), requested);
   if (!held.length) return;
 
-  const fingerprint = hash([held, opts.summary, opts.pin]);
+  const { summary, links } = "describe" in opts ? await opts.describe() : opts;
+  const fingerprint = hash([held, summary, opts.pin]);
   const confirmations = context.models.confirmations;
   if (context.confirmationId) {
     const id = context.confirmationId;
@@ -255,8 +278,8 @@ export async function requireConfirmation(
       requestHash,
       actions: held,
       requested,
-      summary: opts.summary,
-      links: opts.links,
+      summary,
+      links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
       lastAttemptAt: lastAttempt?.dateUpdated ?? null,
       fingerprint,
@@ -299,6 +322,136 @@ function requestedOverrides(context: ReqContext): ConfirmAction[] {
 
 // The route-level hold: the endpoint's actions, with no environments, before the
 // handler loads anything. Nothing has run, so replay is always safe.
+type Named = { name?: string } | null;
+// Routes by API tag: what they act on, its page, and how to find its name
+// from the first id in the path.
+const NAMED_ROUTES: Record<
+  string,
+  {
+    noun: string;
+    link: ConfirmationLink["type"];
+    find?: (context: ReqContext, id: string) => Promise<Named>;
+  }
+> = {
+  environments: { noun: "environment", link: "environment" },
+  attributes: { noun: "attribute", link: "attribute" },
+  projects: {
+    noun: "project",
+    link: "project",
+    find: (context, id) => context.models.projects.getById(id),
+  },
+  "custom-hooks": {
+    noun: "custom hook",
+    link: "customHook",
+    find: (context, id) => context.models.customHooks.getById(id),
+  },
+  CustomFields: {
+    noun: "custom field",
+    link: "customField",
+    find: (context, id) =>
+      context.models.customFields.getCustomFieldByFieldId(id),
+  },
+  Teams: {
+    noun: "team",
+    link: "team",
+    find: (context, id) => context.models.teams.getById(id),
+  },
+  "sdk-connections": {
+    noun: "SDK connection",
+    link: "sdkConnection",
+    find: async (context, id) =>
+      (
+        await import("back-end/src/models/SdkConnectionModel")
+      ).findSDKConnectionById(context, id),
+  },
+  metrics: {
+    noun: "metric",
+    link: "metric",
+    find: async (context, id) =>
+      (await import("back-end/src/models/MetricModel")).getMetricById(
+        context,
+        id,
+      ),
+  },
+  "fact-metrics": {
+    noun: "fact metric",
+    link: "factMetric",
+    find: (context, id) => context.models.factMetrics.getById(id),
+  },
+  MetricGroups: {
+    noun: "metric group",
+    link: "metricGroup",
+    find: (context, id) => context.models.metricGroups.getById(id),
+  },
+  "fact-tables": {
+    noun: "fact table",
+    link: "factTable",
+    find: async (context, id) =>
+      (await import("back-end/src/models/FactTableModel")).getFactTable(
+        context,
+        id,
+      ),
+  },
+  segments: {
+    noun: "segment",
+    link: "segment",
+    find: (context, id) => context.models.segments.getById(id),
+  },
+  dimensions: {
+    noun: "dimension",
+    link: "dimension",
+    find: async (context, id) =>
+      (await import("back-end/src/models/DimensionModel")).findDimensionById(
+        id,
+        context.org.id,
+      ),
+  },
+};
+
+// "Update project Checkout: name, description" for a plain route, naming the
+// top-level fields it sets; null for any other route shape.
+export function plainWriteSummary(
+  method: string,
+  path: string,
+  noun: string,
+  target: string,
+  body: Record<string, unknown>,
+): string | null {
+  if (!/^\/[^/:]+(\/:\w+)?$/.test(path)) return null;
+  const hasId = path.includes("/:");
+  if (method === "delete") return `Delete ${noun} ${target}`.trim();
+  if (!hasId) return `Create ${noun} ${target}`.trim();
+  const fields = Object.keys(body)
+    .filter((field) => !(field in CONFIRM_OVERRIDE_FLAGS))
+    .map((field) => field.replace(/([A-Z])/g, " $1").toLowerCase());
+  return `Update ${noun} ${target}${fields.length ? `: ${fields.join(", ")}` : ""}`;
+}
+
+async function describeRouteWrite(
+  context: ReqContext,
+  tags: readonly string[] | undefined,
+  method: string,
+  path: string,
+  params: Record<string, string>,
+  body: Record<string, unknown>,
+): Promise<{ summary: string | null; links: ConfirmationLink[] }> {
+  const named = tags?.map((tag) => NAMED_ROUTES[tag]).find(Boolean);
+  if (!named) return { summary: null, links: [] };
+  const id = Object.values(params)[0];
+  const found = id ? await named.find?.(context, id).catch(() => null) : null;
+  const target =
+    found?.name ||
+    id ||
+    [body.name, body.id, body.property].find(
+      (value): value is string => typeof value === "string",
+    ) ||
+    "";
+  return {
+    summary: plainWriteSummary(method, path, named.noun, target, body),
+    links: id ? [confirmationLink(named.link, id, target)] : [],
+  };
+}
+
 export async function holdAtRoute(
   context: ReqContext,
   actions: readonly ConfirmAction[],
@@ -309,15 +462,29 @@ export async function holdAtRoute(
   summary?: string,
 ): Promise<void> {
   const params = (req.params ?? {}) as Record<string, string>;
+  const body = asRecord(req.body);
   await requireConfirmation(context, {
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
-      ...armedActions(tags, asRecord(req.body)),
+      ...armedActions(tags, body),
     ],
-    summary:
-      summary ||
-      `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
-    links: [],
+    describe: async () => {
+      const route = await describeRouteWrite(
+        context,
+        tags,
+        method,
+        path,
+        params,
+        body,
+      );
+      return {
+        summary:
+          route.summary ||
+          summary ||
+          `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
+        links: route.links,
+      };
+    },
     pin: null,
   });
 }

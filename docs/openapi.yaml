@@ -36744,7 +36744,8 @@ paths:
   /v1/members/{id}/role:
     post:
       operationId: updateMemberRole
-      summary: >-
+      summary: Update a member's role
+      description: >-
         Update a member's global role (including any environment restrictions,
         if applicable). Can also update a member's project roles if your plan
         supports it.
@@ -36969,7 +36970,8 @@ paths:
   /v1/settings/approvals:
     put:
       operationId: putApprovalSettings
-      summary: >-
+      summary: Update approval settings
+      description: >-
         Replace the approval requirements for feature flags, configs and
         constants, for saved groups, and the Targeting Projects review mode.
         Each family is replaced wholesale when supplied; omit one to leave it

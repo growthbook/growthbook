@@ -655,6 +655,22 @@ describe("confirmations", () => {
       { action: "environment.edit", environments: [] },
     ]);
     const id = held.body.confirmation.id;
+    expect(held.body.confirmation.summary).toBe(
+      "Update environment production: description",
+    );
+    expect(
+      (
+        await mongoose.connection
+          .collection("confirmations")
+          .findOne({ id }, { projection: { links: 1 } })
+      )?.links,
+    ).toEqual([
+      {
+        type: "environment",
+        label: "production",
+        url: expect.stringMatching(/\/environments$/),
+      },
+    ]);
     // Allowed to manage only the dev environment.
     await expect(
       decideConfirmation(asUser("u_dev"), id, "confirm"),
