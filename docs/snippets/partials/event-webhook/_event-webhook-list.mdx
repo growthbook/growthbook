@@ -3418,6 +3418,7 @@ Triggered when an experiment is created
             autoRefresh: boolean;
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
+            holdoutId?: string | undefined;
             hashVersion: 1 | 2;
             disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
@@ -3705,6 +3706,7 @@ Triggered when an experiment is updated
             autoRefresh: boolean;
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
+            holdoutId?: string | undefined;
             hashVersion: 1 | 2;
             disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
@@ -3945,6 +3947,7 @@ Triggered when an experiment is updated
             autoRefresh?: boolean | undefined;
             hashAttribute?: string | undefined;
             fallbackAttribute?: string | undefined;
+            holdoutId?: string | undefined;
             hashVersion?: (1 | 2) | undefined;
             disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
@@ -4237,6 +4240,7 @@ Triggered when an experiment is deleted
             autoRefresh: boolean;
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
+            holdoutId?: string | undefined;
             hashVersion: 1 | 2;
             disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
