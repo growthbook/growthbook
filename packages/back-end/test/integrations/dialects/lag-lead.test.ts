@@ -33,13 +33,15 @@ describe("SqlDialect.lagLead", () => {
     ["adobe", adobeExperiencePlatformQueryServiceDialect],
   ];
 
-  it.each(standard)("%s emits standard LAG/LEAD", (_, dialect) => {
-    expect(dialect.lagLead("LAG", "step", 1, windowSpec)).toBe(
-      "LAG(step, 1) OVER (PARTITION BY u ORDER BY ts)",
-    );
-    expect(dialect.lagLead("LEAD", "step", 3, windowSpec)).toBe(
-      "LEAD(step, 3) OVER (PARTITION BY u ORDER BY ts)",
-    );
+  standard.forEach(([name, dialect]) => {
+    it(`${name} emits standard LAG/LEAD`, () => {
+      expect(dialect.lagLead("LAG", "step", 1, windowSpec)).toBe(
+        "LAG(step, 1) OVER (PARTITION BY u ORDER BY ts)",
+      );
+      expect(dialect.lagLead("LEAD", "step", 3, windowSpec)).toBe(
+        "LEAD(step, 3) OVER (PARTITION BY u ORDER BY ts)",
+      );
+    });
   });
 
   // ClickHouse resolves uppercase LAG/LEAD only from 25.10, and returns ''
