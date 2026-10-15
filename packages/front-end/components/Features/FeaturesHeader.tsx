@@ -144,6 +144,8 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
+  const holdoutsEnabled = hasCommercialFeature("holdouts");
 
   const healthHook = useFeatureHealthStates();
   const staleData = healthHook.getHealthState(feature.id);
@@ -225,18 +227,6 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
-  const holdoutsEnabled = hasCommercialFeature("holdouts");
-  // Only the menu's "Add to holdout" reads the list, so it loads once the menu
-  // opens and only when that option can show
-  const { holdouts } = useHoldouts(feature.project, false, {
-    enabled:
-      dropdownOpen &&
-      holdoutsEnabled &&
-      canEdit &&
-      canPublish &&
-      !holdout?.id &&
-      !isReadOnly,
-  });
   // Duplicating CREATES a flag, so it takes create authority — not authority over
   // the one being copied. The modal gates its own environment toggles.
   const canDuplicate = permissionsUtil.canCreateFeature(
