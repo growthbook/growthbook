@@ -695,6 +695,7 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
                   "api/experiments/operation/postExperimentStart",
@@ -706,7 +707,13 @@
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
                   "api/experiments/operation/getExperimentNames",
-                  "api/experiments/operation/postExperimentComment"
+                  "api/experiments/operation/postExperimentComment",
+                  "api/experiments/operation/postExperimentRestart",
+                  "api/experiments/operation/postExperimentPhase",
+                  "api/experiments/operation/deleteExperimentPhase",
+                  "api/experiments/operation/getLaunchChecklist",
+                  "api/experiments/operation/putLaunchChecklist",
+                  "api/experiments/operation/deleteLaunchChecklist"
                 ]
               },
               {
@@ -751,6 +758,7 @@
                   "api/reports/operation/listReports",
                   "api/reports/operation/postReport",
                   "api/reports/operation/getReport",
+                  "api/reports/operation/deleteReport",
                   "api/reports/operation/postReportRefresh",
                   "api/reports/operation/putReportMetadata",
                   "api/reports/operation/putReportSettings"
@@ -779,6 +787,7 @@
                   "api/visual-changesets/operation/postVisualChangesets",
                   "api/visual-changesets/operation/getVisualChangeset",
                   "api/visual-changesets/operation/putVisualChangeset",
+                  "api/visual-changesets/operation/deleteVisualChangeset",
                   "api/visual-changesets/operation/postVisualChange",
                   "api/visual-changesets/operation/putVisualChange"
                 ]
@@ -1193,6 +1202,7 @@
                 "pages": [
                   "api/Holdouts/operation/getHoldout",
                   "api/Holdouts/operation/updateHoldout",
+                  "api/Holdouts/operation/deleteHoldout",
                   "api/Holdouts/operation/listHoldouts",
                   "api/Holdouts/operation/createHoldout",
                   "api/Holdouts/operation/startHoldout",
@@ -1229,6 +1239,16 @@
                   "api/WebhookSecrets/operation/deleteWebhookSecret",
                   "api/WebhookSecrets/operation/listWebhookSecrets",
                   "api/WebhookSecrets/operation/createWebhookSecret"
+                ]
+              },
+              {
+                "group": "URL Redirects",
+                "pages": [
+                  "api/UrlRedirects/operation/getUrlRedirect",
+                  "api/UrlRedirects/operation/updateUrlRedirect",
+                  "api/UrlRedirects/operation/deleteUrlRedirect",
+                  "api/UrlRedirects/operation/listUrlRedirects",
+                  "api/UrlRedirects/operation/createUrlRedirect"
                 ]
               }
             ]
@@ -1314,6 +1334,7 @@
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Invite_model",
+              "api/LaunchChecklist_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1354,6 +1375,7 @@
               "api/Targeting Rule_model",
               "api/TargetingReviewRule_model",
               "api/Team_model",
+              "api/UrlRedirect_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model",
               "api/WebhookSecret_model"

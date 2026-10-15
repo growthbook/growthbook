@@ -14,3 +14,12 @@ export function stripLeadingUtf8ByteOrderMark(text: string): string {
     ? text.slice(UTF8_BYTE_ORDER_MARK.length)
     : text;
 }
+
+// Prefix https:// when no scheme is present; only the scheme is lower-cased since paths are case-sensitive (#6237).
+export function normalizeChecklistTaskUrl(rawValue: string): string {
+  const match = rawValue.match(/^(https?):\/\//i);
+  if (match) {
+    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
+  }
+  return "https://" + rawValue;
+}

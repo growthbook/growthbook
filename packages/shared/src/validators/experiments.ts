@@ -974,6 +974,10 @@ const apiExperimentShape = z.object({
   autoRefresh: z.boolean(),
   hashAttribute: z.string(),
   fallbackAttribute: z.string().optional(),
+  holdoutId: z
+    .string()
+    .optional()
+    .describe("The holdout this experiment runs inside, if any"),
   hashVersion: z.union([z.literal(1), z.literal(2)]),
   disableStickyBucketing: z.boolean().optional(),
   bucketVersion: z.coerce.number().optional(),
@@ -1369,7 +1373,7 @@ const apiVariationInput = z.object({
 export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
-const apiPhaseInput = z.object({
+export const apiPhaseInput = z.object({
   name: z.string(),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
@@ -1481,6 +1485,7 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z.string().optional().describe("Run inside this holdout"),
     attributeScopeAllProjects: z
       .boolean()
       .describe(
@@ -1610,6 +1615,12 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z
+      .string()
+      .optional()
+      .describe(
+        'Run inside this holdout. Only a draft can join one, and only a draft without linked changes can change or leave it; "" leaves.',
+      ),
     attributeScopeAllProjects: z
       .boolean()
       .describe(

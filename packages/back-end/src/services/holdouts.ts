@@ -51,7 +51,10 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import {
+  getHoldoutAvailableForProject,
+  isHoldoutAvailableForProject,
+} from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -270,6 +273,141 @@ export async function canLinkExperimentToHoldoutFromFeatures(
           Array.from(getEnabledEnvironments(feature, orgEnvs)),
         )),
   );
+}
+
+// Adds a just-created experiment to the holdout it was created in.
+export async function addNewExperimentToHoldout(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "project">,
+  holdoutId: string,
+  linkedFeatureIds: string[],
+) {
+  const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
+    context,
+    holdoutId,
+    linkedFeatureIds,
+  );
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId,
+    project: experiment.project,
+    bypassReadPermissionChecks: canLinkFromFeature,
+  });
+  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
+}
+
+/**
+ * Checks a move into, between or out of holdouts ("" leaves). Only a draft may
+ * join, and only one with no linked changes may leave or switch. Call before
+ * saving the experiment, then applyExperimentHoldoutChange after.
+ */
+export async function assertExperimentHoldoutChange(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  { holdoutId, project }: { holdoutId?: string; project?: string },
+) {
+  const current = experiment.holdoutId;
+  if (holdoutId && holdoutId !== current) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId,
+      project: project ?? experiment.project,
+    });
+  } else if (
+    project !== undefined &&
+    project !== (experiment.project || "") &&
+    current
+  ) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId: current,
+      project,
+    });
+  }
+
+  if (holdoutId === undefined || holdoutId === (current || "")) return;
+
+  if (!current && experiment.status !== "draft") {
+    throw new Error("Only a draft experiment can be added to a holdout");
+  }
+  if (current) {
+    const hasLinkedChanges =
+      experiment.hasURLRedirects ||
+      experiment.hasVisualChangesets ||
+      !!experiment.linkedFeatures?.length;
+    if (experiment.status !== "draft" || hasLinkedChanges) {
+      throw new Error(
+        holdoutId
+          ? "Cannot change holdout after experiment has been run or linked changes have been added"
+          : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
+      );
+    }
+  }
+}
+
+/**
+ * Updates holdout membership to match a holdoutId change checked by
+ * assertExperimentHoldoutChange. `experiment` is the pre-update experiment.
+ */
+export async function applyExperimentHoldoutChange(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  holdoutId: string | undefined,
+) {
+  const current = experiment.holdoutId;
+  if (holdoutId === undefined || holdoutId === (current || "")) return;
+  // The experiment is already saved, so anything that throws below is rewound
+  let previous: { id: string; dateAdded: Date } | undefined;
+  // Chosen up front so the rewind can tell this switch's entry from a concurrent writer's
+  const added = { id: experiment.id, dateAdded: new Date() };
+  try {
+    if (current) {
+      // Captured before any write, since a removal can land and still throw afterwards
+      previous = (await context.models.holdout.getByIdForLinkage(current))
+        ?.linkedExperiments[experiment.id];
+      await context.models.holdout.removeExperimentFromHoldout(
+        current,
+        experiment.id,
+      );
+    }
+    // Last, since only the add emits a linkage event
+    if (holdoutId) {
+      await context.models.holdout.addExperimentToHoldout(
+        holdoutId,
+        experiment.id,
+        added.dateAdded,
+      );
+    }
+  } catch (e) {
+    // No transactions: each step declines when the live row isn't this switch's work, so it holds whichever write failed or landed
+    try {
+      if (holdoutId) {
+        await context.models.holdout.removeExperimentFromHoldout(
+          holdoutId,
+          experiment.id,
+          added,
+        );
+      }
+      if (previous && current) {
+        await context.models.holdout.restoreExperimentLinkage(
+          current,
+          previous,
+        );
+      }
+      await updateExperiment({
+        context,
+        experiment,
+        changes: { holdoutId: current || "" },
+        bypassWebhooks: true,
+      });
+    } catch (rewindError) {
+      logger.error(
+        rewindError,
+        `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
+      );
+    }
+    throw e;
+  }
 }
 
 // Holdout-compatibility gate for adding an experiment-ref rule to a feature.

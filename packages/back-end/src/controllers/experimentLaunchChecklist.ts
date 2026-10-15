@@ -163,8 +163,16 @@ export async function getExperimentCheckList(
   req: AuthRequest<null, null, { projectId: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { projectId } = req.query;
+
+  if (
+    projectId &&
+    !context.permissions.canReadSingleProjectResource(projectId)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     return res.status(200).json({

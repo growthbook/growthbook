@@ -60,6 +60,7 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutSchedule,
   createHoldoutWithExperiment,
+  deleteHoldoutAndExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
   updateHoldoutWithExperiment,
@@ -532,6 +533,24 @@ export class HoldoutModel extends BaseClass {
     );
   }
 
+  // Also removes the holdout's experiment and unlinks its features and
+  // experiments. No plan gate, so a lapsed org can still clean up.
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ): Promise<string> {
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    if (!this.context.permissions.canDeleteHoldout(holdout)) {
+      this.context.permissions.throwPermissionError();
+    }
+    const experiment = await getExperimentById(
+      this.context,
+      holdout.experimentId,
+    );
+    await deleteHoldoutAndExperiment(this.context, holdout, experiment);
+    return holdout.id;
+  }
+
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ): Promise<ApiHoldoutInterface> {
@@ -683,14 +702,26 @@ export class HoldoutModel extends BaseClass {
     return new Map(filteredHoldouts.map((h) => [h.holdout.id, h]));
   }
 
+  // With `expectEntry`, removes only the entry a caller wrote (matched on
+  // `dateAdded`, decided against the row being written as in
+  // removeLinkageFromHoldout), so a rewind never drops a concurrent writer's link.
   public async removeExperimentFromHoldout(
     holdoutId: string,
     experimentId: string,
+    expectEntry?: { dateAdded: Date },
   ) {
     await this.mutateLinkage(
       holdoutId,
       ({ linkedExperiments }) => {
-        const { [experimentId]: _, ...rest } = linkedExperiments;
+        const { [experimentId]: live, ...rest } = linkedExperiments;
+        if (
+          expectEntry &&
+          (!live ||
+            new Date(live.dateAdded).getTime() !==
+              expectEntry.dateAdded.getTime())
+        ) {
+          return null;
+        }
         return { linkedExperiments: rest };
       },
       NO_NEW_LINKAGE,
@@ -743,8 +774,16 @@ export class HoldoutModel extends BaseClass {
     return added;
   }
 
-  public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
-    await this.addExperimentsToHoldout(holdoutId, [experimentId]);
+  // A caller that may need to rewind chooses `dateAdded` up front, so it can
+  // prove ownership of the entry even if this call throws after writing it.
+  public async addExperimentToHoldout(
+    holdoutId: string,
+    experimentId: string,
+    dateAdded?: Date,
+  ) {
+    await this.addExperimentsToHoldout(holdoutId, [experimentId], {
+      dateAdded,
+    });
   }
 
   public async addExperimentsToHoldout(
@@ -755,11 +794,16 @@ export class HoldoutModel extends BaseClass {
       notifyNewLinkage = true,
       // Publish paths pass the owning item's key; see holdoutLinkageOwner.
       eventOwner,
-    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
+      dateAdded = new Date(),
+    }: {
+      notifyNewLinkage?: boolean;
+      eventOwner?: string;
+      dateAdded?: Date;
+    } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
-      experimentIds.map((id) => [id, { id, dateAdded: new Date() }]),
+      experimentIds.map((id) => [id, { id, dateAdded }]),
     );
     await this.mutateLinkage(
       holdoutId,
@@ -864,6 +908,26 @@ export class HoldoutModel extends BaseClass {
         linkedFeatures[feature.id]
           ? null
           : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+      NO_NEW_LINKAGE,
+    );
+  }
+
+  // Experiment counterpart of restoreFeatureLinkage.
+  public async restoreExperimentLinkage(
+    holdoutId: string,
+    experiment: { id: string; dateAdded: Date },
+  ) {
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) =>
+        linkedExperiments[experiment.id]
+          ? null
+          : {
+              linkedExperiments: {
+                ...linkedExperiments,
+                [experiment.id]: experiment,
+              },
+            },
       NO_NEW_LINKAGE,
     );
   }

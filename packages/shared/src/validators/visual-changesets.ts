@@ -143,6 +143,18 @@ export const postVisualChangesetsValidator = {
   },
 };
 
+export const deleteVisualChangesetValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
+  summary: "Delete a visual changeset",
+  operationId: "deleteVisualChangeset",
+  tags: ["visual-changesets"],
+  method: "delete" as const,
+  path: "/visual-changesets/:id",
+};
+
 export const getVisualChangesetValidator = {
   bodySchema: z.never(),
   querySchema: z
