@@ -1090,7 +1090,17 @@ export const apiExperimentResultsValidator = namedSchema(
           .array(z.object({ type: z.string(), id: z.string().optional() }))
           .optional(),
       }),
-      settings: apiExperimentAnalysisSettingsValidator,
+      settings: componentSchema(
+        "ExperimentResultsSettings",
+        apiExperimentAnalysisSettingsValidator.extend({
+          differenceType: z.enum(["relative", "absolute", "scaled"]).optional(),
+          baselineVariationIndex: z
+            .number()
+            .optional()
+            .describe("Index of the variation the others are compared to"),
+          baselineVariationId: z.string().optional(),
+        }),
+      ),
       queryIds: z.array(z.string()),
       results: z.array(
         z.object({

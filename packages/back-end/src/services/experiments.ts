@@ -3687,6 +3687,7 @@ export function toSnapshotApiInterface(
 
   // The default analysis unless other settings were asked for
   const analysis = getSnapshotAnalysis(snapshot, analysisSettings);
+  const baselineIndex = analysis?.settings.baselineVariationIndex ?? 0;
 
   // Get all metric IDs from the snapshot results
   const metricIds = new Set<string>();
@@ -3755,6 +3756,13 @@ export function toSnapshotApiInterface(
         : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      ...(analysis
+        ? {
+            differenceType: analysis.settings.differenceType,
+            baselineVariationIndex: baselineIndex,
+            baselineVariationId: variationIds[baselineIndex],
+          }
+        : null),
       goals: experiment.goalMetrics.map((m) =>
         getExperimentMetric(experiment, m),
       ),
