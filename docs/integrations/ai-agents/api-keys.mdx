@@ -1,14 +1,15 @@
 ---
 title: "API Keys for Agents"
-description: "Name the member an agent works for with X-GrowthBook-Requested-By, and require a person to confirm risky changes before they run."
-keywords: [AI, agents, API keys, human-in-the-loop, confirmation, Requested-By]
+description: "Name the member an agent works for with X-GrowthBook-Requested-By, require a person to confirm risky changes before they run, and set when keys expire."
+keywords: [AI, agents, API keys, human-in-the-loop, confirmation, Requested-By, expiration]
 sidebarTitle: API Keys for Agents
 ---
 
-Agents reach GrowthBook through the [REST API](/app/api), with a Personal Access Token or a Secret Key (the [MCP server](/integrations/mcp) and the [Agent Skills plugin](/integrations/ai-agents/agent-skills) both work this way). Two key settings help keep that work accountable:
+Agents reach GrowthBook through the [REST API](/app/api), with a Personal Access Token or a Secret Key (the [MCP server](/integrations/mcp) and the [Agent Skills plugin](/integrations/ai-agents/agent-skills) both work this way). Three key settings help keep that work accountable:
 
 - **X-GrowthBook-Requested-By** names the member who asked for each change, so history shows who it was for.
 - **Human-in-the-Loop** holds risky changes until a person confirms them in GrowthBook.
+- **Expiration** retires a key on a date, so access an agent no longer needs doesn't linger.
 
 Edit a Secret Key under **Settings → API Keys**, or your own token under **Personal Access Tokens** in your user menu. Requested-By applies to Secret Keys only, since a Personal Access Token already acts as its owner. Confirmation applies to both.
 
@@ -64,3 +65,23 @@ Confirming isn't a review approval. A change that needs approval still needs it.
 - Confirmation rules apply to Secret Keys and Personal Access Tokens. The hosted MCP endpoint's sign-in doesn't use them.
 
 To build an agent that handles held requests, see [Waiting for confirmation](/api/introduction#waiting-for-confirmation) in the API docs.
+
+## Expiration
+
+When you create a key, choose when it expires: after 1, 7, 30, 60, 90, 180 or 365 days, on a date you pick, or never. You can change it later by editing the key. To replace a key, choose **Copy settings to new key** from its menu: the new key gets its own value and expiration, and you can delete the old one once the new one exists.
+
+Before a key stops working:
+
+- Every API response carries its expiration in the `X-GrowthBook-Key-Expires-At` header.
+- GrowthBook shows a notice when a key expires within 7 days, or has expired while something still uses it. You see your own Personal Access Tokens, and members who can manage API keys see the organization's Secret Keys.
+- Secret Keys trigger the `apiKey.expiring` [webhook event](/app/webhooks/event-webhooks/events) a week before they expire, and `apiKey.expired` when they do.
+
+A request made with an expired key fails with a `401` that says where to create a replacement.
+
+### Organization policies
+
+Admins can require keys to expire within a maximum lifetime: under **Settings → API Keys** for Secret Keys, and under **Settings → Manage PATs** for Personal Access Tokens. Turn on **Require secret API keys to expire** (or **Require personal access tokens to expire**) and set the **Maximum lifetime (days)**.
+
+- New keys must expire within the maximum, and **No expiration** is no longer offered.
+- The maximum counts from when a key was created, so editing a key can't push it past the limit. Shortening is always allowed.
+- Existing keys aren't changed. Ones with no expiration, or a later one, are counted as non-compliant on the policy and marked in the **Expires** column. Click the count to have them expire the maximum lifetime from today.

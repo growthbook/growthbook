@@ -86,7 +86,10 @@ info:
     If a key has an expiration date, every response includes it in the
     `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before
     the key stops working. Requests made with an expired key fail with a `401`
-    that says where to create a replacement.
+    that says where to create a replacement. See
+    [Expiration](/integrations/ai-agents/api-keys#expiration) for choosing a
+    key's expiration, the warnings before it lapses, and the organization
+    policies.
 
 
     ## Naming who asked
