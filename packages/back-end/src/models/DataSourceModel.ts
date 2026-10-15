@@ -11,6 +11,7 @@ import {
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -837,6 +838,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -868,6 +872,15 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    ...(settings?.pipelineSettings
+      ? { pipelineSettings: settings.pipelineSettings }
+      : {}),
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
+      : {}),
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {

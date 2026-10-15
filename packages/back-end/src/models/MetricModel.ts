@@ -452,6 +452,23 @@ export async function getMetricsByDatasource(
   return findMetrics(context, { datasource });
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden metric
+export async function datasourceHasMetrics(
+  context: ReqContext | ApiReqContext,
+  datasource: string,
+): Promise<boolean> {
+  if (
+    usingFileConfig() &&
+    getConfigMetrics(context).some((m) => m.datasource === datasource)
+  ) {
+    return true;
+  }
+  return !!(await getCollection(COLLECTION).findOne(
+    { organization: context.org.id, datasource },
+    { projection: { id: 1 } },
+  ));
+}
+
 export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
   const docs = await getCollection(COLLECTION)
     .find({

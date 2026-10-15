@@ -121,6 +121,21 @@ export async function getQueryById(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50,
+) {
+  // Results aren't returned and can be large
+  const docs = await QueryModel.find(
+    { organization, datasource },
+    { result: 0, rawResult: 0 },
+  )
+    .limit(limit)
+    .sort({ createdAt: -1 });
+  return docs.map((doc) => toInterface(doc));
+}
+
 // Queries still in flight; querylogs only gets a row once a query finishes
 export async function getRunningQueriesByDatasource(
   organization: string,
@@ -590,7 +605,9 @@ export function toQueryApiInterface(query: QueryInterface): ApiQuery {
     queryType: query.queryType || "",
     createdAt: query.createdAt?.toISOString() || "",
     startedAt: query.startedAt?.toISOString() || "",
+    finishedAt: query.finishedAt?.toISOString() ?? null,
     status: query.status,
+    error: query.error || null,
     externalId: query.externalId ? query.externalId : "",
     dependencies: query.dependencies ? query.dependencies : [],
     runAtEnd: query.runAtEnd ? query.runAtEnd : false,
