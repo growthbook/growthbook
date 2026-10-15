@@ -127,7 +127,7 @@ describe("applyApiDataSourceSettings", () => {
         { pipelineSettings: { unitsTableRetentionHours: 48 } },
         {},
       ),
-    ).toThrow("pipelineSettings needs");
+    ).toThrow("pipelineSettings is missing");
   });
 
   it("leaves a managed query untouched when its GET shape is posted back", () => {

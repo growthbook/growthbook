@@ -150,22 +150,25 @@ export function applyApiDataSourceSettings(
   if (input.pipelineSettings) {
     const { includedExperimentIds, ...pipelineSettings } =
       input.pipelineSettings;
-    // Stored settings missing a field still round-trip; only new ones must be whole
-    if (
-      !existing.pipelineSettings &&
-      (pipelineSettings.allowWriting === undefined ||
-        pipelineSettings.mode === undefined ||
-        pipelineSettings.writeDataset === undefined ||
-        pipelineSettings.unitsTableRetentionHours === undefined)
-    ) {
-      throw new BadRequestError(
-        "pipelineSettings needs allowWriting, mode, writeDataset and unitsTableRetentionHours when the data source has none yet.",
-      );
-    }
-    settings.pipelineSettings = {
+    const merged = {
       ...existing.pipelineSettings,
       ...pipelineSettings,
     } as DataSourcePipelineSettings;
+    // A change must leave usable settings; an unchanged legacy echo passes
+    if (!isEqual(merged, existing.pipelineSettings)) {
+      const missing: string[] = (
+        ["allowWriting", "mode", "unitsTableRetentionHours"] as const
+      ).filter((f) => merged[f] === undefined);
+      if (merged.allowWriting && !merged.writeDataset) {
+        missing.push("writeDataset");
+      }
+      if (missing.length) {
+        throw new BadRequestError(
+          `pipelineSettings is missing ${missing.join(", ")}.`,
+        );
+      }
+    }
+    settings.pipelineSettings = merged;
     // Every experiment is stored as no list; an empty list means none
     if (includedExperimentIds === null) {
       delete settings.pipelineSettings.includedExperimentIds;
