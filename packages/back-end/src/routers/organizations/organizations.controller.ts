@@ -916,6 +916,11 @@ export async function getOrganization(
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
   const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
+  // Keeps the "license" prefix the UI branches on without exposing the key.
+  const canSeeLicenseKey = context.permissions.canManageBilling();
+  const maskKey = (key?: string) =>
+    key && !canSeeLicenseKey ? `${key.slice(0, 8)}…` : key;
+
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
@@ -928,7 +933,7 @@ export async function getOrganization(
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
-    license,
+    license: license && { ...license, id: maskKey(license.id) },
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
@@ -946,7 +951,7 @@ export async function getOrganization(
       name,
       id,
       url,
-      licenseKey,
+      licenseKey: maskKey(licenseKey),
       freeSeats,
       enterprise: org.enterprise,
       disableSelfServeBilling,
@@ -1590,6 +1595,9 @@ export async function putOrganization(
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
+  }
+  if (licenseKey && !context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
   }
   if (settings) {
     (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {

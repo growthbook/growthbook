@@ -272,6 +272,37 @@ export const rowFilterOperators = [
 ] as const;
 
 /**
+ * The operators that compare a column against plain string values. Every one is
+ * safe to accept from an untrusted caller: the column is an identifier the
+ * caller must still allowlist, and the values are escaped as string literals.
+ *
+ * The set deliberately excludes `sql_expr` and `saved_filter`, whose values
+ * `getRowFilterSQL` interpolates into the WHERE clause verbatim — an endpoint
+ * that accepts row filters over the wire must not accept those.
+ */
+export const stringRowFilterOperators = [
+  "=",
+  "!=",
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
+  "starts_with",
+  "ends_with",
+  "is_null",
+  "not_null",
+] as const;
+
+/** A row filter restricted to {@link stringRowFilterOperators}, with a column. */
+export const stringRowFilterValidator = z.object({
+  operator: z.enum(stringRowFilterOperators),
+  column: z.string().min(1),
+  values: z.array(z.string()).optional(),
+});
+
+/**
  * `between` / `not_between` describe a lower and an upper bound, so a third
  * value has no meaning — reject it rather than silently ignoring it. Either
  * bound may be blank, which the query builder reads as an open-ended range
