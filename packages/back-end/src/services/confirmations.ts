@@ -109,17 +109,34 @@ export function confirmationLink(
   };
 }
 
+// A confirmed run still going after this long was cut off, e.g. by a restart.
+const RUN_CUT_OFF_MS = 5 * 60 * 1000;
+
 export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
+  const cutOff =
+    c.status === "running" &&
+    (c.decidedAt?.getTime() ?? 0) < Date.now() - RUN_CUT_OFF_MS;
   return {
     id: c.id,
-    status:
-      c.status === "pending" && c.expiresAt < new Date() ? "expired" : c.status,
+    status: cutOff
+      ? "completed"
+      : c.status === "pending" && c.expiresAt < new Date()
+        ? "expired"
+        : c.status,
     actions: c.actions,
     summary: c.summary,
     // With several orgs, the link opens in the one the request was made in.
     url: `${APP_ORIGIN}/confirmations/${c.id}${IS_MULTI_ORG ? `?org=${c.organization}` : ""}`,
     expiresAt: c.expiresAt.toISOString(),
-    response: c.response,
+    response: cutOff
+      ? {
+          status: 500,
+          body: {
+            message:
+              "This request was cut off before it finished. Check whether it took effect, then send it again.",
+          },
+        }
+      : c.response,
     note: c.note,
   };
 }
@@ -187,8 +204,6 @@ export async function recordRefusal(
   );
 }
 
-type ConfirmationDescription = { summary: string; links: ConfirmationLink[] };
-
 // Call after a handler's checks and before its first write. Holds the request
 // (202) when a rule matches; lets a confirmed replay through unchanged.
 export async function requireConfirmation(
@@ -199,15 +214,13 @@ export async function requireConfirmation(
     environments?: string[];
     bypassing?: BypassedGate[];
     project?: string;
+    summary: string;
+    links: ConfirmationLink[];
     // Anything that must not change between hold and run, e.g. a revision's dateUpdated.
     pin: unknown;
     // What the checks this request skips said.
     notices?: ConfirmationNotice[];
-  } & (
-    | ConfirmationDescription
-    // Worked out only once something is held, when it costs a lookup.
-    | { describe: () => Promise<ConfirmationDescription> }
-  ),
+  },
 ): Promise<void> {
   const environments = opts.environments ?? [];
   const requested = [
@@ -222,8 +235,7 @@ export async function requireConfirmation(
   const held = matchConfirmRules(rulesFor(context), requested);
   if (!held.length) return;
 
-  const { summary, links } = "describe" in opts ? await opts.describe() : opts;
-  const fingerprint = hash([held, summary, opts.pin]);
+  const fingerprint = hash([held, opts.summary, opts.pin]);
   const confirmations = context.models.confirmations;
   if (context.confirmationId) {
     const id = context.confirmationId;
@@ -279,8 +291,8 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
-      summary,
-      links,
+      summary: opts.summary,
+      links: opts.links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
       lastAttemptAt: lastAttempt?.dateUpdated ?? null,
       fingerprint,
@@ -532,12 +544,7 @@ async function armedRevisionActions(
   params: Record<string, string>,
 ): Promise<ConfirmAction[]> {
   const draft = tags?.map((tag) => DRAFT_REVISIONS[tag]).find(Boolean);
-  if (
-    !draft ||
-    !params.version ||
-    !actions.includes(`${draft.model}.draft`) ||
-    !rulesFor(context).length
-  ) {
+  if (!draft || !params.version || !actions.includes(`${draft.model}.draft`)) {
     return [];
   }
   const revision = await draft.load(context, params).catch(() => null);
@@ -557,31 +564,29 @@ export async function holdAtRoute(
   req: { params?: unknown; body?: unknown; query?: unknown },
   summary?: string,
 ): Promise<void> {
+  // Nothing below can hold without rules, and it costs lookups.
+  if (!rulesFor(context).length) return;
   const params = (req.params ?? {}) as Record<string, string>;
   const body = asRecord(req.body);
+  const route = await describeRouteWrite(
+    context,
+    tags,
+    method,
+    path,
+    params,
+    body,
+  );
   await requireConfirmation(context, {
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
       ...armedActions(tags, body),
       ...(await armedRevisionActions(context, tags, actions, params)),
     ],
-    describe: async () => {
-      const route = await describeRouteWrite(
-        context,
-        tags,
-        method,
-        path,
-        params,
-        body,
-      );
-      return {
-        summary:
-          route.summary ||
-          summary ||
-          `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
-        links: route.links,
-      };
-    },
+    summary:
+      route.summary ||
+      summary ||
+      `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
+    links: route.links,
     pin: null,
   });
 }

@@ -34,73 +34,6 @@ const failure = (e: unknown) => ({
   body: { message: e instanceof Error ? e.message : String(e) },
 });
 
-export const STUCK_AFTER_MS = 5 * 60 * 1000;
-
-async function auditDecision(
-  context: ReqContext,
-  c: ConfirmationInterface,
-  event: "apiKey.confirm" | "apiKey.reject" | "apiKey.confirmFailure",
-) {
-  const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
-  await context.auditLog({
-    event,
-    entity: { object: "apiKey", id: c.apiKeyId, name: key?.description },
-    details: auditDetailsCreate({
-      confirmation: c.id,
-      summary: c.summary,
-      actions: c.actions,
-      note: c.note,
-    }),
-  });
-}
-
-// Runs a claimed confirmation's request as its key and records the result.
-// Once claimed it always finishes, so the agent polling it sees why.
-async function runConfirmed(context: ReqContext, c: ConfirmationInterface) {
-  const confirmations = context.models.confirmations;
-  let response: { status: number; body: unknown };
-  try {
-    const requester = await getContextForApiKeyIdInOrg(
-      context.org,
-      encodeArmingApiKeyId(
-        c.apiKeyId,
-        c.assumedRole ? c.requestedBy?.id : undefined,
-      ),
-    );
-    if (!requester) {
-      await confirmations.updateWithCas(c.id, ["status"], () => ({
-        status: "expired",
-      }));
-      throw new BadRequestError(
-        "The key that made this request is gone, disabled or expired.",
-      );
-    }
-    requester.confirmationId = c.id;
-    requester.dispatchedRequest = { body: c.body, query: c.query };
-    response = await dispatchInternal(
-      requester,
-      {
-        method: c.method as HttpMethod,
-        path: c.path,
-        query: c.query,
-        body: c.body,
-      },
-      { includeDeprecated: true },
-    ).catch(failure);
-  } catch (e) {
-    await confirmations.updateWithCas(c.id, ["status"], (doc) =>
-      doc.status === "running"
-        ? { status: "completed", response: failure(e) }
-        : null,
-    );
-    throw e;
-  }
-  const done = await confirmations.updateWithCas(c.id, ["status"], (doc) =>
-    doc.status === "running" ? { status: "completed", response } : null,
-  );
-  return done ?? (await getConfirmationForDecider(context, c.id));
-}
-
 // The first decision wins. Confirm replays the held request as its original
 // credential; the hold inside it sees `confirmationId` and lets the write through.
 export async function decideConfirmation(
@@ -130,46 +63,62 @@ export async function decideConfirmation(
       "This request was already decided or has expired.",
     );
   }
+  // Once claimed it always finishes, so the agent polling it sees why.
+  let response: { status: number; body: unknown };
   try {
-    await auditDecision(
-      context,
-      claimed,
-      decision === "confirm" ? "apiKey.confirm" : "apiKey.reject",
+    const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
+    await context.auditLog({
+      event: decision === "confirm" ? "apiKey.confirm" : "apiKey.reject",
+      entity: { object: "apiKey", id: c.apiKeyId, name: key?.description },
+      details: auditDetailsCreate({
+        confirmation: c.id,
+        summary: c.summary,
+        actions: c.actions,
+        note: claimed.note,
+      }),
+    });
+    if (decision === "reject") return toApiConfirmation(claimed);
+
+    const requester = await getContextForApiKeyIdInOrg(
+      context.org,
+      encodeArmingApiKeyId(
+        c.apiKeyId,
+        c.assumedRole ? c.requestedBy?.id : undefined,
+      ),
     );
-  } catch (e) {
-    if (decision === "confirm") {
-      await confirmations.updateWithCas(id, ["status"], (doc) =>
-        doc.status === "running"
-          ? { status: "completed", response: failure(e) }
-          : null,
+    if (!requester) {
+      await confirmations.updateWithCas(id, ["status"], () => ({
+        status: "expired",
+      }));
+      throw new BadRequestError(
+        "The key that made this request is gone, disabled or expired.",
       );
     }
+    requester.confirmationId = id;
+    requester.dispatchedRequest = { body: c.body, query: c.query };
+    response = await dispatchInternal(
+      requester,
+      {
+        method: c.method as HttpMethod,
+        path: c.path,
+        query: c.query,
+        body: c.body,
+      },
+      { includeDeprecated: true },
+    ).catch(failure);
+  } catch (e) {
+    await confirmations.updateWithCas(id, ["status"], (doc) =>
+      doc.status === "running"
+        ? { status: "completed", response: failure(e) }
+        : null,
+    );
     throw e;
   }
-  if (decision === "reject") return toApiConfirmation(claimed);
-  return toApiConfirmation(await runConfirmed(context, claimed));
-}
 
-// A run still going this long was cut off, e.g. by a restart. It's marked
-// failed rather than rerun, so nothing can apply twice; the agent can ask again.
-export async function failStuckConfirmation(context: ReqContext, id: string) {
-  const startedBefore = new Date(Date.now() - STUCK_AFTER_MS);
-  const failed = await context.models.confirmations.updateWithCas(
-    id,
-    ["status"],
-    (doc) =>
-      doc.status === "running" &&
-      doc.decidedAt &&
-      doc.decidedAt <= startedBefore
-        ? {
-            status: "completed",
-            response: failure(
-              new Error(
-                "This request was cut off before it finished. Check whether it took effect, then send it again.",
-              ),
-            ),
-          }
-        : null,
+  const done = await confirmations.updateWithCas(id, ["status"], (doc) =>
+    doc.status === "running" ? { status: "completed", response } : null,
   );
-  if (failed) await auditDecision(context, failed, "apiKey.confirmFailure");
+  return toApiConfirmation(
+    done ?? (await getConfirmationForDecider(context, id)),
+  );
 }

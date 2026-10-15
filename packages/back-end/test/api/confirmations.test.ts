@@ -5,10 +5,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type {
-  decideConfirmation as Decide,
-  failStuckConfirmation as FailStuck,
-} from "back-end/src/services/confirmationDecisions";
+import type { decideConfirmation as Decide } from "back-end/src/services/confirmationDecisions";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findAuditByEntity } from "back-end/src/models/AuditModel";
 import { setupApp } from "./api.setup";
@@ -208,11 +205,10 @@ describe("confirmations", () => {
   // Loaded after the harness mocks auth; importing it up front would pull in
   // the API router with the real middleware.
   let decideConfirmation: typeof Decide;
-  let failStuckConfirmation: typeof FailStuck;
 
   beforeAll(async () => {
     await isReady;
-    ({ decideConfirmation, failStuckConfirmation } = await import(
+    ({ decideConfirmation } = await import(
       "back-end/src/services/confirmationDecisions"
     ));
     // Production builds the context from the real request; give the harness's
@@ -329,7 +325,7 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(1);
   });
 
-  it("fails a confirmed run a restart cut off, so the agent can ask again", async () => {
+  it("reports a run a restart cut off as failed, so the agent can ask again", async () => {
     await seed("production");
     setReqContext(asKey(pat));
     const id = (await publish()).body.confirmation.id;
@@ -340,7 +336,6 @@ describe("confirmations", () => {
         { $set: { status: "running", decidedAt: new Date(0) } },
       );
 
-    await failStuckConfirmation(asUser("u_admin"), id);
     expect((await poll(id)).body.confirmation).toMatchObject({
       status: "completed",
       response: {
@@ -348,10 +343,6 @@ describe("confirmations", () => {
         body: { message: expect.stringContaining("cut off") },
       },
     });
-    expect(await featureVersion()).toBe(1);
-    expect(await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).toContainEqual(
-      expect.objectContaining({ event: "apiKey.confirmFailure" }),
-    );
   });
 
   it("returns a rejection and its note to the agent", async () => {

@@ -6,24 +6,15 @@
   opacity: 1;
 }
 
-// A partly picked row shows a dash, and previews the full check a click gives.
-.partly .tick {
-  display: none;
-}
-
 // Ghost buttons pull themselves outward; keep the caret in its column.
 .caret {
   margin: 0;
 }
 
-// Preview what a click or Enter would do to the checkmark, unless the pointer is
-// on the caret.
+// Preview what a click would do to the checkmark, unless the pointer is on the caret.
 :global(
-  .gb-multi-select__option:not(.gb-multi-select__option--is-disabled):is(
-      :hover,
-      .gb-multi-select__option--is-focused
-    )
-):not(:has(.caret:hover)) {
+    .gb-multi-select__option:not(.gb-multi-select__option--is-disabled)
+  ):hover:not(:has(.caret:hover)) {
   .check {
     opacity: 0.4;
   }
@@ -31,13 +22,5 @@
   .checked {
     opacity: 1;
     color: var(--violet-11);
-  }
-
-  .partly .dash {
-    display: none;
-  }
-
-  .partly .tick {
-    display: inline;
   }
 }
