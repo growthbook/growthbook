@@ -2197,31 +2197,33 @@ export async function getFeatureDefinitions(
     projectFilter,
     getReferenceIdsInFeatures(allFeatures, "experiment-ref"),
   );
-  // Phase gates are only visible once the experiments are loaded.
+  // Phase gates are only visible once the experiments are loaded, and a
+  // carried parent can reference experiments with gates of their own.
   if (projectFilter && args.includeReferencedPrerequisites) {
-    const expanded = await loadMissingPrerequisites(context, allFeatures, [
-      ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
-      ...getVisualExperimentPrerequisiteIds(
-        servedAutoExperiments(experimentMap.values(), args),
-      ),
-      ...getCbVisualPrerequisiteIds(
-        filterCbVisualExperimentsByProject(cbVisualExperiments, projectFilter),
-        args.capabilities,
-      ),
-    ]);
-    if (expanded.length !== allFeatures.length) {
+    const cbSeeds = getCbVisualPrerequisiteIds(
+      filterCbVisualExperimentsByProject(cbVisualExperiments, projectFilter),
+      args.capabilities,
+    );
+    for (let round = 0; round < MAX_PREREQUISITE_LOAD_ROUNDS; round++) {
+      const expanded = await loadMissingPrerequisites(context, allFeatures, [
+        ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
+        ...getVisualExperimentPrerequisiteIds(
+          servedAutoExperiments(experimentMap.values(), args),
+        ),
+        ...cbSeeds,
+      ]);
+      if (expanded.length === allFeatures.length) break;
       allFeatures = expanded;
       const referenced = getReferenceIdsInFeatures(
         allFeatures,
         "experiment-ref",
       );
-      if (referenced.some((id) => !experimentMap.has(id))) {
-        experimentMap = await getAllPayloadExperiments(
-          context,
-          projectFilter,
-          referenced,
-        );
-      }
+      if (!referenced.some((id) => !experimentMap.has(id))) break;
+      experimentMap = await getAllPayloadExperiments(
+        context,
+        projectFilter,
+        referenced,
+      );
     }
   }
   const safeRolloutMap =
