@@ -356,28 +356,28 @@ export async function applyExperimentHoldoutChange(
 ) {
   const current = experiment.holdoutId;
   if (holdoutId === undefined || holdoutId === (current || "")) return;
-  // Add before remove, so a rewind unlinks the new holdout and the old entry survives untouched
-  let added = false;
+  // Remove first: only the add emits a linkage event, so nothing is announced until every write is in
+  let removed: { id: string; dateAdded: Date } | undefined;
   try {
+    if (current) {
+      removed = await context.models.holdout.removeExperimentFromHoldout(
+        current,
+        experiment.id,
+      );
+    }
     if (holdoutId) {
       await context.models.holdout.addExperimentToHoldout(
         holdoutId,
         experiment.id,
       );
-      added = true;
-    }
-    if (current) {
-      await context.models.holdout.removeExperimentFromHoldout(
-        current,
-        experiment.id,
-      );
     }
   } catch (e) {
     // No transactions: rewind so the stored holdoutId and the holdouts agree
-    if (added && holdoutId) {
-      await context.models.holdout.removeExperimentFromHoldout(
-        holdoutId,
-        experiment.id,
+    if (removed && current) {
+      await context.models.holdout.addExperimentsToHoldout(
+        current,
+        [experiment.id],
+        { notifyNewLinkage: false, dateAdded: removed.dateAdded },
       );
     }
     await updateExperiment({

@@ -702,18 +702,22 @@ export class HoldoutModel extends BaseClass {
     return new Map(filteredHoldouts.map((h) => [h.holdout.id, h]));
   }
 
+  // Returns the entry it removed, so a rewind can put it back as it was.
   public async removeExperimentFromHoldout(
     holdoutId: string,
     experimentId: string,
-  ) {
+  ): Promise<{ id: string; dateAdded: Date } | undefined> {
+    let removed: { id: string; dateAdded: Date } | undefined;
     await this.mutateLinkage(
       holdoutId,
       ({ linkedExperiments }) => {
-        const { [experimentId]: _, ...rest } = linkedExperiments;
+        const { [experimentId]: entry, ...rest } = linkedExperiments;
+        removed = entry;
         return { linkedExperiments: rest };
       },
       NO_NEW_LINKAGE,
     );
+    return removed;
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
@@ -774,11 +778,17 @@ export class HoldoutModel extends BaseClass {
       notifyNewLinkage = true,
       // Publish paths pass the owning item's key; see holdoutLinkageOwner.
       eventOwner,
-    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
+      // Rewinds pass the removed entry's date so the restored entry is as it was.
+      dateAdded = new Date(),
+    }: {
+      notifyNewLinkage?: boolean;
+      eventOwner?: string;
+      dateAdded?: Date;
+    } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
-      experimentIds.map((id) => [id, { id, dateAdded: new Date() }]),
+      experimentIds.map((id) => [id, { id, dateAdded }]),
     );
     await this.mutateLinkage(
       holdoutId,
