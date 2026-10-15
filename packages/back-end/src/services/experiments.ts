@@ -3352,6 +3352,18 @@ export async function createSnapshotAnalysis(
   if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
+
+  // JIT migrate snapshots saved before coverage was stored on them
+  if (snapshot.settings.coverage === undefined) {
+    snapshot.settings.coverage = experiment.phases[snapshot.phase]?.coverage;
+    await updateSnapshot({
+      context,
+      id: snapshot.id,
+      updates: { settings: snapshot.settings },
+      conclusion: null,
+    });
+  }
+
   const analysis: ExperimentSnapshotAnalysis = {
     analysisKey: buildAnalysisKey(),
     results: [],
@@ -3370,17 +3382,25 @@ export async function createSnapshotAnalysis(
   const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
-  const { results } = await analyzeExperimentResults({
-    queryData: queryMap,
-    snapshotSettings: snapshot.settings,
-    analysisSettings: [analysisSettings],
-    variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
-    metricMap: metricMap,
-    isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
-  });
-  analysis.results = results[0]?.dimensions || [];
-  analysis.status = "success";
-  analysis.error = undefined;
+  try {
+    const { results } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: snapshot.settings,
+      analysisSettings: [analysisSettings],
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
+      metricMap: metricMap,
+      isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
+    });
+    analysis.results = results[0]?.dimensions || [];
+    analysis.status = "success";
+    analysis.error = undefined;
+  } catch (e) {
+    // Record the failure so the analysis isn't left "running"
+    analysis.status = "error";
+    analysis.error = e instanceof Error ? e.message : String(e);
+    await updateSnapshotAnalysis({ context, id: snapshot.id, analysis });
+    throw e;
+  }
 
   await updateSnapshotAnalysis({
     context,

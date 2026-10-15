@@ -66,6 +66,7 @@ import {
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
   pruneAggregatedFactTableSettings,
+  turnsOffAggregatedFactTables,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
@@ -432,6 +433,11 @@ export const putFactTable = async (
       data.aggregatedFactTableSettings,
       effectiveUserIdTypes,
     );
+  } else if (
+    turnsOffAggregatedFactTables(factTable, data) &&
+    !context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // Removing an identifier also stops its scheduled aggregation, without
