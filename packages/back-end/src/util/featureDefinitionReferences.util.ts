@@ -130,7 +130,7 @@ export async function loadSavedGroupsWithNested<
 >(ids: string[], loadByIds: (ids: string[]) => Promise<T[]>): Promise<T[]> {
   const requested = new Set<string>();
   const loaded: T[] = [];
-  let wanted = [...new Set(ids)];
+  let wanted = withDerivedSources(ids);
 
   while (wanted.length) {
     wanted.forEach((id) => requested.add(id));
@@ -143,8 +143,21 @@ export async function loadSavedGroupsWithNested<
       if (group.type === "list") continue;
       addConditionIds(next, group.condition);
     }
-    wanted = [...next].filter((id) => !requested.has(id));
+    wanted = withDerivedSources(next).filter((id) => !requested.has(id));
   }
 
   return loaded;
+}
+
+// A group derived from a remote group, e.g. "grp_vip:parent_id", isn't stored;
+// its source "grp_vip" is, and payloads need it. Any ID with a colon also
+// loads the part before it: a superset, like the IDs collected above.
+function withDerivedSources(ids: Iterable<string>): string[] {
+  const all = new Set<string>();
+  for (const id of ids) {
+    all.add(id);
+    const i = id.indexOf(":");
+    if (i > 0) all.add(id.slice(0, i));
+  }
+  return [...all];
 }

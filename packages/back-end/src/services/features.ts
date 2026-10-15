@@ -840,14 +840,16 @@ export function getUsedSavedGroupIds(
     addConditionToUsedGroupIds(experimentDefinition.parentConditions);
   });
 
+  const used = findAllReferencedSavedGroupIds(seedIds, groupMap);
   // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
-  // too: its lookups use the source's attribute.
-  [...seedIds].forEach((id) => {
+  // too: its lookups use the source's attribute. Checked after following
+  // condition groups, which can name derived groups too. Sources are remote
+  // groups, so they reference nothing further.
+  [...used].forEach((id) => {
     const derived = parseDerivedGroupId(id, groupMap);
-    if (derived) seedIds.add(derived.sourceId);
+    if (derived) used.add(derived.sourceId);
   });
-
-  return findAllReferencedSavedGroupIds(seedIds, groupMap);
+  return used;
 }
 
 export function filterUsedContextualBandits(

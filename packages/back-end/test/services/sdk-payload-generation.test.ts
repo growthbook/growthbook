@@ -2333,6 +2333,27 @@ describe("getUsedSavedGroupIds", () => {
     ).toEqual(new Set(["vip:parent_id", "vip"]));
   });
 
+  it("includes the source of a derived group named in a condition group", () => {
+    const remoteMap: GroupMap = new Map([
+      ...groupMap,
+      ["vip", { type: "remote", attributeKey: "account_id" }],
+      [
+        "cond_vip",
+        {
+          type: "condition",
+          condition: JSON.stringify({ $savedGroups: ["vip:parent_id"] }),
+        },
+      ],
+    ]);
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "cond_vip" } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["cond_vip", "vip:parent_id", "vip"]));
+  });
+
   it("includes groups reachable only through a shipped condition", () => {
     // cond_1 references list_1, which no walk of the feature tree can see
     expect(

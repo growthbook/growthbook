@@ -90,6 +90,10 @@ function UploadModal({
   const [useWhenChecked, setUseWhenChecked] = useState(canUseVersion);
   const [checking, setChecking] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // A file already in storage whose upload wasn't recorded yet. Retrying
+  // submits the same key, so the file isn't sent again and the server can
+  // finish an upload it recorded before failing.
+  const staged = useRef<{ file: File; fileKey: string } | null>(null);
   // Stops waiting for validation once the modal is closed or unmounted
   const closed = useRef(false);
   useEffect(
@@ -139,8 +143,7 @@ function UploadModal({
     });
   };
 
-  const upload = async () => {
-    if (!file) return;
+  const sendToStorage = async (file: File) => {
     await checkStart(file);
     const target = await apiCall<SavedGroupUploadUrlResponse>(
       `/saved-groups/${savedGroup.id}/upload-url`,
@@ -163,13 +166,25 @@ function UploadModal({
     } finally {
       setProgress(null);
     }
+    return target.fileKey;
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    if (staged.current?.file !== file) {
+      staged.current = { file, fileKey: await sendToStorage(file) };
+    }
     const { upload } = await apiCall<{ upload: ApiSavedGroupUpload }>(
       `/saved-groups/${savedGroup.id}/uploads`,
       {
         method: "POST",
-        body: JSON.stringify({ fileKey: target.fileKey, fileName: file.name }),
+        body: JSON.stringify({
+          fileKey: staged.current.fileKey,
+          fileName: file.name,
+        }),
       },
     );
+    staged.current = null;
     await onUploaded();
     if (!useWhenChecked) {
       closeModal();
