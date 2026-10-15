@@ -4,7 +4,7 @@ import {
   apiUpdateUrlRedirectBody,
   apiUrlRedirectValidator,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const urlRedirectApiSpec = {
   modelSingular: "urlRedirect",

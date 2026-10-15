@@ -27,6 +27,7 @@ function toApiLaunchChecklist(c: ExperimentLaunchChecklistInterface) {
       propertyKey: t.propertyKey || undefined,
       customFieldId: t.customFieldId || undefined,
     })),
+    hiddenBuiltInItems: c.hiddenBuiltInItems ?? [],
     dateCreated: c.dateCreated.toISOString(),
     dateUpdated: c.dateUpdated.toISOString(),
   };
@@ -85,6 +86,7 @@ export const putLaunchChecklist = createApiRequestHandler(
       userId,
       existing.id,
       req.body.tasks,
+      req.body.hiddenBuiltInItems,
     );
   } else {
     await createExperimentLaunchChecklist(
@@ -92,6 +94,7 @@ export const putLaunchChecklist = createApiRequestHandler(
       userId,
       req.body.tasks,
       projectId,
+      req.body.hiddenBuiltInItems ?? [],
     );
   }
 
