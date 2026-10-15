@@ -1,19 +1,14 @@
 import { FC, useEffect, useState } from "react";
-import clsx from "clsx";
 import { FaBars } from "react-icons/fa";
-import { PiRobotBold } from "react-icons/pi";
 import Head from "next/head";
 import Breadcrumbs from "@/ui/Breadcrumbs";
-import Button from "@/ui/Button";
-import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
-import experimentHeaderStyles from "@/components/Experiment/TabbedPage/ExperimentHeader.module.scss";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import { PayloadSizeTopNavNotice } from "@/components/Features/SDKConnections/PayloadSizeNotices";
-import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
+import GrowthBotButton from "./GrowthBotButton";
 
 // The app header (app header + side nav redesign,
 // app-header-rail-handoff.md): 44px (set in review; 56px in the spec, tried 48px), white, no bottom border. The
@@ -45,12 +40,6 @@ const TopNav: FC<{
   }, []);
 
   const { breadcrumb } = usePageHead();
-
-  const {
-    available: agentAvailable,
-    open: agentOpen,
-    togglePanel: toggleAgentPanel,
-  } = useAgentPanel();
 
   return (
     <>
@@ -114,41 +103,7 @@ const TopNav: FC<{
                 </div>
               </>
             )}
-            {/* PROTOTYPE: always shown (set in review), so the design's
-              Assistant is represented. Where AI is available
-              it opens the global AI Assistant drawer, as the sparkle did;
-              elsewhere (no AI plan, or AI turned off) it does nothing.
-              ⌘J is a placeholder in the design; no shortcut yet. */}
-            {/* @/ui/Button styled as the experiment page's Check
-              Hypothesis (HypothesisField.tsx; set in review): outline,
-              grey, small; a --slate-6 outline darkening to --slate-9 on
-              hover (.outlineButton), --slate-12 text and robot at 400
-              (.ghostButton's weight), 6px corners, and Button's own 4px
-              between icon and label. Tried: ghost (small, and medium at
-              28px tall), 500 text, an 8px gap, violet. */}
-            <Button
-              variant="outline"
-              color="gray"
-              size="sm"
-              className={clsx(
-                experimentHeaderStyles.outlineButton,
-                modalStandardStyles.ghostButton,
-              )}
-              style={{
-                borderRadius: "var(--radius-3)",
-                color: "var(--slate-12)",
-              }}
-              icon={<PiRobotBold />}
-              onClick={agentAvailable ? toggleAgentPanel : undefined}
-              aria-label={
-                agentOpen
-                  ? "Close GrowthBot, the GrowthBook AI assistant"
-                  : "Open GrowthBot, the GrowthBook AI assistant"
-              }
-              aria-pressed={agentAvailable ? agentOpen : undefined}
-            >
-              GrowthBot
-            </Button>
+            <GrowthBotButton />
             {/* Pages without the side nav (LayoutLite) keep the avatar here. */}
             {toggleLeftMenu ? null : <ProfileMenu />}
           </div>

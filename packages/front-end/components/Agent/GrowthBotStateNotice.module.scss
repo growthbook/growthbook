@@ -1,0 +1,53 @@
+// GrowthBotStateNotice.tsx (set in review).
+
+// The title's icon: 18px, --slate-11, centred on the title's 20px line.
+.titleIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--slate-11);
+}
+
+// The description: 13px in --slate-11 (was Text's text-mid, a bluer grey).
+.description {
+  margin: 0;
+  color: var(--slate-11);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+// The button (or who to ask), 16px below the description (set in review;
+// tried 20px).
+.action {
+  margin-top: 16px;
+}
+
+// The reset date, at 500 (set in review).
+.date {
+  font-weight: 500;
+}
+
+// As the drawer's empty state (set in review): centred text, and the icon
+// above the title, not beside it. Its text and icon as the details page's
+// comments empty state (RailComments.tsx; set in review): the icon in
+// --slate-10 (about 3.8:1), the title in --slate-12 at 500 (in the .tsx),
+// the description at 12px in --slate-11, 8px apart.
+.centered {
+  text-align: center;
+  color: var(--slate-12);
+
+  .titleIcon {
+    margin-top: 0;
+    color: var(--slate-10);
+  }
+
+  .description {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  // Who to ask, in the button's place: 16px below, as the button.
+  .action .description {
+    margin-top: 0;
+  }
+}

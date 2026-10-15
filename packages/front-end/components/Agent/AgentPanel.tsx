@@ -78,6 +78,8 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
+import GrowthBotStateNotice from "./GrowthBotStateNotice";
+import { useGrowthBotPrototype } from "./prototypeGrowthBotState";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -202,6 +204,9 @@ function preWorkToSteps(
  * therefore reads as the working answer until the model speaks again. When
  * the turn ends, the last plain-text message becomes the persisted reply.
  */
+// The slide in and out's length (set in review), as the side nav's.
+const PANEL_SLIDE_MS = 200;
+
 export default function AgentPanel({
   open,
   expanded = false,
@@ -432,6 +437,37 @@ export default function AgentPanel({
           chartDataFromRecord(item.toolResultData) !== null),
     });
 
+  // PROTOTYPE ONLY (set in review): the "Limit reached" state
+  // (prototypeGrowthBotState.ts). Nothing new can be sent or started; the
+  // limit notice shows as the empty state, or, in a past chat (still
+  // readable), in place of the message box.
+  const { state: growthBotState, canUpgrade: growthBotCanUpgrade } =
+    useGrowthBotPrototype();
+  const limitReached = growthBotState === "limit";
+
+  // Slides in from the right on open and back out on close (set in review),
+  // over 200ms with an ease, as the side nav's collapse and expand. Kept
+  // mounted (and not clickable) while it slides out; it starts off-screen
+  // and moves in a frame later, so the slide in plays. Instant for reduced
+  // motion.
+  const [rendered, setRendered] = useState(open);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setShown(true));
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    setShown(false);
+    const timer = window.setTimeout(() => setRendered(false), PANEL_SLIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   // Focus the composer after a short delay so any layout transition settles
   // first. Used on new chat, conversation select, and turn end — opening the
   // panel remounts the composer, so that case is its own `autoFocus`.
@@ -471,7 +507,7 @@ export default function AgentPanel({
       },
     ) => {
       const text = submission.text.trim();
-      if (!text || loading) return;
+      if (!text || loading || limitReached) return;
       stepsExpandedRef.current = false;
       pendingSubmissionRef.current = submission;
       resolveOnUserMessage();
@@ -485,6 +521,7 @@ export default function AgentPanel({
     [
       input,
       loading,
+      limitReached,
       sendMessage,
       resolveOnUserMessage,
       resumeAutoScroll,
@@ -551,7 +588,7 @@ export default function AgentPanel({
     [loadConversation, resetTransientState, focusInput],
   );
 
-  if (!open || !portalHost) return null;
+  if (!rendered || !portalHost) return null;
 
   const latestActivityItem = [...visibleItems]
     .reverse()
@@ -612,10 +649,18 @@ export default function AgentPanel({
   const interactionPending =
     (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
+  // At the limit with no conversation open: the notice is the body's empty
+  // state, and there's no footer. A past conversation keeps its messages,
+  // with the notice in the footer.
+  const limitEmptyState =
+    limitReached && messages.length === 0 && !isLoadingConversation;
+
   const panel = (
     <Box
       role="dialog"
       aria-label="GrowthBook AI assistant"
+      // Hidden from screen readers while it slides out (set in review).
+      aria-hidden={open ? undefined : true}
       style={{
         position: "fixed",
         right: 0,
@@ -630,13 +675,25 @@ export default function AgentPanel({
         width: expanded
           ? `calc((100vw - ${sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"}) * 0.9)`
           : "min(400px, 100vw)",
-        background: "var(--color-background)",
+        // The page's background, or, on the redesigned pages, the side nav's
+        // grey (--agent-panel-background, set by those pages; set in review).
+        background: "var(--agent-panel-background, var(--color-background))",
         borderLeft: "1px solid var(--gray-a3)",
-        boxShadow: "-8px 0 24px var(--black-a4)",
+        // The side nav menus' soft layered shadow (ExperimentsListTable
+        // .module.scss's .menuShadow), turned to fall left, off the drawer's
+        // edge (set in review; was -8px 0 24px --black-a4), in a softer
+        // slate grey than the menus' black, and blurred a little more (set
+        // in review; the outer layer was 8px).
+        boxShadow:
+          "0 0 3px var(--slate-a3), -1px 0 2px var(--slate-a3), -4px 0 12px -2px var(--slate-a4)",
         display: "flex",
         flexDirection: "column",
         zIndex: AGENT_PANEL_Z_INDEX,
-        transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: shown ? "translateX(0)" : "translateX(100%)",
+        pointerEvents: open ? undefined : "none",
+        transition: reduceMotion
+          ? "none"
+          : `width 220ms cubic-bezier(0.4, 0, 0.2, 1), transform ${PANEL_SLIDE_MS}ms ease`,
       }}
     >
       {/* Header */}
@@ -677,6 +734,8 @@ export default function AgentPanel({
             variant="ghost"
             size="1"
             onClick={handleNewChat}
+            // At the limit (prototype), no new conversations (set in review).
+            disabled={limitReached}
             title="Start new conversation"
             aria-label="Start new conversation"
           >
@@ -718,8 +777,28 @@ export default function AgentPanel({
         onScroll={handleScroll}
         style={{ flex: 1, overflowY: "auto", padding: "20px" }}
       >
+        {/* At the limit (prototype) with no conversation open: the limit
+          notice alone, as the body's empty state, centred, in place of the
+          greeting and suggestions (set in review). */}
+        {limitEmptyState ? (
+          <Flex
+            align="center"
+            justify="center"
+            style={{ height: "100%" }}
+            role="status"
+          >
+            <Box style={{ width: "min(320px, 100%)" }}>
+              <GrowthBotStateNotice
+                state="limit"
+                canUpgrade={growthBotCanUpgrade}
+                centered
+              />
+            </Box>
+          </Flex>
+        ) : null}
         <Flex direction="column" gap="3">
           {messages.length === 0 &&
+            !limitReached &&
             !loading &&
             !isLoadingConversation &&
             !error && (
@@ -888,22 +967,41 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Input */}
-      <ChatComposer
-        variant="compact"
-        ref={composerRef}
-        autoFocus
-        mentionItems={mentionItems}
-        mentionItemsReady={mentionItemsReady}
-        skillItems={skillItems}
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        onCancel={cancelGeneration}
-        loading={loading}
-        isLocalStream={isLocalStream}
-        placeholder="Ask GrowthBook anything…"
-      />
+      {/* Input; at the limit (prototype) in a past conversation, the limit
+        notice in its place, on the header's panel colour with the same top
+        border. */}
+      {limitEmptyState ? null : limitReached ? (
+        <Box
+          role="status"
+          px="4"
+          py="4"
+          style={{
+            borderTop: "1px solid var(--gray-a3)",
+            background: "var(--color-panel-solid)",
+          }}
+        >
+          <GrowthBotStateNotice
+            state="limit"
+            canUpgrade={growthBotCanUpgrade}
+          />
+        </Box>
+      ) : (
+        <ChatComposer
+          variant="compact"
+          ref={composerRef}
+          autoFocus
+          mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
+          skillItems={skillItems}
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onCancel={cancelGeneration}
+          loading={loading}
+          isLocalStream={isLocalStream}
+          placeholder="Ask GrowthBook anything…"
+        />
+      )}
     </Box>
   );
 

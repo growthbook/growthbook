@@ -24,6 +24,8 @@ const env: EnvironmentInitValue = {
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
+  prototypeAI: false,
+  prototype: false,
   experimentRefreshFrequency: 6,
   autoSliceUpdateFrequencyHours: 168, // Default: 7 days
   hasOpenAIKey: false,
@@ -80,6 +82,14 @@ export function allowSelfOrgCreation(): boolean {
 }
 export function showMultiOrgSelfSelector(): boolean {
   return env.showMultiOrgSelfSelector;
+}
+// PROTOTYPE ONLY: NEXT_PUBLIC_PROTOTYPE_AI=true (see pages/api/init.ts).
+export function isPrototypeAI(): boolean {
+  return !!env.prototypeAI;
+}
+// PROTOTYPE ONLY: NEXT_PUBLIC_PROTOTYPE=true (see pages/api/init.ts).
+export function isPrototype(): boolean {
+  return !!env.prototype;
 }
 // The server's NODE_ENV, as /api/init reports it.
 export function isDevelopmentEnvironment(): boolean {

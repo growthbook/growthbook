@@ -59,6 +59,7 @@ import {
 } from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
 import SettingsRedesignPlaceholder from "@/components/Layout/SettingsRedesignPlaceholder";
+import { usePrototypeInterimSettings } from "@/components/Layout/PrototypeControls";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import useApi from "@/hooks/useApi";
@@ -708,15 +709,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
 };
 
 // PROTOTYPE (app header + side nav redesign): Settings is being redesigned
-// as a single page, so for now the page is a placeholder. Set to false to
-// bring back General Settings.
-const SHOW_SETTINGS_REDESIGN_PLACEHOLDER = true;
-
-const SettingsPage = (): React.ReactElement =>
-  SHOW_SETTINGS_REDESIGN_PLACEHOLDER ? (
-    <SettingsRedesignPlaceholder />
-  ) : (
+// as a single page, so for now the page is a placeholder. With the
+// prototype's "Interim settings menu" on (set in review), today's General
+// settings, as reached from the side nav's Settings menu meanwhile.
+const SettingsPage = (): React.ReactElement => {
+  const interimSettings = usePrototypeInterimSettings();
+  return interimSettings ? (
     <GeneralSettingsPage />
+  ) : (
+    <SettingsRedesignPlaceholder />
   );
+};
 
 export default SettingsPage;

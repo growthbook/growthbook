@@ -587,6 +587,12 @@ const ExperimentsPage = (): React.ReactElement => {
       <style jsx global>{`
         .radix-themes.radix-themes.radix-themes {
           --color-background: var(--color-panel-solid);
+          /* The AI Assistant drawer's body in the side nav's grey (set in
+            review), its navy in dark mode. */
+          --agent-panel-background: var(--slate-2);
+        }
+        .dark-theme .radix-themes.radix-themes.radix-themes {
+          --agent-panel-background: #10172e;
         }
         /* No shadow under the top bar here, even once scrolled (set in
           review), as on the experiment details page's Setup tab: the

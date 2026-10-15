@@ -541,6 +541,12 @@ export default function TabbedPage({
         <style jsx global>{`
           .radix-themes.radix-themes.radix-themes {
             --color-background: var(--color-panel-solid);
+            /* The AI Assistant drawer's body in the side nav's grey (set in
+              review), its navy in dark mode. */
+            --agent-panel-background: var(--slate-2);
+          }
+          .dark-theme .radix-themes.radix-themes.radix-themes {
+            --agent-panel-background: #10172e;
           }
           /* Switching tabs (set in review), as the Setup rail's tabs: the
             newly shown tab's content fades in while drifting 8px from the

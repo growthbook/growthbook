@@ -1,0 +1,48 @@
+// GrowthBotButton.tsx's prototype states (set in review).
+
+// Disabled: the robot a step quieter than the label (--slate-10, 3:1+ as
+// icons need). The outline still darkens on hover, as clicking still
+// explains why.
+.unavailable.unavailable :global(svg) {
+  color: var(--slate-10);
+}
+
+// The robot, with room for the limit's dot.
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+// Limit reached: an 8px amber dot on the robot's top right, ringed in the
+// header's colour so it reads against the robot. Its meaning is in the
+// button's name and tooltip, not the colour alone.
+.limitDot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  background: var(--amber-9);
+  border: 1.5px solid var(--color-panel-solid);
+}
+
+// The popover: 376px (set in review; was 280px), so the turned-off
+// description keeps to two lines; the side nav menus' 8px corners and
+// white.
+.notice.notice {
+  width: 376px;
+  background: var(--color-panel-solid);
+  border-radius: 8px;
+}
+
+// Its body: the 16px padding, and no focus ring when focus is moved onto it.
+.noticeBody {
+  padding: 16px;
+  outline: none;
+}
+
+.anchor {
+  display: inline-flex;
+}

@@ -319,6 +319,20 @@ $rail-dark-bg: #10172e;
   }
 }
 
+// A collapsed section's icon (or the interim Settings item) while its menu
+// shows (set in review): its hover look held (tried a step darker and a
+// step lighter than hover, to tell it from the selected item: too strong,
+// then too faint), so it stays tied to the menu as the pointer moves into
+// it. Not over the selected look, when one of its pages is open.
+.menuShowing.menuShowing:not(.active) {
+  background: var(--rail-hover);
+  color: var(--rail-text-strong);
+
+  .rowIcon {
+    color: var(--rail-text-strong);
+  }
+}
+
 // The profile item while its menu is open: the selected grey only.
 .menuOpen.menuOpen {
   background: var(--rail-active);
@@ -404,6 +418,17 @@ $rail-dark-bg: #10172e;
   > :last-child {
     margin-bottom: 8px;
   }
+}
+
+// A group's name in an expanded section's list (the interim Settings
+// pages, in the drawer or on a touch screen; set in review): as the
+// section menus' headers (.eyebrow), lined up with the pages' text.
+.subGroupLabel {
+  padding: 8px 10px 2px 43px;
+  color: var(--slate-11);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
 }
 
 // A section's row and its pages, one item in the rail's column, so a
@@ -554,10 +579,46 @@ $rail-dark-bg: #10172e;
   }
 }
 
+// A section popover's padding (AppRail.tsx), on its list, so the whole
+// popover, edges included, counts as hovering it.
+.popoverBody {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
 .popoverInner {
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+
+// The interim Settings menu (set in review): four columns, 170px each
+// (tried three at 200px), room for the longest label, 12px apart, as wide
+// as they need together (a column's groups, if ever more than one, stacked
+// 12px apart); and never taller than the window, scrolling inside if it
+// must.
+.popoverGroups.popoverGroups.popoverGroups {
+  width: auto;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+
+.popoverColumns {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.popoverColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 170px;
+}
+
+// 4px between the menu's items (set in review; was the 1px gap): 3px more
+// between items only, so the space under the header stays as it was.
+.popoverItem + .popoverItem {
+  margin-top: 3px;
 }
 
 // The section's name as written (set in review; was all caps with 0.05em
@@ -570,14 +631,18 @@ $rail-dark-bg: #10172e;
   line-height: 14px;
 }
 
+// 14px (set in review; was 13px), as the expanded side nav's rows, with a
+// 20px line and 6px above and below, so the rows stay 32px tall.
 .popoverItem {
   display: flex;
   align-items: center;
-  padding: 7px 10px 7px 18px;
+  // 16px in on the left (set in review; was 18px, tried 12px), 6px past
+  // the header.
+  padding: 6px 10px 6px 16px;
   border-radius: 5px;
   color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 14px;
+  line-height: 20px;
   text-decoration: none;
 
   &:hover {

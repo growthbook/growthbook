@@ -8,6 +8,8 @@ import React, {
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import track from "@/services/track";
+import { isPrototypeAI } from "@/services/env";
+import { installPrototypeAIStub } from "./prototypeAIStub";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */
@@ -42,7 +44,16 @@ export function AgentPanelProvider({
 }) {
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
-  const available = hasCommercialFeature("ai-suggestions") && aiEnabled;
+  // PROTOTYPE ONLY: with NEXT_PUBLIC_PROTOTYPE_AI=true the drawer is always
+  // available, and its requests get canned replies (prototypeAIStub.ts).
+  // Off, as before: the plan's ai-suggestions and the org's AI setting.
+  const prototypeAI = isPrototypeAI();
+  const available =
+    prototypeAI || (hasCommercialFeature("ai-suggestions") && aiEnabled);
+  // Installed while rendering (once; repeat calls do nothing), so it's in
+  // place before the drawer's first requests: effects run child-first, so
+  // one here would come after the drawer's.
+  if (prototypeAI) installPrototypeAIStub();
 
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);

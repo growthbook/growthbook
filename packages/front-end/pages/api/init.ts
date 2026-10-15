@@ -28,6 +28,14 @@ export interface EnvironmentInitValue {
   allowCreateMetrics: boolean;
   allowCreateDimensions: boolean;
   superadminDefaultRole: string;
+  // PROTOTYPE ONLY: NEXT_PUBLIC_PROTOTYPE_AI=true opens the AI Assistant
+  // drawer without an AI plan, setting or key, with canned replies
+  // (components/Agent/prototypeAIStub.ts).
+  prototypeAI?: boolean;
+  // PROTOTYPE ONLY: NEXT_PUBLIC_PROTOTYPE=true shows the prototype panel's
+  // demo controls, such as the GrowthBot button's states
+  // (components/Agent/prototypeGrowthBotState.ts).
+  prototype?: boolean;
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
@@ -65,6 +73,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ALLOW_CREATE_DIMENSIONS,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_PROTOTYPE_AI,
+    NEXT_PUBLIC_PROTOTYPE,
     EXPERIMENT_REFRESH_FREQUENCY,
     AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
     OPENAI_API_KEY,
@@ -155,6 +165,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+    prototypeAI: stringToBoolean(NEXT_PUBLIC_PROTOTYPE_AI),
+    prototype: stringToBoolean(NEXT_PUBLIC_PROTOTYPE),
     experimentRefreshFrequency: parseEnvInt(EXPERIMENT_REFRESH_FREQUENCY, 6, {
       min: 1,
       name: "EXPERIMENT_REFRESH_FREQUENCY",
