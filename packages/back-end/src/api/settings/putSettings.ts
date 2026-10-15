@@ -1,5 +1,9 @@
 import cronParser from "cron-parser";
-import { AGREEMENT_TYPE_AI, putSettingsValidator } from "shared/validators";
+import {
+  AGREEMENT_TYPE_AI,
+  AI_AGREEMENT_VERSION,
+  putSettingsValidator,
+} from "shared/validators";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { AI_MODEL_SETTINGS, getProviderForAIModel } from "shared/ai";
 import {
@@ -22,16 +26,17 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 ) => {
   const { context } = req;
   const org = context.org;
+  const { acceptAiTerms, ...body } = req.body;
 
   // `null` resets a field, which still needs permission for that field.
-  assertCanUpdateOrgSettings(context, req.body);
+  assertCanUpdateOrgSettings(context, body);
 
   // A reset stays in `changes` as undefined so validation sees it.
   const changes: Partial<OrganizationSettings> = {};
   const set: Partial<OrganizationSettings> = {};
   const unset: (keyof OrganizationSettings)[] = [];
   const settings: OrganizationSettings = { ...org.settings };
-  Object.entries(req.body).forEach(([key, value]) => {
+  Object.entries(body).forEach(([key, value]) => {
     const k = key as keyof OrganizationSettings;
     if (value === null) {
       delete settings[k];
@@ -61,15 +66,15 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     }
   });
 
-  // Cloud orgs accept the AI terms in the UI before AI can be turned on.
-  if (
+  // Cloud orgs accept the AI terms once, the first time AI is turned on.
+  const needsAiAgreement =
     IS_CLOUD &&
-    changes.aiEnabled &&
+    !!changes.aiEnabled &&
     !org.settings?.aiEnabled &&
-    !(await context.models.agreements.getAgreementForOrg(AGREEMENT_TYPE_AI))
-  ) {
+    !(await context.models.agreements.getAgreementForOrg(AGREEMENT_TYPE_AI));
+  if (needsAiAgreement && !acceptAiTerms) {
     throw new Error(
-      "Accept the AI terms in GrowthBook (Settings > General) before enabling AI.",
+      "Enabling AI requires accepting the AI terms (https://docs.growthbook.io/integrations/ai). Set `acceptAiTerms: true` to accept them on behalf of the organization.",
     );
   }
 
@@ -101,14 +106,25 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     throw new Error(`Unknown environment: ${changes.preferredEnvironment}`);
   }
 
+  if (needsAiAgreement) {
+    await context.models.agreements.create({
+      agreement: AGREEMENT_TYPE_AI,
+      version: AI_AGREEMENT_VERSION,
+      userId: context.userId,
+      userName: context.userName,
+      userEmail: context.email,
+      dateSigned: new Date(),
+    });
+  }
+
   await updateOrganizationSettings(org.id, set, unset);
 
   await req.audit({
     event: "organization.update",
     entity: { object: "organization", id: org.id },
     details: auditDetailsUpdate(
-      { settings: pickKeys(org.settings ?? {}, Object.keys(req.body)) },
-      { settings: pickKeys(settings, Object.keys(req.body)) },
+      { settings: pickKeys(org.settings ?? {}, Object.keys(body)) },
+      { settings: pickKeys(settings, Object.keys(body)) },
     ),
   });
 
