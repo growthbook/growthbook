@@ -259,7 +259,7 @@ A callback function that is executed every time a user is included in an **Exper
 function track(experiment, result) {
   analytics.track("Experiment Viewed", {
     experimentId: experiment.key,
-    variationId: result.variationId,
+    variationId: result.key,
   });
 }
 ```
