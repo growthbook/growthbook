@@ -4,10 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { unlinkFeatureFromContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { NotFoundError } from "back-end/src/util/errors";
-import {
-  loadContextualBanditForRead,
-  holdLinkedFeaturePublish,
-} from "./_shared";
+import { loadContextualBanditForRead, holdLinkedFeatureWrite } from "./_shared";
 
 export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
   contextualBanditEndpoints.deleteContextualBanditLinkedFeature,
@@ -39,7 +36,7 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
   }
 
   const autoPublish = stringToBoolean(req.query.autoPublish?.toString());
-  await holdLinkedFeaturePublish(req.context, feature, autoPublish);
+  await holdLinkedFeatureWrite(req.context, feature, autoPublish);
   const result = await unlinkFeatureFromContextualBandit({
     context: req.context,
     contextualBandit,

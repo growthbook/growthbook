@@ -16,7 +16,7 @@ import {
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
-  holdLinkedFeaturePublish,
+  holdLinkedFeatureWrite,
 } from "./_shared";
 
 export const addContextualBanditLinkedFeature = createApiRequestHandler(
@@ -84,7 +84,7 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     withStagedSchema(feature, staged),
     rule,
   );
-  await holdLinkedFeaturePublish(req.context, feature, autoPublish);
+  await holdLinkedFeatureWrite(req.context, feature, autoPublish);
   const result = await linkFeatureToContextualBandit({
     context: req.context,
     contextualBandit,

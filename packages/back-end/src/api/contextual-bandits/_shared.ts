@@ -171,7 +171,7 @@ export function buildContextualBanditRefRule(
 }
 
 // Publishing the rule change now holds as a publish; staging it, as a draft.
-export async function holdLinkedFeaturePublish(
+export async function holdLinkedFeatureWrite(
   context: ApiReqContext,
   feature: FeatureInterface,
   autoPublish: boolean | undefined,

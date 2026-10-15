@@ -469,6 +469,7 @@ type Armable = {
   autoPublishOnApproval?: boolean;
   scheduledPublishAt?: Date | null;
 } | null;
+
 // Draft routes by API tag: how to load the revision they write to.
 const DRAFT_REVISIONS: Record<
   string,
@@ -493,31 +494,29 @@ const DRAFT_REVISIONS: Record<
   },
   "constant-revisions": {
     model: "constant",
-    load: async (context, { key, version }) => {
-      const constant = await context.models.constants.getByKey(key);
-      return constant
-        ? context.models.revisions.getByTargetAndVersion(
-            "constant",
-            constant.id,
-            Number(version),
-          )
-        : null;
-    },
+    load: loadKeyedRevision("constant"),
   },
-  "config-revisions": {
-    model: "config",
-    load: async (context, { key, version }) => {
-      const config = await context.models.configs.getByKey(key);
-      return config
-        ? context.models.revisions.getByTargetAndVersion(
-            "config",
-            config.id,
-            Number(version),
-          )
-        : null;
-    },
-  },
+  "config-revisions": { model: "config", load: loadKeyedRevision("config") },
 };
+
+// Constants and configs are routed by key, but their revisions by id.
+function loadKeyedRevision(type: "constant" | "config") {
+  return async (
+    context: ReqContext,
+    { key, version }: Record<string, string>,
+  ): Promise<Armable> => {
+    const entity = await (
+      type === "constant" ? context.models.constants : context.models.configs
+    ).getByKey(key);
+    return entity
+      ? context.models.revisions.getByTargetAndVersion(
+          type,
+          entity.id,
+          Number(version),
+        )
+      : null;
+  };
+}
 
 async function loadFeatureRevision(
   context: ReqContext,
@@ -547,7 +546,7 @@ async function armedRevisionActions(
   if (!draft || !params.version || !actions.includes(`${draft.model}.draft`)) {
     return [];
   }
-  const revision = await draft.load(context, params).catch(() => null);
+  const revision = await draft.load(context, params);
   return revision?.autoPublishOnApproval || revision?.scheduledPublishAt
     ? [`${draft.model}.publish`]
     : [];
