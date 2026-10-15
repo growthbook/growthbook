@@ -23,6 +23,12 @@ export type KeyPairGenerator = {
   usingGenerated: boolean;
   /** Resolves false when the browser cannot generate keys. */
   generate: () => Promise<boolean>;
+  /**
+   * Key-pair is the only auth method this setup works with (the Event
+   * Forwarder's Snowpipe Streaming needs a private key), so password auth
+   * is called out as unsupported rather than merely discouraged.
+   */
+  keyPairRequired: boolean;
 };
 
 const SnowflakeForm: FC<{
@@ -42,6 +48,10 @@ const SnowflakeForm: FC<{
 }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [generateFailed, setGenerateFailed] = useState(false);
+  // Bumped on each successful generate so the file input remounts and drops
+  // a previously chosen file name. Keyed on this rather than "is the
+  // generated key in use" so uploading a file afterward keeps its name.
+  const [generation, setGeneration] = useState(0);
   // Saved connections without authMethod used password; new ones default to key-pair.
   const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
@@ -114,8 +124,9 @@ const SnowflakeForm: FC<{
       {authMethod === "password" && keyPairGenerator ? (
         <div className="col-md-12">
           <Callout status="warning" size="sm" mb="3">
-            Snowflake is retiring password-only sign-in. Key pair is
-            recommended.
+            {keyPairGenerator.keyPairRequired
+              ? "The Event Forwarder requires key-pair authentication. A password connection can be saved but will fail when forwarding is set up."
+              : "Snowflake is retiring password-only sign-in. Key pair is recommended."}
           </Callout>
         </div>
       ) : null}
@@ -154,6 +165,7 @@ const SnowflakeForm: FC<{
                     onClick={async () => {
                       const ok = await keyPairGenerator.generate();
                       setGenerateFailed(!ok);
+                      if (ok) setGeneration((g) => g + 1);
                     }}
                   >
                     {usingGeneratedKey
@@ -164,9 +176,7 @@ const SnowflakeForm: FC<{
               ) : null}
             </Flex>
             <FileInput
-              // Remount after generating so a previously chosen file name
-              // does not linger next to the generated key.
-              key={usingGeneratedKey ? "generated" : "upload"}
+              key={generation}
               name="privateKey"
               required={!canKeepExistingCredentials && !usingGeneratedKey}
               onChange={(e) => {

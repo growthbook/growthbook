@@ -197,9 +197,13 @@ export default function ConnectDataSourceLayout({
   const keyPairGenerator = useMemo(
     (): KeyPairGenerator | undefined =>
       datasource.type === "snowflake"
-        ? { usingGenerated: usingGeneratedKey, generate: generateKeyPair }
+        ? {
+            usingGenerated: usingGeneratedKey,
+            generate: generateKeyPair,
+            keyPairRequired: setup === "event_forwarder",
+          }
         : undefined,
-    [datasource.type, usingGeneratedKey, generateKeyPair],
+    [datasource.type, usingGeneratedKey, generateKeyPair, setup],
   );
   // Create mode only: let the user scope the new Data Source to Projects they
   // can create in. An empty selection is All Projects, which needs a global role.

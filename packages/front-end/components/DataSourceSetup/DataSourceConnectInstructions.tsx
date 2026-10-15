@@ -181,8 +181,8 @@ export default function DataSourceConnectInstructions({
           Setup Instructions
         </Heading>
         <Text as="p" color="text-mid" mb="4">
-          Fill in the form first. The queries below will update automatically
-          with your credentials.
+          Fill in the form first. The steps below update to match what you
+          enter.
         </Text>
         <Flex direction="column" gap="5">
           {steps.map((step, i) => (
