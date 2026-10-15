@@ -40,6 +40,8 @@ export interface TableColumnLayoutEntry {
   id: string;
   visible: boolean;
   width?: number;
+  /** The user sized this column, even if to its default width. */
+  pinned?: boolean;
 }
 
 /** Versioned so a future server-side store can accept the blob verbatim. */
@@ -51,10 +53,49 @@ export interface TableColumnLayout {
 export type ResolvedTableColumn<TRow> = TableColumnDef<TRow> & {
   visible: boolean;
   width?: number;
+  /** Sized by the user, so fitting the table to its container leaves it alone. */
+  pinned: boolean;
 };
 
-function isHideable<TRow>(def: TableColumnDef<TRow>): boolean {
+type ColumnVisibilityDef = Pick<
+  TableColumnDef<unknown>,
+  "id" | "locked" | "hideable" | "defaultHidden"
+>;
+
+function isHideable(def: ColumnVisibilityDef): boolean {
   return !def.locked && def.hideable !== false;
+}
+
+function visibleFor(
+  def: ColumnVisibilityDef,
+  entry: TableColumnLayoutEntry | undefined,
+): boolean {
+  return isHideable(def) ? (entry?.visible ?? !def.defaultHidden) : true;
+}
+
+function isValidLayout(
+  stored: TableColumnLayout | null | undefined,
+): stored is TableColumnLayout {
+  return (
+    !!stored &&
+    stored.v === TABLE_COLUMN_LAYOUT_VERSION &&
+    Array.isArray(stored.columns)
+  );
+}
+
+/**
+ * Whether one column shows under a stored layout, without resolving the rest.
+ * For work that must be decided before the column defs exist, such as skipping
+ * a fetch only a hidden column needs.
+ */
+export function isColumnVisible(
+  stored: TableColumnLayout | null | undefined,
+  def: ColumnVisibilityDef,
+): boolean {
+  const entry = isValidLayout(stored)
+    ? stored.columns.find((e) => e && e.id === def.id)
+    : undefined;
+  return visibleFor(def, entry);
 }
 
 /** The effective resize bounds for a column, applying the shared defaults. */
@@ -74,20 +115,50 @@ export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
 }
 
 /**
- * Narrowest the table can get before a slack column starves.
- *
- * A `table-layout: fixed` column with no width takes only what the specified
- * widths leave over, so once they exceed the container it collapses to zero and
- * its content becomes unreachable. Flooring the table instead keeps the slack
- * column absorbing spare space when there is any, and pushes the table into
- * horizontal scroll when there isn't.
+ * The columns fitting may shrink, rightmost last. Nothing left of the last
+ * pinned column qualifies, so a resize only ever moves the columns to its right
+ * and the dragged edge stays under the pointer.
  */
-export function minTableWidth<TRow>(
-  resolved: ResolvedTableColumn<TRow>[],
-): number {
-  return resolved
-    .filter((col) => col.visible)
-    .reduce((sum, col) => sum + (col.width ?? columnWidthBounds(col).min), 0);
+function shrinkableColumns<TRow>(
+  visible: ResolvedTableColumn<TRow>[],
+): ResolvedTableColumn<TRow>[] {
+  const sized = visible.filter((col) => col.width !== undefined);
+  const lastPinned = sized.map((col) => col.pinned).lastIndexOf(true);
+  return sized
+    .slice(lastPinned + 1)
+    .filter((col) => col.resizable !== false && !col.pinned);
+}
+
+/**
+ * The widths visible columns render at in a container `available` px wide,
+ * keyed by id. Columns with no width (the slack column) are left out: they take
+ * whatever is left over.
+ *
+ * Widths apply as-is while they fit. Past that, columns the user hasn't sized
+ * shrink from the right, each down to its minimum before the next one gives,
+ * stopping at the last pinned column; then the table overflows.
+ */
+export function fitColumnWidths<TRow>(
+  visible: ResolvedTableColumn<TRow>[],
+  available: number,
+): Map<string, number> {
+  const sized = visible.filter((col) => col.width !== undefined);
+  const widths = new Map(sized.map((col) => [col.id, col.width as number]));
+  const slackMin = visible
+    .filter((col) => col.width === undefined)
+    .reduce((sum, col) => sum + columnWidthBounds(col).min, 0);
+  let excess =
+    Array.from(widths.values()).reduce((sum, w) => sum + w, 0) +
+    slackMin -
+    available;
+  for (const col of shrinkableColumns(visible).reverse()) {
+    if (excess <= 0) break;
+    const width = widths.get(col.id) as number;
+    const next = Math.max(columnWidthBounds(col).min, width - excess);
+    widths.set(col.id, next);
+    excess -= width - next;
+  }
+  return widths;
 }
 
 function clampWidth<TRow>(
@@ -106,8 +177,9 @@ function defaultsFor<TRow>(
 ): ResolvedTableColumn<TRow>[] {
   return defs.map((def) => ({
     ...def,
-    visible: isHideable(def) ? !def.defaultHidden : true,
+    visible: visibleFor(def, undefined),
     width: clampWidth(def, def.defaultWidth),
+    pinned: false,
   }));
 }
 
@@ -126,13 +198,7 @@ export function resolveTableColumns<TRow>(
 ): ResolvedTableColumn<TRow>[] {
   // The stored value is untrusted: it comes from localStorage, so it can be
   // hand-edited or left behind by a different shape of this schema.
-  if (
-    !stored ||
-    stored.v !== TABLE_COLUMN_LAYOUT_VERSION ||
-    !Array.isArray(stored.columns)
-  ) {
-    return defaultsFor(defs);
-  }
+  if (!isValidLayout(stored)) return defaultsFor(defs);
 
   const byId = new Map(defs.map((def) => [def.id, def]));
   const entryById = new Map<string, TableColumnLayoutEntry>();
@@ -163,20 +229,22 @@ export function resolveTableColumns<TRow>(
   const resolved: ResolvedTableColumn<TRow>[] = order.map((id) => {
     const def = byId.get(id) as TableColumnDef<TRow>;
     const entry = entryById.get(id);
-    const visible = isHideable(def)
-      ? (entry?.visible ?? !def.defaultHidden)
-      : true;
+    const defaultWidth = clampWidth(def, def.defaultWidth);
+    // A column the user can't resize has no stored width worth honouring —
+    // it is a stale copy of a past default, and it would shadow the current
+    // one forever for anyone who has already saved a layout.
+    const saved = clampWidth(
+      def,
+      def.resizable === false ? undefined : entry?.width,
+    );
     return {
       ...def,
-      visible,
-      // A column the user can't resize has no stored width worth honouring —
-      // it is a stale copy of a past default, and it would shadow the current
-      // one forever for anyone who has already saved a layout.
-      width: clampWidth(
-        def,
-        (def.resizable === false ? undefined : entry?.width) ??
-          def.defaultWidth,
-      ),
+      visible: visibleFor(def, entry),
+      width: saved ?? defaultWidth,
+      // Layouts saved before the marker stored every width, defaults included.
+      pinned:
+        saved !== undefined &&
+        (entry?.pinned === true || saved !== defaultWidth),
     };
   });
 
@@ -216,7 +284,12 @@ export function mergeLayoutForWrite<TRow>(
   return {
     v: TABLE_COLUMN_LAYOUT_VERSION,
     columns: [
-      ...resolved.map(({ id, visible, width }) => ({ id, visible, width })),
+      // Only widths the user chose, so later changes to a default still reach them.
+      ...resolved.map((col) =>
+        col.pinned
+          ? { id: col.id, visible: col.visible, width: col.width, pinned: true }
+          : { id: col.id, visible: col.visible },
+      ),
       ...orphans,
     ],
   };
@@ -234,7 +307,8 @@ export function isLayoutCustomized<TRow>(
     return (
       def.id !== col.id ||
       def.visible !== col.visible ||
-      def.width !== col.width
+      def.width !== col.width ||
+      def.pinned !== col.pinned
     );
   });
 }

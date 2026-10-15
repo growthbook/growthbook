@@ -80,6 +80,12 @@ export default function ColumnResizeHandle({
     if (!state) return;
     state.raf = null;
     setLiveWidth(state.pending);
+    // A column displayed wider than its own width (one filling spare room)
+    // keeps its edge, so the handle follows the pointer alone until release.
+    const lag = state.pending - measure();
+    if (ref.current) {
+      ref.current.style.transform = lag < -0.5 ? `translateX(${lag}px)` : "";
+    }
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -116,6 +122,7 @@ export default function ColumnResizeHandle({
     if (state.moved) flush();
     drag.current = null;
     delete e.currentTarget.dataset.active;
+    e.currentTarget.style.transform = "";
     e.currentTarget
       .closest("[data-table-list]")
       ?.removeAttribute("data-resizing");
