@@ -91,6 +91,7 @@ import {
   findOrganizationById,
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
+  removeOrganizationInvite,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
@@ -631,14 +632,13 @@ export async function revokeInvite(
   organization: OrganizationInterface,
   key: string,
 ) {
-  const invites = organization.invites.filter((invite) => invite.key !== key);
-
-  await updateOrganization(organization.id, {
-    invites,
-  });
-
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.invites = invites;
+  const updatedOrganization = await removeOrganizationInvite(
+    organization.id,
+    key,
+  );
+  if (!updatedOrganization) {
+    throw new Error("Unable to locate organization");
+  }
   await licenseInit(
     updatedOrganization,
     getUserCodesForOrg,
