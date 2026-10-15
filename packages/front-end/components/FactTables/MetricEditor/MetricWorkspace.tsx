@@ -154,8 +154,10 @@ export default function MetricWorkspace({
     const updateFloating = () => {
       // Keep the actions inline until the full header button area has passed
       // behind the top navigation, rather than switching at its first edge.
+      // Below 1024px the form is one column, so a floating card would cover it.
       setFloating(
-        window.scrollY > 0 &&
+        window.matchMedia("(min-width: 1024px)").matches &&
+          window.scrollY > 0 &&
           actionsContainer.getBoundingClientRect().bottom < 56,
       );
     };
@@ -168,6 +170,11 @@ export default function MetricWorkspace({
     };
   }, [actionsContainer, isEditing]);
   const [error, setError] = useState<string | null>(null);
+  // The error shows above the form, so bring it into view on a failed save.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "center" });
+  }, [error]);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
   // for the overwhelmingly common case (a fresh create, or an ordinary
@@ -375,7 +382,6 @@ export default function MetricWorkspace({
       className={floating ? styles.floatingActions : undefined}
       style={floating ? { right: actionsRight } : undefined}
     >
-      {error && <Callout status="error">{error}</Callout>}
       <Flex gap="3" justify="between" align="center">
         {floating && (
           <Flex direction="column" className={styles.title}>
@@ -412,6 +418,11 @@ export default function MetricWorkspace({
     >
       {leaveDialog}
       {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
+      {error && (
+        <div ref={errorRef}>
+          <Callout status="error">{error}</Callout>
+        </div>
+      )}
       <MetricEditor
         existingMetric={existing}
         form={form}

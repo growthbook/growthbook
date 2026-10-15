@@ -23,7 +23,6 @@ import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
 import Checkbox from "@/ui/Checkbox";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import MetricTypeSelect, {
@@ -97,7 +96,7 @@ export default function MetricEditor({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   // Official status changes who can edit the metric, so it sits with the
-  // name and its OfficialBadge rather than in Advanced Settings.
+  // name rather than in Advanced Settings.
   const canEditOfficial =
     canEdit &&
     permissionsUtil.canUpdateOfficialResources(
@@ -360,12 +359,9 @@ export default function MetricEditor({
     <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
       <Flex direction="column" gap="4" minWidth="0">
         <Frame px="4" py="4" mb="0">
-          <Flex align="center" gap="1" mb="3">
-            <Heading as="h4" size="sm" mb="0">
-              Details
-            </Heading>
-            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
-          </Flex>
+          <Heading as="h4" size="sm" mb="3">
+            Details
+          </Heading>
           {canEdit ? (
             <Flex direction="column" gap="3">
               <Text color="text-mid">
@@ -427,7 +423,7 @@ export default function MetricEditor({
                   label="Mark as official metric"
                   disabled={form.watch("managedBy") === "api"}
                   disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
-                  description="Official metrics can only be modified by admins or users with the ManageOfficialResources policy."
+                  description="Official metrics can only be modified by admins or users with the Manage Official Resources policy."
                   value={form.watch("managedBy") === "admin"}
                   setValue={(value) =>
                     form.setValue("managedBy", value ? "admin" : "")
