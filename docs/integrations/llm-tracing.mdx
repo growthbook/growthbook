@@ -346,6 +346,67 @@ Score and annotation names are defined by you (`helpfulness`, `toxicity`, `thumb
 
 Repeat for each score. A metric on user feedback (thumbs up/down) is built the same way, since Langfuse stores feedback as scores and Phoenix as annotations with a `HUMAN` annotator kind.
 
+## Sending traces to GrowthBook
+
+<Note>
+**Early access**
+
+Sending traces directly to GrowthBook is in early access for GrowthBook Cloud organizations with a [Managed Warehouse](/app/managed-warehouse). Contact GrowthBook support to enable it.
+
+</Note>
+
+Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry traces in your Managed Warehouse, next to your events and experiment exposures. Experiments use the Managed Warehouse's own assignment queries, so users who never trigger a model call still count in the analysis.
+
+1. Under **Settings → API Keys**, create a secret key and choose **AI trace ingest key**. This key can only send traces.
+2. Export spans with `OTLPTraceExporter` and register `tracingSpanProcessor()` from `@growthbook/growthbook/otel`:
+
+   ```ts
+   import { NodeSDK } from "@opentelemetry/sdk-node";
+   import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+   import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+   import { OpenAIInstrumentation } from "@opentelemetry/instrumentation-openai";
+   import {
+     growthbookOtlpExporterConfig,
+     tracingSpanProcessor,
+     withTracingContext,
+   } from "@growthbook/growthbook/otel";
+
+   const exporter = new OTLPTraceExporter(
+     growthbookOtlpExporterConfig({
+       secretKey: process.env.GROWTHBOOK_TRACE_KEY, // the AI trace ingest key
+       region: "us-east-1", // or "eu-west-1", your GrowthBook Cloud region
+     }),
+   );
+
+   new NodeSDK({
+     spanProcessors: [tracingSpanProcessor(), new BatchSpanProcessor(exporter)],
+     instrumentations: [new OpenAIInstrumentation()],
+   }).start();
+   ```
+
+3. Turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. Without it, spans still carry tokens, cost, and latency.
+4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id`, the conversation id, and the experiments `gb` assigned:
+
+   ```ts
+   const gb = gbClient.createScopedInstance({ attributes: { id: userId } });
+
+   await withTracingContext({ userId, conversationId, gb }, async () => {
+     // ... call the model
+   });
+   ```
+
+   `user.id` must be the same value the SDK hashes on for experiment assignment. GrowthBook joins spans on the identifier your `id` attribute maps to (`device_id` unless your Managed Warehouse maps `id` to `user_id`, see [Identifiers](/app/managed-warehouse#identifiers-and-custom-attributes)), so assign your AI experiments on the `id` attribute.
+
+5. Open your Managed Warehouse Data Source, choose **Add Event Tracker** from the **⋯** menu, pick **GrowthBook AI traces**, and click **Add to Data Source**.
+
+This adds three fact tables. No identifier types or assignment queries are added.
+
+- `AI spans` — one row per span. Filters: **Model calls** (`chat`, `text_completion`, `generate_content`, and `embeddings` operations), **Errors**, **Tool calls**, and **Agent runs**. Metrics: the five LLM metrics listed above, measured over model calls only, plus **Tokens per user**. Agent and workflow spans repeat their children's token counts, so token and cost metrics only count model calls.
+- `AI turns` — one row per trace, with its latency, model calls, tool calls, tokens, cost, and errors. Metric: **Turns per user**.
+- `AI conversations` — one row per conversation, with its number of turns and the same totals. Metric: **Turns per conversation**.
+
+Cost comes from GrowthBook's model price table. Spans from models it has no price for count as zero cost.
+
 ## Running the experiment
 
 From here it is a normal GrowthBook experiment:

@@ -365,6 +365,20 @@ export const eventSchemas: eventSchema[] = [
   },
 ];
 
+// Only offered by "Add Event Tracker" on an existing Data Source, not by the
+// new Data Source wizard.
+export const addOnlyEventSchemas: eventSchema[] = [
+  {
+    value: "growthbook_ai_traces",
+    label: "GrowthBook AI traces",
+    types: ["growthbook_clickhouse"],
+    logo: "/logo/Logo-mark.png",
+    beta: true,
+    helpLink:
+      "https://docs.growthbook.io/integrations/llm-tracing#sending-traces-to-growthbook",
+  },
+];
+
 export const dataSourceConnections: {
   type: DataSourceType;
   display: string;

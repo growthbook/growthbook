@@ -392,3 +392,90 @@ describe("getDatasourceTemplateResources", () => {
     ]);
   });
 });
+
+describe("GrowthBook AI traces on the Managed Warehouse", () => {
+  function managedWarehouse(
+    idAttributeIdentifier?: "user_id" | "device_id",
+  ): DataSourceInterfaceWithParams {
+    return {
+      id: "ds_managed",
+      type: "growthbook_clickhouse",
+      params: {},
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id", description: "" },
+          { userIdType: "device_id", description: "" },
+        ],
+        queries: { exposure: [] },
+        ...(idAttributeIdentifier ? { idAttributeIdentifier } : {}),
+      },
+    } as unknown as DataSourceInterfaceWithParams;
+  }
+
+  function aiTraces(ds: DataSourceInterfaceWithParams) {
+    return {
+      ...ds,
+      settings: { ...ds.settings, schemaFormat: "growthbook_ai_traces" },
+    } as DataSourceInterfaceWithParams;
+  }
+
+  it("generates consistent fact tables, filters, and metrics", () => {
+    const factTables = assertResourcesAreConsistent(
+      aiTraces(managedWarehouse()),
+    );
+    expect(factTables.map((f) => f.factTable.name)).toEqual([
+      "AI spans",
+      "AI turns",
+      "AI conversations",
+    ]);
+    const spans = factTables[0];
+    expect(spans.factTable.sql).toContain("FROM ai_spans_priced");
+    expect(spans.factTable.sql).not.toContain("FINAL");
+    expect(spans.filters.find((f) => f.name === "Model calls")?.value).toBe(
+      "operation IN ('chat', 'text_completion', 'generate_content', 'embeddings')",
+    );
+    expect(spans.metrics.map((m) => m.name)).toEqual([
+      "LLM calls per user",
+      "LLM cost per user",
+      "LLM error rate",
+      "p95 LLM latency",
+      "Tokens per LLM call",
+      "Tokens per user",
+    ]);
+  });
+
+  it.each([
+    { setting: undefined, idType: "device_id" },
+    { setting: "device_id" as const, idType: "device_id" },
+    { setting: "user_id" as const, idType: "user_id" },
+  ])(
+    "maps UserId to $idType when the id attribute is $setting",
+    ({ setting, idType }) => {
+      const { factTables } = getInitialDatasourceResources({
+        datasource: aiTraces(managedWarehouse(setting)),
+      });
+      for (const { factTable } of factTables) {
+        expect(factTable.userIdTypes).toEqual([idType]);
+        expect(factTable.sql).toContain(`UserId AS ${idType},`);
+      }
+    },
+  );
+
+  it("still builds the Events fact table for the Managed Warehouse itself", () => {
+    const { factTables } = getInitialDatasourceResources({
+      datasource: managedWarehouse(),
+    });
+    expect(factTables.map((f) => f.factTable.name)).toEqual(["Events"]);
+  });
+
+  it("adds no identifier types or assignment queries", () => {
+    const ds = managedWarehouse();
+    expect(
+      getDatasourceTemplateSettings({
+        datasource: ds,
+        template: "growthbook_ai_traces",
+        schemaOptions: {},
+      }),
+    ).toBe(ds.settings);
+  });
+});

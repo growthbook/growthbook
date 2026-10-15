@@ -12,7 +12,8 @@
  * zod at the read site (back-end services/plan-limits.ts).
  *
  * Exception: "ai-trace-ingest" is added ahead of the flag's creation. It shows
- * the "AI trace ingest key" option when creating an org secret key.
+ * the "AI trace ingest key" option when creating an org secret key and the
+ * "GrowthBook AI traces" event tracker on the Managed Warehouse.
  */
 export type AppFeatures = {
   "papercups-config": Record<string, unknown>;
