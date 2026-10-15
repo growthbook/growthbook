@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
+import { readOnlyEcho } from "./shared";
 
 export const destinationUrlValidator = z
   .object({
@@ -47,7 +48,16 @@ export const apiCreateUrlRedirectBody = z.strictObject({
 
 export const apiUpdateUrlRedirectBody = apiCreateUrlRedirectBody
   .omit({ experiment: true })
-  .partial();
+  .partial()
+  .extend({
+    id: readOnlyEcho,
+    experiment: readOnlyEcho,
+    dateCreated: readOnlyEcho,
+    dateUpdated: readOnlyEcho,
+  })
+  .describe(
+    "Read-only fields from the GET response (`id`, `experiment`, `dateCreated`, `dateUpdated`) are accepted and ignored, so a redirect can be sent back with only the changes.",
+  );
 
 export const apiListUrlRedirectsValidator = {
   paramsSchema: z.never(),

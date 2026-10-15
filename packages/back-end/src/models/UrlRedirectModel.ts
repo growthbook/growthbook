@@ -1,4 +1,4 @@
-import { isEqual, keyBy } from "lodash";
+import { isEqual, keyBy, pick } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -92,7 +92,12 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
-    const updates = apiUpdateUrlRedirectBody.parse(req.body);
+    // Only the writable fields; read-only GET fields are accepted and ignored
+    const updates = pick(apiUpdateUrlRedirectBody.parse(req.body), [
+      "urlPattern",
+      "destinationURLs",
+      "persistQueryString",
+    ]);
     const existing = await this.getById(req.params.id);
     if (!existing) req.context.throwNotFoundError();
     // Unchanged URLs skip the loop check so redirects saved without it round-trip
