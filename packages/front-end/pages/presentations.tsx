@@ -60,7 +60,10 @@ const PresentationPage = (): React.ReactElement => {
   }
   if (!p.presentations.length) {
     return (
-      <>
+      // PROTOTYPE (set in review): in the page wrapper, so the empty state
+      // gets the app-wide page padding (global.scss), as the list does; it
+      // had no wrapper, so it ran from the side nav to the window's edge.
+      <div className="container-fluid pagecontents pt-4">
         <EmptyState
           title="Present Experiment Results"
           description="Generate presentation to share with the team. Experiment review meetings are a great way to challenge assumptions and generate new ideas. Review meetings get everyone excited about experimentation."
@@ -87,7 +90,7 @@ const PresentationPage = (): React.ReactElement => {
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
         />
-      </>
+      </div>
     );
   }
 

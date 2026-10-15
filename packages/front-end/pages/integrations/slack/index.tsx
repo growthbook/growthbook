@@ -516,7 +516,9 @@ const SlackWorkspacePage: NextPage = () => {
 
   if (!canManageIntegrations) {
     return (
-      <Box p="5">
+      // PROTOTYPE (set in review): the app-wide page padding's 32px on the
+      // left and right (was 24px).
+      <Box py="5" px="6">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -525,7 +527,9 @@ const SlackWorkspacePage: NextPage = () => {
   }
 
   return (
-    <Box p="5">
+    // PROTOTYPE (set in review): the app-wide page padding's 32px on the
+    // left and right (was 24px).
+    <Box py="5" px="6">
       {navigationGuard.pendingHref && (
         <ConfirmDialog
           title="Leave without saving?"

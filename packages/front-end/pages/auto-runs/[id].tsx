@@ -182,7 +182,10 @@ export default function AutoRunPage() {
     return (
       <Container
         size="3"
-        px={{ initial: "2", xs: "4", sm: "7" }}
+        // PROTOTYPE (set in review): a narrow column left-aligned at the
+        // app-wide page padding's 32px (was centred, 40px on wide screens).
+        align="left"
+        px="6"
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="error">
@@ -199,7 +202,10 @@ export default function AutoRunPage() {
     return (
       <Container
         size="3"
-        px={{ initial: "2", xs: "4", sm: "7" }}
+        // PROTOTYPE (set in review): a narrow column left-aligned at the
+        // app-wide page padding's 32px (was centred, 40px on wide screens).
+        align="left"
+        px="6"
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="warning">
@@ -218,7 +224,10 @@ export default function AutoRunPage() {
   return (
     <Container
       size="3"
-      px={{ initial: "2", xs: "4", sm: "7" }}
+      // PROTOTYPE (set in review): a narrow column left-aligned at the
+      // app-wide page padding's 32px (was centred, 40px on wide screens).
+      align="left"
+      px="6"
       py={{ initial: "1", xs: "3", sm: "6" }}
     >
       <PageHead

@@ -14,7 +14,13 @@ export default function Dashboard({ experiments }: Props) {
 
   return (
     <>
-      <div className={"container-fluid dashboard p-3 " + styles.container}>
+      {/* PROTOTYPE (set in review): no padding of its own on the left and
+        right (was p-3's 16px, on top of the page's), so the report starts
+        at the app-wide page padding's 32px (global.scss); 16px above and
+        below, as before. */}
+      <div
+        className={"container-fluid dashboard py-3 px-0 " + styles.container}
+      >
         <ExecReport />
       </div>
     </>

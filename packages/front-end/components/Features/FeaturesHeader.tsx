@@ -644,7 +644,17 @@ export default function FeaturesHeader({
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents px-3">
+          {/* PROTOTYPE (set in review): the tabs in line with the page's
+            32px padding and full width, as the feature's header above (was
+            16px and capped at 1340px). */}
+          <div
+            className="container-fluid pagecontents"
+            style={{
+              paddingLeft: "var(--space-6)",
+              paddingRight: "var(--space-6)",
+              maxWidth: "none",
+            }}
+          >
             <div className="header-tabs">
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="lg" style={{ width: "100%" }}>

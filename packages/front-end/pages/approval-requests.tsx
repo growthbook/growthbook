@@ -551,7 +551,9 @@ const ApprovalRequests: FC = () => {
 
   if (!hasFeature) {
     return (
-      <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
+      // PROTOTYPE (set in review): full width at the app-wide page padding's
+      // 32px (was 16px left, 40px right, capped at 1340px and centred).
+      <Box py="4" px="6" width="100%">
         <Callout status="info">
           Approval flows require an Enterprise plan.
         </Callout>
@@ -564,7 +566,9 @@ const ApprovalRequests: FC = () => {
   }
 
   return (
-    <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
+    // PROTOTYPE (set in review): full width at the app-wide page padding's
+    // 32px (was 16px left, 40px right, capped at 1340px and centred).
+    <Box py="4" px="6" width="100%">
       <Box mb="5">
         <Heading as="h1" size="lg" mb="2">
           Approval Requests

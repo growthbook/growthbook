@@ -20,7 +20,9 @@ const NewDataSourcePage: FC = () => {
   }
 
   return (
-    <Box p="15px" mx="auto" maxWidth="1340px">
+    // PROTOTYPE (set in review): left-aligned at the app-wide page
+    // padding's 32px (was 15px, centred), its 1340px cap kept, as a form.
+    <Box py="15px" px="6" maxWidth="1340px">
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },

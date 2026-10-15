@@ -89,6 +89,24 @@ body {
     padding: 15px;
   }
 }
+
+// PROTOTYPE (set in review): every page's wrapper, whichever classes it
+// uses, gets the experiments list's 32px on the left and right (was 15px),
+// over pages' own p-3 / p-4 (Bootstrap's !important) too, and the full
+// width beside the side nav, as the experiments list: no 1340px cap
+// (.pagecontents) or Bootstrap .container's fixed, centred widths (set in
+// review; capped, wide screens centred the page, so its content started
+// well past 32px). To see one page width across the product; proposed as
+// its own change after the side nav and header ship. Top and bottom
+// unchanged for now.
+.main > .pagecontents,
+.main > .container-fluid,
+.main > .container,
+.main > .contents {
+  max-width: none !important;
+  padding-left: var(--space-6) !important;
+  padding-right: var(--space-6) !important;
+}
 .contents {
   padding: 15px;
 }
