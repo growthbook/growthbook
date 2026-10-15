@@ -30,7 +30,7 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import addApiKeyExpirationJob from "back-end/src/jobs/apiKeyExpiration";
-import addRetryStuckConfirmationsJob from "back-end/src/jobs/retryStuckConfirmations";
+import addFailStuckConfirmationsJob from "back-end/src/jobs/failStuckConfirmations";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantJobs";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
@@ -61,7 +61,7 @@ export async function queueInit() {
   addExperimentStatusUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
   addApiKeyExpirationJob(agenda);
-  addRetryStuckConfirmationsJob(agenda);
+  addFailStuckConfirmationsJob(agenda);
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);

@@ -7,7 +7,7 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type {
   decideConfirmation as Decide,
-  retryStuckConfirmation as Retry,
+  failStuckConfirmation as FailStuck,
 } from "back-end/src/services/confirmationDecisions";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findAuditByEntity } from "back-end/src/models/AuditModel";
@@ -208,11 +208,11 @@ describe("confirmations", () => {
   // Loaded after the harness mocks auth; importing it up front would pull in
   // the API router with the real middleware.
   let decideConfirmation: typeof Decide;
-  let retryStuckConfirmation: typeof Retry;
+  let failStuckConfirmation: typeof FailStuck;
 
   beforeAll(async () => {
     await isReady;
-    ({ decideConfirmation, retryStuckConfirmation } = await import(
+    ({ decideConfirmation, failStuckConfirmation } = await import(
       "back-end/src/services/confirmationDecisions"
     ));
     // Production builds the context from the real request; give the harness's
@@ -329,49 +329,28 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(1);
   });
 
-  it("reruns a confirmed request a restart cut off, giving up after three tries", async () => {
+  it("fails a confirmed run a restart cut off, so the agent can ask again", async () => {
     await seed("production");
     setReqContext(asKey(pat));
-    const cutOff = async (attempts: number, retryable = true) => {
-      const id = (await publish()).body.confirmation.id;
-      await mongoose.connection.collection("confirmations").updateOne(
+    const id = (await publish()).body.confirmation.id;
+    await mongoose.connection
+      .collection("confirmations")
+      .updateOne(
         { id },
-        {
-          $set: {
-            status: "running",
-            attempts,
-            attemptedAt: new Date(0),
-            retryable,
-          },
-        },
+        { $set: { status: "running", decidedAt: new Date(0) } },
       );
-      await retryStuckConfirmation(asUser("u_admin"), id);
-      return (await poll(id)).body.confirmation;
-    };
 
-    expect(await cutOff(1, false)).toMatchObject({
-      status: "completed",
-      response: { body: { message: expect.stringContaining("run twice") } },
-    });
-    expect(await cutOff(3)).toMatchObject({
+    await failStuckConfirmation(asUser("u_admin"), id);
+    expect((await poll(id)).body.confirmation).toMatchObject({
       status: "completed",
       response: {
         status: 500,
-        body: { message: expect.stringContaining("Gave up") },
+        body: { message: expect.stringContaining("cut off") },
       },
     });
     expect(await featureVersion()).toBe(1);
-    expect(await cutOff(1)).toMatchObject({
-      status: "completed",
-      response: { status: 200 },
-    });
-    expect(await featureVersion()).toBe(2);
-    expect(
-      (await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).map(
-        (a) => a.event,
-      ),
-    ).toEqual(
-      expect.arrayContaining(["apiKey.confirmFailure", "apiKey.confirmRetry"]),
+    expect(await findAuditByEntity(ORG_ID, "apiKey", "key_pat")).toContainEqual(
+      expect.objectContaining({ event: "apiKey.confirmFailure" }),
     );
   });
 

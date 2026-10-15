@@ -303,7 +303,6 @@ export const entityEvents = {
     "enable",
     "confirm",
     "reject",
-    "confirmRetry",
     "confirmFailure",
   ],
   oauthAuthCode: ["create", "update", "delete"],

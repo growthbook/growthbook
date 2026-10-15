@@ -279,9 +279,6 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
-      // A pin refuses a rerun that finds its target already changed; without
-      // one, a rerun could apply the write twice.
-      retryable: opts.pin !== null,
       summary,
       links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],

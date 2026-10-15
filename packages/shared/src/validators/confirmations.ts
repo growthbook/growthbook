@@ -264,11 +264,6 @@ export const confirmationValidator = baseSchema.safeExtend({
   note: z.string().nullable(),
   decidedBy: z.string().nullable(),
   decidedAt: z.date().nullable(),
-  // Runs of the confirmed request, and when the latest began; a run that never
-  // finished is tried again.
-  attempts: z.number().optional(),
-  attemptedAt: z.date().nullable().optional(),
-  retryable: z.boolean().optional(),
   expiresAt: z.date(),
   deleteAt: z.date(),
 });

@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [
     { fields: { organization: 1, apiKeyId: 1, requestHash: 1 } },
     { fields: { deleteAt: 1 }, expireAfterSeconds: 0 },
-    { fields: { status: 1, attemptedAt: 1 } },
+    { fields: { status: 1, decidedAt: 1 } },
   ],
 });
 
@@ -34,13 +34,13 @@ export class ConfirmationModel extends BaseClass {
     return false;
   }
 
-  // Cross-org, for the job that retries runs a server restart cut off.
+  // Cross-org, for the job that fails runs a server restart cut off.
   static async dangerouslyFindStuckRuns(
     startedBefore: Date,
   ): Promise<{ organization: string; id: string }[]> {
     const docs = await getCollection<ConfirmationInterface>(COLLECTION_NAME)
       .find(
-        { status: "running", attemptedAt: { $lte: startedBefore } },
+        { status: "running", decidedAt: { $lte: startedBefore } },
         { projection: { organization: 1, id: 1 } },
       )
       .toArray();

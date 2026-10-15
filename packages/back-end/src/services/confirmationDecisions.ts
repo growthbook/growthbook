@@ -34,19 +34,12 @@ const failure = (e: unknown) => ({
   body: { message: e instanceof Error ? e.message : String(e) },
 });
 
-// A run still going this long was cut off, e.g. by a restart; it's tried again
-// up to MAX_ATTEMPTS times.
 export const STUCK_AFTER_MS = 5 * 60 * 1000;
-const MAX_ATTEMPTS = 3;
 
 async function auditDecision(
   context: ReqContext,
   c: ConfirmationInterface,
-  event:
-    | "apiKey.confirm"
-    | "apiKey.reject"
-    | "apiKey.confirmRetry"
-    | "apiKey.confirmFailure",
+  event: "apiKey.confirm" | "apiKey.reject" | "apiKey.confirmFailure",
 ) {
   const key = await context.models.apiKeys.dangerousGetById(c.apiKeyId);
   await context.auditLog({
@@ -57,7 +50,6 @@ async function auditDecision(
       summary: c.summary,
       actions: c.actions,
       note: c.note,
-      attempts: c.attempts,
     }),
   });
 }
@@ -130,10 +122,6 @@ export async function decideConfirmation(
           decidedBy: context.userId ?? null,
           decidedAt: new Date(),
           note: note || null,
-          ...(decision === "confirm" && {
-            attempts: 1,
-            attemptedAt: new Date(),
-          }),
         }
       : null,
   );
@@ -162,51 +150,26 @@ export async function decideConfirmation(
   return toApiConfirmation(await runConfirmed(context, claimed));
 }
 
-// For a run cut off mid-request: claim it again and rerun it, or give up after
-// MAX_ATTEMPTS. Both go on the key's audit log. Only a pinned hold reruns: a
-// first try that got far enough to change its target fails the pin instead of
-// applying twice.
-export async function retryStuckConfirmation(context: ReqContext, id: string) {
+// A run still going this long was cut off, e.g. by a restart. It's marked
+// failed rather than rerun, so nothing can apply twice; the agent can ask again.
+export async function failStuckConfirmation(context: ReqContext, id: string) {
   const startedBefore = new Date(Date.now() - STUCK_AFTER_MS);
-  const claimed = await context.models.confirmations.updateWithCas(
+  const failed = await context.models.confirmations.updateWithCas(
     id,
-    ["status", "attempts"],
-    (doc) => {
-      if (
-        doc.status !== "running" ||
-        !doc.attemptedAt ||
-        doc.attemptedAt > startedBefore
-      ) {
-        return null;
-      }
-      const attempts = doc.attempts ?? 1;
-      if (!doc.retryable) {
-        return {
-          status: "completed",
-          response: failure(
-            new Error(
-              "This request was cut off before it finished and can't safely run twice. Check whether it took effect, then send it again.",
-            ),
-          ),
-        };
-      }
-      return attempts >= MAX_ATTEMPTS
+    ["status"],
+    (doc) =>
+      doc.status === "running" &&
+      doc.decidedAt &&
+      doc.decidedAt <= startedBefore
         ? {
             status: "completed",
             response: failure(
               new Error(
-                `Gave up after ${attempts} attempts that were cut off before finishing.`,
+                "This request was cut off before it finished. Check whether it took effect, then send it again.",
               ),
             ),
           }
-        : { attempts: attempts + 1, attemptedAt: new Date() };
-    },
+        : null,
   );
-  if (!claimed) return;
-  if (claimed.status === "completed") {
-    await auditDecision(context, claimed, "apiKey.confirmFailure");
-    return;
-  }
-  await auditDecision(context, claimed, "apiKey.confirmRetry");
-  await runConfirmed(context, claimed);
+  if (failed) await auditDecision(context, failed, "apiKey.confirmFailure");
 }
