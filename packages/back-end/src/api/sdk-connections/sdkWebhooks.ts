@@ -18,7 +18,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-function toApiSdkWebhook(w: WebhookInterface, canSeeSigningKey: boolean) {
+function toApiSdkWebhook(w: WebhookInterface, canSeeSecrets: boolean) {
   return {
     id: w.id,
     name: w.name,
@@ -27,9 +27,10 @@ function toApiSdkWebhook(w: WebhookInterface, canSeeSigningKey: boolean) {
     httpMethod: w.httpMethod ?? "POST",
     payloadFormat: w.payloadFormat ?? "standard",
     payloadKey: w.payloadKey,
-    headers: w.headers ?? "",
+    // Headers often carry credentials, so they are hidden like the signing key
+    headers: canSeeSecrets ? (w.headers ?? "") : "",
     timeoutSeconds: w.timeoutSeconds ?? null,
-    signingKey: canSeeSigningKey ? w.signingKey : "",
+    signingKey: canSeeSecrets ? w.signingKey : "",
     lastSuccess: w.lastSuccess?.toISOString() ?? null,
     error: w.error,
     consecutiveFailures: w.consecutiveFailures ?? 0,
@@ -88,9 +89,9 @@ export const listSdkConnectionWebhooks = createApiRequestHandler(
     await req.context.models.sdkWebhooks.findAllSdkWebhooksByConnection(
       conn.id,
     );
-  const canSeeSigningKey = req.context.permissions.canUpdateSDKWebhook(conn);
+  const canSeeSecrets = req.context.permissions.canUpdateSDKWebhook(conn);
   return {
-    sdkWebhooks: webhooks.map((w) => toApiSdkWebhook(w, canSeeSigningKey)),
+    sdkWebhooks: webhooks.map((w) => toApiSdkWebhook(w, canSeeSecrets)),
   };
 });
 
