@@ -1016,6 +1016,26 @@ describe("confirmations", () => {
     expect(Date.now() - started).toBeLessThan(5000);
   });
 
+  it("stops a waiting poll once its client hangs up", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const id = (await publish()).body.confirmation.id;
+    const { ConfirmationModel } = await import(
+      "back-end/src/models/ConfirmationModel"
+    );
+    const reads = jest.spyOn(ConfirmationModel.prototype, "getById");
+    await expect(
+      auth(request(app).get(`/api/v1/confirmations/${id}?wait=10`)).timeout(
+        1500,
+      ),
+    ).rejects.toThrow();
+    const atHangUp = reads.mock.calls.length;
+    await delay(3000);
+    const after = reads.mock.calls.length;
+    reads.mockRestore();
+    expect(after - atHangUp).toBeLessThanOrEqual(1);
+  });
+
   it("leaves an org key without rules alone", async () => {
     await seed("production");
     setReqContext(asKey(ci));

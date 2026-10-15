@@ -27,5 +27,7 @@ export const getConfirmation = createApiRequestHandler(
       confirmation.status === "pending" || confirmation.status === "running";
     if (!open || Date.now() >= deadline) return { confirmation };
     await delay(1000);
+    // The client hung up, so nothing will read the answer.
+    if (req.res?.closed) return { confirmation };
   }
 });
