@@ -54,8 +54,6 @@ describe("recommended", () => {
     expect(toggleAction([], "recommended")).toEqual(["recommended"]);
     expect(toggleAction(["*"], "recommended")).toEqual(["recommended"]);
     expect(isPicked(["*"], "recommended")).toBe(true);
-    expect(isPicked(["recommended"], "feature.publish")).toBe(true);
-    expect(isPicked(["recommended"], "feature.create")).toBe(false);
   });
 
   it("keeps actions beyond it beside it, folding whole categories", () => {

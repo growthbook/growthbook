@@ -320,9 +320,6 @@ function requestedOverrides(context: ReqContext): ConfirmAction[] {
   );
 }
 
-// The route-level hold: the endpoint's actions, with no environments, before the
-// handler loads anything. Nothing has run, so replay is always safe.
-type Named = { name?: string } | null;
 // Routes by API tag: what they act on, its page, and how to find its name
 // from the first id in the path.
 const NAMED_ROUTES: Record<
@@ -330,7 +327,10 @@ const NAMED_ROUTES: Record<
   {
     noun: string;
     link: ConfirmationLink["type"];
-    find?: (context: ReqContext, id: string) => Promise<Named>;
+    find?: (
+      context: ReqContext,
+      id: string,
+    ) => Promise<{ name?: string } | null>;
   }
 > = {
   environments: { noun: "environment", link: "environment" },
@@ -452,6 +452,8 @@ async function describeRouteWrite(
   };
 }
 
+// The route-level hold: the endpoint's actions, with no environments, before the
+// handler loads anything. Nothing has run, so replay is always safe.
 export async function holdAtRoute(
   context: ReqContext,
   actions: readonly ConfirmAction[],
