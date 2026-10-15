@@ -24,7 +24,7 @@ export type AttributeReferencesMap = Record<
 
 /**
  * Features, experiments, and condition groups that reference each attribute key.
- * Walks rule/phase condition JSON and checks hashAttribute on experiments.
+ * Walks rule/phase condition JSON and checks hashAttribute on rules and experiments.
  */
 export async function getAttributeReferences(
   context: ReqContext | ApiReqContext,
@@ -54,17 +54,20 @@ export async function getAttributeReferences(
   for (let i = 0; i < allFeatures.length; i++) {
     await yieldEventLoop(i);
     const feature = allFeatures[i];
+    const addFeature = (key: string) => {
+      if (!keySet.has(key)) return;
+      featureRefs.get(key)!.set(feature.id, {
+        id: feature.id,
+        name: feature.id,
+        project: feature.project,
+      });
+    };
     for (const rule of feature.rules ?? []) {
+      if ("hashAttribute" in rule) addFeature(rule.hashAttribute);
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
         for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-          if (keySet.has(nodeKey)) {
-            featureRefs.get(nodeKey)!.set(feature.id, {
-              id: feature.id,
-              name: feature.id,
-              project: feature.project,
-            });
-          }
+          addFeature(nodeKey);
         }
       } catch {
         // ignore unparseable conditions
