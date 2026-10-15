@@ -96,7 +96,11 @@ export const apiSdkWebhookValidator = namedSchema(
       httpMethod: z.enum(webhookMethods),
       payloadFormat: payloadFormatValidator,
       payloadKey: z.string().optional(),
-      headers: z.string().describe("JSON-encoded object of extra headers"),
+      headers: z
+        .string()
+        .describe(
+          "JSON-encoded object of extra headers. Empty unless the caller can edit the webhook.",
+        ),
       signingKey: z
         .string()
         .describe(
