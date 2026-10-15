@@ -180,12 +180,13 @@ const dataSourceSettingsInput = {
     .optional(),
   ...apiDataSourceExtraFields,
   pipelineSettings: pipelineSettingsValidator
+    .partial()
     .extend({
       includedExperimentIds: z.array(z.string()).nullable().optional(),
     })
     .optional()
     .describe(
-      "Merged into the stored settings: experiment id lists left out keep their values. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
+      "Merged into the stored settings: fields left out keep their values, but a data source without pipeline settings needs `allowWriting`, `mode`, `writeDataset` and `unitsTableRetentionHours`. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
     ),
 };
 
