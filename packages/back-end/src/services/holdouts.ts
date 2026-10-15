@@ -358,6 +358,8 @@ export async function applyExperimentHoldoutChange(
   if (holdoutId === undefined || holdoutId === (current || "")) return;
   // The experiment is already saved, so anything that throws below is rewound
   let previous: { id: string; dateAdded: Date } | undefined;
+  // Chosen up front so the rewind can tell this switch's entry from a concurrent writer's
+  const added = { id: experiment.id, dateAdded: new Date() };
   try {
     if (current) {
       // Captured before any write, since a removal can land and still throw afterwards
@@ -373,22 +375,23 @@ export async function applyExperimentHoldoutChange(
       await context.models.holdout.addExperimentToHoldout(
         holdoutId,
         experiment.id,
+        added.dateAdded,
       );
     }
   } catch (e) {
-    // No transactions: every step here is idempotent, so the rewind holds no matter which write failed or landed
+    // No transactions: each step declines when the live row isn't this switch's work, so it holds whichever write failed or landed
     try {
       if (holdoutId) {
         await context.models.holdout.removeExperimentFromHoldout(
           holdoutId,
           experiment.id,
+          added,
         );
       }
       if (previous && current) {
-        await context.models.holdout.addExperimentsToHoldout(
+        await context.models.holdout.restoreExperimentLinkage(
           current,
-          [experiment.id],
-          { notifyNewLinkage: false, dateAdded: previous.dateAdded },
+          previous,
         );
       }
       await updateExperiment({
