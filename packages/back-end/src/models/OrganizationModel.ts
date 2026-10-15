@@ -463,6 +463,18 @@ export async function addOrganizationInviteIfSeatAvailable(
   return doc ? toInterface(doc) : null;
 }
 
+// Replaces one invite in place; false if it no longer exists.
+export async function updateOrganizationInvite(
+  organizationId: string,
+  invite: Invite,
+) {
+  const res = await OrganizationModel.updateOne(
+    { id: organizationId, "invites.key": invite.key },
+    { $set: { "invites.$": invite } },
+  );
+  return res.matchedCount > 0;
+}
+
 export async function acceptOrganizationInvite(
   organizationId: string,
   inviteKey: string,

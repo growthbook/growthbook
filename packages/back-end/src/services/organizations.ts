@@ -1134,6 +1134,13 @@ export async function acceptInvite(key: string, userId: string, email: string) {
   return updatedOrganization;
 }
 
+export function normalizeInviteEmail(email: string) {
+  return email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+}
+
 export async function inviteUser({
   organization,
   email,
@@ -1150,10 +1157,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);

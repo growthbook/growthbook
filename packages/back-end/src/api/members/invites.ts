@@ -16,7 +16,7 @@ import {
 } from "shared/types/organization";
 import {
   findOrganizationById,
-  updateOrganization,
+  updateOrganizationInvite,
 } from "back-end/src/models/OrganizationModel";
 import {
   addMemberToOrg,
@@ -25,8 +25,10 @@ import {
   assertRoleChangeAllowed,
   getInviteUrl,
   inviteUser,
+  normalizeInviteEmail,
   revokeInvite,
 } from "back-end/src/services/organizations";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import {
   sendInviteEmail,
   sendPendingMemberApprovalEmail,
@@ -154,7 +156,11 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
   const { org } = req.context;
   const { email, ...input } = req.body;
 
-  const roleInfo = toRoleInfo(input, getDefaultRole(org));
+  // Plans without roles only allow admin, as the app's invite form defaults to.
+  const fallback = getEffectiveOrgLimits(org).orgSupportsRoles()
+    ? getDefaultRole(org)
+    : { ...getDefaultRole(org), role: "admin" };
+  const roleInfo = toRoleInfo(input, fallback);
   await assertRoleInfoValid(req.context, roleInfo);
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -166,7 +172,7 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
 
   const invite = findInvite(
     (await findOrganizationById(org.id))?.invites ?? [],
-    email.trim(),
+    normalizeInviteEmail(email),
   );
   if (!invite) throw new Error("Unable to create invite");
   if (!findInvite(org.invites, invite.email)) {
@@ -189,9 +195,9 @@ export const putInvite = createApiRequestHandler(putInviteValidator)(async (
   assertRoleChangeAllowed(org, existing.role, roleInfo.role);
 
   const updated: Invite = { ...existing, ...roleInfo };
-  await updateOrganization(org.id, {
-    invites: org.invites.map((i) => (i.key === existing.key ? updated : i)),
-  });
+  if (!(await updateOrganizationInvite(org.id, updated))) {
+    req.context.throwNotFoundError(`No invite for ${req.params.email}`);
+  }
   await auditInvite(req, existing, updated);
 
   return { invite: toApiInvite(updated) };
