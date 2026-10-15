@@ -2,11 +2,12 @@
 
 $sidebarwidth: var(--app-rail-width, 240px);
 // The app header (TopNav.tsx), as app-header-rail-handoff.md, but 44px tall
-// (set in review; the spec has 56px; tried 48px), no bottom border. No
-// background of its own (set in review; was white, --color-panel-solid), so
-// it takes on whatever page it's over. Once the page scrolls under it, the
-// page's background (--color-background) and a soft shadow, so what
-// scrolls beneath doesn't show through.
+// (set in review; the spec has 56px; tried 48px), no bottom border. The
+// page's own background, --color-background (set in review; was white,
+// --color-panel-solid), so it matches whatever page it's over, and always
+// solid (fix, set in review: it was see-through until a scroll was noticed,
+// then faded in, so a fast scroll showed the page's text through it). A
+// soft shadow once the page scrolls under it.
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -16,14 +17,13 @@ $sidebarwidth: var(--app-rail-width, 240px);
   right: 0;
   height: 44px;
   z-index: 1010;
-  background-color: transparent;
+  background-color: var(--color-background);
   box-shadow: none;
   // 24px left, 32px right (set in review; tried 32px and 24px either side;
   // the spec has 16px left, 20px right).
   padding: 0 32px 0 24px;
   transition:
     left 200ms ease,
-    background-color 150ms ease,
     box-shadow 150ms ease;
   @media (max-width: 520px) {
     padding: 0 8px;
@@ -53,10 +53,8 @@ $sidebarwidth: var(--app-rail-width, 240px);
   }
 }
 // (With "Interim colors" on, PrototypeControls.tsx, it had the page's
-// background in place of white; with no background of its own, it now
-// does on every page.)
+// background in place of white; it now has that on every page.)
 .topbar.scrolled {
-  background-color: var(--color-background);
   box-shadow: 0 1px 0 var(--slate-a3);
 }
 
