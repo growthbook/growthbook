@@ -183,6 +183,8 @@ import {
   experimentMapForFeatures,
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
+  getVisualExperimentPrerequisiteDependents,
+  getVisualExperimentPrerequisiteIds,
   getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
@@ -1204,8 +1206,26 @@ export async function assertFeatureDeletable(
   );
 }
 
-// Bandits behind the features' contextual-bandit-ref rules. Their targeting
-// is compiled into the payload, so the saved groups it names must load too.
+function servedAutoExperiments(
+  experiments: Iterable<ExperimentInterface>,
+  {
+    includeVisualExperiments,
+    includeRedirectExperiments,
+  }: {
+    includeVisualExperiments?: boolean;
+    includeRedirectExperiments?: boolean;
+  },
+): ExperimentInterface[] {
+  return [...experiments].filter(
+    (e) =>
+      (includeVisualExperiments && e.hasVisualChangesets) ||
+      (includeRedirectExperiments && e.hasURLRedirects),
+  );
+}
+
+// Bandits behind contextual-bandit-ref rules and visual changesets. Their
+// targeting is compiled into the payload, so the saved groups it names must
+// load too.
 async function getPayloadContextualBandits(
   context: ReqContext | ApiReqContext,
   features: FeatureInterface[],
@@ -1325,9 +1345,12 @@ export async function refreshSDKPayloadCache({
       allFeatures,
       hasAllProjectsFeature ? await context.getAllProjectIds() : [],
       experimentMap,
-      getContextualBanditPrerequisiteDependents(
-        await getContextualBanditsWithVisualChangesets(context),
-      ),
+      [
+        ...getVisualExperimentPrerequisiteDependents(experimentMap.values()),
+        ...getContextualBanditPrerequisiteDependents(
+          await getContextualBanditsWithVisualChangesets(context),
+        ),
+      ],
     ),
   );
 
@@ -1922,6 +1945,15 @@ export async function buildSDKPayloadForConnection(
       )
     : [];
 
+  const filteredExperimentMap =
+    projectList.length > 0
+      ? new Map(
+          [...data.experimentMap.entries()].filter(([, exp]) =>
+            projectList.includes(exp.project || ""),
+          ),
+        )
+      : data.experimentMap;
+
   // Skipped when the connection can't evaluate prerequisites at all — those
   // features are folded or excluded downstream, so carrying parents is waste.
   const canEvaluatePrerequisites =
@@ -1934,17 +1966,17 @@ export async function buildSDKPayloadForConnection(
           scopedFeatures,
           data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
           data.experimentMap,
-          getCbVisualPrerequisiteIds(allCbVisualExperiments, capabilities),
+          [
+            ...getVisualExperimentPrerequisiteIds(
+              servedAutoExperiments(filteredExperimentMap.values(), {
+                includeVisualExperiments,
+                includeRedirectExperiments,
+              }),
+            ),
+            ...getCbVisualPrerequisiteIds(allCbVisualExperiments, capabilities),
+          ],
         )
       : { features: scopedFeatures, carried: new Set<string>() };
-  const filteredExperimentMap =
-    projectList.length > 0
-      ? new Map(
-          [...data.experimentMap.entries()].filter(([, exp]) =>
-            projectList.includes(exp.project || ""),
-          ),
-        )
-      : data.experimentMap;
 
   const featureExperimentMap = experimentMapForFeatures(
     data.experimentMap,
@@ -2178,6 +2210,9 @@ export async function getFeatureDefinitions(
   if (projectFilter && args.includeReferencedPrerequisites) {
     const expanded = await loadMissingPrerequisites(context, allFeatures, [
       ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
+      ...getVisualExperimentPrerequisiteIds(
+        servedAutoExperiments(experimentMap.values(), args),
+      ),
       ...getCbVisualPrerequisiteIds(
         filterCbVisualExperimentsByProject(cbVisualExperiments, projectFilter),
         args.capabilities,

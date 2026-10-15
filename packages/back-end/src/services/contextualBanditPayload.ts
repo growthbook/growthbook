@@ -9,7 +9,10 @@ import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getActiveVariations } from "shared/experiments";
 import { hasVisualChanges } from "shared/util";
 import type { SDKCapability } from "shared/sdk-versioning";
-import { pairedWeightsToPositional } from "back-end/src/util/features";
+import {
+  pairedWeightsToPositional,
+  type PrerequisiteDependent,
+} from "back-end/src/util/features";
 import { logger } from "back-end/src/util/logger";
 import { Histogram, metrics } from "back-end/src/util/metrics";
 
@@ -142,7 +145,7 @@ export function getCbVisualPrerequisiteIds(
 
 export function getContextualBanditPrerequisiteDependents(
   cbs: Pick<ContextualBanditInterface, "project" | "prerequisites">[],
-): { projects: string[]; prerequisiteIds: string[] }[] {
+): PrerequisiteDependent[] {
   return cbs.flatMap((cb) => {
     const prerequisiteIds = [
       ...new Set((cb.prerequisites ?? []).map((p) => p.id)),

@@ -719,6 +719,56 @@ export function getPrerequisiteIdsInFeatures(
   return [...ids];
 }
 
+export type PrerequisiteDependent = {
+  projects: string[];
+  prerequisiteIds: string[];
+};
+
+// Visual and redirect experiments gate on their latest phase but are reached
+// through no feature rule, so their parents have to be seeded on their own.
+export function getVisualExperimentPrerequisiteDependents(
+  experiments: Iterable<
+    Pick<
+      ExperimentInterface,
+      "project" | "phases" | "hasVisualChangesets" | "hasURLRedirects"
+    >
+  >,
+): PrerequisiteDependent[] {
+  const out: PrerequisiteDependent[] = [];
+  for (const experiment of experiments) {
+    if (!experiment.hasVisualChangesets && !experiment.hasURLRedirects) {
+      continue;
+    }
+    const phase = experiment.phases?.slice(-1)[0];
+    const prerequisiteIds = [
+      ...new Set(
+        (phase?.prerequisites ?? []).map((p) => p?.id).filter(Boolean),
+      ),
+    ];
+    if (experiment.project && prerequisiteIds.length) {
+      out.push({ projects: [experiment.project], prerequisiteIds });
+    }
+  }
+  return out;
+}
+
+export function getVisualExperimentPrerequisiteIds(
+  experiments: Iterable<
+    Pick<
+      ExperimentInterface,
+      "project" | "phases" | "hasVisualChangesets" | "hasURLRedirects"
+    >
+  >,
+): string[] {
+  return [
+    ...new Set(
+      getVisualExperimentPrerequisiteDependents(experiments).flatMap(
+        (d) => d.prerequisiteIds,
+      ),
+    ),
+  ];
+}
+
 // A gate whose parent is absent from the payload can never pass, so a delivered
 // feature's prerequisites travel with it even when they target other projects.
 export function featuresWithPrerequisiteClosure(
@@ -763,7 +813,7 @@ export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
   allProjectIds: string[] = [],
   experimentMap?: Map<string, ExperimentInterface>,
-  otherDependents: { projects: string[]; prerequisiteIds: string[] }[] = [],
+  otherDependents: PrerequisiteDependent[] = [],
 ): Map<string, Set<string>> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
