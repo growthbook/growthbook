@@ -1,4 +1,5 @@
 import { z } from "zod";
+import uniqid from "uniqid";
 import {
   deleteDataSourceValidator,
   postDataSourceInformationSchemaRefreshValidator,
@@ -52,11 +53,14 @@ export function applyApiDataSourceSettings(
     const prev = new Map(
       (existing.userIdTypes ?? []).map((t) => [t.userIdType, t]),
     );
-    settings.userIdTypes = input.identifierTypes.map((t) => ({
-      ...prev.get(t.id),
-      userIdType: t.id,
-      description: t.description,
-    }));
+    settings.userIdTypes = input.identifierTypes.map((t) => {
+      const match = prev.get(t.id);
+      return {
+        ...match,
+        userIdType: t.id,
+        description: t.description ?? match?.description,
+      };
+    });
   }
   if (input.assignmentQueries) {
     const prev = new Map(
@@ -64,16 +68,20 @@ export function applyApiDataSourceSettings(
     );
     settings.queries = {
       ...settings.queries,
-      exposure: input.assignmentQueries.map((q) => ({
-        ...(q.id ? prev.get(q.id) : undefined),
-        id: q.id ?? "",
-        name: q.name,
-        description: q.description,
-        userIdType: q.identifierType,
-        query: q.sql,
-        hasNameCol: q.includesNameColumns,
-        dimensions: q.dimensionColumns ?? [],
-      })),
+      exposure: input.assignmentQueries.map((q) => {
+        const match = q.id ? prev.get(q.id) : undefined;
+        return {
+          ...match,
+          // createDataSource doesn't save the ids it assigns while validating
+          id: q.id || uniqid("exq_"),
+          name: q.name,
+          description: q.description ?? match?.description,
+          userIdType: q.identifierType,
+          query: q.sql,
+          hasNameCol: q.includesNameColumns ?? match?.hasNameCol,
+          dimensions: q.dimensionColumns ?? match?.dimensions ?? [],
+        };
+      }),
     };
   }
   if (input.identifierJoinQueries) {
@@ -104,7 +112,10 @@ export function applyApiDataSourceSettings(
     };
   }
   if (input.pipelineSettings) {
-    settings.pipelineSettings = input.pipelineSettings;
+    settings.pipelineSettings = {
+      ...existing.pipelineSettings,
+      ...input.pipelineSettings,
+    };
   }
   // Stored as strings for the settings form
   if (input.maxConcurrentQueries !== undefined) {
@@ -154,9 +165,7 @@ export const postDataSource = createApiRequestHandler(postDataSourceValidator)(
       description,
       projectIds,
     );
-    // Re-read so ids the model assigned while validating are included
-    const saved = await getDataSource(context, datasource.id);
-    return { dataSource: toDataSourceApiInterface(saved) };
+    return { dataSource: toDataSourceApiInterface(datasource) };
   },
 );
 

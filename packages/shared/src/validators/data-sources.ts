@@ -23,8 +23,8 @@ const pipelineSettingsValidator = z
 // Returned by GET and accepted on create/update.
 const apiDataSourceExtraFields = {
   pipelineSettings: pipelineSettingsValidator.optional(),
-  maxConcurrentQueries: z.number().optional(),
-  queryCacheTTLMins: z.number().optional(),
+  maxConcurrentQueries: z.number().int().nonnegative().optional(),
+  queryCacheTTLMins: z.number().int().nonnegative().optional(),
 };
 
 // Corresponds to schemas/DataSource.yaml

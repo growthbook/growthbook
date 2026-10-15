@@ -59,7 +59,7 @@ describe("applyApiDataSourceSettings", () => {
       dimensionSlicesId: "dimslice_1",
     });
     expect(settings.queries?.exposure?.[1]).toMatchObject({
-      id: "",
+      id: expect.stringMatching(/^exq_/),
       name: "Added",
       userIdType: "device_id",
       dimensions: [],
