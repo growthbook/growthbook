@@ -279,9 +279,9 @@ These are easy to mix up:
 
 - **Streaming**: GrowthBook (Cloud or Proxy) pushes a notification when features change. On Node, set up an `EventSource` polyfill and use `init({ streaming: true })` so this client subscribes to those updates (below).
 - **Cache refresh**: the SDK refetches the features payload (for example by calling `refreshFeatures()`). Cache settings like `staleTTL` only apply when a fetch already runs; they do **not** start fetches on their own.
-- **`backgroundSync`**: only controls whether a streaming connection is **allowed** (default `true`). Setting `cacheSettings: { backgroundSync: true }` alone does **not** enable auto-refresh on Node.
+- **`backgroundSync`**: a kill switch for background updates (default `true`). Setting it to `false` disables both streaming and `pollingInterval`. (Setting `cacheSettings: { backgroundSync: true }` alone does **not** enable auto-refresh on Node.)
 
-A long-running process that never enables streaming, never sets `pollingInterval`, and never calls `refreshFeatures()` (directly or on a timer) will keep the payload from `init` until restart.
+To keep features current, use `streaming: true`, `pollingInterval`, or your own `refreshFeatures()` timer. Without one of these, the process keeps the payload from `init` until it restarts.
 
 </Note>
 
@@ -331,7 +331,7 @@ This will make an initial network request to download the features payload from 
 
 Every call to evaluate feature flags will use the latest available payload.
 
-To block streaming connections, call `configureCache({ backgroundSync: false })`. `GrowthBookClient` does not take a `backgroundSync` constructor option; that setting only lives on the cache config. `backgroundSync: true` (the default) does not turn streaming on by itself.
+To stop all background updates (streaming and polling), call `configureCache({ backgroundSync: false })`. This also stops any refresh that's already running. `GrowthBookClient` does not take a `backgroundSync` constructor option; the setting only lives on the cache config. To turn off streaming but keep polling, leave out `streaming: true` and pass only `pollingInterval`.
 
 ### Polling Updates
 
@@ -403,8 +403,8 @@ configureCache({
   maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
-  // When false, do not open an SSE streaming connection (default true).
-  // This does not enable auto-refresh by itself. See Refreshing Features.
+  // Set to `false` to disable streaming and polling (default true).
+  // `true` does not enable either one. See Refreshing Features.
   backgroundSync: true,
 })
 ```
