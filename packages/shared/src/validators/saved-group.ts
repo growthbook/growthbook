@@ -232,7 +232,7 @@ export const postSavedGroupValidator = {
     })
     .strict(),
   summary: "Create a single saved group",
-  confirmation: [],
+  confirmation: ["savedGroup.create"] as const,
   operationId: "postSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,

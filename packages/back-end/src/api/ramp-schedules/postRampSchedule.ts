@@ -86,7 +86,7 @@ export const postBodyStep = z
 const postRampScheduleValidator = {
   method: "post" as const,
   path: "/ramp-schedules",
-  confirmation: ["rampSchedule.start"] as const,
+  confirmation: ["rampSchedule.create", "rampSchedule.start"] as const,
   confirmationInHandler: true,
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
@@ -441,15 +441,25 @@ export const postRampSchedule = createApiRequestHandler(
     : null;
 
   // Attaching on creation controls a live rule without a revision publish.
-  if (hasTarget) {
-    await requireConfirmation(req.context, {
-      actions: ["rampSchedule.start"],
-      project: feature!.project,
-      summary: `Attach a ramp schedule to ${feature!.id}`,
-      links: [confirmationLink("feature", feature!.id)],
-      pin: feature!.dateUpdated,
-    });
-  }
+  await requireConfirmation(
+    req.context,
+    hasTarget
+      ? {
+          actions: ["rampSchedule.start"],
+          project: feature!.project,
+          summary: `Attach a ramp schedule to ${feature!.id}`,
+          links: [confirmationLink("feature", feature!.id)],
+          pin: feature!.dateUpdated,
+        }
+      : {
+          actions: ["rampSchedule.create"],
+          summary: body.name
+            ? `Create ramp schedule ${body.name}`
+            : "Create a ramp schedule",
+          links: [],
+          pin: null,
+        },
+  );
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,

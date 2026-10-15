@@ -5,7 +5,6 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { CONFIRM_MODEL_BY_TAG } from "shared/validators";
 import type { decideConfirmation as Decide } from "back-end/src/services/confirmationDecisions";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findAuditByEntity } from "back-end/src/models/AuditModel";
@@ -435,18 +434,25 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(2);
   });
 
-  it("declares what every write to a live model may hold for", async () => {
+  it("declares what every write may hold for", async () => {
     const { allRoutes } = await import("back-end/src/api/api.router");
-    const undeclared = allRoutes
-      .filter(
-        (route) =>
-          route.method &&
-          route.method !== "get" &&
-          route.tags?.some((tag) => tag in CONFIRM_MODEL_BY_TAG) &&
-          route.confirmation === undefined,
-      )
-      .map((route) => `${route.method.toUpperCase()} ${route.path}`);
-    expect(undeclared).toEqual([]);
+    const writes = allRoutes.filter(
+      (route) => route.method && route.method !== "get",
+    );
+    const name = (route: (typeof writes)[number]) =>
+      `${route.method.toUpperCase()} ${route.path}`;
+    expect(
+      writes.filter((route) => route.confirmation === undefined).map(name),
+    ).toEqual([]);
+    // Declaring nothing marks a read: only a POST that computes can be one.
+    expect(
+      writes
+        .filter(
+          (route) =>
+            route.confirmation?.length === 0 && route.method !== "post",
+        )
+        .map(name),
+    ).toEqual([]);
   });
 
   it("asks about a direct update only once its checks pass", async () => {
@@ -625,5 +631,44 @@ describe("confirmations", () => {
     await seed("production");
     setReqContext(asKey(ci));
     expect((await publish()).status).toBe(200);
+  });
+
+  it("holds an environment edit on the recommended rule, but not a new one", async () => {
+    await seed("production");
+    const recommended = keyDoc("key_recommended", {
+      role: "admin",
+      confirmRules: [{ actions: ["recommended"] }],
+    });
+    await mongoose.connection.collection("apikeys").insertOne(recommended);
+    setReqContext(asKey(recommended));
+
+    const created = await auth(request(app).post("/api/v1/environments")).send({
+      id: "qa",
+    });
+    expect(created.status).toBe(200);
+
+    const held = await auth(
+      request(app).put("/api/v1/environments/production"),
+    ).send({ description: "Live" });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "environment.edit", environments: [] },
+    ]);
+    const id = held.body.confirmation.id;
+    // Allowed to manage only the dev environment.
+    await expect(
+      decideConfirmation(asUser("u_dev"), id, "confirm"),
+    ).rejects.toThrow(/permission/i);
+    expect(
+      await decideConfirmation(asUser("u_admin"), id, "confirm"),
+    ).toMatchObject({ status: "completed", response: { status: 200 } });
+    const saved = await mongoose.connection
+      .collection("organizations")
+      .findOne({ id: ORG_ID });
+    expect(
+      saved?.settings.environments.find(
+        (env: { id: string }) => env.id === "production",
+      )?.description,
+    ).toBe("Live");
   });
 });

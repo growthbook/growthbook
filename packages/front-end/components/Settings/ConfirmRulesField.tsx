@@ -29,13 +29,15 @@ import {
   ALL,
   actionsOf,
   Category,
-  CATEGORIES,
   CATEGORY_TITLES,
   categoryOf,
-  covers,
-  isCategory,
-  toggleAction,
   isCatchAll,
+  isCategory,
+  isPicked,
+  isSingleAction,
+  RECOMMENDED,
+  SECTIONS,
+  toggleAction,
   verbOf,
 } from "./confirmRulesUtils";
 
@@ -48,6 +50,8 @@ const PLUS = (
     <PiPlusBold size={11} />
   </Text>
 );
+
+const isPreset = (value: string) => value === ALL || value === RECOMMENDED;
 
 // One row per category, selectable as a whole (`feature.*`); a caret reveals
 // its actions.
@@ -64,32 +68,53 @@ function ActionsField({
   const coverage = data?.coverage;
   // Changes only when coverage loads, so react-select keeps its highlighted
   // row across picks; collapsed categories hide their actions in the filter.
-  const options = useMemo(
-    () => [
-      { label: "All actions", value: ALL },
-      ...CATEGORIES.flatMap((category) => [
-        { label: CATEGORY_TITLES[category], value: `${category}.*` },
-        ...actionsOf(category).map((label) => ({
-          label: `${CATEGORY_TITLES[category]}: ${verbOf(label)}`,
-          value: label,
-          // The catch-all's members aren't obvious from its name.
-          tooltip:
-            isCatchAll(label) && coverage?.[label]?.length ? (
-              <Flex direction="column">
-                {coverage[label].map((call) => (
-                  <span key={call}>{call}</span>
-                ))}
-              </Flex>
-            ) : undefined,
-        })),
-      ]),
-    ],
-    [coverage],
-  );
+  const options = useMemo(() => {
+    // A catch-all's members aren't obvious from its name.
+    const calls = (action: string) =>
+      isCatchAll(action) && coverage?.[action]?.length ? (
+        <Flex direction="column">
+          {coverage[action].map((call) => (
+            <span key={call}>{call}</span>
+          ))}
+        </Flex>
+      ) : undefined;
+    return [
+      {
+        label: "",
+        options: [
+          { label: "Recommended", value: RECOMMENDED },
+          { label: "All actions", value: ALL },
+        ],
+      },
+      ...SECTIONS.map(({ title, categories }) => ({
+        label: title,
+        options: categories.flatMap((category) =>
+          isSingleAction(category)
+            ? [
+                {
+                  label: CATEGORY_TITLES[category],
+                  value: `${category}.*`,
+                  tooltip: calls(actionsOf(category)[0]),
+                },
+              ]
+            : [
+                { label: CATEGORY_TITLES[category], value: `${category}.*` },
+                ...actionsOf(category).map((action) => ({
+                  label: `${CATEGORY_TITLES[category]}: ${verbOf(action)}`,
+                  value: action,
+                  tooltip: calls(action),
+                })),
+              ],
+        ),
+      })),
+    ];
+  }, [coverage]);
 
   const [expanded, setExpanded] = useState<Set<Category>>(
     () =>
-      new Set(value.filter((v) => v !== ALL && !isCategory(v)).map(categoryOf)),
+      new Set(
+        value.filter((v) => !isPreset(v) && !isCategory(v)).map(categoryOf),
+      ),
   );
   const toggle = (category: Category) =>
     setExpanded((prev) => {
@@ -110,7 +135,7 @@ function ActionsField({
       filterOption={(option, input) =>
         input
           ? search(option, input)
-          : option.value === ALL ||
+          : isPreset(option.value) ||
             isCategory(option.value) ||
             expanded.has(categoryOf(option.value))
       }
@@ -121,7 +146,9 @@ function ActionsField({
         const value = document
           .querySelector(".gb-multi-select__option--is-focused [data-action]")
           ?.getAttribute("data-action");
-        if (!value || value === ALL) return;
+        if (!value || isPreset(value) || isSingleAction(categoryOf(value))) {
+          return;
+        }
         const category = categoryOf(value);
         const open = expanded.has(category);
         if (e.key === "ArrowRight" ? !open && isCategory(value) : open) {
@@ -138,10 +165,12 @@ function ActionsField({
       }}
       formatOptionLabel={(option, meta) => {
         if (meta.context !== "menu") return option.label;
-        const category = isCategory(option.value)
-          ? categoryOf(option.value)
-          : null;
-        const isChecked = covers(value, option.value);
+        const category =
+          isCategory(option.value) && !isSingleAction(categoryOf(option.value))
+            ? categoryOf(option.value)
+            : null;
+        const header = isPreset(option.value) || isCategory(option.value);
+        const isChecked = isPicked(value, option.value);
         return (
           <Flex align="center" gap="1" data-action={option.value}>
             <Flex
@@ -172,12 +201,10 @@ function ActionsField({
                 {expanded.has(category) ? <PiCaretDown /> : <PiCaretRight />}
               </IconButton>
             ) : (
-              option.value !== ALL && <Box width="24px" flexShrink="0" />
+              !isPreset(option.value) && <Box width="24px" flexShrink="0" />
             )}
-            <Box pl={option.value === ALL || category ? "0" : "4"}>
-              {option.value === ALL || category
-                ? option.label
-                : verbOf(option.value)}
+            <Box pl={header ? "0" : "4"}>
+              {header ? option.label : verbOf(option.value)}
             </Box>
           </Flex>
         );
@@ -186,7 +213,9 @@ function ActionsField({
   );
 }
 
-export const SUGGESTED_CONFIRM_RULES: ConfirmRule[] = [{ actions: [ALL] }];
+export const SUGGESTED_CONFIRM_RULES: ConfirmRule[] = [
+  { actions: [RECOMMENDED] },
+];
 
 export default function ConfirmRulesField({
   value,

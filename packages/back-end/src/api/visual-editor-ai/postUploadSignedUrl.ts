@@ -43,6 +43,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/upload-signed-url",
+  confirmation: ["other.write"] as const,
   operationId: "postVisualEditorAIUploadSignedUrl",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.

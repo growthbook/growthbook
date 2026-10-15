@@ -1,8 +1,12 @@
-import { CONFIRM_ACTIONS, type ConfirmRule } from "shared/validators";
+import {
+  CONFIRM_ACTIONS,
+  RECOMMENDED_CONFIRM_ACTIONS,
+  type ConfirmAction,
+  type ConfirmRule,
+} from "shared/validators";
 import { actionCovers } from "shared/util";
 
-export type Category =
-  (typeof CONFIRM_ACTIONS)[number] extends `${infer C}.${string}` ? C : never;
+export type Category = ConfirmAction extends `${infer C}.${string}` ? C : never;
 export const CATEGORY_TITLES: Record<Category, string> = {
   feature: "Feature Flags",
   experiment: "Experiments",
@@ -10,81 +14,134 @@ export const CATEGORY_TITLES: Record<Category, string> = {
   constant: "Constants",
   config: "Configs",
   rampSchedule: "Ramp Schedules",
+  settings: "Settings",
+  access: "Members & Teams",
+  customHook: "Custom Hooks",
+  environment: "Environments",
+  project: "Projects",
+  attribute: "Attributes",
+  customField: "Custom Fields",
+  sdkConnection: "SDK Connections",
+  metric: "Metrics",
+  factTable: "Fact Tables",
+  segment: "Segments",
+  dimension: "Dimensions",
   override: "Overrides",
+  other: "Everything Else",
 };
-export const CATEGORIES = Object.keys(CATEGORY_TITLES) as Category[];
+export const SECTIONS: { title: string; categories: Category[] }[] = [
+  {
+    title: "Releases",
+    categories: [
+      "feature",
+      "experiment",
+      "savedGroup",
+      "constant",
+      "config",
+      "rampSchedule",
+    ],
+  },
+  {
+    title: "Governance",
+    categories: [
+      "settings",
+      "access",
+      "customHook",
+      "environment",
+      "project",
+      "attribute",
+      "customField",
+      "sdkConnection",
+    ],
+  },
+  {
+    title: "Analysis",
+    categories: ["metric", "factTable", "segment", "dimension"],
+  },
+  { title: "Other", categories: ["override", "other"] },
+];
+export const CATEGORIES = SECTIONS.flatMap((section) => section.categories);
 export const ALL = "*";
+export const RECOMMENDED = "recommended";
 
 export const categoryOf = (value: string) => value.split(".")[0] as Category;
 export const isCategory = (value: string) => value.endsWith(".*");
-export const isCatchAll = (value: string) => value.endsWith(".other");
-export const actionsOf = (category: Category) =>
-  CONFIRM_ACTIONS.filter((label) => categoryOf(label) === category);
+export const isCatchAll = (value: string) =>
+  value.endsWith(".other") || value === "other.write";
+export const actionsOf = (category: Category): ConfirmAction[] =>
+  CONFIRM_ACTIONS.filter((action) => categoryOf(action) === category);
+// A category with one action is picked as a whole, like "Everything Else".
+export const isSingleAction = (category: Category) =>
+  actionsOf(category).length === 1;
 
 // "ignoreWarnings" reads as "ignore warnings".
-export const verbOf = (label: string) =>
-  isCatchAll(label)
-    ? "other actions"
-    : label
-        .split(".")[1]
-        .replace(/([A-Z])/g, " $1")
-        .toLowerCase();
+export const verbOf = (action: string) => {
+  const verb = action.split(".")[1];
+  if (verb === "other") return "other actions";
+  if (verb === "draft") return "drafts";
+  return verb.replace(/([A-Z])/g, " $1").toLowerCase();
+};
 
-// Clicking a row checked only through a wildcard unchecks just that row: the
-// wildcard gives way to its other members. Checking every member of a category,
-// or every category, folds back into the wildcard.
-export function toggleAction(value: string[], clicked: string): string[] {
-  const selected = new Set(value);
-  if (clicked !== ALL && selected.has(ALL)) {
-    selected.delete(ALL);
-    CATEGORIES.forEach((category) => selected.add(`${category}.*`));
-  }
-  const category = clicked === ALL ? null : categoryOf(clicked);
-  if (category && !isCategory(clicked) && selected.has(`${category}.*`)) {
-    selected.delete(`${category}.*`);
-    actionsOf(category).forEach((label) => selected.add(label));
-  }
+// The actions a rule's picks cover.
+const expand = (picks: string[]) =>
+  new Set<ConfirmAction>(
+    CONFIRM_ACTIONS.filter((action) =>
+      picks.some((pick) => actionCovers(pick, action)),
+    ),
+  );
+const within = (actions: readonly ConfirmAction[], set: Set<ConfirmAction>) =>
+  actions.every((action) => set.has(action));
 
-  if (selected.has(clicked)) selected.delete(clicked);
-  else if (clicked === ALL) return [ALL];
-  else {
-    selected.add(clicked);
-    if (category && isCategory(clicked)) {
-      actionsOf(category).forEach((label) => selected.delete(label));
-    }
-  }
-
-  for (const c of CATEGORIES) {
-    if (actionsOf(c).every((label) => selected.has(label))) {
-      actionsOf(c).forEach((label) => selected.delete(label));
-      selected.add(`${c}.*`);
-    }
-  }
-  if (CATEGORIES.every((c) => selected.has(`${c}.*`))) return [ALL];
+// The fewest picks for a set of actions: "*", then "recommended", then a
+// category for each one fully picked beyond it, then single actions.
+function toPicks(set: Set<ConfirmAction>): string[] {
+  if (set.size === CONFIRM_ACTIONS.length) return [ALL];
+  const recommended = within(RECOMMENDED_CONFIRM_ACTIONS, set);
+  const base = new Set<ConfirmAction>(
+    recommended ? RECOMMENDED_CONFIRM_ACTIONS : [],
+  );
   return [
-    ALL,
-    ...CATEGORIES.flatMap((c) => [`${c}.*`, ...actionsOf(c)]),
-  ].filter((v) => selected.has(v));
+    ...(recommended ? [RECOMMENDED] : []),
+    ...CATEGORIES.flatMap((category) => {
+      const actions = actionsOf(category);
+      if (within(actions, base)) return [];
+      if (within(actions, set)) return [`${category}.*`];
+      return actions.filter((action) => set.has(action) && !base.has(action));
+    }),
+  ];
 }
 
-// Picked itself, or covered by "*" or its category.
-export const covers = (actions: string[], action: string) =>
-  actions.some((a) => actionCovers(a, action));
+// Whether a picker row is checked: everything it stands for is picked.
+export const isPicked = (picks: string[], row: string) => {
+  const set = expand(picks);
+  return row === ALL
+    ? set.size === CONFIRM_ACTIONS.length
+    : within([...expand([row])], set);
+};
 
-// Rules for the same environments act as one rule, so they save as one, with
-// actions a wildcard already covers folded into it.
+// Clicking a checked row unchecks everything it stands for, so a row checked
+// only through a wildcard unchecks just itself. Recommended, clicked under
+// All actions, narrows to itself.
+export function toggleAction(picks: string[], clicked: string): string[] {
+  const set = expand(picks);
+  const everything = set.size === CONFIRM_ACTIONS.length;
+  if (clicked === ALL) return everything ? [] : [ALL];
+  if (clicked === RECOMMENDED && everything) return [RECOMMENDED];
+  const actions = [...expand([clicked])];
+  const checked = within(actions, set);
+  actions.forEach((action) => (checked ? set.delete(action) : set.add(action)));
+  return toPicks(set);
+}
+
+// Rules for the same environments act as one rule, so they save as one.
 export function mergeConfirmRules(rules: ConfirmRule[]): ConfirmRule[] {
   const byEnvironments = new Map<string, ConfirmRule>();
   for (const rule of rules) {
     const key = [...(rule.environments ?? [])].sort().join(",");
-    const into = byEnvironments.get(key) ?? { ...rule, actions: [] };
+    const into = byEnvironments.get(key);
     byEnvironments.set(key, {
-      ...into,
-      actions: rule.actions.reduce(
-        (actions, action) =>
-          covers(actions, action) ? actions : toggleAction(actions, action),
-        into.actions,
-      ),
+      ...(into ?? rule),
+      actions: toPicks(expand([...(into?.actions ?? []), ...rule.actions])),
     });
   }
   return [...byEnvironments.values()];

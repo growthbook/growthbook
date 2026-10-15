@@ -16,7 +16,7 @@ const REVISION_MODELS = {
 } as const;
 
 // For keys that name no one: the decider must be allowed to do the action
-// themselves, in each of these environments.
+// themselves, in each of these environments. Anything unlisted fails closed.
 function deciderCan(
   p: Permissions,
   action: ConfirmAction,
@@ -25,28 +25,144 @@ function deciderCan(
   changes: string,
 ): boolean {
   const [model, verb] = action.split(".");
-  if (model in REVISION_MODELS) {
-    return p.canRevisionAction(
-      REVISION_MODELS[model as keyof typeof REVISION_MODELS],
-      verb === "delete" || verb === "archive" ? "delete" : "publish",
-      { project },
-      envs,
-    );
+  const projects = project ? [project] : [];
+  const scoped = { projects, managedBy: "" as const };
+  const byVerb = (
+    create: () => boolean,
+    edit: () => boolean,
+    remove: () => boolean,
+  ) => (verb === "create" ? create() : verb === "delete" ? remove() : edit());
+  switch (model) {
+    case "feature":
+    case "savedGroup":
+    case "constant":
+    case "config":
+      return p.canRevisionAction(
+        REVISION_MODELS[model],
+        verb === "create" || verb === "draft"
+          ? verb
+          : verb === "delete" || verb === "archive"
+            ? "delete"
+            : "publish",
+        { project },
+        envs,
+      );
+    case "rampSchedule":
+      return p.canRevisionAction("feature", "publish", { project }, envs);
+    case "experiment":
+      return verb === "create"
+        ? p.canCreateExperiment({ project })
+        : verb === "draft"
+          ? p.canUpdateExperiment({ project }, { project })
+          : p.canRunExperiment({ project }, envs);
+    case "settings":
+    case "other":
+      return p.canManageOrgSettings();
+    case "access":
+      return p.canManageTeam();
+    case "customField":
+      return p.canManageCustomFields();
+    case "customHook":
+      return byVerb(
+        () => p.canCreateCustomHook({ projects }),
+        () => p.canUpdateCustomHook({ projects }, { projects }),
+        () => p.canDeleteCustomHook({ projects }),
+      );
+    case "environment":
+      return envs.every((id) =>
+        byVerb(
+          () => p.canCreateEnvironment({ projects, id }),
+          () => p.canUpdateEnvironment({ projects, id }, { projects }),
+          () => p.canDeleteEnvironment({ projects, id }),
+        ),
+      );
+    case "project":
+      return byVerb(
+        () => p.canCreateProjects(),
+        () => p.canUpdateProject(project),
+        () => p.canDeleteProject(project),
+      );
+    case "attribute":
+      return byVerb(
+        () => p.canCreateAttribute({ projects }),
+        () => p.canUpdateAttribute({ projects }, { projects }),
+        () => p.canDeleteAttribute({ projects }),
+      );
+    case "sdkConnection":
+      return envs.every((environment) =>
+        byVerb(
+          () => p.canCreateSDKConnection({ projects, environment }),
+          () =>
+            p.canUpdateSDKConnection(
+              { projects, environment },
+              { projects, environment },
+            ),
+          () => p.canDeleteSDKConnection({ projects, environment }),
+        ),
+      );
+    // Metric actions cover metrics, fact metrics and metric groups alike.
+    case "metric":
+      return byVerb(
+        () =>
+          p.canCreateMetric(scoped) &&
+          p.canCreateFactMetric(scoped) &&
+          p.canCreateMetricGroup(),
+        () =>
+          p.canUpdateMetric(scoped, scoped) &&
+          p.canUpdateFactMetric(scoped, {}) &&
+          p.canUpdateMetricGroup(),
+        () =>
+          p.canDeleteMetric(scoped) &&
+          p.canDeleteFactMetric(scoped) &&
+          p.canDeleteMetricGroup(),
+      );
+    // Fact table actions cover their filters and virtual columns too.
+    case "factTable":
+      return byVerb(
+        () =>
+          p.canCreateFactTable(scoped) &&
+          p.canCreateAndUpdateFactFilter(scoped) &&
+          p.canManageFactTableVirtualColumn(scoped),
+        () =>
+          p.canUpdateFactTable(scoped, {}) &&
+          p.canCreateAndUpdateFactFilter(scoped) &&
+          p.canDeleteFactFilter(scoped) &&
+          p.canManageFactTableVirtualColumn(scoped),
+        () => p.canDeleteFactTable(scoped),
+      );
+    case "segment":
+      return byVerb(
+        () => p.canCreateSegment({ projects }),
+        () => p.canUpdateSegment({ projects }, { projects }),
+        () => p.canDeleteSegment({ projects }),
+      );
+    case "dimension":
+      return byVerb(
+        () => p.canCreateDimension(),
+        () => p.canUpdateDimension(),
+        () => p.canDeleteDimension(),
+      );
+    // Warnings need no authority; the other checks need bypass rights on
+    // whatever the request changes, with experiments and ramps going by the flag.
+    case "override":
+      if (verb === "ignoreWarnings") return true;
+      if (changes === "savedGroup") {
+        return p.canRevisionAction("saved-group", "bypass", { project });
+      }
+      if (changes === "constant" || changes === "config") {
+        return p.canBypassFlagApprovalChecks({ project }, changes);
+      }
+      if (
+        changes === "feature" ||
+        changes === "experiment" ||
+        changes === "rampSchedule"
+      ) {
+        return p.canBypassFlagApprovalChecks({ project }, "feature");
+      }
+      return false;
+    default:
+      return false;
   }
-  if (model === "rampSchedule") {
-    return p.canRevisionAction("feature", "publish", { project }, envs);
-  }
-  if (model === "experiment") return p.canRunExperiment({ project }, envs);
-  // Overrides: warnings need no authority; the rest need bypass rights on
-  // whatever the request changes, with experiments and ramps going by the flag.
-  if (verb === "ignoreWarnings") return true;
-  if (changes === "savedGroup") {
-    return p.canRevisionAction("saved-group", "bypass", { project });
-  }
-  return p.canBypassFlagApprovalChecks(
-    { project },
-    changes === "constant" || changes === "config" ? changes : "feature",
-  );
 }
 
 export async function canDecide(

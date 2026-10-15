@@ -2456,6 +2456,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.create
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -4602,6 +4603,7 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.draftLimit
   /v1/features/{id}/revisions/latest:
@@ -4944,6 +4946,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/default-value:
     put:
@@ -5062,6 +5065,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -5174,6 +5178,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/holdout:
     put:
@@ -5283,6 +5288,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/archive:
     put:
@@ -5380,6 +5386,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/toggle:
     post:
@@ -5480,6 +5487,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules:
     post:
@@ -6442,6 +6450,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -7170,6 +7179,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -7270,6 +7280,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules/reorder:
     post:
@@ -7374,6 +7385,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
@@ -7953,6 +7965,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
     delete:
       operationId: deleteFeatureRevisionRuleRampSchedule
@@ -8050,6 +8063,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/request-review:
     post:
@@ -8123,6 +8137,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
   /v1/features/{id}/revisions/{version}/submit-review:
     post:
@@ -8188,6 +8203,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8195,6 +8227,8 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v1/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatus
@@ -8364,6 +8398,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v1/features/{id}/revisions/{version}/publish:
     post:
@@ -8538,6 +8573,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8545,6 +8597,8 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v1/features/{id}/revisions/{version}/revert:
     post:
       operationId: postFeatureRevisionRevert
@@ -9627,6 +9681,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v2/features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.create
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -11172,6 +11227,7 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.draftLimit
   /v2/features/{id}/revisions/latest:
@@ -11661,6 +11717,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/default-value:
     put:
@@ -11791,6 +11848,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -11905,6 +11963,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/holdout:
     put:
@@ -12010,6 +12069,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/archive:
     put:
@@ -12104,6 +12164,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/toggle:
     post:
@@ -12201,6 +12262,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules:
     post:
@@ -12846,6 +12908,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -13600,6 +13663,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -13695,6 +13759,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules/reorder:
     post:
@@ -13795,6 +13860,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
@@ -14497,6 +14563,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
     delete:
       operationId: deleteFeatureRevisionRuleRampScheduleV2
@@ -14592,6 +14659,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/request-review:
     post:
@@ -14683,6 +14751,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
   /v2/features/{id}/revisions/{version}/schedule-publish:
     post:
@@ -14870,6 +14939,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14877,6 +14963,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/recall-review:
     post:
       operationId: postFeatureRevisionRecallReviewV2
@@ -14921,6 +15009,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14928,6 +15033,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/undo-review:
     post:
       operationId: postFeatureRevisionUndoReviewV2
@@ -14973,6 +15080,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14980,6 +15104,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/log:
     get:
       operationId: getFeatureRevisionLogV2
@@ -15068,6 +15194,23 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15075,6 +15218,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
     delete:
       operationId: deleteFeatureRevisionLogEntryV2
       summary: Delete an owned revision Comment entry
@@ -15116,6 +15261,23 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15123,6 +15285,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatusV2
@@ -15539,6 +15703,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - override.ignoreWarnings
   /v2/features/{id}/revisions/{version}/publish:
     post:
@@ -15703,6 +15868,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15710,6 +15892,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/reopen:
     post:
       operationId: postFeatureRevisionReopenV2
@@ -15749,6 +15933,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15756,6 +15957,8 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - feature.draft
   /v2/features/{id}/revisions/{version}/revert:
     post:
       operationId: postFeatureRevisionRevertV2
@@ -15952,11 +16155,30 @@ paths:
                 required:
                   - archetype
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/archetypes' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/archetypes/{id}:
     get:
       operationId: getArchetype
@@ -16038,6 +16260,23 @@ paths:
                 required:
                   - archetype
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -16045,6 +16284,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"New description"}'
+      x-growthbook-confirmation:
+        - other.write
     delete:
       operationId: deleteArchetype
       summary: Deletes a single archetype
@@ -16065,12 +16306,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/archetypes/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/experiments:
     get:
       operationId: listExperiments
@@ -16822,6 +17082,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - experiment.create
         - experiment.start
         - experiment.stop
         - override.ignoreWarnings
@@ -17623,6 +17884,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - experiment.draft
         - experiment.start
         - experiment.stop
         - experiment.targeting
@@ -17877,6 +18139,23 @@ paths:
                   - checklistItems
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -17886,6 +18165,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"keys":["Stakeholder sign-off","QA complete"]}'
+      x-growthbook-confirmation:
+        - experiment.draft
   /v1/experiments/{id}/stop:
     post:
       operationId: postExperimentStop
@@ -18147,6 +18428,7 @@ paths:
       x-growthbook-confirmation:
         - experiment.start
         - experiment.stop
+        - experiment.other
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -18420,6 +18702,23 @@ paths:
                 required:
                   - screenshot
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18427,6 +18726,8 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot/upload'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.draft
   /v1/experiments/{id}/variation/{variationId}/screenshot:
     delete:
       operationId: deleteVariationScreenshot
@@ -18463,6 +18764,23 @@ paths:
                 type: object
                 properties: {}
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18470,6 +18788,8 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.draft
   /v1/experiment-names:
     get:
       operationId: getExperimentNames
@@ -18536,6 +18856,23 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18544,6 +18881,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"comment":"This looks good to ship."}'
+      x-growthbook-confirmation:
+        - other.write
   /v1/experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -20145,11 +20484,30 @@ paths:
                 required:
                   - metric
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/metrics' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.create
   /v1/metrics/{id}:
     get:
       operationId: getMetric
@@ -20559,6 +20917,23 @@ paths:
                 required:
                   - updatedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20566,6 +20941,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"net revenue","description":"revenue minus lacroix spend"}'
+      x-growthbook-confirmation:
+        - metric.edit
     delete:
       operationId: deleteMetric
       summary: Deletes a metric
@@ -20586,11 +20963,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/metrics/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.delete
   /v1/metrics/{id}/experiments:
     get:
       operationId: listMetricExperiments
@@ -20833,6 +21229,23 @@ paths:
                 required:
                   - segment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20840,6 +21253,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Annual Subscribers","datasourceId":"ds_123abc","identifierType":"user_id","type":"SQL","query":"SELECT plan FROM subscribers WHERE plan = "}'
+      x-growthbook-confirmation:
+        - segment.create
   /v1/segments/{id}:
     get:
       operationId: getSegment
@@ -20955,6 +21370,23 @@ paths:
                 required:
                   - segment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20962,6 +21394,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Region"}'
+      x-growthbook-confirmation:
+        - segment.edit
     delete:
       operationId: deleteSegment
       summary: Deletes a single segment
@@ -20984,11 +21418,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/segments/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - segment.delete
   /v1/dimensions:
     get:
       operationId: listDimensions
@@ -21083,6 +21536,23 @@ paths:
                 required:
                   - dimension
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21090,6 +21560,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Country","datasourceId":"ds_123abc","identifierType":"user","query":"SELECT country FROM users"}'
+      x-growthbook-confirmation:
+        - dimension.create
   /v1/dimensions/{id}:
     get:
       operationId: getDimension
@@ -21175,6 +21647,23 @@ paths:
                 required:
                   - dimension
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21182,6 +21671,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"User Region"}'
+      x-growthbook-confirmation:
+        - dimension.edit
     delete:
       operationId: deleteDimension
       summary: Deletes a single dimension
@@ -21204,12 +21695,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/dimensions/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - dimension.delete
   /v1/projects:
     get:
       operationId: listProjects
@@ -21345,6 +21855,23 @@ paths:
                 required:
                   - project
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21352,6 +21879,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Project","description":"Super cool project"}'
+      x-growthbook-confirmation:
+        - project.create
   /v1/projects/{id}:
     get:
       operationId: getProject
@@ -21455,6 +21984,23 @@ paths:
                 required:
                   - project
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21462,6 +22008,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary"}'
+      x-growthbook-confirmation:
+        - project.edit
     delete:
       operationId: deleteProject
       summary: Deletes a single project
@@ -21484,11 +22032,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/projects/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - project.delete
   /v1/environments:
     get:
       operationId: listEnvironments
@@ -21564,6 +22131,23 @@ paths:
                 required:
                   - environment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21571,6 +22155,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"id":"new-env","description":"My new environment"}'
+      x-growthbook-confirmation:
+        - environment.create
   /v1/environments/{id}:
     put:
       operationId: putEnvironment
@@ -21613,6 +22199,23 @@ paths:
                 required:
                   - environment
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21620,6 +22223,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"My updated environment"}'
+      x-growthbook-confirmation:
+        - environment.edit
     delete:
       operationId: deleteEnvironment
       summary: Deletes a single environment
@@ -21640,12 +22245,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/environments/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - environment.delete
   /v1/attributes:
     get:
       operationId: listAttributes
@@ -21770,6 +22394,23 @@ paths:
                 required:
                   - attribute
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21777,6 +22418,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"property":"foo","datatype":"boolean","description":"My new attribute"}'
+      x-growthbook-confirmation:
+        - attribute.create
   /v1/attributes/{property}:
     put:
       operationId: putAttribute
@@ -21859,6 +22502,23 @@ paths:
                 required:
                   - attribute
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21866,6 +22526,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"description":"My updated attribute"}'
+      x-growthbook-confirmation:
+        - attribute.edit
     delete:
       operationId: deleteAttribute
       summary: Deletes a single attribute
@@ -21886,12 +22548,31 @@ paths:
                 required:
                   - deletedProperty
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/attributes/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - attribute.delete
   /v1/sdk-connections:
     get:
       operationId: listSdkConnections
@@ -22020,11 +22701,30 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - sdkConnection.create
   /v1/sdk-connections/{id}:
     get:
       operationId: getSdkConnection
@@ -22144,12 +22844,31 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - sdkConnection.edit
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
@@ -22170,12 +22889,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/sdk-connections/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - sdkConnection.delete
   /v1/sdk-connections/lookup/{key}:
     get:
       operationId: lookupSdkConnectionByKey
@@ -23217,6 +23955,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"name":"internal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
       x-growthbook-confirmation:
+        - savedGroup.create
         - override.bypassApproval
   /v1/saved-groups-revisions:
     get:
@@ -23820,6 +24559,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23827,6 +24583,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/latest:
     get:
       operationId: getSavedGroupRevisionLatest
@@ -23991,6 +24749,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23998,6 +24773,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/condition:
     put:
       operationId: putSavedGroupRevisionCondition
@@ -24053,6 +24830,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24060,6 +24854,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/condition'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/values:
     put:
       operationId: putSavedGroupRevisionValues
@@ -24118,6 +24914,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24125,6 +24938,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:
     put:
       operationId: putSavedGroupRevisionArchive
@@ -24216,6 +25031,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - savedGroup.draft
         - override.ignoreWarnings
   /v1/saved-groups-revisions/{savedGroupId}/{version}/items/add:
     post:
@@ -24275,6 +25091,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24282,6 +25115,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/add'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove:
     post:
       operationId: postSavedGroupRevisionItemsRemove
@@ -24338,6 +25173,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24345,6 +25197,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/request-review:
     post:
       operationId: postSavedGroupRevisionRequestReview
@@ -24428,6 +25282,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - savedGroup.draft
         - override.ignoreWarnings
         - savedGroup.publish
   /v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review:
@@ -24495,6 +25350,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24502,6 +25374,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review:
     post:
       operationId: postSavedGroupRevisionRecallReview
@@ -24541,6 +25415,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24548,6 +25439,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/reopen:
     post:
       operationId: postSavedGroupRevisionReopen
@@ -24586,6 +25479,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24593,6 +25503,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/schedule-publish:
     post:
       operationId: postSavedGroupRevisionSchedulePublish
@@ -24737,6 +25649,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24744,6 +25673,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
     get:
       operationId: getSavedGroupRevisionMergeStatus
@@ -24867,6 +25798,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24874,6 +25822,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/publish:
     post:
       operationId: postSavedGroupRevisionPublish
@@ -25016,6 +25966,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25023,6 +25990,8 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - savedGroup.draft
   /v1/saved-groups-revisions/{savedGroupId}/{version}/revert:
     post:
       operationId: postSavedGroupRevisionRevert
@@ -25228,6 +26197,23 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -25235,6 +26221,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"key":"config-snippet","name":"Config Snippet","type":"json","value":"{\"timeout\":30}"}'
+      x-growthbook-confirmation:
+        - constant.create
   /v1/constants-revisions:
     get:
       operationId: listConstantRevisions
@@ -25952,12 +26940,31 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/constants-revisions/{key}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/latest:
     get:
       operationId: getConstantRevisionLatest
@@ -26120,6 +27127,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26127,6 +27151,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/value:
     put:
       operationId: putConstantRevisionValue
@@ -26191,6 +27217,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26198,6 +27241,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/archive:
     put:
       operationId: putConstantRevisionArchive
@@ -26308,6 +27353,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - constant.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -26412,6 +27458,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - constant.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -26481,6 +27528,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26488,6 +27552,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConstantRevisionRecallReview
@@ -26527,6 +27593,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26534,6 +27617,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/reopen:
     post:
       operationId: postConstantRevisionReopen
@@ -26572,6 +27657,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26579,6 +27681,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/schedule-publish:
     post:
       operationId: postConstantRevisionSchedulePublish
@@ -26742,6 +27846,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26749,6 +27870,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConstantRevisionMergeStatus
@@ -26859,6 +27982,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26866,6 +28006,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/publish:
     post:
       operationId: postConstantRevisionPublish
@@ -27027,6 +28169,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27034,6 +28193,8 @@ paths:
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - constant.draft
   /v1/constants-revisions/{key}/{version}/revert:
     post:
       operationId: postConstantRevisionRevert
@@ -27438,6 +28599,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"key":"checkout-flow","name":"Checkout Flow","value":{"timeout":30,"retries":3}}'
       x-growthbook-confirmation:
+        - config.create
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -28471,12 +29633,31 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/lock' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.other
   /v1/configs/{key}/unlock:
     post:
       operationId: unlockConfig
@@ -28666,12 +29847,31 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/configs-revisions/{key}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/latest:
     get:
       operationId: getConfigRevisionLatest
@@ -28911,6 +30111,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29052,6 +30253,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29181,6 +30383,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29257,6 +30460,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
   /v1/configs-revisions/{key}/{version}/schema:
@@ -29397,6 +30601,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29537,6 +30742,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29585,6 +30791,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29592,6 +30815,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/projection'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/archive:
     put:
       operationId: putConfigRevisionArchive
@@ -29702,6 +30927,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29806,6 +31032,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - config.draft
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29875,6 +31102,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29882,6 +31126,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/undo-review:
     post:
       operationId: postConfigRevisionUndoReview
@@ -29925,6 +31171,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29932,6 +31195,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConfigRevisionRecallReview
@@ -29971,6 +31236,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29978,6 +31260,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/reopen:
     post:
       operationId: postConfigRevisionReopen
@@ -30016,6 +31300,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30023,6 +31324,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/schedule-publish:
     post:
       operationId: postConfigRevisionSchedulePublish
@@ -30266,6 +31569,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30273,6 +31593,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/publish:
     post:
       operationId: postConfigRevisionPublish
@@ -30438,6 +31760,23 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30445,6 +31784,8 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - config.draft
   /v1/configs-revisions/{key}/{version}/revert:
     post:
       operationId: postConfigRevisionRevert
@@ -30856,6 +32197,23 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -30863,6 +32221,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Require a description","hook":"validateFeature","code":"if (!feature.description) {\n  throw new Error(\"Feature must have a description\");\n}"}'
+      x-growthbook-confirmation:
+        - customHook.create
   /v1/custom-hooks/test:
     post:
       operationId: testCustomHook
@@ -31048,6 +32408,23 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31056,6 +32433,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"enabled":false}'
+      x-growthbook-confirmation:
+        - customHook.edit
     delete:
       operationId: deleteCustomHook
       summary: Delete a single custom hook
@@ -31082,12 +32461,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - customHook.delete
   /v1/custom-hooks/{id}/history:
     get:
       operationId: listCustomHookHistory
@@ -31168,6 +32566,23 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31176,6 +32591,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"auditId":"aud_123abc"}'
+      x-growthbook-confirmation:
+        - customHook.edit
   /v1/organizations:
     get:
       operationId: listOrganizations
@@ -31271,6 +32688,23 @@ paths:
                 required:
                   - organization
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -31278,6 +32712,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary"}'
+      x-growthbook-confirmation:
+        - settings.other
   /v1/organizations/{id}:
     put:
       operationId: putOrganization
@@ -31317,6 +32753,23 @@ paths:
                 required:
                   - organization
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31325,6 +32778,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"My Subsidiary","externalId":"subsidiary-123"}'
+      x-growthbook-confirmation:
+        - settings.other
   /v1/sdk-payload/{key}:
     get:
       operationId: getSdkPayload
@@ -31520,6 +32975,23 @@ paths:
                 required:
                   - factTable
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -31527,6 +32999,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Orders","datasource":"ds_abc123","userIdTypes":["id"],"sql":"SELECT * FROM orders"}'
+      x-growthbook-confirmation:
+        - factTable.create
   /v1/fact-tables/{id}:
     get:
       operationId: getFactTable
@@ -31692,6 +33166,23 @@ paths:
                 required:
                   - factTable
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -31699,6 +33190,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"New Fact Table Name"}'
+      x-growthbook-confirmation:
+        - factTable.edit
     delete:
       operationId: deleteFactTable
       summary: Deletes a single fact table
@@ -31721,12 +33214,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/fact-tables/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - factTable.delete
   /v1/fact-tables/{factTableId}/filters:
     get:
       operationId: listFactTableFilters
@@ -31810,6 +33322,23 @@ paths:
                 required:
                   - factTableFilter
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31818,6 +33347,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"High Value Order","value":"amount>100"}'
+      x-growthbook-confirmation:
+        - factTable.create
   /v1/fact-tables/{factTableId}/filters/{id}:
     get:
       operationId: getFactTableFilter
@@ -31895,6 +33426,23 @@ paths:
                 required:
                   - factTableFilter
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31904,6 +33452,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"value":"amount > 50"}'
+      x-growthbook-confirmation:
+        - factTable.edit
     delete:
       operationId: deleteFactTableFilter
       summary: Deletes a single fact table filter
@@ -31927,6 +33477,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31934,6 +33501,8 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - factTable.edit
   /v1/fact-tables/{factTableId}/virtual-columns:
     post:
       operationId: postFactTableVirtualColumn
@@ -32003,6 +33572,23 @@ paths:
                 required:
                   - factTableColumn
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -32012,6 +33598,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"column":"revenue_vc","datatype":"number","sql":"price * quantity"}'
+      x-growthbook-confirmation:
+        - factTable.create
   /v1/fact-tables/{factTableId}/virtual-columns/{id}:
     post:
       operationId: updateFactTableVirtualColumn
@@ -32071,6 +33659,23 @@ paths:
                 required:
                   - factTableColumn
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -32080,6 +33685,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"sql":"price * quantity * 1.1"}'
+      x-growthbook-confirmation:
+        - factTable.edit
     delete:
       operationId: deleteFactTableVirtualColumn
       summary: Delete a virtual (computed) column from a fact table
@@ -32103,6 +33710,23 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -32110,6 +33734,8 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - factTable.edit
   /v1/fact-tables/{id}/aggregated-tables:
     get:
       operationId: getAggregatedFactTables
@@ -33012,6 +34638,23 @@ paths:
                 required:
                   - factMetric
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -33019,6 +34662,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Purchased","metricType":"proportion","numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]},"priorSettings":{"override":false,"proper":false,"mean":0,"stddev":0.3}}'
+      x-growthbook-confirmation:
+        - metric.create
   /v1/fact-metrics/{id}:
     get:
       operationId: getFactMetric
@@ -33741,6 +35386,23 @@ paths:
                 required:
                   - factMetric
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -33749,6 +35411,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"Updated Metric Name"}'
+      x-growthbook-confirmation:
+        - metric.edit
     delete:
       operationId: deleteFactMetric
       summary: Deletes a single fact metric
@@ -33771,12 +35435,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/fact-metrics/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.delete
   /v1/fact-metrics/{id}/analysis:
     post:
       operationId: postFactMetricAnalysis
@@ -34852,6 +36535,23 @@ paths:
                   - factMetricsUpdated
                   - errors
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -34859,6 +36559,11 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"factTables":[],"factTableFilters":[],"factMetrics":[]}'
+      x-growthbook-confirmation:
+        - factTable.create
+        - factTable.edit
+        - metric.create
+        - metric.edit
   /v1/code-refs:
     post:
       operationId: postCodeRefs
@@ -34918,6 +36623,23 @@ paths:
                     items:
                       type: string
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -34925,6 +36647,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"branch":"main","repoName":"my-repo","refs":[{"filePath":"src/app.ts","startingLineNumber":16,"lines":"...","flagKey":"my-feature","contentHash":"abc123"}]}'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listCodeRefs
       summary: Get list of all code references for the current organization
@@ -35123,11 +36847,30 @@ paths:
                 required:
                   - updatedMember
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/members/{id}/role' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.members
   /v1/members/{id}:
     delete:
       operationId: deleteMember
@@ -35149,11 +36892,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/members/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.members
   /v1/queries/{id}:
     get:
       operationId: getQuery
@@ -35263,11 +37025,30 @@ paths:
                   - approvalFlows
                   - targetingReviewMode
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/settings/approvals' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - settings.approvals
   /v1/version:
     get:
       operationId: getVersion
@@ -35971,6 +37752,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/ramp-schedules' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - rampSchedule.create
         - rampSchedule.start
   /v1/ramp-schedules/{id}/actions/start:
     post:
@@ -39249,11 +41031,30 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/reports' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/reports/{id}:
     get:
       operationId: getReport
@@ -39368,12 +41169,31 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/reports/{id}/settings:
     put:
       operationId: putReportSettings
@@ -39608,12 +41428,31 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/settings'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/namespaces:
     get:
       operationId: listNamespaces
@@ -39700,6 +41539,23 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -39707,6 +41563,8 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"displayName":"Checkout Flow","description":"Experiments on the checkout funnel","format":"multiRange","hashAttribute":"id"}'
+      x-growthbook-confirmation:
+        - experiment.create
   /v1/namespaces/{id}:
     get:
       operationId: getNamespace
@@ -40079,11 +41937,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/dashboards/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     put:
       operationId: updateDashboard
       summary: Update a single dashboard
@@ -47113,11 +48990,30 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/dashboards/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/dashboards:
     post:
       operationId: createDashboard
@@ -50677,11 +52573,30 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/dashboards' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listDashboards
       summary: Get all dashboards
@@ -54270,11 +56185,30 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v2/dashboards' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/dashboards/by-experiment/{experimentId}:
     get:
       operationId: getDashboardsForExperiment
@@ -54626,11 +56560,30 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.create
     get:
       operationId: listContextualBandits
       summary: Get all contextualBandits
@@ -55056,12 +57009,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.other
     put:
       operationId: updateContextualBanditQuery
       summary: Update a single contextualBanditQuery
@@ -55114,12 +57086,31 @@ paths:
                 required:
                   - contextualBanditQuery
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.other
   /v1/contextual-bandit-queries:
     post:
       operationId: createContextualBanditQuery
@@ -55178,12 +57169,31 @@ paths:
                 required:
                   - contextualBanditQuery
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.create
     get:
       operationId: listContextualBanditQueries
       summary: Get all contextualBanditQueries
@@ -55328,11 +57338,30 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/custom-fields' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - customField.create
     get:
       operationId: listCustomFields
       summary: Get all custom fields
@@ -55385,12 +57414,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/custom-fields/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - customField.delete
     get:
       operationId: getCustomField
       summary: Get a single customField
@@ -55517,11 +57565,30 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/custom-fields/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - customField.edit
   /v1/metric-groups/{id}:
     get:
       operationId: getMetricGroup
@@ -55578,12 +57645,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/metric-groups/{id}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.delete
     put:
       operationId: updateMetricGroup
       summary: Update a single metricGroup
@@ -55645,11 +57731,30 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/metric-groups/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.edit
   /v1/metric-groups:
     post:
       operationId: createMetricGroup
@@ -55711,11 +57816,30 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/metric-groups' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - metric.create
     get:
       operationId: listMetricGroups
       summary: Get all metricGroups
@@ -55879,11 +58003,30 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/teams/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.teams
     delete:
       operationId: deleteTeam
       summary: Delete a single team
@@ -55910,11 +58053,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.teams
   /v1/teams:
     post:
       operationId: createTeam
@@ -56020,11 +58182,30 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/teams' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.teams
     get:
       operationId: listTeams
       summary: Get all teams
@@ -56090,11 +58271,30 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/teams/{id}/members' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.teams
     delete:
       operationId: removeTeamMember
       summary: Remove members from team
@@ -56134,12 +58334,31 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}/members'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - access.teams
   /v1/experiment-templates/{id}:
     get:
       operationId: getExperimentTemplate
@@ -56197,12 +58416,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     put:
       operationId: updateExperimentTemplate
       summary: Update a single experimentTemplate
@@ -56398,12 +58636,31 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/experiment-templates:
     post:
       operationId: createExperimentTemplate
@@ -56599,12 +58856,31 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST 'https://api.growthbook.io/api/v1/experiment-templates'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listExperimentTemplates
       summary: Get all experimentTemplates
@@ -56856,6 +59132,23 @@ paths:
                   - added
                   - updated
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -56863,6 +59156,8 @@ paths:
             'https://api.growthbook.io/api/v1/experiment-templates/bulk-import'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/product-analytics/metric-exploration:
     post:
       operationId: postMetricExploration
@@ -62020,12 +64315,31 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     put:
       operationId: updateRampScheduleTemplate
       summary: Update a single rampScheduleTemplate
@@ -62362,12 +64676,31 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/ramp-schedule-templates:
     post:
       operationId: createRampScheduleTemplate
@@ -62703,12 +65036,31 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedule-templates' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listRampScheduleTemplates
       summary: Get all rampScheduleTemplates
@@ -63463,11 +65815,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     put:
       operationId: updateLearning
       summary: Update a single learning
@@ -63527,11 +65898,30 @@ paths:
                 required:
                   - learning
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/learnings:
     post:
       operationId: createLearning
@@ -63594,11 +65984,30 @@ paths:
                 required:
                   - learning
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/learnings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listLearnings
       summary: Get all learnings
@@ -64149,6 +66558,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - experiment.create
         - experiment.start
         - experiment.stop
     get:
@@ -64476,11 +66886,30 @@ paths:
                 required:
                   - autoRun
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/auto-runs' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     get:
       operationId: listAutoRuns
       summary: Get all autoRuns
@@ -64610,11 +67039,30 @@ paths:
                 required:
                   - autoRun
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/auto-runs/{id}/artifacts:
     post:
       operationId: appendAutoRunArtifact
@@ -64748,12 +67196,31 @@ paths:
                   - dateCompleted
                   - url
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/populations:
     get:
       operationId: listPopulations
@@ -64979,11 +67446,30 @@ paths:
                 required:
                   - population
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/populations' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
   /v1/populations/{id}:
     get:
       operationId: getPopulation
@@ -65186,11 +67672,30 @@ paths:
                 required:
                   - population
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
     delete:
       operationId: deletePopulation
       summary: Delete a single population
@@ -65216,11 +67721,30 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - other.write
 components:
   parameters:
     limit:
@@ -76271,28 +78795,39 @@ components:
               action:
                 type: string
                 enum:
+                  - feature.create
+                  - feature.draft
                   - feature.publish
                   - feature.archive
                   - feature.delete
                   - feature.other
+                  - experiment.create
+                  - experiment.draft
                   - experiment.start
                   - experiment.stop
                   - experiment.targeting
                   - experiment.traffic
                   - experiment.phases
                   - experiment.other
+                  - savedGroup.create
+                  - savedGroup.draft
                   - savedGroup.publish
                   - savedGroup.archive
                   - savedGroup.delete
                   - savedGroup.other
+                  - constant.create
+                  - constant.draft
                   - constant.publish
                   - constant.archive
                   - constant.delete
                   - constant.other
+                  - config.create
+                  - config.draft
                   - config.publish
                   - config.archive
                   - config.delete
                   - config.other
+                  - rampSchedule.create
                   - rampSchedule.start
                   - rampSchedule.pause
                   - rampSchedule.progression
@@ -76300,12 +78835,47 @@ components:
                   - rampSchedule.edit
                   - rampSchedule.delete
                   - rampSchedule.other
+                  - settings.approvals
+                  - settings.other
+                  - access.members
+                  - access.teams
+                  - customHook.create
+                  - customHook.edit
+                  - customHook.delete
+                  - environment.create
+                  - environment.edit
+                  - environment.delete
+                  - project.create
+                  - project.edit
+                  - project.delete
+                  - attribute.create
+                  - attribute.edit
+                  - attribute.delete
+                  - customField.create
+                  - customField.edit
+                  - customField.delete
+                  - sdkConnection.create
+                  - sdkConnection.edit
+                  - sdkConnection.delete
+                  - metric.create
+                  - metric.edit
+                  - metric.delete
+                  - factTable.create
+                  - factTable.edit
+                  - factTable.delete
+                  - segment.create
+                  - segment.edit
+                  - segment.delete
+                  - dimension.create
+                  - dimension.edit
+                  - dimension.delete
                   - override.ignoreWarnings
                   - override.skipSchemaValidation
                   - override.skipHooks
                   - override.bypassApproval
                   - override.restBypassesReviews
                   - override.draftLimit
+                  - other.write
               environments:
                 type: array
                 items:
@@ -84999,28 +87569,39 @@ components:
                   action:
                     type: string
                     enum:
+                      - feature.create
+                      - feature.draft
                       - feature.publish
                       - feature.archive
                       - feature.delete
                       - feature.other
+                      - experiment.create
+                      - experiment.draft
                       - experiment.start
                       - experiment.stop
                       - experiment.targeting
                       - experiment.traffic
                       - experiment.phases
                       - experiment.other
+                      - savedGroup.create
+                      - savedGroup.draft
                       - savedGroup.publish
                       - savedGroup.archive
                       - savedGroup.delete
                       - savedGroup.other
+                      - constant.create
+                      - constant.draft
                       - constant.publish
                       - constant.archive
                       - constant.delete
                       - constant.other
+                      - config.create
+                      - config.draft
                       - config.publish
                       - config.archive
                       - config.delete
                       - config.other
+                      - rampSchedule.create
                       - rampSchedule.start
                       - rampSchedule.pause
                       - rampSchedule.progression
@@ -85028,12 +87609,47 @@ components:
                       - rampSchedule.edit
                       - rampSchedule.delete
                       - rampSchedule.other
+                      - settings.approvals
+                      - settings.other
+                      - access.members
+                      - access.teams
+                      - customHook.create
+                      - customHook.edit
+                      - customHook.delete
+                      - environment.create
+                      - environment.edit
+                      - environment.delete
+                      - project.create
+                      - project.edit
+                      - project.delete
+                      - attribute.create
+                      - attribute.edit
+                      - attribute.delete
+                      - customField.create
+                      - customField.edit
+                      - customField.delete
+                      - sdkConnection.create
+                      - sdkConnection.edit
+                      - sdkConnection.delete
+                      - metric.create
+                      - metric.edit
+                      - metric.delete
+                      - factTable.create
+                      - factTable.edit
+                      - factTable.delete
+                      - segment.create
+                      - segment.edit
+                      - segment.delete
+                      - dimension.create
+                      - dimension.edit
+                      - dimension.delete
                       - override.ignoreWarnings
                       - override.skipSchemaValidation
                       - override.skipHooks
                       - override.bypassApproval
                       - override.restBypassesReviews
                       - override.draftLimit
+                      - other.write
                   environments:
                     type: array
                     items:

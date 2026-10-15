@@ -32,8 +32,10 @@ export const putExperimentSchedule = createApiRequestHandler(
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
 
+  const scheduled = scheduleActions(req.body);
+  // Clearing a schedule cancels a start or stop that was due.
   await requireConfirmation(req.context, {
-    actions: scheduleActions(req.body),
+    actions: scheduled.length ? scheduled : ["experiment.other"],
     project: experiment.project,
     summary: `Schedule ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],

@@ -403,10 +403,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     // Created running, stopped or with a scheduled start: judged as a change
     // from a draft of itself.
     await requireConfirmation(req.context, {
-      actions: experimentChangeActions(
-        { ...newExperiment, status: "draft", statusUpdateSchedule: undefined },
-        newExperiment,
-      ),
+      actions: [
+        "experiment.create",
+        ...experimentChangeActions(
+          {
+            ...newExperiment,
+            status: "draft",
+            statusUpdateSchedule: undefined,
+          },
+          newExperiment,
+        ),
+      ],
       project: newExperiment.project,
       summary: `Create ${newExperiment.name}`,
       links: [],

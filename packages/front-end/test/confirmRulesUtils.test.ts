@@ -1,6 +1,9 @@
+import { RECOMMENDED_CONFIRM_ACTIONS } from "shared/validators";
 import {
   actionsOf,
   CATEGORIES,
+  CATEGORY_TITLES,
+  isPicked,
   mergeConfirmRules,
   toggleAction,
 } from "@/components/Settings/confirmRulesUtils";
@@ -42,6 +45,45 @@ describe("toggleAction", () => {
       toggleAction(toggleAction(["*"], "feature.delete"), "feature.delete"),
     ).toEqual(["*"]);
   });
+});
+
+describe("recommended", () => {
+  it("is picked as a preset, and narrows All actions to itself", () => {
+    expect(toggleAction([], "recommended")).toEqual(["recommended"]);
+    expect(toggleAction(["*"], "recommended")).toEqual(["recommended"]);
+    expect(isPicked(["*"], "recommended")).toBe(true);
+    expect(isPicked(["recommended"], "feature.publish")).toBe(true);
+    expect(isPicked(["recommended"], "feature.create")).toBe(false);
+  });
+
+  it("keeps actions beyond it beside it, folding whole categories", () => {
+    const withCreate = toggleAction(["recommended"], "feature.create");
+    expect(withCreate).toEqual(["recommended", "feature.create"]);
+    expect(toggleAction(withCreate, "feature.draft")).toEqual([
+      "recommended",
+      "feature.*",
+    ]);
+    expect(toggleAction(["recommended", "feature.*"], "recommended")).toEqual([
+      "feature.create",
+      "feature.draft",
+    ]);
+  });
+
+  it("gives way to its members when one of them is unchecked", () => {
+    const picks = toggleAction(["recommended"], "feature.publish");
+    expect(picks).not.toContain("recommended");
+    expect(isPicked(picks, "feature.publish")).toBe(false);
+    expect(
+      RECOMMENDED_CONFIRM_ACTIONS.filter((a) => a !== "feature.publish").every(
+        (a) => isPicked(picks, a),
+      ),
+    ).toBe(true);
+    expect(toggleAction(picks, "feature.publish")).toEqual(["recommended"]);
+  });
+});
+
+it("places every category in exactly one section", () => {
+  expect([...CATEGORIES].sort()).toEqual(Object.keys(CATEGORY_TITLES).sort());
 });
 
 describe("mergeConfirmRules", () => {

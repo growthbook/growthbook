@@ -1828,7 +1828,7 @@ export const postFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
-  confirmation: [],
+  confirmation: ["feature.create"] as const,
   operationId: "postFeature",
   tags: ["features"],
   method: "post" as const,

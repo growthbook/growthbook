@@ -38,6 +38,21 @@ describe("matchConfirmRules", () => {
     ).toEqual([startAnywhere]);
   });
 
+  it("matches the recommended set, which leaves out creating and drafting", () => {
+    const recommended = [{ actions: ["recommended"] }];
+    const createFlag = { action: "feature.create" as const, environments: [] };
+    const draftFlag = { action: "feature.draft" as const, environments: [] };
+    const editEnv = { action: "environment.edit" as const, environments: [] };
+    expect(
+      matchConfirmRules(recommended, [
+        publishProd,
+        createFlag,
+        draftFlag,
+        editEnv,
+      ]),
+    ).toEqual([publishProd, editEnv]);
+  });
+
   it("holds nothing without a matching rule", () => {
     expect(matchConfirmRules([], [publishProd])).toEqual([]);
     expect(
@@ -47,21 +62,25 @@ describe("matchConfirmRules", () => {
 });
 
 describe("routeConfirmation", () => {
-  it("holds an undeclared write to a live model as its catch-all", () => {
+  it("holds an undeclared write as its model's catch-all, or as other.write", () => {
     expect(routeConfirmation("post", ["configs"], undefined)).toEqual([
       "config.other",
     ]);
+    expect(routeConfirmation("post", ["metrics"], undefined)).toEqual([
+      "other.write",
+    ]);
     expect(routeConfirmation("post", ["configs"], [])).toEqual([]);
     expect(routeConfirmation("get", ["configs"], undefined)).toEqual([]);
-    expect(routeConfirmation("post", ["metrics"], undefined)).toEqual([]);
   });
 });
 
 describe("confirmRulesValidator", () => {
-  it("takes everything, a whole model or one action, and rejects typos", () => {
+  it("takes everything, the recommended set, a whole model or one action, and rejects typos", () => {
     const valid = (actions: string[]) =>
       confirmRulesValidator.safeParse([{ actions }]).success;
-    expect(valid(["*", "override.*", "feature.publish"])).toBe(true);
+    expect(valid(["*", "recommended", "override.*", "feature.publish"])).toBe(
+      true,
+    );
     expect(valid(["feature.publsh"])).toBe(false);
     expect(valid(["features.*"])).toBe(false);
   });

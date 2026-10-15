@@ -576,7 +576,7 @@ export const postConstantValidator = {
   paramsSchema: z.never(),
   responseSchema: apiConstantResponse,
   summary: "Create a single constant",
-  confirmation: [],
+  confirmation: ["constant.create"] as const,
   operationId: "postConstant",
   tags: ["constants"],
   method: "post" as const,

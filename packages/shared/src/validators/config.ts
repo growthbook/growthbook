@@ -903,7 +903,7 @@ export const postConfigValidator = {
   paramsSchema: z.never(),
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
-  confirmation: [],
+  confirmation: ["config.create"] as const,
   operationId: "postConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -1006,7 +1006,7 @@ export const lockConfigValidator = {
   summary: "Lock a config at its current published revision",
   description:
     "Locks the Config to its current published revision. Drafts can still be created and edited, but direct updates, publishes, scheduled publishes, reverts, and archives are blocked. The response returns the pinned revision in `lockedRevision`. Unlocking requires Bypass draft approvals access.",
-  confirmation: [],
+  confirmation: ["config.other"] as const,
   operationId: "lockConfig",
   tags: ["configs"],
   method: "post" as const,

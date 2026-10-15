@@ -81,7 +81,7 @@ export const contextualBanditApiSpec = {
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
-  confirmation: { create: [], update: ["experiment.other"] },
+  confirmation: { create: ["experiment.create"], update: ["experiment.other"] },
   customEndpoints: [
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,

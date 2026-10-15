@@ -1386,6 +1386,7 @@ export const postFactTableValidator = {
     })
     .strict(),
   summary: "Create a single fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1427,6 +1428,7 @@ export const updateFactTableValidator = {
     })
     .strict(),
   summary: "Update a single fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1450,6 +1452,7 @@ export const deleteFactTableValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table",
+  confirmation: ["factTable.delete"] as const,
   operationId: "deleteFactTable",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1489,6 +1492,7 @@ export const postFactTableFilterValidator = {
     })
     .strict(),
   summary: "Create a single fact table filter",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1526,6 +1530,7 @@ export const updateFactTableFilterValidator = {
     })
     .strict(),
   summary: "Update a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1549,6 +1554,7 @@ export const deleteFactTableFilterValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableFilter",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1615,6 +1621,7 @@ export const postFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Create a virtual (computed) column on a fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1639,6 +1646,7 @@ export const updateFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Update a virtual (computed) column on a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1662,6 +1670,7 @@ export const deleteFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Delete a virtual (computed) column from a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1724,6 +1733,7 @@ export const refreshAggregatedFactTableValidator = {
     .strict(),
   summary:
     "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  confirmation: [],
   operationId: "refreshAggregatedFactTable",
   tags: ["fact-tables"],
   method: "post" as const,

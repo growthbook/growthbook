@@ -5,30 +5,42 @@ import { bypassViaValues } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // `model.action`, model-first like webhook events. `override.*` actions are the
-// checks a request skips, whatever it changes.
+// checks a request skips, whatever it changes. `draft` is a change that doesn't
+// reach users yet.
 export const CONFIRM_ACTIONS = [
+  "feature.create",
+  "feature.draft",
   "feature.publish",
   "feature.archive",
   "feature.delete",
   "feature.other",
+  "experiment.create",
+  "experiment.draft",
   "experiment.start",
   "experiment.stop",
   "experiment.targeting",
   "experiment.traffic",
   "experiment.phases",
   "experiment.other",
+  "savedGroup.create",
+  "savedGroup.draft",
   "savedGroup.publish",
   "savedGroup.archive",
   "savedGroup.delete",
   "savedGroup.other",
+  "constant.create",
+  "constant.draft",
   "constant.publish",
   "constant.archive",
   "constant.delete",
   "constant.other",
+  "config.create",
+  "config.draft",
   "config.publish",
   "config.archive",
   "config.delete",
   "config.other",
+  "rampSchedule.create",
   "rampSchedule.start",
   "rampSchedule.pause",
   "rampSchedule.progression",
@@ -36,14 +48,59 @@ export const CONFIRM_ACTIONS = [
   "rampSchedule.edit",
   "rampSchedule.delete",
   "rampSchedule.other",
+  "settings.approvals",
+  "settings.other",
+  "access.members",
+  "access.teams",
+  "customHook.create",
+  "customHook.edit",
+  "customHook.delete",
+  "environment.create",
+  "environment.edit",
+  "environment.delete",
+  "project.create",
+  "project.edit",
+  "project.delete",
+  "attribute.create",
+  "attribute.edit",
+  "attribute.delete",
+  "customField.create",
+  "customField.edit",
+  "customField.delete",
+  "sdkConnection.create",
+  "sdkConnection.edit",
+  "sdkConnection.delete",
+  "metric.create",
+  "metric.edit",
+  "metric.delete",
+  "factTable.create",
+  "factTable.edit",
+  "factTable.delete",
+  "segment.create",
+  "segment.edit",
+  "segment.delete",
+  "dimension.create",
+  "dimension.edit",
+  "dimension.delete",
   "override.ignoreWarnings",
   "override.skipSchemaValidation",
   "override.skipHooks",
   "override.bypassApproval",
   "override.restBypassesReviews",
   "override.draftLimit",
+  "other.write",
 ] as const;
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
+
+// The "recommended" rule: everything but creating things, drafting, and writes
+// with no model of their own.
+export const RECOMMENDED_CONFIRM_ACTIONS: readonly ConfirmAction[] =
+  CONFIRM_ACTIONS.filter(
+    (action) =>
+      !action.endsWith(".create") &&
+      !action.endsWith(".draft") &&
+      action !== "other.write",
+  );
 
 // Request fields (body or query) that ask to skip a check. Asking is enough to
 // hold, whatever the request changes.
@@ -90,10 +147,11 @@ export const CONFIRM_MODEL_BY_TAG = {
   "ramp-schedules": "rampSchedule",
 } as const satisfies Record<string, ConfirmModel>;
 
-// What a rule can name: everything ("*"), a whole category ("override.*"), or
-// one action.
+// What a rule can name: everything ("*"), the recommended set, a whole category
+// ("override.*"), or one action.
 const RULE_ACTIONS = new Set<string>([
   "*",
+  "recommended",
   ...CONFIRM_ACTIONS.map((action) => `${action.split(".")[0]}.*`),
   ...CONFIRM_ACTIONS,
 ]);

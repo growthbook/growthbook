@@ -57,6 +57,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/create-experiment",
+  confirmation: ["experiment.create"] as const,
   operationId: "postVisualEditorCreateExperiment",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.

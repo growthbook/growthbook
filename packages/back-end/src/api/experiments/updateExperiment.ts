@@ -458,8 +458,9 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateExperimentChange({ context: req.context, experiment, changes });
 
+  const liveActions = experimentChangeActions(experiment, changes);
   await requireConfirmation(req.context, {
-    actions: experimentChangeActions(experiment, changes),
+    actions: liveActions.length ? liveActions : ["experiment.draft"],
     project: experiment.project,
     summary: `Change ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],

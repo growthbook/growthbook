@@ -130,7 +130,7 @@ export const postNamespaceValidator = {
   paramsSchema: z.never(),
   responseSchema: z.object({ namespace: apiNamespaceValidator }).strict(),
   summary: "Create a namespace",
-  confirmation: [],
+  confirmation: ["experiment.create"] as const,
   operationId: "postNamespace",
   tags: ["namespaces"],
   method: "post" as const,

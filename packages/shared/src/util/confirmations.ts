@@ -2,16 +2,19 @@ import type { HttpVerb } from "../api-spec";
 import {
   CONFIRM_ACTIONS,
   CONFIRM_MODEL_BY_TAG,
+  RECOMMENDED_CONFIRM_ACTIONS,
   type HeldAction,
   type ConfirmAction,
   type ConfirmRule,
 } from "../validators/confirmations";
 
-// Whether a rule's action ("*", a whole category like "feature.*", or one
-// action) covers this action.
+// Whether a rule's action ("*", "recommended", a whole category like
+// "feature.*", or one action) covers this action.
 export const actionCovers = (ruleAction: string, action: string) =>
   ruleAction === "*" ||
   ruleAction === action ||
+  (ruleAction === "recommended" &&
+    (RECOMMENDED_CONFIRM_ACTIONS as readonly string[]).includes(action)) ||
   (ruleAction.endsWith(".*") && action.startsWith(ruleAction.slice(0, -1)));
 
 // An action with no environments matches any environment list.
@@ -40,8 +43,9 @@ function routeModel(tags: readonly string[] | undefined) {
   );
 }
 
-// The actions a route may hold for: its own, or `<model>.other` for a write to a
-// live model that declares none.
+// The actions a route may hold for: its own, or for a write that declares none,
+// `<model>.other` on a live model and `other.write` anywhere else. Declaring
+// none (`[]`) marks a write that only reads or computes.
 export function routeConfirmation(
   method: HttpVerb,
   tags: readonly string[] | undefined,
@@ -50,7 +54,7 @@ export function routeConfirmation(
   if (declared) return declared;
   if (method === "get") return [];
   const model = routeModel(tags);
-  return model ? [`${model}.other`] : [];
+  return [model ? `${model}.other` : "other.write"];
 }
 
 // Request fields that arm a publish to run later, without anyone present.

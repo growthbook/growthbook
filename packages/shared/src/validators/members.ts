@@ -119,6 +119,7 @@ export const deleteMemberValidator = {
     })
     .strict(),
   summary: "Removes a single user from an organization",
+  confirmation: ["access.members"] as const,
   operationId: "deleteMember",
   tags: ["members"],
   method: "delete" as const,
@@ -154,6 +155,7 @@ export const updateMemberRoleValidator = {
     .strict(),
   summary:
     "Update a member's global role (including any environment restrictions, if applicable). Can also update a member's project roles if your plan supports it.",
+  confirmation: ["access.members"] as const,
   operationId: "updateMemberRole",
   tags: ["members"],
   method: "post" as const,

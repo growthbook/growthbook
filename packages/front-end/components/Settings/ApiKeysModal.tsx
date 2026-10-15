@@ -138,8 +138,8 @@ const ApiKeysModal: FC<{
   const [rules, setRules] = useState<ConfirmRule[]>(
     source?.confirmRules ?? SUGGESTED_CONFIRM_RULES,
   );
-  // The default holds everything; the editor stays tucked away until asked for,
-  // unless this key already has rules of its own.
+  // The editor stays tucked away until asked for, unless this key already has
+  // rules other than the recommended ones.
   const [customizing, setCustomizing] = useState(
     !!source?.confirmRules &&
       !isEqual(source.confirmRules, SUGGESTED_CONFIRM_RULES),
@@ -259,15 +259,12 @@ const ApiKeysModal: FC<{
         <Checkbox
           label="Require confirmation"
           value={requireConfirmation}
-          setValue={(on) => {
-            setRequireConfirmation(on);
-            if (on && !rules.length) setRules(SUGGESTED_CONFIRM_RULES);
-          }}
+          setValue={setRequireConfirmation}
         />
         {requireConfirmation && !customizing && (
           <Box pl="5" mt="2">
             <Text color="text-mid">
-              All actions.{" "}
+              Recommended actions.{" "}
               <Link weight="medium" onClick={() => setCustomizing(true)}>
                 Customize behavior
               </Link>
@@ -278,14 +275,10 @@ const ApiKeysModal: FC<{
           <Box mt="3">
             <ConfirmRulesField
               value={rules}
-              // No rules left holds nothing, so the checkbox goes off with them,
-              // and turning it back on starts from the default again.
+              // Removing every rule goes back to the recommended ones.
               setValue={(next) => {
-                setRules(next);
-                if (!next.length) {
-                  setRequireConfirmation(false);
-                  setCustomizing(false);
-                }
+                setRules(next.length ? next : SUGGESTED_CONFIRM_RULES);
+                if (!next.length) setCustomizing(false);
               }}
             />
           </Box>
