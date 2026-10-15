@@ -215,6 +215,16 @@ export async function findVisualChangesetsByContextualBandit(
   return changesets.map(toInterface);
 }
 
+export async function deleteVisualChangesetsByContextualBandit(
+  contextualBanditId: string,
+  organization: string,
+): Promise<void> {
+  await VisualChangesetModel.deleteMany({
+    organization,
+    contextualBandit: contextualBanditId,
+  });
+}
+
 export async function findVisualChangesetsByContextualBanditIds(
   contextualBanditIds: string[],
   organization: string,
@@ -236,15 +246,6 @@ const cbOwnedFilter = (context: ReqContext | ApiReqContext) => ({
   contextualBandit: { $exists: true, $ne: null },
 });
 
-async function getContextualBanditsByIds(
-  context: ReqContext | ApiReqContext,
-  ids: string[],
-): Promise<ContextualBanditInterface[]> {
-  if (!ids.length) return [];
-  const cbs = await context.models.contextualBandits.getByIds(ids);
-  return cbs.filter((cb) => !cb.archived);
-}
-
 export async function getContextualBanditsWithVisualChangesets(
   context: ReqContext | ApiReqContext,
 ): Promise<ContextualBanditInterface[]> {
@@ -252,8 +253,7 @@ export async function getContextualBanditsWithVisualChangesets(
     "contextualBandit",
     cbOwnedFilter(context),
   );
-  return getContextualBanditsByIds(
-    context,
+  return context.models.contextualBandits.getUnarchivedByIds(
     ids.filter((id): id is string => typeof id === "string" && id !== ""),
   );
 }
@@ -267,8 +267,7 @@ export async function getAllCbVisualExperiments(
 
   if (!changesets.length) return [];
 
-  const cbs = await getContextualBanditsByIds(
-    context,
+  const cbs = await context.models.contextualBandits.getUnarchivedByIds(
     Array.from(
       new Set(changesets.map((c) => c.contextualBandit).filter(isDefined)),
     ),
