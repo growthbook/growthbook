@@ -179,9 +179,12 @@ const dataSourceSettingsInput = {
     .optional(),
   ...apiDataSourceExtraFields,
   pipelineSettings: pipelineSettingsValidator
+    .extend({
+      includedExperimentIds: z.array(z.string()).nullable().optional(),
+    })
     .optional()
     .describe(
-      "Merged into the stored settings: experiment id lists left out keep their values; send `[]` to clear one.",
+      "Merged into the stored settings: experiment id lists left out keep their values. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
     ),
 };
 
@@ -284,7 +287,7 @@ export const deleteDataSourceValidator = {
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a data source",
   description:
-    "Refused while it's the organization default or metrics, segments or dimensions still use it.",
+    "Refused while it's the organization default, metrics, segments or dimensions still use it, or it has an Event Forwarder.",
   operationId: "deleteDataSource",
   tags: ["data-sources"],
   method: "delete" as const,
