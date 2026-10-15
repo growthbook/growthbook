@@ -1,7 +1,10 @@
+import { matchConfirmRules, routeConfirmation } from "shared/util";
 import {
   holdAtRoute,
   plainWriteSummary,
 } from "back-end/src/services/confirmations";
+import { visualChangesetsRoutes } from "back-end/src/api/visual-changesets/visual-changesets.router";
+import { visualEditorAiRoutes } from "back-end/src/api/visual-editor-ai/visualEditorAi.router";
 import type { ReqContext } from "back-end/types/request";
 
 // Without an API key to hold the request for, a matching rule refuses instead,
@@ -57,5 +60,50 @@ describe("plainWriteSummary", () => {
     expect(
       plainWriteSummary("put", "/settings/approvals", "settings", "", {}),
     ).toBeNull();
+  });
+});
+
+// Every write the visual editor extension makes. A person is at the editor,
+// so the recommended rule leaves them alone.
+const EXTENSION_WRITES = [
+  "put /visual-changesets/:id",
+  "post /visual-editor/add-variant",
+  "post /visual-editor/delete-variant",
+  "post /visual-editor/rename-variant",
+  "post /visual-editor/rename-experiment",
+  "post /visual-editor/create-changeset",
+  "post /visual-editor/create-experiment",
+  "post /visual-editor/ai/edit",
+  "post /visual-editor/ai/edit/resume",
+  "post /visual-editor/ai/suggestions",
+  "post /visual-editor/ai/figma-to-variant",
+  "post /visual-editor/ai/image-gen",
+  "post /visual-editor/ai/promote-image",
+  "post /visual-editor/ai/upload-signed-url",
+  "post /visual-editor/figma/oauth/exchange",
+  "post /visual-editor/figma/disconnect",
+];
+
+describe("the visual editor extension", () => {
+  it("isn't held by the recommended rule", () => {
+    const routes = new Map(
+      [...visualChangesetsRoutes, ...visualEditorAiRoutes].map((route) => [
+        `${route.method} ${route.path}`,
+        route,
+      ]),
+    );
+    for (const write of EXTENSION_WRITES) {
+      const route = routes.get(write);
+      if (!route) throw new Error(`No route for ${write}`);
+      const actions = routeConfirmation(
+        route.method,
+        route.tags,
+        route.confirmation,
+      ).map((action) => ({ action, environments: [] }));
+      expect([
+        write,
+        matchConfirmRules([{ actions: ["recommended"] }], actions),
+      ]).toEqual([write, []]);
+    }
   });
 });

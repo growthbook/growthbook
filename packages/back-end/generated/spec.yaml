@@ -19028,7 +19028,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"editorUrl":"https://example.com/","urlPatterns":[{"type":"simple","pattern":"/","include":true}]}'
       x-growthbook-confirmation:
-        - experiment.other
+        - experiment.visualEditor
   /v1/contextual-bandits/{id}/current:
     get:
       operationId: getContextualBanditCurrentWeights
@@ -23642,7 +23642,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"editorUrl":"https://example.com/"}'
       x-growthbook-confirmation:
-        - experiment.other
+        - experiment.visualEditor
   /v1/visual-changesets/{id}/visual-change:
     post:
       operationId: postVisualChange
@@ -23748,7 +23748,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"variation":"var_abc123","domMutations":[]}'
       x-growthbook-confirmation:
-        - experiment.other
+        - experiment.visualEditor
   /v1/visual-changesets/{id}/visual-change/{visualChangeId}:
     put:
       operationId: putVisualChange
@@ -23848,7 +23848,7 @@ paths:
               -H 'Content-Type: application/json' \
               -d '{"css":"h1 { color: red; }"}'
       x-growthbook-confirmation:
-        - experiment.other
+        - experiment.visualEditor
   /v1/saved-groups:
     get:
       operationId: listSavedGroups
@@ -78882,6 +78882,7 @@ components:
                   - experiment.targeting
                   - experiment.traffic
                   - experiment.phases
+                  - experiment.visualEditor
                   - experiment.other
                   - savedGroup.create
                   - savedGroup.draft
@@ -87592,6 +87593,7 @@ components:
                       - experiment.targeting
                       - experiment.traffic
                       - experiment.phases
+                      - experiment.visualEditor
                       - experiment.other
                       - savedGroup.create
                       - savedGroup.draft
