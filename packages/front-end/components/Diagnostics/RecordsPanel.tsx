@@ -152,7 +152,6 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           onChange={(next) => applyControls({ dateRange: next.dateRange })}
           disabled={isRefreshing}
           fullWidth
-          applyLabel="Done"
         />
       </Flex>
       <RowFilterPanel

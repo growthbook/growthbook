@@ -92,7 +92,6 @@ export default function DateRangeComparePanel({
   disabled,
   clearOption,
   extraSections,
-  applyLabel = "Apply",
 }: {
   value: DateRangeCompareValue;
   onApply: (next: DateRangeCompareValue) => void;
@@ -115,7 +114,6 @@ export default function DateRangeComparePanel({
   clearOption?: { label: string; tooltip?: string };
   /** Rendered between the granularity section and the footer. */
   extraSections?: ReactNode;
-  applyLabel?: string;
 }) {
   // Seeded once per mount. The parent rebuilds `value` on every render, so
   // syncing to it in an effect would revert staged edits as fast as they're made
@@ -608,7 +606,7 @@ export default function DateRangeComparePanel({
           }
           onClick={() => onApply(draft)}
         >
-          {applyLabel}
+          Apply
         </Button>
       </Flex>
     </Flex>
