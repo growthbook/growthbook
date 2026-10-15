@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ago, datetime } from "shared/dates";
-import { formatByteSizeString } from "shared/util";
+import { checkRemoteGroupCsvSample } from "@growthbook/remote-saved-groups";
+import {
+  formatByteSizeString,
+  REMOTE_SAVED_GROUP_SAMPLE_BYTES,
+} from "shared/util";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ApiSavedGroupUpload,
@@ -18,6 +22,7 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getUploadMethod } from "@/services/env";
 import { uploadToSignedUrl } from "@/services/files";
+import { useAttributeSchema } from "@/services/features";
 import { DocLink } from "@/components/DocLink";
 import RemoteSavedGroupUploadDetailsModal, {
   LoadSummary,
@@ -79,6 +84,7 @@ function UploadModal({
   onUseVersion: (version: number) => void;
 }) {
   const { apiCall } = useAuth();
+  const attributeSchema = useAttributeSchema(true);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [useWhenChecked, setUseWhenChecked] = useState(canUseVersion);
@@ -115,8 +121,27 @@ function UploadModal({
     }
   };
 
+  // Catches common mistakes, like extra columns, before a long upload. The
+  // back end still checks the whole file afterwards.
+  const checkStart = async (file: File) => {
+    if (file.size === 0) throw new Error("The file is empty.");
+    const attributeKey = savedGroup.attributeKey ?? "";
+    const sample = await file
+      .slice(0, REMOTE_SAVED_GROUP_SAMPLE_BYTES)
+      .arrayBuffer();
+    checkRemoteGroupCsvSample(new Uint8Array(sample), {
+      attributeKey,
+      numeric:
+        attributeSchema.find((a) => a.property === attributeKey)?.datatype ===
+        "number",
+      start: true,
+      end: file.size <= REMOTE_SAVED_GROUP_SAMPLE_BYTES,
+    });
+  };
+
   const upload = async () => {
     if (!file) return;
+    await checkStart(file);
     const target = await apiCall<SavedGroupUploadUrlResponse>(
       `/saved-groups/${savedGroup.id}/upload-url`,
       { method: "POST" },
@@ -309,6 +334,7 @@ function VersionMark({
 export default function RemoteSavedGroupUploads({
   savedGroup,
   canUpload,
+  planLockedReason,
   viewing,
   viewedVersion,
   useVersionDisabledReason,
@@ -316,6 +342,8 @@ export default function RemoteSavedGroupUploads({
 }: {
   savedGroup: SavedGroupInterface;
   canUpload: boolean;
+  /** Why uploads are blocked by the org's plan, or null. Deleting still works. */
+  planLockedReason: string | null;
   /** Whether the page shows the live group, a draft, or another revision. */
   viewing: "live" | "draft" | "other";
   /** The upload version of the revision being viewed. */
@@ -379,7 +407,7 @@ export default function RemoteSavedGroupUploads({
       ? "You can't upload to an archived Saved Group."
       : !canUpload
         ? "You don't have permission to publish this Saved Group."
-        : null;
+        : planLockedReason;
 
   const pinned =
     page === 1 && keyVersions.length

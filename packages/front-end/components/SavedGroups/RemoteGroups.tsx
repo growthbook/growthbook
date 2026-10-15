@@ -29,6 +29,8 @@ import Table, {
 } from "@/ui/Table";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
@@ -44,7 +46,9 @@ export default function RemoteGroups({ groups, mutate }: Props) {
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
   const { project, projects, getProjectById } = useDefinitions();
-  const { getOwnerDisplay } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
+  const hasFeature = hasCommercialFeature("large-saved-groups");
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
@@ -170,10 +174,20 @@ export default function RemoteGroups({ groups, mutate }: Props) {
             mutate={mutate}
           />
         )}
+        {upgradeModal && (
+          <UpgradeModal
+            close={() => setUpgradeModal(false)}
+            source="remote-saved-groups"
+            commercialFeature="large-saved-groups"
+          />
+        )}
         <Flex align="center" justify="between" mb="1">
-          <Heading as="h2" size="lg" mb="0">
-            Remote Groups
-          </Heading>
+          <Flex align="center" gap="2">
+            <Heading as="h2" size="lg" mb="0">
+              Remote Groups
+            </Heading>
+            <PaidFeatureBadge commercialFeature="large-saved-groups" />
+          </Flex>
           <Tooltip
             content="You do not have permission to create Saved Groups."
             enabled={!canCreate}
@@ -182,7 +196,9 @@ export default function RemoteGroups({ groups, mutate }: Props) {
             <span>
               <Button
                 disabled={!canCreate}
-                onClick={() => setSavedGroupForm({})}
+                onClick={() =>
+                  hasFeature ? setSavedGroupForm({}) : setUpgradeModal(true)
+                }
               >
                 Add Remote Group
               </Button>

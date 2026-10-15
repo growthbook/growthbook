@@ -23,7 +23,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
 import {
   getBackendFeatureValue,
@@ -368,6 +371,20 @@ export function assertRemoteSavedGroupsEnabled(
   if (!isRemoteSavedGroupsEnabled(org)) {
     throw new BadRequestError(
       "Remote Saved Groups are not enabled for this organization",
+    );
+  }
+}
+
+/**
+ * Creating and changing Remote Groups needs an Enterprise plan. Existing groups
+ * keep working without it: loaders, downloads, deleting uploads and archiving.
+ */
+export function assertRemoteSavedGroupsLicensed(
+  context: Pick<ReqContext | ApiReqContext, "hasPremiumFeature">,
+): void {
+  if (!context.hasPremiumFeature("large-saved-groups")) {
+    throw new PlanDoesNotAllowError(
+      "Remote Saved Groups require an Enterprise plan",
     );
   }
 }

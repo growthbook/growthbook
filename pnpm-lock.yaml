@@ -662,6 +662,9 @@ importers:
       '@growthbook/growthbook-react':
         specifier: workspace:*
         version: link:../sdk-react
+      '@growthbook/remote-saved-groups':
+        specifier: workspace:*
+        version: link:../remote-saved-groups
       '@jitsu/sdk-js':
         specifier: ^2.2.0
         version: 2.2.0

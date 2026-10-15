@@ -65,6 +65,7 @@ import {
 } from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Button from "@/ui/Button";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
@@ -130,6 +131,7 @@ export default function EditSavedGroupPage() {
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
@@ -337,16 +339,21 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const { user } = useUser();
+  const { user, hasCommercialFeature } = useUser();
+  // Without Enterprise, a Remote Group keeps working but can't be changed
+  const remoteLocked =
+    savedGroup?.type === "remote" &&
+    !hasCommercialFeature("large-saved-groups");
   const permissionsUtil = usePermissionsUtil();
-  const canDraft = savedGroup
-    ? permissionsUtil.canRevisionAction(
-        "saved-group",
-        "draft",
-        savedGroup,
-        NO_ENVIRONMENT_BINDING,
-      )
-    : false;
+  const canDraft =
+    savedGroup && !remoteLocked
+      ? permissionsUtil.canRevisionAction(
+          "saved-group",
+          "draft",
+          savedGroup,
+          NO_ENVIRONMENT_BINDING,
+        )
+      : false;
   // Reverting is its own authority — a revert-only role holds no draft or
   // publish rights, and revert alone is enough to both propose and land one.
   const canRevertEntity = savedGroup
@@ -1429,6 +1436,21 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
+            {upgradeModal && (
+              <UpgradeModal
+                close={() => setUpgradeModal(false)}
+                source="remote-saved-groups"
+                commercialFeature="large-saved-groups"
+              />
+            )}
+            {remoteLocked && (
+              <Callout status="warning" mb="4">
+                Changing Remote Groups needs an Enterprise plan. This group
+                still works in rules, but you can&apos;t upload IDs or change
+                its version.{" "}
+                <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
+              </Callout>
+            )}
             {savedGroup.type === "remote" ? (
               <RemoteSavedGroupSetupCallout />
             ) : (
@@ -1446,16 +1468,23 @@ export default function EditSavedGroupPage() {
                   savedGroup,
                   NO_ENVIRONMENT_BINDING,
                 )}
+                planLockedReason={
+                  remoteLocked
+                    ? "Changing Remote Groups needs an Enterprise plan."
+                    : null
+                }
                 viewing={isLive ? "live" : isDraft ? "draft" : "other"}
                 viewedVersion={displayedSavedGroup?.currentUploadVersion}
                 useVersionDisabledReason={
-                  isMerged
-                    ? "You cannot edit a published revision."
-                    : isDiscarded
-                      ? "You cannot edit a discarded revision."
-                      : !canDraft
-                        ? "You don't have permission to edit drafts for this Saved Group."
-                        : null
+                  remoteLocked
+                    ? "Changing Remote Groups needs an Enterprise plan."
+                    : isMerged
+                      ? "You cannot edit a published revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : !canDraft
+                          ? "You don't have permission to edit drafts for this Saved Group."
+                          : null
                 }
                 onUseVersion={(version) => {
                   // Like editing the condition: work in the user's open draft.

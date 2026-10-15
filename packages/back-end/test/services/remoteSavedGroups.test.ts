@@ -24,6 +24,7 @@ import {
   getRemoteSavedGroupUpload,
   getRemoteSavedGroupUploadDetails,
   getRemoteSavedGroupUploadDownloadUrl,
+  getRemoteSavedGroupUploadUrl,
   listRemoteSavedGroupUploads,
   RemoteSavedGroupsContext,
   toApiSavedGroupsWithUploads,
@@ -115,6 +116,7 @@ function makeContext({
     org,
     userId: "u_1",
     actorId: "u_1",
+    hasPremiumFeature: (feature) => feature === "large-saved-groups",
     auditLog: jest.fn(async (data, id) => {
       if (id && audits.has(id)) throw duplicateKeyError();
       audits.set(id ?? `aud_${audits.size}`, data);
@@ -269,6 +271,20 @@ describe("createRemoteSavedGroupUpload", () => {
       uploads[0].id,
     );
     expect(context.auditLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("needs an Enterprise plan", async () => {
+    const { context, uploads } = makeContext();
+    context.hasPremiumFeature = () => false;
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+
+    await expect(
+      getRemoteSavedGroupUploadUrl(context, "grp_1"),
+    ).rejects.toThrow("require an Enterprise plan");
+    await expect(
+      createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a")),
+    ).rejects.toThrow("require an Enterprise plan");
+    expect(uploads).toHaveLength(0);
   });
 
   it("keeps the copy unchanged when the client overwrites its file", async () => {
@@ -872,6 +888,18 @@ describe("assertUsableUploadVersion", () => {
     await expect(
       assertUsableUploadVersion(context, "grp_1", 2),
     ).rejects.toThrow("Version 2 is not a valid upload");
+  });
+
+  it("needs an Enterprise plan", async () => {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    uploads[0].status = { type: "valid", idCount: 1 };
+
+    context.hasPremiumFeature = () => false;
+    await expect(
+      assertUsableUploadVersion(context, "grp_1", 1),
+    ).rejects.toThrow("require an Enterprise plan");
   });
 });
 

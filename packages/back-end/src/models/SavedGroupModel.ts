@@ -14,6 +14,7 @@ import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import {
   assertRemoteSavedGroupsEnabled,
+  assertRemoteSavedGroupsLicensed,
   assertRemoteSavedGroupAttribute,
   savedGroupUpdated,
 } from "back-end/src/services/savedGroups";
@@ -188,7 +189,8 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
   ) {
-    // Archiving stays possible after the flag is turned off, for cleanup.
+    // Archiving stays possible after the flag or the plan is turned off, for
+    // cleanup.
     const onlyArchiving =
       !!previousDoc &&
       isEqual(
@@ -197,6 +199,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       );
     if (!onlyArchiving && !writeOptions?.isCompensation) {
       assertRemoteSavedGroupsEnabled(this.context.org);
+      assertRemoteSavedGroupsLicensed(this.context);
     }
     // Every write path ends here (APIs, revisions), unlike request validators.
     if (doc.values?.length || doc.condition) {

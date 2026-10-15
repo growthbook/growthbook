@@ -8,7 +8,7 @@ noindex: true
 Remote Groups are Saved Groups for large lists of IDs, such as millions of user or account IDs. The IDs are stored and looked up outside the SDK payload, so the payload stays small no matter how big the group is.
 
 <Note>
-Remote Groups are in beta and only available to some organizations. Contact us if you'd like to try them.
+Remote Groups are an Enterprise feature. They're in beta and only available to some organizations. Contact us if you'd like to try them.
 </Note>
 
 ## How It Works
@@ -39,7 +39,7 @@ Uploading is optional. If your IDs already live in your own database or cache, s
 
 ## Uploading IDs
 
-Click **Upload CSV** on the group's page and choose a file. The file goes straight to your file storage (S3 or Google Cloud Storage), and GrowthBook then checks every line in the background.
+Click **Upload CSV** on the group's page and choose a file. GrowthBook checks the start of the file first, so common mistakes show up before the upload. The file then goes straight to your file storage (S3 or Google Cloud Storage), and GrowthBook checks every line in the background.
 
 The CSV needs:
 
@@ -47,12 +47,12 @@ The CSV needs:
 - No more than one column. Quotes, blank lines, a BOM and Windows line endings are handled.
 - IDs up to 1,024 characters.
 - Numbers only, for `number` attributes.
-- Up to 5 GB.
+- Up to 100 MB, which is about 3 to 5 million IDs.
 
 Each upload is a complete list of IDs, not a list of changes. Every upload creates a new version, and the group keeps all of them, so you can go back to an earlier one.
 
 <Tip>
-Self-hosted GrowthBook needs `UPLOAD_METHOD` set to `s3` or `google-cloud` to upload IDs. Local file storage isn't supported, because files can be very large.
+Self-hosted GrowthBook needs `UPLOAD_METHOD` set to `s3` or `google-cloud` to upload IDs. Local file storage isn't supported, because files can be very large. To allow larger files, set `REMOTE_SAVED_GROUP_MAX_UPLOAD_MB`, up to `5120` (5 GB).
 </Tip>
 
 ### Choosing the Version a Group Uses

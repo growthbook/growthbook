@@ -7,10 +7,7 @@ import {
   parseRemoteGroupCsv,
   RemoteGroupCsvOptions,
 } from "@growthbook/remote-saved-groups";
-import {
-  REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES,
-  REMOTE_SAVED_GROUP_SAMPLE_BYTES,
-} from "shared/util";
+import { REMOTE_SAVED_GROUP_SAMPLE_BYTES } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
 import type {
   ApiSavedGroup,
@@ -41,18 +38,24 @@ import {
 import {
   assertRemoteSavedGroupAttribute,
   assertRemoteSavedGroupsEnabled,
+  assertRemoteSavedGroupsLicensed,
   assertRemoteSavedGroupStorage,
 } from "back-end/src/services/savedGroups";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  IS_CLOUD,
+  REMOTE_SAVED_GROUP_MAX_UPLOAD_MB,
+} from "back-end/src/util/secrets";
+
+const MAX_UPLOAD_BYTES = REMOTE_SAVED_GROUP_MAX_UPLOAD_MB * 1024 * 1024;
 
 type FullContext = ReqContext | ApiReqContext;
 
 /** The parts of a request context this service uses, so tests can supply only those. */
 export type RemoteSavedGroupsContext = Pick<
   FullContext,
-  "org" | "userId" | "actorId" | "auditLog"
+  "org" | "userId" | "actorId" | "auditLog" | "hasPremiumFeature"
 > & {
   permissions: Pick<
     FullContext["permissions"],
@@ -119,6 +122,7 @@ function assertCanPublish(context: Context, group: SavedGroupInterface) {
 async function getRemoteSavedGroupForUpload(context: Context, id: string) {
   const group = await getRemoteSavedGroup(context, id);
   assertCanPublish(context, group);
+  assertRemoteSavedGroupsLicensed(context);
   if (group.archived) {
     throw new BadRequestError("Cannot upload to an archived Saved Group");
   }
@@ -159,14 +163,14 @@ export async function getRemoteSavedGroupUploadUrl(
     "text/csv",
     expiresInMinutes,
     "private",
-    REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_BYTES,
     1,
   );
   return {
     signedUrl,
     fields: fields ?? null,
     fileKey,
-    maxBytes: REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES,
+    maxBytes: MAX_UPLOAD_BYTES,
     expiresAt: new Date(Date.now() + expiresInMinutes * 60 * 1000),
   };
 }
@@ -205,7 +209,7 @@ async function checkUploadedCsv(
   }
   if (size === 0)
     throw new InvalidRemoteSavedGroupUploadError("The file is empty");
-  if (size > REMOTE_SAVED_GROUP_MAX_UPLOAD_BYTES) {
+  if (size > MAX_UPLOAD_BYTES) {
     throw new InvalidRemoteSavedGroupUploadError("The file is too large");
   }
 
@@ -516,15 +520,16 @@ export async function toApiSavedGroupsWithUploads(
 }
 
 /**
- * A remote group can only use a valid upload of its own. Checked when the
- * group is written and when a draft proposes it, so a draft can't name a
- * version that won't publish.
+ * A remote group can only use a valid upload of its own, and only with an
+ * Enterprise plan. Checked when the group is written and when a draft
+ * proposes it, so a draft can't name a version that won't publish.
  */
 export async function assertUsableUploadVersion(
   context: Context,
   savedGroupId: string,
   version: number,
 ): Promise<void> {
+  assertRemoteSavedGroupsLicensed(context);
   const upload = await context.models.savedGroupUploads.getVersion(
     savedGroupId,
     version,
