@@ -143,8 +143,14 @@ export default function AttributeDetailPage() {
       }
     }
 
-    const conditionGroups = savedGroups.filter((g) => g.type === "condition");
-    for (const group of conditionGroups) {
+    for (const group of savedGroups) {
+      if (group.type === "list") {
+        if (group.attributeKey && attributeKeys.includes(group.attributeKey)) {
+          attributeGroupIds[group.attributeKey] ??= new Set<string>();
+          attributeGroupIds[group.attributeKey].add(group.id);
+        }
+        continue;
+      }
       try {
         const parsedCondition = JSON.parse(group?.condition ?? "{}");
         recursiveWalk(parsedCondition, (node) => {
@@ -223,7 +229,7 @@ export default function AttributeDetailPage() {
           <AttributeReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
-            conditionGroups={referencingSavedGroups}
+            savedGroups={referencingSavedGroups}
           />
         </Modal>
       )}

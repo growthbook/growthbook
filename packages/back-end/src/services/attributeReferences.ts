@@ -23,8 +23,9 @@ export type AttributeReferencesMap = Record<
 >;
 
 /**
- * Features, experiments, and condition groups that reference each attribute key.
- * Walks rule/phase condition JSON and checks hashAttribute on rules and experiments.
+ * Features, experiments, and saved groups that reference each attribute key.
+ * Walks rule/phase/group condition JSON, checks hashAttribute on rules and
+ * experiments, and matches ID lists by attributeKey.
  */
 export async function getAttributeReferences(
   context: ReqContext | ApiReqContext,
@@ -100,17 +101,22 @@ export async function getAttributeReferences(
   }
 
   for (const group of allSavedGroups) {
-    if (group.type !== "condition") continue;
+    const addGroup = (key: string) => {
+      if (!keySet.has(key)) return;
+      savedGroupRefs.get(key)!.set(group.id, {
+        id: group.id,
+        groupName: group.groupName,
+        projects: group.projects,
+      });
+    };
+    if (group.type === "list") {
+      if (group.attributeKey) addGroup(group.attributeKey);
+      continue;
+    }
     try {
       const parsed = JSON.parse(group.condition ?? "{}");
       for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-        if (keySet.has(nodeKey)) {
-          savedGroupRefs.get(nodeKey)!.set(group.id, {
-            id: group.id,
-            groupName: group.groupName,
-            projects: group.projects,
-          });
-        }
+        addGroup(nodeKey);
       }
     } catch {
       // ignore

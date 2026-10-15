@@ -406,7 +406,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               {numReferences === 1 ? "" : "s"}
             </Link>
           ) : (
-            <Tooltip body="No features, experiments, or condition groups reference this attribute.">
+            <Tooltip body="No features, experiments, or saved groups reference this attribute.">
               <span
                 style={{
                   whiteSpace: "nowrap",
@@ -720,7 +720,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         >
           <Text as="p" mb="3">
             This attribute is referenced by the following features, experiments,
-            and condition groups.
+            and saved groups.
           </Text>
           <AttributeReferencesList
             features={
@@ -729,7 +729,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             experiments={
               references?.[referencesAttribute.property]?.experiments ?? []
             }
-            conditionGroups={
+            savedGroups={
               references?.[referencesAttribute.property]?.savedGroups ?? []
             }
           />

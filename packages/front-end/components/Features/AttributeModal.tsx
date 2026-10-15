@@ -442,7 +442,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               <AttributeReferencesList
                 features={refs.features}
                 experiments={refs.experiments}
-                conditionGroups={refs.savedGroups}
+                savedGroups={refs.savedGroups}
               />
             </Box>
           ) : null}
