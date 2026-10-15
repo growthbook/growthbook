@@ -182,7 +182,9 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     event: ChangesetPayloadEvent,
     changesetId: string,
   ): Promise<void> {
-    await this.reload();
+    const experiment = await getExperimentById(this.context, this.id);
+    if (!experiment) return;
+    this.experiment = experiment;
     const payloadKeys = getPayloadKeys(this.context, this.experiment);
     queueSDKPayloadRefresh({
       context: this.context,

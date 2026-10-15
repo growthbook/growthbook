@@ -379,6 +379,17 @@ describe("ExperimentChangesetOwner", () => {
     });
   });
 
+  it("skips the payload refresh when the experiment is gone", async () => {
+    const owner = new ExperimentChangesetOwner(makeContext(), makeExperiment());
+    mockGetExperimentById.mockResolvedValue(null);
+    await expect(owner.refreshPayloads("updated", "vcs_1")).resolves.toBe(
+      undefined,
+    );
+    expect(mockGetPayloadKeys).not.toHaveBeenCalled();
+    expect(mockQueueRefresh).not.toHaveBeenCalled();
+    expect(owner.project).toBe("prj_1");
+  });
+
   it("validates mutations against the stored experiment, not the snapshot", async () => {
     const owner = new ExperimentChangesetOwner(makeContext(), makeExperiment());
     mockGetExperimentById.mockResolvedValue(

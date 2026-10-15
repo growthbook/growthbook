@@ -54,6 +54,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
 
   const removed = await owner.removeVariation(variationId);
 
+  let removedVisualChange = false;
   try {
     const current =
       (await findVisualChangesetById(visualChangesetId, req.organization.id)) ??
@@ -61,11 +62,14 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     const nextVisualChanges = current.visualChanges.filter(
       (vc) => vc.variation !== variationId,
     );
+    removedVisualChange =
+      nextVisualChanges.length !== current.visualChanges.length;
     await updateVisualChangeset({
       visualChangeset: current,
       owner,
       context,
       updates: { visualChanges: nextVisualChanges },
+      bypassWebhooks: true,
     });
   } catch (e) {
     if (!removed.rollback) {
@@ -84,6 +88,9 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
       );
     }
     throw e;
+  }
+  if (removedVisualChange) {
+    await owner.refreshPayloads("updated", visualChangesetId);
   }
   await auditLiveEdit();
 
