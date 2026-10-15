@@ -30,7 +30,7 @@ export default {
     displayName: "Cloud Proxy",
   },
   "cluster-experiments": {
-    plan: "enterprise",
+    plan: "pro",
     displayName: "Cluster Experiments",
   },
   "code-references": {

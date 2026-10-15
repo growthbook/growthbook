@@ -4775,7 +4775,7 @@ export type PostExperimentApiPayload = z.infer<
 export function assertCanEnableClusterExperiment(context: ReqContext) {
   if (!context.hasPremiumFeature("cluster-experiments")) {
     throw new PlanDoesNotAllowError(
-      "Cluster experiments require an Enterprise plan.",
+      "Cluster experiments require a Pro plan or higher.",
     );
   }
 }

@@ -246,6 +246,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [
@@ -294,7 +295,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "adv-presentations",
   "contextual-bandits",
   "interleaving",
-  "cluster-experiments",
   "scheduled-revisions",
   "feature-configs",
   "releases",
