@@ -77,6 +77,10 @@ export const apiDataSourceValidator = namedSchema(
             .describe(
               "The column `sql` returns for each role, where it isn't the canonical name (`experiment_id`, `variation_id`, `timestamp`, `experiment_name`, `variation_name`, or the identifier type's own name). Roles not listed use the canonical name.",
             ),
+          error: z
+            .string()
+            .optional()
+            .describe("Why the last validation of this query failed"),
         }),
       ),
       identifierJoinQueries: z.array(
@@ -205,7 +209,7 @@ const dataSourceSettingsInput = {
     })
     .optional()
     .describe(
-      "Merged into the stored settings: fields left out keep their values, but any change must leave `allowWriting`, `mode` and `unitsTableRetentionHours` set, plus `writeDataset` when `allowWriting` is true. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
+      "Merged into the stored settings: fields left out keep their values, but any change must leave `allowWriting`, `mode`, `writeDataset` and `unitsTableRetentionHours` set, with a non-empty `writeDataset` when `allowWriting` is true. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
     ),
 };
 
