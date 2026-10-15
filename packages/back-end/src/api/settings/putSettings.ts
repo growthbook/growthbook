@@ -13,6 +13,7 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { updateOrganizationSettings } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { sanitizeDefaultRoleUpdate } from "back-end/src/services/organizations";
 import {
   assertCanUpdateOrgSettings,
   validateOrgSettingsUpdate,
@@ -30,6 +31,11 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 
   // `null` resets a field, which still needs permission for that field.
   assertCanUpdateOrgSettings(context, body);
+  if (body.defaultRole) {
+    const role: OrganizationSettings = { defaultRole: body.defaultRole };
+    await sanitizeDefaultRoleUpdate(context, role);
+    body.defaultRole = role.defaultRole;
+  }
 
   // A reset stays in `changes` as undefined so validation sees it.
   const changes: Partial<OrganizationSettings> = {};
@@ -110,9 +116,10 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     await context.models.agreements.create({
       agreement: AGREEMENT_TYPE_AI,
       version: AI_AGREEMENT_VERSION,
-      userId: context.userId,
-      userName: context.userName,
-      userEmail: context.email,
+      // An org key acting as itself is recorded by its key id.
+      userId: context.actingPerson?.id ?? context.actorId,
+      userName: context.actingPerson?.name ?? "",
+      userEmail: context.actingPerson?.email ?? "",
       dateSigned: new Date(),
     });
   }
