@@ -520,6 +520,11 @@ describe("GrowthBookClient", () => {
       const contextualBandits = {
         cb: { contexts: [{ leafId: 1, condition: {}, weights: [0, 1] }] },
       };
+      const bandit = {
+        key: "exp",
+        variations: ["a", "b"],
+        contextualBanditRef: "cb",
+      };
       const gb = new GrowthBookClient({
         savedGroups,
         contextualBandits,
@@ -530,6 +535,7 @@ describe("GrowthBookClient", () => {
               defaultValue: "off",
               rules: [
                 { condition: { $savedGroup: { id: "grp" } }, force: "on" },
+                bandit,
               ],
             },
           },
@@ -539,7 +545,10 @@ describe("GrowthBookClient", () => {
       const payload = gb.reducePayload({
         userContext: { attributes: { id: "123" } },
       });
-      expect(payload.features?.feature.rules).toEqual([{ force: "on" }]);
+      expect(payload.features?.feature.rules).toEqual([
+        { force: "on" },
+        bandit,
+      ]);
       expect(payload.contextualBandits).toEqual(contextualBandits);
 
       gb.destroy();

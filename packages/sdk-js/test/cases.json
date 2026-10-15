@@ -1332,6 +1332,12 @@
       false
     ],
     [
+      "a missing attribute is still compared as null, even under $not",
+      { "$not": { "name": "hello" }, "age": { "$ne": 10 } },
+      {},
+      true
+    ],
+    [
       "an unknown operator under $not fails, since this SDK can't evaluate it",
       { "$not": { "name": { "$regx": "hello" } } },
       { "name": "world" },
@@ -4463,6 +4469,150 @@
           }
         ],
         "savedGroups": {}
+      }
+    ],
+    [
+      "keeps only the contextual bandits that kept rules and experiments use, with their contexts reduced",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 0,
+              "metadata": { "tags": ["web"] },
+              "rules": [
+                {
+                  "key": "exp1",
+                  "variations": [0, 1],
+                  "contextualBanditRef": "cb1"
+                }
+              ]
+            },
+            "f2": {
+              "defaultValue": 0,
+              "metadata": { "tags": ["server"] },
+              "rules": [
+                {
+                  "key": "exp2",
+                  "variations": [0, 1],
+                  "contextualBanditRef": "cb2"
+                }
+              ]
+            }
+          },
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "metadata": { "tags": ["web"] },
+              "contextualBanditRef": "cb3"
+            }
+          ],
+          "savedGroups": {
+            "g1": {
+              "type": "list",
+              "attributeKey": "deviceId",
+              "values": ["d1"]
+            },
+            "g2": {
+              "type": "list",
+              "attributeKey": "deviceId",
+              "values": ["d2"]
+            }
+          },
+          "contextualBandits": {
+            "cb1": {
+              "banditVersion": 1,
+              "contexts": [
+                {
+                  "leafId": 1,
+                  "condition": { "id": "456" },
+                  "weights": [0.1, 0.9]
+                },
+                {
+                  "leafId": 2,
+                  "condition": { "id": "123", "country": "US" },
+                  "weights": [0.2, 0.8]
+                },
+                {
+                  "leafId": 3,
+                  "condition": { "id": "123" },
+                  "weights": [0.3, 0.7]
+                },
+                { "leafId": 4, "weights": [0.5, 0.5] }
+              ]
+            },
+            "cb2": {
+              "contexts": [
+                {
+                  "leafId": 1,
+                  "condition": { "$savedGroup": { "id": "g2" } },
+                  "weights": [0.5, 0.5]
+                }
+              ]
+            },
+            "cb3": {
+              "contexts": [
+                {
+                  "leafId": 1,
+                  "condition": { "$savedGroup": { "id": "g1" } },
+                  "weights": [0.5, 0.5]
+                }
+              ]
+            },
+            "cb4": { "contexts": [] }
+          }
+        },
+        "attributes": { "id": "123" },
+        "include": { "tags": ["web"] }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 0,
+            "metadata": { "tags": ["web"] },
+            "rules": [
+              {
+                "key": "exp1",
+                "variations": [0, 1],
+                "contextualBanditRef": "cb1"
+              }
+            ]
+          }
+        },
+        "experiments": [
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "metadata": { "tags": ["web"] },
+            "contextualBanditRef": "cb3"
+          }
+        ],
+        "savedGroups": {
+          "g1": { "type": "list", "attributeKey": "deviceId", "values": ["d1"] }
+        },
+        "contextualBandits": {
+          "cb1": {
+            "banditVersion": 1,
+            "contexts": [
+              {
+                "leafId": 2,
+                "condition": { "country": "US" },
+                "weights": [0.2, 0.8]
+              },
+              { "leafId": 3, "condition": {}, "weights": [0.3, 0.7] },
+              { "leafId": 4, "condition": {}, "weights": [0.5, 0.5] }
+            ]
+          },
+          "cb3": {
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": { "$savedGroup": { "id": "g1" } },
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
       }
     ],
     [

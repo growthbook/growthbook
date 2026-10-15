@@ -1468,6 +1468,32 @@ export function reducePayload(
   experiments.forEach(addParents);
   const features = Object.fromEntries(added);
 
+  // The contextual bandits that kept rules and experiments use. A context
+  // whose condition never passes can't be the first that does, so it goes.
+  const allBandits = ctx.global.contextualBandits || {};
+  const bandits = new Map<string, ContextualBanditDefinition>();
+  for (const item of [
+    ...Object.values(features).flatMap((f) => f.rules || []),
+    ...experiments,
+  ]) {
+    const ref = item.contextualBanditRef;
+    if (!ref || bandits.has(ref) || !hasOwn(allBandits, ref)) continue;
+    const bandit = allBandits[ref];
+    bandits.set(ref, {
+      ...bandit,
+      contexts: (bandit.contexts || []).flatMap((c) => {
+        const condition = pruneCondition(
+          attributes,
+          (c.condition || {}) as ConditionInterface,
+          savedGroups,
+        );
+        if (condition === false) return [];
+        return [{ ...c, condition: condition === true ? {} : condition }];
+      }),
+    });
+  }
+  const contextualBandits = Object.fromEntries(bandits);
+
   // Keep each saved group whose id appears as a string anywhere, with condition
   // groups reduced. This needs no list of the operators that reference groups.
   const groups = new Map<string, SavedGroupsPayload[string]>();
@@ -1490,14 +1516,14 @@ export function reducePayload(
       keep(groups.get(x));
     } else if (x && typeof x === "object") Object.values(x).forEach(keep);
   };
-  keep([features, experiments, ctx.global.contextualBandits]);
+  keep([features, experiments, contextualBandits]);
 
   return {
     features,
     experiments,
     savedGroups: Object.fromEntries(groups),
-    // From the same context as the rest, like the saved groups
-    contextualBandits: ctx.global.contextualBandits,
+    // Only when there were any, as with the payload's other optional keys
+    contextualBandits: ctx.global.contextualBandits && contextualBandits,
   };
 }
 
