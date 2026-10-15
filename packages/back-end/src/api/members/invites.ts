@@ -41,7 +41,8 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 type RoleInput = z.infer<typeof putInviteValidator.bodySchema>;
 
-// As in updateMemberRole, an environment list is its own limit.
+// As in updateMemberRole, an environment list is its own limit unless the
+// top-level limitAccessByEnvironment is sent.
 function toRoleInfo(
   input: RoleInput,
   fallback: MemberRoleWithProjects,
@@ -53,9 +54,11 @@ function toRoleInfo(
   return {
     role: input.role ?? fallback.role,
     environments: input.environments ?? fallback.environments,
-    limitAccessByEnvironment: input.environments
-      ? !!input.environments.length
-      : fallback.limitAccessByEnvironment,
+    limitAccessByEnvironment:
+      input.limitAccessByEnvironment ??
+      (input.environments
+        ? !!input.environments.length
+        : fallback.limitAccessByEnvironment),
     additionalRoles:
       input.additionalRoles?.map(limit) ?? fallback.additionalRoles,
     projectRoles:
@@ -66,8 +69,19 @@ function toRoleInfo(
   };
 }
 
+// Invites can predate roles and environment limits.
+function normalizeInvite(invite: Invite): Invite {
+  return {
+    ...invite,
+    role: invite.role || "admin",
+    limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
+    environments: invite.environments ?? [],
+  };
+}
+
 // Never includes `key`: it is the secret the invite link carries.
-function toApiInvite(invite: Invite) {
+function toApiInvite(stored: Invite) {
+  const invite = normalizeInvite(stored);
   return {
     email: invite.email,
     role: invite.role,
@@ -107,7 +121,7 @@ function findInvite(invites: Invite[], email: string) {
 function getInvite(context: ApiReqContext, email: string) {
   const invite = findInvite(context.org.invites, email);
   if (!invite) context.throwNotFoundError(`No invite for ${email}`);
-  return invite;
+  return normalizeInvite(invite);
 }
 
 async function auditInvite(
@@ -156,10 +170,18 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
   const { org } = req.context;
   const { email, ...input } = req.body;
 
-  // Plans without roles only allow admin, as the app's invite form defaults to.
-  const fallback = getEffectiveOrgLimits(org).orgSupportsRoles()
-    ? getDefaultRole(org)
-    : { ...getDefaultRole(org), role: "admin" };
+  // Only an omitted role takes the default's scoping. Plans without roles
+  // only allow admin, as the app's invite form defaults to.
+  const unscoped = (role: string) => ({
+    role,
+    limitAccessByEnvironment: false,
+    environments: [],
+  });
+  const fallback = input.role
+    ? unscoped(input.role)
+    : getEffectiveOrgLimits(org).orgSupportsRoles()
+      ? getDefaultRole(org)
+      : unscoped("admin");
   const roleInfo = toRoleInfo(input, fallback);
   await assertRoleInfoValid(req.context, roleInfo);
 
@@ -257,6 +279,7 @@ export const postPendingMemberApprove = createApiRequestHandler(
     limitAccessByEnvironment: pending.limitAccessByEnvironment,
     environments: pending.environments,
     projectRoles: pending.projectRoles,
+    additionalRoles: pending.additionalRoles,
   });
 
   try {
