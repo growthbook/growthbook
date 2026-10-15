@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
 import { readOnlyEcho } from "./shared";
+import { builtInChecklistItemKeyValidator } from "./experiment-launch-checklist";
+
+const hiddenBuiltInItems = z
+  .array(builtInChecklistItemKeyValidator)
+  .optional()
+  .describe("Built-in checklist items hidden for this scope");
 
 const checklistTask = z
   .object({
@@ -43,6 +49,7 @@ export const apiLaunchChecklistValidator = namedSchema(
         .string()
         .describe("Empty for the organization-wide checklist"),
       tasks: z.array(checklistTask),
+      hiddenBuiltInItems,
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
     })
@@ -98,6 +105,7 @@ export const putLaunchChecklistValidator = {
           }
         });
       }),
+      hiddenBuiltInItems,
       // The scope comes from the projectId query parameter, not the body
       id: readOnlyEcho,
       projectId: readOnlyEcho,
