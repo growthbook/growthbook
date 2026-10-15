@@ -26,14 +26,21 @@ const roleInfoFields = {
   projectRoles: apiProjectRoles,
 };
 
-// Same shape as updateMemberRole: an environment list is its own limit.
+// As in updateMemberRole, an environment list is its own limit unless the
+// top-level limitAccessByEnvironment is sent.
 const roleInput = z
   .object({
     role: z
       .string()
       .optional()
-      .describe("Global role. Defaults to the organization's default role."),
+      .describe(
+        "Global role. When omitted on create, the invite gets the organization's default role along with its environment and project scoping.",
+      ),
     environments: z.array(z.string()).optional(),
+    limitAccessByEnvironment: z
+      .boolean()
+      .optional()
+      .describe("Defaults to whether `environments` is non-empty."),
     additionalRoles: apiAdditionalRoles,
     projectRoles: z
       .array(
@@ -48,6 +55,9 @@ const roleInput = z
         message: DUPLICATE_PROJECT_ROLES_MESSAGE,
       })
       .optional(),
+    // Returned by GET; accepted so an invite can be sent back as-is.
+    invitedBy: z.string().optional().describe("Read-only; ignored."),
+    dateCreated: z.string().optional().describe("Read-only; ignored."),
   })
   .strict();
 
@@ -119,7 +129,14 @@ export const postInviteValidator = {
 };
 
 export const putInviteValidator = {
-  bodySchema: roleInput,
+  bodySchema: roleInput
+    .safeExtend({
+      email: z
+        .string()
+        .optional()
+        .describe("Read-only; the path names the invite."),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: emailParams,
   responseSchema: z.object({ invite: apiInviteValidator }).strict(),
