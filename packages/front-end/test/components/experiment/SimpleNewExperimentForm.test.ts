@@ -386,6 +386,26 @@ describe("resolveTemplateAssignment", () => {
         datasource: makeDatasourceWithSettings(makeSettings([dropped])),
         templateExposureQueryId: "eq_dropped",
       }),
-    ).toEqual({ kind: "unavailable", identifierType: "anonymous_id" });
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: false,
+    });
+  });
+
+  it("is unavailable as out of scope when only another Project's query declares it", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([dropped, { ...other, projects: ["prj_other"] }]),
+        ),
+        project: "prj_1",
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: true,
+    });
   });
 });
