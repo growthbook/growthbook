@@ -50,11 +50,15 @@ function assertPlanAllows(context: ApiReqContext) {
   }
 }
 
-async function getSavedQuery(context: ApiReqContext, id: string) {
-  assertPlanAllows(context);
+async function findSavedQuery(context: ApiReqContext, id: string) {
   const savedQuery = await context.models.savedQueries.getById(id);
   if (!savedQuery) throw new NotFoundError(`Saved query not found: ${id}`);
   return savedQuery;
+}
+
+async function getSavedQuery(context: ApiReqContext, id: string) {
+  assertPlanAllows(context);
+  return findSavedQuery(context, id);
 }
 
 async function runAndSave(context: ApiReqContext, savedQuery: SavedQuery) {
@@ -137,7 +141,8 @@ export const updateSavedQuery = createApiRequestHandler(
 export const deleteSavedQuery = createApiRequestHandler(
   deleteSavedQueryValidator,
 )(async (req) => {
-  const existing = await getSavedQuery(req.context, req.params.id);
+  // No plan check, as in the app, so an org that lost the feature can clean up
+  const existing = await findSavedQuery(req.context, req.params.id);
   await req.context.models.savedQueries.delete(existing);
   return { deletedId: existing.id };
 });

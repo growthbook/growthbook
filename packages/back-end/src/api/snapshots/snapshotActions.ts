@@ -70,21 +70,19 @@ export const postSnapshotAnalysis = createApiRequestHandler(
   if (!base) throw new BadRequestError("This snapshot has no results yet");
 
   const { baselineVariationId, ...overrides } = req.body;
-  let baselineVariationIndex = base.baselineVariationIndex;
-  if (baselineVariationId) {
-    baselineVariationIndex = getPhaseVariations(
-      experiment,
-      snapshot.phase,
-    ).findIndex((v) => v.id === baselineVariationId);
-    if (baselineVariationIndex < 0) {
-      throw new BadRequestError(`Unknown variation: ${baselineVariationId}`);
-    }
-  }
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     ...base,
     ...overrides,
-    baselineVariationIndex,
   };
+  if (baselineVariationId) {
+    analysisSettings.baselineVariationIndex = getPhaseVariations(
+      experiment,
+      snapshot.phase,
+    ).findIndex((v) => v.id === baselineVariationId);
+    if (analysisSettings.baselineVariationIndex < 0) {
+      throw new BadRequestError(`Unknown variation: ${baselineVariationId}`);
+    }
+  }
 
   // Reuse a matching analysis rather than recomputing it, unless it failed
   const existing = getSnapshotAnalysis(snapshot, analysisSettings);
