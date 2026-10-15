@@ -9,6 +9,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import type { ChangesetOwnerKind } from "back-end/src/services/changesetOwner";
 
 const pageHintsSchema = z.object({
   url: z.string().optional(),
@@ -120,7 +121,7 @@ function buildPrompt({
   pastExperiments,
 }: {
   currentExperiment: {
-    kind?: "experiment" | "contextual-bandit";
+    kind?: ChangesetOwnerKind;
     name: string;
     hypothesis?: string;
     description?: string;
@@ -129,7 +130,7 @@ function buildPrompt({
   pastExperiments: PastExperimentSummary[];
 }): string {
   const currentBlock = `Current ${
-    promptContext.kind === "contextual-bandit"
+    currentExperiment.kind === "contextual-bandit"
       ? "contextual bandit (each variation is an arm the bandit optimizes across user contexts)"
       : "experiment"
   }:\n- Name: ${currentExperiment.name}\n${

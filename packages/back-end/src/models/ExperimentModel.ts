@@ -497,9 +497,8 @@ export async function findVisualExperimentsByName(
 
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
-  id: string | undefined | null,
+  id: string,
 ): Promise<ExperimentInterface | null> {
-  if (!id) return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
@@ -2216,7 +2215,6 @@ export const getAllURLRedirectExperiments = async (
   const exps: URLRedirectExperiment[] = [];
 
   redirects.forEach((r) => {
-    if (!r.experiment) return;
     const experiment = experimentMap.get(r.experiment);
     if (!experiment) return;
 
