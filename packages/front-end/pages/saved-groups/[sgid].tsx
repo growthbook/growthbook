@@ -111,6 +111,8 @@ const NUM_PER_PAGE = 10;
 const savedGroupTabs = ["overview", "review"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
 
+const REMOTE_LOCKED_REASON = "Changing Remote Groups needs an Enterprise plan.";
+
 export default function EditSavedGroupPage() {
   const router = useRouter();
   const { sgid } = router.query;
@@ -1160,13 +1162,15 @@ export default function EditSavedGroupPage() {
                     !!(metadataReviewRequired && (isMerged || isDiscarded))
                   }
                   tooltip={
-                    !canDraft
-                      ? "You don't have permission to edit this Saved Group."
-                      : metadataReviewRequired && isMerged
-                        ? "You cannot edit a published revision."
-                        : metadataReviewRequired && isDiscarded
-                          ? "You cannot edit a discarded revision."
-                          : undefined
+                    remoteLocked
+                      ? REMOTE_LOCKED_REASON
+                      : !canDraft
+                        ? "You don't have permission to edit this Saved Group."
+                        : metadataReviewRequired && isMerged
+                          ? "You cannot edit a published revision."
+                          : metadataReviewRequired && isDiscarded
+                            ? "You cannot edit a discarded revision."
+                            : undefined
                   }
                   onClick={() => {
                     setDropdownOpen(false);
@@ -1335,10 +1339,18 @@ export default function EditSavedGroupPage() {
             onPublish={handlePublish}
             onDiscard={handleDiscard}
             onReopen={handleReopen}
-            onRevert={(rev) => {
-              setRevisionToRevert(rev);
-              setConfirmRevert(true);
-            }}
+            // Rolling back writes the group, which needs Enterprise
+            onRevert={
+              remoteLocked
+                ? undefined
+                : (rev) => {
+                    setRevisionToRevert(rev);
+                    setConfirmRevert(true);
+                  }
+            }
+            publishBlockedReason={
+              remoteLocked ? REMOTE_LOCKED_REASON : undefined
+            }
             onCompareRevisions={
               allRevisions.length >= 2
                 ? () => setCompareRevisionsModalOpen(true)
@@ -1445,9 +1457,9 @@ export default function EditSavedGroupPage() {
             )}
             {remoteLocked && (
               <Callout status="warning" mb="4">
-                Changing Remote Groups needs an Enterprise plan. This group
-                still works in rules, but you can&apos;t upload IDs or change
-                its version.{" "}
+                Changing Remote Groups needs an Enterprise plan. Features and
+                experiments that use this group keep working, but you can&apos;t
+                upload IDs, change its version, publish drafts or roll back.{" "}
                 <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
               </Callout>
             )}
@@ -1468,16 +1480,12 @@ export default function EditSavedGroupPage() {
                   savedGroup,
                   NO_ENVIRONMENT_BINDING,
                 )}
-                planLockedReason={
-                  remoteLocked
-                    ? "Changing Remote Groups needs an Enterprise plan."
-                    : null
-                }
+                planLockedReason={remoteLocked ? REMOTE_LOCKED_REASON : null}
                 viewing={isLive ? "live" : isDraft ? "draft" : "other"}
                 viewedVersion={displayedSavedGroup?.currentUploadVersion}
                 useVersionDisabledReason={
                   remoteLocked
-                    ? "Changing Remote Groups needs an Enterprise plan."
+                    ? REMOTE_LOCKED_REASON
                     : isMerged
                       ? "You cannot edit a published revision."
                       : isDiscarded
