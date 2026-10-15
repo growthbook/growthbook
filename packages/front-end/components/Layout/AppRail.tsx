@@ -209,8 +209,8 @@ function PageBadge({ page }: { page: SidebarLinkProps }) {
 }
 
 // A collapsed section: its icon, opening a popover of its pages on hover
-// (at once), click, or keyboard focus. Enter, Space or → move focus into
-// the list; Escape closes it.
+// (at once) or keyboard focus; a click goes to its first page (set in
+// review). Enter, Space or → move focus into the list; Escape closes it.
 //
 // One section's popover at a time (fix, set in review: each section kept
 // its own state, so moving between icons, or hovering one while another was
@@ -229,6 +229,7 @@ function CollapsedSection({
   openMenu: string | null;
   setOpenMenu: Dispatch<SetStateAction<string | null>>;
 }) {
+  const router = useRouter();
   const name = section.link.name;
   const open = openMenu === name;
   const setOpen = (next: boolean) =>
@@ -296,13 +297,16 @@ function CollapsedSection({
         }
       }}
       onClick={(e) => {
-        // The open state is handled here, so Radix's own toggle on the
-        // trigger is skipped (it would undo this one).
+        // Radix's own toggle on the trigger is skipped: the popover is
+        // handled here.
         e.preventDefault();
-        // A hover already opened it: the click keeps it open.
-        if (open && !pinned.current) {
-          pinned.current = true;
-          clearTimer();
+        // A click goes to the section's first page and closes the popover
+        // (set in review; it pinned the popover open). Hover still shows the
+        // pages; Enter, Space or → still open the list from the keyboard.
+        const first = section.pages[0];
+        if (first) {
+          setOpenState(false);
+          void router.push(first.href);
           return;
         }
         pinned.current = !open;

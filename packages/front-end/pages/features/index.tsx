@@ -645,7 +645,19 @@ export default function FeaturesPage() {
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
-    <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
+    <Box
+      className="contents pagecontents"
+      // 32px left and right, as the redesigned experiments list (set in
+      // review; was the shared 15px), and no max width, so the content runs
+      // edge to edge at that inset as there (it was 1340px, centred). Top
+      // and bottom keep the shared 15px.
+      style={{
+        margin: "0 auto",
+        paddingLeft: "var(--space-6)",
+        paddingRight: "var(--space-6)",
+        maxWidth: "none",
+      }}
+    >
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}

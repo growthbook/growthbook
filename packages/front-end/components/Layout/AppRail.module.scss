@@ -65,6 +65,16 @@
   }
 }
 
+// PROTOTYPE (set in review): with "Existing page colors" on in the
+// prototype settings (PrototypeControls.tsx), the rail is white
+// (--color-panel-solid; the dark panel colour in dark mode) beside the
+// existing pages' light purple, in place of --slate-2; its 1px right edge
+// keeps the two apart. Its hover, selected and divider greys stay. An
+// org's custom colours, set inline, still win.
+:global(html.prototype-existing-page-colors) .rail {
+  --rail-bg: var(--color-panel-solid);
+}
+
 // Collapsed: only the icon column shows (the layout is the rail's).
 .collapsed {
   align-items: flex-start;
@@ -486,6 +496,12 @@
       animation: none;
     }
   }
+}
+
+// With "Existing page colors" on (above), the collapsed rail's menus are
+// white too, as the rail they come out of.
+:global(html.prototype-existing-page-colors) .popover.popover.popover {
+  background: var(--color-panel-solid);
 }
 
 @keyframes rail-popover-in {

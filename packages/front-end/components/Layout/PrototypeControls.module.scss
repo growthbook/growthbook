@@ -27,6 +27,12 @@
   text-transform: uppercase;
 }
 
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .setting {
   display: flex;
   align-items: center;

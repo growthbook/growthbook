@@ -49,6 +49,15 @@ $sidebarwidth: var(--app-rail-width, 240px);
     padding-right: 8px;
   }
 }
+// PROTOTYPE (set in review): with "Existing page colors" on in the
+// prototype settings (PrototypeControls.tsx), the header takes the page's
+// background, --color-background (the existing pages' light purple, its
+// dark-mode navy), in place of white, to sit with pages not yet
+// redesigned. Redesigned pages repoint --color-background to white, so
+// there it stays white.
+:global(html.prototype-existing-page-colors) .topbar {
+  background-color: var(--color-background);
+}
 .topbar.scrolled {
   box-shadow: 0 1px 0 var(--slate-a3);
 }
