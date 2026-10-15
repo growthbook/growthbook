@@ -36,6 +36,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "enterprise",
       displayName: "Contextual Bandits",
     },
+    "custom-environments": {
+      plan: "enterprise",
+      displayName: "Custom Environments",
+    },
     "custom-hooks": {
       plan: "enterprise",
       displayName: "Custom Hooks",
@@ -103,6 +107,10 @@ export const CommercialFeature = ({ feature, description }) => {
     "incremental-refresh": {
       plan: "enterprise",
       displayName: "Incremental Refresh",
+    },
+    interleaving: {
+      plan: "enterprise",
+      displayName: "Interleaving",
     },
     "json-validation": {
       plan: "enterprise",
@@ -236,6 +244,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Retention Metrics",
     },
+    "role-management": {
+      plan: "pro",
+      displayName: "Role Management",
+    },
     "safe-rollout": {
       plan: "pro",
       displayName: "Safe Rollout",
@@ -287,6 +299,10 @@ export const CommercialFeature = ({ feature, description }) => {
     "unlimited-managed-warehouse-usage": {
       plan: "pro",
       displayName: "Unlimited Managed Warehouse Usage",
+    },
+    "unlimited-projects": {
+      plan: "enterprise",
+      displayName: "Unlimited Projects",
     },
     "visual-editor": {
       plan: "pro",
