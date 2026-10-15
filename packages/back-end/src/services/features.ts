@@ -480,7 +480,7 @@ export function generateAutoExperimentsPayload({
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
-  cbVisualExperiments?: CbVisualExperiment[];
+  cbVisualExperiments: CbVisualExperiment[];
   groupMap: GroupMap;
   features: FeatureInterface[];
   environment: string;
@@ -677,14 +677,12 @@ export function generateAutoExperimentsPayload({
     });
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
-    cbVisualExperiments: cbVisualExperiments ?? [],
+    cbVisualExperiments,
     features,
     environment,
     prereqStateCache,
     capabilities,
     includeProjectIdInMetadata,
-    includeCustomFieldsInMetadata,
-    allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
     savedGroupStrategy,
@@ -701,8 +699,6 @@ function generateCbVisualExperimentsPayload({
   prereqStateCache,
   capabilities,
   includeProjectIdInMetadata,
-  includeCustomFieldsInMetadata,
-  allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
   projectsMap,
   savedGroupStrategy,
@@ -714,8 +710,6 @@ function generateCbVisualExperimentsPayload({
   prereqStateCache: Record<string, PrerequisiteStateResult>;
   capabilities?: SDKCapability[];
   includeProjectIdInMetadata?: boolean;
-  includeCustomFieldsInMetadata?: boolean;
-  allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   savedGroupStrategy: SavedGroupPayloadStrategy;
@@ -752,13 +746,12 @@ function generateCbVisualExperimentsPayload({
       })
       .filter(isDefined);
 
-    if (capabilities !== undefined) {
-      if (
-        !capabilities.includes("prerequisites") &&
-        parsedPrerequisites.length > 0
-      ) {
-        return null;
-      }
+    if (
+      capabilities &&
+      !capabilities.includes("prerequisites") &&
+      parsedPrerequisites.length
+    ) {
+      return null;
     }
 
     const condition = mergeConditionAndSavedGroups({
@@ -784,12 +777,7 @@ function generateCbVisualExperimentsPayload({
         project: cb.project,
         tags: cb.tags,
       },
-      metadataOptions: {
-        includeProjectIdInMetadata,
-        includeCustomFieldsInMetadata,
-        allowedCustomFieldsInMetadata,
-        includeTagsInMetadata,
-      },
+      metadataOptions: { includeProjectIdInMetadata, includeTagsInMetadata },
       projectsMap,
       savedGroupStrategy,
       capabilities,
@@ -1229,7 +1217,7 @@ function servedAutoExperiments(
 async function getPayloadContextualBandits(
   context: ReqContext | ApiReqContext,
   features: FeatureInterface[],
-  cbVisualExperiments: CbVisualExperiment[] = [],
+  cbVisualExperiments: CbVisualExperiment[],
 ): Promise<Map<string, ContextualBanditInterface>> {
   const map = new Map(
     cbVisualExperiments.map((e) => [e.contextualBandit.id, e.contextualBandit]),
@@ -1835,8 +1823,8 @@ export type SDKPayloadRawData = {
   cbVisualExperiments?: CbVisualExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
-  // Bandits behind the features' contextual-bandit-ref rules, loaded once for
-  // every connection a refresh builds.
+  // Bandits behind contextual-bandit-ref rules and visual changesets, loaded
+  // once for every connection a refresh builds.
   cbMap?: Map<string, ContextualBanditInterface>;
   constants?: ConstantInterface[];
   // Pre-built per-environment constant value map. Hoisted out of

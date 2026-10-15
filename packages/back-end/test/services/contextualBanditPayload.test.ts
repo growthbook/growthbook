@@ -2,6 +2,7 @@ import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GroupMap } from "shared/types/saved-group";
+import { SDKCapability } from "shared/sdk-versioning";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getFeatureDefinition } from "back-end/src/util/features";
 import { ApiReqContext } from "back-end/types/api";
@@ -676,17 +677,19 @@ describe("CB visual changesets in the auto-experiments payload", () => {
   function payloadFor(
     cb: ContextualBanditInterface,
     vcs: VisualChangesetInterface,
+    capabilities: SDKCapability[] = [
+      "contextualBandits",
+      "contextualBanditsAuto",
+    ],
   ) {
     return generateAutoExperimentsPayload({
       visualExperiments: [],
       urlRedirectExperiments: [],
-      cbVisualExperiments: [
-        { type: "cb-visual", contextualBandit: cb, visualChangeset: vcs },
-      ],
+      cbVisualExperiments: [{ contextualBandit: cb, visualChangeset: vcs }],
       groupMap,
       features: [],
       environment: "production",
-      capabilities: ["contextualBandits", "contextualBanditsAuto"],
+      capabilities,
       includeExperimentNames: true,
     });
   }
@@ -731,22 +734,9 @@ describe("CB visual changesets in the auto-experiments payload", () => {
 
   it("serves nothing to an SDK without contextualBanditsAuto", () => {
     const cb = makeCb({ hasVisualChangesets: true });
-    const payload = generateAutoExperimentsPayload({
-      visualExperiments: [],
-      urlRedirectExperiments: [],
-      cbVisualExperiments: [
-        {
-          type: "cb-visual",
-          contextualBandit: cb,
-          visualChangeset: makeChangeset(["v0", "v1"]),
-        },
-      ],
-      groupMap,
-      features: [],
-      environment: "production",
-      capabilities: ["contextualBandits"],
-    });
-    expect(payload).toHaveLength(0);
+    expect(
+      payloadFor(cb, makeChangeset(["v0", "v1"]), ["contextualBandits"]),
+    ).toHaveLength(0);
   });
 
   it("serves only active arms, in the same positions as the leaf weights", () => {
@@ -756,7 +746,10 @@ describe("CB visual changesets in the auto-experiments payload", () => {
         { ...V1, status: "pending" },
         V2,
         {
-          ...{ id: "v3", name: "Gone", key: "3", screenshots: [] },
+          id: "v3",
+          name: "Gone",
+          key: "3",
+          screenshots: [],
           status: "deactivated",
         },
       ],
@@ -809,7 +802,6 @@ describe("CB visual prerequisites in another project", () => {
     id = "vcs_1",
   ): CbVisualExperiment {
     return {
-      type: "cb-visual",
       contextualBandit: cb,
       visualChangeset: {
         id,

@@ -95,7 +95,6 @@ export function recordContextualBanditPayloadMetrics(
 }
 
 export type CbVisualExperiment = {
-  type: "cb-visual";
   contextualBandit: ContextualBanditInterface;
   visualChangeset: VisualChangesetInterface;
 };
@@ -168,6 +167,7 @@ export function buildCbVisualAutoExperiment({
   includeExperimentNames?: boolean;
 }): AutoExperimentWithMetadata | null {
   const { contextualBandit: cb, visualChangeset } = cbVisualExperiment;
+  // Must match filterUsedContextualBandits so leaf-weight positions align.
   const cbVariations = getActiveVariations(cb.variations);
   if (cbVariations.length === 0) return null;
 
