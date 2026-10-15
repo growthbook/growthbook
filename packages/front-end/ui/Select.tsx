@@ -28,6 +28,7 @@ type SelectProps = {
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
+  "aria-label"?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -49,6 +50,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     triggerClassName,
     align = "start",
     container,
+    "aria-label": ariaLabel,
     ...containerProps
   }: SelectProps,
   ref,
@@ -72,10 +74,14 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         size={radixSize(size)}
         disabled={disabled}
         value={value}
-        onValueChange={setValue}
+        // Radix's hidden form <select> reports "" when a value beats its option
+        onValueChange={(v) => {
+          if (v) setValue(v);
+        }}
       >
         <RadixSelect.Trigger
           autoFocus={autoFocus}
+          aria-label={ariaLabel}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
           disabled={disabled}
