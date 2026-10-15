@@ -484,6 +484,10 @@ function getAllocationTargeting(
 ): Omit<PhaseTargeting, "coverage"> {
   const rules = allocation.targeting_rules ?? [];
   const audiences = allocation.audiences ?? [];
+  // Eppo's docs don't say how an excluded audience combines with the rest
+  if (audiences.some((a) => a.type === "IS_NOT_IN")) {
+    throw new Error("Allocations that exclude an audience aren't supported");
+  }
 
   const groupIds = audiences.map((a) =>
     a.type === "IS_IN" ? ctx.savedGroupIds.get(a.audience_id) : undefined,
@@ -496,11 +500,11 @@ function getAllocationTargeting(
   }
 
   const ors = rules.map(ruleToCondition);
-  audiences.forEach(({ audience_id, type }) => {
+  audiences.forEach(({ audience_id }) => {
     const audience = ctx.eppo.audiences.find((a) => a.id === audience_id);
     const cond = audience && rulesToCondition(audience.targeting_rules ?? []);
     if (!cond) throw new Error(`Unknown or empty audience ${audience_id}`);
-    ors.push(type === "IS_NOT_IN" ? { $not: cond } : cond);
+    ors.push(cond);
   });
   if (!ors.length) return { condition: "", savedGroups: [] };
   return {
@@ -1238,7 +1242,9 @@ export function transformExperiment(
     phases: [
       {
         name: "Main",
-        dateStarted: experiment.assignments_start_date ?? "",
+        dateStarted:
+          experiment.assignments_start_date ??
+          (status === "running" ? new Date().toISOString() : ""),
         dateEnded:
           status === "stopped" ? (experiment.assignments_end_date ?? "") : "",
         reason: "",
@@ -1571,6 +1577,16 @@ export async function teardownRun(
     deletedArtifacts.some((a) => a.kind === kind && a.id === id);
   let experiments: Promise<ExperimentInterfaceStringDates[]> | null = null;
   let factMetrics: Promise<FactMetricInterface[]> | null = null;
+  let features: Promise<FeatureInterface[]> | null = null;
+  const loadFeatures = () =>
+    (features ??= apiCall<{ features: FeatureInterface[] }>("/feature").then(
+      (r) => r.features,
+    ));
+  const inEnvironment = (f: FeatureInterface, env: string) =>
+    !!f.environmentSettings?.[env]?.enabled ||
+    (f.rules ?? []).some(
+      (r) => r.allEnvironments || r.environments?.includes(env),
+    );
   const stillUsedBy = async (
     artifact: ApiAutoRun["artifacts"][number],
   ): Promise<string | null> => {
@@ -1608,6 +1624,39 @@ export async function teardownRun(
       return users.length
         ? `Fact Metric ${users.map((m) => m.name).join(", ")}`
         : null;
+    }
+    if (artifact.kind === "environment") {
+      const users = (await loadFeatures()).filter(
+        (f) => !isDeleted("feature", f.id) && inEnvironment(f, artifact.id),
+      );
+      return users.length
+        ? `Feature Flag ${users.map((f) => f.id).join(", ")}`
+        : null;
+    }
+    if (artifact.kind === "tag") {
+      experiments ??= apiCall<{
+        experiments: ExperimentInterfaceStringDates[];
+      }>("/experiments?includeArchived=1").then((r) => r.experiments);
+      factMetrics ??= apiCall<{ factMetrics: FactMetricInterface[] }>(
+        "/organization/definitions",
+      ).then((r) => r.factMetrics);
+      const tagged = (
+        kind: AutoRunArtifact["kind"],
+        id: string,
+        tags?: string[],
+      ) => !isDeleted(kind, id) && !!tags?.includes(artifact.id);
+      const users = [
+        ...(await loadFeatures())
+          .filter((f) => tagged("feature", f.id, f.tags))
+          .map((f) => `Feature Flag ${f.id}`),
+        ...(await experiments)
+          .filter((e) => tagged("experiment", e.id, e.tags))
+          .map((e) => `experiment ${e.name}`),
+        ...(await factMetrics)
+          .filter((m) => tagged("metric", m.id, m.tags))
+          .map((m) => `Fact Metric ${m.name}`),
+      ];
+      return users.length ? users.join(", ") : null;
     }
     return null;
   };

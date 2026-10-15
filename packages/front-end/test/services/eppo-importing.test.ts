@@ -2,6 +2,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiAutoRun } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import {
   EppoAllocation,
   EppoData,
@@ -342,28 +343,16 @@ describe("transformFlag", () => {
     });
   });
 
-  it("ORs targeting rules with excluded audiences", () => {
-    const [rule] = transformFlag(
-      mkFlag([
-        mkAllocation({
-          targeting_rules: [
-            {
-              conditions: [
-                { attribute: "id", operator: "ONE_OF", values: ["123"] },
-              ],
-            },
-          ],
-          audiences: [{ audience_id: 7, type: "IS_NOT_IN" }],
-        }),
-      ]),
-      mkCtx({ savedGroupIds: new Map([[7, "grp_beta"]]) }),
-    ).rules;
-    expect(JSON.parse(rule.condition || "")).toEqual({
-      $or: [
-        { id: { $in: ["123", 123] } },
-        { $not: { beta: { $in: ["true", true] } } },
-      ],
-    });
+  // Eppo's docs don't say how an excluded audience combines with the rest
+  it("rejects allocations that exclude an audience", () => {
+    expect(() =>
+      transformFlag(
+        mkFlag([
+          mkAllocation({ audiences: [{ audience_id: 7, type: "IS_NOT_IN" }] }),
+        ]),
+        mkCtx({ savedGroupIds: new Map([[7, "grp_beta"]]) }),
+      ),
+    ).toThrow("exclude an audience");
   });
 
   it("rejects switchback allocations", () => {
@@ -1293,6 +1282,7 @@ describe("teardownRun", () => {
     usage: {
       experiments?: Partial<ExperimentInterfaceStringDates>[];
       factMetrics?: Partial<FactMetricInterface>[];
+      features?: Partial<FeatureInterface>[];
     } = {},
   ) => {
     const calls: string[] = [];
@@ -1315,6 +1305,9 @@ describe("teardownRun", () => {
       }
       if (method === "GET" && url === "/organization/definitions") {
         return { factMetrics: usage.factMetrics ?? [] };
+      }
+      if (method === "GET" && url === "/feature") {
+        return { features: usage.features ?? [] };
       }
       if (method === "GET" && url.startsWith("/experiment/")) {
         return {
@@ -1435,6 +1428,33 @@ describe("teardownRun", () => {
     ]);
     expect(calls).not.toContain("DELETE /fact-metrics/fact__2");
     expect(calls).not.toContain("DELETE /fact-tables/ftb_2");
+  });
+
+  it("keeps environments and tags that surviving flags still use", async () => {
+    const { apiCall } = mockApi(() => undefined, {
+      features: [
+        {
+          id: "flag-live",
+          tags: ["checkout"],
+          environmentSettings: { staging: { enabled: true } },
+          rules: [],
+        },
+      ] as Partial<FeatureInterface>[],
+    });
+    const result = await teardownRun(
+      run([
+        artifact("environment", "staging"),
+        artifact("environment", "dev"),
+        artifact("tag", "checkout"),
+        artifact("tag", "growth"),
+      ]),
+      apiCall,
+    );
+    expect(result.deleted).toBe(2);
+    expect(result.failures.map((f) => [f.artifact.id, f.error])).toEqual([
+      ["staging", "Still used by Feature Flag flag-live"],
+      ["checkout", "Still used by Feature Flag flag-live"],
+    ]);
   });
 
   it("restores the archive state when a delete fails and keeps what a failure still uses", async () => {

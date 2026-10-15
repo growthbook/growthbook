@@ -24,6 +24,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useApi from "@/hooks/useApi";
 import track from "@/services/track";
 import Heading from "@/ui/Heading";
@@ -112,7 +113,13 @@ export default function ImportFromEppo() {
   }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
-  const [project, setProject] = useState("");
+  // Existing Project by name, or a new one created when the import starts
+  const [projectName, setProjectName] = useLocalStorage(
+    "eppoImportProject",
+    "",
+  );
+  const project = projects.find((p) => p.name === projectName.trim())?.id ?? "";
+  const newProjectName = project ? "" : projectName.trim();
   const [pickedDatasourceId, setDatasourceId] = useState<string | null>(null);
   const datasourceId =
     pickedDatasourceId ?? (datasources.length === 1 ? datasources[0].id : "");
@@ -323,12 +330,26 @@ export default function ImportFromEppo() {
 
     let runId: string | null = null;
     try {
+      let projectId = project;
+      if (newProjectName) {
+        const created = await apiCall<{ project: { id: string } }>(
+          "/projects",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: newProjectName,
+              description: "Created by the Eppo importer",
+            }),
+          },
+        );
+        projectId = created.project.id;
+      }
       const outcome = await runEppoImport({
         data,
         eppo,
         isSelected,
         existing,
-        project,
+        project: projectId,
         datasource: datasource ?? null,
         attributeSchema,
         apiCall,
@@ -375,12 +396,16 @@ export default function ImportFromEppo() {
             onChange={(e) => setApiKey(e.target.value)}
             helpText="REST API key from Eppo Admin > API Keys"
           />
-          <SelectField
+          <TextField
             label="GrowthBook Project"
-            value={project}
-            initialOption="All Projects"
-            options={projects.map((p) => ({ label: p.name, value: p.id }))}
-            onChange={setProject}
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            placeholder="All Projects"
+            helpText={
+              newProjectName
+                ? `"${newProjectName}" will be created`
+                : "An existing Project, or a new one to create. Leave blank for All Projects."
+            }
           />
           <SelectField
             label="Data Source"

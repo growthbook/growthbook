@@ -12,6 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // Re-exported for back-end callers; new code should import from shared/validators.
 export type { V1FeatureRule };
@@ -479,7 +480,7 @@ export function mergeSyncRules({
     environments.filter((e) => envSettings?.[e]?.rules !== undefined),
   );
   if (rules?.length && inboundEnvs.size) {
-    throw new Error(
+    throw new BadRequestError(
       "Feature Flag sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
     );
   }
