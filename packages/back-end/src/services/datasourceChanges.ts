@@ -1,4 +1,8 @@
-import { getEventForwarderDatasourceParams } from "shared/util";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  getEventForwarderDatasourceParams,
+  getEventForwarderEventsFactTableId,
+} from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -13,6 +17,7 @@ import {
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
+import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import { deleteInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "back-end/src/models/InformationSchemaTablesModel";
@@ -50,6 +55,27 @@ export async function deleteDataSourceWithChecks(
   if ((await getMetricsByDatasource(context, datasource.id)).length > 0) {
     throw new BadRequestError(
       "Error: Please delete all metrics tied to this datasource first.",
+    );
+  }
+  const factMetrics = await context.models.factMetrics.getAllSorted({
+    datasourceId: datasource.id,
+  });
+  if (factMetrics.length > 0) {
+    throw new BadRequestError(
+      "Error: Please delete all fact metrics tied to this datasource first.",
+    );
+  }
+  // Deleting the data source removes its Event Forwarder and managed events tables
+  const cascadedFactTableIds = [
+    getEventForwarderEventsFactTableId(datasource.id),
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  ];
+  const factTables = await getAllFactTablesForOrganization(context, {
+    datasourceId: datasource.id,
+  });
+  if (factTables.some((f) => !cascadedFactTableIds.includes(f.id))) {
+    throw new BadRequestError(
+      "Error: Please delete all fact tables tied to this datasource first.",
     );
   }
   if ((await context.models.segments.getByDataSource(datasource.id)).length) {
