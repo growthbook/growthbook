@@ -1,4 +1,4 @@
-import { keyBy } from "lodash";
+import { isEqual, keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -77,7 +77,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     return docs.map((doc) => this.toApiInterface(doc));
   }
 
-  // REST writes always check for redirect loops; the app asks for it per request.
+  // REST writes check for redirect loops; the app asks for it per request.
   public override async handleApiCreate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ) {
@@ -92,11 +92,18 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
-    const doc = await this.updateById(
-      req.params.id,
-      apiUpdateUrlRedirectBody.parse(req.body),
-      { checkCircularDependencies: true },
-    );
+    const updates = apiUpdateUrlRedirectBody.parse(req.body);
+    const existing = await this.getById(req.params.id);
+    if (!existing) req.context.throwNotFoundError();
+    // Unchanged URLs skip the loop check so redirects saved without it round-trip
+    const urlsChanged =
+      (updates.urlPattern !== undefined &&
+        updates.urlPattern !== existing.urlPattern) ||
+      (updates.destinationURLs !== undefined &&
+        !isEqual(updates.destinationURLs, existing.destinationURLs));
+    const doc = await this.update(existing, updates, {
+      checkCircularDependencies: urlsChanged,
+    });
     return this.toApiInterface(doc);
   }
 
