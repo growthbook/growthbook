@@ -62,6 +62,7 @@ import {
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
+import { deleteVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 
 const COLLECTION = "contextualbandits";
 
@@ -339,6 +340,13 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     return this.context.hasPremiumFeature("contextual-bandits");
   }
 
+  public getUnarchivedByIds(
+    ids: string[],
+  ): Promise<ContextualBanditInterface[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return this._find({ id: { $in: ids }, archived: { $ne: true } });
+  }
+
   public findVisualByName(
     name: string,
     limit: number,
@@ -586,6 +594,13 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     );
     await this.context.models.contextualBanditEvents.deleteForContextualBandit(
       doc.id,
+    );
+    await deleteVisualChangesetsByContextualBandit(doc.id, this.context.org.id);
+    if (doc.status === "draft") return;
+    await refreshLinkedFeaturePayloads(
+      this.context,
+      doc,
+      "contextualBandit.refresh",
     );
   }
 

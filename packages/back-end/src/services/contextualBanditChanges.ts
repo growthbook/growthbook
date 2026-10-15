@@ -73,11 +73,7 @@ export async function refreshLinkedFeaturePayloads(
       )
     : [];
 
-  if (
-    options.includeVisualKeys ||
-    cb.hasVisualChangesets ||
-    cb.hasURLRedirects
-  ) {
+  if (options.includeVisualKeys || cb.hasVisualChangesets) {
     const seen = new Set(
       payloadKeys.map((k) => `${k.environment}|${k.project}`),
     );

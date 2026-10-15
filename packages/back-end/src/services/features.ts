@@ -2170,14 +2170,7 @@ export async function getFeatureDefinitions(
     ? await getAllCbVisualExperiments(context)
     : [];
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(
-      context,
-      allFeatures,
-      getCbVisualPrerequisiteIds(
-        filterCbVisualExperimentsByProject(cbVisualExperiments, projectFilter),
-        args.capabilities,
-      ),
-    );
+    allFeatures = await loadMissingPrerequisites(context, allFeatures);
   }
   let experimentMap = await getAllPayloadExperiments(
     context,
@@ -2186,11 +2179,13 @@ export async function getFeatureDefinitions(
   );
   // Phase gates are only visible once the experiments are loaded.
   if (projectFilter && args.includeReferencedPrerequisites) {
-    const expanded = await loadMissingPrerequisites(
-      context,
-      allFeatures,
-      getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
-    );
+    const expanded = await loadMissingPrerequisites(context, allFeatures, [
+      ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
+      ...getCbVisualPrerequisiteIds(
+        filterCbVisualExperimentsByProject(cbVisualExperiments, projectFilter),
+        args.capabilities,
+      ),
+    ]);
     if (expanded.length !== allFeatures.length) {
       allFeatures = expanded;
       const referenced = getReferenceIdsInFeatures(
