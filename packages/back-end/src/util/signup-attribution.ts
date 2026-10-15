@@ -3,8 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   attributionCookieSchema,
   AttributionCookie,
-  SignupAttribution,
-  signupAttributionSchema,
   SignupAttributionPayload,
 } from "shared/validators";
 import {
@@ -38,21 +36,6 @@ export function parseAttributionCookie(
   } catch {
     return {};
   }
-}
-
-/**
- * Narrow a parsed gb_attr cookie to the known fields we persist on the
- * organization document, dropping empty values. Returns undefined when there
- * is nothing to store. The parse can't throw here: the input already passed
- * the same field checks, and unknown keys are stripped rather than rejected.
- */
-export function getOrgSignupAttribution(
-  attribution: AttributionCookie,
-): SignupAttribution | undefined {
-  const fields = Object.entries(
-    signupAttributionSchema.parse(attribution),
-  ).filter(([, value]) => !!value);
-  return fields.length ? Object.fromEntries(fields) : undefined;
 }
 
 /**

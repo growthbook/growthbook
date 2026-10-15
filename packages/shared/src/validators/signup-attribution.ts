@@ -1,26 +1,21 @@
 import { z } from "zod";
 
-// Stored on the organization document at creation. Keep every field a
-// string: the Mongoose schema derives String paths from these keys.
-export const signupAttributionSchema = z.object({
-  utm_source: z.string().optional(),
-  utm_medium: z.string().optional(),
-  utm_campaign: z.string().optional(),
-  utm_term: z.string().optional(),
-  utm_content: z.string().optional(),
-  gclid: z.string().optional(),
-  li_fat_id: z.string().optional(),
-  fbclid: z.string().optional(),
-  msclkid: z.string().optional(),
-  referrer: z.string().optional(),
-  landing_page: z.string().optional(),
-  touch_at: z.string().optional(),
-});
-
-export type SignupAttribution = z.infer<typeof signupAttributionSchema>;
-
-// Prevents new keys from breaking the cookie
-export const attributionCookieSchema = signupAttributionSchema.passthrough();
+export const attributionCookieSchema = z
+  .object({
+    utm_source: z.string().optional(),
+    utm_medium: z.string().optional(),
+    utm_campaign: z.string().optional(),
+    utm_term: z.string().optional(),
+    utm_content: z.string().optional(),
+    gclid: z.string().optional(),
+    li_fat_id: z.string().optional(),
+    fbclid: z.string().optional(),
+    msclkid: z.string().optional(),
+    referrer: z.string().optional(),
+    landing_page: z.string().optional(),
+    touch_at: z.string().optional(),
+  })
+  .passthrough(); // Prevents new keys from breaking the cookie
 
 export type AttributionCookie = z.infer<typeof attributionCookieSchema>;
 

@@ -1,6 +1,5 @@
 import {
   classifyEmail,
-  getOrgSignupAttribution,
   parseAttributionCookie,
   reissueAttributionCookie,
 } from "back-end/src/util/signup-attribution";
@@ -38,38 +37,6 @@ describe("parseAttributionCookie", () => {
       utm_source: "linkedin",
       li_fat_id: "abc123",
       extra: "kept",
-    });
-  });
-});
-
-describe("getOrgSignupAttribution", () => {
-  it("returns undefined when there is nothing to store", () => {
-    expect(getOrgSignupAttribution({})).toBeUndefined();
-    expect(getOrgSignupAttribution({ utm_source: "" })).toBeUndefined();
-  });
-
-  it("drops empty values alongside real ones", () => {
-    expect(
-      getOrgSignupAttribution({ utm_source: "docs", referrer: "" }),
-    ).toEqual({ utm_source: "docs" });
-  });
-
-  it("keeps known fields and drops unknown passthrough keys", () => {
-    expect(
-      getOrgSignupAttribution({
-        utm_source: "docs",
-        utm_medium: "navbar",
-        utm_content: "start-for-free",
-        referrer: "https://docs.growthbook.io/",
-        landing_page: "https://app.growthbook.io/",
-        extra: "dropped",
-      }),
-    ).toEqual({
-      utm_source: "docs",
-      utm_medium: "navbar",
-      utm_content: "start-for-free",
-      referrer: "https://docs.growthbook.io/",
-      landing_page: "https://app.growthbook.io/",
     });
   });
 });

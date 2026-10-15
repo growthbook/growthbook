@@ -13,11 +13,7 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import {
-  ApiOrganization,
-  SignupAttribution,
-  signupAttributionSchema,
-} from "shared/validators";
+import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -87,11 +83,6 @@ const organizationSchema = new mongoose.Schema({
       },
     ],
   },
-  // Same fields as the Zod schema, so the two can't drift. Assumes every
-  // attribution field is a string.
-  signupAttribution: Object.fromEntries(
-    Object.keys(signupAttributionSchema.shape).map((key) => [key, String]),
-  ),
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -194,7 +185,6 @@ export async function createOrganization({
   userId,
   name,
   demographicData,
-  signupAttribution,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -205,7 +195,6 @@ export async function createOrganization({
   userId: string;
   name: string;
   demographicData?: DemographicData;
-  signupAttribution?: SignupAttribution;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -216,7 +205,6 @@ export async function createOrganization({
   const doc = await OrganizationModel.create({
     ownerEmail: email,
     demographicData,
-    signupAttribution,
     name,
     url,
     verifiedDomain,

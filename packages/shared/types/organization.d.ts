@@ -18,7 +18,6 @@ import {
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import type { SignupAttribution } from "shared/validators";
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
@@ -488,8 +487,6 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   demographicData?: DemographicData;
-  // Marketing attribution (gb_attr cookie) captured when the org was created
-  signupAttribution?: SignupAttribution;
   /** @deprecated */
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
