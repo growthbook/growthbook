@@ -337,7 +337,7 @@ const NAMED_ROUTES: Record<
   environments: { noun: "environment", link: "environment" },
   attributes: { noun: "attribute", link: "attribute" },
   projects: {
-    noun: "project",
+    noun: "Project",
     link: "project",
     find: (context, id) => context.models.projects.getById(id),
   },
@@ -358,7 +358,7 @@ const NAMED_ROUTES: Record<
     find: (context, id) => context.models.teams.getById(id),
   },
   "sdk-connections": {
-    noun: "SDK connection",
+    noun: "SDK Connection",
     link: "sdkConnection",
     find: async (context, id) =>
       (
@@ -375,7 +375,7 @@ const NAMED_ROUTES: Record<
       ),
   },
   "fact-metrics": {
-    noun: "fact metric",
+    noun: "Fact Metric",
     link: "factMetric",
     find: (context, id) => context.models.factMetrics.getById(id),
   },
