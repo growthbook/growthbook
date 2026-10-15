@@ -66,7 +66,7 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   );
 }
 
-/** Picks the CSV to upload. A new file clears the last file's error. */
+/** Picks the CSV to upload. Choosing a file clears the last file's error. */
 function CsvFileInput({
   file,
   setFile,
@@ -95,6 +95,8 @@ function CsvFileInput({
         onChange={(e) => {
           setError(null);
           setFile(e.target.files?.[0] ?? null);
+          // Lets choosing the same file again (after fixing it) run this too
+          e.currentTarget.value = "";
         }}
       />
     </>
