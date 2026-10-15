@@ -3,7 +3,7 @@ import {
   apiDecisionCriteriaValidator,
   apiUpdateDecisionCriteriaBody,
 } from "shared/enterprise";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const decisionCriteriaApiSpec = {
   modelSingular: "decisionCriteria",
