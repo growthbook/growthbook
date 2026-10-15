@@ -148,6 +148,7 @@ function FunnelStepInput({
                   <OfficialBadge
                     managedBy={getFactTableById(id)?.managedBy}
                     type="fact table"
+                    usePortal
                   />
                 </SelectItem>
               ))}

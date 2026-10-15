@@ -11,6 +11,12 @@ export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
 
+export type ColumnTopValue = string | SingleValue;
+
+function toValueOption(value: ColumnTopValue): SingleValue {
+  return typeof value === "string" ? { label: value, value } : value;
+}
+
 export function emptyColumnRowFilter(): RowFilter {
   return { column: "", operator: "=", values: [""] };
 }
@@ -444,7 +450,7 @@ export interface FilterColumnSource {
   savedFilters: { id: string; name: string }[];
   getColumnInfo: (column: string | undefined) => {
     datatype: string;
-    topValues: string[];
+    topValues: ColumnTopValue[];
   };
   /** The source's event-time column, hidden from the column picker. */
   timeColumn?: string;
@@ -560,7 +566,7 @@ export function getRowFilterInputState({
   operator: RowFilter["operator"];
   values: string[] | undefined;
   datatype: string;
-  topValues: string[] | undefined;
+  topValues: ColumnTopValue[] | undefined;
 }) {
   const operatorInputRequired =
     operator !== "sql_expr" && operator !== "saved_filter";
@@ -576,7 +582,8 @@ export function getRowFilterInputState({
     if (datatype === "date") isDateColumn = true;
 
     topValues?.forEach((v) => {
-      if (v) valueOptions.push({ label: v, value: v });
+      const option = toValueOption(v);
+      if (option.value) valueOptions.push(option);
     });
 
     // An operator that no longer suits the column (or arrived via the API)
