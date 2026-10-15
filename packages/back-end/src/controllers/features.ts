@@ -54,6 +54,7 @@ import {
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
+  getMalformedPrereqConditionError,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -1055,6 +1056,7 @@ export async function postFeatures(
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
   await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  validatePrerequisiteConditions(feature.prerequisites ?? []);
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,
@@ -7661,6 +7663,7 @@ function evalDeterministicPrereqValueBackend(
   value: any,
   condition: string,
 ): "pass" | "fail" {
+  if (getMalformedPrereqConditionError(condition)) return "fail";
   try {
     const conditionObj = JSON.parse(condition || "{}");
     // Empty condition means "is truthy"
