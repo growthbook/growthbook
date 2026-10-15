@@ -33195,8 +33195,9 @@ paths:
       description: >-
         Each supplied field replaces its stored value (object fields are
         replaced whole); omitted fields are unchanged and `null` resets a field
-        to its default. Approval requirements are managed by `PUT
-        /settings/approvals`.
+        to its default. Read-only fields that `GET /settings` returns are
+        accepted only unchanged, so a `GET` response can be sent back whole.
+        Approval requirements are managed by `PUT /settings/approvals`.
       tags:
         - settings
       requestBody:
@@ -33807,6 +33808,104 @@ paths:
                   anyOf:
                     - type: boolean
                     - type: 'null'
+                restApiBypassesReviews:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
+                revertsBypassApproval:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
+                disablePersonalAccessTokens:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
+                maxPatLifetimeDays:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  anyOf:
+                    - type: integer
+                      exclusiveMinimum: 0
+                    - type: 'null'
+                maxApiKeyLifetimeDays:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  anyOf:
+                    - type: integer
+                      exclusiveMinimum: 0
+                    - type: 'null'
+                targetMDE:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: number
+                delayHours:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: number
+                windowType:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: string
+                windowHours:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: number
+                winRisk:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: number
+                loseRisk:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: number
+                secureAttributeSalt:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: string
+                killswitchConfirmation:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
+                requireReviews:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RequireReviewRule'
+                approvalFlows:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: object
+                  properties:
+                    savedGroups:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SavedGroupApprovalRule'
+                  required:
+                    - savedGroups
+                  additionalProperties: false
+                targetingReviewMode:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TargetingReviewRule'
                 acceptAiTerms:
                   description: >-
                     Records acceptance of the AI terms on behalf of the
