@@ -57,11 +57,15 @@ async function assertCanEditChecklist(context: ApiReqContext, projectId = "") {
 export const getLaunchChecklist = createApiRequestHandler(
   getLaunchChecklistValidator,
 )(async (req) => {
+  const projectId = req.query.projectId ?? "";
+  if (
+    projectId &&
+    !req.context.permissions.canReadSingleProjectResource(projectId)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   const checklist = req.context.hasPremiumFeature("custom-launch-checklist")
-    ? await getExperimentLaunchChecklist(
-        req.context.org.id,
-        req.query.projectId ?? "",
-      )
+    ? await getExperimentLaunchChecklist(req.context.org.id, projectId)
     : null;
   return {
     launchChecklist: checklist ? toApiLaunchChecklist(checklist) : null,

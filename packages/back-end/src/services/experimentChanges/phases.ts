@@ -191,7 +191,12 @@ export async function startNewExperimentPhase({
     );
   }
   const last = experiment.phases[experiment.phases.length - 1];
-  const condition = targeting.condition || targeting.targetingCondition;
+  // Omitted keeps the current condition; an explicit "" clears it
+  const condition =
+    targeting.condition === undefined &&
+    targeting.targetingCondition === undefined
+      ? last.condition
+      : targeting.condition || targeting.targetingCondition || "{}";
   for (const c of [
     condition,
     ...(targeting.prerequisites ?? []).map((p) => p.condition),
@@ -211,7 +216,7 @@ export async function startNewExperimentPhase({
     | "namespace"
     | "variationWeights"
   > = {
-    condition: condition || last.condition,
+    condition,
     savedGroups: resolveSavedGroupsInput(targeting) ?? last.savedGroups,
     prerequisites: targeting.prerequisites ?? last.prerequisites,
     coverage: targeting.coverage ?? last.coverage,
@@ -309,6 +314,9 @@ export async function deleteExperimentPhase({
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment || experiment.organization !== context.org.id) {
     throw new NotFoundError("Experiment not found");
+  }
+  if (experiment.type === "holdout") {
+    throw new BadRequestError("A holdout's phases can't be deleted");
   }
   const changes: Changeset = {};
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
