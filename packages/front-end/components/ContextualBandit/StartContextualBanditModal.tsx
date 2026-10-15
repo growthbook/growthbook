@@ -71,14 +71,14 @@ function computeBlockers(
     </Link>
   );
 
-  if (linkedFeatures.length === 0 && !cb.hasURLRedirects) {
+  if (linkedFeatures.length === 0) {
     if (visualChangesetsError) {
       hardBlockerItems.push({
         key: "visual-changes-error",
         hardBlock: true,
         display: (
           <>
-            Couldn&apos;t load this contextual bandit&apos;s visual changes (
+            Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
             {visualChangesetsError.message}). Reload the page and try again.
           </>
         ),
@@ -87,7 +87,7 @@ function computeBlockers(
       hardBlockerItems.push({
         key: "visual-changes-loading",
         hardBlock: true,
-        display: <>Checking for saved Visual Editor changes…</>,
+        display: <>Checking for saved AI Visual Editor changes…</>,
       });
     } else if (!hasVisualContent) {
       hardBlockerItems.push({
@@ -95,8 +95,8 @@ function computeBlockers(
         hardBlock: true,
         display: (
           <>
-            Link at least one Feature Flag or save a Visual Editor change before
-            this Contextual Bandit can start
+            Link at least one Feature Flag or save an AI Visual Editor change
+            before this Contextual Bandit can start
           </>
         ),
       });

@@ -73,6 +73,8 @@ export default function ContextualBanditLinkedChanges({
   const envStates = useVisualChangesetEnvStates(project);
 
   const numLinkedChanges = linkedFeatures.length + visualChangesets.length;
+  const visualChangesetsSettled =
+    !visualChangesetsLoading && !visualChangesetsError;
 
   const deleteVariation = useCallback(
     async (variationId: string) => {
@@ -97,12 +99,12 @@ export default function ContextualBanditLinkedChanges({
 
   const target: LinkedChangeTarget = {
     project,
-    noun: "contextual bandit",
+    noun: "Contextual Bandit",
     types: ["feature-flag", "visual-editor"],
     extraSdkCapabilities: { "visual-editor": ["contextualBanditsAuto"] },
     sdkUnsupportedCopy: {
       "visual-editor":
-        "The SDKs in this project don't support visual changes on contextual bandits. Upgrade your SDK(s) or add a supported SDK.",
+        "The SDKs in this Project don't support visual changes on Contextual Bandits. Upgrade your SDK(s) or add a supported SDK.",
     },
   };
 
@@ -120,8 +122,8 @@ export default function ContextualBanditLinkedChanges({
           project={project}
           mx="1"
           mb="3"
-          someMessage="Some SDKs in this project don't support visual changes on contextual bandits. Their users see the original page and aren't counted."
-          noneMessage="None of the SDKs in this project support visual changes on contextual bandits, so these changes aren't served."
+          someMessage="Some SDKs in this Project don't support visual changes on Contextual Bandits. Their users see the original page and aren't counted."
+          noneMessage="None of the SDKs in this Project support visual changes on Contextual Bandits, so these changes aren't served."
         />
       ) : null}
 
@@ -153,40 +155,45 @@ export default function ContextualBanditLinkedChanges({
         />
       )}
 
-      {canAdd && numLinkedChanges > 0 && setFeatureModal && (
-        <Flex justify="between" px="1">
-          <Text color="text-high" size="lg" weight="semibold">
-            {setVisualChangesetModal
-              ? "Add Feature Flag or AI Visual Editor"
-              : "Add Feature Flag"}
-          </Text>
-          <AddLinkedChangeButton
-            target={target}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            urlRedirects={[]}
-            onFeatureFlag={() => setFeatureModal(true)}
-            onVisualEditor={
-              setVisualChangesetModal
-                ? () => setVisualChangesetModal(true)
-                : undefined
-            }
-          />
-        </Flex>
+      {canAdd &&
+        visualChangesetsSettled &&
+        numLinkedChanges > 0 &&
+        setFeatureModal && (
+          <Flex justify="between" px="1">
+            <Text color="text-high" size="lg" weight="semibold">
+              {setVisualChangesetModal
+                ? "Add Feature Flag or AI Visual Editor"
+                : "Add Feature Flag"}
+            </Text>
+            <AddLinkedChangeButton
+              target={target}
+              linkedFeatures={linkedFeatures}
+              visualChangesets={visualChangesets}
+              urlRedirects={[]}
+              onFeatureFlag={() => setFeatureModal(true)}
+              onVisualEditor={
+                setVisualChangesetModal
+                  ? () => setVisualChangesetModal(true)
+                  : undefined
+              }
+            />
+          </Flex>
+        )}
+      {visualChangesetsSettled && (
+        <AddLinkedChanges
+          target={target}
+          canAdd={canAdd}
+          numLinkedChanges={numLinkedChanges}
+          setFeatureModal={setFeatureModal}
+          setVisualEditorModal={setVisualChangesetModal}
+        />
       )}
-      <AddLinkedChanges
-        target={target}
-        canAdd={canAdd}
-        numLinkedChanges={numLinkedChanges}
-        setFeatureModal={setFeatureModal}
-        setVisualEditorModal={setVisualChangesetModal}
-      />
       {(!canAdd || !setFeatureModal) &&
       numLinkedChanges === 0 &&
-      !visualChangesetsLoading ? (
+      visualChangesetsSettled ? (
         <Box mx="1" my="2">
           <Text color="text-mid">
-            <em>No changes are linked to this contextual bandit yet.</em>
+            <em>No changes are linked to this Contextual Bandit yet.</em>
           </Text>
         </Box>
       ) : null}

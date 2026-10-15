@@ -47,11 +47,6 @@ const draftCb = {
     cbVariation("a2", "pending"),
     cbVariation("a3"),
   ],
-  variationWeights: [
-    { variationId: "a0", weight: 0.4 },
-    { variationId: "a1", weight: 0.35 },
-    { variationId: "a3", weight: 0.25 },
-  ],
 };
 
 describe("experimentVisualChangesetOwner", () => {
@@ -101,24 +96,16 @@ describe("experimentVisualChangesetOwner", () => {
 });
 
 describe("contextualBanditVisualChangesetOwner", () => {
-  it("uses live bandit weights and numbers previews by active arm only", () => {
+  it("numbers previews by active arm only and shows no split", () => {
     const owner = contextualBanditVisualChangesetOwner(draftCb);
-    expect(owner.noun).toBe("contextual bandit");
+    expect(owner.noun).toBe("Contextual Bandit");
     expect(owner.trackingKey).toBe("cb-1");
     expect(owner.variations).toEqual([
-      { id: "a0", name: "a0", weight: 0.4, previewIndex: 0 },
-      { id: "a1", name: "a1", weight: 0.35, previewIndex: 1 },
-      { id: "a2", name: "a2", weight: 0, previewIndex: undefined },
-      { id: "a3", name: "a3", weight: 0.25, previewIndex: 2 },
+      { id: "a0", name: "a0", previewIndex: 0 },
+      { id: "a1", name: "a1", previewIndex: 1 },
+      { id: "a2", name: "a2", previewIndex: undefined },
+      { id: "a3", name: "a3", previewIndex: 2 },
     ]);
-  });
-
-  it("falls back to zero weight when the bandit has no weights yet", () => {
-    const owner = contextualBanditVisualChangesetOwner({
-      ...draftCb,
-      variationWeights: undefined,
-    });
-    expect(owner.variations.map((v) => v.weight)).toEqual([0, 0, 0, 0]);
   });
 
   it("allows editing changes while the bandit is not stopped or archived", () => {
