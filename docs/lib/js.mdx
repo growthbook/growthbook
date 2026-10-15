@@ -8,6 +8,7 @@ toc_max_heading_level: 5
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import JsEventTracking from "/snippets/partials/sdk-event-tracking/_javascript.mdx";
 
 The documentation is meant for client-side environments. Check out the [Node.js docs](/lib/node) for server-side environments.
 
@@ -72,6 +73,12 @@ const color = gb.getFeatureValue("button-color", "blue");
 GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook constructor.
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### GrowthBook Tracking
+
+Sends experiment view, feature usage, and custom events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<JsEventTracking />
 
 ### Third Party Tracking
 

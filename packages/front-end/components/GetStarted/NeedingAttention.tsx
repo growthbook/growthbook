@@ -10,10 +10,7 @@ import {
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
+import { eventUserPersonId } from "shared/validators";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
@@ -54,7 +51,6 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   dateCreated: Date;
   dateUpdated: Date;
   project: string | undefined;
-  creator: string | undefined;
   comment: string;
   owner: string | undefined;
   ownerNameDisplay: string;
@@ -123,9 +119,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          item.createdBy != null &&
-          "id" in item.createdBy &&
-          item.createdBy.id === user?.id;
+          eventUserPersonId(item.createdBy) === user?.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
@@ -229,10 +223,6 @@ const NeedingAttention = (): React.ReactElement | null => {
   const revisions = useAddComputedFields(
     featuresAndRevisions,
     (revision) => {
-      const createdBy = revision?.createdBy as
-        | EventUserLoggedIn
-        | EventUserApiKey
-        | null;
       let dateAndStatus = new Date(revision?.dateUpdated).getTime();
       switch (revision?.status) {
         case "draft":
@@ -257,7 +247,6 @@ const NeedingAttention = (): React.ReactElement | null => {
         dateCreated: revision?.dateCreated,
         dateUpdated: revision?.dateUpdated,
         project: revision.featureMeta?.project,
-        creator: createdBy?.name,
         comment: revision?.comment,
         owner: revision.featureMeta?.owner,
         ownerNameDisplay: getOwnerDisplay(revision.featureMeta?.owner),

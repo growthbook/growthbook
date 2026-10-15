@@ -1,6 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { truncateString } from "shared/util";
 import { useModalContext, useOptionalModalContext } from "@/ui/Modal";
+import { getErrorDetails } from "@/services/apiCallError";
 
 // ---------------------------------------------------------------------------
 // ModalForm — optional wrapper that turns a Modal body into a submittable
@@ -53,7 +54,7 @@ export default function ModalForm({
         sendTrackingEvent("modal-submit-success");
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message, getErrorDetails(err));
       scrollBodyToTop();
       setLoading(false);
       if (trackOnSubmit) {
