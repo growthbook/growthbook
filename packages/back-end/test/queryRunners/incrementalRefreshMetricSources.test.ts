@@ -260,6 +260,11 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     expect(clusterGroup!.metrics.map((m) => m.id)).toEqual([
       "fact_cluster_level",
     ]);
+    // The groupId flows into the physical cache table name
+    // (`gb_metrics_<exp>_<groupId>`), so it must be a valid warehouse table
+    // identifier — no `:` or other illegal characters.
+    expect(clusterGroup!.groupId).toMatch(/^[A-Za-z0-9_]+$/);
+    expect(subUnitGroup!.groupId).toMatch(/^[A-Za-z0-9_]+$/);
   });
 
   it("keeps same-FT metrics in one cache when not a cluster experiment", () => {
