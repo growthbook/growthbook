@@ -9,6 +9,7 @@ import {
 import { WebhookInterface } from "shared/types/webhook";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
+  assertCanUseSDKConnections,
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
@@ -130,13 +131,7 @@ export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
     assertHeadersJson(context, updates.headers);
 
     if (sdkConnections) {
-      const next = await findSDKConnectionsByIds(context, sdkConnections);
-      if (next.length !== new Set(sdkConnections).size) {
-        context.throwBadRequestError(
-          "Unknown SDK Connection in sdkConnections",
-        );
-      }
-      if (!next.every(can)) context.permissions.throwPermissionError();
+      await assertCanUseSDKConnections(context, sdkConnections, can);
     }
 
     // Reset failure state when the endpoint changes, as the app does
