@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { format } from "prettier";
-
-export const docsSnippetsPath = path.resolve(
-  path.dirname(process.argv[1]),
-  "../../../docs/snippets",
-);
+import * as babelPlugin from "prettier/plugins/babel";
+import * as estreePlugin from "prettier/plugins/estree";
+import { format } from "prettier/standalone";
 
 function findObjectEnd(source: string, start: number): number {
   let depth = 0;
@@ -27,22 +24,23 @@ function findObjectEnd(source: string, start: number): number {
 }
 
 /**
- * Mintlify snippets cannot import data files, so generated data is written
- * into the `const <name> = {...}` literal of the snippet that renders it.
+ * Replace the `const <name> = {...}` literal in `source` with `value`,
+ * formatted with prettier and indented like the declaration.
  */
-export async function writeSnippetConst(
-  snippet: string,
+export async function replaceSnippetConst(
+  source: string,
   name: string,
   value: unknown,
-) {
-  const file = path.join(docsSnippetsPath, snippet);
-  const source = fs.readFileSync(file, "utf8");
+): Promise<string> {
   const declaration = `const ${name} = `;
   const declarationStart = source.indexOf(declaration);
   if (declarationStart === -1) {
-    throw new Error(`${snippet} has no "${declaration}{...}" to replace`);
+    throw new Error(`No "${declaration}{...}" to replace`);
   }
   const objectStart = declarationStart + declaration.length;
+  if (source[objectStart] !== "{") {
+    throw new Error(`"${declaration}" is not followed by an object literal`);
+  }
   const objectEnd = findObjectEnd(source, objectStart);
   const indent = source.slice(
     source.lastIndexOf("\n", declarationStart) + 1,
@@ -51,7 +49,7 @@ export async function writeSnippetConst(
 
   const formatted = await format(
     `${declaration}${JSON.stringify(value, null, 2)};`,
-    { parser: "babel" },
+    { parser: "babel", plugins: [babelPlugin, estreePlugin] },
   );
   const literal = formatted
     .trim()
@@ -60,8 +58,23 @@ export async function writeSnippetConst(
     .map((line, i) => (i === 0 || line === "" ? line : indent + line))
     .join("\n");
 
-  fs.writeFileSync(
-    file,
-    source.slice(0, objectStart) + literal + source.slice(objectEnd + 1),
+  return source.slice(0, objectStart) + literal + source.slice(objectEnd + 1);
+}
+
+/**
+ * Mintlify snippets cannot import data files, so generated data is written
+ * into the `const <name> = {...}` literal of the snippet that renders it.
+ */
+export async function writeSnippetConst(
+  snippet: string,
+  name: string,
+  value: unknown,
+) {
+  const file = path.resolve(
+    path.dirname(process.argv[1]),
+    "../../../docs/snippets",
+    snippet,
   );
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, await replaceSnippetConst(source, name, value));
 }
