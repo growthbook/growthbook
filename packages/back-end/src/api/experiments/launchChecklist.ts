@@ -33,13 +33,8 @@ function toApiLaunchChecklist(c: ExperimentLaunchChecklistInterface) {
   };
 }
 
-// Same rules as the settings pages that edit these checklists.
+// Same permission rules as the settings pages; only PUT is plan-gated, as in the app.
 async function assertCanEditChecklist(context: ApiReqContext, projectId = "") {
-  if (!context.hasPremiumFeature("custom-launch-checklist")) {
-    context.throwPlanDoesNotAllowError(
-      "Your plan does not support customizing the pre-launch checklist.",
-    );
-  }
   if (!projectId) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
@@ -77,6 +72,11 @@ export const putLaunchChecklist = createApiRequestHandler(
 )(async (req) => {
   const { context } = req;
   const projectId = req.query.projectId ?? "";
+  if (!context.hasPremiumFeature("custom-launch-checklist")) {
+    context.throwPlanDoesNotAllowError(
+      "Your plan does not support customizing the pre-launch checklist.",
+    );
+  }
   await assertCanEditChecklist(context, projectId);
 
   const userId = context.userId || "";
