@@ -5,14 +5,18 @@ import {
 } from "shared/validators";
 import {
   assertUsableRankerSchema,
+  interleavingInSDKPayload,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
 import { isFactMetricId } from "shared/experiments";
+import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
 
 const BaseClass = MakeModelClass({
   schema: interleavingValidator,
@@ -37,12 +41,21 @@ const BaseClass = MakeModelClass({
     {
       fields: {
         organization: 1,
+        key: 1,
+      },
+      unique: true,
+    },
+    {
+      fields: {
+        organization: 1,
         trackingKey: 1,
       },
     },
   ],
   // TODO(interleaving): apiConfig + interleaving.spec.ts when the REST API
-  // lands (after the SDK work), following ContextualBanditModel.
+  // lands (after the SDK work), following ContextualBanditModel. `key` must stay
+  // out of the update body validator and the API update field allowlist — see
+  // the note on `key` in the validator.
 });
 
 export class InterleavingModel extends BaseClass {
@@ -54,6 +67,16 @@ export class InterleavingModel extends BaseClass {
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
+    // The unique index is the backstop; this gives a readable error.
+    if (!previousDoc) {
+      const clash = await this._findOne({ key: doc.key });
+      if (clash && clash.id !== doc.id) {
+        throw new Error(
+          `An interleaving experiment with the key "${doc.key}" already exists.`,
+        );
+      }
+    }
+
     if (
       doc.trackingKey !== previousDoc?.trackingKey &&
       !doc.trackingKey.trim()
@@ -161,6 +184,35 @@ export class InterleavingModel extends BaseClass {
     );
   }
 
+  protected async afterCreate(doc: InterleavingInterface) {
+    this.refreshSDKPayload([doc], "created");
+  }
+
+  protected async afterUpdate(
+    existing: InterleavingInterface,
+    _updates: UpdateProps<InterleavingInterface>,
+    newDoc: InterleavingInterface,
+  ) {
+    this.refreshSDKPayload([existing, newDoc], "updated");
+  }
+
+  protected async afterDelete(doc: InterleavingInterface) {
+    this.refreshSDKPayload([doc], "deleted");
+  }
+
+  private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
+    const payloadKeys = getInterleavingPayloadKeys(
+      docs.filter(interleavingInSDKPayload),
+      this.context.environments,
+    );
+    if (!payloadKeys.length) return;
+    queueSDKPayloadRefresh({
+      context: this.context,
+      payloadKeys,
+      auditContext: { event, model: "interleaving", id: docs[0].id },
+    });
+  }
+
   protected canRead(doc: InterleavingInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -210,9 +262,21 @@ export class InterleavingModel extends BaseClass {
     return this.context.permissions.canDeleteInterleaving(doc);
   }
 
+  public getAllPayloadInterleavings(): Promise<InterleavingInterface[]> {
+    return this._find({
+      archived: false,
+      status: "running",
+    });
+  }
+
   public getByInterleavingQueryId(
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
+  }
+
+  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
+  public getByKey(key: string): Promise<InterleavingInterface | null> {
+    return this._findOne({ key });
   }
 }

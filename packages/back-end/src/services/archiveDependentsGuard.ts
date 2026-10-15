@@ -227,7 +227,8 @@ export async function collectConfigArchiveDependents(
   };
 }
 
-// Saved group: features + experiments + other saved groups referencing it.
+// Saved group: features + experiments + bandits + interleavings + other saved
+// groups referencing it.
 export async function collectSavedGroupArchiveDependents(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
@@ -241,6 +242,7 @@ export async function collectSavedGroupArchiveDependents(
     ...refs.features.map((f) => `feature:${f.id}`),
     ...refs.experiments.map((e) => `experiment:${e.id}`),
     ...refs.contextualBandits.map((cb) => `contextualBandit:${cb.id}`),
+    ...refs.interleavings.map((il) => `interleaving:${il.id}`),
     ...refs.savedGroups.map((g) => `savedGroup:${g.id}`),
   ];
   return {
@@ -250,6 +252,7 @@ export async function collectSavedGroupArchiveDependents(
       [refs.features.length, "feature(s)"],
       [refs.experiments.length, "experiment(s)"],
       [refs.contextualBandits.length, "contextual bandit(s)"],
+      [refs.interleavings.length, "interleaving experiment(s)"],
       [refs.savedGroups.length, "other Saved Group(s)"],
     ]),
   };
