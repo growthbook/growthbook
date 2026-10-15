@@ -76,7 +76,7 @@ const gb = new GrowthBook({
   trackingCallback: (experiment, result, user) => {
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variation_id: result.key,
+      variationId: result.key,
       // Directly pass through attributes used for contextual bandits (e.g. userRole)
       deviceId: user.attributes.deviceId,
       userRole: user.attributes.userRole,
