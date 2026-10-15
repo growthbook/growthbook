@@ -1267,7 +1267,7 @@
   "navbar": {
     "links": [
       {
-        "label": "Open App",
+        "label": "Open app",
         "href": "https://app.growthbook.io/?utm_source=docs&utm_medium=navbar&utm_content=open-app"
       },
       {

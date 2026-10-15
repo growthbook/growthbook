@@ -506,8 +506,11 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   word-wrap: break-word;
 }
 
-/* "Open App" navbar link: Mintlify renders every navbar link as an outlined
-   pill, so drop the pill to keep it secondary to "Start for free". */
+/* "Open app" navbar link: Mintlify renders every navbar link as an outlined
+   pill, so drop the pill to keep it secondary to "Start for free".
+   Mintlify gives navbar links no unique class or id, so this selector keys
+   off the link's utm_content param. If that param changes in docs.json,
+   update the selector here too, or the link falls back to a pill. */
 .navbar-link > a[href*="utm_content=open-app"] {
   border-color: transparent;
   background: transparent;
