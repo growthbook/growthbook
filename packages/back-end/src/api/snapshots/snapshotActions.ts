@@ -86,8 +86,9 @@ export const postSnapshotAnalysis = createApiRequestHandler(
     baselineVariationIndex,
   };
 
-  // Reuse a matching analysis rather than recomputing it
-  if (!getSnapshotAnalysis(snapshot, analysisSettings)) {
+  // Reuse a matching analysis rather than recomputing it, unless it failed
+  const existing = getSnapshotAnalysis(snapshot, analysisSettings);
+  if (!existing || existing.status === "error") {
     const [metricMap, factTableMap, metricGroups] = await Promise.all([
       getMetricMap(context),
       getFactTableMap(context),
