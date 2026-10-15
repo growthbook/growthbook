@@ -44,6 +44,7 @@ const nextConfig = {
     ],
   },
   redirects: async () => [
+    // The AI Visual Editor extension links back to /experiment/:id for every owner.
     {
       source: "/experiment/:id(cb_.*)",
       destination: "/contextual-bandit/:id",

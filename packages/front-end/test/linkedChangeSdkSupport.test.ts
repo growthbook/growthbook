@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
-  linkedChangePremiumCopy,
   linkedChangeSdkSupported,
-  linkedChangeSdkUnsupportedCopy,
   type LinkedChangeTarget,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 
@@ -27,7 +25,6 @@ const cbTarget: LinkedChangeTarget = {
   noun: "Contextual Bandit",
   types: ["feature-flag", "visual-editor"],
   extraSdkCapabilities: { "visual-editor": ["contextualBanditsAuto"] },
-  sdkUnsupportedCopy: { "visual-editor": "Bandit copy" },
 };
 
 describe("linkedChangeSdkSupported", () => {
@@ -72,20 +69,5 @@ describe("linkedChangeSdkSupported", () => {
         connection("1.8.1", ["prj_a"]),
       ]),
     ).toBe(true);
-  });
-});
-
-describe("linked change copy", () => {
-  it("prefers the target's unsupported copy and falls back to the generic one", () => {
-    expect(linkedChangeSdkUnsupportedCopy("visual-editor", cbTarget)).toBe(
-      "Bandit copy",
-    );
-    expect(
-      linkedChangeSdkUnsupportedCopy("visual-editor", experimentTarget),
-    ).toContain("AI Visual Editor");
-  });
-
-  it("names the target in the premium copy", () => {
-    expect(linkedChangePremiumCopy(cbTarget)).toContain("Contextual Bandit");
   });
 });

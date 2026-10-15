@@ -54,11 +54,6 @@ function computeBlockers(
 ): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
   const hardBlockerItems: BlockerItem[] = [];
   const softBlockerItems: BlockerItem[] = [];
-  const hasVisualContent = contextualBanditHasServableVisualChanges(
-    cb,
-    visualChangesets,
-  );
-
   const featureLink = (f: LinkedFeatureInfo) => (
     <Link
       href={`/features/${f.feature.id}${
@@ -89,7 +84,9 @@ function computeBlockers(
         hardBlock: true,
         display: <>Checking for saved AI Visual Editor changes…</>,
       });
-    } else if (!hasVisualContent) {
+    } else if (
+      !contextualBanditHasServableVisualChanges(cb, visualChangesets)
+    ) {
       hardBlockerItems.push({
         key: "no-linked-change",
         hardBlock: true,

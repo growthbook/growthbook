@@ -747,11 +747,6 @@ function UrlCard({
                 v.weight !== undefined ? decimalToPercent(v.weight) : undefined
               }
               canEdit={canEdit}
-              // Deleting a variation is allowed only on drafts (running
-              // experiments shouldn't lose buckets retroactively), only
-              // for non-Control rows, and only when removing one would
-              // still leave a valid experiment (>= 2 variations). The
-              // base canEdit permission also has to hold.
               canDeleteVariation={
                 canEdit &&
                 !!owner.deleteVariation &&

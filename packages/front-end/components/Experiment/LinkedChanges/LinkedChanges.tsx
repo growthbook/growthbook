@@ -68,13 +68,7 @@ export default function LinkedChanges({
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
 
-  // Remove a variation from the experiment AND clean up any matching
-  // `visualChange` rows in every changeset. We do the experiment update
-  // first (the existing edit-variations endpoint handles phase /
-  // variationWeights bookkeeping); then sweep changesets that referenced
-  // the deleted variation. Not atomic across the two writes — but a
-  // partial failure leaves orphan visualChanges that are harmless
-  // (the UI filters by current `variations` ids) and re-runnable.
+  // Not atomic: a failed changeset sweep leaves orphan visualChanges, which the UI already filters by variation id.
   const deleteVariation = useCallback(
     async (variationId: string) => {
       const newVariations = experiment.variations.filter(

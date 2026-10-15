@@ -14,7 +14,7 @@ import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
 
-export type VisualChangesetCreatePayload = {
+type VisualChangesetCreatePayload = {
   editorUrl: string;
   urlPatterns: {
     pattern: string;

@@ -15,7 +15,6 @@ export type VisualChangesetOwnerVariation = {
 };
 
 export type VisualChangesetOwnerView = {
-  id: string;
   trackingKey: string;
   status: string;
   noun: string;
@@ -36,7 +35,6 @@ export function experimentVisualChangesetOwner(
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const isDraft = experiment.status === "draft";
   return {
-    id: experiment.id,
     trackingKey: experiment.trackingKey,
     status: experiment.status,
     noun: "experiment",
@@ -47,6 +45,7 @@ export function experimentVisualChangesetOwner(
       previewIndex: i,
     })),
     canEditChanges: isDraft,
+    // Drafts only: a running experiment would lose buckets retroactively.
     canDeleteVariation: (index) =>
       isDraft && index !== 0 && variations.length > 2,
     deleteVariation,
@@ -64,7 +63,6 @@ export function contextualBanditVisualChangesetOwner(
   const activeIds = getActiveVariations(cb.variations).map((v) => v.id);
   const isDraft = cb.status === "draft";
   return {
-    id: cb.id,
     trackingKey: cb.trackingKey,
     status: cb.status,
     noun: "Contextual Bandit",

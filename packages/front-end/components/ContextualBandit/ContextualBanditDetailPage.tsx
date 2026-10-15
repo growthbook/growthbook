@@ -134,7 +134,7 @@ export default function ContextualBanditDetailPage({
   canAddLinkedChanges?: boolean;
   canEditVisualChangesets?: boolean;
   canRemoveVisualChangesets?: boolean;
-  linkedChangesMutate?: () => void;
+  linkedChangesMutate: () => void;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
@@ -615,7 +615,7 @@ export default function ContextualBanditDetailPage({
               canRemoveVisualChangesets={canRemoveVisualChangesets}
               setFeatureModal={setFeatureModal}
               setVisualChangesetModal={setVisualChangesetModal}
-              mutate={linkedChangesMutate ?? mutate}
+              mutate={linkedChangesMutate}
             />
 
             <OverviewSection

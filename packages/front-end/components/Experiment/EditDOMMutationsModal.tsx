@@ -354,8 +354,8 @@ const EditDOMMutationsModal: FC<{
         {owner.status === "running" && (
           <Callout status="warning">
             <strong>Warning:</strong> This {owner.noun} is currently running.
-            Any changes made here may introduce unpredictable effects in your
-            {" " + owner.noun} results.
+            Any changes made here may introduce unpredictable effects in your{" "}
+            {owner.noun} results.
           </Callout>
         )}
         <div className="mb-4">
