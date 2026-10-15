@@ -173,7 +173,7 @@ export default function MetricWorkspace({
   // The error shows above the form, so bring it into view on a failed save.
   const errorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (error) errorRef.current?.scrollIntoView({ block: "center" });
+    if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error]);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
@@ -419,9 +419,9 @@ export default function MetricWorkspace({
       {leaveDialog}
       {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
       {error && (
-        <div ref={errorRef}>
-          <Callout status="error">{error}</Callout>
-        </div>
+        <Callout ref={errorRef} status="error">
+          {error}
+        </Callout>
       )}
       <MetricEditor
         existingMetric={existing}
