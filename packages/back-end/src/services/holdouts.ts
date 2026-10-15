@@ -298,7 +298,8 @@ export async function addNewExperimentToHoldout(
 
 /**
  * Moves an experiment into, between or out of holdouts ("" leaves). Only a
- * draft with no linked changes may leave or switch; the caller stores holdoutId.
+ * draft may join, and only one with no linked changes may leave or switch;
+ * the caller stores holdoutId.
  */
 export async function applyExperimentHoldoutChange(
   context: ReqContext | ApiReqContext,
@@ -320,8 +321,11 @@ export async function applyExperimentHoldoutChange(
     });
   }
 
-  if (holdoutId === undefined || holdoutId === current) return;
+  if (holdoutId === undefined || holdoutId === (current || "")) return;
 
+  if (!current && experiment.status !== "draft") {
+    throw new Error("Only a draft experiment can be added to a holdout");
+  }
   if (current) {
     const hasLinkedChanges =
       experiment.hasURLRedirects ||
