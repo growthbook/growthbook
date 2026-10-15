@@ -135,7 +135,9 @@ const dataSourceSettingsInput = {
       }),
     )
     .optional()
-    .describe("Replaces the list"),
+    .describe(
+      'Replaces the list. An entry matching an existing id keeps its description if left out; send `""` to clear it.',
+    ),
   assignmentQueries: z
     .array(
       z.object({
@@ -150,7 +152,7 @@ const dataSourceSettingsInput = {
     )
     .optional()
     .describe(
-      "Replaces the list. Each query is validated against the warehouse.",
+      'Replaces the list. An entry with an existing `id` keeps `description`, `includesNameColumns` and `dimensionColumns` if left out; send `""`, `false` or `[]` to clear them. Each query is validated against the warehouse.',
     ),
   identifierJoinQueries: z
     .array(z.object({ identifierTypes: z.array(z.string()), sql: z.string() }))
@@ -165,6 +167,11 @@ const dataSourceSettingsInput = {
     })
     .optional(),
   ...apiDataSourceExtraFields,
+  pipelineSettings: pipelineSettingsValidator
+    .optional()
+    .describe(
+      "Merged into the stored settings: experiment id lists left out keep their values; send `[]` to clear one.",
+    ),
 };
 
 const paramsField = z
@@ -251,6 +258,8 @@ export const updateDataSourceValidator = {
     })
     .strict(),
   summary: "Update a data source",
+  description:
+    'Fields left out keep their current values. To clear one, send an explicit empty value (`[]`, `""` or `false`).',
   operationId: "updateDataSource",
   tags: ["data-sources"],
   method: "post" as const,
