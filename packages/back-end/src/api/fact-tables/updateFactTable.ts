@@ -23,6 +23,7 @@ import {
 import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
+  turnsOffAggregatedFactTables,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
@@ -135,6 +136,14 @@ export const updateFactTable = createApiRequestHandler(
       req.body.aggregatedFactTableSettings,
       req.body.userIdTypes ?? factTable.userIdTypes,
     );
+  } else if (turnsOffAggregatedFactTables(factTable, req.body)) {
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (
+      !datasource ||
+      !req.context.permissions.canUpdateDataSourceSettings(datasource)
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
   }
 
   if (

@@ -23,9 +23,17 @@ import {
   MetricAnalysisResult,
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { Queries, QueryStatus } from "shared/types/query";
+import {
+  Queries,
+  QueryRunnerFailureCause,
+  QueryStatus,
+} from "shared/types/query";
 import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import {
+  QUERY_CANCELLED_BY_USER_ERROR,
+  QueryRunner,
+  QueryMap,
+} from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,
@@ -131,16 +139,22 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date | undefined;
     result?: MetricAnalysisResult | undefined;
     error?: string | undefined;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<MetricAnalysisInterface> {
     const updates: UpdateProps<MetricAnalysisInterface> = {
       queries,
-      error,
+      // cancelQueries() sends an empty error, which reads like an unexplained failure
+      error:
+        failureCause === "cancelled"
+          ? error || QUERY_CANCELLED_BY_USER_ERROR
+          : error,
       result,
       status:
         status === "running"
