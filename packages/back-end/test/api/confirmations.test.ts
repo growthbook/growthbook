@@ -774,9 +774,11 @@ describe("confirmations", () => {
   it("holds an edit to a draft armed to publish as the publish", async () => {
     await seed("production");
     setReqContext(asKey(recommended));
-    const toggle = () =>
+    const toggle = (version: number | "new" = 2) =>
       auth(
-        request(app).post(`/api/v2/features/${FLAG}/revisions/2/toggle`),
+        request(app).post(
+          `/api/v2/features/${FLAG}/revisions/${version}/toggle`,
+        ),
       ).send({ environment: "dev", enabled: false });
 
     expect((await toggle()).status).toBe(200);
@@ -796,6 +798,8 @@ describe("confirmations", () => {
     expect(held.body.confirmation.actions).toEqual([
       { action: "feature.publish", environments: [] },
     ]);
+    // A fresh draft isn't armed, whatever else is.
+    expect((await toggle("new")).status).toBe(200);
   });
 
   it("holds starting an experiment as a publish of its queued drafts, pinned to them", async () => {

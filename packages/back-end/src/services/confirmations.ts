@@ -109,8 +109,9 @@ export function confirmationLink(
   };
 }
 
-// A confirmed run still going after this long was cut off, e.g. by a restart.
-const RUN_CUT_OFF_MS = 5 * 60 * 1000;
+// Well past the longest confirmed run (an AI edit's model calls), so one still
+// going this long after it was confirmed was cut off, e.g. by a restart.
+const RUN_CUT_OFF_MS = 30 * 60 * 1000;
 
 export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   const cutOff =
@@ -543,7 +544,13 @@ async function armedRevisionActions(
   params: Record<string, string>,
 ): Promise<ConfirmAction[]> {
   const draft = tags?.map((tag) => DRAFT_REVISIONS[tag]).find(Boolean);
-  if (!draft || !params.version || !actions.includes(`${draft.model}.draft`)) {
+  // "new" asks for a fresh draft, which nothing has armed yet.
+  if (
+    !draft ||
+    !params.version ||
+    params.version === "new" ||
+    !actions.includes(`${draft.model}.draft`)
+  ) {
     return [];
   }
   const revision = await draft.load(context, params);
