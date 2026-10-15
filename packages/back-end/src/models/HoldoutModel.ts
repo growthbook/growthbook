@@ -702,14 +702,26 @@ export class HoldoutModel extends BaseClass {
     return new Map(filteredHoldouts.map((h) => [h.holdout.id, h]));
   }
 
+  // With `expectEntry`, removes only the entry a caller wrote (matched on
+  // `dateAdded`, decided against the row being written as in
+  // removeLinkageFromHoldout), so a rewind never drops a concurrent writer's link.
   public async removeExperimentFromHoldout(
     holdoutId: string,
     experimentId: string,
+    expectEntry?: { dateAdded: Date },
   ) {
     await this.mutateLinkage(
       holdoutId,
       ({ linkedExperiments }) => {
-        const { [experimentId]: _, ...rest } = linkedExperiments;
+        const { [experimentId]: live, ...rest } = linkedExperiments;
+        if (
+          expectEntry &&
+          (!live ||
+            new Date(live.dateAdded).getTime() !==
+              expectEntry.dateAdded.getTime())
+        ) {
+          return null;
+        }
         return { linkedExperiments: rest };
       },
       NO_NEW_LINKAGE,
@@ -762,8 +774,16 @@ export class HoldoutModel extends BaseClass {
     return added;
   }
 
-  public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
-    await this.addExperimentsToHoldout(holdoutId, [experimentId]);
+  // A caller that may need to rewind chooses `dateAdded` up front, so it can
+  // prove ownership of the entry even if this call throws after writing it.
+  public async addExperimentToHoldout(
+    holdoutId: string,
+    experimentId: string,
+    dateAdded?: Date,
+  ) {
+    await this.addExperimentsToHoldout(holdoutId, [experimentId], {
+      dateAdded,
+    });
   }
 
   public async addExperimentsToHoldout(
@@ -774,7 +794,6 @@ export class HoldoutModel extends BaseClass {
       notifyNewLinkage = true,
       // Publish paths pass the owning item's key; see holdoutLinkageOwner.
       eventOwner,
-      // Rewinds pass the removed entry's date so the restored entry is as it was.
       dateAdded = new Date(),
     }: {
       notifyNewLinkage?: boolean;
@@ -889,6 +908,26 @@ export class HoldoutModel extends BaseClass {
         linkedFeatures[feature.id]
           ? null
           : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+      NO_NEW_LINKAGE,
+    );
+  }
+
+  // Experiment counterpart of restoreFeatureLinkage.
+  public async restoreExperimentLinkage(
+    holdoutId: string,
+    experiment: { id: string; dateAdded: Date },
+  ) {
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) =>
+        linkedExperiments[experiment.id]
+          ? null
+          : {
+              linkedExperiments: {
+                ...linkedExperiments,
+                [experiment.id]: experiment,
+              },
+            },
       NO_NEW_LINKAGE,
     );
   }
