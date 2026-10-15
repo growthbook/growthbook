@@ -13,6 +13,7 @@ import {
 } from "shared/constants";
 import {
   ExperimentUpdateSchedule,
+  NorthStarMetric,
   OrganizationInterface,
 } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -74,6 +75,7 @@ export function toApiSettings(org: OrganizationInterface) {
     // The settings page stores these loosely; return them in the shape PUT accepts.
     pValueCorrection: filteredSettings.pValueCorrection || null,
     updateSchedule: toApiUpdateSchedule(filteredSettings.updateSchedule),
+    northStar: toApiNorthStar(filteredSettings.northStar),
     metricDefaults: omitBy(filteredSettings.metricDefaults, isNull),
     defaultRole: toApiDefaultRole(org),
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
@@ -84,6 +86,14 @@ export function toApiSettings(org: OrganizationInterface) {
 // Legacy roles lack fields PUT requires, so fill them in.
 export function toApiDefaultRole(org: OrganizationInterface) {
   return withDefaultRoleDefaults(getDefaultRole(org));
+}
+
+function toApiNorthStar(northStar: NorthStarMetric | null) {
+  if (!northStar) return null;
+  const { startDate, ...rest } = northStar;
+  return startDate
+    ? { ...rest, startDate: new Date(startDate).toISOString() }
+    : rest;
 }
 
 // A cleared or edited hours input is stored as a string.
