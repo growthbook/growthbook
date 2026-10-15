@@ -185,7 +185,7 @@ const dataSourceSettingsInput = {
     })
     .optional()
     .describe(
-      "Merged into the stored settings: fields left out keep their values, but a data source without pipeline settings needs `allowWriting`, `mode`, `writeDataset` and `unitsTableRetentionHours`. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
+      "Merged into the stored settings: fields left out keep their values, but any change must leave `allowWriting`, `mode` and `unitsTableRetentionHours` set, plus `writeDataset` when `allowWriting` is true. Send `[]` to clear `excludedExperimentIds` or `incrementalOptInExperimentIds`, and `includedExperimentIds: null` to apply the mode to every experiment again (`[]` applies it to none).",
     ),
 };
 
