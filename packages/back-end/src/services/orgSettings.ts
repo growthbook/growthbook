@@ -20,6 +20,8 @@ const PREMIUM_TOGGLES: [keyof OrganizationSettings, CommercialFeature][] = [
     "requireProjectForSdkConnections",
     "require-project-for-sdk-connections-setting",
   ],
+  ["aiEnabled", "ai-suggestions"],
+  ["requireRebaseBeforePublish", "require-approvals"],
 ];
 
 const CUSTOM_MARKDOWN_KEYS = [

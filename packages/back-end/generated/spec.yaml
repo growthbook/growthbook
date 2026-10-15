@@ -33259,14 +33259,14 @@ paths:
                 srmThreshold:
                   anyOf:
                     - type: number
-                      exclusiveMinimum: 0
-                      exclusiveMaximum: 1
+                      minimum: 0
+                      maximum: 1
                     - type: 'null'
                 multipleExposureMinPercent:
                   anyOf:
                     - type: number
-                      exclusiveMinimum: 0
-                      exclusiveMaximum: 1
+                      minimum: 0
+                      maximum: 1
                     - type: 'null'
                 attributionModel:
                   anyOf:

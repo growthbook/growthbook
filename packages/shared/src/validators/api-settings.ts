@@ -134,8 +134,9 @@ const writableSettingsFields = {
   sequentialTestingEnabled: z.boolean(),
   sequentialTestingTuningParameter: z.number().positive(),
   postStratificationEnabled: z.boolean(),
-  srmThreshold: probability,
-  multipleExposureMinPercent: probability,
+  // The settings page allows both ends of the range for these two.
+  srmThreshold: z.number().min(0).max(1),
+  multipleExposureMinPercent: z.number().min(0).max(1),
   attributionModel: z.enum([
     "firstExposure",
     "experimentDuration",
