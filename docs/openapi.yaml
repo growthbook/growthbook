@@ -33370,6 +33370,19 @@ paths:
                           type: array
                           items:
                             type: string
+                        target:
+                          anyOf:
+                            - type: number
+                            - type: array
+                              items:
+                                type: number
+                        window:
+                          type: string
+                        resolution:
+                          type: string
+                        startDate:
+                          type: string
+                          format: date-time
                       required:
                         - title
                         - metricIds
@@ -74416,6 +74429,19 @@ components:
                   type: array
                   items:
                     type: string
+                target:
+                  anyOf:
+                    - type: number
+                    - type: array
+                      items:
+                        type: number
+                window:
+                  type: string
+                resolution:
+                  type: string
+                startDate:
+                  type: string
+                  format: date-time
               additionalProperties: false
             - type: 'null'
         runHealthTrafficQuery:

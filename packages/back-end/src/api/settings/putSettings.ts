@@ -9,12 +9,13 @@ import {
 } from "shared/validators";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { AI_MODEL_SETTINGS, getProviderForAIModel } from "shared/ai";
-import {
-  OrganizationInterface,
-  OrganizationSettings,
-} from "shared/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { updateOrganizationSettings } from "back-end/src/models/OrganizationModel";
+import {
+  findOrganizationById,
+  updateOrganizationSettings,
+} from "back-end/src/models/OrganizationModel";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { sanitizeDefaultRoleUpdate } from "back-end/src/services/organizations";
 import {
@@ -54,8 +55,18 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     defaultRole: toApiDefaultRole(org),
   };
   const body: Partial<typeof requested> = omitBy(requested, (v, k) =>
-    isEqual(v ?? undefined, current[k] ?? undefined),
+    isEqual(toJson(v), toJson(current[k])),
   );
+
+  // config.yml overlays these on every read, so a write would not take effect.
+  const fileManaged = Object.keys(body).filter(
+    (k) => k in getConfigOrganizationSettings(),
+  );
+  if (fileManaged.length) {
+    throw new Error(
+      `Managed by config.yml; change it there instead: ${fileManaged.join(", ")}`,
+    );
+  }
 
   // `null` resets a field, which still needs permission for that field.
   assertCanUpdateOrgSettings(context, body);
@@ -169,7 +180,8 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     ),
   });
 
-  const updated: OrganizationInterface = { ...org, settings };
+  // Re-read so the response includes concurrent changes to other settings.
+  const updated = (await findOrganizationById(org.id)) ?? { ...org, settings };
   return { settings: toApiSettings(updated) };
 });
 
