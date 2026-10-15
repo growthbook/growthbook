@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
   resolveAnalysisIdentifierType,
@@ -154,9 +157,9 @@ export function getAutoExposureQueryId({
 /**
  * A template's assignment selection, kept when its query still declares the
  * identifier and otherwise moved to one that does, since a different
- * identifier would measure different units. "unavailable" when no query
- * declares it, so the experiment is created without assignment settings. Null
- * when the template has no selection to honor.
+ * identifier would measure different units. "unavailable" when no query in
+ * the Project's scope declares it, so the experiment is created without
+ * assignment settings. Null when the template has no selection to honor.
  */
 export function resolveTemplateAssignment({
   datasource,
@@ -170,7 +173,12 @@ export function resolveTemplateAssignment({
   templateIdentifierType?: string;
 }):
   | { kind: "selected"; exposureQueryId: string; identifierType: string }
-  | { kind: "unavailable"; identifierType: string }
+  | {
+      kind: "unavailable";
+      identifierType: string;
+      /** Queries declare the identifier, but none in this Project's scope. */
+      outOfScope: boolean;
+    }
   | null {
   const queries = datasource?.settings?.queries?.exposure ?? [];
   const templateQuery = queries.find((q) => q.id === templateExposureQueryId);
@@ -180,14 +188,20 @@ export function resolveTemplateAssignment({
     templateIdentifierType,
   );
   if (!identifierType) return null;
+  const declaresIt = (q: ExposureQuery) =>
+    getExposureQueryIdentifierTypes(q).includes(identifierType);
   const query = getExposureQueriesForProject(
     [templateQuery, ...queries],
     project,
     datasource?.projects,
-  ).find((q) => getExposureQueryIdentifierTypes(q).includes(identifierType));
+  ).find(declaresIt);
   return query
     ? { kind: "selected", exposureQueryId: query.id, identifierType }
-    : { kind: "unavailable", identifierType };
+    : {
+        kind: "unavailable",
+        identifierType,
+        outOfScope: queries.some(declaresIt),
+      };
 }
 
 function getAutoExposureQueryIdentifierType({
@@ -727,8 +741,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <Callout status="warning" mb="3">
           This template&apos;s identifier type (&quot;
           {unavailableTemplateAssignment.identifierType}&quot;) isn&apos;t
-          declared by any assignment query. The experiment will be created
-          without assignment settings, so choose them before analyzing results.
+          declared by{" "}
+          {unavailableTemplateAssignment.outOfScope
+            ? "an assignment query scoped to this Project"
+            : "any assignment query"}
+          . The experiment will be created without assignment settings, so
+          choose them before analyzing results.
         </Callout>
       )}
       {showLinkIdentifierCallout && autoDatasource && (

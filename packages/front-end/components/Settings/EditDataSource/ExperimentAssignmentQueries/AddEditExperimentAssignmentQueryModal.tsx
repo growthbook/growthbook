@@ -98,7 +98,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const handleSubmit = form.handleSubmit(async (value) => {
     if (!canCoverAllProjects && !value.projects?.length) {
       throw new Error(
-        "Choose at least one Project. You can't edit queries for every Project this Data Source covers.",
+        "Choose at least one Project. You don't have permission to edit assignment queries in every Project this Data Source covers.",
       );
     }
     await onSave(value);
@@ -365,17 +365,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   label="Projects"
                   helpText={
                     !canCoverAllProjects
-                      ? "Only Projects you can edit this Data Source's settings in can be selected."
-                      : dataSource.projects?.length
-                        ? "Only this Data Source's Projects can be selected. Leave empty to include all of them."
-                        : "Leave empty to make this query available in all Projects."
+                      ? "Choose at least one Project."
+                      : "Leave empty to use this Data Source's Projects."
                   }
                   placeholder={
                     !canCoverAllProjects
                       ? "Choose Projects"
-                      : dataSource.projects?.length
-                        ? "All Data Source Projects"
-                        : "All Projects"
+                      : "All Data Source Projects"
                   }
                   required={!canCoverAllProjects}
                   value={userEnteredProjects}
