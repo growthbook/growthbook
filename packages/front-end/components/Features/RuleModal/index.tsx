@@ -1568,6 +1568,17 @@ export default function RuleModal({
         delete (values as FeatureRule).prerequisites;
         // eslint-disable-next-line
         delete (values as any).value;
+        // Bucketing comes from the linked experiment; these are form defaults.
+        const stray = values as {
+          coverage?: number;
+          hashAttribute?: string;
+          seed?: string;
+          hashVersion?: number;
+        };
+        delete stray.coverage;
+        delete stray.hashAttribute;
+        delete stray.seed;
+        delete stray.hashVersion;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
         // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
@@ -1605,6 +1616,9 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+        // Always 100% for force rules; only kept in the form for the
+        // force/rollout auto-switch.
+        delete (values as { coverage?: number }).coverage;
       } else if (values.type === "rollout") {
         // An empty seed means "stamp this rule's own id" (the default for
         // duplicates) — omit it rather than submitting "".

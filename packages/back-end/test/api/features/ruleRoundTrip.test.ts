@@ -78,6 +78,43 @@ describe("GET → POST round-trip of every emitted rule key", () => {
     );
   });
 
+  // The rule modal used to persist form defaults on rule types that don't
+  // declare them (`coverage: 1` on force, `coverage`/`hashVersion` on
+  // experiment-ref); the v1 GET must not echo them back.
+  const strayKeys = {
+    coverage: 1,
+    hashVersion: 2,
+    hashAttribute: "id",
+    seed: "",
+    disableStickyBucketing: false,
+  };
+  const rulesWithStrayKeys = [rules[0], rules[2]].map(
+    (r) => ({ ...r, ...strayKeys }) as unknown as FeatureRule,
+  );
+
+  it.each(rulesWithStrayKeys)(
+    "v1: a stored $type rule with undeclared keys round-trips",
+    (rule) => {
+      const emitted = normalizeRuleForFeatureEnv(rule);
+      for (const key of Object.keys(strayKeys)) {
+        expect(emitted).not.toHaveProperty(key);
+      }
+      expect(emitted).toHaveProperty("rampScheduleId", "rs_1");
+      const res = postFeatureValidator.bodySchema.safeParse(v1Body(emitted));
+      expect(res.success ? null : res.error.issues).toBeNull();
+    },
+  );
+
+  it("v1 keeps declared bucketing keys on rollout rules", () => {
+    const emitted = normalizeRuleForFeatureEnv(rules[1]);
+    expect(emitted).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "id",
+      seed: "seed",
+      hashVersion: 2,
+    });
+  });
+
   it.each(rules.map((r) => [r.type, r] as const))(
     "v2: a %s rule emitted by the read model is accepted by the write schema",
     (_type, rule) => {
