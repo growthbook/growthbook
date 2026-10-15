@@ -88,6 +88,7 @@ export default function DateRangeCompareDropdown({
   clearOption,
   triggerFallbackLabel = "Date range",
   fullWidth = false,
+  applyLabel,
 }: {
   value: DateRangeCompareValue;
   onChange: (next: DateRangeCompareValue) => void;
@@ -103,6 +104,7 @@ export default function DateRangeCompareDropdown({
   /** Trigger text when a custom range has no bounds set yet. */
   triggerFallbackLabel?: string;
   fullWidth?: boolean;
+  applyLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const tooltip = triggerTooltip(value.dateRange, value.comparison);
@@ -129,6 +131,7 @@ export default function DateRangeCompareDropdown({
         granularityDisabledReason={granularityDisabledReason}
         disabled={disabled}
         clearOption={clearOption}
+        applyLabel={applyLabel}
         onCancel={() => setOpen(false)}
         onApply={(next) => {
           // Freeze the window for `custom` so later primary edits can't move it.
