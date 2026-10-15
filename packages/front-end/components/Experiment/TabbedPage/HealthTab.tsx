@@ -290,6 +290,17 @@ export default function HealthTab({
         traffic={traffic}
         variations={variations}
         isBandit={isBandit}
+        cluster={
+          snapshot.settings.isClusterExperiment &&
+          snapshot.settings.exposureQueryIdentifierType &&
+          snapshot.settings.clusterSubUnitIdentifier
+            ? {
+                identifier: snapshot.settings.exposureQueryIdentifierType,
+                subUnitIdentifier: snapshot.settings.clusterSubUnitIdentifier,
+                traffic: snapshot.health.clusterTraffic,
+              }
+            : undefined
+        }
       />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
