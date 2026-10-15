@@ -241,7 +241,7 @@ export const getAttributeReferencesValidator = {
     .strict(),
   summary: "Get what references an attribute",
   description:
-    "Feature Flag rules, experiments (targeting or hash attribute) and condition Saved Groups that use the attribute. Check this before renaming or deleting it.",
+    "Feature Flag rules (targeting or hash attribute), experiments (targeting or hash attribute) and condition Saved Groups that use the attribute, limited to projects the caller can read. Check this before renaming or deleting it.",
   operationId: "getAttributeReferences",
   tags: ["attributes"],
   method: "get" as const,

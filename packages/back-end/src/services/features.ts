@@ -2559,6 +2559,7 @@ export function evaluateFeature({
   namespaces,
   organization,
   constants,
+  includeRuleIds,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -2580,6 +2581,7 @@ export function evaluateFeature({
   // When provided, `@const:` references are resolved so preview/test results
   // match what the SDK payload actually serves (same as generateFeaturesPayload).
   constants?: ConstantInterface[];
+  includeRuleIds?: boolean;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -2622,6 +2624,7 @@ export function evaluateFeature({
         // payload. Cycles are left unresolved (rendered as-is), same as payload
         // generation — no logging needed in this preview-only path.
         constantMap: envConstantMap ?? undefined,
+        includeRuleIds,
       });
 
       if (definition) {
