@@ -301,7 +301,11 @@
                   {
                     "group": "Slack",
                     "root": "integrations/slack",
-                    "pages": ["integrations/slack/legacy-webhooks"]
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
                   },
                   "integrations/discord",
                   "integrations/datadog",
