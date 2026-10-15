@@ -25,6 +25,7 @@ import {
   verticaDialect,
   adobeExperiencePlatformQueryServiceDialect,
 } from "shared/dialects";
+import { getInformationSchemaColumns } from "back-end/src/services/informationSchema";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
@@ -2057,5 +2058,36 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("' & '");
     expect(sql).toContain("'Browser: '");
     expect(sql).toContain("'__NULL_DIMENSION'");
+  });
+});
+
+describe("event tracker date limits", () => {
+  // @ts-expect-error -- context not needed for test
+  const bq = new BigQuery("", { type: "bigquery", settings: {} });
+
+  it.each(["segment", "rudderstack", "amplitude"] as const)(
+    "%s bounds only the start date",
+    (schemaFormat) => {
+      const { getDateLimitClause } = bq.getSchemaFormatConfig(schemaFormat);
+      expect(getDateLimitClause()).toMatch(
+        / >= '\{\{date startDateISO "yyyy-MM-dd"\}\}'$/,
+      );
+    },
+  );
+});
+
+describe("getInformationSchemaColumns", () => {
+  it("flags partition columns, whether reported as a number or a string", () => {
+    expect(
+      getInformationSchemaColumns([
+        { column_name: "user_id", data_type: "STRING", is_partition: 0 },
+        { column_name: "ts", data_type: "TIMESTAMP", is_partition: "1" },
+        { column_name: "dt", data_type: "DATE", is_partition: 1 },
+      ]),
+    ).toEqual([
+      { columnName: "user_id", dataType: "STRING" },
+      { columnName: "ts", dataType: "TIMESTAMP", isPartition: true },
+      { columnName: "dt", dataType: "DATE", isPartition: true },
+    ]);
   });
 });

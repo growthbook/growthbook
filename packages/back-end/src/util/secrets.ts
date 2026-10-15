@@ -6,6 +6,7 @@ import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
 } from "shared/constants";
 import { z } from "zod";
 
@@ -232,6 +233,13 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   2 * 60 * 60 * 1000,
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
+
+// Upper bound for the per-webhook request timeout users can configure
+export const MAX_WEBHOOK_TIMEOUT_SECONDS = parseEnvInt(
+  process.env.MAX_WEBHOOK_TIMEOUT_SECONDS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
+  { min: 1, name: "MAX_WEBHOOK_TIMEOUT_SECONDS" },
+);
 
 // Must exceed the idle timeout of any load balancer in front of us, or the LB
 // reuses connections we already closed and returns spurious 502s to clients.
