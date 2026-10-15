@@ -21240,12 +21240,13 @@ paths:
                 pipelineSettings:
                   description: >-
                     Merged into the stored settings: fields left out keep their
-                    values, but any change must leave `allowWriting`, `mode` and
-                    `unitsTableRetentionHours` set, plus `writeDataset` when
-                    `allowWriting` is true. Send `[]` to clear
-                    `excludedExperimentIds` or `incrementalOptInExperimentIds`,
-                    and `includedExperimentIds: null` to apply the mode to every
-                    experiment again (`[]` applies it to none).
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
                   type: object
                   properties:
                     allowWriting:
@@ -21467,12 +21468,13 @@ paths:
                 pipelineSettings:
                   description: >-
                     Merged into the stored settings: fields left out keep their
-                    values, but any change must leave `allowWriting`, `mode` and
-                    `unitsTableRetentionHours` set, plus `writeDataset` when
-                    `allowWriting` is true. Send `[]` to clear
-                    `excludedExperimentIds` or `incrementalOptInExperimentIds`,
-                    and `includedExperimentIds: null` to apply the mode to every
-                    experiment again (`[]` applies it to none).
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
                   type: object
                   properties:
                     allowWriting:
@@ -71383,6 +71385,9 @@ components:
                 type: array
                 items:
                   type: string
+              error:
+                description: Why the last validation of this query failed
+                type: string
             required:
               - id
               - name
