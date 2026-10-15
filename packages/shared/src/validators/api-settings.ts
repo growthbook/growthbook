@@ -77,6 +77,14 @@ export const apiApprovalFlows = z
   .object({ savedGroups: z.array(apiSavedGroupApprovalRule) })
   .strict();
 
+// Optional NorthStarMetric fields, so stored values round-trip.
+const northStarOptionalFields = {
+  target: z.union([z.number(), z.array(z.number())]).optional(),
+  window: z.string().optional(),
+  resolution: z.string().optional(),
+  startDate: z.iso.datetime().optional(),
+};
+
 const probability = z.number().gt(0).lt(1);
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().nonnegative();
@@ -163,7 +171,11 @@ const writableSettingsFields = {
   topValuesLookbackValue: z.number().int().min(1).max(365),
   topValuesLookbackUnit: z.enum(["days"]),
   northStar: z
-    .object({ title: z.string(), metricIds: z.array(z.string()) })
+    .object({
+      title: z.string(),
+      metricIds: z.array(z.string()),
+      ...northStarOptionalFields,
+    })
     .strict(),
   runHealthTrafficQuery: z.boolean(),
   requireExperimentTemplates: z.boolean(),
@@ -279,6 +291,7 @@ const apiSettingsObject = z
       .object({
         title: z.string().optional(),
         metricIds: z.array(z.string()).optional(),
+        ...northStarOptionalFields,
       })
       .nullable(),
     metricDefaults: z.object({
