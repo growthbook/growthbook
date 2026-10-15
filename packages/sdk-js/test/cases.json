@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.9.0",
+  "specVersion": "0.10.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -1329,6 +1329,124 @@
       {
         "a": 1
       },
+      false
+    ],
+    [
+      "a missing attribute is still compared as null, even under $not",
+      { "$not": { "name": "hello" }, "age": { "$ne": 10 } },
+      {},
+      true
+    ],
+    [
+      "a missing attribute named like a built-in object property is missing",
+      {
+        "constructor": { "$exists": false },
+        "toString": { "$exists": false },
+        "valueOf": { "$exists": false }
+      },
+      { "id": "1" },
+      true
+    ],
+    [
+      "an attribute named like a built-in object property can still be set",
+      { "toString": "x" },
+      { "toString": "x" },
+      true
+    ],
+    [
+      "an unknown operator under $not fails, since this SDK can't evaluate it",
+      { "$not": { "name": { "$regx": "hello" } } },
+      { "name": "world" },
+      false
+    ],
+    [
+      "an unknown operator under $nor fails, since this SDK can't evaluate it",
+      { "$nor": [{ "name": { "$regx": "hello" } }] },
+      { "name": "world" },
+      false
+    ],
+    [
+      "an unknown operator inside $not on a value fails, since this SDK can't evaluate it",
+      { "name": { "$not": { "$regx": "hello" } } },
+      { "name": "world" },
+      false
+    ],
+    [
+      "an unknown operator doesn't stop an $or that another condition passes",
+      { "$or": [{ "name": { "$regx": "x" } }, { "name": "hello" }] },
+      { "name": "hello" },
+      true
+    ],
+    [
+      "a known operator that fails decides the condition, even beside an unknown operator",
+      { "name": { "$regx": "x", "$eq": "world" } },
+      { "name": "hello" },
+      false
+    ],
+    [
+      "an empty object as a value has no operators, so it passes",
+      { "name": {}, "age": {} },
+      { "age": 5 },
+      true
+    ],
+    [
+      "$not of an empty object fails",
+      { "name": { "$not": {} } },
+      { "name": "hello" },
+      false
+    ],
+    [
+      "$elemMatch with $or tests each element's fields - pass",
+      { "items": { "$elemMatch": { "$or": [{ "a": 1 }, { "c": 3 }] } } },
+      { "items": [{ "a": 1 }, { "b": 2 }] },
+      true
+    ],
+    [
+      "$elemMatch with $or tests each element's fields - fail",
+      { "items": { "$elemMatch": { "$or": [{ "a": 1 }, { "c": 3 }] } } },
+      { "items": [{ "a": 2 }, { "b": 2 }] },
+      false
+    ],
+    [
+      "$elemMatch with $or, under $not",
+      { "$not": { "items": { "$elemMatch": { "$or": [{ "a": 1 }] } } } },
+      { "items": [{ "a": 1 }] },
+      false
+    ],
+    [
+      "$elemMatch with $and needs one element to match every condition",
+      { "items": { "$elemMatch": { "$and": [{ "a": 1 }, { "b": 2 }] } } },
+      { "items": [{ "a": 1 }, { "b": 2 }] },
+      false
+    ],
+    [
+      "$elemMatch with $and - pass",
+      { "items": { "$elemMatch": { "$and": [{ "a": 1 }, { "b": 2 }] } } },
+      { "items": [{ "a": 1, "b": 2 }] },
+      true
+    ],
+    [
+      "$elemMatch with $nor passes when an element matches none of the conditions",
+      { "items": { "$elemMatch": { "$nor": [{ "a": 1 }] } } },
+      { "items": [{ "a": 1 }, { "b": 2 }] },
+      true
+    ],
+    [
+      "$elemMatch with $not stays an operator on each element",
+      { "tags": { "$elemMatch": { "$not": { "$eq": "a" } } } },
+      { "tags": ["a", "b"] },
+      true
+    ],
+    [
+      "a condition key where an operator on a value belongs never matches, as before",
+      { "name": { "$not": { "$or": [{ "name": "x" }] } } },
+      { "name": "x" },
+      true
+    ],
+    [
+      "$elemMatch of null fails rather than throwing",
+      { "tags": { "$elemMatch": null } },
+      { "tags": ["a"] },
       false
     ],
     [
@@ -11644,6 +11762,34 @@
               "$savedGroup": { "id": "grp_x" }
             }
           }
+        }
+      ],
+      [
+        "an unknown group type fails under $not too, since this SDK can't evaluate it",
+        { "$not": { "$savedGroup": { "id": "grp_future" } } },
+        { "id": "u_1" },
+        false,
+        { "grp_future": { "type": "somethingNew", "values": ["u_1"] } }
+      ],
+      [
+        "$inGroup and $notInGroup on an unknown group type fail under $not too",
+        {
+          "$or": [
+            { "$not": { "id": { "$inGroup": "grp_future" } } },
+            { "$not": { "id": { "$notInGroup": "grp_future" } } }
+          ]
+        },
+        { "id": "u_1" },
+        false,
+        { "grp_future": { "type": "somethingNew", "values": ["u_1"] } }
+      ],
+      [
+        "$elemMatch with $savedGroup tests each element's fields",
+        { "items": { "$elemMatch": { "$savedGroup": { "id": "grp_ids" } } } },
+        { "items": [{ "id": "u_2" }, { "id": "u_1" }] },
+        true,
+        {
+          "grp_ids": { "type": "list", "attributeKey": "id", "values": ["u_1"] }
         }
       ],
       [
