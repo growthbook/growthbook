@@ -5,6 +5,11 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { generateId } from "back-end/src/util/uuid";
+import {
+  DateCursor,
+  dateCursorFilter,
+  getNextDateCursor,
+} from "back-end/src/util/dateCursor";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -84,7 +89,7 @@ const toInterface: ToInterface<AuditInterface> = (doc) => {
 export type AuditHistoryFilters = {
   auditId?: string;
   event?: string;
-  before?: Date;
+  before?: DateCursor | null;
   excludeIds?: string[];
 };
 
@@ -106,7 +111,7 @@ function historyQuery(
     ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
     ...(auditId ? { id: auditId } : {}),
     ...(event ? { event } : {}),
-    ...(before ? { dateCreated: { $lt: before } } : {}),
+    ...dateCursorFilter(before),
   };
 }
 
@@ -228,6 +233,6 @@ export async function getAuditHistory(
   return {
     events,
     total: entityCount + parentCount,
-    nextCursor: events.length ? events[events.length - 1].dateCreated : null,
+    nextCursor: getNextDateCursor(events, limit, filters.before),
   };
 }

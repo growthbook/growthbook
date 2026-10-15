@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import omit from "lodash/omit";
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { isEqual } from "lodash";
 import {
   NotificationEventResource,
@@ -316,9 +316,10 @@ export const getEventsForOrganization = async (
     to?: string;
     sortOrder?: 1 | -1;
   },
+  customFilter?: FilterQuery<BaseEventInterface<unknown, unknown>>,
 ): Promise<EventInterface[]> => {
   const query = applyFiltersToQuery(organizationId, filters);
-  const docs = await EventModel.find(query)
+  const docs = await EventModel.find({ ...query, ...customFilter })
     .sort([["dateCreated", filters.sortOrder ?? -1]])
     .skip((filters.page - 1) * filters.perPage)
     .limit(filters.perPage);
