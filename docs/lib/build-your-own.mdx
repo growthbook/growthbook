@@ -444,33 +444,62 @@ The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, a
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
-This is the main function used to evaluate a condition. It loops through the condition key/value pairs
-and checks each entry:
+This is the main function used to evaluate a condition. Internally, the condition helpers return `true`, `false`, or `null`. `null` means the result depends on an operator or saved group type this SDK doesn't support. A `false` decides an AND, a `true` decides an OR, and negating `null` leaves it `null`. `evalCondition` only passes on `true`, so a condition this SDK can't evaluate fails, even under `$not` or `$nor`.
 
-1. If condition key is `$or`, check if `evalOr(attributes, condition["$or"])` is false. If so, break out of the loop and return false
-2. If condition key is `$nor`, check if `!evalOr(attributes, condition["$nor"])` is false. If so, break out of the loop and return false
-3. If condition key is `$and`, check if `evalAnd(attributes, condition["$and"])` is false. If so, break out of the loop and return false
-4. If condition key is `$not`, check if `!evalCondition(attributes, condition["$not"])` is false. If so, break out of the loop and return false
-5. Otherwise, check if `evalConditionValue(value, getPath(attributes, key))` is false. If so, break out of the loop and return false
+```ts
+function evalCondition(attributes, condition) {
+  return evalConditionResult(attributes, condition) === true;
+}
 
-If none of the entries failed their checks, `evalCondition` returns true
+function evalConditionResult(attributes, condition) {
+  let result = true;
+  for (const [key, value] of Object.entries(condition)) {
+    let r;
+    if (key === "$or") r = evalOr(attributes, value);
+    else if (key === "$nor") r = not(evalOr(attributes, value));
+    else if (key === "$and") r = evalAnd(attributes, value);
+    else if (key === "$not") r = not(evalConditionResult(attributes, value));
+    else if (key === "$savedGroup") r = evalSavedGroup(attributes, value);
+    else r = evalConditionValue(value, getPath(attributes, key));
 
-### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
+    // One failing entry decides it, wherever an unsupported one is
+    if (r === false) return false;
+    if (r === null) result = null;
+  }
+  return result;
+}
 
-`conditions` is an array of Condition objects
+const not = (r) => (r === null ? null : !r);
+```
 
-1. If conditions is empty, return true
-2. Loop through conditions
-   1. If `evalCondition(attributes, conditions[i])` is true, break out of the loop and return true
-3. Return false
+### private evalOr(attributes: Attributes, conditions: Condition[]): boolean|null
 
-### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean
+```ts
+function evalOr(attributes, conditions) {
+  if (!conditions.length) return true;
+  let result = false;
+  for (const condition of conditions) {
+    const r = evalConditionResult(attributes, condition);
+    if (r === true) return true;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
 
-`conditions` is an array of Condition objects
+### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean|null
 
-1. Loop through conditions
-   1. If `evalCondition(attributes, conditions[i])` is false, break out of the loop and return false
-2. Return true
+```ts
+function evalAnd(attributes, conditions) {
+  let result = true;
+  for (const condition of conditions) {
+    const r = evalConditionResult(attributes, condition);
+    if (r === false) return false;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
 
 ### public pruneCondition(attributes: Attributes, condition: Condition): Condition|boolean
 
@@ -488,11 +517,9 @@ function pruneCondition(attributes, condition) {
     else if (key === "$not") result = pruneCondition(attributes, value);
     else if (key === "$savedGroup") result = pruneSavedGroup(attributes, value);
     else if (!isKnown(attributes, key)) result = null;
-    else {
-      result = evalConditionValue(value, getPath(attributes, key));
-      // The client's SDK may be newer and support an operator this one doesn't
-      if (evaluationMetAnUnsupportedOperator) result = null;
-    }
+    // null when it uses an operator this SDK doesn't support, which the
+    // client's SDK may
+    else result = evalConditionValue(value, getPath(attributes, key));
 
     // $not and $nor pass when what they hold fails
     if ((key === "$not" || key === "$nor") && typeof result === "boolean") {
@@ -512,6 +539,7 @@ function pruneCondition(attributes, condition) {
 function isKnown(attributes, key) {
   return !key.includes(".") && key in attributes;
 }
+
 ```
 
 ### private pruneList(attributes: Attributes, conditions: Condition[], or: boolean): Condition[]|boolean
@@ -605,11 +633,15 @@ function reducePayload(
   };
 
   // Adds a feature, then the prerequisites the client evaluates for it, even
-  // when the filters drop them. With "filter", only the filters decide.
+  // when the filters drop them. With "filter", only the filters decide, except
+  // for holdouts, which aren't app features and are always kept.
   const features = {};
   const addParents = (item) => {
-    if (prerequisites === "filter") return;
-    for (const parent of item.parentConditions ?? []) add(parent.id);
+    for (const parent of item.parentConditions ?? []) {
+      if (prerequisites !== "filter" || parent.id.startsWith("$holdout:")) {
+        add(parent.id);
+      }
+    }
   };
   const add = (id) => {
     const feature = payload.features[id];
@@ -715,24 +747,42 @@ It should return:
 - `getPath(input, "job.title")` -> `"developer"`
 - `getPath(input, "job.company")` -> `null` or `undefined`
 
-### private evalConditionValue(conditionValue, attributeValue): boolean
+### private evalConditionValue(conditionValue, attributeValue): boolean|null
 
-1. If `conditionValue` is an object and `isOperatorObject(conditionValue)` is true
-   1. Loop over each key/value pair
-      1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
-   2. Return true
-2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
+```ts
+function evalConditionValue(conditionValue, attributeValue) {
+  if (isObject(conditionValue) && isOperatorObject(conditionValue)) {
+    // Every operator has to pass, like evalAnd
+    let result = true;
+    for (const [operator, value] of Object.entries(conditionValue)) {
+      const r = evalOperatorCondition(operator, attributeValue, value);
+      if (r === false) return false;
+      if (r === null) result = null;
+    }
+    return result;
+  }
+  return deepEqual(attributeValue, conditionValue);
+}
+```
 
-### private elemMatch(conditionValue, attributeValue): boolean
+### private elemMatch(conditionValue, attributeValue): boolean|null
 
-This checks if `attributeValue` is an array, and if so at least one of the array items must match the condition
+At least one item of `attributeValue` must match the condition, like `evalOr`.
 
-1. If `attributeValue` is not an array, return false
-2. Loop through items in `attributeValue`
-   1. If `isOperatorObject(conditionValue)`
-      1. If `evalConditionValue(conditionValue, item)`, break out of loop and return true
-   2. Else if `evalCondition(item, conditionValue)`, break out of loop and return true
-3. Return false
+```ts
+function elemMatch(conditionValue, attributeValue) {
+  if (!Array.isArray(attributeValue)) return false;
+  let result = false;
+  for (const item of attributeValue) {
+    const r = isOperatorObject(conditionValue)
+      ? evalConditionValue(conditionValue, item)
+      : evalConditionResult(item, conditionValue);
+    if (r === true) return true;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
 
 ### private paddedVersionString(input): string {#private-paddedversionstring-input-string}
 
@@ -812,9 +862,7 @@ There are 3 operators where conditionValue is an array. All of these should retu
   1. Return `not isIn(conditionValue, attributeValue)`
 - `$all`
   1. If attributeValue is not an array, return `false`
-  2. Loop through conditionValue array
-     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
-  3. Return true
+  2. Every item of the conditionValue array has to match some element of attributeValue: combine `evalConditionValue(conditionValue[i], attributeValue[j])` across elements like `evalOr`, and across items like `evalAnd`
 
 There are 2 operators where attributeValue is an array:
 
@@ -833,11 +881,11 @@ There are 3 other operators:
 - `$type`
   1. Return `getType(attributeValue) == conditionValue`
 - `$not`
-  1. Return `!evalConditionValue(conditionValue, attributeValue)`
+  1. Return `not(evalConditionValue(conditionValue, attributeValue))`, which leaves `null` as `null`
 
 There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
 
-If operator doesn't match any of these, return false and potentially log the error for debug purposes.
+If operator doesn't match any of these, return `null` and potentially log the error for debug purposes.
 
 ## GrowthBook Class
 
@@ -1469,3 +1517,4 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
   - New public `reducePayload` method that shrinks a payload for one user: it includes or excludes features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups nothing references any more
   - New `pruneCondition` and `reducePayload` keys in the test cases
+  - Condition helpers return `null` when the result depends on an operator or saved group type the SDK doesn't support. `evalCondition` treats it as failing, so such a condition now fails under `$not` and `$nor` too, where it used to pass. New `evalCondition` cases cover this

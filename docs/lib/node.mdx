@@ -492,7 +492,7 @@ The `include` `projects` filter also removes rules that only apply to other proj
 `prerequisites` decides what happens when a feature you keep has a prerequisite the filters remove:
 
 - `"keep"` (the default) sends the prerequisite anyway, so the front-end evaluates the same as with the full payload.
-- `"filter"` leaves it out. The front-end treats it as an unknown feature with a `null` value, so checks against it fail, and if it's a gate, the dependent feature is blocked.
+- `"filter"` leaves it out. The front-end treats it as an unknown feature with a `null` value, so checks against it fail, and if it's a gate, the dependent feature is blocked. Holdouts are always kept, since they aren't features your app uses.
 
 Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. Without that metadata, an `include` filter removes every feature, and an `exclude` filter removes none.
 

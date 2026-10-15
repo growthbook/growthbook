@@ -13,8 +13,11 @@ import {
 import { hasOwn, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
-// Set when evalOperatorCondition meets an operator it doesn't support
-let unknownOperator = false;
+
+// true or false, or null when the result depends on an operator or saved group
+// type this SDK doesn't support. Exported functions treat null as failing.
+type Result = boolean | null;
+const not = (r: Result): Result => (r === null ? null : !r);
 
 // The top-level condition evaluation function
 export function evalCondition(
@@ -25,39 +28,58 @@ export function evalCondition(
   // Group ids already being resolved, to stop cycles
   visited?: Set<string>,
 ): boolean {
-  savedGroups = savedGroups || {};
-  visited = visited || new Set();
-  // Condition is an object, keys are either specific operators or object paths
-  // values are either arguments for operators or conditions for paths
+  return (
+    evalConditionResult(
+      obj,
+      condition,
+      savedGroups || {},
+      visited || new Set(),
+    ) === true
+  );
+}
+
+// Condition is an object, keys are either specific operators or object paths
+// values are either arguments for operators or conditions for paths
+function evalConditionResult(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  savedGroups: SavedGroupsPayload,
+  visited: Set<string>,
+): Result {
+  let result: Result = true;
   for (const [k, v] of Object.entries(condition)) {
+    let r: Result;
     switch (k) {
       case "$or":
-        if (!evalOr(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        r = evalOr(obj, v as ConditionInterface[], savedGroups, visited);
         break;
       case "$nor":
-        if (evalOr(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        r = not(evalOr(obj, v as ConditionInterface[], savedGroups, visited));
         break;
       case "$and":
-        if (!evalAnd(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        r = evalAnd(obj, v as ConditionInterface[], savedGroups, visited);
         break;
       case "$not":
-        if (evalCondition(obj, v as ConditionInterface, savedGroups, visited))
-          return false;
+        r = not(
+          evalConditionResult(
+            obj,
+            v as ConditionInterface,
+            savedGroups,
+            visited,
+          ),
+        );
         break;
       case "$savedGroup":
-        if (!evalSavedGroup(obj, v, savedGroups, visited)) return false;
+        r = evalSavedGroup(obj, v, savedGroups, visited) as Result;
         break;
       default:
-        if (
-          !evalConditionValue(v, getPath(obj, k), savedGroups, false, visited)
-        )
-          return false;
+        r = evalConditionValue(v, getPath(obj, k), savedGroups, false, visited);
     }
+    // One failing entry decides it, wherever an unsupported one is
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }
 
 // Partially evaluate a condition when only some attributes are known, e.g. on
@@ -91,18 +113,16 @@ export function pruneCondition(
         r = pruneCondition(obj, v as ConditionInterface, savedGroups, visited);
         break;
       case "$savedGroup":
-        r = evalSavedGroup(obj, v, savedGroups, visited, true);
+        r = evalSavedGroup(obj, v, savedGroups, visited, pruneCondition);
         // Keep an undecided reference as is rather than inlining the group
         if (typeof r !== "boolean") r = null;
         break;
       default:
-        unknownOperator = false;
+        // null when the attribute is unknown, or the value uses an operator
+        // this SDK doesn't support, which the client's SDK may
         r = isKnown(obj, k)
           ? evalConditionValue(v, getPath(obj, k), savedGroups, false, visited)
           : null;
-        // An operator this SDK doesn't support is left to the client, whose
-        // SDK may be newer
-        if (unknownOperator) r = null;
     }
     // $not and $nor pass when what they hold fails
     if ((k === "$not" || k === "$nor") && typeof r === "boolean") r = !r;
@@ -150,9 +170,10 @@ export function evalSavedGroup(
   reference: unknown,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-  // Returns null or a condition while unknown attributes decide the result
-  prune?: boolean,
-): boolean | ConditionInterface | null {
+  // pruneCondition, to return null or a condition while unknown attributes
+  // decide the result. Passed in so that builds that never prune leave it out.
+  prune?: typeof pruneCondition,
+): Result | ConditionInterface {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
 
@@ -180,7 +201,7 @@ export function evalSavedGroup(
   if (entry.type === "condition") {
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
-    return (prune ? pruneCondition : evalCondition)(
+    return (prune || evalConditionResult)(
       obj,
       entry.condition,
       savedGroups,
@@ -189,7 +210,7 @@ export function evalSavedGroup(
   }
 
   // A group type added after this SDK was built. The client SDK may support it.
-  return prune ? null : false;
+  return null;
 }
 
 // Return value at dot-separated path of an object
@@ -225,7 +246,7 @@ function evalConditionValue(
   savedGroups: SavedGroupsPayload,
   insensitive: boolean = false,
   visited: Set<string> = new Set(),
-) {
+): Result {
   // Simple equality comparisons
   if (typeof condition === "string") {
     if (insensitive) {
@@ -249,20 +270,19 @@ function evalConditionValue(
   }
 
   // This is a special operator condition and we should evaluate each one separately
+  let result: Result = true;
   for (const op in condition) {
-    if (
-      !evalOperatorCondition(
-        op as Operator,
-        value,
-        condition[op as keyof OperatorConditionValue],
-        savedGroups,
-        visited,
-      )
-    ) {
-      return false;
-    }
+    const r = evalOperatorCondition(
+      op as Operator,
+      value,
+      condition[op as keyof OperatorConditionValue],
+      savedGroups,
+      visited,
+    );
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }
 
 // If the object has only keys that start with '$'
@@ -290,19 +310,21 @@ function elemMatch(
   expected: any,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-) {
+): Result {
   if (!Array.isArray(actual)) return false;
   const check = isOperatorObject(expected)
     ? (v: any) => evalConditionValue(expected, v, savedGroups, false, visited)
-    : (v: any) => evalCondition(v, expected, savedGroups, visited);
+    : (v: any) => evalConditionResult(v, expected, savedGroups, visited);
+  let result: Result = false;
   for (let i = 0; i < actual.length; i++) {
     // Only skip nullish elements; falsy values like 0, "" and false are valid
     // array members and must still be tested against the condition.
-    if ((actual[i] ?? null) !== null && check(actual[i])) {
-      return true;
-    }
+    if ((actual[i] ?? null) === null) continue;
+    const r = check(actual[i]);
+    if (r === true) return true;
+    if (r === null) result = null;
   }
-  return false;
+  return result;
 }
 
 export function isIn(
@@ -356,27 +378,29 @@ function isInAll(
   savedGroups: SavedGroupsPayload,
   insensitive: boolean = false,
   visited: Set<string> = new Set(),
-): boolean {
+): Result {
   if (!Array.isArray(actual)) return false;
+  let result: Result = true;
   for (let i = 0; i < expected.length; i++) {
-    let passed = false;
+    let passed: Result = false;
     for (let j = 0; j < actual.length; j++) {
-      if (
-        evalConditionValue(
-          expected[i],
-          actual[j],
-          savedGroups,
-          insensitive,
-          visited,
-        )
-      ) {
+      const r = evalConditionValue(
+        expected[i],
+        actual[j],
+        savedGroups,
+        insensitive,
+        visited,
+      );
+      if (r === true) {
         passed = true;
         break;
       }
+      if (r === null) passed = null;
     }
-    if (!passed) return false;
+    if (passed === false) return false;
+    if (passed === null) result = null;
   }
-  return true;
+  return result;
 }
 
 // Evaluate a single operator condition
@@ -386,7 +410,7 @@ function evalOperatorCondition(
   expected: any,
   savedGroups: SavedGroupsPayload,
   visited: Set<string> = new Set(),
-): boolean {
+): Result {
   switch (operator) {
     case "$veq":
       return paddedVersionString(actual) === paddedVersionString(expected);
@@ -437,7 +461,9 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected, true);
     case "$not":
-      return !evalConditionValue(expected, actual, savedGroups, false, visited);
+      return not(
+        evalConditionValue(expected, actual, savedGroups, false, visited),
+      );
     case "$size":
       if (!Array.isArray(actual)) return false;
       return evalConditionValue(
@@ -470,9 +496,8 @@ function evalOperatorCondition(
     case "$type":
       return getType(actual) === expected;
     default:
-      unknownOperator = true;
       console.error("Unknown operator: " + operator);
-      return false;
+      return null;
   }
 }
 
@@ -482,14 +507,15 @@ function evalOr(
   conditions: ConditionInterface[],
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-): boolean {
+): Result {
   if (!conditions.length) return true;
+  let result: Result = false;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalCondition(obj, conditions[i], savedGroups, visited)) {
-      return true;
-    }
+    const r = evalConditionResult(obj, conditions[i], savedGroups, visited);
+    if (r === true) return true;
+    if (r === null) result = null;
   }
-  return false;
+  return result;
 }
 
 // Recursive $and rule
@@ -498,11 +524,12 @@ function evalAnd(
   conditions: ConditionInterface[],
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-): boolean {
+): Result {
+  let result: Result = true;
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalCondition(obj, conditions[i], savedGroups, visited)) {
-      return false;
-    }
+    const r = evalConditionResult(obj, conditions[i], savedGroups, visited);
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }

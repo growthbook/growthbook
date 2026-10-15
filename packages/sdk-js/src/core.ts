@@ -1427,15 +1427,18 @@ export function reducePayload(
   };
 
   // Adds a feature, then the prerequisites the client evaluates for it, even
-  // when the filters drop them. With "filter", only the filters decide.
+  // when the filters drop them. With "filter", only the filters decide, except
+  // for holdouts, which aren't app features and are always kept.
   // A Map keeps a `__proto__` key as a plain key.
   const added = new Map<string, FeatureDefinition>();
   const addParents = (item: {
     parentConditions?: ParentConditionInterface[];
-  }) => {
-    if (prerequisites === "filter") return;
-    (item.parentConditions || []).forEach((p) => add(p.id));
-  };
+  }) =>
+    (item.parentConditions || []).forEach((p) => {
+      if (prerequisites !== "filter" || p.id.startsWith("$holdout:")) {
+        add(p.id);
+      }
+    });
   const add = (id: string) => {
     const feature = hasOwn(allFeatures, id) && allFeatures[id];
     if (!feature || added.has(id)) return;
@@ -1470,7 +1473,7 @@ export function reducePayload(
         { id: x },
         savedGroups,
         new Set(),
-        true,
+        pruneCondition,
       );
       groups.set(
         x,

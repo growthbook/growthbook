@@ -1332,6 +1332,24 @@
       false
     ],
     [
+      "an unknown operator under $not fails, since this SDK can't evaluate it",
+      { "$not": { "name": { "$regx": "hello" } } },
+      { "name": "world" },
+      false
+    ],
+    [
+      "an unknown operator under $nor fails, since this SDK can't evaluate it",
+      { "$nor": [{ "name": { "$regx": "hello" } }] },
+      { "name": "world" },
+      false
+    ],
+    [
+      "an unknown operator doesn't stop an $or that another condition passes",
+      { "$or": [{ "name": { "$regx": "x" } }, { "name": "hello" }] },
+      { "name": "hello" },
+      true
+    ],
+    [
       "unknown operator - pass",
       {
         "name": {
@@ -3868,6 +3886,12 @@
       { "id": { "$notAnOperator": "x" } }
     ],
     [
+      "a known operator that fails decides the condition, even beside an unknown operator",
+      { "id": { "$notAnOperator": "x", "$eq": "456" } },
+      { "id": "123" },
+      false
+    ],
+    [
       "an unknown operator nested in a known attribute condition stays",
       { "tags": { "$elemMatch": { "$notAnOperator": "x" } } },
       { "tags": ["a"] },
@@ -4316,6 +4340,114 @@
             "variations": [{}, {}],
             "metadata": { "projects": ["p1"] },
             "parentConditions": [{ "id": "f2", "condition": { "value": true } }]
+          }
+        ],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "prerequisites \"filter\" still keeps the holdouts that kept features and experiments use",
+      {
+        "payload": {
+          "features": {
+            "$holdout:h1": {
+              "defaultValue": "genpop",
+              "rules": [
+                {
+                  "id": "$holdout:h1",
+                  "coverage": 0.1,
+                  "hashAttribute": "id",
+                  "seed": "s1",
+                  "hashVersion": 2,
+                  "variations": ["holdoutcontrol", "holdouttreatment"],
+                  "weights": [0.5, 0.5],
+                  "key": "holdout-1"
+                }
+              ]
+            },
+            "$holdout:h2": { "defaultValue": "genpop" },
+            "$holdout:h3": { "defaultValue": "genpop" },
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "tags": ["web"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "$holdout:h1",
+                      "condition": { "value": "holdoutcontrol" }
+                    },
+                    { "id": "f2", "condition": { "value": true } }
+                  ],
+                  "force": 0
+                }
+              ]
+            },
+            "f2": { "defaultValue": true, "metadata": { "tags": ["server"] } }
+          },
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "metadata": { "tags": ["web"] },
+              "parentConditions": [
+                {
+                  "id": "$holdout:h2",
+                  "condition": { "value": "holdoutcontrol" }
+                }
+              ]
+            }
+          ]
+        },
+        "include": { "tags": ["web"] },
+        "prerequisites": "filter"
+      },
+      {
+        "features": {
+          "$holdout:h1": {
+            "defaultValue": "genpop",
+            "rules": [
+              {
+                "id": "$holdout:h1",
+                "coverage": 0.1,
+                "hashAttribute": "id",
+                "seed": "s1",
+                "hashVersion": 2,
+                "variations": ["holdoutcontrol", "holdouttreatment"],
+                "weights": [0.5, 0.5],
+                "key": "holdout-1"
+              }
+            ]
+          },
+          "$holdout:h2": { "defaultValue": "genpop" },
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "tags": ["web"] },
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "$holdout:h1",
+                    "condition": { "value": "holdoutcontrol" }
+                  },
+                  { "id": "f2", "condition": { "value": true } }
+                ],
+                "force": 0
+              }
+            ]
+          }
+        },
+        "experiments": [
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "metadata": { "tags": ["web"] },
+            "parentConditions": [
+              {
+                "id": "$holdout:h2",
+                "condition": { "value": "holdoutcontrol" }
+              }
+            ]
           }
         ],
         "savedGroups": {}
@@ -12953,6 +13085,13 @@
             }
           }
         }
+      ],
+      [
+        "an unknown group type fails under $not too, since this SDK can't evaluate it",
+        { "$not": { "$savedGroup": { "id": "grp_future" } } },
+        { "id": "u_1" },
+        false,
+        { "grp_future": { "type": "somethingNew", "values": ["u_1"] } }
       ],
       [
         "an unknown group type matches nobody",
