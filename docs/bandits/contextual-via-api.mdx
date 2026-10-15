@@ -66,7 +66,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
   }'
 ```
 
-The `key` values (`control`, `treatment`) are what the SDK exposes as `result.key`, and what your assignment query's `variation_id` must return. Snapshot processing matches rows on the key only, not the variation index or GrowthBook id. See [`variation_id` must match the variation key](/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query).
+The `key` values (`control`, `treatment`) are what the SDK reports as `result.key` and what your assignment query must return as `variation_id`. Use the key, not the variation's position or its `id` (`var_…`, which the linked-feature and weights endpoints use). See [the `variation_id` requirement](/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query).
 
 Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryId`, `variations`, `decisionMetric`, and `contextualAttributes`. Like `targetingAttributeColumns`, every `contextualAttributes` entry must match an organization targeting attribute; entries not present in the query's `targetingAttributeColumns` are dropped at run time rather than rejected on create. Another crucial field is `hashAttribute`, which is the attribute used to randomize users into variations, which should map to the user identifier in your assignment query. For short-lived bandits, we suggest a `session_id` or `device_id` that will re-generate on future visits to ensure you get the most power while managing when a session ends yourself.
 
