@@ -82,7 +82,7 @@ export function RowFilterPanel({
     );
 
   return (
-    <Flex direction="column" gap="3" height="100%">
+    <Flex direction="column" gap="3" flexGrow="1" minHeight="0">
       <Flex justify="between" align="center" gap="2">
         <Text weight="medium">
           Filters{local.length > 0 ? ` (${local.length})` : ""}
@@ -96,48 +96,59 @@ export function RowFilterPanel({
         />
       </Flex>
 
-      <Flex direction="column" gap="2">
-        {local.map((filter, i) => (
-          <RowFilterCard
-            key={filter._localId}
-            filter={filter}
-            index={i}
-            columnSource={columnSource}
-            autoFocus={i === local.length - 1}
-            onUpdate={(updates) => update(i, updates)}
-            onDelete={() =>
-              setLocal((prev) => prev.filter((_, idx) => idx !== i))
-            }
-          />
-        ))}
-      </Flex>
-
-      <Box flexGrow="1" />
-
+      {/* A zero basis keeps the filters out of the panel's natural height, so
+          that height is just the fixed controls plus the actions row (the min
+          height below). Past that, the filter list alone shrinks and scrolls,
+          and the actions stay right under it. */}
       <Flex
-        justify="end"
+        direction="column"
         gap="2"
-        pt="3"
-        style={{ borderTop: "1px solid var(--gray-a3)" }}
+        flexGrow="1"
+        flexBasis={{ initial: "auto", sm: "0" }}
+        style={{ minHeight: "calc(var(--space-3) + var(--space-5) + 1px)" }}
       >
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled || (!local.length && !value.length)}
-          onClick={() => {
-            setLocal([]);
-            commit([]);
-          }}
+        <Flex direction="column" gap="2" minHeight="0" overflowY="auto">
+          {local.map((filter, i) => (
+            <RowFilterCard
+              key={filter._localId}
+              filter={filter}
+              index={i}
+              columnSource={columnSource}
+              autoFocus={i === local.length - 1}
+              onUpdate={(updates) => update(i, updates)}
+              onDelete={() =>
+                setLocal((prev) => prev.filter((_, idx) => idx !== i))
+              }
+            />
+          ))}
+        </Flex>
+
+        <Flex
+          justify="end"
+          gap="2"
+          pt="3"
+          flexShrink="0"
+          style={{ borderTop: "1px solid var(--gray-a3)" }}
         >
-          Clear
-        </Button>
-        <Button
-          size="sm"
-          disabled={disabled || !hasPendingChanges}
-          onClick={() => commit(applicable)}
-        >
-          Apply
-        </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled || (!local.length && !value.length)}
+            onClick={() => {
+              setLocal([]);
+              commit([]);
+            }}
+          >
+            Clear
+          </Button>
+          <Button
+            size="sm"
+            disabled={disabled || !hasPendingChanges}
+            onClick={() => commit(applicable)}
+          >
+            Apply
+          </Button>
+        </Flex>
       </Flex>
     </Flex>
   );

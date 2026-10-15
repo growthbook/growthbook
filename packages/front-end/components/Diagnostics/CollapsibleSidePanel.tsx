@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretLeft,
@@ -6,7 +6,6 @@ import {
   PiCaretUp,
 } from "react-icons/pi";
 import { ReactNode, useState } from "react";
-import Button from "@/ui/Button";
 import styles from "./CollapsibleSidePanel.module.scss";
 
 export default function CollapsibleSidePanel({
@@ -52,10 +51,10 @@ export default function CollapsibleSidePanel({
         </Box>
       )}
       <Box className={styles.divider}>
-        <Button
+        <IconButton
           variant="soft"
           color="gray"
-          size="sm"
+          size="1"
           className={styles.toggle}
           onClick={toggle}
           aria-expanded={!collapsed}
@@ -75,7 +74,7 @@ export default function CollapsibleSidePanel({
               <PiCaretUp aria-hidden />
             )}
           </span>
-        </Button>
+        </IconButton>
       </Box>
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
