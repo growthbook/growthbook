@@ -254,6 +254,17 @@ export default function AISettings({
     ? { value: "", note: getModelDisplayLabel(sttDefault) }
     : null;
 
+  // Same rule as the server: the cheap tier needs an Anthropic key (Cloud's
+  // managed one counts); otherwise autocomplete runs on the org default.
+  const autocompleteDefaultNote = {
+    value: "",
+    note: getModelDisplayLabel(
+      isCloud() || hasKeyForProvider("anthropic")
+        ? AUTOCOMPLETE_AI_MODEL
+        : defaultAIModel,
+    ),
+  };
+
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
     keys.forEach((key) => form.setValue(key, ""));
     mutatePrompts();
@@ -541,19 +552,20 @@ export default function AISettings({
                         options={[
                           {
                             value: "",
-                            // Same rule as the server: the cheap tier needs
-                            // an Anthropic key (Cloud's managed one counts).
-                            label: `Use default (${getModelDisplayLabel(
-                              isCloud() || hasKeyForProvider("anthropic")
-                                ? AUTOCOMPLETE_AI_MODEL
-                                : defaultAIModel,
-                            )})`,
+                            label: "Use default autocomplete model",
                           },
                           ...getAvailableAIModelOptions(
                             availableProviders,
                             form.watch("aiAutocompleteModel"),
                           ),
                         ]}
+                        formatOptionLabel={(option, { context }) =>
+                          modelOptionLabel(
+                            option,
+                            context,
+                            autocompleteDefaultNote,
+                          )
+                        }
                       />
                       <ApiKeyWarning
                         model={form.watch("aiAutocompleteModel")}
