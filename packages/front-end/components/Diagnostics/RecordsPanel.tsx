@@ -212,9 +212,9 @@ export default function RecordsPanel<TRow extends object, TResponse>({
         )}
         {truncated && (
           <Callout status="info" size="sm" mb="3">
-            This range holds more rows than were loaded, so counts and pages
-            cover the most recent ones only. Narrow the timeframe to see the
-            rest.
+            Row limit exceeded. Data below only contains the most recent
+            exposures. Use a narrower timeframe or add a filter to ensure all
+            relevant exposures are included.
             {search.trim() ? " Search looks at the loaded rows alone." : ""}
           </Callout>
         )}
