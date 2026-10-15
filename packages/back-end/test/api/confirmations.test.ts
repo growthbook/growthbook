@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "timers/promises";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { NextFunction, Request, Response } from "express";
@@ -69,6 +70,10 @@ const bot = keyDoc("key_bot", {
   confirmRules: [{ actions: ["feature.*"] }],
 });
 const ci = keyDoc("key_ci", { role: "admin" });
+const recommended = keyDoc("key_recommended", {
+  role: "admin",
+  confirmRules: [{ actions: ["recommended"] }],
+});
 const assumer = keyDoc("key_assume", {
   role: "admin",
   requesterPermissions: "assume",
@@ -142,7 +147,7 @@ async function seed(env: string) {
   );
   await mongoose.connection
     .collection("apikeys")
-    .insertMany([pat, engineerPat, bot, ci, assumer]);
+    .insertMany([pat, engineerPat, bot, ci, assumer, recommended]);
   await mongoose.connection.collection("features").insertOne({
     id: FLAG,
     organization: ORG_ID,
@@ -184,6 +189,64 @@ async function seed(env: string) {
     .collection("featurerevisions")
     .insertMany([revision(1, "published", []), revision(2, "draft", [rule])]);
 }
+
+const EXP = "exp_hitl";
+// A draft experiment the flag's draft is queued on, published when it starts.
+const seedExperiment = () =>
+  mongoose.connection.collection("experiments").insertOne({
+    id: EXP,
+    organization: ORG_ID,
+    trackingKey: EXP,
+    name: "Checkout test",
+    type: "standard",
+    owner: "u_admin",
+    project: "",
+    hypothesis: "",
+    description: "",
+    tags: [],
+    dateCreated: now,
+    dateUpdated: now,
+    archived: false,
+    status: "draft",
+    autoSnapshots: false,
+    hashAttribute: "id",
+    hashVersion: 2,
+    variations: [
+      { id: "0", key: "0", name: "Control", screenshots: [] },
+      { id: "1", key: "1", name: "Variation", screenshots: [] },
+    ],
+    phases: [
+      {
+        dateStarted: now,
+        name: "Main",
+        reason: "",
+        coverage: 1,
+        condition: "",
+        savedGroups: [],
+        namespace: { enabled: false, name: "", range: [0, 1] },
+        variationWeights: [0.5, 0.5],
+      },
+    ],
+    linkedFeatures: [FLAG],
+    pendingFeatureDrafts: [{ featureId: FLAG, revisionVersion: 2 }],
+    datasource: "",
+    exposureQueryId: "",
+    goalMetrics: [],
+    secondaryMetrics: [],
+  });
+
+const insertConstant = (key: string) =>
+  mongoose.connection.collection("constants").insertOne({
+    id: `const_${key}`,
+    organization: ORG_ID,
+    key,
+    name: key,
+    owner: "",
+    type: "string",
+    value: "before",
+    dateCreated: now,
+    dateUpdated: now,
+  });
 
 const featureVersion = async () =>
   (
@@ -239,6 +302,7 @@ describe("confirmations", () => {
     expect(held.headers.location).toBe(
       `/api/v1/confirmations/${held.body.confirmation.id}`,
     );
+    expect(held.headers["retry-after"]).toBe("5");
     expect(held.body.confirmation).toMatchObject({
       status: "pending",
       actions: [{ action: "feature.publish", environments: ["production"] }],
@@ -686,11 +750,6 @@ describe("confirmations", () => {
 
   it("holds creating a flag that starts on as a publish there", async () => {
     await seed("production");
-    const recommended = keyDoc("key_recommended", {
-      role: "admin",
-      confirmRules: [{ actions: ["recommended"] }],
-    });
-    await mongoose.connection.collection("apikeys").insertOne(recommended);
     setReqContext(asKey(recommended));
     const create = (id: string, enabled: boolean) =>
       auth(request(app).post("/api/v2/features")).send({
@@ -714,11 +773,6 @@ describe("confirmations", () => {
 
   it("holds an edit to a draft armed to publish as the publish", async () => {
     await seed("production");
-    const recommended = keyDoc("key_recommended", {
-      role: "admin",
-      confirmRules: [{ actions: ["recommended"] }],
-    });
-    await mongoose.connection.collection("apikeys").insertOne(recommended);
     setReqContext(asKey(recommended));
     const toggle = () =>
       auth(
@@ -726,6 +780,11 @@ describe("confirmations", () => {
       ).send({ environment: "dev", enabled: false });
 
     expect((await toggle()).status).toBe(200);
+    setReqContext(asKey({ ...bot, ...everything }));
+    expect((await toggle()).body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+    ]);
+    setReqContext(asKey(recommended));
     await mongoose.connection
       .collection("featurerevisions")
       .updateOne(
@@ -739,6 +798,220 @@ describe("confirmations", () => {
     ]);
   });
 
+  it("holds starting an experiment as a publish of its queued drafts, pinned to them", async () => {
+    await seed("production");
+    await seedExperiment();
+    setReqContext(asKey(recommended));
+    const held = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/start`),
+    ).send({ skipChecklist: true });
+    expect(held.status).toBe(202);
+    const { id, actions } = held.body.confirmation;
+    expect(
+      actions.map(({ action }: { action: string }) => action).sort(),
+    ).toEqual([
+      "experiment.start",
+      "feature.publish",
+      "override.skipChecklist",
+    ]);
+    expect(
+      (await mongoose.connection.collection("confirmations").findOne({ id }))
+        ?.links,
+    ).toContainEqual(expect.objectContaining({ type: "feature", label: FLAG }));
+
+    // The queued draft changes after the hold, so the confirmed start refuses.
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: FLAG, version: 2 },
+        { $set: { dateUpdated: new Date(Date.now() + 1000) } },
+      );
+    expect(
+      await decideConfirmation(asUser("u_admin"), id, "confirm"),
+    ).toMatchObject({
+      status: "expired",
+      response: {
+        body: { message: expect.stringContaining("changed after it was") },
+      },
+    });
+  });
+
+  it("holds a release as a publish of each item, and lands them all once confirmed", async () => {
+    await seed("production");
+    await insertConstant("hitl_release");
+    setReqContext(asKey(ci));
+    const draft = await auth(
+      request(app).put("/api/v1/constants-revisions/hitl_release/new/value"),
+    ).send({ value: "after" });
+    expect(draft.status).toBe(200);
+
+    setReqContext(asKey(recommended));
+    const held = await auth(
+      request(app).post("/api/v1/releases/publish-revisions"),
+    ).send({
+      revisions: [
+        { entityType: "feature", id: FLAG, version: 2 },
+        {
+          entityType: "constant",
+          key: "hitl_release",
+          version: draft.body.revision.version,
+        },
+      ],
+    });
+    expect(held.status).toBe(202);
+    expect(
+      held.body.confirmation.actions.map(
+        ({ action }: { action: string }) => action,
+      ),
+    ).toEqual(expect.arrayContaining(["feature.publish", "constant.publish"]));
+
+    // The replay builds its own context, on a plan the test org doesn't have.
+    const premium = jest
+      .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
+      .mockReturnValue(true);
+    const done = await decideConfirmation(
+      asUser("u_admin"),
+      held.body.confirmation.id,
+      "confirm",
+    );
+    premium.mockRestore();
+
+    expect(done).toMatchObject({
+      status: "completed",
+      response: { status: 200 },
+    });
+    expect(await featureVersion()).toBe(2);
+    expect(
+      (
+        await mongoose.connection
+          .collection("constants")
+          .findOne({ organization: ORG_ID, key: "hitl_release" })
+      )?.value,
+    ).toBe("after");
+  });
+
+  it("names and links what a governance edit changes", async () => {
+    await seed("production");
+    setReqContext(asKey(ci));
+    const project = (
+      await auth(request(app).post("/api/v1/projects")).send({
+        name: "Checkout",
+      })
+    ).body.project;
+    const sdk = (
+      await auth(request(app).post("/api/v1/sdk-connections")).send({
+        name: "Checkout web",
+        language: "javascript",
+        environment: "production",
+      })
+    ).body.sdkConnection;
+
+    setReqContext(asKey(recommended));
+    for (const [path, summary, label, page] of [
+      [
+        `/api/v1/projects/${project.id}`,
+        "Update Project Checkout: name",
+        "Checkout",
+        `/project/${project.id}`,
+      ],
+      [
+        `/api/v1/sdk-connections/${sdk.id}`,
+        "Update SDK Connection Checkout web: name",
+        "Checkout web",
+        `/sdks/${sdk.id}`,
+      ],
+    ]) {
+      const held = await auth(request(app).put(path)).send({
+        name: "Renamed",
+      });
+      expect(held.status).toBe(202);
+      expect(held.body.confirmation.summary).toBe(summary);
+      expect(
+        (
+          await mongoose.connection
+            .collection("confirmations")
+            .findOne({ id: held.body.confirmation.id })
+        )?.links,
+      ).toEqual([
+        expect.objectContaining({ label, url: expect.stringContaining(page) }),
+      ]);
+    }
+  });
+
+  it("holds a revert as a publish, or as a draft when it only stages one", async () => {
+    await seed("production");
+    setReqContext(asKey(ci));
+    expect((await publish()).status).toBe(200);
+
+    setReqContext(asKey({ ...bot, ...everything }));
+    const revert = (strategy: "draft" | "publish") =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions/1/revert`),
+      ).send({ strategy });
+    const staged = await revert("draft");
+    expect(staged.status).toBe(202);
+    expect(staged.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+    ]);
+    const landed = await revert("publish");
+    expect(landed.status).toBe(202);
+    expect(
+      landed.body.confirmation.actions.map(
+        ({ action }: { action: string }) => action,
+      ),
+    ).toContain("feature.publish");
+
+    expect(
+      await decideConfirmation(
+        asUser("u_admin"),
+        staged.body.confirmation.id,
+        "confirm",
+      ),
+    ).toMatchObject({ status: "completed", response: { status: 200 } });
+    expect(await featureVersion()).toBe(2);
+  });
+
+  it("holds a constant publish that archives it as an archive", async () => {
+    await seed("production");
+    await insertConstant("hitl_archive");
+    setReqContext(asKey(ci));
+    const draft = await auth(
+      request(app).put("/api/v1/constants-revisions/hitl_archive/new/archive"),
+    ).send({ archived: true });
+    expect(draft.status).toBe(200);
+
+    const archiveOnly = keyDoc("key_archive", {
+      role: "admin",
+      confirmRules: [{ actions: ["constant.archive"] }],
+    });
+    await mongoose.connection.collection("apikeys").insertOne(archiveOnly);
+    setReqContext(asKey(archiveOnly));
+    const held = await auth(
+      request(app).post(
+        `/api/v1/constants-revisions/hitl_archive/${draft.body.revision.version}/publish`,
+      ),
+    ).send({});
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "constant.archive", environments: [] },
+    ]);
+  });
+
+  it("answers a waiting poll as soon as the hold is decided", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const id = (await publish()).body.confirmation.id;
+    const started = Date.now();
+    const waiting = auth(
+      request(app).get(`/api/v1/confirmations/${id}?wait=10`),
+    ).then((res) => res.body.confirmation.status);
+    // Long enough for the poll to see it pending first.
+    await delay(1500);
+    await decideConfirmation(asUser("u_torres"), id, "reject");
+    expect(await waiting).toBe("rejected");
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
   it("leaves an org key without rules alone", async () => {
     await seed("production");
     setReqContext(asKey(ci));
@@ -747,11 +1020,6 @@ describe("confirmations", () => {
 
   it("holds an environment edit on the recommended rule, but not a new one", async () => {
     await seed("production");
-    const recommended = keyDoc("key_recommended", {
-      role: "admin",
-      confirmRules: [{ actions: ["recommended"] }],
-    });
-    await mongoose.connection.collection("apikeys").insertOne(recommended);
     setReqContext(asKey(recommended));
 
     const created = await auth(request(app).post("/api/v1/environments")).send({
