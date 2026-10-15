@@ -268,6 +268,7 @@ export const confirmationValidator = baseSchema.safeExtend({
   // finished is tried again.
   attempts: z.number().optional(),
   attemptedAt: z.date().nullable().optional(),
+  retryable: z.boolean().optional(),
   expiresAt: z.date(),
   deleteAt: z.date(),
 });

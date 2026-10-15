@@ -163,8 +163,9 @@ export async function decideConfirmation(
 }
 
 // For a run cut off mid-request: claim it again and rerun it, or give up after
-// MAX_ATTEMPTS. Both go on the key's audit log. A rerun whose first try got far
-// enough to change its target is refused by the hold's pin, not applied twice.
+// MAX_ATTEMPTS. Both go on the key's audit log. Only a pinned hold reruns: a
+// first try that got far enough to change its target fails the pin instead of
+// applying twice.
 export async function retryStuckConfirmation(context: ReqContext, id: string) {
   const startedBefore = new Date(Date.now() - STUCK_AFTER_MS);
   const claimed = await context.models.confirmations.updateWithCas(
@@ -179,6 +180,16 @@ export async function retryStuckConfirmation(context: ReqContext, id: string) {
         return null;
       }
       const attempts = doc.attempts ?? 1;
+      if (!doc.retryable) {
+        return {
+          status: "completed",
+          response: failure(
+            new Error(
+              "This request was cut off before it finished and can't safely run twice. Check whether it took effect, then send it again.",
+            ),
+          ),
+        };
+      }
       return attempts >= MAX_ATTEMPTS
         ? {
             status: "completed",

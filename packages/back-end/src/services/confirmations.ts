@@ -279,6 +279,9 @@ export async function requireConfirmation(
       ...request,
       requestHash,
       actions: held,
+      // A pin refuses a rerun that finds its target already changed; without
+      // one, a rerun could apply the write twice.
+      retryable: opts.pin !== null,
       summary,
       links,
       notices: lastAttempt?.notices ?? opts.notices ?? [],
@@ -749,9 +752,8 @@ export function experimentChangeActions(
   }
   // Back to draft takes it out of the payload, like stopping it.
   if (
-    (changes.status === "stopped" || changes.status === "draft") &&
-    existing.status !== changes.status &&
-    existing.status !== "draft"
+    (changes.status === "stopped" && existing.status !== "stopped") ||
+    (changes.status === "draft" && existing.status !== "draft")
   ) {
     actions.add("experiment.stop");
   }

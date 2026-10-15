@@ -23,6 +23,12 @@ describe("experimentChangeActions", () => {
     ]);
     expect(
       experimentChangeActions(
+        { ...running, status: "draft" } as unknown as ExperimentInterface,
+        { status: "stopped" },
+      ),
+    ).toEqual(["experiment.stop"]);
+    expect(
+      experimentChangeActions(
         { ...running, statusUpdateSchedule: { stopAt: new Date() } },
         { statusUpdateSchedule: null },
       ),

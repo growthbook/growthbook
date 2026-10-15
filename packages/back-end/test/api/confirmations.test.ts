@@ -332,18 +332,27 @@ describe("confirmations", () => {
   it("reruns a confirmed request a restart cut off, giving up after three tries", async () => {
     await seed("production");
     setReqContext(asKey(pat));
-    const cutOff = async (attempts: number) => {
+    const cutOff = async (attempts: number, retryable = true) => {
       const id = (await publish()).body.confirmation.id;
-      await mongoose.connection
-        .collection("confirmations")
-        .updateOne(
-          { id },
-          { $set: { status: "running", attempts, attemptedAt: new Date(0) } },
-        );
+      await mongoose.connection.collection("confirmations").updateOne(
+        { id },
+        {
+          $set: {
+            status: "running",
+            attempts,
+            attemptedAt: new Date(0),
+            retryable,
+          },
+        },
+      );
       await retryStuckConfirmation(asUser("u_admin"), id);
       return (await poll(id)).body.confirmation;
     };
 
+    expect(await cutOff(1, false)).toMatchObject({
+      status: "completed",
+      response: { body: { message: expect.stringContaining("run twice") } },
+    });
     expect(await cutOff(3)).toMatchObject({
       status: "completed",
       response: {
