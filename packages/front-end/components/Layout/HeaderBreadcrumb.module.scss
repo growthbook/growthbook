@@ -16,16 +16,36 @@
   min-width: 0;
 }
 
+// --slate-10, as the side nav's chevrons (set in review; was --slate-11).
 .separator {
   flex-shrink: 0;
   display: flex;
-  color: var(--slate-11);
+  color: var(--slate-10);
 }
 
-// The chevron after the project selector: 4px closer to it (2px, set in
-// review), the button's own padding already adding space on that side.
-.afterProject {
+// A chevron beside a button crumb (the project selector, the section, the
+// current page): 4px closer to it, 2px from its edge (set in review), the
+// button's own padding already adding space on that side.
+.afterButton {
   margin-left: -4px;
+}
+
+.beforeButton {
+  margin-right: -4px;
+}
+
+// The current page's button (disabled): the plain arrow cursor, not
+// "not allowed".
+.currentButton.currentButton {
+  cursor: default;
+}
+
+// The current page's button: its wrapper (named the current page) lets
+// its label truncate.
+.currentCrumb {
+  display: inline-flex;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 // Multi-org users only: the org, plain text, not interactive.
@@ -190,36 +210,10 @@
   }
 }
 
-// Section crumb: a link, --gray-12, underlined on hover.
-.section {
-  flex-shrink: 0;
-  color: var(--gray-12);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  text-decoration: none;
-
-  &:hover {
-    color: var(--gray-12);
-    text-decoration: underline;
-  }
-}
-
 .sectionText {
   flex-shrink: 0;
   color: var(--gray-12);
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-}
-
-// Object crumb: the current object's name in --slate-11, truncated.
-.objectText {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--slate-11);
-  font-size: 13px;
-  font-weight: 500;
 }
