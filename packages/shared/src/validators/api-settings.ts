@@ -360,8 +360,8 @@ export const getSettingsValidator = {
 };
 
 export const putSettingsValidator = {
-  bodySchema: z.strictObject(
-    Object.fromEntries(
+  bodySchema: z.strictObject({
+    ...(Object.fromEntries(
       Object.entries(writableSettingsFields).map(([key, schema]) => [
         key,
         schema.nullable().optional(),
@@ -370,8 +370,14 @@ export const putSettingsValidator = {
       [K in ApiWritableSettingKey]: z.ZodOptional<
         z.ZodNullable<(typeof writableSettingsFields)[K]>
       >;
-    },
-  ),
+    }),
+    acceptAiTerms: z
+      .boolean()
+      .optional()
+      .describe(
+        "Records acceptance of the AI terms on behalf of the organization. Required on GrowthBook Cloud the first time `aiEnabled` is turned on.",
+      ),
+  }),
   querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: z
