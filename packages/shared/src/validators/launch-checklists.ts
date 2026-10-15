@@ -7,7 +7,11 @@ const checklistTask = z
     completionType: z
       .enum(["manual", "auto"])
       .describe("`auto` items are checked off from the experiment itself"),
-    url: z.string().optional().describe("Optional link shown with the task"),
+    url: z
+      .string()
+      .regex(/^https?:\/\//i, "url must start with http:// or https://")
+      .optional()
+      .describe("Optional link shown with the task"),
     propertyKey: z
       .enum([
         "description",
@@ -109,7 +113,7 @@ export const putLaunchChecklistValidator = {
 
 export const deleteLaunchChecklistValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ projectId: z.string() }).strict(),
+  querySchema: z.object({ projectId: z.string().min(1) }).strict(),
   paramsSchema: z.never(),
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a Project's pre-launch checklist",

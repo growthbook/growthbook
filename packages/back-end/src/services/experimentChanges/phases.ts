@@ -236,7 +236,11 @@ export async function startNewExperimentPhase({
   );
   const now = new Date();
   const phases = [...experiment.phases];
-  phases[phases.length - 1] = { ...last, dateEnded: now, reason: reason ?? "" };
+  phases[phases.length - 1] = {
+    ...last,
+    dateEnded: now,
+    reason: reason ?? last.reason,
+  };
   phases.push({
     ...next,
     dateStarted: now,

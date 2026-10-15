@@ -449,15 +449,16 @@ export const updateExperiment = createApiRequestHandler(
     });
   }
 
-  await applyExperimentHoldoutChange(req.context, experiment, {
-    holdoutId: req.body.holdoutId,
-    project: req.body.project,
-  });
-
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
   await validateExperimentChange({ context: req.context, experiment, changes });
+
+  // Last check before writing, so a rejected update leaves holdout links alone
+  await applyExperimentHoldoutChange(req.context, experiment, {
+    holdoutId: req.body.holdoutId,
+    project: req.body.project,
+  });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;
