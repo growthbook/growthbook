@@ -500,6 +500,48 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
       ),
     ).toBe("96e51c90778ee575dc6cae62b2e99df2");
   });
+
+  it("keeps the pinned md5 for a non-cluster experiment (isClusterExperiment false)", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, isClusterExperiment: false },
+        [],
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash for a cluster experiment", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        },
+        [],
+      ),
+    ).not.toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash when the cluster sub-unit identifier changes", () => {
+    const base = getExperimentSettingsHashForIncrementalRefresh(
+      {
+        ...GOLDEN_INPUT,
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+      },
+      [],
+    );
+    const changed = getExperimentSettingsHashForIncrementalRefresh(
+      {
+        ...GOLDEN_INPUT,
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "device_id",
+      },
+      [],
+    );
+    expect(changed).not.toBe(base);
+  });
 });
 
 describe("legacyDocDescribesPhase", () => {

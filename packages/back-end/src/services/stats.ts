@@ -18,6 +18,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
@@ -314,10 +315,8 @@ export function getMetricSettingsForStatsEngine(
     applyMetricOverrides(denominator, settings);
   }
 
-  const isClusterMetric =
-    !!settings.isClusterExperiment &&
-    !!settings.clusterSubUnitIdentifier &&
-    isFactMetric(metric);
+  // Cluster-level metrics are a standard analysis with the cluster as the unit.
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
 
   const ratioMetric = isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);

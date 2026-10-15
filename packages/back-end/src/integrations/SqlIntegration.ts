@@ -152,6 +152,7 @@ import {
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
+import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
@@ -180,6 +181,7 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getQuantileSketchGridColumns as getQuantileSketchGridColumnsFromSql } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "back-end/src/integrations/sql/queries/metric-analysis-query";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getMetricSourceCovariateTableColumnDefinitions } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
 import { getInsertMetricSourceCovariateDataLegacyQuery } from "back-end/src/integrations/sql/queries/insert-metric-source-covariate-data-legacy-query";
 import { getInsertMetricSourceCovariateFromAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/insert-metric-source-covariate-from-aggregated-fact-table-query";
@@ -1742,6 +1744,9 @@ export default abstract class SqlIntegration
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
+    clusterSubUnit: string | null;
+    clusterIdColumn: string | null;
+    effectiveBaseIdType: string;
   } {
     const {
       settings,
@@ -1761,25 +1766,46 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
+    const clusterSubUnit =
+      settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+        ? settings.clusterSubUnitIdentifier
+        : null;
+    const clusterIdColumn = clusterSubUnit
+      ? exposureQuery.identifierType
+      : null;
+    const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
     return {
       activationMetric,
       experimentDimensions,
       exposureQuery,
       unitDimensions: params.dimensions,
+      clusterSubUnit,
+      clusterIdColumn,
+      effectiveBaseIdType,
     };
   }
 
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      activationMetric,
+      experimentDimensions,
+      clusterIdColumn,
+      effectiveBaseIdType,
+    } = this.parseExperimentParams(params);
 
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.identifierType} ${this.getSqlDialect().getDataType("string")}
+      ${effectiveBaseIdType} ${this.getSqlDialect().getDataType("string")}
+      ${
+        clusterIdColumn
+          ? `, ${clusterIdColumn} ${this.getSqlDialect().getDataType("string")}`
+          : ""
+      }
       , variation ${this.getSqlDialect().getDataType("string")}
       , first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
       ${
@@ -1805,21 +1831,26 @@ export default abstract class SqlIntegration
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
     const { settings, segment, factTableMap } = params;
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+      clusterIdColumn,
+      effectiveBaseIdType,
+    } = this.parseExperimentParams(params);
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: [
-          [exposureQuery.identifierType],
+          [effectiveBaseIdType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
           segment ? [segment.userIdType || "user_id"] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: effectiveBaseIdType,
         experimentId: settings.experimentId,
       },
     );
@@ -1847,6 +1878,7 @@ export default abstract class SqlIntegration
         __existingUnits AS (
           SELECT 
             ${baseIdType}
+            ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
             , variation
             , first_exposure_timestamp AS timestamp
             , max_timestamp
@@ -1893,6 +1925,11 @@ export default abstract class SqlIntegration
         , __filteredNewExposures AS (
           SELECT 
             ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
+            ${
+              clusterIdColumn
+                ? `, ${this.getSqlDialect().castToString(`e.${clusterIdColumn}`)} AS ${clusterIdColumn}`
+                : ""
+            }
             , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
             , e.timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
@@ -1919,6 +1956,7 @@ export default abstract class SqlIntegration
           (
             SELECT
               e.${baseIdType}
+              ${clusterIdColumn ? `, e.${clusterIdColumn}` : ""}
               , e.variation
               , e.timestamp
               , MAX(e.timestamp) OVER () AS max_timestamp
@@ -1936,6 +1974,11 @@ export default abstract class SqlIntegration
         , __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
+            ${
+              clusterIdColumn
+                ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+                : ""
+            }
             , ${this.getSqlDialect().ifElse(
               "COUNT(DISTINCT e.variation) > 1",
               "'__multiple__'",
@@ -1955,6 +1998,7 @@ export default abstract class SqlIntegration
         )
         SELECT 
           ${baseIdType}
+          ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
           , variation
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
@@ -2120,7 +2164,11 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.identifierType;
+    const { baseIdType } = resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: params.metrics,
+      exposureIdentifierType: params.exposureQuery.identifierType,
+    });
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -2165,7 +2213,11 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.identifierType;
+    const { baseIdType } = resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: params.metrics,
+      exposureIdentifierType: params.exposureQuery.identifierType,
+    });
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2268,16 +2320,23 @@ export default abstract class SqlIntegration
       );
     }
 
+    const { baseIdType: effectiveBaseIdType, isClusterLevelGroup } =
+      resolveClusterMetricGrain({
+        settings: params.settings,
+        metrics: params.metrics,
+        exposureIdentifierType: exposureQuery.identifierType,
+      });
+
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [[exposureQuery.identifierType], factTable?.userIdTypes || []],
+        objects: [[effectiveBaseIdType], factTable?.userIdTypes || []],
         // TODO(incremental-refresh): this gets all identities from history
         // of experiment, which we think is right, but could be improved
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: effectiveBaseIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2285,6 +2344,16 @@ export default abstract class SqlIntegration
     const sortedMetrics = [...params.metrics].sort((a, b) =>
       a.id.localeCompare(b.id),
     );
+
+    const unitsJoinSource = isClusterLevelGroup
+      ? `(
+          SELECT
+            ${baseIdType}
+            , MIN(first_exposure_timestamp) AS first_exposure_timestamp
+          FROM ${params.unitsSourceTableFullName}
+          GROUP BY ${baseIdType}
+        )`
+      : params.unitsSourceTableFullName;
 
     // Scope FT discovery to this insert's target FT so a pipeline with
     // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`) only
@@ -2480,7 +2549,7 @@ export default abstract class SqlIntegration
               })
               .join("\n")}
           FROM __factTable m
-          INNER JOIN ${params.unitsSourceTableFullName} d
+          INNER JOIN ${unitsJoinSource} d
             ON (d.${baseIdType} = m.${baseIdType})
         )
         , __newDailyValues AS (
@@ -2609,6 +2678,39 @@ export default abstract class SqlIntegration
         "getIncrementalRefreshStatisticsQuery requires at least one metric source.",
       );
     }
+
+    const clusterSubUnit =
+      params.settings.isClusterExperiment &&
+      params.settings.clusterSubUnitIdentifier
+        ? params.settings.clusterSubUnitIdentifier
+        : null;
+    const clusterLevelMetricIds = new Set(
+      params.settings.clusterLevelMetricIds ?? [],
+    );
+    const clusterLevelMetricCount = clusterSubUnit
+      ? params.metrics.filter((m) => clusterLevelMetricIds.has(m.id)).length
+      : 0;
+    if (
+      clusterLevelMetricCount > 0 &&
+      clusterLevelMetricCount < params.metrics.length
+    ) {
+      throw new Error(
+        "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
+      );
+    }
+    // Cluster-level metrics join on the cluster id with one row per cluster, so
+    // they skip the sub-unit rollup entirely.
+    const isClusterLevelQuery = clusterLevelMetricCount > 0;
+    const clusterIdColumn =
+      clusterSubUnit && !isClusterLevelQuery
+        ? exposureQuery.identifierType
+        : null;
+    const userIdType = isClusterLevelQuery
+      ? exposureQuery.identifierType
+      : (clusterSubUnit ?? exposureQuery.identifierType);
+    // True only for the sub-unit rollup path; cluster-level queries analyze the
+    // cluster as a standard unit (isClusterExperiment stays false there).
+    const isClusterExperiment = clusterIdColumn !== null;
 
     // Multi-FT funnels flatten all sources into one table, so column refs
     // must use the bare `m` alias instead of per-source `m{i}`.
@@ -2739,7 +2841,7 @@ export default abstract class SqlIntegration
     );
 
     const idTypeObjects = [
-      [exposureQuery.identifierType],
+      [userIdType],
       ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
@@ -2750,7 +2852,7 @@ export default abstract class SqlIntegration
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: userIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2892,9 +2994,24 @@ export default abstract class SqlIntegration
         )
         .join("\n")}
       , __experimentUnits AS (${
-        unitDimensions.length > 0
+        isClusterLevelQuery
           ? `SELECT
+          e.${baseIdType} AS ${baseIdType}
+          , ${this.getSqlDialect().ifElse(
+            "COUNT(DISTINCT e.variation) > 1",
+            "'__multiple__'",
+            "MAX(e.variation)",
+          )} AS variation
+          , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
+          ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
+        FROM ${params.unitsSourceTableFullName} e
+        ${unitsWhere}
+        GROUP BY
+          e.${baseIdType}`
+          : unitDimensions.length > 0
+            ? `SELECT
             e.${baseIdType} AS ${baseIdType}
+            ${clusterIdColumn ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}` : ""}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -2913,8 +3030,9 @@ export default abstract class SqlIntegration
           GROUP BY
             e.${baseIdType}
       `
-          : `SELECT
+            : `SELECT
           e.${baseIdType} AS ${baseIdType}
+          ${clusterIdColumn ? `, e.${clusterIdColumn} AS ${clusterIdColumn}` : ""}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -3202,7 +3320,13 @@ export default abstract class SqlIntegration
               ${
                 isSource0
                   ? `${analysisDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
-              , u.variation`
+              , u.variation${
+                // Carry the cluster id on source 0 so the cluster rollup can
+                // sum each sub-unit's capped value up to its cluster.
+                clusterIdColumn
+                  ? `\n              , u.${clusterIdColumn} AS ${clusterIdColumn}`
+                  : ""
+              }`
                   : ""
               }
               ${exposureCol}
@@ -3351,6 +3475,26 @@ export default abstract class SqlIntegration
         `,
         )
         .join("")}
+      ${
+        // Cluster experiment (sub-unit metrics): cap each sub-unit's value and
+        // sum up to one row per cluster. The statistics CTE then reads the
+        // already-capped, already-rolled-up values directly.
+        isClusterExperiment && clusterIdColumn
+          ? `, __clusterRollup AS (${getClusterRollupCTE({
+              dimensionCols: analysisDimensionCols,
+              metricData,
+              baseIdType,
+              clusterIdColumn,
+              perUserAggTableName: "__joinedData",
+              capValueTableName: "__capValue",
+              factTablesWithIndices: sources.map((s) => ({
+                factTable: s.factTable,
+                index: s.index,
+              })),
+              percentileTableIndices,
+            })})`
+          : ""
+      }
       ${(() => {
         const hasMultiFtFunnels = metricData.some(
           (d) =>
@@ -3364,15 +3508,23 @@ export default abstract class SqlIntegration
           eventQuantileData,
           baseIdType,
           joinedMetricTableName: "__joinedData",
-          ...(hasMultiFtFunnels
+          ...(isClusterExperiment
             ? {
-                statisticsSourceTableName: "__unitMetrics",
+                // The rollup already merged every source into one per-cluster
+                // row, so the statistics CTE must not re-join sources or re-cap.
+                statisticsSourceTableName: "__clusterRollup",
                 flattenedSources: true,
-                funnelsResolvedOnSource: true,
+                funnelsResolvedOnSource: false,
               }
-            : {
-                funnelsResolvedOnSource: hasFunnels,
-              }),
+            : hasMultiFtFunnels
+              ? {
+                  statisticsSourceTableName: "__unitMetrics",
+                  flattenedSources: true,
+                  funnelsResolvedOnSource: true,
+                }
+              : {
+                  funnelsResolvedOnSource: hasFunnels,
+                }),
           eventQuantileTableName: "__eventQuantileMetric",
           capValueTableName: "__capValue",
           factTablesWithIndices: sources.map((s) => ({
@@ -3380,6 +3532,7 @@ export default abstract class SqlIntegration
             index: s.index,
           })),
           percentileTableIndices,
+          isClusterExperiment,
         });
       })()}
       `,

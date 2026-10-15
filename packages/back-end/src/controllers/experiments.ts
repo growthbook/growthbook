@@ -1418,6 +1418,7 @@ export async function postExperiments(
         guardrailMetrics: obj.guardrailMetrics,
         metricMap: clusterMetricMap,
         metricGroups: clusterMetricGroups,
+        clusterIdentifier: obj.exposureQueryIdentifierType,
         clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
         factTableMap: clusterFactTableMap,
         datasource,
@@ -2101,6 +2102,9 @@ export async function postExperiment(
       guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
       metricMap,
       metricGroups: allMetricGroups,
+      clusterIdentifier:
+        changes.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
         changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
       factTableMap: clusterFactTableMap,

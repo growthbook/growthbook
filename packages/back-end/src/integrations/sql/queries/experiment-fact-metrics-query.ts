@@ -109,11 +109,29 @@ export function getExperimentFactMetricsQuery(
     params.unitsSettings.clusterSubUnitIdentifier
       ? params.unitsSettings.clusterSubUnitIdentifier
       : null;
-  const clusterIdColumn = clusterSubUnit
+  const clusterLevelMetricIds = new Set(settings.clusterLevelMetricIds ?? []);
+  const clusterLevelMetricCount = clusterSubUnit
+    ? metricsWithIndices.filter((m) => clusterLevelMetricIds.has(m.metric.id))
+        .length
+    : 0;
+  if (
+    clusterLevelMetricCount > 0 &&
+    clusterLevelMetricCount < metricsWithIndices.length
+  ) {
+    throw new Error(
+      "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
+    );
+  }
+  // Cluster-level metrics join on the cluster id, with one unit row per
+  // cluster, so they skip the sub-unit rollup entirely.
+  const isClusterLevelQuery = clusterLevelMetricCount > 0;
+  const clusterIdColumn =
+    clusterSubUnit && !isClusterLevelQuery
+      ? params.unitsSettings.exposureQuery.identifierType
+      : null;
+  const userIdType = isClusterLevelQuery
     ? params.unitsSettings.exposureQuery.identifierType
-    : null;
-  const userIdType =
-    clusterSubUnit ?? params.unitsSettings.exposureQuery.identifierType;
+    : (clusterSubUnit ?? params.unitsSettings.exposureQuery.identifierType);
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
@@ -171,7 +189,9 @@ export function getExperimentFactMetricsQuery(
   ];
   // add idTypes usually handled in units query here in the case where
   // we don't have a separate table for the units query
-  if (params.unitsSource === "exposureQuery") {
+  // A cluster-level query's units CTE stays keyed on the sub-unit, so it emits
+  // its own identity joins against that base.
+  if (params.unitsSource === "exposureQuery" && !isClusterLevelQuery) {
     idTypeObjects.push(
       ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       segment ? [segment.userIdType || "user_id"] : [],
@@ -466,13 +486,13 @@ export function getExperimentFactMetricsQuery(
       params.unitsSource === "exposureQuery"
         ? `${getExperimentUnitsQuery(dialect, datasource, {
             ...params,
-            includeIdJoins: false,
+            includeIdJoins: isClusterLevelQuery,
           })},`
         : params.unitsSource === "otherQuery"
           ? params.unitsSql
           : ""
     }
-    __distinctUsers AS (
+    ${isClusterLevelQuery ? "__distinctSubUnits" : "__distinctUsers"} AS (
       SELECT
         ${baseIdType}
         ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
@@ -507,6 +527,30 @@ export function getExperimentFactMetricsQuery(
           : ""
       }
     )
+    ${
+      isClusterLevelQuery
+        ? `, __distinctUsers AS (
+      SELECT
+        ${baseIdType}
+        ${dimensionCols.map((c) => `, MAX(${c.alias}) AS ${c.alias}`).join("")}
+        , variation
+        , MIN(timestamp) AS timestamp
+        , MIN(first_exposure_date) AS first_exposure_date
+        ${banditDates?.length ? ", MIN(bandit_period) AS bandit_period" : ""}
+        ${raMetricSettings
+          .map(
+            ({ alias }) => `
+        , MIN(${alias}_preexposure_end) AS ${alias}_preexposure_end
+        , MIN(${alias}_preexposure_start) AS ${alias}_preexposure_start`,
+          )
+          .join("")}
+      FROM __distinctSubUnits
+      GROUP BY
+        ${baseIdType}
+        , variation
+    )`
+        : ""
+    }
     ${factTablesWithIndices
       .map((f) => {
         const suffix = f.index === 0 ? "" : f.index;

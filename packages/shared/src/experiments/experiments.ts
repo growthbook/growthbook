@@ -48,7 +48,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
@@ -1374,6 +1377,95 @@ export function analyzeClusterMetricAsRatio(
   return ["mean", "proportion", "retention"].includes(m.metricType);
 }
 
+/**
+ * Whether a metric in a cluster experiment is analyzed per sub-unit and rolled
+ * up to the cluster. Metrics in `clusterLevelMetricIds` instead join on the
+ * cluster id directly and are analyzed with the cluster as the unit.
+ */
+export function isSubUnitClusterMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    !!settings.isClusterExperiment &&
+    !!settings.clusterSubUnitIdentifier &&
+    isFactMetric(m) &&
+    !settings.clusterLevelMetricIds?.includes(m.id)
+  );
+}
+
+export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
+
+// Aggregations whose per-sub-unit values can be summed into a cluster total.
+export const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
+  "sum",
+  "count distinct",
+] as const;
+
+function getNonRollupAggregation(metric: FactMetricInterface): string | null {
+  for (const ref of getFactMetricColumnRefs(metric)) {
+    if (
+      ref.aggregation &&
+      !(CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS as readonly string[]).includes(
+        ref.aggregation,
+      )
+    ) {
+      return ref.aggregation;
+    }
+  }
+  return null;
+}
+
+/**
+ * A metric is analyzed per sub-unit whenever every fact table it reads can be
+ * joined on the sub-unit id and its aggregations sum across sub-units (e.g. a
+ * max does not), otherwise per cluster if they can all be joined on the
+ * cluster id. Null means it can't be analyzed in the cluster experiment.
+ */
+export function getClusterMetricAnalysisLevel(
+  metric: FactMetricInterface,
+  {
+    clusterIdentifier,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings,
+  }: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier: string;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricAnalysisLevel | null {
+  if (
+    !getNonRollupAggregation(metric) &&
+    isFactMetricJoinable(
+      metric,
+      clusterSubUnitIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "subunit";
+  }
+  if (
+    clusterIdentifier &&
+    isFactMetricJoinable(
+      metric,
+      clusterIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "cluster";
+  }
+  return null;
+}
+
 export function quantileMetricType(
   m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
@@ -1390,13 +1482,6 @@ export const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "ratio",
 ] as const;
 
-// Each side of a cluster metric must be a sum/count (a mean), not a max or a
-// sketch-based aggregation.
-export const CLUSTER_EXPERIMENT_ALLOWED_AGGREGATIONS = [
-  "sum",
-  "count distinct",
-] as const;
-
 export type ClusterMetricEligibility =
   | { allowed: true }
   | { allowed: false; reason: string };
@@ -1404,6 +1489,7 @@ export type ClusterMetricEligibility =
 export function getClusterExperimentMetricEligibility(
   metric: ExperimentMetricDefinition,
   options?: {
+    clusterIdentifier?: string | null;
     clusterSubUnitIdentifier?: string | null;
     getFactTable?: (
       id: string,
@@ -1433,32 +1519,29 @@ export function getClusterExperimentMetricEligibility(
       reason: `${metric.metricType} metrics are not supported in cluster experiments. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
-  for (const ref of getFactMetricColumnRefs(metric)) {
-    if (
-      ref.aggregation &&
-      !(CLUSTER_EXPERIMENT_ALLOWED_AGGREGATIONS as readonly string[]).includes(
-        ref.aggregation,
-      )
-    ) {
+  const nonRollupAggregation = getNonRollupAggregation(metric);
+  if (options?.clusterSubUnitIdentifier && options.getFactTable) {
+    const level = getClusterMetricAnalysisLevel(metric, {
+      clusterIdentifier: options.clusterIdentifier,
+      clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
+      getFactTable: options.getFactTable,
+      datasourceSettings: options.datasourceSettings,
+    });
+    if (!level) {
       return {
         allowed: false,
-        reason: `"${ref.aggregation}" aggregations are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
+        reason: nonRollupAggregation
+          ? `"${nonRollupAggregation}" aggregations can't be summed across sub-units, so this metric's fact table must expose the cluster identifier${options.clusterIdentifier ? ` "${options.clusterIdentifier}"` : ""}.`
+          : options.clusterIdentifier
+            ? `this metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
+            : `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
       };
     }
-  }
-  if (
-    options?.clusterSubUnitIdentifier &&
-    options.getFactTable &&
-    !isFactMetricJoinable(
-      metric,
-      options.clusterSubUnitIdentifier,
-      options.getFactTable,
-      options.datasourceSettings,
-    )
-  ) {
+  } else if (nonRollupAggregation) {
+    // Without fact tables we can't tell whether the cluster level is reachable.
     return {
       allowed: false,
-      reason: `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}", so it cannot be analyzed at the sub-unit level. Cluster experiments require each metric's fact table to include the sub-unit identifier.`,
+      reason: `"${nonRollupAggregation}" aggregations are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
     };
   }
   return { allowed: true };

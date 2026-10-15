@@ -16,6 +16,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
 import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
@@ -70,17 +71,23 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     );
   }
 
+  // Match the grain of the metric source cache this covariate data pairs with:
+  // sub-unit id for sub-unit metrics, cluster id for cluster-level metrics.
+  const { baseIdType: effectiveBaseIdType, isClusterLevelGroup } =
+    resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: sortedMetrics,
+      exposureIdentifierType: exposureQuery.identifierType,
+    });
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
-      objects: [
-        [exposureQuery.identifierType],
-        source.factTable?.userIdTypes || [],
-      ],
+      objects: [[effectiveBaseIdType], source.factTable?.userIdTypes || []],
       from: params.settings.startDate,
       to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: params.settings.experimentId,
     },
   );
@@ -191,6 +198,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
                 ? `WHERE ${afterWatermark(dialect, "max_timestamp", params.lastCovariateSuccessfulMaxTimestamp, params.lastCovariateSuccessfulMaxTimestampRaw)}`
                 : ""
             }
+            ${isClusterLevelGroup ? `GROUP BY ${baseIdType}` : ""}
           ) d
             ON (d.${baseIdType} = m.${baseIdType})
           GROUP BY

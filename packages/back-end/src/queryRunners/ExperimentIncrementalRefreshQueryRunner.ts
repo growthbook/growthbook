@@ -73,6 +73,7 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -151,12 +152,24 @@ export function getIncrementalRefreshMetricSources({
   // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
+  // Cluster-level metrics can't share a cache as user-level metrics even on the same fact table.
+  // Mirrors the `cluster:${group}` partitioning in experimentQueries.
+  const clusterLevelMetricIds = new Set(
+    snapshotSettings.isClusterExperiment &&
+    snapshotSettings.clusterSubUnitIdentifier
+      ? (snapshotSettings.clusterLevelMetricIds ?? [])
+      : [],
+  );
+
   // One cache per table (except quantiles which have their own cache).
   // Mirrors experimentQueries grouping rules
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
-  ) => `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+  ) =>
+    `${clusterLevelMetricIds.has(metric.id) ? "cluster:" : ""}${factTableId}${
+      quantileMetricType(metric) ? "_qtile" : ""
+    }`;
 
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
@@ -819,11 +832,17 @@ const startExperimentIncrementalRefreshQueries = async (
       }
 
       // Pre-aggregated read when the whole group validates, else legacy scan.
+      const { baseIdType: covariateGrainIdType } = resolveClusterMetricGrain({
+        settings: snapshotSettings,
+        metrics: group.metrics,
+        exposureIdentifierType: exposureUserIdType,
+      });
+
       const covariatePath = await resolveCovariateInsertPath({
         context,
         factTable,
         datasourceId: integration.datasource.id,
-        exposureUserIdType,
+        exposureUserIdType: covariateGrainIdType,
         regressionAdjustedMetrics,
         settings: snapshotSettings,
         activationMetric,
@@ -943,11 +962,11 @@ const startExperimentIncrementalRefreshQueries = async (
           ...covariateInsertBaseParams,
           query: integration.getInsertMetricSourceCovariateDataQuery({
             ...commonCovariateQueryParams,
-            // Align to daily grain whenever the exposure id type is materialized,
+            // Align to daily grain whenever the grain id type is materialized,
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureUserIdType),
+            ).includes(covariateGrainIdType),
           }),
           metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",

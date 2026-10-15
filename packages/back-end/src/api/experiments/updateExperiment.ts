@@ -298,6 +298,7 @@ export const updateExperiment = createApiRequestHandler(
       guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
       metricMap: map,
       metricGroups,
+      clusterIdentifier: exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
         payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
       factTableMap: clusterFactTableMap,

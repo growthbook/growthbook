@@ -2083,7 +2083,16 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     sql: "*",
     userIdTypes: ["user_id", "region_id"],
   });
-  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+  const regionSpendFactTable = factTableFactory.build({
+    id: "region_spend",
+    name: "Region Spend Fact Table",
+    sql: "*",
+    userIdTypes: ["region_id"],
+  });
+  const factTableMap = new Map([
+    [ordersFactTable.id, ordersFactTable],
+    [regionSpendFactTable.id, regionSpendFactTable],
+  ]);
 
   // @ts-expect-error -- context not needed for test
   const datasourceIntegration = new BigQuery("", {
@@ -2121,12 +2130,17 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     clusterSubUnitIdentifier: "user_id",
   };
 
-  const buildClusterSql = (metric: FactMetricInterface): string =>
+  const buildClusterSql = (
+    metric: FactMetricInterface,
+    settings: typeof baseSettings & {
+      clusterLevelMetricIds?: string[];
+    } = baseSettings,
+  ): string =>
     getExperimentFactMetricsQuery(
       bigQueryDialect,
       datasourceIntegration.datasource,
       {
-        settings: baseSettings,
+        settings,
         unitsSource: "exposureQuery",
         unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
           query: clusterExposureQuery.query,
@@ -2306,5 +2320,80 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toContain("m0_main_cap_value");
 
     expect(format(normalized, "bigquery")).toMatchSnapshot();
+  });
+
+  it("analyzes a cluster-level metric with one unit row per cluster, joined on the cluster id", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_region_spend",
+      metricType: "mean",
+      numerator: {
+        factTableId: "region_spend",
+        column: "amount",
+        aggregation: "sum",
+      },
+      regressionAdjustmentEnabled: false,
+    });
+
+    const sql = buildClusterSql(metric, {
+      ...baseSettings,
+      clusterLevelMetricIds: ["fact_region_spend"],
+    });
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // Units stay keyed on the sub-unit, then collapse to one row per cluster.
+    expect(normalized).toMatch(
+      /__distinctUsers AS \( SELECT region_id,\s*variation,\s*MIN\(timestamp\) AS timestamp.* FROM __distinctSubUnits GROUP BY region_id,\s*variation \)/,
+    );
+    expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
+
+    // A standard per-unit analysis: no sub-unit rollup or mean-to-ratio conversion.
+    expect(normalized).not.toContain("__clusterRollup");
+    expect(normalized).not.toContain("m0_denominator");
+    expect(normalized).toContain("FROM __userMetricAgg m");
+    expect(normalized).toContain("COUNT(*) AS users");
+  });
+
+  it("refuses to mix cluster-level and sub-unit metrics in one query", () => {
+    const subUnitMetric = factMetricFactory.build({
+      id: "fact_orders",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_region_spend",
+      metricType: "mean",
+      numerator: {
+        factTableId: "region_spend",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+
+    expect(() =>
+      getExperimentFactMetricsQuery(
+        bigQueryDialect,
+        datasourceIntegration.datasource,
+        {
+          settings: {
+            ...baseSettings,
+            clusterLevelMetricIds: ["fact_region_spend"],
+          },
+          unitsSource: "exposureQuery",
+          unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+            query: clusterExposureQuery.query,
+            identifierType: "region_id",
+          }),
+          activationMetric: null,
+          dimensions: [],
+          segment: null,
+          metrics: [subUnitMetric, clusterMetric],
+          factTableMap,
+        },
+      ),
+    ).toThrow("cannot share a query");
   });
 });

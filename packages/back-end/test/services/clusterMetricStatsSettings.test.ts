@@ -140,4 +140,28 @@ describe("getMetricSettingsForStatsEngine - cluster metrics", () => {
     expect(result.statistic_type).toBe("ratio");
     expect(result.covariate_metric_type).toBeUndefined();
   });
+
+  it("analyzes a cluster-level metric as a standard per-cluster metric, not a ratio", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_region_spend",
+      metricType: "mean",
+      numerator: {
+        factTableId: "region_spend",
+        column: "amount",
+        aggregation: "sum",
+      },
+      regressionAdjustmentEnabled: false,
+    });
+
+    const result = getMetricSettingsForStatsEngine(
+      metric,
+      emptyMetricMap,
+      { ...baseSettings, clusterLevelMetricIds: ["fact_region_spend"] },
+      true,
+    );
+
+    expect(result.statistic_type).toBe("mean");
+    expect(result.main_metric_type).toBe("count");
+    expect(result.denominator_metric_type).toBeUndefined();
+  });
 });
