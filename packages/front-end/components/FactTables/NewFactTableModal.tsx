@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowLeft,
@@ -413,6 +414,7 @@ const BODY_HEIGHT = "calc(93vh - 200px)";
 
 export default function NewFactTableModal({ close }: { close: () => void }) {
   const router = useRouter();
+  const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -466,9 +468,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
-  const mode = datasource?.properties?.supportsInformationSchema
-    ? preferredMode
-    : "sql";
+  const tableModeAvailable = growthbook.isOn("fact-table-table-mode");
+  const mode = tableModeAvailable ? preferredMode : "sql";
 
   const [unlistedColumns, setUnlistedColumns] = useState<{
     columns?: Column[];
@@ -986,7 +987,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       bodyClassName="p-0"
       backButton
       onBackFirstStep={
-        mode === "sql" && datasource?.properties?.supportsInformationSchema
+        mode === "sql" && tableModeAvailable
           ? () => changeMode("table")
           : undefined
       }

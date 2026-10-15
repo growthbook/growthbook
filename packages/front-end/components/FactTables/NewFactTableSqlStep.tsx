@@ -93,6 +93,7 @@ function TablePicker({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
+  const canListTables = !!datasource.properties?.supportsInformationSchema;
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   // A refresh is marked PENDING before the request returns, but a new schema
@@ -254,9 +255,11 @@ function TablePicker({
                   ) : null}
                   {building
                     ? "Loading tables. This can take a minute."
-                    : data && !canRunQueries
-                      ? "You don't have permission to load tables for this Data Source."
-                      : refreshLabel}
+                    : data && !canListTables
+                      ? "This Data Source can't list tables. Enter a table name instead."
+                      : data && !canRunQueries
+                        ? "You don't have permission to load tables for this Data Source."
+                        : refreshLabel}
                 </>
               }
             >
@@ -273,7 +276,7 @@ function TablePicker({
                 }
                 // Without the schema there's nothing to rebuild, so a failed
                 // load retries the load itself
-                disabled={data ? !canRunQueries : !fetchError}
+                disabled={data ? !canRunQueries || !canListTables : !fetchError}
                 onClick={data ? buildSchema : () => mutate()}
               >
                 <PiArrowClockwise />
