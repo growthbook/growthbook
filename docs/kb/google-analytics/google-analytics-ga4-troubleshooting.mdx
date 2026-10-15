@@ -86,8 +86,9 @@ trackingCallback: (experiment, result) => {
     window.gtag("event", "experiment_viewed", {
       event_category: "experiment",
       experiment_id: experiment.key,
-      variation_id: result.variationId // or result.key depending on SDK version
-   });
+      variation_id: result.key,
+    });
+  }
 }
 ```
 
@@ -108,7 +109,7 @@ trackingCallback: (experiment, result) => {
   window.dataLayer.push({
     event: "experiment_viewed",
     experiment_id: experiment.key,
-    variation_id: result.variationId // or result.key depending on SDK version
+    variation_id: result.key,
   });
 }
 ```
