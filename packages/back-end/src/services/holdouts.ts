@@ -356,11 +356,15 @@ export async function applyExperimentHoldoutChange(
 ) {
   const current = experiment.holdoutId;
   if (holdoutId === undefined || holdoutId === (current || "")) return;
-  // Remove first: only the add emits a linkage event, so nothing is announced until every write is in
-  let removed: { id: string; dateAdded: Date } | undefined;
+  // Captured before any write, since a removal can land and still throw afterwards
+  const previous = current
+    ? (await context.models.holdout.getByIdForLinkage(current))
+        ?.linkedExperiments[experiment.id]
+    : undefined;
   try {
+    // Remove first: only the add emits a linkage event, so nothing is announced until every write is in
     if (current) {
-      removed = await context.models.holdout.removeExperimentFromHoldout(
+      await context.models.holdout.removeExperimentFromHoldout(
         current,
         experiment.id,
       );
@@ -373,19 +377,27 @@ export async function applyExperimentHoldoutChange(
     }
   } catch (e) {
     // No transactions: rewind so the stored holdoutId and the holdouts agree
-    if (removed && current) {
-      await context.models.holdout.addExperimentsToHoldout(
-        current,
-        [experiment.id],
-        { notifyNewLinkage: false, dateAdded: removed.dateAdded },
+    try {
+      // Idempotent: an entry the removal never dropped wins over the restore
+      if (previous && current) {
+        await context.models.holdout.addExperimentsToHoldout(
+          current,
+          [experiment.id],
+          { notifyNewLinkage: false, dateAdded: previous.dateAdded },
+        );
+      }
+      await updateExperiment({
+        context,
+        experiment,
+        changes: { holdoutId: current || "" },
+        bypassWebhooks: true,
+      });
+    } catch (rewindError) {
+      logger.error(
+        rewindError,
+        `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
       );
     }
-    await updateExperiment({
-      context,
-      experiment,
-      changes: { holdoutId: current || "" },
-      bypassWebhooks: true,
-    });
     throw e;
   }
 }
