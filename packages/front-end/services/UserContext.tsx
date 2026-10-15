@@ -38,6 +38,7 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
+import Cookies from "js-cookie";
 import { AgreementType, SdkPayloadSizeAlert } from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
@@ -383,6 +384,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       user_id: data?.userId || "",
       superAdmin: data?.superAdmin || false,
       cloud: isCloud(),
+      // Raw _ga value, matching Jitsu's ids.ga; cloud-only since self-hosted it's the customer's GA
+      gaCookie: isCloud() ? Cookies.get("_ga") || "" : "",
       multiOrg: isMultiOrg(),
       configFile: hasFileConfig(),
       usingSSO: usingSSO(),

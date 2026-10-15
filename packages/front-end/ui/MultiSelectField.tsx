@@ -298,6 +298,8 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -328,6 +330,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   showCopyButton = true,
   size,
   legacyHeight,
+  maxMenuHeight,
   valueTitles = true,
   labelSize,
   labelWeight = "semibold",
@@ -604,6 +607,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                       }
                     : {})}
                   closeMenuOnSelect={closeMenuOnSelect}
+                  maxMenuHeight={maxMenuHeight}
                   autoFocus={autoFocus}
                   value={selected}
                   {...(creatable
