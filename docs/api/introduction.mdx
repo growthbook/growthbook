@@ -91,18 +91,19 @@ curl "https://api.growthbook.io/api/v1/confirmations/cnf_abc123?wait=30" \
 -H "Authorization: Bearer secret_abc123DEF456"
 ```
 
-| `status`    | Meaning                                                                                                          |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| `pending`   | Waiting for a person, until `expiresAt` (an hour after the request)                                              |
-| `running`   | Confirmed, and running now                                                                                       |
-| `completed` | It ran. `response` holds the status and body the request returned, which may be an error                         |
-| `rejected`  | A person declined it, and nothing ran                                                                            |
-| `expired`   | Nobody decided in time, or what it would change changed after it was held (with a `400` `response`). Nothing ran |
+| `status`    | Meaning                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pending`   | Waiting for a person, until `expiresAt` (an hour after the request)                                                   |
+| `running`   | Confirmed, and running now                                                                                            |
+| `completed` | It ran. `response` holds the status and body the request returned, which may be an error                              |
+| `rejected`  | A person declined it, and nothing ran                                                                                 |
+| `expired`   | Nobody decided in time, or it acts on something that changed after it was held (with a `400` `response`). Nothing ran |
 
 `note` carries anything the person left for the agent when they decided. `actions` lists what the request was held for, each with the environments it touches.
 
 - Only the key that made the request, or another token of the same person, can read the confirmation.
 - Sending the same request again while it's pending returns the same confirmation.
+- A request that publishes, reverts or archives, or that changes a Feature Flag or an Experiment's status, schedule, targeting or traffic, isn't run if what it acts on changed after it was held. Other writes, such as editing settings or a draft, run as sent, so they can overwrite changes made while they waited.
 - A confirmed request runs once, with the key's permissions (or the member's role it assumes), not the confirmer's. Send it again to retry, which asks for a new confirmation.
 - Confirming isn't a review approval.
 

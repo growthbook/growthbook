@@ -186,28 +186,28 @@ info:
 
 
     | `status`    |
-    Meaning                                                                                                         
+    Meaning                                                                                                              
     |
 
     | ----------- |
-    ----------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------
     |
 
     | `pending`   | Waiting for a person, until `expiresAt` (an hour after the
-    request)                                              |
+    request)                                                   |
 
     | `running`   | Confirmed, and running
-    now                                                                                      
+    now                                                                                           
     |
 
     | `completed` | It ran. `response` holds the status and body the request
-    returned, which may be an error                         |
+    returned, which may be an error                              |
 
     | `rejected`  | A person declined it, and nothing
-    ran                                                                           
+    ran                                                                                
     |
 
-    | `expired`   | Nobody decided in time, or what it would change changed
+    | `expired`   | Nobody decided in time, or it acts on something that changed
     after it was held (with a `400` `response`). Nothing ran |
 
 
@@ -221,6 +221,12 @@ info:
 
     - Sending the same request again while it's pending returns the same
     confirmation.
+
+    - A request that publishes, reverts or archives, or that changes a Feature
+    Flag or an Experiment's status, schedule, targeting or traffic, isn't run if
+    what it acts on changed after it was held. Other writes, such as editing
+    settings or a draft, run as sent, so they can overwrite changes made while
+    they waited.
 
     - A confirmed request runs once, with the key's permissions (or the member's
     role it assumes), not the confirmer's. Send it again to retry, which asks

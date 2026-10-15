@@ -60,7 +60,7 @@ Confirming isn't a review approval. A change that needs approval still needs it.
 ### Limits
 
 - A request waits an hour for a decision, then expires.
-- If what a request would change has changed since it was held, it isn't run. The agent can send it again for a new confirmation.
+- A request that publishes, reverts or archives, or that changes a Feature Flag or an Experiment's status, schedule, targeting or traffic, isn't run if what it acts on changed after it was held. Other writes, such as editing settings or a draft, run as sent, so they can overwrite changes made while they waited. The agent can send a request that wasn't run again for a new confirmation.
 - A confirmed request runs once. If it fails, the agent gets the error and can ask again.
 - Confirmation rules apply to Secret Keys and Personal Access Tokens. The hosted MCP endpoint's sign-in doesn't use them.
 
