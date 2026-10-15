@@ -14,7 +14,7 @@ import {
   getExposureQueryProjectScopeError,
   isExposureQueryAvailableForProjects,
   getIdentifierTypeForSettingsHash,
-  getPreferredIdentifierType,
+  getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -664,23 +664,9 @@ describe("getIdentifierTypeForSettingsHash", () => {
   });
 });
 
-describe("getPreferredIdentifierType", () => {
-  it("keeps the legacy identifier while the query declares it", () => {
-    expect(
-      getPreferredIdentifierType({
-        userIdType: "anonymous_id",
-        userIdTypes: ["user_id", "anonymous_id"],
-      }),
-    ).toBe("anonymous_id");
-  });
-
-  it("uses a declared identifier once the legacy one was removed", () => {
-    expect(
-      getPreferredIdentifierType({
-        userIdType: "anonymous_id",
-        userIdTypes: ["user_id"],
-      }),
-    ).toBe("user_id");
+describe("getPastExperimentQueryName", () => {
+  it("names the past experiments query after its assignment query", () => {
+    expect(getPastExperimentQueryName("exq_1")).toBe("experiments_exq_1");
   });
 });
 
