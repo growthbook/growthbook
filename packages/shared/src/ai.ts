@@ -55,10 +55,12 @@ export const AI_PROVIDER_META: Record<
 // Only ids the provider still serves. Retired ones come out; a stored setting
 // naming one reads as unset (getAllowedAIModel) and falls back to the default.
 // Audited 2026-10-12.
+// Newest generation first, larger tier first within it. The model pickers
+// keep this order, so it is also what admins see.
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
-    "gpt-6-astra",
     "gpt-6.1-sol",
+    "gpt-6-astra",
     "gpt-6-sol",
     "gpt-6-luna",
     // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
@@ -69,12 +71,12 @@ export const AI_PROVIDER_MODEL_MAP = {
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
-    "gpt-5.2",
     "gpt-5.2-pro",
-    "gpt-5",
-    "gpt-5-nano",
-    "gpt-5-mini",
+    "gpt-5.2",
     "gpt-5-pro",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
     // GPT-4 series
     "gpt-4.1",
     "gpt-4.1-mini",
@@ -91,18 +93,18 @@ export const AI_PROVIDER_MODEL_MAP = {
     // Current generation. These ids are complete as published — Anthropic
     // stopped issuing dated snapshots for them, so there is nothing to pin.
     "claude-opus-5-5",
-    "claude-opus-5",
     "claude-sonnet-5-5",
-    "claude-sonnet-5",
     "claude-haiku-5-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
     "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
     // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
     // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
-    "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
     "claude-opus-4-20250514",
     "claude-sonnet-4-20250514",
   ],
@@ -124,16 +126,16 @@ export const AI_PROVIDER_MODEL_MAP = {
   // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
   // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3.1-pro-preview",
     "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",
