@@ -7,7 +7,6 @@ import {
   DemographicData,
   Invite,
   Member,
-  MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
   OrganizationSettings,
@@ -463,6 +462,31 @@ export async function addOrganizationInviteIfSeatAvailable(
   return doc ? toInterface(doc) : null;
 }
 
+// Replaces one invite in place; false if it no longer exists.
+export async function updateOrganizationInvite(
+  organizationId: string,
+  invite: Invite,
+) {
+  const res = await OrganizationModel.updateOne(
+    { id: organizationId, "invites.key": invite.key },
+    { $set: { "invites.$": invite } },
+  );
+  return res.matchedCount > 0;
+}
+
+// Null if the invite was already gone.
+export async function removeOrganizationInvite(
+  organizationId: string,
+  key: string,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    { id: organizationId, "invites.key": key },
+    { $pull: { invites: { key } } },
+    { new: true },
+  );
+  return doc ? toInterface(doc) : null;
+}
+
 export async function acceptOrganizationInvite(
   organizationId: string,
   inviteKey: string,
@@ -707,13 +731,18 @@ export async function editCustomRole(
   await updateOrganization(org.id, { customRoles: newCustomRoles });
 }
 
-function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+type RoleGrant = { role?: string; additionalRoles?: { role: string }[] };
+
+function usingRole(
+  holder: RoleGrant & { projectRoles?: RoleGrant[] },
+  role: string,
+): boolean {
   // Stored data can predate validation, so treat a non-array list as empty.
   const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
-    member.role === role ||
-    asArray(member.additionalRoles).some((r) => r.role === role) ||
-    asArray(member.projectRoles).some(
+    holder.role === role ||
+    asArray(holder.additionalRoles).some((r) => r.role === role) ||
+    asArray(holder.projectRoles).some(
       (pr) =>
         pr.role === role ||
         asArray(pr.additionalRoles).some((r) => r.role === role),
@@ -751,7 +780,7 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   // PATs are invisible to admins; a deleted role just fails closed for them.
   if (
     (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
-      (key) => !key.userId && key.role === id,
+      (key) => !key.userId && usingRole(key, id),
     )
   ) {
     throw new Error("Role is currently being used by at least one API key");

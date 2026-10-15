@@ -1,0 +1,312 @@
+import { z } from "zod";
+import {
+  deleteInviteValidator,
+  listInvitesValidator,
+  listPendingMembersValidator,
+  postInviteResendValidator,
+  postInviteValidator,
+  postPendingMemberApproveValidator,
+  putInviteValidator,
+} from "shared/validators";
+import { getDefaultRole } from "shared/permissions";
+import {
+  Invite,
+  MemberRoleWithProjects,
+  PendingMember,
+} from "shared/types/organization";
+import {
+  findOrganizationById,
+  updateOrganizationInvite,
+} from "back-end/src/models/OrganizationModel";
+import {
+  addMemberToOrg,
+  assertMemberRoleInfoValid,
+  assertProjectRulesReferenceProjects,
+  assertRoleChangeAllowed,
+  getInviteUrl,
+  inviteUser,
+  normalizeInviteEmail,
+  revokeInvite,
+} from "back-end/src/services/organizations";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
+import {
+  sendInviteEmail,
+  sendPendingMemberApprovalEmail,
+} from "back-end/src/services/email";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+
+type RoleInput = z.infer<typeof putInviteValidator.bodySchema>;
+
+// As in updateMemberRole, an environment list is its own limit unless
+// limitAccessByEnvironment is sent.
+function toRoleInfo(
+  input: RoleInput,
+  fallback: MemberRoleWithProjects,
+): MemberRoleWithProjects {
+  const limit = <
+    T extends { environments: string[]; limitAccessByEnvironment?: boolean },
+  >(
+    e: T,
+  ) => ({
+    ...e,
+    limitAccessByEnvironment:
+      e.limitAccessByEnvironment ?? !!e.environments.length,
+  });
+  return {
+    role: input.role ?? fallback.role,
+    environments: input.environments ?? fallback.environments,
+    limitAccessByEnvironment:
+      input.limitAccessByEnvironment ??
+      (input.environments
+        ? !!input.environments.length
+        : fallback.limitAccessByEnvironment),
+    additionalRoles:
+      input.additionalRoles?.map(limit) ?? fallback.additionalRoles,
+    projectRoles:
+      input.projectRoles?.map((pr) => ({
+        ...limit(pr),
+        additionalRoles: pr.additionalRoles?.map(limit),
+      })) ?? fallback.projectRoles,
+  };
+}
+
+// Invites can predate roles and environment limits.
+function normalizeInvite(invite: Invite): Invite {
+  return {
+    ...invite,
+    role: invite.role || "admin",
+    limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
+    environments: invite.environments ?? [],
+  };
+}
+
+// Never includes `key`: it is the secret the invite link carries.
+function toApiInvite(stored: Invite) {
+  const invite = normalizeInvite(stored);
+  return {
+    email: invite.email,
+    role: invite.role,
+    limitAccessByEnvironment: invite.limitAccessByEnvironment,
+    environments: invite.environments,
+    additionalRoles: invite.additionalRoles,
+    projectRoles: invite.projectRoles,
+    invitedBy: invite.invitedBy,
+    dateCreated: new Date(invite.dateCreated).toISOString(),
+  };
+}
+
+function toApiPendingMember(member: PendingMember) {
+  return {
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    limitAccessByEnvironment: member.limitAccessByEnvironment,
+    environments: member.environments,
+    additionalRoles: member.additionalRoles,
+    projectRoles: member.projectRoles,
+    dateCreated: new Date(member.dateCreated).toISOString(),
+  };
+}
+
+function assertCanManageTeam(context: ApiReqContext) {
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+function findInvite(invites: Invite[], email: string) {
+  return invites.find((i) => i.email.toLowerCase() === email.toLowerCase());
+}
+
+function getInvite(context: ApiReqContext, email: string) {
+  const invite = findInvite(context.org.invites, email);
+  if (!invite) context.throwNotFoundError(`No invite for ${email}`);
+  return normalizeInvite(invite);
+}
+
+async function auditInvite(
+  req: Pick<ApiRequestLocals, "audit" | "context">,
+  before: Invite | undefined,
+  after: Invite | undefined,
+) {
+  await req.audit({
+    event: "organization.update",
+    entity: { object: "organization", id: req.context.org.id },
+    details: auditDetailsUpdate(
+      { invite: before && toApiInvite(before) },
+      { invite: after && toApiInvite(after) },
+    ),
+  });
+}
+
+async function assertRoleInfoValid(
+  context: ApiReqContext,
+  roleInfo: MemberRoleWithProjects,
+  existing?: MemberRoleWithProjects,
+) {
+  try {
+    assertMemberRoleInfoValid(context.org, roleInfo);
+    await assertProjectRulesReferenceProjects(
+      context,
+      existing?.projectRoles,
+      roleInfo.projectRoles,
+    );
+  } catch (e) {
+    context.throwBadRequestError(e.message);
+  }
+}
+
+export const listInvites = createApiRequestHandler(listInvitesValidator)(async (
+  req,
+) => {
+  assertCanManageTeam(req.context);
+  return { invites: req.context.org.invites.map(toApiInvite) };
+});
+
+export const postInvite = createApiRequestHandler(postInviteValidator)(async (
+  req,
+) => {
+  assertCanManageTeam(req.context);
+  const { org } = req.context;
+  const { email, ...input } = req.body;
+
+  // As in inviteUser, an existing invite is returned without revalidating.
+  const existing = findInvite(org.invites, normalizeInviteEmail(email));
+  if (existing) {
+    return {
+      invite: toApiInvite(existing),
+      inviteUrl: getInviteUrl(existing.key),
+      emailSent: true,
+    };
+  }
+
+  // Only an omitted role takes the default's scoping. Plans without roles
+  // only allow admin, as the app's invite form defaults to.
+  const unscoped = (role: string) => ({
+    role,
+    limitAccessByEnvironment: false,
+    environments: [],
+  });
+  const fallback = input.role
+    ? unscoped(input.role)
+    : getEffectiveOrgLimits(org).orgSupportsRoles()
+      ? getDefaultRole(org)
+      : unscoped("admin");
+  const roleInfo = toRoleInfo(input, fallback);
+  await assertRoleInfoValid(req.context, roleInfo);
+
+  const { emailSent, inviteUrl, created } = await inviteUser({
+    organization: org,
+    email,
+    ...roleInfo,
+    invitedBy: req.context.email || undefined,
+  });
+
+  const invite = findInvite(
+    (await findOrganizationById(org.id))?.invites ?? [],
+    normalizeInviteEmail(email),
+  );
+  if (!invite) throw new Error("Unable to create invite");
+  if (created) await auditInvite(req, undefined, invite);
+
+  return { invite: toApiInvite(invite), inviteUrl, emailSent };
+});
+
+export const putInvite = createApiRequestHandler(putInviteValidator)(async (
+  req,
+) => {
+  assertCanManageTeam(req.context);
+  const { org } = req.context;
+  const existing = getInvite(req.context, req.params.email);
+
+  const roleInfo = toRoleInfo(req.body, existing);
+  await assertRoleInfoValid(req.context, roleInfo, existing);
+  // Only gate a role change so existing invites keep working
+  assertRoleChangeAllowed(org, existing.role, roleInfo.role);
+
+  const updated: Invite = { ...existing, ...roleInfo };
+  if (!(await updateOrganizationInvite(org.id, updated))) {
+    req.context.throwNotFoundError(`No invite for ${req.params.email}`);
+  }
+  await auditInvite(req, existing, updated);
+
+  return { invite: toApiInvite(updated) };
+});
+
+export const postInviteResend = createApiRequestHandler(
+  postInviteResendValidator,
+)(async (req) => {
+  assertCanManageTeam(req.context);
+  const invite = getInvite(req.context, req.params.email);
+
+  let emailSent = true;
+  try {
+    await sendInviteEmail(req.context.org, invite.key);
+  } catch (e) {
+    logger.error(e, "Error sending invite email");
+    emailSent = false;
+  }
+  return { inviteUrl: getInviteUrl(invite.key), emailSent };
+});
+
+export const deleteInvite = createApiRequestHandler(deleteInviteValidator)(
+  async (req) => {
+    assertCanManageTeam(req.context);
+    const invite = getInvite(req.context, req.params.email);
+    if (!(await revokeInvite(req.context.org, invite.key))) {
+      req.context.throwNotFoundError(`No invite for ${req.params.email}`);
+    }
+    await auditInvite(req, invite, undefined);
+    return { deletedId: invite.email };
+  },
+);
+
+export const listPendingMembers = createApiRequestHandler(
+  listPendingMembersValidator,
+)(async (req) => {
+  assertCanManageTeam(req.context);
+  return {
+    pendingMembers: (req.context.org.pendingMembers ?? []).map(
+      toApiPendingMember,
+    ),
+  };
+});
+
+export const postPendingMemberApprove = createApiRequestHandler(
+  postPendingMemberApproveValidator,
+)(async (req) => {
+  assertCanManageTeam(req.context);
+  const { org } = req.context;
+  const pending = org.pendingMembers?.find((m) => m.id === req.params.id);
+  if (!pending) {
+    return req.context.throwNotFoundError("Cannot find pending member");
+  }
+
+  await addMemberToOrg({
+    organization: org,
+    userId: pending.id,
+    role: pending.role,
+    limitAccessByEnvironment: pending.limitAccessByEnvironment,
+    environments: pending.environments,
+    projectRoles: pending.projectRoles,
+    additionalRoles: pending.additionalRoles,
+  });
+
+  try {
+    await sendPendingMemberApprovalEmail(
+      pending.name || "",
+      pending.email || "",
+      org.name,
+      APP_ORIGIN + "/?org=" + org.id,
+    );
+  } catch (e) {
+    logger.error(e, "Failed to send pending member approval email");
+  }
+
+  return { approvedId: pending.id };
+});
