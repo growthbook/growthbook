@@ -2210,8 +2210,10 @@ export async function putSDKWebhook(
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
   if (parsedUpdates.sdks) {
-    await assertCanUseSDKConnections(context, parsedUpdates.sdks, (c) =>
-      context.permissions.canUpdateSDKWebhook(c),
+    await assertCanUseSDKConnections(
+      context,
+      parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
+      (c) => context.permissions.canUpdateSDKWebhook(c),
     );
   }
 
