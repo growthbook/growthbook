@@ -104,14 +104,17 @@ export default function PrerequisiteModal({
     condition: getDefaultPrerequisiteCondition(),
   };
 
+  const malformedConditionError = prerequisite
+    ? getMalformedPrereqConditionError(prerequisite.condition)
+    : null;
+
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
       id: prerequisite?.id ?? defaultValues.id,
       // Saving resets a malformed condition to the parent's default.
-      condition:
-        prerequisite && getMalformedPrereqConditionError(prerequisite.condition)
-          ? ""
-          : (prerequisite?.condition ?? defaultValues.condition),
+      condition: malformedConditionError
+        ? ""
+        : (prerequisite?.condition ?? defaultValues.condition),
     },
   });
 
@@ -350,6 +353,12 @@ export default function PrerequisiteModal({
             </Button>
           }
         />
+      )}
+      {malformedConditionError && (
+        <Callout status="error" mb="3">
+          Invalid condition: {malformedConditionError}. Saving replaces it with
+          the default.
+        </Callout>
       )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}

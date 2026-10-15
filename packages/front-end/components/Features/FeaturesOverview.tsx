@@ -48,6 +48,7 @@ import {
 import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
@@ -559,17 +560,18 @@ export default function FeaturesOverview({
       invalidPrereqs.push({
         key: `flag-${i}`,
         ruleId: null,
-        where: "this flag",
+        where: "this Feature Flag",
         id: p.id,
         error,
       });
     }
   });
   const seenRuleIds = new Set<string>();
+  const ruleNumberOffset = holdout ? 2 : 1;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    r.forEach((rule, i) => {
+    r.forEach((rule) => {
       if (rule.enabled === false || seenRuleIds.has(rule.id)) return;
       seenRuleIds.add(rule.id);
       (rule.prerequisites ?? []).forEach((p, j) => {
@@ -578,7 +580,9 @@ export default function FeaturesOverview({
           invalidPrereqs.push({
             key: `${rule.id}-${j}`,
             ruleId: rule.id,
-            where: `rule "${rule.description || `Rule ${i + 1}`}"`,
+            where: rule.description
+              ? `rule "${rule.description}"`
+              : `Rule #${(feature.rules ?? []).findIndex((fr) => fr.id === rule.id) + ruleNumberOffset}`,
             id: p.id,
             error,
           });
@@ -589,11 +593,16 @@ export default function FeaturesOverview({
   const invalidRuleCount = new Set(
     invalidPrereqs.map((p) => p.ruleId).filter((id) => id !== null),
   ).size;
-  const invalidPrereqBlocking = invalidPrereqs.some((p) => p.ruleId === null)
-    ? "An invalid prerequisite condition is blocking this flag"
-    : `An invalid prerequisite condition is blocking ${
-        invalidRuleCount === 1 ? "a rule" : `${invalidRuleCount} rules`
-      }`;
+  const invalidPrereqBlocking = `An invalid prerequisite condition is blocking ${[
+    invalidPrereqs.some((p) => p.ruleId === null) ? "this Feature Flag" : null,
+    invalidRuleCount === 1
+      ? "a rule"
+      : invalidRuleCount > 1
+        ? `${invalidRuleCount} rules`
+        : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" and ")}`;
 
   const variables = {
     featureKey: feature.id,
@@ -891,23 +900,27 @@ export default function FeaturesOverview({
         })()}
         {invalidPrereqs.length > 0 && (
           <Callout status="error" mt="2" mb="3">
-            <Link onClick={() => setShowInvalidPrereqs((v) => !v)}>
-              <Flex align="center" gap="1">
-                {invalidPrereqBlocking}
-                {showInvalidPrereqs ? (
-                  <PiCaretDownBold />
-                ) : (
-                  <PiCaretRightBold />
-                )}
-              </Flex>
-            </Link>
+            <Button
+              variant="ghost"
+              color="inherit"
+              size="sm"
+              aria-expanded={showInvalidPrereqs}
+              onClick={() => setShowInvalidPrereqs((v) => !v)}
+              icon={
+                showInvalidPrereqs ? <PiCaretDownBold /> : <PiCaretRightBold />
+              }
+              iconPosition="right"
+            >
+              {invalidPrereqBlocking}
+            </Button>
             {showInvalidPrereqs && (
               <Flex direction="column" gap="1" mt="2">
                 {invalidPrereqs.map((p) => (
-                  <Text key={p.key}>
-                    Blocking {p.where}: prerequisite <code>{p.id}</code> —{" "}
-                    {p.error}
-                  </Text>
+                  <Flex key={p.key} align="center" gap="1" wrap="wrap">
+                    <Text>Blocking {p.where}: prerequisite</Text>
+                    <FeatureBadge featureId={p.id} />
+                    <Text>— {p.error}</Text>
+                  </Flex>
                 ))}
                 <Text>Edit the prerequisite to fix it.</Text>
               </Flex>
