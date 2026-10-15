@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
+import { apiWebhookTimeoutSeconds } from "./webhooks";
 import {
   eventWebHookInterface,
   eventWebHookMethods,
@@ -24,6 +25,7 @@ export const apiEventWebhookValidator = namedSchema(
       payloadType: z.enum(eventWebHookPayloadTypes),
       method: z.enum(eventWebHookMethods),
       headers: z.record(z.string(), z.string()),
+      timeoutSeconds: apiWebhookTimeoutSeconds,
       signingKey: z
         .string()
         .describe("Used to verify the signature header on each request"),
@@ -59,6 +61,7 @@ const createBody = eventWebHookRequestBodySchema.extend({
   environments: z.array(z.string()).optional(),
   method: z.enum(eventWebHookMethods).optional(),
   headers: z.record(z.string(), z.string()).optional(),
+  timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
 });
 
 const idParams = z.object({ id: z.string() }).strict();

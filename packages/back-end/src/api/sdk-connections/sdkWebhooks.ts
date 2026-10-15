@@ -28,6 +28,7 @@ function toApiSdkWebhook(w: WebhookInterface, canSeeSigningKey: boolean) {
     payloadFormat: w.payloadFormat ?? "standard",
     payloadKey: w.payloadKey,
     headers: w.headers ?? "",
+    timeoutSeconds: w.timeoutSeconds ?? null,
     signingKey: canSeeSigningKey ? w.signingKey : "",
     lastSuccess: w.lastSuccess?.toISOString() ?? null,
     error: w.error,
