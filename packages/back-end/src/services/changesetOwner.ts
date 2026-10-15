@@ -43,6 +43,7 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { BadRequestError } from "back-end/src/util/errors";
+import { confirmationLink } from "back-end/src/services/confirmations";
 
 export type ChangesetOwnerKind = "experiment" | "contextual-bandit";
 
@@ -773,4 +774,12 @@ function requireVisualChangeWrite(
           "Failed to audit a live visual change edit",
         ),
       );
+}
+
+export function changesetOwnerConfirmationLink(owner: ChangesetOwner) {
+  return confirmationLink(
+    owner.kind === "experiment" ? "experiment" : "contextualBandit",
+    owner.id,
+    owner.name,
+  );
 }

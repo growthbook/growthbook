@@ -3,6 +3,7 @@ import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
 import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
 import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -45,10 +46,7 @@ import {
   selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
-import {
-  confirmationLink,
-  requireConfirmation,
-} from "back-end/src/services/confirmations";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 
 // A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
@@ -807,18 +805,16 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   }
   // Before the generation, so a doomed save doesn't burn AI quota first. Only a
   // save is held; a preview changes nothing.
-  const auditLiveEdit = persist
-    ? owner.requireWrite(req, {
-        allowRunning: !!allowRunningExperiment,
-        visualChangesetId,
-      })
-    : async () => {};
   if (persist) {
+    owner.requireWrite(req, {
+      allowRunning: !!allowRunningExperiment,
+      visualChangesetId,
+    });
     await requireConfirmation(context, {
       actions: ["experiment.draft"],
       project: owner.project,
       summary: `Edit ${owner.name} with AI`,
-      links: [confirmationLink(owner.kind, owner.id, owner.name)],
+      links: [changesetOwnerConfirmationLink(owner)],
       pin: null,
     });
   }
@@ -1291,10 +1287,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
     const finalized = await finalizeOutput(raw);
     if (persist) {
+      // Re-checked against the stored owner: it may have started during the generation.
+      const { owner: storedOwner } = await loadChangesetWithOwner(
+        context,
+        visualChangesetId,
+      );
+      if (!storedOwner.canUpdateVisualChange()) {
+        context.permissions.throwPermissionError();
+      }
+      const auditLiveEdit = storedOwner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      });
       const change = currentChange;
       await updateVisualChange({
         context,
-        owner,
+        owner: storedOwner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {
