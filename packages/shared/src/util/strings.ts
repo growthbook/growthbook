@@ -15,8 +15,7 @@ export function stripLeadingUtf8ByteOrderMark(text: string): string {
     : text;
 }
 
-// Same as the app's checklist editor: anything without an http(s) scheme gets
-// https:// prepended, so no other scheme (e.g. javascript:) survives.
+// Prefix https:// when no scheme is present; only the scheme is lower-cased since paths are case-sensitive (#6237).
 export function normalizeChecklistTaskUrl(rawValue: string): string {
   const match = rawValue.match(/^(https?):\/\//i);
   if (match) {

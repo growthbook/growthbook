@@ -1,5 +1,6 @@
 import CreatableSelect from "react-select/creatable";
 import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import { normalizeChecklistTaskUrl } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
@@ -18,17 +19,6 @@ type AutoChecklistOption = {
     | "prerequisiteTargeting"
     | "schedule";
 };
-
-// Prefix https:// when no scheme is present. Only the scheme is lower-cased;
-// the rest of the URL keeps its casing since paths/query strings are
-// case-sensitive (e.g. Google Drive links). See #6237.
-export function normalizeChecklistTaskUrl(rawValue: string): string {
-  const match = rawValue.match(/^(https?):\/\//i);
-  if (match) {
-    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
-  }
-  return "https://" + rawValue;
-}
 
 export default function NewExperimentChecklistItem({
   experimentLaunchChecklist,
