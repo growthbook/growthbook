@@ -5,6 +5,7 @@ import type {
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import {
+  analyzeExperimentClusterUnits,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
@@ -318,6 +319,50 @@ describe("analyzeExperimentTraffic", () => {
     expect(
       analyzeExperimentTraffic({ variations, rows: [] }).multipleExposures,
     ).toBeUndefined();
+  });
+});
+
+describe("analyzeExperimentClusterUnits", () => {
+  const row = (
+    cluster_id: string,
+    variation: string,
+    units: number,
+    pct: number,
+  ) => ({ cluster_id, variation, units, pct });
+
+  it("maps variation ids to indices and preserves query order", () => {
+    const result = analyzeExperimentClusterUnits({
+      variations,
+      rows: [
+        row("region_a", "treatment", 500, 0.5),
+        row("region_b", "control", 300, 0.3),
+        row("region_c", "control", 200, 0.2),
+      ],
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.clusters).toEqual([
+      { id: "region_a", variation: 1, units: 500, pct: 0.5 },
+      { id: "region_b", variation: 0, units: 300, pct: 0.3 },
+      { id: "region_c", variation: 0, units: 200, pct: 0.2 },
+    ]);
+  });
+
+  it("uses -1 for unknown variations (e.g. __multiple__)", () => {
+    const result = analyzeExperimentClusterUnits({
+      variations,
+      rows: [row("region_a", "__multiple__", 10, 1)],
+    });
+    expect(result.clusters[0].variation).toBe(-1);
+  });
+
+  it("returns an empty cluster list and the error when the query failed", () => {
+    const result = analyzeExperimentClusterUnits({
+      variations,
+      rows: [],
+      error: "boom",
+    });
+    expect(result.clusters).toEqual([]);
+    expect(result.error).toBe("boom");
   });
 });
 

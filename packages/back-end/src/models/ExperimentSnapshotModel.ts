@@ -176,6 +176,19 @@ const experimentSnapshotSchema = new mongoose.Schema({
       error: String,
       multipleExposures: Number,
     },
+    clusterUnits: {
+      _id: false,
+      clusters: [
+        {
+          _id: false,
+          id: String,
+          variation: Number,
+          units: Number,
+          pct: Number,
+        },
+      ],
+      error: String,
+    },
     power: {
       _id: false,
       type: { type: String },

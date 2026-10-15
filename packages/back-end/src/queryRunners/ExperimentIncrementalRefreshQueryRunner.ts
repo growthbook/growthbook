@@ -16,6 +16,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterUnitsQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
@@ -47,6 +48,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
+  analyzeExperimentClusterUnits,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -79,6 +81,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  CLUSTER_UNITS_QUERY_NAME,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -1244,6 +1247,29 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+
+    // Cluster experiments: count sub-units in each of the largest clusters (for
+    // cluster-concentration health), in addition to the per-variation traffic.
+    if (snapshotSettings.isClusterExperiment) {
+      const clusterUnitsQuery = await startQuery({
+        name: CLUSTER_UNITS_QUERY_NAME,
+        query: integration.getExperimentClusterUnitsQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterUnitsQuery);
+    }
   }
   return queries;
 };
@@ -1383,6 +1409,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterUnitsQuery = queryMap.get(CLUSTER_UNITS_QUERY_NAME);
+      if (clusterUnitsQuery) {
+        result.health.clusterUnits = analyzeExperimentClusterUnits({
+          rows: clusterUnitsQuery.result as ExperimentClusterUnitsQueryResponseRows,
+          error: clusterUnitsQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
 
       // TODO(incremental-refresh): ensure power calculations work
       // const _relativeAnalysis = this.model.analyses.find(

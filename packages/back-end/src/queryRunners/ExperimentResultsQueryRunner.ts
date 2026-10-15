@@ -18,6 +18,7 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterUnitsQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
@@ -58,6 +59,7 @@ import {
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentClusterUnits,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -94,6 +96,8 @@ export type ExperimentResultsQueryParams = {
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
+
+export const CLUSTER_UNITS_QUERY_NAME = "clusterUnits";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -482,6 +486,29 @@ export const startExperimentResultQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+
+    if (snapshotSettings.isClusterExperiment) {
+      const clusterUnitsQuery = await startQuery({
+        name: CLUSTER_UNITS_QUERY_NAME,
+        query: integration.getExperimentClusterUnitsQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterUnitsQuery);
+    }
   }
 
   const dropUnitsTable =
@@ -594,6 +621,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterUnitsQuery = queryMap.get(CLUSTER_UNITS_QUERY_NAME);
+      if (clusterUnitsQuery) {
+        result.health.clusterUnits = analyzeExperimentClusterUnits({
+          rows: clusterUnitsQuery.result as ExperimentClusterUnitsQueryResponseRows,
+          error: clusterUnitsQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
 
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",

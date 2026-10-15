@@ -26,6 +26,7 @@ import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -50,6 +51,7 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotClusterUnits,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
@@ -936,4 +938,32 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+export function analyzeExperimentClusterUnits({
+  rows,
+  error,
+  variations,
+}: {
+  rows: ExperimentClusterUnitsQueryResponseRows;
+  error?: string;
+  variations: SnapshotSettingsVariation[];
+}): ExperimentSnapshotClusterUnits {
+  if (error) {
+    return { clusters: [], error };
+  }
+
+  const variationIdMap: { [key: string]: number } = {};
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+  });
+
+  const clusters = (rows ?? []).map((r) => ({
+    id: r.cluster_id,
+    variation: variationIdMap[r.variation] ?? -1,
+    units: r.units,
+    pct: r.pct,
+  }));
+
+  return { clusters };
 }

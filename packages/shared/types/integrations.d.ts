@@ -855,6 +855,14 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
+export type ExperimentClusterUnitsQueryResponseRows = {
+  cluster_id: string;
+  variation: string;
+  units: number;
+  // Share (0..1) of all sub-units in the experiment that fall in this cluster.
+  pct: number;
+}[];
+
 export type DimensionSlicesQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
@@ -921,6 +929,8 @@ export type ExperimentFactMetricsQueryResponse =
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type ExperimentClusterUnitsQueryResponse =
+  QueryResponse<ExperimentClusterUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =

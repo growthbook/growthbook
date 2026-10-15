@@ -46,6 +46,7 @@ import {
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
@@ -820,6 +821,29 @@ export default abstract class SqlIntegration
           units: parseFloat(row.units) || 0,
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
+        };
+      }),
+      statistics: statistics,
+    };
+  }
+
+  async runExperimentClusterUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ExperimentClusterUnitsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => {
+        return {
+          cluster_id: row.cluster_id ?? "",
+          variation: row.variation ?? "",
+          units: parseFloat(row.units) || 0,
+          pct: parseFloat(row.pct) || 0,
         };
       }),
       statistics: statistics,
