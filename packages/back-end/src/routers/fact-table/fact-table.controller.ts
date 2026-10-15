@@ -64,6 +64,7 @@ import {
 import {
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
+  turnsOffAggregatedFactTables,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
@@ -419,6 +420,11 @@ export const putFactTable = async (
       data.aggregatedFactTableSettings,
       effectiveUserIdTypes,
     );
+  } else if (
+    turnsOffAggregatedFactTables(factTable, data) &&
+    !context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // A mapping change forces a refresh above, so this sees the new column list;

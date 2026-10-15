@@ -121,7 +121,6 @@ import {
   findSnapshotById,
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
-  updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
@@ -3487,7 +3486,6 @@ export async function postSnapshotAnalysis(
   req: AuthRequest<
     {
       analysisSettings: ExperimentSnapshotAnalysisSettings;
-      phaseIndex?: number;
     },
     { id: string }
   >,
@@ -3505,7 +3503,7 @@ export async function postSnapshotAnalysis(
     return;
   }
 
-  const { analysisSettings, phaseIndex } = req.body;
+  const { analysisSettings } = req.body;
 
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) {
@@ -3514,19 +3512,6 @@ export async function postSnapshotAnalysis(
       message: "Experiment not found",
     });
     return;
-  }
-
-  if (snapshot.settings.coverage === undefined) {
-    const latestPhase = experiment.phases.length - 1;
-    snapshot.settings.coverage =
-      experiment.phases[phaseIndex ?? latestPhase].coverage;
-    // JIT migrate snapshots to have
-    await updateSnapshot({
-      context,
-      id,
-      updates: { settings: snapshot.settings },
-      conclusion: null,
-    });
   }
 
   const metricMap = await getMetricMap(context);
