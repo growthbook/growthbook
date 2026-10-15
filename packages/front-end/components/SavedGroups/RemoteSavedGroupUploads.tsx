@@ -32,7 +32,7 @@ import RemoteSavedGroupUploadDetailsModal, {
   UploadStatusBadge,
   useDownloadUpload,
 } from "@/components/SavedGroups/RemoteSavedGroupUploadDetailsModal";
-import Modal from "@/ui/Modal";
+import Modal, { useModalContext } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -66,6 +66,41 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   );
 }
 
+/** Picks the CSV to upload. A new file clears the last file's error. */
+function CsvFileInput({
+  file,
+  setFile,
+}: {
+  file: File | null;
+  setFile: (file: File | null) => void;
+}) {
+  const { setError } = useModalContext();
+  const fileInput = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <Flex align="center" gap="3">
+        <Button variant="outline" onClick={() => fileInput.current?.click()}>
+          Choose CSV
+        </Button>
+        <Text color={file ? undefined : "text-low"}>
+          {file?.name ?? "No file chosen"}
+        </Text>
+      </Flex>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".csv,text/csv"
+        aria-label="CSV file"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          setError(null);
+          setFile(e.target.files?.[0] ?? null);
+        }}
+      />
+    </>
+  );
+}
+
 /** How often the upload modal checks whether a new upload is valid yet. */
 const CHECK_INTERVAL_MS = 2000;
 
@@ -89,7 +124,6 @@ function UploadModal({
   const [progress, setProgress] = useState<number | null>(null);
   const [useWhenChecked, setUseWhenChecked] = useState(canUseVersion);
   const [checking, setChecking] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
   // A file already in storage whose upload wasn't recorded yet. Retrying
   // submits the same key, so the file isn't sent again and the server can
   // finish an upload it recorded before failing.
@@ -228,25 +262,7 @@ function UploadModal({
             Each upload is a complete list of values, saved as a new version.
             Older versions stay until you delete them.
           </Text>
-          <Flex align="center" gap="3">
-            <Button
-              variant="outline"
-              onClick={() => fileInput.current?.click()}
-            >
-              Choose CSV
-            </Button>
-            <Text color={file ? undefined : "text-low"}>
-              {file?.name ?? "No file chosen"}
-            </Text>
-          </Flex>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".csv,text/csv"
-            aria-label="CSV file"
-            style={{ display: "none" }}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
+          <CsvFileInput file={file} setFile={setFile} />
           {canUseVersion && (
             <Box mt="3">
               <Checkbox
