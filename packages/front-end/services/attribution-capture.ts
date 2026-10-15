@@ -7,8 +7,6 @@
  * The cookie is set on Domain=.growthbook.io so it's shared across all
  * subdomains. The Webflow snippet uses identical logic — first-touch is
  * preserved against direct visits, last-touch wins on new UTM visits.
- * One exception: our own docs links (utm_source=docs) never replace a cookie
- * that already holds a campaign or ad click ID.
  */
 
 const COOKIE = "gb_attr";
@@ -19,16 +17,6 @@ const ATTRIB_KEYS = [
   "utm_campaign",
   "utm_term",
   "utm_content",
-  "gclid",
-  "li_fat_id",
-  "fbclid",
-  "msclkid",
-] as const;
-// Internal links from our docs carry this source so docs-driven sign-ups can
-// be measured, but they shouldn't erase an earlier paid touch.
-const INTERNAL_SOURCE = "docs";
-const PAID_KEYS = [
-  "utm_campaign",
   "gclid",
   "li_fat_id",
   "fbclid",
@@ -49,18 +37,6 @@ function setCookie(name: string, value: string): void {
     "SameSite=Lax",
     "Secure",
   ].join("; ");
-}
-
-function hasPaidTouch(cookie: string | null): boolean {
-  if (!cookie) return false;
-  try {
-    const parsed: unknown = JSON.parse(cookie);
-    if (typeof parsed !== "object" || parsed === null) return false;
-    const fields = new Map(Object.entries(parsed));
-    return PAID_KEYS.some((k) => !!fields.get(k));
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -89,8 +65,6 @@ export function captureAttribution(): void {
   }
 
   const existing = getCookie(COOKIE);
-
-  if (touch.utm_source === INTERNAL_SOURCE && hasPaidTouch(existing)) return;
 
   if (hasNewTouch) {
     touch.referrer = document.referrer || "";
