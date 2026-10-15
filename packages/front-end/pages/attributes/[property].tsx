@@ -110,12 +110,15 @@ export default function AttributeDetailPage() {
 
     for (const feature of features) {
       (feature.rules ?? []).forEach((rule) => {
-        if (
-          "hashAttribute" in rule &&
-          attributeKeys.includes(rule.hashAttribute)
-        ) {
-          attributeFeatureIds[rule.hashAttribute] ??= new Set<string>();
-          attributeFeatureIds[rule.hashAttribute].add(feature.id);
+        const ruleAttributes = [
+          "hashAttribute" in rule ? rule.hashAttribute : undefined,
+          "fallbackAttribute" in rule ? rule.fallbackAttribute : undefined,
+        ];
+        for (const key of ruleAttributes) {
+          if (key && attributeKeys.includes(key)) {
+            attributeFeatureIds[key] ??= new Set<string>();
+            attributeFeatureIds[key].add(feature.id);
+          }
         }
         try {
           const parsedCondition = JSON.parse(rule?.condition ?? "{}");
@@ -136,6 +139,13 @@ export default function AttributeDetailPage() {
       try {
         attributeExperimentIds[experiment.hashAttribute] ??= new Set<string>();
         attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
+        if (experiment.fallbackAttribute) {
+          attributeExperimentIds[experiment.fallbackAttribute] ??=
+            new Set<string>();
+          attributeExperimentIds[experiment.fallbackAttribute].add(
+            experiment.id,
+          );
+        }
         const phase = experiment.phases?.[experiment.phases.length - 1];
         const parsedCondition = JSON.parse(phase?.condition ?? "{}");
         recursiveWalk(parsedCondition, (node) => {
