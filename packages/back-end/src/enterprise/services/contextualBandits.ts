@@ -1013,9 +1013,11 @@ export async function activatePendingContextualBanditVariations(
   const liveOnFeatures = liveArmInfo.length
     ? pendingIds.filter((id) => liveArmInfo.every((i) => i.liveArmIds.has(id)))
     : pendingIds;
-  const activatedIds = cb.hasVisualChangesets
-    ? await filterArmsWithVisualContent(context, cb, liveOnFeatures)
-    : liveOnFeatures;
+  const activatedIds = await filterArmsWithVisualContent(
+    context,
+    cb,
+    liveOnFeatures,
+  );
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);

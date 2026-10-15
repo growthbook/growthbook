@@ -13,15 +13,9 @@ export const urlRedirectValidator = z
     organization: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    experiment: z.string().optional(),
-    contextualBandit: z.string().optional(),
+    experiment: z.string(),
     urlPattern: z.string(),
     destinationURLs: z.array(destinationUrlValidator),
     persistQueryString: z.boolean(),
   })
-  .strict()
-  .refine((v) => !!v.experiment !== !!v.contextualBandit, {
-    message:
-      "URLRedirect must have exactly one of `experiment` or `contextualBandit`",
-    path: ["experiment"],
-  });
+  .strict();
