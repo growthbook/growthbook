@@ -135,6 +135,17 @@ export const updateFactTable = createApiRequestHandler(
       req.body.aggregatedFactTableSettings,
       req.body.userIdTypes ?? factTable.userIdTypes,
     );
+  } else if (
+    req.body.aggregatedFactTableSettings === null &&
+    factTable.aggregatedFactTableSettings
+  ) {
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (
+      !datasource ||
+      !req.context.permissions.canUpdateDataSourceSettings(datasource)
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
   }
 
   if (

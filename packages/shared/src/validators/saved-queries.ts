@@ -356,7 +356,9 @@ export const postSavedQueryValidator = {
       runNow: z
         .boolean()
         .optional()
-        .describe("Run the query after saving it (default true)"),
+        .describe(
+          "Run the query before saving it (default true). A query that fails is not saved.",
+        ),
     })
     .strict(),
   querySchema: z.never(),

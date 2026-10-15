@@ -6,12 +6,14 @@ import {
   listSavedQueriesValidator,
   postSavedQueryRefreshValidator,
   postSavedQueryValidator,
+  QueryExecutionResult,
   SavedQuery,
   updateSavedQueryValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
-import { NotFoundError } from "back-end/src/util/errors";
+import { runFreeFormQuery } from "back-end/src/services/datasource";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -92,8 +94,21 @@ export const postSavedQuery = createApiRequestHandler(postSavedQueryValidator)(
     const { context } = req;
     assertPlanAllows(context);
     const { datasourceId, name, sql, dataVizConfig, runNow } = req.body;
-    if (!(await getDataSourceById(context, datasourceId))) {
-      throw new NotFoundError("Cannot find datasource");
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource) throw new NotFoundError("Cannot find datasource");
+    let results: QueryExecutionResult = { results: [], sql };
+    // Run before creating so a failing query is rejected rather than saved
+    if (runNow !== false) {
+      const run = await runFreeFormQuery(
+        context as ReqContext,
+        datasource,
+        sql,
+        1000,
+      );
+      if (run.error || !run.results) {
+        throw new BadRequestError(run.error ?? "Query failed");
+      }
+      results = { results: run.results, duration: run.duration, sql: run.sql };
     }
     const created = await context.models.savedQueries.create({
       datasourceId,
@@ -101,11 +116,9 @@ export const postSavedQuery = createApiRequestHandler(postSavedQueryValidator)(
       sql,
       dataVizConfig: withVizIds(dataVizConfig ?? []),
       dateLastRan: new Date(),
-      results: { results: [], sql },
+      results,
     });
-    if (runNow === false) return { savedQuery: toApiSavedQuery(created) };
-    const { saved } = await runAndSave(context, created);
-    return { savedQuery: toApiSavedQuery(saved) };
+    return { savedQuery: toApiSavedQuery(created) };
   },
 );
 

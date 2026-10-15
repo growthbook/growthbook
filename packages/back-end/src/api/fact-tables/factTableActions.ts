@@ -50,6 +50,14 @@ export const refreshFactTableColumns = createApiRequestHandler(
   const { context } = req;
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) throw new NotFoundError("Could not find fact table");
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new BadRequestError("Could not find datasource for this fact table");
+  }
+  // The queued job queries the warehouse, so gate it like the app's refresh
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   await updateFactTable(context, factTable, { columnRefreshPending: true });
   await queueFactTableColumnsRefresh(factTable);
