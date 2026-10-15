@@ -114,17 +114,17 @@ export function getKeyPermissionsForRequest({
   }
   return keyPermissionsCappedBy(
     apiKey,
-    requesterId,
+    { id: requesterId },
     org,
     teams,
     restrictedProjects,
   );
 }
 
-// An org key's role, limited to what one member may also do.
+// An org key's role, limited to what one person may also do.
 export function keyPermissionsCappedBy(
   apiKey: ApiKeyInterface,
-  memberId: string,
+  person: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
   teams: TeamInterface[],
   restrictedProjects: string[],
@@ -136,6 +136,6 @@ export function keyPermissionsCappedBy(
       teams,
       restrictedProjects,
     ),
-    getUserPermissions({ id: memberId }, org, teams, restrictedProjects),
+    getUserPermissions(person, org, teams, restrictedProjects),
   );
 }

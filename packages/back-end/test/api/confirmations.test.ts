@@ -640,7 +640,7 @@ describe("confirmations", () => {
     ).toBe(true);
     expect(
       (
-        await getContextForApiKeyIdInOrg(org, bot.id, "u_viewer")
+        await getContextForApiKeyIdInOrg(org, bot.id, { id: "u_viewer" })
       )?.permissions.canUpdateEnvironment(env, env),
     ).toBe(false);
   });

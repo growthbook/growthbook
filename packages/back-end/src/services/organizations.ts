@@ -1893,8 +1893,8 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
-  // An org key acting as itself does only what this member may also do.
-  cappedBy?: string,
+  // An org key acting as itself does only what this person may also do.
+  cappedBy?: { id: string; superAdmin?: boolean },
 ): Promise<ApiReqContext | null> {
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
   const key = await getOrgApiKey(org, apiKeyId);

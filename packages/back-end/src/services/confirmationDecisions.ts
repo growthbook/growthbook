@@ -265,7 +265,7 @@ export async function decideConfirmation(
         c.apiKeyId,
         c.assumedRole ? c.requestedBy?.id : undefined,
       ),
-      context.userId,
+      { id: context.userId, superAdmin: context.superAdmin },
     );
     if (!requester) {
       await confirmations.updateWithCas(id, ["status"], () => ({
