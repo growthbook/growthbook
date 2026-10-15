@@ -1,8 +1,10 @@
 .summary {
-  display: inline-flex;
+  // Block-level, so no line-box gap sits under it.
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: var(--space-1);
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
   color: var(--violet-11);
   cursor: pointer;
   user-select: none;
@@ -22,7 +24,7 @@
 }
 
 .json {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-1) 0 0;
   padding: var(--space-2);
   max-height: 50vh;
   overflow: auto;
