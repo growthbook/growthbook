@@ -15,7 +15,10 @@ import {
   getDataSourceById,
   toDataSourceApiInterface,
 } from "back-end/src/models/DataSourceModel";
-import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
+import {
+  getInformationSchemaByDatasourceId,
+  updateInformationSchemaById,
+} from "back-end/src/models/InformationSchemaModel";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformationSchema";
 import {
@@ -116,10 +119,18 @@ export function applyApiDataSourceSettings(
     };
   }
   if (input.pipelineSettings) {
+    const { includedExperimentIds, ...pipelineSettings } =
+      input.pipelineSettings;
     settings.pipelineSettings = {
       ...existing.pipelineSettings,
-      ...input.pipelineSettings,
+      ...pipelineSettings,
     };
+    // Every experiment is stored as no list; an empty list means none
+    if (includedExperimentIds === null) {
+      delete settings.pipelineSettings.includedExperimentIds;
+    } else if (includedExperimentIds) {
+      settings.pipelineSettings.includedExperimentIds = includedExperimentIds;
+    }
   }
   // Stored as strings for the settings form
   if (input.maxConcurrentQueries !== undefined) {
@@ -226,6 +237,11 @@ export const postDataSourceInformationSchemaRefresh = createApiRequestHandler(
     if (!context.permissions.canRunSchemaQueries(datasource)) {
       context.permissions.throwPermissionError();
     }
+    // So a client polling for this refresh can't mistake the last result for it
+    await updateInformationSchemaById(context.org.id, existing.id, {
+      status: "PENDING",
+      error: null,
+    });
     await queueUpdateInformationSchema(
       datasource.id,
       context.org.id,
