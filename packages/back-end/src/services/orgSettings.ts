@@ -136,6 +136,21 @@ export function validateOrgSettingsUpdate(
     validateFeatureKeySettings(keyExample, keyRegex);
   }
 
+  const expKeyExample =
+    "experimentKeyExample" in settings
+      ? settings.experimentKeyExample
+      : current.experimentKeyExample;
+  const expKeyRegex =
+    "experimentKeyRegexValidator" in settings
+      ? settings.experimentKeyRegexValidator
+      : current.experimentKeyRegexValidator;
+  if (
+    expKeyExample !== current.experimentKeyExample ||
+    expKeyRegex !== current.experimentKeyRegexValidator
+  ) {
+    validateExperimentKeySettings(expKeyExample, expKeyRegex);
+  }
+
   validatePriorSettings(settings.metricDefaults?.priorSettings);
 
   const topValuesLookbackValue = settings.topValuesLookbackValue;
@@ -178,6 +193,31 @@ function validateFeatureKeySettings(
   if (!regex.test(featureKeyExample)) {
     throw new Error(
       `Feature key example does not match the regex validator. '${featureRegexValidator}' Example: '${featureKeyExample}'`,
+    );
+  }
+}
+
+function validateExperimentKeySettings(
+  example: string | undefined,
+  pattern: string | undefined,
+) {
+  if (!pattern) return;
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern);
+  } catch (e) {
+    throw new Error(
+      `Experiment key regex validator is not a valid regular expression: ${e.message}`,
+    );
+  }
+  if (!example) {
+    throw new Error(
+      "Experiment key example must not be empty when a regex validator is defined.",
+    );
+  }
+  if (!regex.test(example)) {
+    throw new Error(
+      `Experiment key example must match the regex validator. '${pattern}' Example: '${example}'`,
     );
   }
 }

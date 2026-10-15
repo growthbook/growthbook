@@ -167,6 +167,12 @@ const writableSettingsFields = {
   runHealthTrafficQuery: z.boolean(),
   requireExperimentTemplates: z.boolean(),
   requireUniqueExperimentTrackingKeys: z.boolean(),
+  experimentKeyExample: z.string(),
+  experimentKeyRegexValidator: z
+    .string()
+    .describe(
+      "User-entered experiment tracking keys must match this regular expression",
+    ),
   decisionFrameworkEnabled: z.boolean(),
   defaultDecisionCriteriaId: z.string(),
   disableLegacyMetricCreation: z.boolean(),
@@ -218,6 +224,9 @@ const writableSettingsFields = {
   // AI
   aiEnabled: z.boolean(),
   aiAskDataEnabled: z.boolean(),
+  disabledAgentSkills: z
+    .array(z.string())
+    .describe("AI Assistant skills turned off for the organization"),
   defaultAIModel: z.string(),
   embeddingModel: z.string(),
   sttModel: z.string(),
@@ -251,6 +260,8 @@ const readOnlySettingsFields = {
   restApiBypassesReviews: z.boolean(),
   revertsBypassApproval: z.boolean(),
   disablePersonalAccessTokens: z.boolean(),
+  maxPatLifetimeDays: positiveInt.nullable(),
+  maxApiKeyLifetimeDays: positiveInt.nullable(),
 };
 export const API_READ_ONLY_SETTING_KEYS = Object.keys(
   readOnlySettingsFields,

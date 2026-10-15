@@ -5,6 +5,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
+  optionalOwnerInputField,
 } from "../../validators/owner-field";
 import { namedSchema } from "../../validators/openapi-helpers";
 
@@ -74,10 +75,11 @@ export const apiDecisionCriteriaValidator = namedSchema(
 
 export const apiCreateDecisionCriteriaBody = z.strictObject({
   ...decisionCriteriaApiFields,
-  owner: ownerInputField.optional(),
+  owner: optionalOwnerInputField,
 });
-export const apiUpdateDecisionCriteriaBody =
-  apiCreateDecisionCriteriaBody.partial();
+export const apiUpdateDecisionCriteriaBody = z
+  .strictObject({ ...decisionCriteriaApiFields, owner: ownerInputField })
+  .partial();
 
 export type ApiDecisionCriteria = z.infer<typeof apiDecisionCriteriaValidator>;
 
