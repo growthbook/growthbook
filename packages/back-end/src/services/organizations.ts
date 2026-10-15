@@ -1456,6 +1456,11 @@ export async function importConfig(
             if (!context.permissions.canUpdateDataSourceSettings(existing)) {
               context.permissions.throwPermissionError();
             }
+            if (ds.type && ds.type !== existing.type) {
+              throw new Error(
+                "Cannot change the type of an existing data source. Create a new one instead.",
+              );
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -1468,7 +1473,6 @@ export async function importConfig(
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               description: ds.description || existing.description,
-              type: ds.type || existing.type,
               params,
               settings: {
                 ...existing.settings,
