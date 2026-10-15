@@ -454,9 +454,10 @@ const MetricsSelector: FC<{
           .filter((option) => !!option.clusterLevel === clusterLevel)
           .sort((a, b) => Number(!a.managedBy) - Number(!b.managedBy))
           .map(toSingleValue);
+      // Labels are the identifiers; formatClusterGroupLabel renders the heading.
       return [
-        { label: `Analyzed per ${userIdType}`, options: byLevel(false) },
-        { label: `Analyzed per ${clusterIdType}`, options: byLevel(true) },
+        { label: userIdType, options: byLevel(false) },
+        { label: clusterIdType, options: byLevel(true) },
       ].filter((group) => group.options.length > 0);
     }
     if (groupOptions) {
@@ -518,6 +519,15 @@ const MetricsSelector: FC<{
       };
     });
   }, [filteredOptions, groupOptions, clusterIdType, userIdType]);
+
+  const formatClusterGroupLabel = useCallback(
+    ({ label }: GroupedValue) => (
+      <>
+        Analyzed per <code style={{ textTransform: "none" }}>{label}</code>
+      </>
+    ),
+    [],
+  );
 
   const multiFormatOptionLabel = useCallback(
     ({ value, label }: SingleValue, { context }: { context: string }) => {
@@ -586,6 +596,11 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      formatGroupLabel={
+        groupOptions && clusterIdType && userIdType
+          ? formatClusterGroupLabel
+          : undefined
+      }
       disabled={selectorDisabled}
       helpText={
         <>
