@@ -1,5 +1,5 @@
 import { ContextualBanditInterface } from "shared/validators";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { VisualChange } from "shared/types/visual-changeset";
 import {
   getVisibleVariations,
   isDeactivatedVariation,
@@ -14,9 +14,7 @@ import {
   genNewVisualChange,
 } from "back-end/src/models/VisualChangesetModel";
 
-type VisualChange = VisualChangesetInterface["visualChanges"][number];
-
-export type VisualChangesArmDiff = {
+type VisualChangesArmDiff = {
   add: VisualChange[];
   removeVariationIds: string[];
 };

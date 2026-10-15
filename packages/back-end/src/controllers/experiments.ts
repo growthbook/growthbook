@@ -50,6 +50,7 @@ import isEqual from "lodash/isEqual";
 import {
   ContextualBanditChangesetOwner,
   ExperimentChangesetOwner,
+  contextualBanditVisualChangesBlocked,
   ownerNotFoundMessage,
   resolveChangesetOwner,
 } from "back-end/src/services/changesetOwner";
@@ -4109,15 +4110,9 @@ export async function putVisualChangeset(
   if (!owner) {
     throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-  const orgEnvironments = context.org.settings?.environments || [];
-
   if (owner instanceof ContextualBanditChangesetOwner) {
     if (!canEditContextualBanditVisualChanges(owner.cb)) {
-      throw new Error(
-        `Only draft or running contextual bandits can have their visual changes edited (this contextual bandit is ${
-          owner.cb.archived ? "archived" : owner.cb.status
-        }).`,
-      );
+      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
     }
     if (!owner.canUpdateVisualChange()) {
       context.permissions.throwPermissionError();
@@ -4128,12 +4123,9 @@ export async function putVisualChangeset(
         context.permissions.throwPermissionError();
       }
     }
-  } else {
-    const experiment =
-      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
-    if (!experiment) {
-      throw new Error("Could not find experiment");
-    }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    const { experiment } = owner;
+    const orgEnvironments = context.org.settings?.environments || [];
     const linkedFeatureIds = experiment.linkedFeatures || [];
     const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
     const envs = getAffectedEnvsForExperiment({

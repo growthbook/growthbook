@@ -797,7 +797,7 @@ describe("ContextualBanditChangesetOwner", () => {
         makeCb({ status: "stopped" }),
       ).assertCanCreateChangeset(),
     ).toThrow(
-      "Only draft or running contextual bandits can have visual changes added",
+      "Only draft or running Contextual Bandits can have visual changes added",
     );
     expect(() =>
       new ContextualBanditChangesetOwner(
@@ -831,7 +831,7 @@ describe("ContextualBanditChangesetOwner", () => {
       expect(() =>
         owner.requireWrite(req, { ...opts, allowRunning: true }),
       ).toThrow(
-        "Only draft or running contextual bandits can have their visual changes edited",
+        "Only draft or running Contextual Bandits can have visual changes edited",
       );
     });
 
@@ -842,7 +842,7 @@ describe("ContextualBanditChangesetOwner", () => {
         makeCb({ status: "running" }),
       );
       expect(() => owner.requireWrite(req, opts)).toThrow(
-        "This contextual bandit is running, so its visual changes reach live traffic immediately. Confirm the live edit to save.",
+        "This Contextual Bandit is running, so its visual changes reach live traffic immediately. Confirm the live edit to save.",
       );
     });
 
@@ -940,7 +940,7 @@ describe("ContextualBanditChangesetOwner", () => {
 
     mockCbGetById.mockResolvedValue(null);
     await expect(owner.rename("Gone")).rejects.toThrow(
-      "Contextual bandit not found",
+      "Contextual Bandit not found",
     );
   });
 
@@ -1048,7 +1048,7 @@ describe("ContextualBanditChangesetOwner", () => {
       const owner = makeStoredCbOwner(makeContext(), makeCb());
       await expect(
         owner.addVariation({ sourceVariationId: "var_missing" }),
-      ).rejects.toThrow("Source variation not found in this contextual bandit");
+      ).rejects.toThrow("Source variation not found in this Contextual Bandit");
       expect(mockExecuteVariationChange).not.toHaveBeenCalled();
     });
 
@@ -1076,20 +1076,19 @@ describe("ContextualBanditChangesetOwner", () => {
 
   it("removes an arm through the variation service with no rollback", async () => {
     const owner = makeStoredCbOwner(makeContext(), makeCb());
-    const result = await owner.removeVariation(TREATMENT.id);
+    expect(await owner.removeVariation(TREATMENT.id)).toEqual({});
     expect(mockExecuteVariationChange).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ id: "cb_1" }),
       { removeVariationIds: [TREATMENT.id] },
     );
-    expect(result.rollback).toBeUndefined();
     expect(owner.editableVariations().map((v) => v.id)).toEqual([CONTROL.id]);
   });
 
   it("renames an arm and skips an unchanged or unknown one", async () => {
     const owner = makeStoredCbOwner(makeContext(), makeCb());
     await expect(owner.renameVariation("var_missing", "x")).rejects.toThrow(
-      "Variation not found in this contextual bandit",
+      "Variation not found in this Contextual Bandit",
     );
     expect(await owner.renameVariation(TREATMENT.id, "Variation 1")).toBe(
       "Variation 1",

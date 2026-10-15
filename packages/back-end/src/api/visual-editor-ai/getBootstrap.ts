@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ContextualBanditInterface } from "shared/validators";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { changesetOwnerRef } from "shared/util";
 import {
   findVisualChangesets,
   findVisualChangesetsByContextualBanditIds,
@@ -75,7 +76,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   const search = (req.query.search ?? "").trim();
   let changesets: VisualChangesetInterface[];
   let experiments: ExperimentInterface[];
-  let contextualBandits: ContextualBanditInterface[] = [];
+  let contextualBandits: ContextualBanditInterface[];
   if (search) {
     [experiments, contextualBandits] = await Promise.all([
       findVisualExperimentsByName(context, search, SEARCH_EXPERIMENT_CAP),
@@ -112,42 +113,28 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
           .filter((id): id is string => !!id),
       ),
     );
-    experiments = await getExperimentsByIds(context, expIds);
+    const cbIds = Array.from(
+      new Set(
+        changesets
+          .map((cs) => cs.contextualBandit)
+          .filter((id): id is string => !!id),
+      ),
+    );
+    [experiments, contextualBandits] = await Promise.all([
+      getExperimentsByIds(context, expIds),
+      context.models.contextualBandits.getByIds(cbIds),
+    ]);
   }
-  const ownerByKey = new Map<string, ChangesetOwner>(
-    experiments.map((e) => [
+  const ownerByKey = new Map<string, ChangesetOwner>([
+    ...experiments.map((e): [string, ChangesetOwner] => [
       `experiment:${e.id}`,
       new ExperimentChangesetOwner(context, e),
     ]),
-  );
-
-  for (const cb of contextualBandits) {
-    ownerByKey.set(
+    ...contextualBandits.map((cb): [string, ChangesetOwner] => [
       `contextual-bandit:${cb.id}`,
       new ContextualBanditChangesetOwner(context, cb),
-    );
-  }
-
-  const cbIds = Array.from(
-    new Set(
-      changesets
-        .map((cs) => cs.contextualBandit)
-        .filter((id): id is string => !!id),
-    ),
-  ).filter((id) => !ownerByKey.has(`contextual-bandit:${id}`));
-  if (cbIds.length > 0) {
-    const cbs = await Promise.all(
-      cbIds.map((id) => context.models.contextualBandits.getById(id)),
-    );
-    for (const cb of cbs) {
-      if (cb) {
-        ownerByKey.set(
-          `contextual-bandit:${cb.id}`,
-          new ContextualBanditChangesetOwner(context, cb),
-        );
-      }
-    }
-  }
+    ]),
+  ]);
 
   // dateUpdated / dateCreated arrive as Date from Mongoose but may be
   // strings in some serialization paths.
@@ -175,11 +162,8 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   };
   const recentExperiments: RecentRow[] = [];
   for (const cs of changesets) {
-    const owner = cs.contextualBandit
-      ? ownerByKey.get(`contextual-bandit:${cs.contextualBandit}`)
-      : cs.experiment
-        ? ownerByKey.get(`experiment:${cs.experiment}`)
-        : undefined;
+    const ref = changesetOwnerRef(cs);
+    const owner = ref && ownerByKey.get(`${ref.kind}:${ref.id}`);
     // Skip changesets whose owner we can't read (deleted or no
     // permission) — an orphan row the user can't open is a dead end.
     if (!owner) continue;

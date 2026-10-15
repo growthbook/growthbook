@@ -526,14 +526,14 @@ const onVisualChangesetDelete = async ({
   visualChangeset: VisualChangesetInterface;
   owner: ChangesetOwner | null;
 }) => {
-  // if there were no visual changes before deleting, return early
-  if (
-    owner?.kind !== "contextual-bandit" &&
-    !hasVisualChanges(visualChangeset.visualChanges)
-  )
-    return;
-
   if (!owner) return;
+  // Bandits realign arms even for an empty changeset; experiments only refresh when content existed.
+  if (
+    owner.kind !== "contextual-bandit" &&
+    !hasVisualChanges(visualChangeset.visualChanges)
+  ) {
+    return;
+  }
   await owner.refreshPayloads("deleted", visualChangeset.id);
 };
 

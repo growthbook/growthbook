@@ -13,7 +13,7 @@ export const apiVisualEditorCbExperimentStubValidator = namedSchema(
       status: z.string(),
       project: z.string(),
       hashAttribute: z.string(),
-      hashVersion: z.union([z.literal(1), z.literal(2)]),
+      hashVersion: z.literal(2),
       type: z.literal("contextual-bandit"),
       variations: z.array(
         z.object({

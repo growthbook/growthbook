@@ -482,9 +482,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   assertCanCreateChangeset(): void {
     if (!canEditContextualBanditVisualChanges(this.cb)) {
       throw new BadRequestError(
-        `Only draft or running contextual bandits can have visual changes added (this contextual bandit is ${
-          this.cb.archived ? "archived" : this.cb.status
-        }).`,
+        contextualBanditVisualChangesBlocked(this.cb, "added"),
       );
     }
   }
@@ -501,15 +499,13 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     const cb = this.cb;
     if (!canEditContextualBanditVisualChanges(cb)) {
       req.context.throwBadRequestError(
-        `Only draft or running contextual bandits can have their visual changes edited (this contextual bandit is ${
-          cb.archived ? "archived" : cb.status
-        }).`,
+        contextualBanditVisualChangesBlocked(cb, "edited"),
       );
     }
     if (cb.status !== "running") return async () => {};
     if (!allowRunning) {
       req.context.throwBadRequestError(
-        "This contextual bandit is running, so its visual changes reach live traffic immediately. Confirm the live edit to save.",
+        "This Contextual Bandit is running, so its visual changes reach live traffic immediately. Confirm the live edit to save.",
       );
     }
     const envs = getEnvironments(req.context.org).map((e) => e.id);
@@ -537,7 +533,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   async reload(): Promise<void> {
     const cb = await this.context.models.contextualBandits.getById(this.id);
     if (!cb) {
-      throw new Error("Contextual bandit not found");
+      throw new Error("Contextual Bandit not found");
     }
     this.cb = cb;
   }
@@ -579,11 +575,11 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
       ? this.editableVariations().find((v) => v.id === sourceVariationId)
       : undefined;
     if (sourceVariationId && !source) {
-      throw new Error("Source variation not found in this contextual bandit");
+      throw new Error("Source variation not found in this Contextual Bandit");
     }
     const defaultName = source
       ? `${source.name} (copy)`
-      : `Variation ${this.cb.variations.length}`;
+      : `Variation ${this.editableVariations().length}`;
     const newName = name?.trim() || defaultName;
     const values = await this.linkedFeatureValuesOf(
       source?.id ?? this.editableVariations()[0]?.id,
@@ -636,7 +632,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
     await this.reload();
     const current = this.editableVariations().find((v) => v.id === variationId);
     if (!current) {
-      throw new Error("Variation not found in this contextual bandit");
+      throw new Error("Variation not found in this Contextual Bandit");
     }
     const trimmed = name.trim();
     if (trimmed === current.name) return trimmed;
@@ -678,6 +674,15 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
       project: this.cb.project || undefined,
     };
   }
+}
+
+export function contextualBanditVisualChangesBlocked(
+  cb: Pick<ContextualBanditInterface, "status" | "archived">,
+  verb: "added" | "edited",
+): string {
+  return `Only draft or running Contextual Bandits can have visual changes ${verb} (this Contextual Bandit is ${
+    cb.archived ? "archived" : cb.status
+  }).`;
 }
 
 export async function resolveChangesetOwner(

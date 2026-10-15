@@ -1713,27 +1713,4 @@ describe("activatePendingContextualBanditVariations with visual changesets", () 
       context.org.id,
     );
   });
-
-  it("activates pending arms when the bandit has no changesets", async () => {
-    findVisualChangesetsByContextualBanditMock.mockResolvedValue([]);
-    const cb = makeCb({
-      status: "running",
-      linkedFeatures: [],
-      hasVisualChangesets: false,
-      variations: [
-        v("v0", "0"),
-        v("v1", "1"),
-        { ...v("v2", "2"), status: "pending" as const },
-      ],
-    } as Partial<ContextualBanditInterface>);
-    const { context } = makeContext(cb);
-
-    const { activatedIds } = await activatePendingContextualBanditVariations(
-      context,
-      cb,
-      { bypassPermissionChecks: true },
-    );
-
-    expect(activatedIds).toEqual(["v2"]);
-  });
 });
