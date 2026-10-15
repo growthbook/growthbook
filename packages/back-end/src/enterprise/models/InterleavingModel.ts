@@ -5,6 +5,7 @@ import {
 } from "shared/validators";
 import {
   assertUsableRankerSchema,
+  interleavingInSDKPayload,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
@@ -16,10 +17,6 @@ import { assertValidExperimentPrerequisites } from "back-end/src/services/prereq
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
-
-function servesPayload(doc: InterleavingInterface): boolean {
-  return !doc.archived && doc.status !== "draft";
-}
 
 const BaseClass = MakeModelClass({
   schema: interleavingValidator,
@@ -40,9 +37,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "interleaving.update",
     deleteEvent: "interleaving.delete",
   },
-  // The key is code-facing (customers pass it to `interleave()`), so it
-  // can't change once created, just like a feature key.
-  readonlyFields: ["key"],
   additionalIndexes: [
     {
       fields: {
@@ -59,7 +53,9 @@ const BaseClass = MakeModelClass({
     },
   ],
   // TODO(interleaving): apiConfig + interleaving.spec.ts when the REST API
-  // lands (after the SDK work), following ContextualBanditModel.
+  // lands (after the SDK work), following ContextualBanditModel. `key` must stay
+  // out of the update body validator and the API update field allowlist — see
+  // the note on `key` in the validator.
 });
 
 export class InterleavingModel extends BaseClass {
@@ -206,7 +202,7 @@ export class InterleavingModel extends BaseClass {
 
   private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
     const payloadKeys = getInterleavingPayloadKeys(
-      docs.filter(servesPayload),
+      docs.filter(interleavingInSDKPayload),
       this.context.environments,
     );
     if (!payloadKeys.length) return;
@@ -269,7 +265,7 @@ export class InterleavingModel extends BaseClass {
   public getAllPayloadInterleavings(): Promise<InterleavingInterface[]> {
     return this._find({
       archived: false,
-      status: { $in: ["running", "stopped"] },
+      status: "running",
     });
   }
 

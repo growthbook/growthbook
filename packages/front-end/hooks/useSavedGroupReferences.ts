@@ -34,9 +34,19 @@ export type SavedGroupReferences = {
   savedGroups: SavedGroupGroupRef[];
 };
 
-// Features, experiments, and saved groups that directly reference a given saved group
-// (plus one level of saved-group chaining). Cached for 5 minutes to avoid duplicate
-// fetches when the delete modal mounts shortly after the detail page.
+export function totalSavedGroupReferences(
+  refs: SavedGroupReferences | null | undefined,
+): number {
+  if (!refs) return 0;
+  return (
+    refs.features.length +
+    refs.experiments.length +
+    refs.contextualBandits.length +
+    refs.interleavings.length +
+    refs.savedGroups.length
+  );
+}
+
 export function useSavedGroupReferences(
   savedGroupId: string | null | undefined,
 ): {

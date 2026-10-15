@@ -40,6 +40,7 @@ import {
   contextualBanditTargetingServes,
   monitoringConfigToApi,
   getInterleavingFeatureDefId,
+  interleavingInSDKPayload,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import {
@@ -459,7 +460,7 @@ export function generateInterleavingsPayload({
   const features: Record<string, FeatureDefinition> = {};
   const defs: InterleavingDefinitions = {};
   interleavings.forEach((il) => {
-    if (il.archived || il.status === "draft") return;
+    if (!interleavingInSDKPayload(il)) return;
     if (!il.environmentSettings[environment]?.enabled) return;
     if (
       projects.length > 0 &&
@@ -482,8 +483,6 @@ export function generateInterleavingsPayload({
       return;
     }
     defs[il.key] = { trackingKey: il.trackingKey, variations };
-
-    if (il.status !== "running") return;
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {

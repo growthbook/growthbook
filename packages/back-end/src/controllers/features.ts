@@ -69,6 +69,7 @@ import {
 import {
   ACTIVE_DRAFT_STATUSES,
   eventUserIdentity,
+  FEATURE_KEY_REGEX,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -931,9 +932,9 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+  if (!id.match(FEATURE_KEY_REGEX)) {
     throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
+      "Feature keys can only include letters, numbers, and the characters _-.:|",
     );
   }
 

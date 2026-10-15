@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { baseSchema } from "./base-model";
-import { featureEnvironment, JSONSchemaDef } from "./features";
+import {
+  featureEnvironment,
+  FEATURE_KEY_REGEX,
+  JSONSchemaDef,
+} from "./features";
 import { ownerField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
-
-// Same character set as feature keys.
-export const INTERLEAVING_KEY_REGEX = /^[a-zA-Z0-9_.:|-]+$/;
 
 export const interleavingStatus = ["draft", "running", "stopped"] as const;
 export type InterleavingStatus = (typeof interleavingStatus)[number];
@@ -84,13 +85,12 @@ export const interleavingValidator = baseSchema
     dateStopped: z.date().optional(),
 
     // Code-facing key, like a feature key: customer code passes it to
-    // `interleave()` and the SDK payload's pseudo flag is
-    // `$interleave:<key>`. Unique per org and immutable once created.
+    // `interleave()` and the SDK payload's pseudo flag is `$interleave:<key>`.
     key: z
       .string()
       .regex(
-        INTERLEAVING_KEY_REGEX,
-        "Interleaving keys can only include letters, numbers, hyphens, and underscores.",
+        FEATURE_KEY_REGEX,
+        "Interleaving keys can only include letters, numbers, and the characters _-.:|",
       ),
     // Experiment id in exposures (`experiment_id`), used only for analysis.
     // Like experiment tracking keys it may repeat (e.g. re-running a test);

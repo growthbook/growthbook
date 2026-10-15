@@ -167,14 +167,9 @@ describe("generateInterleavingsPayload", () => {
     });
   });
 
-  it("ships the config but no flag once stopped", () => {
-    const out = generate([interleaving({ status: "stopped" })]);
-    expect(out.features).toEqual({});
-    expect(Object.keys(out.interleavings ?? {})).toEqual(["search-ranking"]);
-  });
-
   it.each([
     ["draft", { status: "draft" as const }],
+    ["stopped", { status: "stopped" as const }],
     ["archived", { archived: true }],
     [
       "disabled in the environment",
