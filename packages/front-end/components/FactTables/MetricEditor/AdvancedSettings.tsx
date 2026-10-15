@@ -7,7 +7,6 @@ import { getCappingTailState } from "shared/validators";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
@@ -88,7 +87,6 @@ export default function AdvancedSettings({
 }) {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
   const orgSettings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -105,19 +103,6 @@ export default function AdvancedSettings({
   const windowSettings = form.watch("windowSettings");
   const minSampleSizeLabel =
     formType === "ratio" ? "Minimum numerator total" : "Minimum metric total";
-  // A write gate around an edit control, not around the fact itself - the
-  // fact itself is now an OfficialBadge next to the Name field in
-  // MetricEditor's Basics card, matching how the rest of the app (FactMetricModal,
-  // [fmid].tsx, fact table pages) always shows official status, not just when
-  // Advanced Settings happens to be open.
-  const canEditOfficial =
-    canEdit &&
-    permissionsUtil.canUpdateOfficialResources(
-      { projects: form.watch("projects") },
-      {},
-    ) &&
-    hasCommercialFeature("manage-official-resources");
-
   if (!canEdit) {
     const effectivePrior = priorSettings.override
       ? priorSettings
@@ -441,18 +426,6 @@ export default function AdvancedSettings({
                     )}
                   </>
                 }
-                {canEditOfficial && (
-                  <Checkbox
-                    label="Mark as official metric"
-                    disabled={form.watch("managedBy") === "api"}
-                    disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
-                    description="Official metrics can only be modified by admins or users with the ManageOfficialResources policy."
-                    value={form.watch("managedBy") === "admin"}
-                    setValue={(value) =>
-                      form.setValue("managedBy", value ? "admin" : "")
-                    }
-                  />
-                )}
               </Flex>
             </TabsContent>
           </Tabs>
