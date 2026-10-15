@@ -1,4 +1,5 @@
 import cronParser from "cron-parser";
+import { isEqual, pickBy } from "lodash";
 import {
   AGREEMENT_TYPE_AI,
   AI_AGREEMENT_VERSION,
@@ -57,16 +58,22 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 
   validateOrgSettingsUpdate(context, changes);
 
-  if (changes.updateSchedule?.type === "cron") {
+  // Echoed values skip these checks, so a stale stored reference still saves.
+  const changed: Partial<OrganizationSettings> = pickBy(
+    changes,
+    (v, k) => !isEqual(v, org.settings?.[k as keyof OrganizationSettings]),
+  );
+
+  if (changed.updateSchedule?.type === "cron") {
     try {
-      cronParser.parseExpression(changes.updateSchedule.cron ?? "");
+      cronParser.parseExpression(changed.updateSchedule.cron ?? "");
     } catch (e) {
       throw new Error(`Invalid updateSchedule.cron: ${e.message}`);
     }
   }
 
   AI_MODEL_SETTINGS.forEach(({ key, kind }) => {
-    const model = changes[key];
+    const model = changed[key];
     if (model && !getProviderForAIModel(kind, model)) {
       throw new Error(`Unknown ${kind} model for ${key}: ${model}`);
     }
@@ -85,31 +92,31 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
   }
 
   if (
-    changes.defaultDataSource &&
-    !(await getDataSourceById(context, changes.defaultDataSource))
+    changed.defaultDataSource &&
+    !(await getDataSourceById(context, changed.defaultDataSource))
   ) {
-    throw new Error(`Unknown Data Source: ${changes.defaultDataSource}`);
+    throw new Error(`Unknown Data Source: ${changed.defaultDataSource}`);
   }
   if (
-    changes.defaultDecisionCriteriaId &&
+    changed.defaultDecisionCriteriaId &&
     !PRESET_DECISION_CRITERIAS.some(
-      (c) => c.id === changes.defaultDecisionCriteriaId,
+      (c) => c.id === changed.defaultDecisionCriteriaId,
     ) &&
     !(await context.models.decisionCriteria.getById(
-      changes.defaultDecisionCriteriaId,
+      changed.defaultDecisionCriteriaId,
     ))
   ) {
     throw new Error(
-      `Unknown decision criteria: ${changes.defaultDecisionCriteriaId}`,
+      `Unknown decision criteria: ${changed.defaultDecisionCriteriaId}`,
     );
   }
   if (
-    changes.preferredEnvironment &&
+    changed.preferredEnvironment &&
     !(settings.environments ?? []).some(
-      (e) => e.id === changes.preferredEnvironment,
+      (e) => e.id === changed.preferredEnvironment,
     )
   ) {
-    throw new Error(`Unknown environment: ${changes.preferredEnvironment}`);
+    throw new Error(`Unknown environment: ${changed.preferredEnvironment}`);
   }
 
   if (needsAiAgreement) {
