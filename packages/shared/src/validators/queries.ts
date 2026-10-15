@@ -55,6 +55,7 @@ export const apiQueryValidator = namedSchema(
       queryType: z.string(),
       createdAt: z.string(),
       startedAt: z.string(),
+      finishedAt: z.string().nullable(),
       status: z.enum([
         "running",
         "queued",
@@ -62,6 +63,7 @@ export const apiQueryValidator = namedSchema(
         "partially-succeeded",
         "succeeded",
       ]),
+      error: z.string().nullable().describe("Why the query failed"),
       externalId: z.string(),
       dependencies: z.array(z.string()),
       runAtEnd: z.boolean(),

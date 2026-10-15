@@ -16,6 +16,7 @@ import {
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import {
+  createInformationSchemaTable,
   removeDeletedInformationSchemaTables,
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
@@ -251,6 +252,30 @@ export async function refreshInformationSchemaTable(
   };
   await updateInformationSchemaTableById(context.org.id, table.id, updates);
   return { ...table, ...updates };
+}
+
+// Tables are only cached once someone first asks for their columns
+export async function createInformationSchemaTableFromWarehouse(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  informationSchema: InformationSchemaInterface,
+  tableId: string,
+): Promise<InformationSchemaTablesInterface> {
+  const { tableData, refreshMS, databaseName, tableSchema, tableName } =
+    await fetchTableData(context, datasource, informationSchema, tableId);
+  if (!tableData) throw new Error("Unable to retrieve table data.");
+
+  return createInformationSchemaTable({
+    organization: context.org.id,
+    tableName,
+    tableSchema,
+    databaseName,
+    columns: getInformationSchemaColumns(tableData),
+    refreshMS,
+    datasourceId: datasource.id,
+    informationSchemaId: informationSchema.id,
+    id: tableId,
+  });
 }
 
 export async function generateInformationSchema(

@@ -54,12 +54,12 @@ export async function deleteDataSourceWithChecks(
   }
   if (context.org.settings?.defaultDataSource === datasource.id) {
     throw new BadRequestError(
-      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one.",
+      "This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one.",
     );
   }
   if ((await getMetricsByDatasource(context, datasource.id)).length > 0) {
     throw new BadRequestError(
-      "Error: Please delete all metrics tied to this datasource first.",
+      "Please delete all metrics tied to this datasource first.",
     );
   }
   const factMetrics = await context.models.factMetrics.getAllSorted({
@@ -67,7 +67,7 @@ export async function deleteDataSourceWithChecks(
   });
   if (factMetrics.length > 0) {
     throw new BadRequestError(
-      "Error: Please delete all fact metrics tied to this datasource first.",
+      "Please delete all fact metrics tied to this datasource first.",
     );
   }
   // Deleting the data source removes its Event Forwarder and managed events tables
@@ -80,12 +80,12 @@ export async function deleteDataSourceWithChecks(
   });
   if (factTables.some((f) => !cascadedFactTableIds.includes(f.id))) {
     throw new BadRequestError(
-      "Error: Please delete all fact tables tied to this datasource first.",
+      "Please delete all fact tables tied to this datasource first.",
     );
   }
   if ((await context.models.segments.getByDataSource(datasource.id)).length) {
     throw new BadRequestError(
-      "Error: Please delete all segments tied to this datasource first.",
+      "Please delete all segments tied to this datasource first.",
     );
   }
   const dimensions = await findDimensionsByDataSource(
@@ -94,7 +94,7 @@ export async function deleteDataSourceWithChecks(
   );
   if (dimensions.length > 0) {
     throw new BadRequestError(
-      "Error: Please delete all dimensions tied to this datasource first.",
+      "Please delete all dimensions tied to this datasource first.",
     );
   }
   // The app blocks this too; deleting would tear down a live event stream
@@ -104,7 +104,7 @@ export async function deleteDataSourceWithChecks(
     )
   ) {
     throw new BadRequestError(
-      "Error: Please remove the Event Forwarder tied to this datasource first.",
+      "Please remove the Event Forwarder tied to this datasource first.",
     );
   }
 
