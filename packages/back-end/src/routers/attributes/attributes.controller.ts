@@ -6,7 +6,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
@@ -289,10 +289,11 @@ export const getAttributeReferences = async (
 
   const keySet = new Set(attributeKeys);
 
+  // Only conditions are read, so values and ID lists stay in the database
   const [allFeatures, allExperiments, allSavedGroups] = await Promise.all([
-    getAllFeatures(context, {}),
+    getAllFeaturesForGraph(context),
     getAllExperiments(context, {}),
-    context.models.savedGroups.getAll(),
+    context.models.savedGroups.getAllWithoutValues(),
   ]);
 
   // { attributeKey -> { featureId -> { id, name, project } } }
@@ -327,7 +328,9 @@ export const getAttributeReferences = async (
     }
   }
 
-  for (const experiment of allExperiments) {
+  for (let i = 0; i < allExperiments.length; i++) {
+    await yieldEventLoop(i);
+    const experiment = allExperiments[i];
     const addExp = (key: string) => {
       if (!keySet.has(key)) return;
       experimentRefs.get(key)!.set(experiment.id, {
@@ -351,8 +354,10 @@ export const getAttributeReferences = async (
     }
   }
 
-  for (const group of allSavedGroups) {
-    if (group.type !== "condition") continue;
+  for (let i = 0; i < allSavedGroups.length; i++) {
+    await yieldEventLoop(i);
+    const group = allSavedGroups[i];
+    if (group.type !== "condition" || group.archived) continue;
     try {
       const parsed = JSON.parse(group.condition ?? "{}");
       for (const nodeKey of extractConditionAttributeKeys(parsed)) {

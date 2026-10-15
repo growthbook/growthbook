@@ -35,6 +35,7 @@ export function holdoutOccupiesRuleSlot(
 export function useHoldouts(
   project?: string,
   includeArchived: boolean = false,
+  { enabled = true }: { enabled?: boolean } = {},
 ) {
   const { data, error, mutate } = useApi<{
     holdouts: HoldoutInterface[];
@@ -44,6 +45,7 @@ export function useHoldouts(
     `/holdout?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
     }`,
+    { shouldRun: () => enabled },
   );
 
   const holdouts = useMemo(() => data?.holdouts || [], [data]);
