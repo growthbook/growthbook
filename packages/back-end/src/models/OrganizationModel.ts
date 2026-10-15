@@ -475,12 +475,13 @@ export async function updateOrganizationInvite(
   return res.matchedCount > 0;
 }
 
+// Null if the invite was already gone.
 export async function removeOrganizationInvite(
   organizationId: string,
   key: string,
 ) {
   const doc = await OrganizationModel.findOneAndUpdate(
-    { id: organizationId },
+    { id: organizationId, "invites.key": key },
     { $pull: { invites: { key } } },
     { new: true },
   );
