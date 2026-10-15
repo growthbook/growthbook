@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { AgreementType } from "shared/validators";
+import { AgreementType, AI_AGREEMENT_VERSION } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -66,7 +66,7 @@ const agreements: Record<
         administrator.
       </>
     ),
-    version: "2025-06-19",
+    version: AI_AGREEMENT_VERSION,
   },
   "managed-warehouse": {
     title: "Enable AI features?",
