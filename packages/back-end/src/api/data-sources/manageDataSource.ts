@@ -9,6 +9,7 @@ import {
 } from "shared/validators";
 import {
   DataSourceParams,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   ExposureQuery,
   SchemaFormat,
@@ -149,10 +150,22 @@ export function applyApiDataSourceSettings(
   if (input.pipelineSettings) {
     const { includedExperimentIds, ...pipelineSettings } =
       input.pipelineSettings;
+    // Stored settings missing a field still round-trip; only new ones must be whole
+    if (
+      !existing.pipelineSettings &&
+      (pipelineSettings.allowWriting === undefined ||
+        pipelineSettings.mode === undefined ||
+        pipelineSettings.writeDataset === undefined ||
+        pipelineSettings.unitsTableRetentionHours === undefined)
+    ) {
+      throw new BadRequestError(
+        "pipelineSettings needs allowWriting, mode, writeDataset and unitsTableRetentionHours when the data source has none yet.",
+      );
+    }
     settings.pipelineSettings = {
       ...existing.pipelineSettings,
       ...pipelineSettings,
-    };
+    } as DataSourcePipelineSettings;
     // Every experiment is stored as no list; an empty list means none
     if (includedExperimentIds === null) {
       delete settings.pipelineSettings.includedExperimentIds;
