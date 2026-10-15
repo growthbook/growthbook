@@ -1,12 +1,15 @@
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCheck, PiCopy } from "react-icons/pi";
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import type { DataRegion } from "shared/util";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useDataRegionOptions } from "@/services/dataRegions";
 import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 import {
   ConnectSetupKind,
   getDataSourceSetupInstructions,
@@ -16,7 +19,11 @@ import styles from "./DataSourceConnectInstructions.module.scss";
 
 export type { ConnectSetupKind };
 
-function CommandBlock({ code }: { code: string }) {
+/**
+ * `copyText` is what lands on the clipboard when it must differ from what is
+ * shown, e.g. a query displayed with a masked password.
+ */
+function CommandBlock({ code, copyText }: { code: string; copyText?: string }) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
@@ -37,7 +44,7 @@ function CommandBlock({ code }: { code: string }) {
           lineHeight: 1.75,
           // Wrap long lines in place of a horizontal scrollbar; a token only
           // breaks mid-word when it is wider than the pane on its own. The
-          // copy button still copies the unwrapped `code`.
+          // copy button still copies the unwrapped text.
           whiteSpace: "pre-wrap",
           overflowWrap: "break-word",
           color: "var(--color-text-high)",
@@ -54,7 +61,7 @@ function CommandBlock({ code }: { code: string }) {
             size="1"
             aria-label={label}
             onClick={() => {
-              performCopy(code);
+              performCopy(copyText ?? code);
             }}
             style={{
               position: "absolute",
@@ -123,7 +130,7 @@ function InstructionStepView({ step }: { step: SetupInstructionStep }) {
       <InstructionDescription step={step} />
       {step.code ? (
         <>
-          <CommandBlock code={step.code} />
+          <CommandBlock code={step.code} copyText={step.codeToCopy} />
           {step.codeNote ? <CodeNote note={step.codeNote} /> : null}
         </>
       ) : null}
@@ -138,6 +145,9 @@ export default function DataSourceConnectInstructions({
   setup,
   params,
   existing = false,
+  savedParams = null,
+  eventForwarderRegion = null,
+  snowflakeKeyPair = null,
 }: {
   type: DataSourceType;
   displayName: string;
@@ -146,10 +156,22 @@ export default function DataSourceConnectInstructions({
   params?: Partial<DataSourceParams>;
   /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
   existing?: boolean;
+  /** The saved connection's params when editing, so the SQL can alter the existing user and repeat only the grants that changed. */
+  savedParams?: Partial<DataSourceParams> | null;
+  /** The saved Event Forwarder region. Null until the user picks one in the Event Forwarder setup. */
+  eventForwarderRegion?: DataRegion | null;
+  /** Key pair GrowthBook generated for Snowflake, if the user asked for one. */
+  snowflakeKeyPair?: SnowflakeKeyPair | null;
 }) {
+  const regionOptions = useDataRegionOptions();
   const steps = getDataSourceSetupInstructions(type, setup, params, {
     existing,
+    saved: savedParams,
     cloud: isCloud(),
+    eventForwarderRegions: eventForwarderRegion
+      ? [eventForwarderRegion]
+      : regionOptions.map((o) => o.value),
+    snowflakeKeyPair,
   });
 
   return (
@@ -159,7 +181,8 @@ export default function DataSourceConnectInstructions({
           Setup Instructions
         </Heading>
         <Text as="p" color="text-mid" mb="4">
-          Updates as you fill in the form.
+          Fill in the form first. The queries below will update automatically
+          with your credentials.
         </Text>
         <Flex direction="column" gap="5">
           {steps.map((step, i) => (

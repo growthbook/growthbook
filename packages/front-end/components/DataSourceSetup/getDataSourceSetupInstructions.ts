@@ -3,7 +3,9 @@ import {
   DataSourceParams,
   DataSourceType,
 } from "shared/types/datasource";
+import type { DataRegion } from "shared/util";
 import { DocSection } from "@/components/docSections";
+import { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
 
@@ -19,6 +21,12 @@ export type SetupInstructionStep = {
     label: string;
   };
   code?: string;
+  /**
+   * What the Copy button puts on the clipboard when it differs from `code`.
+   * Passwords are masked in `code` so they never show on screen; this holds
+   * the runnable version.
+   */
+  codeToCopy?: string;
   /** Shown under the code block. Backticks render as inline code. */
   codeNote?: string;
 };
@@ -28,35 +36,52 @@ type ParamsFor<T extends DataSourceType> = Partial<
   Extract<DataSourceInterfaceWithParams, { type: T }>["params"]
 >;
 
-type StepContext = {
+type StepContext<T extends DataSourceType = DataSourceType> = {
   isEventForwarder: boolean;
+  /**
+   * Data regions the Event Forwarder may write from. A single entry when the
+   * region is already chosen (editing); otherwise every region the org can
+   * pick, since the choice happens after the connection is created.
+   */
+  eventForwarderRegions: DataRegion[];
   /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
   existing: boolean;
+  /**
+   * The saved connection's params when editing, otherwise null. Builders diff
+   * the form against this: same username means the warehouse user exists and
+   * gets ALTER plus grants for whatever changed; a new username gets CREATE.
+   */
+  saved: ParamsFor<T> | null;
   /** GrowthBook Cloud reaches the warehouse from a fixed IP; self-hosted runs in Docker. */
   cloud: boolean;
+  /** Key pair GrowthBook generated on request. Only its public half is ever shown. */
+  snowflakeKeyPair: SnowflakeKeyPair | null;
 };
 
 type StepBuilder<T extends DataSourceType> = (
   params: ParamsFor<T>,
-  ctx: StepContext,
+  ctx: StepContext<T>,
 ) => SetupInstructionStep[];
 
 const CLOUD_EGRESS_IP = "52.70.79.40";
 // Event Forwarder ingestors write from the egress IP, plus this one when the
 // eu-west-1 region is selected.
 const EU_INGESTOR_IP = "54.74.233.97";
-const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if your Event Forwarder data region is eu-west-1.`;
+const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if you choose the eu-west-1 data region when setting up the Event Forwarder.`;
 
-const TEST_CONNECTION = "Enter the fields, then run the connection test.";
+// Every field the SQL above depends on is already in the form by now, so the
+// last step is only the test.
+const TEST_STEP: SetupInstructionStep = {
+  title: "Test the connection",
+  description: "Run the connection test, then save.",
+};
 
 const DOCKER_HOST_NOTE =
   "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.";
 
-// New connections start with a generated password in the form, so the SQL
-// reads it from there and the two cannot drift. When the field is blank
-// (editing a saved connection keeps the stored secret) fall back to a
-// placeholder and say so.
-const PASSWORD_PLACEHOLDER = "use-a-strong-password";
+const PASSWORD_PLACEHOLDER = "'<password>'";
+const PASSWORD_MASK = "'••••••••'";
+const PUBLIC_KEY_PLACEHOLDER = "'<contents of rsa_key.pub>'";
 
 /**
  * How a warehouse reads a single-quoted string literal.
@@ -78,6 +103,43 @@ function field<P>(params: P, key: keyof P, fallback: string): string {
 }
 
 /**
+ * Whether a form value differs from the saved connection, compared the way
+ * the SQL renders them so a blank saved schema equals a typed "public".
+ */
+function changed<P>(
+  params: P,
+  saved: P | null,
+  key: keyof P,
+  fallback: string,
+): boolean {
+  return (
+    saved !== null &&
+    field(saved, key, fallback) !== field(params, key, fallback)
+  );
+}
+
+/** The username field, whichever name the warehouse uses for it. */
+function userNameOf(params: {
+  user?: string;
+  username?: string;
+}): string | undefined {
+  const name = params.user ?? params.username;
+  return typeof name === "string" ? name.trim() || undefined : undefined;
+}
+
+/**
+ * Editing, and the username matches the saved connection, so the warehouse
+ * user already exists. Blank or renamed means a new user.
+ */
+function hasSavedUser<P extends { user?: string; username?: string }>(
+  params: P,
+  saved: P | null,
+): boolean {
+  const name = userNameOf(params);
+  return saved !== null && name !== undefined && userNameOf(saved) === name;
+}
+
+/**
  * Postgres folds unquoted identifiers to lowercase, but the connection sends
  * the form value as typed. Quoting keeps the created role, database, and
  * schema identical to what the form will send.
@@ -95,24 +157,108 @@ function sqlStringLiteral(value: string, dialect: SqlDialect): string {
 }
 
 /**
- * The password literal for a CREATE USER command plus the note shown under
- * it. Uses the exact form value (no trimming, since the form sends it as-is)
- * and only falls back to the placeholder when the field is empty.
+ * The credential a user statement sets, in two forms: `display` for the
+ * screen and `copy` for the clipboard. A password in the form shows as a mask
+ * with the exact value on Copy, so the query runs without the secret ever
+ * being visible. A public key or identity binding is the same in both.
  */
+type CredentialLiteral = {
+  /** The form holds a real value, as opposed to a placeholder. */
+  present: boolean;
+  display: string;
+  copy: string;
+  note?: string;
+};
+
 function passwordFor(
   params: { password?: string },
   dialect: SqlDialect,
-): { literal: string; note: string } {
+): CredentialLiteral {
   const password = params.password ? params.password : null;
-  return password === null
-    ? {
-        literal: `'${PASSWORD_PLACEHOLDER}'`,
-        note: `Replace \`${PASSWORD_PLACEHOLDER}\`, then enter the same value in the Password field.`,
-      }
-    : {
-        literal: sqlStringLiteral(password, dialect),
-        note: "The password matches the Password field.",
-      };
+  if (password === null) {
+    return {
+      present: false,
+      display: PASSWORD_PLACEHOLDER,
+      copy: PASSWORD_PLACEHOLDER,
+      note: "Enter a password in the form to include it here.",
+    };
+  }
+  return {
+    present: true,
+    display: PASSWORD_MASK,
+    copy: sqlStringLiteral(password, dialect),
+    note: "The password is hidden here. Copy includes the value from the Password field.",
+  };
+}
+
+/** Renders a code block once for the screen and once for the clipboard. */
+function withCredential(
+  credential: CredentialLiteral,
+  render: (literal: string) => string,
+): Pick<SetupInstructionStep, "code" | "codeToCopy"> {
+  const code = render(credential.display);
+  return credential.display === credential.copy
+    ? { code }
+    : { code, codeToCopy: render(credential.copy) };
+}
+
+/** A grant block the update step adds because the field it depends on changed. */
+type GrantChange = { label: string; sql: string };
+
+function listOf(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * The user step when editing a connection whose user already exists. Grants
+ * are only repeated for fields they depend on that changed since the save.
+ * The credential ALTER appears when the form holds a new value, or on its
+ * own with a placeholder when nothing else changed so the step stays
+ * actionable.
+ */
+function updateUserStep({
+  credential,
+  alter,
+  changes,
+  rotateOnly,
+}: {
+  credential: CredentialLiteral;
+  /** Renders the ALTER for the credential literal. */
+  alter: (literal: string) => string;
+  changes: GrantChange[];
+  /** Description when no grant-related field changed. */
+  rotateOnly: string;
+}): SetupInstructionStep {
+  const title = "Update the user";
+  if (changes.length === 0) {
+    return {
+      title,
+      description: rotateOnly,
+      ...withCredential(credential, alter),
+      codeNote: credential.note,
+    };
+  }
+
+  const labels = [...new Set(changes.map((c) => c.label))];
+  const what = `The ${listOf(labels)} changed.`;
+  const grants = changes.map((c) => c.sql).join("\n");
+  const target = labels.length > 1 ? "new ones" : "new one";
+  if (!credential.present) {
+    return {
+      title,
+      description: `${what} Grant access on the ${target}.`,
+      code: grants,
+      codeNote: "Enter new credentials in the form to rotate them as well.",
+    };
+  }
+  return {
+    title,
+    description: `${what} Rotate the credentials and grant access on the ${target}.`,
+    ...withCredential(credential, (literal) => `${alter(literal)}\n${grants}`),
+    codeNote: credential.note,
+  };
 }
 
 function cidrList(ips: string[]): string {
@@ -121,26 +267,30 @@ function cidrList(ips: string[]): string {
 
 /**
  * The "Allow network access" step. Lists the Cloud egress IP, plus the EU
- * ingestor when the Event Forwarder may write from it. `code` formats the
+ * ingestor when the Event Forwarder may write from eu-west-1. The note only
+ * appears while the region is still the user's to choose. `code` formats the
  * list for the warehouse; the default is one CIDR per line.
  */
 function networkAccessStep({
   description,
-  isEventForwarder,
+  ctx: { isEventForwarder, eventForwarderRegions },
   code = cidrList,
 }: {
   description: string;
-  isEventForwarder: boolean;
+  ctx: StepContext;
   code?: (ips: string[]) => string;
 }): SetupInstructionStep {
-  const ips = isEventForwarder
-    ? [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
-    : [CLOUD_EGRESS_IP];
+  const mayUseEu =
+    isEventForwarder && eventForwarderRegions.includes("eu-west-1");
+  const ips = mayUseEu ? [CLOUD_EGRESS_IP, EU_INGESTOR_IP] : [CLOUD_EGRESS_IP];
   return {
     title: "Allow network access",
     description,
     code: code(ips),
-    codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
+    codeNote:
+      mayUseEu && eventForwarderRegions.length > 1
+        ? EU_INGESTOR_NOTE
+        : undefined,
   };
 }
 
@@ -154,10 +304,7 @@ function networkAccessOrDockerStep(
   dockerDescription = DOCKER_HOST_NOTE,
 ): SetupInstructionStep {
   return ctx.cloud
-    ? networkAccessStep({
-        description: cloudDescription,
-        isEventForwarder: ctx.isEventForwarder,
-      })
+    ? networkAccessStep({ description: cloudDescription, ctx })
     : { title: "Allow network access", description: dockerDescription };
 }
 
@@ -186,7 +333,8 @@ gcloud projects add-iam-policy-binding ${projectId} \\
     },
     {
       title: "Create a JSON key",
-      description: "In the console: Manage keys → Add key → JSON.",
+      description:
+        "In the console: Manage keys → Add key → JSON. Upload it in the form.",
       code: `gcloud iam service-accounts keys create \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
@@ -206,32 +354,68 @@ GRANT \`roles/bigquery.dataEditor\`
     });
   }
 
-  steps.push({
-    title: "Enter credentials and test",
-    description: "Upload the JSON key, then run the connection test.",
-  });
+  steps.push(TEST_STEP);
 
   return steps;
 };
 
-const snowflakeSteps: StepBuilder<"snowflake"> = (
-  p,
-  { isEventForwarder, existing },
-) => {
-  const role = field(p, "role", "GROWTHBOOK_ROLE");
+const SNOWFLAKE_FALLBACKS = {
+  role: "GROWTHBOOK_ROLE",
+  warehouse: "COMPUTE_WH",
+  database: "ANALYTICS",
+  schema: "GROWTHBOOK_EVENTS",
+} as const;
+
+const snowflakeSteps: StepBuilder<"snowflake"> = (p, ctx) => {
+  const { isEventForwarder, existing, saved, snowflakeKeyPair } = ctx;
+  const role = field(p, "role", SNOWFLAKE_FALLBACKS.role);
   const user = field(p, "username", "GROWTHBOOK");
-  const warehouse = field(p, "warehouse", "COMPUTE_WH");
-  const database = field(p, "database", "ANALYTICS");
-  const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
+  const warehouse = field(p, "warehouse", SNOWFLAKE_FALLBACKS.warehouse);
+  const database = field(p, "database", SNOWFLAKE_FALLBACKS.database);
+  const efSchema = field(p, "schema", SNOWFLAKE_FALLBACKS.schema);
   // Match SnowflakeForm: connections saved before authMethod existed used
   // a password; new connections default to key-pair.
   const authMethod = p.authMethod ?? (existing ? "password" : "key-pair");
   const workloadProvider = p.workloadIdentityProvider ?? "AWS";
-  const snowflakePassword = passwordFor(p, "backslash");
-  const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
-  TO ROLE ${role};
+  const password = passwordFor(p, "backslash");
+  // Only show the generated public key while its private half is still in
+  // the form; uploading a different key file replaces it.
+  const usingGeneratedKey =
+    snowflakeKeyPair !== null &&
+    !!p.privateKey &&
+    p.privateKey === snowflakeKeyPair.privateKey;
+  const publicKeyLiteral = usingGeneratedKey
+    ? `'${snowflakeKeyPair.publicKey}'`
+    : PUBLIC_KEY_PLACEHOLDER;
+  const publicKey: CredentialLiteral = {
+    present: !!p.privateKey,
+    display: publicKeyLiteral,
+    copy: publicKeyLiteral,
+    note: p.privateKey
+      ? undefined
+      : "Add or generate a private key before copying the query.",
+  };
 
-GRANT USAGE ON DATABASE ${database}
+  const wifBinding =
+    workloadProvider === "AZURE"
+      ? `(
+    TYPE = AZURE
+    ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
+    SUBJECT = '<managed_identity_object_id>'
+  )`
+      : workloadProvider === "GCP"
+        ? `(
+    TYPE = GCP
+    SUBJECT = '<service_account_unique_id>'
+  )`
+        : `(
+    TYPE = AWS
+    ARN = 'arn:aws:iam::<account-id>:role/<growthbook-task-role>'
+  )`;
+
+  const warehouseGrant = `GRANT USAGE ON WAREHOUSE ${warehouse}
+  TO ROLE ${role};`;
+  const databaseGrants = `GRANT USAGE ON DATABASE ${database}
   TO ROLE ${role};
 GRANT USAGE ON ALL SCHEMAS
   IN DATABASE ${database}
@@ -239,96 +423,138 @@ GRANT USAGE ON ALL SCHEMAS
 GRANT SELECT ON ALL TABLES
   IN DATABASE ${database}
   TO ROLE ${role};`;
+  const readGrants = `${warehouseGrant}\n\n${databaseGrants}`;
 
-  let createUserCode: string;
-  if (authMethod === "workload-identity") {
-    const identityBinding =
-      workloadProvider === "AZURE"
-        ? `CREATE USER ${user}
-  WORKLOAD_IDENTITY = (
-    TYPE = AZURE
-    ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
-    SUBJECT = '<managed_identity_object_id>'
-  )
-  TYPE = SERVICE;`
-        : workloadProvider === "GCP"
-          ? `CREATE USER ${user}
-  WORKLOAD_IDENTITY = (
-    TYPE = GCP
-    SUBJECT = '<service_account_unique_id>'
-  )
-  TYPE = SERVICE;`
-          : `CREATE USER ${user} TYPE = SERVICE;
-ALTER USER ${user} SET WORKLOAD_IDENTITY = (
-  TYPE = AWS
-  ARN = 'arn:aws:iam::<account-id>:role/<growthbook-task-role>'
-);`;
-    createUserCode = `CREATE ROLE ${role};
-${identityBinding}
-GRANT ROLE ${role} TO USER ${user};
-${readGrants}`;
-  } else {
-    const authLine =
-      authMethod === "password"
-        ? `PASSWORD = ${snowflakePassword.literal}`
-        : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
-    createUserCode = `CREATE ROLE ${role};
-CREATE USER ${user}
-  DEFAULT_ROLE = ${role}
-  ${authLine};
-GRANT ROLE ${role} TO USER ${user};
-${readGrants}`;
-  }
-
-  if (isEventForwarder && authMethod !== "workload-identity") {
-    createUserCode += `
-
-GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
+  const efGrants =
+    isEventForwarder && authMethod !== "workload-identity"
+      ? `GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
 CREATE SCHEMA ${database}.${efSchema};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT CREATE TABLE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
-GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};`;
+GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};`
+      : null;
+
+  // TYPE = SERVICE marks a programmatic user: no MFA prompts, and
+  // Snowflake's password retirement does not apply to it.
+  const createUser = (auth: string) => `CREATE ROLE ${role};
+CREATE USER ${user}
+${auth}
+GRANT ROLE ${role} TO USER ${user};
+${readGrants}${efGrants ? `\n\n${efGrants}` : ""}`;
+
+  // Grants are on the role, so a new role needs all of them again; otherwise
+  // only the objects that moved.
+  const changes: GrantChange[] = [];
+  if (changed(p, saved, "role", SNOWFLAKE_FALLBACKS.role)) {
+    changes.push({
+      label: "role",
+      sql: `CREATE ROLE ${role};
+GRANT ROLE ${role} TO USER ${user};
+ALTER USER ${user} SET DEFAULT_ROLE = ${role};
+${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
+    });
+  } else {
+    if (changed(p, saved, "warehouse", SNOWFLAKE_FALLBACKS.warehouse)) {
+      changes.push({ label: "warehouse", sql: warehouseGrant });
+    }
+    const databaseChanged = changed(
+      p,
+      saved,
+      "database",
+      SNOWFLAKE_FALLBACKS.database,
+    );
+    if (databaseChanged) {
+      changes.push({
+        label: "database",
+        sql: `${databaseGrants}${efGrants ? `\n${efGrants}` : ""}`,
+      });
+    } else if (
+      efGrants &&
+      changed(p, saved, "schema", SNOWFLAKE_FALLBACKS.schema)
+    ) {
+      changes.push({ label: "schema", sql: efGrants });
+    }
   }
 
-  const userStepDescription =
-    authMethod === "workload-identity"
-      ? isEventForwarder
-        ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
-        : "Self-hosted only. Run as ACCOUNTADMIN."
-      : isEventForwarder
-        ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
-        : "Run as ACCOUNTADMIN.";
+  let userStep: SetupInstructionStep;
+  if (authMethod === "workload-identity") {
+    // The binding is all placeholders, so it behaves like a blank password:
+    // shown on its own when nothing changed, left out when grants are needed.
+    const binding: CredentialLiteral = {
+      present: false,
+      display: wifBinding,
+      copy: wifBinding,
+    };
+    userStep = hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: binding,
+          alter: (b) => `ALTER USER ${user} SET WORKLOAD_IDENTITY = ${b};`,
+          changes,
+          rotateOnly: "Only needed to change the identity binding.",
+        })
+      : {
+          title: "Create a user and grant access",
+          description: isEventForwarder
+            ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
+            : "Self-hosted only. Run as ACCOUNTADMIN.",
+          code: createUser(`  WORKLOAD_IDENTITY = ${wifBinding}
+  TYPE = SERVICE;`),
+        };
+  } else if (authMethod === "password") {
+    userStep = hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: password,
+          alter: (pw) => `ALTER USER ${user} SET PASSWORD = ${pw};`,
+          changes,
+          rotateOnly:
+            "Only needed to rotate the password. Grants are unchanged.",
+        })
+      : {
+          title: "Create a user and grant access",
+          description: isEventForwarder
+            ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
+            : "Run as ACCOUNTADMIN.",
+          ...withCredential(password, (pw) =>
+            createUser(`  DEFAULT_ROLE = ${role}
+  PASSWORD = ${pw};`),
+          ),
+          codeNote: password.note,
+        };
+  } else {
+    userStep = hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: publicKey,
+          alter: (key) => `ALTER USER ${user} SET RSA_PUBLIC_KEY = ${key};`,
+          changes,
+          rotateOnly: "Only needed to change the key. Grants are unchanged.",
+        })
+      : {
+          title: "Create a user and grant access",
+          description: "Run as ACCOUNTADMIN.",
+          code: createUser(`  TYPE = SERVICE
+  DEFAULT_ROLE = ${role}
+  RSA_PUBLIC_KEY = ${publicKeyLiteral};`),
+          codeNote: publicKey.note,
+        };
+  }
 
   return [
-    {
-      title: "Create a user and grant access",
-      description: userStepDescription,
-      code: createUserCode,
-      codeNote: authMethod === "password" ? snowflakePassword.note : undefined,
-    },
+    userStep,
     networkAccessStep({
       description: "Only if a network policy restricts IPs.",
-      isEventForwarder,
+      ctx,
       code: (ips) => `CREATE NETWORK POLICY GROWTHBOOK_POLICY
   ALLOWED_IP_LIST = (${ips.map((ip) => `'${ip}'`).join(", ")});
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
     }),
-    {
-      title: "Enter credentials and test",
-      description:
-        authMethod === "workload-identity"
-          ? "Select Workload Identity Federation and the cloud GrowthBook runs on, then test."
-          : "Enter the account, warehouse, database, and credentials, then test.",
-    },
+    TEST_STEP,
   ];
 };
 
-const databricksSteps: StepBuilder<"databricks"> = (
-  p,
-  { isEventForwarder },
-) => {
+const databricksSteps: StepBuilder<"databricks"> = (p, ctx) => {
+  const { isEventForwarder } = ctx;
   const catalog = field(p, "catalog", "main");
   // Match DatabricksForm: connections saved before authType existed are PAT.
   const authType = p.authType ?? "pat";
@@ -351,19 +577,20 @@ GRANT USE SCHEMA, CREATE TABLE
   return [
     {
       title: "Find connection details",
-      description: "Copy the server hostname, port, and HTTP path.",
+      description:
+        "Copy the server hostname, port, and HTTP path into the form.",
     },
     usingOauth
       ? {
           title: "Create a service principal",
           description: isEventForwarder
-            ? "Copy the Client ID and OAuth secret. Required for the Event Forwarder."
-            : "Copy the Client ID and OAuth secret.",
+            ? "Copy the Client ID and OAuth secret into the form. Required for the Event Forwarder."
+            : "Copy the Client ID and OAuth secret into the form.",
         }
       : {
           title: "Create a personal access token",
           description:
-            "Create a token for a user or service principal. OAuth is recommended.",
+            "Create a token for a user or service principal and paste it into the form. OAuth is recommended.",
         },
     {
       title: "Grant access",
@@ -374,31 +601,37 @@ GRANT USE SCHEMA, CREATE TABLE
     },
     networkAccessStep({
       description: "Only if IP access lists are on.",
-      isEventForwarder,
+      ctx,
     }),
-    {
-      title: "Enter credentials and test",
-      description: usingOauth
-        ? "Enter the hostname, port, HTTP path, Client ID, and OAuth secret, then test."
-        : "Enter the hostname, port, HTTP path, and token, then test.",
-    },
+    TEST_STEP,
   ];
 };
 
-const redshiftSteps: StepBuilder<"redshift"> = (p) => {
+const redshiftSteps: StepBuilder<"redshift"> = (p, ctx) => {
+  const { saved } = ctx;
   const user = field(p, "user", "growthbook_user");
   const schema = field(p, "defaultSchema", "public");
   const port = field(p, "port", "5439");
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-    p,
-    "backslash",
-  );
+  const password = passwordFor(p, "backslash");
+  const schemaGrants = `GRANT USAGE ON SCHEMA ${schema} TO ${user};
+GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
+ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
+  GRANT SELECT ON TABLES TO ${user};`;
+
+  // Users are cluster-wide but schema grants live in a database, so a new
+  // database needs them run again there.
+  const changes: GrantChange[] = [];
+  if (changed(p, saved, "database", "")) {
+    changes.push({ label: "database", sql: schemaGrants });
+  } else if (changed(p, saved, "defaultSchema", "public")) {
+    changes.push({ label: "schema", sql: schemaGrants });
+  }
 
   return [
     {
       title: "Find connection details",
       description:
-        "Copy the workgroup endpoint. It splits into host, port, and database.",
+        "Copy the workgroup endpoint into the form. It splits into host, port, and database. Require SSL is recommended.",
     },
     {
       title: "Configure security settings",
@@ -407,21 +640,25 @@ const redshiftSteps: StepBuilder<"redshift"> = (p) => {
 Port: ${port}
 Source: ${CLOUD_EGRESS_IP}/32`,
     },
-    {
-      title: "Create a read-only user",
-      description: "Run in the query editor.",
-      code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
-GRANT USAGE ON SCHEMA ${schema} TO ${user};
-GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
-ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
-  GRANT SELECT ON TABLES TO ${user};`,
-      codeNote: passwordNote,
-    },
-    {
-      title: "Enter credentials and test",
-      description:
-        "Enter the host, port, database, and user, then test. Require SSL is recommended.",
-    },
+    hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: password,
+          alter: (pw) => `ALTER USER ${user} PASSWORD ${pw};`,
+          changes,
+          rotateOnly:
+            "Only needed to rotate the password. Grants are unchanged.",
+        })
+      : {
+          title: "Create a read-only user",
+          description: "Run in the query editor.",
+          ...withCredential(
+            password,
+            (pw) => `CREATE USER ${user} WITH PASSWORD ${pw};
+${schemaGrants}`,
+          ),
+          codeNote: password.note,
+        },
+    TEST_STEP,
   ];
 };
 
@@ -451,13 +688,9 @@ const athenaSteps: StepBuilder<"athena"> = () => [
   {
     title: "Create an access key",
     description:
-      "IAM → Security credentials → Create access key → Third-party service.",
+      "IAM → Security credentials → Create access key → Third-party service. Self-hosted GrowthBook can use auto-discovery or an IAM role instead.",
   },
-  {
-    title: "Enter credentials and test",
-    description:
-      "Enter the keys, region, workgroup, catalog, database, and S3 results URL, then test. Self-hosted GrowthBook can use auto-discovery or an IAM role.",
-  },
+  TEST_STEP,
 ];
 
 const prestoSteps: StepBuilder<"presto"> = () => [
@@ -469,14 +702,12 @@ const prestoSteps: StepBuilder<"presto"> = () => [
   {
     title: "Enter connection details",
     description:
-      "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook. Then test.",
+      "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook.",
   },
+  TEST_STEP,
 ];
 
-const clickhouseSteps: StepBuilder<"clickhouse"> = (
-  p,
-  { isEventForwarder },
-) => [
+const clickhouseSteps: StepBuilder<"clickhouse"> = (p, ctx) => [
   {
     title: "Create read-only credentials",
     description:
@@ -484,103 +715,147 @@ const clickhouseSteps: StepBuilder<"clickhouse"> = (
   },
   networkAccessStep({
     description: "If ClickHouse is behind a firewall, allow this IP.",
-    isEventForwarder,
+    ctx,
   }),
-  {
-    title: "Enter credentials and test",
-    description: TEST_CONNECTION,
-  },
+  TEST_STEP,
 ];
 
 const postgresSteps: StepBuilder<"postgres"> = (p, ctx) => {
+  const { saved } = ctx;
   const user = pgIdentifier(field(p, "user", "growthbook"));
   const database = pgIdentifier(field(p, "database", "your_database"));
   const schema = pgIdentifier(field(p, "defaultSchema", "public"));
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-    p,
-    "quote-only",
-  );
-  return [
-    {
-      title: "Create a read-only user",
-      description:
-        "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-      code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
-GRANT CONNECT ON DATABASE ${database} TO ${user};
-GRANT USAGE ON SCHEMA ${schema} TO ${user};
+  const password = passwordFor(p, "quote-only");
+  const connectGrant = `GRANT CONNECT ON DATABASE ${database} TO ${user};`;
+  const schemaGrants = `GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
-  GRANT SELECT ON TABLES TO ${user};`,
-      codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
-    },
+  GRANT SELECT ON TABLES TO ${user};`;
+
+  // Schema grants live in a database, so a new database needs both.
+  const changes: GrantChange[] = [];
+  if (changed(p, saved, "database", "your_database")) {
+    changes.push({
+      label: "database",
+      sql: `${connectGrant}\n${schemaGrants}`,
+    });
+  } else if (changed(p, saved, "defaultSchema", "public")) {
+    changes.push({ label: "schema", sql: schemaGrants });
+  }
+
+  return [
+    hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: password,
+          alter: (pw) => `ALTER USER ${user} WITH PASSWORD ${pw};`,
+          changes,
+          rotateOnly:
+            "Only needed to rotate the password. Grants are unchanged.",
+        })
+      : {
+          title: "Create a read-only user",
+          description:
+            "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
+          ...withCredential(
+            password,
+            (pw) => `CREATE USER ${user} WITH PASSWORD ${pw};
+${connectGrant}
+${schemaGrants}`,
+          ),
+          codeNote: `${password.note} Grants use the Default Schema field; change it there if events live in another schema.`,
+        },
     networkAccessOrDockerStep(
       ctx,
       "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP.",
     ),
-    {
-      title: "Enter credentials and test",
-      description: TEST_CONNECTION,
-    },
+    TEST_STEP,
   ];
 };
 
 const mysqlSteps: StepBuilder<"mysql"> = (p, ctx) => {
+  const { saved } = ctx;
   const user = field(p, "user", "growthbook");
   const database = field(p, "database", "your_database");
   const port = field(p, "port", "3306");
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-    p,
-    "backslash",
-  );
+  const password = passwordFor(p, "backslash");
+  const selectGrant = `GRANT SELECT ON ${database}.* TO '${user}'@'%';
+FLUSH PRIVILEGES;`;
+  const changes: GrantChange[] = changed(p, saved, "database", "your_database")
+    ? [{ label: "database", sql: selectGrant }]
+    : [];
   return [
-    {
-      title: "Create a read-only user",
-      description:
-        "Grant SELECT on the database. Restrict the host from '%' when you can.",
-      code: `CREATE USER '${user}'@'%' IDENTIFIED BY ${passwordLiteral};
-GRANT SELECT ON ${database}.* TO '${user}'@'%';
-FLUSH PRIVILEGES;`,
-      codeNote: passwordNote,
-    },
+    hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: password,
+          alter: (pw) => `ALTER USER '${user}'@'%' IDENTIFIED BY ${pw};`,
+          changes,
+          rotateOnly:
+            "Only needed to rotate the password. Grants are unchanged.",
+        })
+      : {
+          title: "Create a read-only user",
+          description:
+            "Grant SELECT on the database. Restrict the host from '%' when you can.",
+          ...withCredential(
+            password,
+            (pw) => `CREATE USER '${user}'@'%' IDENTIFIED BY ${pw};
+${selectGrant}`,
+          ),
+          codeNote: password.note,
+        },
     networkAccessOrDockerStep(ctx, `Allow port ${port} from this IP.`),
-    {
-      title: "Enter credentials and test",
-      description: TEST_CONNECTION,
-    },
+    TEST_STEP,
   ];
 };
 
 const mssqlSteps: StepBuilder<"mssql"> = (p, ctx) => {
+  const { saved } = ctx;
   const user = field(p, "user", "growthbook");
   const schema = field(p, "defaultSchema", "dbo");
   const port = field(p, "port", "1433");
-  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-    p,
-    "quote-only",
-  );
+  const password = passwordFor(p, "quote-only");
+  const databaseUser = `CREATE USER ${user} FOR LOGIN ${user};`;
+  const schemaGrant = `GRANT SELECT ON SCHEMA::${schema} TO ${user};`;
+
+  // Logins are server-wide but users are per database, so a new database
+  // needs its own user before the grant.
+  const changes: GrantChange[] = [];
+  if (changed(p, saved, "database", "")) {
+    changes.push({ label: "database", sql: `${databaseUser}\n${schemaGrant}` });
+  } else if (changed(p, saved, "defaultSchema", "dbo")) {
+    changes.push({ label: "schema", sql: schemaGrant });
+  }
+
   return [
-    {
-      title: "Create a read-only login",
-      description: "Grant SELECT on the schema.",
-      code: `CREATE LOGIN ${user} WITH PASSWORD = ${passwordLiteral};
-CREATE USER ${user} FOR LOGIN ${user};
-GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
-      codeNote: passwordNote,
-    },
+    hasSavedUser(p, saved)
+      ? updateUserStep({
+          credential: password,
+          alter: (pw) => `ALTER LOGIN ${user} WITH PASSWORD = ${pw};`,
+          changes,
+          rotateOnly:
+            "Only needed to rotate the password. Grants are unchanged.",
+        })
+      : {
+          title: "Create a read-only login",
+          description: "Grant SELECT on the schema.",
+          ...withCredential(
+            password,
+            (pw) => `CREATE LOGIN ${user} WITH PASSWORD = ${pw};
+${databaseUser}
+${schemaGrant}`,
+          ),
+          codeNote: password.note,
+        },
     networkAccessOrDockerStep(
       ctx,
-      `Allow port ${port} from this IP.`,
-      "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
+      `Allow port ${port} from this IP. Encryption defaults to on.`,
+      "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost. Encryption defaults to on.",
     ),
-    {
-      title: "Enter credentials and test",
-      description:
-        "Enter the server, port, database, and login, then test. Encryption defaults to on.",
-    },
+    TEST_STEP,
   ];
 };
 
-const verticaSteps: StepBuilder<"vertica"> = (p, { isEventForwarder }) => [
+const verticaSteps: StepBuilder<"vertica"> = (p, ctx) => [
   {
     title: "Create a dedicated user",
     description:
@@ -588,12 +863,9 @@ const verticaSteps: StepBuilder<"vertica"> = (p, { isEventForwarder }) => [
   },
   networkAccessStep({
     description: "If Vertica is firewalled, allow this IP.",
-    isEventForwarder,
+    ctx,
   }),
-  {
-    title: "Enter credentials and test",
-    description: TEST_CONNECTION,
-  },
+  TEST_STEP,
 ];
 
 const adobeSteps: StepBuilder<
@@ -609,10 +881,7 @@ const adobeSteps: StepBuilder<
     description:
       "Host: Expiring Credentials. Port: 80 or 5432. Database: like prod:all. Username: includes @AdobeOrg. Technical account ID and credential: from the JSON.",
   },
-  {
-    title: "Enter credentials and test",
-    description: TEST_CONNECTION,
-  },
+  TEST_STEP,
 ];
 
 const mixpanelSteps: StepBuilder<"mixpanel"> = () => [
@@ -662,14 +931,30 @@ const STEP_BUILDERS: { [T in DataSourceType]: StepBuilder<T> } = {
   growthbook_clickhouse: growthbookClickhouseSteps,
 };
 
+export type SetupInstructionOptions = {
+  existing?: boolean;
+  /**
+   * The saved connection's params when editing. Lets the SQL alter the
+   * existing user and repeat only the grants whose inputs changed.
+   */
+  saved?: Partial<DataSourceParams> | null;
+  cloud?: boolean;
+  /** Defaults to every region, which is the right answer when none is chosen yet. */
+  eventForwarderRegions?: DataRegion[];
+  snowflakeKeyPair?: SnowflakeKeyPair | null;
+};
+
 export function getDataSourceSetupInstructions(
   type: DataSourceType,
   setup: ConnectSetupKind,
   params?: Partial<DataSourceParams>,
   {
     existing = false,
+    saved = null,
     cloud = false,
-  }: { existing?: boolean; cloud?: boolean } = {},
+    eventForwarderRegions = ["us-east-1", "eu-west-1"],
+    snowflakeKeyPair = null,
+  }: SetupInstructionOptions = {},
 ): SetupInstructionStep[] {
   // `type` says which member of the `params` union this is, but TypeScript
   // cannot correlate the two, so widen the builder once here instead of
@@ -677,7 +962,10 @@ export function getDataSourceSetupInstructions(
   const build = STEP_BUILDERS[type] as StepBuilder<DataSourceType>;
   return build(params ?? {}, {
     isEventForwarder: setup === "event_forwarder",
+    eventForwarderRegions,
     existing,
+    saved: existing ? saved : null,
     cloud,
+    snowflakeKeyPair,
   });
 }
