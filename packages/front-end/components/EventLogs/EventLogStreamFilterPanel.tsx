@@ -113,50 +113,51 @@ export default function EventLogStreamFilterPanel({
         </button>
       </Tooltip>
 
-      <Box className={styles.body}>
-        {/* Wrapped: @/ui/Text takes no className. */}
-        <Box className={styles.sectionLabel}>
-          <Text size="md" weight="semibold">
-            Timeframe
-          </Text>
-        </Box>
+      <Box className={styles.content}>
+        <Box className={styles.body}>
+          {/* Wrapped: @/ui/Text takes no className. */}
+          <Box className={styles.sectionLabel}>
+            <Text size="md" weight="semibold">
+              Timeframe
+            </Text>
+          </Box>
 
-        {/* The dashboard's trigger + popover shell, reused rather than
+          {/* The dashboard's trigger + popover shell, reused rather than
             restyled. Only the contents differ: our own preset rail and custom
             range fields, no comparison mode and no granularity. The trigger
             summarises the draft, so a custom range reads back as dates rather
             than as the word "Custom". */}
-        <DateRangeTriggerPopover
-          open={rangeOpen}
-          onOpenChange={setRangeOpen}
-          label={formatTimeFrameLabel(draftTimeFrame)}
-          tooltip={formatTimeFrameLabel(draftTimeFrame)}
-          fullWidth
-          align="start"
-          contentWidth={300}
-        >
-          <EventLogTimeFramePanel
-            value={draftTimeFrame}
-            onChange={setDraftTimeFrame}
-          />
-        </DateRangeTriggerPopover>
+          <DateRangeTriggerPopover
+            open={rangeOpen}
+            onOpenChange={setRangeOpen}
+            label={formatTimeFrameLabel(draftTimeFrame)}
+            tooltip={formatTimeFrameLabel(draftTimeFrame)}
+            fullWidth
+            align="start"
+            contentWidth={300}
+          >
+            <EventLogTimeFramePanel
+              value={draftTimeFrame}
+              onChange={setDraftTimeFrame}
+            />
+          </DateRangeTriggerPopover>
 
-        {/* Starts empty: no pre-applied filters and no default dimension
+          {/* Starts empty: no pre-applied filters and no default dimension
             dropdowns. The add menu lists the known dimensions first. */}
-        {/* showFooter is off: this rail's footer commits the time frame in the
+          {/* showFooter is off: this rail's footer commits the time frame in the
             same gesture, so it cannot use one that only knows about filters. */}
-        <Box mt="5">
-          <RowFilterBuilder
-            value={draftFilters}
-            setValue={setDraftFilters}
-            applied={filters}
-            columnSource={columnSource}
-            showFooter={false}
-          />
+          <Box mt="5">
+            <RowFilterBuilder
+              value={draftFilters}
+              setValue={setDraftFilters}
+              applied={filters}
+              columnSource={columnSource}
+              showFooter={false}
+            />
+          </Box>
         </Box>
-      </Box>
 
-      {/* Same footer shape as DateRangeComparePanel: actions right-aligned,
+        {/* Same footer shape as DateRangeComparePanel: actions right-aligned,
           secondary outline and primary solid at default size. Padding follows
           the panel's own insets rather than its p="3" so the buttons stay flush
           with the content above them. The separating rule is a border on the
@@ -166,40 +167,41 @@ export default function EventLogStreamFilterPanel({
           Hidden while there is nothing to act on. The time frame is part of
           that test now: a range change with no filters still needs an Apply to
           commit it. */}
-      {(draftFilters.length > 0 || filters.length > 0 || timeFrameDirty) && (
-        <Flex
-          justify="end"
-          gap="2"
-          py="3"
-          pr="5"
-          style={{ flexShrink: 0 }}
-          className={styles.footer}
-        >
-          <Button
-            variant="outline"
-            // Clears filters only. The time frame always has a value — there is
-            // no cleared state for it to go to.
-            disabled={draftFilters.length === 0 && filters.length === 0}
-            onClick={() => {
-              // Clears and commits: a Clear that left the table filtered would
-              // not be a clear.
-              setDraftFilters([]);
-              onFiltersChange([]);
-            }}
+        {(draftFilters.length > 0 || filters.length > 0 || timeFrameDirty) && (
+          <Flex
+            justify="end"
+            gap="2"
+            py="3"
+            pr="5"
+            style={{ flexShrink: 0 }}
+            className={styles.footer}
           >
-            Clear
-          </Button>
-          <Button
-            disabled={applyDisabled}
-            onClick={() => {
-              if (timeFrameApplyable) onTimeFrameChange(draftTimeFrame);
-              if (filtersApplyable) onFiltersChange(draftFilters);
-            }}
-          >
-            Apply
-          </Button>
-        </Flex>
-      )}
+            <Button
+              variant="outline"
+              // Clears filters only. The time frame always has a value — there is
+              // no cleared state for it to go to.
+              disabled={draftFilters.length === 0 && filters.length === 0}
+              onClick={() => {
+                // Clears and commits: a Clear that left the table filtered would
+                // not be a clear.
+                setDraftFilters([]);
+                onFiltersChange([]);
+              }}
+            >
+              Clear
+            </Button>
+            <Button
+              disabled={applyDisabled}
+              onClick={() => {
+                if (timeFrameApplyable) onTimeFrameChange(draftTimeFrame);
+                if (filtersApplyable) onFiltersChange(draftFilters);
+              }}
+            >
+              Apply
+            </Button>
+          </Flex>
+        )}
+      </Box>
     </Box>
   );
 }

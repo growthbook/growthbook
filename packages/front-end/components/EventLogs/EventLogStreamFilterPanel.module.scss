@@ -9,8 +9,17 @@
   min-width: 0;
   border-right: 1px solid var(--slate-a5);
   position: relative;
-  // Column so the footer can sit at the bottom of the panel rather than
-  // directly under the filter list.
+}
+
+// Out of flow, so the panel's height comes only from the table beside it
+// (the row stretches it) and never from its own contents. Without this, enough
+// filters made the panel taller than the table and pushed the row down; now
+// the body scrolls instead once the filters reach the table's bottom edge.
+// Column so the footer can sit at the bottom of the panel rather than
+// directly under the filter list.
+.content {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
 }
@@ -27,6 +36,11 @@
   // own, so a child's top margin would collapse straight through it.
   padding: 4px 20px 12px 0;
   flex: 1 1 auto;
+  // Scrolls once its contents outgrow the panel. min-height: 0 lets it shrink
+  // below its content height inside the column. The filter selects open as
+  // position: fixed menus (SelectField's default), so this doesn't clip them.
+  min-height: 0;
+  overflow-y: auto;
 }
 
 // Sticky rather than in flow: the panel is as tall as the table beside it, so
@@ -38,7 +52,8 @@
 // would otherwise let them show through.
 //
 // Sticky is silently inert if any ancestor scrolls or clips. Checked: .panel,
-// .body, the two-column Flex, .resultsArea and the Frame card set no overflow.
+// .content, the two-column Flex, .resultsArea and the Frame card set no
+// overflow. .body scrolls, but it is the footer's sibling, not its ancestor.
 // The `.appbox { overflow-x: auto }` in global.scss is a nested selector
 // (.appbox inside .appbox) and does not match this card.
 .footer {
