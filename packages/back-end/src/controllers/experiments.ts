@@ -186,6 +186,7 @@ import {
 import {
   addNewExperimentToHoldout,
   applyExperimentHoldoutChange,
+  assertExperimentHoldoutChange,
 } from "back-end/src/services/holdouts";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
@@ -1813,7 +1814,8 @@ export async function postExperiment(
     }
   }
 
-  await applyExperimentHoldoutChange(context, experiment, {
+  // Links are written after the save, so a rejected update leaves them alone
+  await assertExperimentHoldoutChange(context, experiment, {
     holdoutId: data.holdoutId,
     project: data.project,
   });
@@ -2131,6 +2133,7 @@ export async function postExperiment(
     experiment,
     changes,
   });
+  await applyExperimentHoldoutChange(context, experiment, data.holdoutId);
   if (
     aiSettings.aiEnabled &&
     (changes.name || changes.description || changes.hypothesis)

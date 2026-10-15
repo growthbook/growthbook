@@ -45,7 +45,10 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { applyExperimentHoldoutChange } from "back-end/src/services/holdouts";
+import {
+  applyExperimentHoldoutChange,
+  assertExperimentHoldoutChange,
+} from "back-end/src/services/holdouts";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -454,8 +457,8 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateExperimentChange({ context: req.context, experiment, changes });
 
-  // Last check before writing, so a rejected update leaves holdout links alone
-  await applyExperimentHoldoutChange(req.context, experiment, {
+  // Links are written after the save, so a rejected update leaves them alone
+  await assertExperimentHoldoutChange(req.context, experiment, {
     holdoutId: req.body.holdoutId,
     project: req.body.project,
   });
@@ -477,6 +480,11 @@ export const updateExperiment = createApiRequestHandler(
         changes: remainingChanges,
       });
     }
+    await applyExperimentHoldoutChange(
+      req.context,
+      experiment,
+      req.body.holdoutId,
+    );
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
@@ -503,6 +511,13 @@ export const updateExperiment = createApiRequestHandler(
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
+  }
+  if (!isStartingFromDraft) {
+    await applyExperimentHoldoutChange(
+      req.context,
+      experiment,
+      req.body.holdoutId,
+    );
   }
 
   await req.audit({
