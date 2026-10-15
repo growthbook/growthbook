@@ -76,6 +76,7 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
+import { parseDateCursor } from "back-end/src/util/dateCursor";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -149,7 +150,10 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  assertCanUseSDKConnections,
+  findSDKConnectionsByIds,
+} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -307,7 +311,7 @@ export async function getHistory(
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),
-      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      before: parseDateCursor(context, req.query.cursor),
       excludeIds,
     },
   );
@@ -2205,6 +2209,11 @@ export async function putSDKWebhook(
   }
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+  if (parsedUpdates.sdks) {
+    await assertCanUseSDKConnections(context, parsedUpdates.sdks, (c) =>
+      context.permissions.canUpdateSDKWebhook(c),
+    );
+  }
 
   // Reset failure state when endpoint changes
   const resetFields =

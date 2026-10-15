@@ -5,16 +5,16 @@ import {
 } from "shared/validators";
 import { AuditInterface } from "shared/types/audit";
 import { EventInterface } from "shared/types/events/event";
-import {
-  findAllAuditsByEntityType,
-  findAllAuditsByEntityTypeParent,
-  findAuditByEntity,
-  findAuditByEntityParent,
-} from "back-end/src/models/AuditModel";
+import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
   getEventForOrganization,
   getEventsForOrganization,
 } from "back-end/src/models/EventModel";
+import {
+  dateCursorFilter,
+  getNextDateCursor,
+  parseDateCursor,
+} from "back-end/src/util/dateCursor";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -49,42 +49,6 @@ function toApiEvent(e: EventInterface) {
   };
 }
 
-type Cursor = { date: Date; seen: string[] };
-
-// `before` is a date-time, or a nextCursor "<date-time>_<ids>" listing the
-// entries already returned at that time, so ties at a page boundary aren't lost.
-function parseBefore(context: ApiReqContext, before?: string): Cursor | null {
-  if (!before) return null;
-  const sep = before.indexOf("_");
-  const date = new Date(sep === -1 ? before : before.slice(0, sep));
-  if (isNaN(date.getTime())) context.throwBadRequestError("Invalid `before`");
-  return { date, seen: sep === -1 ? [] : before.slice(sep + 1).split(",") };
-}
-
-// Wrapped in $or so it composes with the events `after` filter on dateCreated
-function cursorFilter(cursor: Cursor | null) {
-  if (!cursor) return {};
-  const unseenAtDate = cursor.seen.length
-    ? [{ dateCreated: cursor.date, id: { $nin: cursor.seen } }]
-    : [];
-  return { $or: [{ dateCreated: { $lt: cursor.date } }, ...unseenAtDate] };
-}
-
-// A full page may have more behind it; a short one is the end.
-function getNextCursor(
-  page: { id: string; dateCreated: Date }[],
-  limit: number,
-  cursor: Cursor | null,
-) {
-  if (page.length < limit) return null;
-  const date = page[page.length - 1].dateCreated;
-  const seen = page
-    .filter((e) => e.dateCreated.getTime() === date.getTime())
-    .map((e) => e.id);
-  if (cursor?.date.getTime() === date.getTime()) seen.push(...cursor.seen);
-  return `${date.toISOString()}_${seen.join(",")}`;
-}
-
 export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
   req,
 ) => {
@@ -96,31 +60,30 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
     context.permissions.throwPermissionError();
   }
 
-  const limit = req.query.limit ?? DEFAULT_LIMIT;
-  const options = { limit, sort: { dateCreated: -1 as const } };
-  const cursor = parseBefore(context, before);
-  const filter = cursorFilter(cursor);
-  const orgId = context.org.id;
+  // Same Project read rules as the app's History tab
+  if (
+    entityType === "project" &&
+    entityId &&
+    !context.permissions.canReadSingleProjectResource(entityId)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  const excludeIds =
+    entityType === "project"
+      ? (await context.getAllProjectIds()).filter(
+          (p) => !context.permissions.canReadSingleProjectResource(p),
+        )
+      : [];
 
-  const [own, children] = await Promise.all(
-    entityId
-      ? [
-          findAuditByEntity(orgId, entityType, entityId, options, filter),
-          findAuditByEntityParent(orgId, entityType, entityId, options, filter),
-        ]
-      : [
-          findAllAuditsByEntityType(orgId, entityType, options, filter),
-          findAllAuditsByEntityTypeParent(orgId, entityType, options, filter),
-        ],
+  const { events, nextCursor } = await getAuditHistory(
+    context.org.id,
+    entityType,
+    entityId,
+    req.query.limit ?? DEFAULT_LIMIT,
+    { before: parseDateCursor(context, before), excludeIds },
   );
-  const page = [...own, ...children]
-    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
-    .slice(0, limit);
 
-  return {
-    audits: page.map(toApiAudit),
-    nextCursor: getNextCursor(page, limit, cursor),
-  };
+  return { audits: events.map(toApiAudit), nextCursor };
 });
 
 export const listEvents = createApiRequestHandler(listEventsValidator)(async (
@@ -129,7 +92,7 @@ export const listEvents = createApiRequestHandler(listEventsValidator)(async (
   const { context } = req;
   assertCanViewAuditLogs(context);
   const limit = req.query.limit ?? DEFAULT_LIMIT;
-  const cursor = parseBefore(context, req.query.before);
+  const cursor = parseDateCursor(context, req.query.before);
 
   const page = await getEventsForOrganization(
     context.org.id,
@@ -143,7 +106,7 @@ export const listEvents = createApiRequestHandler(listEventsValidator)(async (
       from: req.query.after,
       sortOrder: -1,
     },
-    cursorFilter(cursor),
+    dateCursorFilter(cursor),
   );
 
   return {
@@ -151,7 +114,7 @@ export const listEvents = createApiRequestHandler(listEventsValidator)(async (
     events: page
       .filter((e) => context.permissions.canViewEvent(e.data))
       .map(toApiEvent),
-    nextCursor: getNextCursor(page, limit, cursor),
+    nextCursor: getNextDateCursor(page, limit, cursor),
   };
 });
 

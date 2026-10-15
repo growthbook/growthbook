@@ -232,6 +232,19 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
+// Throws unless every id is a connection in the org that `can` allows.
+export async function assertCanUseSDKConnections(
+  context: ReqContext,
+  ids: string[],
+  can: (conn: SDKConnectionInterface) => boolean,
+) {
+  const conns = await findSDKConnectionsByIds(context, ids);
+  if (conns.length !== new Set(ids).size) {
+    context.throwBadRequestError("Unknown SDK Connection id");
+  }
+  if (!conns.every(can)) context.permissions.throwPermissionError();
+}
+
 // Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
