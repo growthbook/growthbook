@@ -129,6 +129,12 @@ export async function updateDataSourceWithChecks(
       "Cannot change the type of an existing data source. Create a new one instead.",
     );
   }
+  // GrowthBook manages these credentials; the app has no connection form for it
+  if (params && datasource.type === "growthbook_clickhouse") {
+    throw new BadRequestError(
+      "The managed warehouse's connection settings can't be changed.",
+    );
+  }
   if (eventForwarderConfig === null) {
     throw new BadRequestError(
       "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
