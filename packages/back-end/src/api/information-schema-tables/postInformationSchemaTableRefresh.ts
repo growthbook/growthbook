@@ -1,9 +1,11 @@
 import { postInformationSchemaTableRefreshValidator } from "shared/validators";
 import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
+import { refreshInformationSchemaTable } from "back-end/src/services/informationSchema";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { ReqContext } from "back-end/types/request";
+import { toInformationSchemaTableApiInterface } from "./getInformationSchemaTable";
 
 export const postInformationSchemaTableRefresh = createApiRequestHandler(
   postInformationSchemaTableRefreshValidator,
@@ -23,6 +25,12 @@ export const postInformationSchemaTableRefresh = createApiRequestHandler(
   if (!context.permissions.canRunSchemaQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
-  await queueUpdateStaleInformationSchemaTable(context.org.id, table.id);
-  return { queued: true as const };
+  // Synchronous like the app's table refresh, so a failure reaches the caller
+  const refreshed = await refreshInformationSchemaTable(
+    context as ReqContext,
+    table,
+  );
+  return {
+    informationSchemaTable: toInformationSchemaTableApiInterface(refreshed),
+  };
 });

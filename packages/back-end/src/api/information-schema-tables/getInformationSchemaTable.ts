@@ -1,4 +1,5 @@
 import { getInformationSchemaTableValidator } from "shared/validators";
+import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -22,17 +23,23 @@ export const getInformationSchemaTable = createApiRequestHandler(
   }
 
   return {
-    informationSchemaTable: {
-      id: table.id,
-      datasourceId: table.datasourceId,
-      informationSchemaId: table.informationSchemaId,
-      tableName: table.tableName,
-      tableSchema: table.tableSchema,
-      databaseName: table.databaseName,
-      columns: table.columns,
-      refreshMS: table.refreshMS,
-      dateCreated: table.dateCreated.toISOString(),
-      dateUpdated: table.dateUpdated.toISOString(),
-    },
+    informationSchemaTable: toInformationSchemaTableApiInterface(table),
   };
 });
+
+export function toInformationSchemaTableApiInterface(
+  table: InformationSchemaTablesInterface,
+) {
+  return {
+    id: table.id,
+    datasourceId: table.datasourceId,
+    informationSchemaId: table.informationSchemaId,
+    tableName: table.tableName,
+    tableSchema: table.tableSchema,
+    databaseName: table.databaseName,
+    columns: table.columns,
+    refreshMS: table.refreshMS,
+    dateCreated: table.dateCreated.toISOString(),
+    dateUpdated: table.dateUpdated.toISOString(),
+  };
+}

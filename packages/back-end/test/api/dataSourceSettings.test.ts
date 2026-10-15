@@ -103,4 +103,43 @@ describe("applyApiDataSourceSettings", () => {
     expect(all.pipelineSettings).not.toHaveProperty("includedExperimentIds");
     expect(all.pipelineSettings?.excludedExperimentIds).toEqual(["exp_2"]);
   });
+
+  it("leaves a managed query untouched when its GET shape is posted back", () => {
+    const managed: DataSourceSettings = {
+      userIdTypes: [{ userIdType: "user_id", managedBy: "api" }],
+      queries: {
+        exposure: [
+          {
+            id: "exq_ef",
+            name: "Event Forwarder",
+            userIdType: "user_id",
+            userIdTypes: ["user_id"],
+            query: "SELECT 1",
+            dimensions: [],
+            managedBy: "api",
+          },
+        ],
+      },
+    };
+    const settings = applyApiDataSourceSettings(
+      {
+        identifierTypes: [{ id: "user_id", description: "" }],
+        assignmentQueries: [
+          {
+            id: "exq_ef",
+            name: "Event Forwarder",
+            description: "",
+            identifierTypes: ["user_id"],
+            identifierType: "user_id",
+            sql: "SELECT 1",
+            includesNameColumns: false,
+            dimensionColumns: [],
+          },
+        ],
+      },
+      managed,
+    );
+    expect(settings.userIdTypes).toStrictEqual(managed.userIdTypes);
+    expect(settings.queries?.exposure).toStrictEqual(managed.queries?.exposure);
+  });
 });
