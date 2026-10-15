@@ -269,91 +269,115 @@ export const API_READ_ONLY_SETTING_KEYS = Object.keys(
 ) as (keyof typeof readOnlySettingsFields)[];
 
 // Corresponds to schemas/Settings.yaml
-export const apiSettingsValidator = namedSchema(
-  "Settings",
-  z
-    .object({
-      ...z
-        .object({ ...writableSettingsFields, ...readOnlySettingsFields })
-        .partial().shape,
-      confidenceLevel: z.coerce.number(),
-      northStar: z
+const apiSettingsObject = z
+  .object({
+    ...z
+      .object({ ...writableSettingsFields, ...readOnlySettingsFields })
+      .partial().shape,
+    confidenceLevel: z.coerce.number(),
+    northStar: z
+      .object({
+        title: z.string().optional(),
+        metricIds: z.array(z.string()).optional(),
+      })
+      .nullable(),
+    metricDefaults: z.object({
+      priorSettings: z
         .object({
-          title: z.string().optional(),
-          metricIds: z.array(z.string()).optional(),
+          override: z.boolean(),
+          proper: z.boolean(),
+          mean: z.coerce.number(),
+          stddev: z.coerce.number(),
         })
-        .nullable(),
-      metricDefaults: z.object({
-        priorSettings: z
-          .object({
-            override: z.boolean(),
-            proper: z.boolean(),
-            mean: z.coerce.number(),
-            stddev: z.coerce.number(),
-          })
-          .optional(),
-        minimumSampleSize: z.coerce.number().optional(),
-        maxPercentageChange: z.coerce.number().optional(),
-        minPercentageChange: z.coerce.number().optional(),
-        targetMDE: z.coerce.number().optional(),
-        windowSettings: windowSettingsValidator.optional(),
-        cappingSettings: cappingSettingsValidator.optional(),
-      }),
-      pastExperimentsMinLength: z.coerce.number(),
-      metricAnalysisDays: z.coerce.number(),
-      updateSchedule: z
-        .object({
-          type: z.enum(["cron", "never", "stale"]).optional(),
-          cron: z.string().nullable().optional(),
-          hours: z.coerce.number().nullable().optional(),
-        })
-        .nullable(),
-      multipleExposureMinPercent: z.coerce.number(),
-      defaultRole: memberRoleWithProjects,
-      statsEngine: z.string(),
-      pValueThreshold: z.coerce.number(),
-      pValueCorrection: z
-        .enum(["benjamini-hochberg", "holm-bonferroni"])
-        .nullable(),
-      postStratificationEnabled: z.boolean(),
-      srmThreshold: z.coerce.number(),
-      useStickyBucketing: z.boolean(),
-      stickyBucketingOnByDefault: z.boolean(),
-      regressionAdjustmentEnabled: z.boolean(),
-      regressionAdjustmentDays: z.coerce.number(),
-      sequentialTestingEnabled: z.boolean(),
-      sequentialTestingTuningParameter: z.coerce.number(),
-      attributionModel: z.enum([
-        "firstExposure",
-        "experimentDuration",
-        "lookbackOverride",
-      ]),
-      targetMDE: z.coerce.number(),
-      delayHours: z.coerce.number(),
-      windowType: z.string(),
-      windowHours: z.coerce.number(),
-      winRisk: z.coerce.number(),
-      loseRisk: z.coerce.number(),
-      secureAttributeSalt: z.string(),
-      killswitchConfirmation: z.boolean(),
-      requireReviews: z.array(apiRequireReviewRule),
-      approvalFlows: apiApprovalFlows,
-      targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
-      featureKeyExample: z.string(),
-      featureRegexValidator: z.string(),
-      banditScheduleValue: z.coerce.number(),
-      banditScheduleUnit: z.enum(["hours", "days"]),
-      banditBurnInValue: z.coerce.number(),
-      banditBurnInUnit: z.enum(["hours", "days"]),
-      experimentMinLengthDays: z.coerce.number(),
-      experimentMaxLengthDays: z.coerce.number().nullable().optional(),
-      preferredEnvironment: z.string().nullable().optional(),
-      maxMetricSliceLevels: z.coerce.number().optional(),
-      topValuesLookbackValue: z.coerce.number().optional(),
-      topValuesLookbackUnit: z.enum(["days"]).optional(),
-    })
-    .strict(),
-);
+        .optional(),
+      minimumSampleSize: z.coerce.number().optional(),
+      maxPercentageChange: z.coerce.number().optional(),
+      minPercentageChange: z.coerce.number().optional(),
+      targetMDE: z.coerce.number().optional(),
+      windowSettings: windowSettingsValidator.optional(),
+      cappingSettings: cappingSettingsValidator.optional(),
+    }),
+    pastExperimentsMinLength: z.coerce.number(),
+    metricAnalysisDays: z.coerce.number(),
+    updateSchedule: z
+      .object({
+        type: z.enum(["cron", "never", "stale"]).optional(),
+        cron: z.string().nullable().optional(),
+        hours: z.coerce.number().nullable().optional(),
+      })
+      .nullable(),
+    multipleExposureMinPercent: z.coerce.number(),
+    defaultRole: memberRoleWithProjects,
+    statsEngine: z.string(),
+    pValueThreshold: z.coerce.number(),
+    pValueCorrection: z
+      .enum(["benjamini-hochberg", "holm-bonferroni"])
+      .nullable(),
+    postStratificationEnabled: z.boolean(),
+    srmThreshold: z.coerce.number(),
+    useStickyBucketing: z.boolean(),
+    stickyBucketingOnByDefault: z.boolean(),
+    regressionAdjustmentEnabled: z.boolean(),
+    regressionAdjustmentDays: z.coerce.number(),
+    sequentialTestingEnabled: z.boolean(),
+    sequentialTestingTuningParameter: z.coerce.number(),
+    attributionModel: z.enum([
+      "firstExposure",
+      "experimentDuration",
+      "lookbackOverride",
+    ]),
+    targetMDE: z.coerce.number(),
+    delayHours: z.coerce.number(),
+    windowType: z.string(),
+    windowHours: z.coerce.number(),
+    winRisk: z.coerce.number(),
+    loseRisk: z.coerce.number(),
+    secureAttributeSalt: z.string(),
+    killswitchConfirmation: z.boolean(),
+    requireReviews: z.array(apiRequireReviewRule),
+    approvalFlows: apiApprovalFlows,
+    targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
+    featureKeyExample: z.string(),
+    featureRegexValidator: z.string(),
+    banditScheduleValue: z.coerce.number(),
+    banditScheduleUnit: z.enum(["hours", "days"]),
+    banditBurnInValue: z.coerce.number(),
+    banditBurnInUnit: z.enum(["hours", "days"]),
+    experimentMinLengthDays: z.coerce.number(),
+    experimentMaxLengthDays: z.coerce.number().nullable().optional(),
+    preferredEnvironment: z.string().nullable().optional(),
+    maxMetricSliceLevels: z.coerce.number().optional(),
+    topValuesLookbackValue: z.coerce.number().optional(),
+    topValuesLookbackUnit: z.enum(["days"]).optional(),
+  })
+  .strict();
+export const apiSettingsValidator = namedSchema("Settings", apiSettingsObject);
+
+type ApiEchoOnlySettingKey = Exclude<
+  keyof typeof apiSettingsObject.shape,
+  ApiWritableSettingKey
+>;
+// Returned by GET but not writable here. PUT accepts them unchanged, so a GET
+// response can be sent back whole.
+const echoOnlySettingsFields = Object.fromEntries(
+  Object.entries(apiSettingsObject.shape)
+    .filter(([key]) => !(API_WRITABLE_SETTING_KEYS as string[]).includes(key))
+    .map(([key, schema]) => [
+      key,
+      schema
+        .optional()
+        .describe(
+          "Read-only. Accepted only when equal to the value `GET /settings` returns; any other value is rejected.",
+        ),
+    ]),
+) as {
+  [K in ApiEchoOnlySettingKey]: z.ZodOptional<
+    (typeof apiSettingsObject.shape)[K]
+  >;
+};
+export const API_ECHO_ONLY_SETTING_KEYS = Object.keys(
+  echoOnlySettingsFields,
+) as ApiEchoOnlySettingKey[];
 
 export const getSettingsValidator = {
   bodySchema: z.never(),
@@ -383,6 +407,7 @@ export const putSettingsValidator = {
         z.ZodNullable<(typeof writableSettingsFields)[K]>
       >;
     }),
+    ...echoOnlySettingsFields,
     acceptAiTerms: z
       .boolean()
       .optional()
@@ -399,7 +424,7 @@ export const putSettingsValidator = {
     .strict(),
   summary: "Update organization settings",
   description:
-    "Each supplied field replaces its stored value (object fields are replaced whole); omitted fields are unchanged and `null` resets a field to its default. Approval requirements are managed by `PUT /settings/approvals`.",
+    "Each supplied field replaces its stored value (object fields are replaced whole); omitted fields are unchanged and `null` resets a field to its default. Read-only fields that `GET /settings` returns are accepted only unchanged, so a `GET` response can be sent back whole. Approval requirements are managed by `PUT /settings/approvals`.",
   operationId: "putSettings",
   tags: ["settings"],
   method: "put" as const,
