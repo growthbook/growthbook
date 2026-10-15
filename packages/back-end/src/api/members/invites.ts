@@ -258,7 +258,9 @@ export const deleteInvite = createApiRequestHandler(deleteInviteValidator)(
   async (req) => {
     assertCanManageTeam(req.context);
     const invite = getInvite(req.context, req.params.email);
-    await revokeInvite(req.context.org, invite.key);
+    if (!(await revokeInvite(req.context.org, invite.key))) {
+      req.context.throwNotFoundError(`No invite for ${req.params.email}`);
+    }
     await auditInvite(req, invite, undefined);
     return { deletedId: invite.email };
   },

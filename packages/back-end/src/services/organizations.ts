@@ -688,9 +688,7 @@ export async function revokeInvite(
     organization.id,
     key,
   );
-  if (!updatedOrganization) {
-    throw new Error("Unable to locate organization");
-  }
+  if (!updatedOrganization) return null;
   await licenseInit(
     updatedOrganization,
     getUserCodesForOrg,
