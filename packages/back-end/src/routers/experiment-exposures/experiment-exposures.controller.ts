@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { getValidDate, snapToMinuteEnd, snapToMinuteStart } from "shared/dates";
 import { SQL_ROW_LIMIT } from "shared/sql";
-import { getActivePhaseIndex } from "shared/experiments";
+import { clampWindowToPhase, getActivePhaseIndex } from "shared/experiments";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
 import type {
@@ -62,6 +62,8 @@ export async function postExposures(
       /** The window ends at "now" and moves with the clock (a lookback). */
       rollingWindow?: boolean;
       rowFilters?: RowFilter[];
+      /** Phase to compile `{{phase.index}}` for; defaults to the active one. */
+      phase?: number;
       cache?: "preferred" | "required" | "never";
     },
     { id: string }
@@ -129,8 +131,22 @@ export async function postExposures(
     context.throwBadRequestError("End date must be after start date.");
   }
 
-  const startDate = snapToMinuteStart(new Date(req.body.startDate));
-  const endDate = snapToMinuteEnd(new Date(req.body.endDate));
+  const phaseIndex = req.body.phase ?? getActivePhaseIndex(experiment);
+  if (phaseIndex >= experiment.phases.length) {
+    context.throwBadRequestError("Phase not found.");
+    return;
+  }
+
+  // Exposures outside the phase belong to a different phase (or none), so the
+  // window never reaches past the phase boundaries.
+  const { startDate, endDate } = clampWindowToPhase(
+    {
+      startDate: snapToMinuteStart(new Date(req.body.startDate)),
+      endDate: snapToMinuteEnd(new Date(req.body.endDate)),
+    },
+    experiment,
+    phaseIndex,
+  );
   const window: ExposuresWindow = req.body.rollingWindow
     ? { kind: "rolling", windowMs }
     : { kind: "fixed", startDate, endDate };
@@ -148,6 +164,16 @@ export async function postExposures(
     truncated: false,
   };
 
+  if (startDate >= endDate) {
+    res.status(200).json({
+      ...emptyBody,
+      ranAt: new Date().toISOString(),
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+    return;
+  }
+
   // Outside the try below, whose catch turns throws into a 200 + error body.
   if (!integration.getExperimentExposuresQuery) {
     context.throwBadRequestError(
@@ -163,7 +189,7 @@ export async function postExposures(
     startDate,
     endDate,
     dimensions,
-    phase: { index: String(getActivePhaseIndex(experiment)) },
+    phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
     limit: BUFFER_SIZE,

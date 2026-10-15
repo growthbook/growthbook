@@ -314,9 +314,11 @@ export default function HealthTab({
           experiment.datasource,
           experiment.exposureQueryId,
           experiment.exposureQueryIdentifierType ?? "",
+          phase,
         ].join("-")}
         experiment={experiment}
         isTabActive={isTabActive}
+        phase={phase}
       />
     </>
   );

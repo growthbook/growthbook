@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
@@ -8,7 +9,12 @@ import {
   truncateString,
 } from "shared/util";
 import type { ExperimentExposureRecord } from "shared/validators";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  clampWindowToPhase,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
@@ -55,9 +61,16 @@ function Empty() {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   isTabActive: boolean;
+  /** The phase selected on the Health tab, so the log compiles the exposure
+   * query for the same phase the snapshot cards show. */
+  phase: number;
 }
 
-export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
+export default function ExposureLogsCard({
+  experiment,
+  isTabActive,
+  phase,
+}: Props) {
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
@@ -114,6 +127,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       endDate,
       rollingWindow,
       rowFilters,
+      phase,
       cache,
     }),
   });
@@ -250,13 +264,38 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
   // The managed warehouse reports "still provisioning / no events yet" as a
   // query error; that deserves the onboarding callout, not a red error.
   const queryError = query.data?.error;
-  const warning = isManagedWarehousePendingQueryError(queryError) ? (
+  const errorNote = isManagedWarehousePendingQueryError(queryError) ? (
     <ManagedWarehouseNoEventsCallout />
   ) : queryError ? (
     <Callout status="warning" size="sm">
       {queryError}
     </Callout>
   ) : null;
+
+  // The server clamps the window to the phase; say so when that shortens
+  // what the timeframe control promises.
+  const requested = calculateProductAnalyticsDateRange(query.dateRange);
+  const clamped = clampWindowToPhase(requested, experiment, phase);
+  const startClamped = clamped.startDate > requested.startDate;
+  const endClamped = clamped.endDate < requested.endDate;
+  const phaseNote =
+    startClamped || endClamped ? (
+      <Callout status="info" size="sm">
+        {startClamped && endClamped
+          ? `Showing exposures from this phase only, ${datetime(clamped.startDate)} to ${datetime(clamped.endDate)}.`
+          : startClamped
+            ? `Showing exposures since this phase started on ${datetime(clamped.startDate)}.`
+            : `Showing exposures up to when this phase ended on ${datetime(clamped.endDate)}.`}
+      </Callout>
+    ) : null;
+
+  const warning =
+    errorNote || phaseNote ? (
+      <Flex direction="column" gap="2">
+        {errorNote}
+        {phaseNote}
+      </Flex>
+    ) : null;
 
   return (
     <RecordsPanel
