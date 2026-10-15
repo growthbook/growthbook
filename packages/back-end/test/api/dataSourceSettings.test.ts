@@ -104,6 +104,32 @@ describe("applyApiDataSourceSettings", () => {
     expect(all.pipelineSettings?.excludedExperimentIds).toEqual(["exp_2"]);
   });
 
+  it("merges a partial pipeline edit, but needs whole new settings", () => {
+    const merged = applyApiDataSourceSettings(
+      { pipelineSettings: { unitsTableRetentionHours: 48 } },
+      {
+        pipelineSettings: {
+          allowWriting: true,
+          mode: "ephemeral",
+          writeDataset: "gb",
+          unitsTableRetentionHours: 24,
+        },
+      },
+    );
+    expect(merged.pipelineSettings).toEqual({
+      allowWriting: true,
+      mode: "ephemeral",
+      writeDataset: "gb",
+      unitsTableRetentionHours: 48,
+    });
+    expect(() =>
+      applyApiDataSourceSettings(
+        { pipelineSettings: { unitsTableRetentionHours: 48 } },
+        {},
+      ),
+    ).toThrow("pipelineSettings needs");
+  });
+
   it("leaves a managed query untouched when its GET shape is posted back", () => {
     const managed: DataSourceSettings = {
       userIdTypes: [{ userIdType: "user_id", managedBy: "api" }],
