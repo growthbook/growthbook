@@ -70,6 +70,16 @@ export async function deleteDataSourceWithChecks(
       "Error: Please delete all dimensions tied to this datasource first.",
     );
   }
+  // The app blocks this too; deleting would tear down a live event stream
+  if (
+    await context.models.eventForwarderConfigs.getByDatasourceIdForDatasourceCascade(
+      datasource.id,
+    )
+  ) {
+    throw new BadRequestError(
+      "Error: Please remove the Event Forwarder tied to this datasource first.",
+    );
+  }
 
   await deleteDatasource(context, datasource);
 
