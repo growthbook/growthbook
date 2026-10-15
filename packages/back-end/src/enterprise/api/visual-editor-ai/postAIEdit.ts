@@ -800,12 +800,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
-  const auditLiveEdit = persist
-    ? owner.requireWrite(req, {
-        allowRunning: !!allowRunningExperiment,
-        visualChangesetId,
-      })
-    : async () => {};
+  if (persist) {
+    owner.requireWrite(req, {
+      allowRunning: !!allowRunningExperiment,
+      visualChangesetId,
+    });
+  }
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -1275,10 +1275,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
     const finalized = await finalizeOutput(raw);
     if (persist) {
+      // Re-checked against the stored owner: it may have started during the generation.
+      const { owner: storedOwner } = await loadChangesetWithOwner(
+        context,
+        visualChangesetId,
+      );
+      if (!storedOwner.canUpdateVisualChange()) {
+        context.permissions.throwPermissionError();
+      }
+      const auditLiveEdit = storedOwner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      });
       const change = currentChange;
       await updateVisualChange({
         context,
-        owner,
+        owner: storedOwner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {

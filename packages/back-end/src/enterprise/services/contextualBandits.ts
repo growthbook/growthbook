@@ -1242,6 +1242,14 @@ export async function executeContextualBanditVariationChange(
     newVariationValues,
     linkedInfo,
   );
+  if (
+    cb.status === "running" &&
+    cb.hasVisualChangesets &&
+    (diff.addedIds.length > 0 || diff.removedIds.length > 0) &&
+    !context.permissions.canRunContextualBandit(cb, context.environments)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const removedSet = new Set(diff.removedIds);
 

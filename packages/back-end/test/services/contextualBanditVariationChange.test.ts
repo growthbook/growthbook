@@ -301,6 +301,7 @@ function makeContext(cb: ContextualBanditInterface) {
       return currentDoc;
     });
   const canPublishFeature = jest.fn().mockReturnValue(true);
+  const canRunContextualBandit = jest.fn().mockReturnValue(true);
   const throwPermissionError = jest.fn(() => {
     throw new Error("permission error");
   });
@@ -313,6 +314,7 @@ function makeContext(cb: ContextualBanditInterface) {
     hasPremiumFeature: jest.fn().mockReturnValue(false),
     permissions: {
       canPublishFeature,
+      canRunContextualBandit,
       canUpdateFeature: jest.fn().mockReturnValue(true),
       canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       canBypassFlagApprovalChecks: jest.fn().mockReturnValue(false),
@@ -335,6 +337,7 @@ function makeContext(cb: ContextualBanditInterface) {
     getByIdMock,
     dangerousUpdateBypassPermissionMock,
     canPublishFeature,
+    canRunContextualBandit,
   };
 }
 
@@ -426,6 +429,29 @@ describe("executeContextualBanditVariationChange", () => {
       { variationId: "v0", weight: 0.5 },
       { variationId: "v2", weight: 0.5 },
     ]);
+  });
+
+  it("needs run permission to change arms on a running bandit with visual changes", async () => {
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: [],
+      hasVisualChangesets: true,
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+    } as Partial<ContextualBanditInterface>);
+    const { context, canRunContextualBandit } = makeContext(cb);
+    canRunContextualBandit.mockReturnValue(false);
+
+    await expect(
+      executeContextualBanditVariationChange(
+        context,
+        cb,
+        toAddRemove(cb, [v("v0", "0"), v("v2", "2")]),
+      ),
+    ).rejects.toThrow("permission error");
+    expect(canRunContextualBandit).toHaveBeenCalledWith(
+      expect.objectContaining({ id: cb.id }),
+      ["production"],
+    );
   });
 
   it("removes a variation in explore: clears leaf weights left over from an earlier exploit stage", async () => {
