@@ -937,6 +937,106 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(joinedPos).toBeGreaterThan(gridPos);
   });
 
+  it("getIncrementalRefreshStatisticsQuery rolls sub-unit cluster metrics up to the cluster", () => {
+    const subUnitFactTable = factTableFactory.build({
+      id: "ft_subunit",
+      name: "Sub-unit events",
+      sql: "SELECT * FROM events",
+      userIdTypes: ["user_id"],
+    });
+    const meanMetric = factMetricFactory.build({
+      id: "fact_mean_su",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_subunit",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap: new Map([["ft_subunit", subUnitFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_subunit",
+          tableFullName: "proj.ds.metric_source_su",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // Per-sub-unit values are capped and summed to one row per cluster.
+    expect(sql).toContain("__clusterRollup");
+    expect(sql).toMatch(/m\.region_id/);
+    // The metric cache is joined and re-aggregated on the sub-unit.
+    expect(sql).toMatch(/__metricDataAggregated[\s\S]*GROUP BY[\s\S]*user_id/);
+    // Units carry the cluster id from the sub-unit-grained cache.
+    expect(sql).toMatch(/e\.region_id AS region_id/);
+  });
+
+  it("getIncrementalRefreshStatisticsQuery analyzes cluster-level metrics at the cluster grain", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: ["fact_cluster"],
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap: new Map([["ft_cluster", clusterFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_cluster",
+          tableFullName: "proj.ds.metric_source_cluster",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // Cluster-level metrics treat the cluster as the unit — no sub-unit rollup.
+    expect(sql).not.toContain("__clusterRollup");
+    // The sub-unit-grained units cache is collapsed to one row per cluster.
+    expect(sql).toMatch(
+      /__experimentUnits AS \([\s\S]*GROUP BY[\s\S]*region_id/,
+    );
+    // The metric cache is aggregated on the cluster id.
+    expect(sql).toMatch(
+      /__metricDataAggregated[\s\S]*GROUP BY[\s\S]*region_id/,
+    );
+  });
+
   it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
     const prebuiltSketchMetric = factMetricFactory.build({
       id: "fact_eq_sketch_xp",

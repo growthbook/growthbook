@@ -152,6 +152,7 @@ import {
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
+import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
@@ -2652,6 +2653,39 @@ export default abstract class SqlIntegration
       );
     }
 
+    const clusterSubUnit =
+      params.settings.isClusterExperiment &&
+      params.settings.clusterSubUnitIdentifier
+        ? params.settings.clusterSubUnitIdentifier
+        : null;
+    const clusterLevelMetricIds = new Set(
+      params.settings.clusterLevelMetricIds ?? [],
+    );
+    const clusterLevelMetricCount = clusterSubUnit
+      ? params.metrics.filter((m) => clusterLevelMetricIds.has(m.id)).length
+      : 0;
+    if (
+      clusterLevelMetricCount > 0 &&
+      clusterLevelMetricCount < params.metrics.length
+    ) {
+      throw new Error(
+        "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
+      );
+    }
+    // Cluster-level metrics join on the cluster id with one row per cluster, so
+    // they skip the sub-unit rollup entirely.
+    const isClusterLevelQuery = clusterLevelMetricCount > 0;
+    const clusterIdColumn =
+      clusterSubUnit && !isClusterLevelQuery
+        ? exposureQuery.identifierType
+        : null;
+    const userIdType = isClusterLevelQuery
+      ? exposureQuery.identifierType
+      : (clusterSubUnit ?? exposureQuery.identifierType);
+    // True only for the sub-unit rollup path; cluster-level queries analyze the
+    // cluster as a standard unit (isClusterExperiment stays false there).
+    const isClusterExperiment = clusterIdColumn !== null;
+
     // Multi-FT funnels flatten all sources into one table, so column refs
     // must use the bare `m` alias instead of per-source `m{i}`.
     const hasMultiFtFunnelMetrics = params.metrics.some(
@@ -2781,7 +2815,7 @@ export default abstract class SqlIntegration
     );
 
     const idTypeObjects = [
-      [exposureQuery.identifierType],
+      [userIdType],
       ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
@@ -2792,7 +2826,7 @@ export default abstract class SqlIntegration
         objects: idTypeObjects,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: userIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2934,9 +2968,27 @@ export default abstract class SqlIntegration
         )
         .join("\n")}
       , __experimentUnits AS (${
-        unitDimensions.length > 0
-          ? `SELECT
+        isClusterLevelQuery
+          ? // Cluster-level metrics analyze the cluster as the unit. The units
+            // cache is sub-unit-grained carrying the cluster id, so collapse it
+            // to one row per cluster (baseIdType === the cluster id here).
+            `SELECT
+          e.${baseIdType} AS ${baseIdType}
+          , ${this.getSqlDialect().ifElse(
+            "COUNT(DISTINCT e.variation) > 1",
+            "'__multiple__'",
+            "MAX(e.variation)",
+          )} AS variation
+          , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
+          ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
+        FROM ${params.unitsSourceTableFullName} e
+        ${unitsWhere}
+        GROUP BY
+          e.${baseIdType}`
+          : unitDimensions.length > 0
+            ? `SELECT
             e.${baseIdType} AS ${baseIdType}
+            ${clusterIdColumn ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}` : ""}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
             ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -2955,8 +3007,9 @@ export default abstract class SqlIntegration
           GROUP BY
             e.${baseIdType}
       `
-          : `SELECT
+            : `SELECT
           e.${baseIdType} AS ${baseIdType}
+          ${clusterIdColumn ? `, e.${clusterIdColumn} AS ${clusterIdColumn}` : ""}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
@@ -3244,7 +3297,13 @@ export default abstract class SqlIntegration
               ${
                 isSource0
                   ? `${analysisDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
-              , u.variation`
+              , u.variation${
+                // Carry the cluster id on source 0 so the cluster rollup can
+                // sum each sub-unit's capped value up to its cluster.
+                clusterIdColumn
+                  ? `\n              , u.${clusterIdColumn} AS ${clusterIdColumn}`
+                  : ""
+              }`
                   : ""
               }
               ${exposureCol}
@@ -3393,6 +3452,26 @@ export default abstract class SqlIntegration
         `,
         )
         .join("")}
+      ${
+        // Cluster experiment (sub-unit metrics): cap each sub-unit's value and
+        // sum up to one row per cluster. The statistics CTE then reads the
+        // already-capped, already-rolled-up values directly.
+        isClusterExperiment && clusterIdColumn
+          ? `, __clusterRollup AS (${getClusterRollupCTE({
+              dimensionCols: analysisDimensionCols,
+              metricData,
+              baseIdType,
+              clusterIdColumn,
+              perUserAggTableName: "__joinedData",
+              capValueTableName: "__capValue",
+              factTablesWithIndices: sources.map((s) => ({
+                factTable: s.factTable,
+                index: s.index,
+              })),
+              percentileTableIndices,
+            })})`
+          : ""
+      }
       ${(() => {
         const hasMultiFtFunnels = metricData.some(
           (d) =>
@@ -3406,15 +3485,23 @@ export default abstract class SqlIntegration
           eventQuantileData,
           baseIdType,
           joinedMetricTableName: "__joinedData",
-          ...(hasMultiFtFunnels
+          ...(isClusterExperiment
             ? {
-                statisticsSourceTableName: "__unitMetrics",
+                // The rollup already merged every source into one per-cluster
+                // row, so the statistics CTE must not re-join sources or re-cap.
+                statisticsSourceTableName: "__clusterRollup",
                 flattenedSources: true,
-                funnelsResolvedOnSource: true,
+                funnelsResolvedOnSource: false,
               }
-            : {
-                funnelsResolvedOnSource: hasFunnels,
-              }),
+            : hasMultiFtFunnels
+              ? {
+                  statisticsSourceTableName: "__unitMetrics",
+                  flattenedSources: true,
+                  funnelsResolvedOnSource: true,
+                }
+              : {
+                  funnelsResolvedOnSource: hasFunnels,
+                }),
           eventQuantileTableName: "__eventQuantileMetric",
           capValueTableName: "__capValue",
           factTablesWithIndices: sources.map((s) => ({
@@ -3422,6 +3509,7 @@ export default abstract class SqlIntegration
             index: s.index,
           })),
           percentileTableIndices,
+          isClusterExperiment,
         });
       })()}
       `,
