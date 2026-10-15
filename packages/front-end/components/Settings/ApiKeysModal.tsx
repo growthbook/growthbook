@@ -12,8 +12,8 @@ import {
   getExpirationProblem,
   latestEditedExpiration,
 } from "shared/api-key-expiration";
-import { Box } from "@radix-ui/themes";
-import isEqual from "lodash/isEqual";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -25,12 +25,30 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import RequestedByFields from "@/components/Settings/RequestedByFields";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
 import ConfirmRulesField, {
   SUGGESTED_CONFIRM_RULES,
 } from "./ConfirmRulesField";
-import { mergeConfirmRules } from "./confirmRulesUtils";
+import { ALL, mergeConfirmRules, presetOf } from "./confirmRulesUtils";
+
+const PRESET_HELP = {
+  recommended: (
+    <Flex direction="column" gap="2">
+      <span>
+        Waits for confirmation before publishing, archiving or deleting,
+        changing live experiments or ramps, skipping checks, or editing
+        settings, access, environments, SDK connections, metrics and the like.
+      </span>
+      <span>
+        Creating things, drafts and reviews, and writes like dashboards and
+        comments run without confirmation.
+      </span>
+    </Flex>
+  ),
+  all: "Waits for confirmation before every write, including creating things and drafts. Only reads and calculations run without confirmation.",
+};
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -139,11 +157,11 @@ const ApiKeysModal: FC<{
     source?.confirmRules ?? SUGGESTED_CONFIRM_RULES,
   );
   // The editor stays tucked away until asked for, unless this key already has
-  // rules other than the recommended ones.
+  // rules beyond a preset.
   const [customizing, setCustomizing] = useState(
-    !!source?.confirmRules &&
-      !isEqual(source.confirmRules, SUGGESTED_CONFIRM_RULES),
+    !!source?.confirmRules && !presetOf(source.confirmRules),
   );
+  const allActions = presetOf(rules) === ALL;
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.
   // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
   const canScopeToken =
@@ -262,14 +280,22 @@ const ApiKeysModal: FC<{
           setValue={setRequireConfirmation}
         />
         {requireConfirmation && !customizing && (
-          <Box pl="5" mt="2">
+          <Flex align="center" gap="1" pl="5" mt="2">
             <Text color="text-mid">
-              Recommended actions.{" "}
-              <Link weight="medium" onClick={() => setCustomizing(true)}>
-                Customize behavior
-              </Link>
+              Requires confirmation for{" "}
+              <Tooltip
+                content={allActions ? PRESET_HELP.all : PRESET_HELP.recommended}
+              >
+                <strong>
+                  {allActions ? "all" : "recommended"} actions{" "}
+                  <PiInfo style={{ position: "relative", top: "-1px" }} />
+                </strong>
+              </Tooltip>
             </Text>
-          </Box>
+            <Link ml="2" weight="medium" onClick={() => setCustomizing(true)}>
+              Customize behavior
+            </Link>
+          </Flex>
         )}
         {requireConfirmation && customizing && (
           <Box mt="3">

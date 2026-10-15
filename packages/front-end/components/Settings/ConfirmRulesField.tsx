@@ -29,10 +29,12 @@ import {
   ALL,
   actionsOf,
   Category,
+  CATEGORIES,
   CATEGORY_TITLES,
   categoryOf,
   isCatchAll,
   isCategory,
+  isPartlyPicked,
   isPicked,
   isSingleAction,
   RECOMMENDED,
@@ -110,19 +112,17 @@ function ActionsField({
     ];
   }, [coverage]);
 
-  const [expanded, setExpanded] = useState<Set<Category>>(
-    () =>
-      new Set(
-        value.filter((v) => !isPreset(v) && !isCategory(v)).map(categoryOf),
-      ),
+  // A partly picked category opens on its own; one the person opened, closed
+  // or picked inside stays as they left it.
+  const [opened, setOpened] = useState<Partial<Record<Category, boolean>>>({});
+  const partlyPicked = useMemo(
+    () => new Set(CATEGORIES.filter((c) => isPartlyPicked(value, c))),
+    [value],
   );
-  const toggle = (category: Category) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
-      return next;
-    });
+  const isOpen = (category: Category) =>
+    opened[category] ?? partlyPicked.has(category);
+  const setOpen = (category: Category, open: boolean) =>
+    setOpened((prev) => ({ ...prev, [category]: open }));
 
   return (
     <MultiSelectField
@@ -137,7 +137,7 @@ function ActionsField({
           ? search(option, input)
           : isPreset(option.value) ||
             isCategory(option.value) ||
-            expanded.has(categoryOf(option.value))
+            isOpen(categoryOf(option.value))
       }
       // Arrow keys open and close the highlighted category, like a tree.
       onKeyDown={(e) => {
@@ -150,10 +150,10 @@ function ActionsField({
           return;
         }
         const category = categoryOf(value);
-        const open = expanded.has(category);
+        const open = isOpen(category);
         if (e.key === "ArrowRight" ? !open && isCategory(value) : open) {
           e.preventDefault();
-          toggle(category);
+          setOpen(category, !open);
         }
       }}
       onChange={(next) => {
@@ -161,7 +161,11 @@ function ActionsField({
         const clicked =
           next.find((v) => !value.includes(v)) ??
           value.find((v) => !next.includes(v));
-        if (clicked) onChange(toggleAction(value, clicked));
+        if (!clicked) return;
+        if (!isPreset(clicked) && !isCategory(clicked)) {
+          setOpen(categoryOf(clicked), true);
+        }
+        onChange(toggleAction(value, clicked));
       }}
       formatOptionLabel={(option, meta) => {
         if (meta.context !== "menu") return option.label;
@@ -171,6 +175,7 @@ function ActionsField({
             : null;
         const header = isPreset(option.value) || isCategory(option.value);
         const isChecked = isPicked(value, option.value);
+        const open = category ? isOpen(category) : false;
         return (
           <Flex align="center" gap="1" data-action={option.value}>
             <Flex
@@ -186,19 +191,19 @@ function ActionsField({
                 color="gray"
                 size="1"
                 className={styles.caret}
-                aria-label={`${expanded.has(category) ? "Hide" : "Show"} ${option.label} actions`}
+                aria-label={`${open ? "Hide" : "Show"} ${option.label} actions`}
                 tabIndex={-1}
-                aria-expanded={expanded.has(category)}
+                aria-expanded={open}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggle(category);
+                  setOpen(category, !open);
                 }}
               >
-                {expanded.has(category) ? <PiCaretDown /> : <PiCaretRight />}
+                {open ? <PiCaretDown /> : <PiCaretRight />}
               </IconButton>
             ) : (
               !isPreset(option.value) && <Box width="24px" flexShrink="0" />

@@ -119,6 +119,21 @@ export const isPicked = (picks: string[], row: string) => {
     : within([...expand([row])], set);
 };
 
+// The preset a rule list amounts to: one rule, everywhere, picking only it.
+export function presetOf(rules: ConfirmRule[]) {
+  const [rule, ...rest] = rules;
+  if (!rule || rest.length || rule.environments?.length) return null;
+  const [pick, ...more] = rule.actions;
+  return !more.length && (pick === ALL || pick === RECOMMENDED) ? pick : null;
+}
+
+// Some of a category's actions are picked, but not all of them.
+export function isPartlyPicked(picks: string[], category: Category) {
+  const set = expand(picks);
+  const picked = actionsOf(category).filter((action) => set.has(action));
+  return picked.length > 0 && picked.length < actionsOf(category).length;
+}
+
 // Clicking a checked row unchecks everything it stands for, so a row checked
 // only through a wildcard unchecks just itself. Recommended, clicked under
 // All actions, narrows to itself.

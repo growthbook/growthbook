@@ -3,8 +3,10 @@ import {
   actionsOf,
   CATEGORIES,
   CATEGORY_TITLES,
+  isPartlyPicked,
   isPicked,
   mergeConfirmRules,
+  presetOf,
   toggleAction,
 } from "@/components/Settings/confirmRulesUtils";
 
@@ -80,6 +82,22 @@ describe("recommended", () => {
     ).toBe(true);
     expect(toggleAction(picks, "feature.publish")).toEqual(["recommended"]);
   });
+});
+
+it("tells a partly picked category from a fully picked or unpicked one", () => {
+  expect(isPartlyPicked(["recommended"], "feature")).toBe(true);
+  expect(isPartlyPicked(["recommended"], "override")).toBe(false);
+  expect(isPartlyPicked(["*"], "feature")).toBe(false);
+  expect(isPartlyPicked(["experiment.start"], "feature")).toBe(false);
+});
+
+it("names the preset a rule list amounts to, if any", () => {
+  expect(presetOf([{ actions: ["recommended"] }])).toBe("recommended");
+  expect(presetOf([{ actions: ["*"] }])).toBe("*");
+  expect(presetOf([{ actions: ["*"], environments: ["production"] }])).toBe(
+    null,
+  );
+  expect(presetOf([{ actions: ["recommended", "feature.create"] }])).toBe(null);
 });
 
 it("places every category in exactly one section", () => {
