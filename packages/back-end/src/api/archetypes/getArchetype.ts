@@ -1,8 +1,10 @@
 import { getArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   getArchetypeById,
+  isArchetypeVisibleTo,
   toArchetypeApiInterface,
 } from "back-end/src/models/ArchetypeModel";
 
@@ -17,8 +19,8 @@ export const getArchetype = createApiRequestHandler(getArchetypeValidator)(
     const { id } = req.params;
     const orgId = req.organization.id;
     const archetype = await getArchetypeById(id, orgId);
-    if (!archetype) {
-      throw new Error(`An archetype with id ${id} does not exist`);
+    if (!archetype || !isArchetypeVisibleTo(archetype, req.context.userId)) {
+      throw new NotFoundError(`An archetype with id ${id} does not exist`);
     }
 
     if (
