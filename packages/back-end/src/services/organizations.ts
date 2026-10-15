@@ -1173,6 +1173,7 @@ export async function inviteUser({
     return {
       emailSent: true,
       inviteUrl: getInviteUrl(existingInvite.key),
+      created: false,
     };
   }
 
@@ -1227,6 +1228,7 @@ export async function inviteUser({
       return {
         emailSent: true,
         inviteUrl: getInviteUrl(latestInvite.key),
+        created: false,
       };
     }
     if (seatLimit) {
@@ -1256,6 +1258,7 @@ export async function inviteUser({
   return {
     emailSent,
     inviteUrl: getInviteUrl(key),
+    created: true,
   };
 }
 
