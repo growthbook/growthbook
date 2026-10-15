@@ -3,7 +3,10 @@ import { ArchetypeAttributeValues } from "shared/types/archetype";
 import { FeatureTestResult } from "shared/types/feature";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getArchetypeById } from "back-end/src/models/ArchetypeModel";
+import {
+  getArchetypeById,
+  isArchetypeVisibleTo,
+} from "back-end/src/models/ArchetypeModel";
 import {
   evaluateFeature,
   filterArchetypeEnvironments,
@@ -13,11 +16,11 @@ import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 
-function toApiEvaluation(r: FeatureTestResult) {
+function toApiEvaluation(r: FeatureTestResult, archived: boolean) {
   const exp = r.result?.experimentResult;
   return {
     environment: r.env,
-    enabled: r.enabled,
+    enabled: r.enabled && !archived,
     value: r.result?.value ?? null,
     source: r.result?.source ?? null,
     ruleId: r.result?.ruleId || null,
@@ -41,10 +44,9 @@ async function getArchetype(context: ApiReqContext, id: string) {
     );
   }
   const archetype = await getArchetypeById(id, context.org.id);
-  // Private archetypes are their owner's only, as in the app and listArchetypes.
   if (
     !archetype ||
-    (!archetype.isPublic && archetype.owner !== context.userId) ||
+    !isArchetypeVisibleTo(archetype, context.userId) ||
     !context.permissions.canReadMultiProjectResource(archetype.projects)
   ) {
     context.throwNotFoundError(`Archetype not found: ${id}`);
@@ -108,5 +110,7 @@ export const postFeatureEvaluateV2 = createApiRequestHandler(
     includeRuleIds: true,
   });
 
-  return { results: results.map(toApiEvaluation) };
+  return {
+    results: results.map((r) => toApiEvaluation(r, !!feature.archived)),
+  };
 });
