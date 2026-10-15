@@ -549,9 +549,6 @@ describe("SDK payload lifecycle (comprehensive)", () => {
             ExperimentModel.getAllPayloadExperiments as jest.Mock
           ).mockResolvedValue(new Map());
           (
-            VisualChangesetModel.getAllCbVisualExperiments as jest.Mock
-          ).mockResolvedValue([]);
-          (
             VisualChangesetModel.getContextualBanditsWithVisualChangesets as jest.Mock
           ).mockResolvedValue([]);
           getSDKPayloadCacheLocationMock.mockReturnValue(storage);

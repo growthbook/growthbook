@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import uniqBy from "lodash/uniqBy";
 import { ContextualBanditInterface } from "shared/validators";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
@@ -8,7 +9,10 @@ import {
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import {
+  getAffectedSDKPayloadKeys,
+  getSDKPayloadKeys,
+} from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -56,9 +60,8 @@ export async function refreshLinkedFeaturePayloads(
 ): Promise<void> {
   const environments = getEnvironmentIdsFromOrg(context.org);
   const features = await getAllFeatures(context);
-  const allProjectIds = await context.getAllProjectIds();
 
-  const payloadKeys: SDKPayloadKey[] = features.length
+  const ruleKeys: SDKPayloadKey[] = features.length
     ? getAffectedSDKPayloadKeys(
         features,
         environments,
@@ -69,23 +72,21 @@ export async function refreshLinkedFeaturePayloads(
             rule.contextualBanditId === cb.id
           );
         },
-        allProjectIds,
+        await context.getAllProjectIds(),
       )
     : [];
 
-  if (options.includeVisualKeys || cb.hasVisualChangesets) {
-    const seen = new Set(
-      payloadKeys.map((k) => `${k.environment}|${k.project}`),
-    );
-    for (const environment of environments) {
-      for (const project of ["", ...(cb.project ? [cb.project] : [])]) {
-        const dedupeKey = `${environment}|${project}`;
-        if (seen.has(dedupeKey)) continue;
-        seen.add(dedupeKey);
-        payloadKeys.push({ environment, project });
-      }
-    }
-  }
+  const visualKeys =
+    options.includeVisualKeys || cb.hasVisualChangesets
+      ? getSDKPayloadKeys(
+          new Set(environments),
+          new Set(["", cb.project || ""]),
+        )
+      : [];
+  const payloadKeys = uniqBy(
+    [...ruleKeys, ...visualKeys],
+    (k) => `${k.environment}|${k.project}`,
+  );
 
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({

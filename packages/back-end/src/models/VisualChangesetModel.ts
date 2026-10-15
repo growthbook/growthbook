@@ -274,14 +274,12 @@ export async function getAllCbVisualExperiments(
   );
   const cbById = new Map(cbs.map((cb) => [cb.id, cb]));
 
-  const out: CbVisualExperiment[] = [];
-  for (const c of changesets) {
-    if (!c.contextualBandit) continue;
-    const cb = cbById.get(c.contextualBandit);
-    if (!cb) continue;
-    out.push({ type: "cb-visual", contextualBandit: cb, visualChangeset: c });
-  }
-  return out;
+  return changesets.flatMap((visualChangeset) => {
+    const contextualBandit =
+      visualChangeset.contextualBandit &&
+      cbById.get(visualChangeset.contextualBandit);
+    return contextualBandit ? [{ contextualBandit, visualChangeset }] : [];
+  });
 }
 
 export async function createVisualChange(
