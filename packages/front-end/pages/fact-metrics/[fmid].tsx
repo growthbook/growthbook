@@ -55,6 +55,8 @@ export default function FactMetricPage() {
   const { fmid } = router.query;
 
   const [isEditing, setIsEditing] = useState(false);
+  // Tracking source for an edit started from another page's Edit link.
+  const [editSource, setEditSource] = useState<string | null>(null);
   const factMetricFlow = useFactMetricFlow("fact-metric");
   const [actionsContainer, setActionsContainer] =
     useState<HTMLDivElement | null>(null);
@@ -123,19 +125,28 @@ export default function FactMetricPage() {
       return;
     }
     setTab("overview");
+    setEditSource(null);
     setIsEditing(true);
   };
 
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
-    if (canEdit && !editViaApiOnly) startEditing();
-    const { edit, ...query } = router.query;
+    // Wait for the flag so the link opens the editor this user is assigned.
+    if (!factMetricFlow.ready) return;
+    if (canEdit && !editViaApiOnly) {
+      startEditing();
+      if (typeof router.query.source === "string") {
+        setEditSource(router.query.source);
+      }
+    }
+    const { edit, source, ...query } = router.query;
     void edit;
+    void source;
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, ready, canEdit, editViaApiOnly]);
+  }, [router, ready, canEdit, editViaApiOnly, factMetricFlow.ready]);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -537,7 +548,7 @@ export default function FactMetricPage() {
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             mutate={mutateDefinitions}
-            source="fact-metric"
+            source={editSource ?? "fact-metric"}
           />
         </TabsContent>
 

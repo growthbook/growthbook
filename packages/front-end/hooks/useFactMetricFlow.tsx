@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { FactMetricInterface } from "shared/types/fact-table";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
@@ -19,6 +19,8 @@ type ModalTarget = FactMetricCreationTarget & { edit?: FactMetricInterface };
 // in place with the same props and tracking `source` it had before.
 export default function useFactMetricFlow(source: string) {
   const newFlow = useFeatureIsOn("new-metric-creation-flow");
+  // False until flag values load; newFlow reads as off until then.
+  const ready = !!useGrowthBook()?.ready;
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
@@ -44,8 +46,12 @@ export default function useFactMetricFlow(source: string) {
   };
 
   const edit = (metric: FactMetricInterface) => {
-    if (newFlow) router.push(`/fact-metrics/${metric.id}?edit=true`);
-    else setModalTarget({ edit: metric });
+    if (newFlow) {
+      const params = new URLSearchParams({ edit: "true", source });
+      router.push(`/fact-metrics/${metric.id}?${params.toString()}`);
+    } else {
+      setModalTarget({ edit: metric });
+    }
   };
 
   const duplicate = modalTarget?.duplicate;
@@ -80,5 +86,5 @@ export default function useFactMetricFlow(source: string) {
     />
   );
 
-  return { newFlow, href, open, edit, modal };
+  return { newFlow, ready, href, open, edit, modal };
 }
