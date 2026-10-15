@@ -1,9 +1,10 @@
 import cronParser from "cron-parser";
-import { isEqual, omitBy, pick } from "lodash";
+import { isEqual, omit, omitBy, pick } from "lodash";
 import { getDefaultRole } from "shared/permissions";
 import {
   AGREEMENT_TYPE_AI,
   AI_AGREEMENT_VERSION,
+  API_ECHO_ONLY_SETTING_KEYS,
   putSettingsValidator,
 } from "shared/validators";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
@@ -29,7 +30,19 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 ) => {
   const { context } = req;
   const org = context.org;
-  const { acceptAiTerms, ...requested } = req.body;
+  const { acceptAiTerms, ...sent } = req.body;
+
+  // Read-only keys are accepted only as GET returns them, so GET can be echoed.
+  const apiSettings: Record<string, unknown> = toApiSettings(org);
+  API_ECHO_ONLY_SETTING_KEYS.forEach((key) => {
+    if (key in sent && !isEqual(toJson(sent[key]), toJson(apiSettings[key]))) {
+      throw new Error(
+        `\`${key}\` is read-only on this endpoint; send it unchanged or omit it.`,
+      );
+    }
+  });
+  const requested = omit(sent, API_ECHO_ONLY_SETTING_KEYS);
+
   // A reset default role falls back to collaborator, so it is checked as one.
   if (requested.defaultRole === null) {
     requested.defaultRole = getDefaultRole({});
@@ -159,6 +172,11 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
   const updated: OrganizationInterface = { ...org, settings };
   return { settings: toApiSettings(updated) };
 });
+
+// Compares values the way a client saw them in the JSON response.
+function toJson(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
 
 function pickKeys(settings: OrganizationSettings, keys: string[]) {
   return Object.fromEntries(
