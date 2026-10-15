@@ -230,14 +230,15 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     permissionsError={
                       envAllowsCreatingMetrics() &&
                       !hasMetrics &&
-                      (!permissionsUtil.canCreateFactMetric({
-                        projects: [project],
-                      }) ||
-                        (!canOpenFactMetricFlow &&
-                          !permissionsUtil.canViewCreateFactTableModal(
+                      // Check the permission for the step the button names.
+                      (canOpenFactMetricFlow
+                        ? !permissionsUtil.canCreateFactMetric({
+                            projects: [project],
+                          })
+                        : !permissionsUtil.canViewCreateFactTableModal(
                             project,
                             projects,
-                          )))
+                          ))
                     }
                     imageLeft={false}
                     onClick={(finished) => {
