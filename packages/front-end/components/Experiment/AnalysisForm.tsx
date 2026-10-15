@@ -382,6 +382,7 @@ const AnalysisForm: FC<{
       const metric = getExperimentMetricById(id);
       if (!metric) return [];
       const eligibility = getClusterExperimentMetricEligibility(metric, {
+        clusterIdentifier: exposureQueryIdentifierType,
         clusterSubUnitIdentifier,
         getFactTable: (factTableId) =>
           factTables.find((ft) => ft.id === factTableId),
@@ -391,6 +392,7 @@ const AnalysisForm: FC<{
     });
   }, [
     isClusterExperiment,
+    exposureQueryIdentifierType,
     clusterSubUnitIdentifier,
     goalMetrics,
     secondaryMetrics,

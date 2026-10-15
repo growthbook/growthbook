@@ -443,7 +443,8 @@ export function ClusterExperimentFields({
               subUnitOptions.length ? (
                 <>
                   Lists the other identifier types in {exposureQuery?.name}.
-                  Metrics are analyzed per <code>{subUnitIdentifier}</code>.
+                  Metrics are analyzed per <code>{subUnitIdentifier}</code>{" "}
+                  wherever they can be.
                 </>
               ) : (
                 `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`
