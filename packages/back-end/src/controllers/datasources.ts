@@ -75,10 +75,7 @@ import {
 } from "back-end/src/services/eventForwarder/connector";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import {
-  getQueriesByIds,
-  getQueryById,
-} from "back-end/src/models/QueryModel";
+import { getQueriesByIds, getQueryById } from "back-end/src/models/QueryModel";
 import {
   createDataSource,
   getDataSourcesByOrganization,
