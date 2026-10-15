@@ -1225,13 +1225,11 @@ def create_bandit_statistics(
         stat = variation_statistic_from_metric_row(
             row=metric_data, prefix=prefix, metric=metric
         )
-        # recast proportion metrics in case they slipped through
-        # for bandits we weight by period; iid data over periods no longer holds
+        # Binomial metrics are coerced to "count" upstream for bandits.
         if isinstance(stat, ProportionStatistic):
-            stat = SampleMeanStatistic(
-                n=stat.n,
-                sum=stat.sum,
-                sum_squares=stat.sum,
+            raise ValueError(
+                "ProportionStatistic not supported for bandits; "
+                "binomial metrics must be recast to count upstream"
             )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")

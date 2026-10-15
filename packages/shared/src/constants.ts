@@ -289,6 +289,7 @@ export const entityEvents = {
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],
   populationData: ["create", "delete", "update"],
+  population: ["create", "update", "delete"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
@@ -333,12 +334,15 @@ export const entityEvents = {
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
+  interleaving: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+// Default for MAX_WEBHOOK_TIMEOUT_SECONDS; Cloud uses it as is
+export const DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS = 120;
 
 // SDK Connection settings that add optional data to the SDK payload
 export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [

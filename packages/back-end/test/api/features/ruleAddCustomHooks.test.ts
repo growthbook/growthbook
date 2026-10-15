@@ -161,6 +161,7 @@ describe("rule-add custom hook prevalidation", () => {
     const { revision } = await setup();
     mockRunInSandbox.mockResolvedValue({
       ok: false,
+      rejected: true,
       error: "Rejected by hook",
       warnings: [],
     });
