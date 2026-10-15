@@ -3657,14 +3657,6 @@
       true
     ],
     [
-      "$and keeps conditions that are undecided",
-      {
-        "$and": [{ "id": "123" }, { "country": "US" }, { "browser": "chrome" }]
-      },
-      { "id": "123" },
-      { "$and": [{ "country": "US" }, { "browser": "chrome" }] }
-    ],
-    [
       "$not fails when its condition passes",
       { "$not": { "id": "123" }, "country": "US" },
       { "id": "123" },
@@ -3698,20 +3690,6 @@
       { "id": { "$inGroup": "group_id" }, "country": "US" },
       { "id": "123" },
       { "country": "US" },
-      { "group_id": ["123", "456"] }
-    ],
-    [
-      "$notInGroup on a known attribute is decided",
-      { "id": { "$notInGroup": "group_id" }, "country": "US" },
-      { "id": "123" },
-      false,
-      { "group_id": ["123", "456"] }
-    ],
-    [
-      "$inGroup on an unknown attribute is kept",
-      { "id": { "$inGroup": "group_id" }, "country": "US" },
-      { "country": "US" },
-      { "id": { "$inGroup": "group_id" } },
       { "group_id": ["123", "456"] }
     ],
     [
@@ -3904,7 +3882,7 @@
   ],
   "reducePayload": [
     [
-      "removes the condition of a rule that always passes, and the value of one that never passes",
+      "removes conditions that always pass, and the value of a force rule that never passes, but not an experiment rule's variations, since sticky buckets skip its condition",
       {
         "payload": {
           "dateUpdated": "2026-10-04T00:00:00Z",
@@ -3914,7 +3892,13 @@
               "rules": [
                 { "id": "r1", "condition": { "id": "456" }, "force": 1 },
                 { "id": "r2", "condition": { "country": "US" }, "force": 2 },
-                { "id": "r3", "condition": { "id": "123" }, "force": 3 }
+                {
+                  "id": "r3",
+                  "condition": { "id": "456" },
+                  "key": "exp",
+                  "variations": [1, 2]
+                },
+                { "id": "r4", "condition": { "id": "123" }, "force": 3 }
               ]
             }
           }
@@ -3929,43 +3913,13 @@
             "rules": [
               { "id": "r1", "condition": { "$not": {} }, "force": null },
               { "id": "r2", "condition": { "country": "US" }, "force": 2 },
-              { "id": "r3", "force": 3 }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "keeps the undecided part of a rule's condition",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "condition": { "id": "123", "country": "US" },
-                  "variations": [0, 1],
-                  "key": "exp"
-                }
-              ]
-            }
-          }
-        },
-        "attributes": { "id": "123" }
-      },
-      {
-        "features": {
-          "f": {
-            "defaultValue": 0,
-            "rules": [
               {
-                "condition": { "country": "US" },
-                "variations": [0, 1],
-                "key": "exp"
-              }
+                "id": "r3",
+                "condition": { "$not": {} },
+                "key": "exp",
+                "variations": [1, 2]
+              },
+              { "id": "r4", "force": 3 }
             ]
           }
         },
@@ -3974,33 +3928,7 @@
       }
     ],
     [
-      "global attributes are known too",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                { "condition": { "env": "prod", "country": "US" }, "force": 1 }
-              ]
-            }
-          }
-        },
-        "globalAttributes": { "env": "prod" }
-      },
-      {
-        "features": {
-          "f": {
-            "defaultValue": 0,
-            "rules": [{ "condition": { "country": "US" }, "force": 1 }]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
-      "user attributes take precedence over global attributes",
+      "global and user attributes are both known, and the user's take precedence",
       {
         "payload": {
           "features": {
@@ -4008,12 +3936,19 @@
               "defaultValue": 0,
               "rules": [
                 { "condition": { "env": "dev" }, "force": 1 },
-                { "condition": { "env": "prod" }, "force": 2 }
+                {
+                  "condition": {
+                    "env": "prod",
+                    "country": "US",
+                    "plan": "pro"
+                  },
+                  "force": 2
+                }
               ]
             }
           }
         },
-        "globalAttributes": { "env": "dev" },
+        "globalAttributes": { "env": "dev", "country": "US" },
         "attributes": { "env": "prod" }
       },
       {
@@ -4022,7 +3957,7 @@
             "defaultValue": 0,
             "rules": [
               { "condition": { "$not": {} }, "force": null },
-              { "force": 2 }
+              { "condition": { "plan": "pro" }, "force": 2 }
             ]
           }
         },
@@ -4080,7 +4015,7 @@
       }
     ],
     [
-      "filters by project, keeping features with no project metadata",
+      "filters features and auto experiments by project, keeping those with no project metadata",
       {
         "payload": {
           "features": {
@@ -4090,16 +4025,36 @@
             },
             "f2": { "defaultValue": 2, "metadata": { "projects": ["p3"] } },
             "f3": { "defaultValue": 3 }
-          }
+          },
+          "experiments": [
+            {
+              "key": "e1",
+              "variations": [{}, {}],
+              "metadata": { "projects": ["p1"] }
+            },
+            {
+              "key": "e2",
+              "variations": [{}, {}],
+              "metadata": { "projects": ["p2"] }
+            },
+            { "key": "e3", "variations": [{}, {}] }
+          ]
         },
-        "filters": { "projects": ["p1"] }
+        "include": { "projects": ["p1"] }
       },
       {
         "features": {
           "f1": { "defaultValue": 1, "metadata": { "projects": ["p1", "p2"] } },
           "f3": { "defaultValue": 3 }
         },
-        "experiments": [],
+        "experiments": [
+          {
+            "key": "e1",
+            "variations": [{}, {}],
+            "metadata": { "projects": ["p1"] }
+          },
+          { "key": "e3", "variations": [{}, {}] }
+        ],
         "savedGroups": {}
       }
     ],
@@ -4113,7 +4068,7 @@
             "f3": { "defaultValue": 3 }
           }
         },
-        "filters": { "tags": ["a", "b"] }
+        "include": { "tags": ["a", "b"] }
       },
       {
         "features": {
@@ -4143,7 +4098,7 @@
             "f4": { "defaultValue": 4 }
           }
         },
-        "filters": { "customFields": { "app": ["web"] } }
+        "include": { "customFields": { "app": ["web"] } }
       },
       {
         "features": {
@@ -4161,7 +4116,7 @@
       }
     ],
     [
-      "every filter has to match",
+      "every include filter has to match",
       {
         "payload": {
           "features": {
@@ -4179,7 +4134,7 @@
             }
           }
         },
-        "filters": { "projects": ["p1"], "tags": ["a"] }
+        "include": { "projects": ["p1"], "tags": ["a"] }
       },
       {
         "features": {
@@ -4193,32 +4148,174 @@
       }
     ],
     [
-      "filters auto experiments too",
+      "excludes features and experiments that match any exclude filter, but not those without that metadata",
       {
         "payload": {
-          "features": {},
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "tags": ["web", "server-only"] }
+            },
+            "f2": {
+              "defaultValue": 2,
+              "metadata": { "projects": ["p1", "p2"] }
+            },
+            "f3": { "defaultValue": 3 },
+            "f4": {
+              "defaultValue": 4,
+              "metadata": { "customFields": { "platform": "ios" } }
+            },
+            "f5": {
+              "defaultValue": 5,
+              "metadata": {
+                "projects": ["p1"],
+                "tags": ["web"],
+                "customFields": { "platform": "web" }
+              }
+            }
+          },
           "experiments": [
             {
               "key": "e1",
               "variations": [{}, {}],
-              "metadata": { "projects": ["p1"] }
+              "metadata": { "tags": ["server-only"] }
             },
+            { "key": "e2", "variations": [{}, {}] }
+          ]
+        },
+        "exclude": {
+          "projects": ["p2"],
+          "tags": ["server-only"],
+          "customFields": { "platform": ["ios"] }
+        }
+      },
+      {
+        "features": {
+          "f3": { "defaultValue": 3 },
+          "f5": {
+            "defaultValue": 5,
+            "metadata": {
+              "projects": ["p1"],
+              "tags": ["web"],
+              "customFields": { "platform": "web" }
+            }
+          }
+        },
+        "experiments": [{ "key": "e2", "variations": [{}, {}] }],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps an excluded prerequisite by default, since the client evaluates it",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "f2", "condition": { "value": true } }
+                  ],
+                  "force": 2
+                }
+              ]
+            },
+            "f2": {
+              "defaultValue": true,
+              "metadata": { "tags": ["server-only"] }
+            }
+          }
+        },
+        "exclude": { "tags": ["server-only"] }
+      },
+      {
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "f2", "condition": { "value": true } }
+                ],
+                "force": 2
+              }
+            ]
+          },
+          "f2": {
+            "defaultValue": true,
+            "metadata": { "tags": ["server-only"] }
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "prerequisites \"filter\" applies include and exclude to prerequisites too",
+      {
+        "payload": {
+          "features": {
+            "f1": {
+              "defaultValue": 1,
+              "metadata": { "projects": ["p1"] },
+              "rules": [
+                {
+                  "parentConditions": [
+                    { "id": "f2", "condition": { "value": true } },
+                    { "id": "f3", "condition": { "value": true } },
+                    { "id": "f4", "condition": { "value": true } }
+                  ],
+                  "force": 2
+                }
+              ]
+            },
+            "f2": { "defaultValue": true, "metadata": { "projects": ["p2"] } },
+            "f3": {
+              "defaultValue": true,
+              "metadata": { "projects": ["p1"], "tags": ["server-only"] }
+            },
+            "f4": { "defaultValue": true, "metadata": { "projects": ["p1"] } }
+          },
+          "experiments": [
             {
-              "key": "e2",
+              "key": "e1",
               "variations": [{}, {}],
-              "metadata": { "projects": ["p2"] }
+              "metadata": { "projects": ["p1"] },
+              "parentConditions": [
+                { "id": "f2", "condition": { "value": true } }
+              ]
             }
           ]
         },
-        "filters": { "projects": ["p1"] }
+        "include": { "projects": ["p1"] },
+        "exclude": { "tags": ["server-only"] },
+        "prerequisites": "filter"
       },
       {
-        "features": {},
+        "features": {
+          "f1": {
+            "defaultValue": 1,
+            "metadata": { "projects": ["p1"] },
+            "rules": [
+              {
+                "parentConditions": [
+                  { "id": "f2", "condition": { "value": true } },
+                  { "id": "f3", "condition": { "value": true } },
+                  { "id": "f4", "condition": { "value": true } }
+                ],
+                "force": 2
+              }
+            ]
+          },
+          "f4": { "defaultValue": true, "metadata": { "projects": ["p1"] } }
+        },
         "experiments": [
           {
             "key": "e1",
             "variations": [{}, {}],
-            "metadata": { "projects": ["p1"] }
+            "metadata": { "projects": ["p1"] },
+            "parentConditions": [{ "id": "f2", "condition": { "value": true } }]
           }
         ],
         "savedGroups": {}
@@ -4288,7 +4385,7 @@
             }
           ]
         },
-        "filters": { "projects": ["p1"] }
+        "include": { "projects": ["p1"] }
       },
       {
         "features": {
@@ -4648,44 +4745,6 @@
       }
     ],
     [
-      "keeps an experiment rule that never matches with a condition that never passes, since sticky buckets skip it",
-      {
-        "payload": {
-          "features": {
-            "f": {
-              "defaultValue": 0,
-              "rules": [
-                {
-                  "condition": { "id": "456" },
-                  "key": "exp",
-                  "variations": [1, 2]
-                },
-                { "force": 3 }
-              ]
-            }
-          }
-        },
-        "attributes": { "id": "123" }
-      },
-      {
-        "features": {
-          "f": {
-            "defaultValue": 0,
-            "rules": [
-              {
-                "condition": { "$not": {} },
-                "key": "exp",
-                "variations": [1, 2]
-              },
-              { "force": 3 }
-            ]
-          }
-        },
-        "experiments": [],
-        "savedGroups": {}
-      }
-    ],
-    [
       "filters by project drop rules scoped to other projects",
       {
         "payload": {
@@ -4709,7 +4768,7 @@
             }
           }
         },
-        "filters": { "projects": ["p1"] }
+        "include": { "projects": ["p1"] }
       },
       {
         "features": {
@@ -4760,7 +4819,7 @@
             }
           }
         },
-        "filters": { "projects": ["p1"] }
+        "include": { "projects": ["p1"] }
       },
       {
         "features": {

@@ -197,7 +197,7 @@ export class GrowthBookClient<
       ...this.getDecryptedPayload(),
       ...reducePayload(
         this._getEvalContext(options.userContext || {}),
-        options.filters,
+        options,
       ),
     };
   }

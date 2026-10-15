@@ -19,7 +19,7 @@ import {
   TrackingUserContext,
   UserContext,
   SavedGroupsPayload,
-  PayloadFilters,
+  ReducePayloadOptions,
   PayloadMetadata,
   SavedGroupPayloadEntry,
 } from "./types/growthbook";
@@ -1371,13 +1371,16 @@ export async function decryptPayload(
 // for anyone who agrees with the known attributes.
 export function reducePayload(
   ctx: EvalContext,
-  filters?: PayloadFilters,
+  {
+    include = {},
+    exclude = {},
+    prerequisites = "keep",
+  }: Omit<ReducePayloadOptions, "userContext"> = {},
 ): FeatureApiResponse {
   const attributes = getAttributes(ctx.user);
   const savedGroups = ctx.global.savedGroups || {};
   const allFeatures = ctx.global.features || {};
   const allExperiments = ctx.global.experiments || [];
-  const { projects, tags, customFields = {} } = filters || {};
 
   // Only an array counts, as with `$in`, and any one of its values is enough
   const has = (actual: unknown, want: unknown) =>
@@ -1385,15 +1388,24 @@ export function reducePayload(
 
   // An absent `projects` means all projects, unlike absent tags or custom fields
   const inProjects = (meta?: PayloadMetadata) =>
-    !projects || !meta || !meta.projects || has(meta.projects, projects);
+    !include.projects ||
+    !meta ||
+    !meta.projects ||
+    has(meta.projects, include.projects);
+  // Kept when it matches every `include` filter and no `exclude` filter. A
+  // feature without projects isn't in an excluded project.
   const matches = (meta?: PayloadMetadata) => {
     const m = meta || {};
+    const field = (k: string) => (m.customFields || {})[k];
+    const inFields = include.customFields || {};
+    const outFields = exclude.customFields || {};
     return (
       inProjects(m) &&
-      (!tags || has(m.tags, tags)) &&
-      Object.keys(customFields).every((k) =>
-        has((m.customFields || {})[k], customFields[k]),
-      )
+      (!include.tags || has(m.tags, include.tags)) &&
+      Object.keys(inFields).every((k) => has(field(k), inFields[k])) &&
+      !has(m.projects, exclude.projects) &&
+      !has(m.tags, exclude.tags) &&
+      !Object.keys(outFields).some((k) => has(field(k), outFields[k]))
     );
   };
 
@@ -1415,11 +1427,15 @@ export function reducePayload(
   };
 
   // Adds a feature, then the prerequisites the client evaluates for it, even
-  // when the filters drop them. A Map keeps a `__proto__` key as a plain key.
+  // when the filters drop them. With "filter", only the filters decide.
+  // A Map keeps a `__proto__` key as a plain key.
   const added = new Map<string, FeatureDefinition>();
   const addParents = (item: {
     parentConditions?: ParentConditionInterface[];
-  }) => (item.parentConditions || []).forEach((p) => add(p.id));
+  }) => {
+    if (prerequisites === "filter") return;
+    (item.parentConditions || []).forEach((p) => add(p.id));
+  };
   const add = (id: string) => {
     const feature = hasOwn(allFeatures, id) && allFeatures[id];
     if (!feature || added.has(id)) return;

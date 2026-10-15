@@ -466,7 +466,8 @@ You can also remove features and experiments based on their project, tags, or cu
 ```js
 const payload = gbClient.reducePayload({
   userContext,
-  filters: {
+  // Keep only what matches every filter
+  include: {
     // The project's public ID, or its internal ID if it doesn't have one
     projects: ["prj_abc123"],
     tags: ["web"],
@@ -475,16 +476,25 @@ const payload = gbClient.reducePayload({
       platform: ["web", "all"],
     },
   },
+  // Remove what matches any filter
+  exclude: {
+    tags: ["server-only"],
+  },
+  // Send the prerequisites of kept features even if the filters remove them
+  prerequisites: "keep",
 });
 ```
 
-Each filter is an array, and a feature only needs to match one of its values. If you pass more than one filter, a feature has to match all of them.
+Each filter is an array, and a feature only needs to match one of its values. A feature is kept when it matches every `include` filter and no `exclude` filter. `include` and `exclude` take the same filters, and you can pass either one or both.
 
-The `projects` filter also removes rules that only apply to other projects. Features without a project apply to all projects, so they always pass it.
+The `include` `projects` filter also removes rules that only apply to other projects. Features without a project apply to all projects, so `include` always keeps them and `exclude` never removes them.
 
-If a feature you keep has a prerequisite that doesn't match the filters, the prerequisite is kept too.
+`prerequisites` decides what happens when a feature you keep has a prerequisite the filters remove:
 
-Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. A `tags` or `customFields` filter removes every feature without that metadata.
+- `"keep"` (the default) sends the prerequisite anyway, so the front-end evaluates the same as with the full payload.
+- `"filter"` leaves it out. The front-end treats it as an unknown feature with a `null` value, so checks against it fail, and if it's a gate, the dependent feature is blocked.
+
+Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. Without that metadata, an `include` filter removes every feature, and an `exclude` filter removes none.
 
 ## Experimentation (A/B Testing)
 

@@ -525,7 +525,16 @@ export type PayloadFilters = {
 
 export type ReducePayloadOptions = {
   userContext?: UserContext;
-  filters?: PayloadFilters;
+  /** Keep only the features and auto experiments that match every filter */
+  include?: PayloadFilters;
+  /** Remove the features and auto experiments that match any filter */
+  exclude?: PayloadFilters;
+  /**
+   * "keep" (default) sends the prerequisites of what is kept even when the
+   * filters remove them, so the client evaluates the same as the full payload.
+   * "filter" applies the filters to them too.
+   */
+  prerequisites?: "keep" | "filter";
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)

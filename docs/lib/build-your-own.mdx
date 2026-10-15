@@ -555,27 +555,38 @@ function pruneSavedGroup(attributes, { id, attributeKey }) {
 }
 ```
 
-### public reducePayload(payload, attributes, filters): Payload
+### public reducePayload(payload, attributes, options): Payload
 
 Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. For that user, the client evaluates the result the same as the full payload. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
 
-`filters` is optional. It can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. They read the `metadata` that SDK Connections can include for features, rules, and auto experiments.
+`options` can have `include` and `exclude` filters, and `prerequisites`. A filter can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. Filters read the `metadata` that SDK Connections can include for features, rules, and auto experiments. `prerequisites` is `"keep"` (the default) or `"filter"`.
 
 ```ts
-function reducePayload(payload, attributes, filters = {}) {
-  const { projects, tags, customFields = {} } = filters;
-
+function reducePayload(
+  payload,
+  attributes,
+  { include = {}, exclude = {}, prerequisites = "keep" } = {},
+) {
   // Only an array counts, as with $in, and any one of its values is enough
   const has = (actual, want) => Array.isArray(want) && isIn(want, actual);
   // An absent metadata.projects means all projects, unlike absent tags or custom fields
   const inProjects = (meta = {}) =>
-    !projects || !meta.projects || has(meta.projects, projects);
-  const matches = (meta = {}) =>
-    inProjects(meta) &&
-    (!tags || has(meta.tags, tags)) &&
-    Object.keys(customFields).every((field) =>
-      has(meta.customFields?.[field], customFields[field]),
+    !include.projects || !meta.projects || has(meta.projects, include.projects);
+  // Kept when it matches every include filter and no exclude filter. A
+  // feature without projects isn't in an excluded project.
+  const matches = (meta = {}) => {
+    const field = (name) => meta.customFields?.[name];
+    const inFields = include.customFields ?? {};
+    const outFields = exclude.customFields ?? {};
+    return (
+      inProjects(meta) &&
+      (!include.tags || has(meta.tags, include.tags)) &&
+      Object.keys(inFields).every((name) => has(field(name), inFields[name])) &&
+      !has(meta.projects, exclude.projects) &&
+      !has(meta.tags, exclude.tags) &&
+      !Object.keys(outFields).some((name) => has(field(name), outFields[name]))
     );
+  };
 
   // Reduces a rule or an auto experiment
   const prune = (item) => {
@@ -594,9 +605,10 @@ function reducePayload(payload, attributes, filters = {}) {
   };
 
   // Adds a feature, then the prerequisites the client evaluates for it, even
-  // when the filters drop them
+  // when the filters drop them. With "filter", only the filters decide.
   const features = {};
   const addParents = (item) => {
+    if (prerequisites === "filter") return;
     for (const parent of item.parentConditions ?? []) add(parent.id);
   };
   const add = (id) => {
@@ -1302,7 +1314,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - definitions for Saved Groups referenced in the test case, if any (array of members, or a typed entry)
 - **reducePayload**: for SDKs that have `reducePayload`, which builds on `pruneCondition`. Skip the key if yours does not yet
   - name of the test case (string)
-  - input object with `payload`, plus `globalAttributes`, `attributes`, and `filters` when the case uses them
+  - input object with `payload`, plus `globalAttributes`, `attributes`, `include`, `exclude`, and `prerequisites` when the case uses them
   - expected reduced payload
 - **hash**
   - seed (string)
@@ -1455,5 +1467,5 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
 - **v0.10.0** 2026-10-04
   - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
-  - New public `reducePayload` method that shrinks a payload for one user: it filters features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups nothing references any more
+  - New public `reducePayload` method that shrinks a payload for one user: it includes or excludes features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups nothing references any more
   - New `pruneCondition` and `reducePayload` keys in the test cases
