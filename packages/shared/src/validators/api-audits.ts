@@ -10,19 +10,20 @@ const cursorQuery = {
     .max(100)
     .optional()
     .describe("Defaults to 50"),
-  before: z.iso
-    .datetime()
+  before: z
+    .string()
     .optional()
     .describe(
-      "Only return entries older than this. Pass the previous page's `nextCursor` to page back.",
+      "Only return entries older than this date-time. To page back, pass the previous page's `nextCursor` instead.",
     ),
 };
 
 const nextCursor = z
   .string()
-  .meta({ format: "date-time" })
   .nullable()
-  .describe("Null when there are no older entries");
+  .describe(
+    "Pass as `before` to get the next page. Null when there are no older entries",
+  );
 
 export const apiAuditValidator = namedSchema(
   "Audit",
