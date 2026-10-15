@@ -1,8 +1,5 @@
 import { DataSourceParams } from "shared/types/datasource";
-import { isCloud } from "@/services/env";
 import { getDataSourceSetupInstructions } from "@/components/DataSourceSetup/getDataSourceSetupInstructions";
-
-vi.mock("@/services/env", () => ({ isCloud: vi.fn(() => true) }));
 
 const CLOUD_EGRESS_IP = "52.70.79.40";
 const EU_INGESTOR_IP = "54.74.233.97";
@@ -21,10 +18,6 @@ function codeOf(
 }
 
 describe("getDataSourceSetupInstructions", () => {
-  beforeEach(() => {
-    vi.mocked(isCloud).mockReturnValue(true);
-  });
-
   it("returns at least one step for every Data Source type", () => {
     const types = [
       "bigquery",
@@ -267,7 +260,9 @@ describe("getDataSourceSetupInstructions", () => {
     it("cloud: shows the egress IP and no Docker guidance", () => {
       for (const type of ["postgres", "mysql", "mssql"] as const) {
         const network = codeOf(
-          getDataSourceSetupInstructions(type, "custom"),
+          getDataSourceSetupInstructions(type, "custom", undefined, {
+            cloud: true,
+          }),
           "Allow network access",
         );
         expect(network.code).toContain(CLOUD_EGRESS_IP);
@@ -276,10 +271,11 @@ describe("getDataSourceSetupInstructions", () => {
     });
 
     it("self-hosted: shows Docker guidance and no egress IP", () => {
-      vi.mocked(isCloud).mockReturnValue(false);
       for (const type of ["postgres", "mysql", "mssql"] as const) {
         const network = codeOf(
-          getDataSourceSetupInstructions(type, "custom"),
+          getDataSourceSetupInstructions(type, "custom", undefined, {
+            cloud: false,
+          }),
           "Allow network access",
         );
         expect(network.code).toBeUndefined();

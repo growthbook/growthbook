@@ -1,6 +1,9 @@
-import { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceParams,
+  DataSourceType,
+} from "shared/types/datasource";
 import { DocSection } from "@/components/docSections";
-import { isCloud } from "@/services/env";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
 
@@ -20,24 +23,34 @@ export type SetupInstructionStep = {
   codeNote?: string;
 };
 
+/** The form values for one warehouse type, all optional while the user types. */
+type ParamsFor<T extends DataSourceType> = Partial<
+  Extract<DataSourceInterfaceWithParams, { type: T }>["params"]
+>;
+
+type StepContext = {
+  isEventForwarder: boolean;
+  /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
+  existing: boolean;
+  /** GrowthBook Cloud reaches the warehouse from a fixed IP; self-hosted runs in Docker. */
+  cloud: boolean;
+};
+
+type StepBuilder<T extends DataSourceType> = (
+  params: ParamsFor<T>,
+  ctx: StepContext,
+) => SetupInstructionStep[];
+
 const CLOUD_EGRESS_IP = "52.70.79.40";
 // Event Forwarder ingestors write from the egress IP, plus this one when the
 // eu-west-1 region is selected.
 const EU_INGESTOR_IP = "54.74.233.97";
 const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if your Event Forwarder data region is eu-west-1.`;
 
-type ParamsBag = Partial<Record<string, unknown>>;
-
-function field(params: ParamsBag, key: string, fallback: string): string {
-  const value = params[key];
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-  return fallback;
-}
-
 const TEST_CONNECTION = "Enter the fields, then run the connection test.";
+
+const DOCKER_HOST_NOTE =
+  "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.";
 
 // New connections start with a generated password in the form, so the SQL
 // reads it from there and the two cannot drift. When the field is blank
@@ -53,6 +66,16 @@ const PASSWORD_PLACEHOLDER = "use-a-strong-password";
  *   and Redshift, which keeps PostgreSQL 8.0 escape processing).
  */
 type SqlDialect = "quote-only" | "backslash";
+
+/** A form value as a trimmed string, or `fallback` when blank. Ports arrive as numbers. */
+function field<P>(params: P, key: keyof P, fallback: string): string {
+  const value = params[key];
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return fallback;
+}
 
 /**
  * Postgres folds unquoted identifiers to lowercase, but the connection sends
@@ -77,11 +100,10 @@ function sqlStringLiteral(value: string, dialect: SqlDialect): string {
  * and only falls back to the placeholder when the field is empty.
  */
 function passwordFor(
-  params: ParamsBag,
+  params: { password?: string },
   dialect: SqlDialect,
 ): { literal: string; note: string } {
-  const raw = params.password;
-  const password = typeof raw === "string" && raw.length > 0 ? raw : null;
+  const password = params.password ? params.password : null;
   return password === null
     ? {
         literal: `'${PASSWORD_PLACEHOLDER}'`,
@@ -93,29 +115,64 @@ function passwordFor(
       };
 }
 
-export function getDataSourceSetupInstructions(
-  type: DataSourceType,
-  setup: ConnectSetupKind,
-  params?: Partial<DataSourceParams>,
-  { existing = false }: { existing?: boolean } = {},
-): SetupInstructionStep[] {
-  const p = (params ?? {}) as ParamsBag;
-  const isEventForwarder = setup === "event_forwarder";
+function cidrList(ips: string[]): string {
+  return ips.map((ip) => `${ip}/32`).join("\n");
+}
 
-  switch (type) {
-    case "bigquery": {
-      const projectId = field(p, "projectId", "YOUR_PROJECT");
-      const location = field(p, "location", "US");
-      const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
-      const member = `--member="serviceAccount:${sa}"`;
+/**
+ * The "Allow network access" step. Lists the Cloud egress IP, plus the EU
+ * ingestor when the Event Forwarder may write from it. `code` formats the
+ * list for the warehouse; the default is one CIDR per line.
+ */
+function networkAccessStep({
+  description,
+  isEventForwarder,
+  code = cidrList,
+}: {
+  description: string;
+  isEventForwarder: boolean;
+  code?: (ips: string[]) => string;
+}): SetupInstructionStep {
+  const ips = isEventForwarder
+    ? [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
+    : [CLOUD_EGRESS_IP];
+  return {
+    title: "Allow network access",
+    description,
+    code: code(ips),
+    codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
+  };
+}
 
-      const steps: SetupInstructionStep[] = [
-        {
-          title: "Create a service account",
-          description:
-            "Grant BigQuery Data Viewer, Metadata Viewer, and Job User. Console steps are in the {link}.",
-          docLink: { section: "bigquery", label: "BigQuery guide" },
-          code: `gcloud iam service-accounts create growthbook \\
+/**
+ * Self-hosted GrowthBook has no fixed IP to allow, so the network step
+ * becomes Docker host guidance instead.
+ */
+function networkAccessOrDockerStep(
+  ctx: StepContext,
+  cloudDescription: string,
+  dockerDescription = DOCKER_HOST_NOTE,
+): SetupInstructionStep {
+  return ctx.cloud
+    ? networkAccessStep({
+        description: cloudDescription,
+        isEventForwarder: ctx.isEventForwarder,
+      })
+    : { title: "Allow network access", description: dockerDescription };
+}
+
+const bigquerySteps: StepBuilder<"bigquery"> = (p, { isEventForwarder }) => {
+  const projectId = field(p, "projectId", "YOUR_PROJECT");
+  const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
+  const member = `--member="serviceAccount:${sa}"`;
+
+  const steps: SetupInstructionStep[] = [
+    {
+      title: "Create a service account",
+      description:
+        "Grant BigQuery Data Viewer, Metadata Viewer, and Job User. Console steps are in the {link}.",
+      docLink: { section: "bigquery", label: "BigQuery guide" },
+      code: `gcloud iam service-accounts create growthbook \\
   --project=${projectId}
 gcloud projects add-iam-policy-binding ${projectId} \\
   ${member} \\
@@ -126,56 +183,52 @@ gcloud projects add-iam-policy-binding ${projectId} \\
 gcloud projects add-iam-policy-binding ${projectId} \\
   ${member} \\
   --role="roles/bigquery.jobUser"`,
-        },
-        {
-          title: "Create a JSON key",
-          description: "In the console: Manage keys → Add key → JSON.",
-          code: `gcloud iam service-accounts keys create \\
+    },
+    {
+      title: "Create a JSON key",
+      description: "In the console: Manage keys → Add key → JSON.",
+      code: `gcloud iam service-accounts keys create \\
   growthbook-sa.json \\
   --iam-account=${sa}`,
-        },
-      ];
+    },
+  ];
 
-      if (isEventForwarder) {
-        steps.push({
-          title: "Grant write access for Event Forwarder",
-          description: "Grant BigQuery Data Editor on the destination dataset.",
-          code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
-  OPTIONS (location = "${location}");
+  if (isEventForwarder) {
+    steps.push({
+      title: "Grant write access for Event Forwarder",
+      description:
+        "Create the dataset in the same region as your event data (BigQuery cannot join across regions), then grant BigQuery Data Editor on it.",
+      code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
+  OPTIONS (location = "<region>");
 GRANT \`roles/bigquery.dataEditor\`
   ON SCHEMA \`${projectId}\`.growthbook_events
   TO "serviceAccount:${sa}";`,
-        });
-      }
+    });
+  }
 
-      steps.push({
-        title: "Enter credentials and test",
-        description: "Upload the JSON key, then run the connection test.",
-      });
+  steps.push({
+    title: "Enter credentials and test",
+    description: "Upload the JSON key, then run the connection test.",
+  });
 
-      return steps;
-    }
+  return steps;
+};
 
-    case "snowflake": {
-      const role = field(p, "role", "GROWTHBOOK_ROLE");
-      const user = field(p, "username", "GROWTHBOOK");
-      const warehouse = field(p, "warehouse", "COMPUTE_WH");
-      const database = field(p, "database", "ANALYTICS");
-      const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
-      // Match SnowflakeForm: connections saved before authMethod existed used
-      // a password; new connections default to key-pair.
-      const authMethod =
-        typeof p.authMethod === "string"
-          ? p.authMethod
-          : existing
-            ? "password"
-            : "key-pair";
-      const workloadProvider =
-        typeof p.workloadIdentityProvider === "string"
-          ? p.workloadIdentityProvider
-          : "AWS";
-      const snowflakePassword = passwordFor(p, "backslash");
-      const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
+const snowflakeSteps: StepBuilder<"snowflake"> = (
+  p,
+  { isEventForwarder, existing },
+) => {
+  const role = field(p, "role", "GROWTHBOOK_ROLE");
+  const user = field(p, "username", "GROWTHBOOK");
+  const warehouse = field(p, "warehouse", "COMPUTE_WH");
+  const database = field(p, "database", "ANALYTICS");
+  const efSchema = field(p, "schema", "GROWTHBOOK_EVENTS");
+  // Match SnowflakeForm: connections saved before authMethod existed used
+  // a password; new connections default to key-pair.
+  const authMethod = p.authMethod ?? (existing ? "password" : "key-pair");
+  const workloadProvider = p.workloadIdentityProvider ?? "AWS";
+  const snowflakePassword = passwordFor(p, "backslash");
+  const readGrants = `GRANT USAGE ON WAREHOUSE ${warehouse}
   TO ROLE ${role};
 
 GRANT USAGE ON DATABASE ${database}
@@ -187,48 +240,48 @@ GRANT SELECT ON ALL TABLES
   IN DATABASE ${database}
   TO ROLE ${role};`;
 
-      let createUserCode: string;
-      if (authMethod === "workload-identity") {
-        const identityBinding =
-          workloadProvider === "AZURE"
-            ? `CREATE USER ${user}
+  let createUserCode: string;
+  if (authMethod === "workload-identity") {
+    const identityBinding =
+      workloadProvider === "AZURE"
+        ? `CREATE USER ${user}
   WORKLOAD_IDENTITY = (
     TYPE = AZURE
     ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
     SUBJECT = '<managed_identity_object_id>'
   )
   TYPE = SERVICE;`
-            : workloadProvider === "GCP"
-              ? `CREATE USER ${user}
+        : workloadProvider === "GCP"
+          ? `CREATE USER ${user}
   WORKLOAD_IDENTITY = (
     TYPE = GCP
     SUBJECT = '<service_account_unique_id>'
   )
   TYPE = SERVICE;`
-              : `CREATE USER ${user} TYPE = SERVICE;
+          : `CREATE USER ${user} TYPE = SERVICE;
 ALTER USER ${user} SET WORKLOAD_IDENTITY = (
   TYPE = AWS
   ARN = 'arn:aws:iam::<account-id>:role/<growthbook-task-role>'
 );`;
-        createUserCode = `CREATE ROLE ${role};
+    createUserCode = `CREATE ROLE ${role};
 ${identityBinding}
 GRANT ROLE ${role} TO USER ${user};
 ${readGrants}`;
-      } else {
-        const authLine =
-          authMethod === "password"
-            ? `PASSWORD = ${snowflakePassword.literal}`
-            : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
-        createUserCode = `CREATE ROLE ${role};
+  } else {
+    const authLine =
+      authMethod === "password"
+        ? `PASSWORD = ${snowflakePassword.literal}`
+        : "RSA_PUBLIC_KEY = '<from rsa_key.pub>'";
+    createUserCode = `CREATE ROLE ${role};
 CREATE USER ${user}
   DEFAULT_ROLE = ${role}
   ${authLine};
 GRANT ROLE ${role} TO USER ${user};
 ${readGrants}`;
-      }
+  }
 
-      if (isEventForwarder && authMethod !== "workload-identity") {
-        createUserCode += `
+  if (isEventForwarder && authMethod !== "workload-identity") {
+    createUserCode += `
 
 GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
 CREATE SCHEMA ${database}.${efSchema};
@@ -236,161 +289,148 @@ GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT CREATE TABLE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};`;
-      }
+  }
 
-      const userStepDescription =
-        authMethod === "workload-identity"
-          ? isEventForwarder
-            ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
-            : "Self-hosted only. Run as ACCOUNTADMIN."
-          : isEventForwarder
-            ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
-            : "Run as ACCOUNTADMIN.";
+  const userStepDescription =
+    authMethod === "workload-identity"
+      ? isEventForwarder
+        ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
+        : "Self-hosted only. Run as ACCOUNTADMIN."
+      : isEventForwarder
+        ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
+        : "Run as ACCOUNTADMIN.";
 
-      return [
-        {
-          title: "Create a user and grant access",
-          description: userStepDescription,
-          code: createUserCode,
-          codeNote:
-            authMethod === "password" ? snowflakePassword.note : undefined,
-        },
-        {
-          title: "Allow network access",
-          description: "Only if a network policy restricts IPs.",
-          code: `CREATE NETWORK POLICY GROWTHBOOK_POLICY
-  ALLOWED_IP_LIST = (${
-    isEventForwarder
-      ? `'${CLOUD_EGRESS_IP}', '${EU_INGESTOR_IP}'`
-      : `'${CLOUD_EGRESS_IP}'`
-  });
+  return [
+    {
+      title: "Create a user and grant access",
+      description: userStepDescription,
+      code: createUserCode,
+      codeNote: authMethod === "password" ? snowflakePassword.note : undefined,
+    },
+    networkAccessStep({
+      description: "Only if a network policy restricts IPs.",
+      isEventForwarder,
+      code: (ips) => `CREATE NETWORK POLICY GROWTHBOOK_POLICY
+  ALLOWED_IP_LIST = (${ips.map((ip) => `'${ip}'`).join(", ")});
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
-          codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            authMethod === "workload-identity"
-              ? "Select Workload Identity Federation and the cloud GrowthBook runs on, then test."
-              : "Enter the account, warehouse, database, and credentials, then test.",
-        },
-      ];
-    }
+    }),
+    {
+      title: "Enter credentials and test",
+      description:
+        authMethod === "workload-identity"
+          ? "Select Workload Identity Federation and the cloud GrowthBook runs on, then test."
+          : "Enter the account, warehouse, database, and credentials, then test.",
+    },
+  ];
+};
 
-    case "databricks": {
-      const catalog = field(p, "catalog", "main");
-      // Match DatabricksForm: connections saved before authType existed are PAT.
-      const authType = typeof p.authType === "string" ? p.authType : "pat";
-      const usingOauth = isEventForwarder || authType === "oauth-m2m";
-      const principal = "`<service-principal-application-id>`";
+const databricksSteps: StepBuilder<"databricks"> = (
+  p,
+  { isEventForwarder },
+) => {
+  const catalog = field(p, "catalog", "main");
+  // Match DatabricksForm: connections saved before authType existed are PAT.
+  const authType = p.authType ?? "pat";
+  const usingOauth = isEventForwarder || authType === "oauth-m2m";
+  const principal = "`<service-principal-application-id>`";
 
-      let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
+  let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
   TO ${principal};
 GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
   TO ${principal};`;
 
-      if (isEventForwarder) {
-        grantCode += `
+  if (isEventForwarder) {
+    grantCode += `
 
 GRANT USE SCHEMA, CREATE TABLE
   ON SCHEMA ${catalog}.growthbook
   TO ${principal};`;
-      }
+  }
 
-      const steps: SetupInstructionStep[] = [
-        {
-          title: "Find connection details",
-          description: "Copy the server hostname, port, and HTTP path.",
-        },
-        usingOauth
-          ? {
-              title: "Create a service principal",
-              description: isEventForwarder
-                ? "Copy the Client ID and OAuth secret. Required for the Event Forwarder."
-                : "Copy the Client ID and OAuth secret.",
-            }
-          : {
-              title: "Create a personal access token",
-              description:
-                "Create a token for a user or service principal. OAuth is recommended.",
-            },
-        {
-          title: "Grant access",
+  return [
+    {
+      title: "Find connection details",
+      description: "Copy the server hostname, port, and HTTP path.",
+    },
+    usingOauth
+      ? {
+          title: "Create a service principal",
           description: isEventForwarder
-            ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
-            : "Replace the application ID and schema.",
-          code: grantCode,
-        },
-      ];
-
-      steps.push({
-        title: "Allow network access",
-        description: "Only if IP access lists are on.",
-        code: isEventForwarder
-          ? `${CLOUD_EGRESS_IP}/32
-${EU_INGESTOR_IP}/32`
-          : `${CLOUD_EGRESS_IP}/32`,
-        codeNote: isEventForwarder ? EU_INGESTOR_NOTE : undefined,
-      });
-
-      steps.push({
-        title: "Enter credentials and test",
-        description: usingOauth
-          ? "Enter the hostname, port, HTTP path, Client ID, and OAuth secret, then test."
-          : "Enter the hostname, port, HTTP path, and token, then test.",
-      });
-
-      return steps;
-    }
-
-    case "redshift": {
-      const user = field(p, "user", "growthbook_user");
-      const schema = field(p, "defaultSchema", "public");
-      const port = field(p, "port", "5439");
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-        p,
-        "backslash",
-      );
-
-      return [
-        {
-          title: "Find connection details",
+            ? "Copy the Client ID and OAuth secret. Required for the Event Forwarder."
+            : "Copy the Client ID and OAuth secret.",
+        }
+      : {
+          title: "Create a personal access token",
           description:
-            "Copy the workgroup endpoint. It splits into host, port, and database.",
+            "Create a token for a user or service principal. OAuth is recommended.",
         },
-        {
-          title: "Configure security settings",
-          description: `Turn on publicly accessible. Allow inbound TCP ${port} from this IP.`,
-          code: `Protocol: TCP
+    {
+      title: "Grant access",
+      description: isEventForwarder
+        ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
+        : "Replace the application ID and schema.",
+      code: grantCode,
+    },
+    networkAccessStep({
+      description: "Only if IP access lists are on.",
+      isEventForwarder,
+    }),
+    {
+      title: "Enter credentials and test",
+      description: usingOauth
+        ? "Enter the hostname, port, HTTP path, Client ID, and OAuth secret, then test."
+        : "Enter the hostname, port, HTTP path, and token, then test.",
+    },
+  ];
+};
+
+const redshiftSteps: StepBuilder<"redshift"> = (p) => {
+  const user = field(p, "user", "growthbook_user");
+  const schema = field(p, "defaultSchema", "public");
+  const port = field(p, "port", "5439");
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+    p,
+    "backslash",
+  );
+
+  return [
+    {
+      title: "Find connection details",
+      description:
+        "Copy the workgroup endpoint. It splits into host, port, and database.",
+    },
+    {
+      title: "Configure security settings",
+      description: `Turn on publicly accessible. Allow inbound TCP ${port} from this IP.`,
+      code: `Protocol: TCP
 Port: ${port}
 Source: ${CLOUD_EGRESS_IP}/32`,
-        },
-        {
-          title: "Create a read-only user",
-          description: "Run in the query editor.",
-          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
+    },
+    {
+      title: "Create a read-only user",
+      description: "Run in the query editor.",
+      code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-          codeNote: passwordNote,
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            "Enter the host, port, database, and user, then test. Require SSL is recommended.",
-        },
-      ];
-    }
+      codeNote: passwordNote,
+    },
+    {
+      title: "Enter credentials and test",
+      description:
+        "Enter the host, port, database, and user, then test. Require SSL is recommended.",
+    },
+  ];
+};
 
-    case "athena":
-      return [
-        {
-          title: "Create an IAM user",
-          description:
-            "Start from AWSQuicksightAthenaAccess, then limit S3 read to your event buckets.",
-          code: `{
+const athenaSteps: StepBuilder<"athena"> = () => [
+  {
+    title: "Create an IAM user",
+    description:
+      "Start from AWSQuicksightAthenaAccess, then limit S3 read to your event buckets.",
+    code: `{
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -407,220 +447,237 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
     }
   ]
 }`,
-        },
-        {
-          title: "Create an access key",
-          description:
-            "IAM → Security credentials → Create access key → Third-party service.",
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            "Enter the keys, region, workgroup, catalog, database, and S3 results URL, then test. Self-hosted GrowthBook can use auto-discovery or an IAM role.",
-        },
-      ];
+  },
+  {
+    title: "Create an access key",
+    description:
+      "IAM → Security credentials → Create access key → Third-party service.",
+  },
+  {
+    title: "Enter credentials and test",
+    description:
+      "Enter the keys, region, workgroup, catalog, database, and S3 results URL, then test. Self-hosted GrowthBook can use auto-discovery or an IAM role.",
+  },
+];
 
-    case "presto":
-      return [
-        {
-          title: "Choose engine and auth",
-          description:
-            "Presto or Trino. Basic, Custom, or None. None sets the user to growthbook and is not recommended on GrowthBook Cloud.",
-        },
-        {
-          title: "Enter connection details",
-          description:
-            "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook. Then test.",
-        },
-      ];
+const prestoSteps: StepBuilder<"presto"> = () => [
+  {
+    title: "Choose engine and auth",
+    description:
+      "Presto or Trino. Basic, Custom, or None. None sets the user to growthbook and is not recommended on GrowthBook Cloud.",
+  },
+  {
+    title: "Enter connection details",
+    description:
+      "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook. Then test.",
+  },
+];
 
-    case "clickhouse":
-      return [
-        {
-          title: "Create read-only credentials",
-          description:
-            "In ClickHouse Cloud, copy the connection string. Use read-only credentials.",
-        },
-        {
-          title: "Allow network access",
-          description: "If ClickHouse is behind a firewall, allow this IP.",
-          code: `${CLOUD_EGRESS_IP}/32`,
-        },
-        {
-          title: "Enter credentials and test",
-          description: TEST_CONNECTION,
-        },
-      ];
+const clickhouseSteps: StepBuilder<"clickhouse"> = (
+  p,
+  { isEventForwarder },
+) => [
+  {
+    title: "Create read-only credentials",
+    description:
+      "In ClickHouse Cloud, copy the connection string. Use read-only credentials.",
+  },
+  networkAccessStep({
+    description: "If ClickHouse is behind a firewall, allow this IP.",
+    isEventForwarder,
+  }),
+  {
+    title: "Enter credentials and test",
+    description: TEST_CONNECTION,
+  },
+];
 
-    case "postgres": {
-      const cloud = isCloud();
-      const user = pgIdentifier(field(p, "user", "growthbook"));
-      const database = pgIdentifier(field(p, "database", "your_database"));
-      const schema = pgIdentifier(field(p, "defaultSchema", "public"));
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-        p,
-        "quote-only",
-      );
-      return [
-        {
-          title: "Create a read-only user",
-          description:
-            "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
-          code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
+const postgresSteps: StepBuilder<"postgres"> = (p, ctx) => {
+  const user = pgIdentifier(field(p, "user", "growthbook"));
+  const database = pgIdentifier(field(p, "database", "your_database"));
+  const schema = pgIdentifier(field(p, "defaultSchema", "public"));
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+    p,
+    "quote-only",
+  );
+  return [
+    {
+      title: "Create a read-only user",
+      description:
+        "Use a dedicated role so GrowthBook cannot modify data. Grant SELECT only on the schemas that hold experiment assignment and metric events.",
+      code: `CREATE USER ${user} WITH PASSWORD ${passwordLiteral};
 GRANT CONNECT ON DATABASE ${database} TO ${user};
 GRANT USAGE ON SCHEMA ${schema} TO ${user};
 GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO ${user};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema}
   GRANT SELECT ON TABLES TO ${user};`,
-          codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
-        },
-        {
-          title: "Allow network access",
-          description: cloud
-            ? "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP."
-            : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
-          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
-        },
-        {
-          title: "Enter credentials and test",
-          description: TEST_CONNECTION,
-        },
-      ];
-    }
+      codeNote: `${passwordNote} Grants use the Default Schema field; change it there if events live in another schema.`,
+    },
+    networkAccessOrDockerStep(
+      ctx,
+      "If a firewall, security group, or pg_hba.conf is in front of Postgres, allow this IP.",
+    ),
+    {
+      title: "Enter credentials and test",
+      description: TEST_CONNECTION,
+    },
+  ];
+};
 
-    case "mysql": {
-      const cloud = isCloud();
-      const user = field(p, "user", "growthbook");
-      const database = field(p, "database", "your_database");
-      const port = field(p, "port", "3306");
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-        p,
-        "backslash",
-      );
-      return [
-        {
-          title: "Create a read-only user",
-          description:
-            "Grant SELECT on the database. Restrict the host from '%' when you can.",
-          code: `CREATE USER '${user}'@'%' IDENTIFIED BY ${passwordLiteral};
+const mysqlSteps: StepBuilder<"mysql"> = (p, ctx) => {
+  const user = field(p, "user", "growthbook");
+  const database = field(p, "database", "your_database");
+  const port = field(p, "port", "3306");
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+    p,
+    "backslash",
+  );
+  return [
+    {
+      title: "Create a read-only user",
+      description:
+        "Grant SELECT on the database. Restrict the host from '%' when you can.",
+      code: `CREATE USER '${user}'@'%' IDENTIFIED BY ${passwordLiteral};
 GRANT SELECT ON ${database}.* TO '${user}'@'%';
 FLUSH PRIVILEGES;`,
-          codeNote: passwordNote,
-        },
-        {
-          title: "Allow network access",
-          description: cloud
-            ? `Allow port ${port} from this IP.`
-            : "GrowthBook runs in Docker. Set the host to host.docker.internal instead of localhost.",
-          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
-        },
-        {
-          title: "Enter credentials and test",
-          description: TEST_CONNECTION,
-        },
-      ];
-    }
+      codeNote: passwordNote,
+    },
+    networkAccessOrDockerStep(ctx, `Allow port ${port} from this IP.`),
+    {
+      title: "Enter credentials and test",
+      description: TEST_CONNECTION,
+    },
+  ];
+};
 
-    case "mssql": {
-      const cloud = isCloud();
-      const user = field(p, "user", "growthbook");
-      const schema = field(p, "defaultSchema", "dbo");
-      const port = field(p, "port", "1433");
-      const { literal: passwordLiteral, note: passwordNote } = passwordFor(
-        p,
-        "quote-only",
-      );
-      return [
-        {
-          title: "Create a read-only login",
-          description: "Grant SELECT on the schema.",
-          code: `CREATE LOGIN ${user} WITH PASSWORD = ${passwordLiteral};
+const mssqlSteps: StepBuilder<"mssql"> = (p, ctx) => {
+  const user = field(p, "user", "growthbook");
+  const schema = field(p, "defaultSchema", "dbo");
+  const port = field(p, "port", "1433");
+  const { literal: passwordLiteral, note: passwordNote } = passwordFor(
+    p,
+    "quote-only",
+  );
+  return [
+    {
+      title: "Create a read-only login",
+      description: "Grant SELECT on the schema.",
+      code: `CREATE LOGIN ${user} WITH PASSWORD = ${passwordLiteral};
 CREATE USER ${user} FOR LOGIN ${user};
 GRANT SELECT ON SCHEMA::${schema} TO ${user};`,
-          codeNote: passwordNote,
-        },
-        {
-          title: "Allow network access",
-          description: cloud
-            ? `Allow port ${port} from this IP.`
-            : "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
-          code: cloud ? `${CLOUD_EGRESS_IP}/32` : undefined,
-        },
-        {
-          title: "Enter credentials and test",
-          description:
-            "Enter the server, port, database, and login, then test. Encryption defaults to on.",
-        },
-      ];
-    }
+      codeNote: passwordNote,
+    },
+    networkAccessOrDockerStep(
+      ctx,
+      `Allow port ${port} from this IP.`,
+      "GrowthBook runs in Docker. Set the server to host.docker.internal instead of localhost.",
+    ),
+    {
+      title: "Enter credentials and test",
+      description:
+        "Enter the server, port, database, and login, then test. Encryption defaults to on.",
+    },
+  ];
+};
 
-    case "vertica":
-      return [
-        {
-          title: "Create a dedicated user",
-          description:
-            "Optional. Grant SELECT, and allow HOST password auth from GrowthBook Cloud.",
-        },
-        {
-          title: "Allow network access",
-          description: "If Vertica is firewalled, allow this IP.",
-          code: `${CLOUD_EGRESS_IP}/32`,
-        },
-        {
-          title: "Enter credentials and test",
-          description: TEST_CONNECTION,
-        },
-      ];
+const verticaSteps: StepBuilder<"vertica"> = (p, { isEventForwarder }) => [
+  {
+    title: "Create a dedicated user",
+    description:
+      "Optional. Grant SELECT, and allow HOST password auth from GrowthBook Cloud.",
+  },
+  networkAccessStep({
+    description: "If Vertica is firewalled, allow this IP.",
+    isEventForwarder,
+  }),
+  {
+    title: "Enter credentials and test",
+    description: TEST_CONNECTION,
+  },
+];
 
-    case "adobe_experience_platform_query_service":
-      return [
-        {
-          title: "Generate a non-expiring credential",
-          description:
-            "Queries → Credentials → Non-expiring Credentials → Generate credentials. Store the JSON. Adobe does not keep a copy.",
-        },
-        {
-          title: "Map fields from the credential",
-          description:
-            "Host: Expiring Credentials. Port: 80 or 5432. Database: like prod:all. Username: includes @AdobeOrg. Technical account ID and credential: from the JSON.",
-        },
-        {
-          title: "Enter credentials and test",
-          description: TEST_CONNECTION,
-        },
-      ];
+const adobeSteps: StepBuilder<
+  "adobe_experience_platform_query_service"
+> = () => [
+  {
+    title: "Generate a non-expiring credential",
+    description:
+      "Queries → Credentials → Non-expiring Credentials → Generate credentials. Store the JSON. Adobe does not keep a copy.",
+  },
+  {
+    title: "Map fields from the credential",
+    description:
+      "Host: Expiring Credentials. Port: 80 or 5432. Database: like prod:all. Username: includes @AdobeOrg. Technical account ID and credential: from the JSON.",
+  },
+  {
+    title: "Enter credentials and test",
+    description: TEST_CONNECTION,
+  },
+];
 
-    case "mixpanel":
-      return [
-        {
-          title: "Use a warehouse export",
-          description:
-            "Direct Mixpanel is no longer supported. Export to a warehouse, then connect that. See the {link}.",
-          docLink: { section: "mixpanel", label: "Mixpanel guide" },
-        },
-      ];
+const mixpanelSteps: StepBuilder<"mixpanel"> = () => [
+  {
+    title: "Use a warehouse export",
+    description:
+      "Direct Mixpanel is no longer supported. Export to a warehouse, then connect that. See the {link}.",
+    docLink: { section: "mixpanel", label: "Mixpanel guide" },
+  },
+];
 
-    case "google_analytics":
-      return [
-        {
-          title: "Connect GA4 through BigQuery",
-          description:
-            "GrowthBook reads GA4 from BigQuery. Steps are in the {link}.",
-          docLink: { section: "google_analytics", label: "GA4 guide" },
-        },
-      ];
+const googleAnalyticsSteps: StepBuilder<"google_analytics"> = () => [
+  {
+    title: "Connect GA4 through BigQuery",
+    description: "GrowthBook reads GA4 from BigQuery. Steps are in the {link}.",
+    docLink: { section: "google_analytics", label: "GA4 guide" },
+  },
+];
 
-    case "growthbook_clickhouse":
-      return [
-        {
-          title: "Provision the Managed Warehouse",
-          description:
-            "Create the Managed Warehouse. There are no credentials to enter. See the {link}.",
-          docLink: {
-            section: "growthbook_clickhouse",
-            label: "Managed Warehouse guide",
-          },
-        },
-      ];
-  }
+const growthbookClickhouseSteps: StepBuilder<"growthbook_clickhouse"> = () => [
+  {
+    title: "Provision the Managed Warehouse",
+    description:
+      "Create the Managed Warehouse. There are no credentials to enter. See the {link}.",
+    docLink: {
+      section: "growthbook_clickhouse",
+      label: "Managed Warehouse guide",
+    },
+  },
+];
+
+const STEP_BUILDERS: { [T in DataSourceType]: StepBuilder<T> } = {
+  bigquery: bigquerySteps,
+  snowflake: snowflakeSteps,
+  databricks: databricksSteps,
+  redshift: redshiftSteps,
+  athena: athenaSteps,
+  presto: prestoSteps,
+  clickhouse: clickhouseSteps,
+  postgres: postgresSteps,
+  mysql: mysqlSteps,
+  mssql: mssqlSteps,
+  vertica: verticaSteps,
+  adobe_experience_platform_query_service: adobeSteps,
+  mixpanel: mixpanelSteps,
+  google_analytics: googleAnalyticsSteps,
+  growthbook_clickhouse: growthbookClickhouseSteps,
+};
+
+export function getDataSourceSetupInstructions(
+  type: DataSourceType,
+  setup: ConnectSetupKind,
+  params?: Partial<DataSourceParams>,
+  {
+    existing = false,
+    cloud = false,
+  }: { existing?: boolean; cloud?: boolean } = {},
+): SetupInstructionStep[] {
+  // `type` says which member of the `params` union this is, but TypeScript
+  // cannot correlate the two, so widen the builder once here instead of
+  // casting inside every builder.
+  const build = STEP_BUILDERS[type] as StepBuilder<DataSourceType>;
+  return build(params ?? {}, {
+    isEventForwarder: setup === "event_forwarder",
+    existing,
+    cloud,
+  });
 }

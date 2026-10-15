@@ -3,6 +3,7 @@ import { PiArrowSquareOut, PiCheck, PiCopy } from "react-icons/pi";
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -148,6 +149,7 @@ export default function DataSourceConnectInstructions({
 }) {
   const steps = getDataSourceSetupInstructions(type, setup, params, {
     existing,
+    cloud: isCloud(),
   });
 
   return (
