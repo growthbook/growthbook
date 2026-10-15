@@ -72,7 +72,6 @@ export interface ChangesetOwner {
     opts: { allowRunning: boolean; visualChangesetId: string },
   ): () => Promise<void>;
 
-  reload(): Promise<void>;
   setHasVisualChangesets(value: boolean): Promise<void>;
   refreshPayloads(
     event: ChangesetPayloadEvent,
@@ -160,7 +159,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     return requireVisualChangeWrite(req, this.experiment, opts);
   }
 
-  async reload(): Promise<void> {
+  private async reload(): Promise<void> {
     const experiment = await getExperimentById(this.context, this.id);
     if (!experiment) {
       throw new Error("Experiment not found");
@@ -352,6 +351,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
 
     return {
       rollback: async () => {
+        // Diffed against the post-delete doc: updateExperiment skips a write with no changes.
         this.experiment = await updateExperiment({
           context: this.context,
           experiment: deleted,
@@ -452,10 +452,7 @@ function requireDraftExperiment(
 }
 
 function requireVisualChangeWrite(
-  req: {
-    context: ApiReqContext;
-    audit: (data: AuditInterfaceInput) => Promise<void>;
-  },
+  req: WriteReq,
   experiment: ExperimentInterface,
   {
     allowRunning,
@@ -465,13 +462,16 @@ function requireVisualChangeWrite(
   requireDraftExperiment(req.context, experiment, { allowRunning });
   if (experiment.status !== "running") return async () => {};
 
+  // Every environment, not the linked features' ones: a stale hasVisualChangesets flag would shrink the check.
   const envs = getAffectedEnvsForExperiment({
     experiment: { ...experiment, hasVisualChangesets: true },
+    // getEnvironments falls back to the SDK defaults; an empty list would pass vacuously.
     orgEnvironments: getEnvironments(req.context.org),
   });
   if (!req.context.permissions.canRunExperiment(experiment, envs)) {
     req.context.permissions.throwPermissionError();
   }
+  // The write already landed, so a failed audit is logged, not surfaced.
   return () =>
     req
       .audit({

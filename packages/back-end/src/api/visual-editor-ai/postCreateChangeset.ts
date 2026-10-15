@@ -53,8 +53,6 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
 
   const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
 
-  // Gate on both the owner update (we flip hasVisualChangesets) and
-  // the visual-change create.
   if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }

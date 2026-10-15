@@ -180,7 +180,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
-  const currentExperiment = owner.promptContext();
+  const promptContext = owner.promptContext();
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -197,9 +197,9 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
       orgId: req.organization.id,
       userId: context.userId,
       visualChangesetId,
-      experimentId: currentExperiment.id,
-      experimentName: currentExperiment.name,
-      project: currentExperiment.project || null,
+      experimentId: promptContext.id,
+      experimentName: promptContext.name,
+      project: promptContext.project || null,
       pageHints: pageHints ?? null,
     },
     "[visual-editor-ai/suggestions] request",
@@ -211,12 +211,12 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   let pastExperiments: PastExperimentSummary[] = [];
   try {
     const all = await getAllExperiments(context, {
-      project: currentExperiment.project,
+      project: promptContext.project,
       sortBy: { dateUpdated: -1 },
       limit: 200,
     });
     pastExperiments = all
-      .filter((e) => e.id !== currentExperiment.id)
+      .filter((e) => e.id !== promptContext.id)
       .filter((e) => !!(e.hypothesis || e.description || e.analysis))
       .slice(0, 20)
       .map((e) => ({
@@ -241,9 +241,9 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     instructions,
     prompt: buildPrompt({
       currentExperiment: {
-        name: currentExperiment.name,
-        hypothesis: currentExperiment.hypothesis || undefined,
-        description: currentExperiment.description || undefined,
+        name: promptContext.name,
+        hypothesis: promptContext.hypothesis || undefined,
+        description: promptContext.description || undefined,
       },
       pageHints,
       pastExperiments,

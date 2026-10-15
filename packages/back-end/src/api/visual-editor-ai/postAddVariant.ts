@@ -46,14 +46,10 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     visualChangesetId,
   );
 
-  // Mutates the owner AND the changeset — both gates required.
   if (!owner.canManageVariations()) {
     context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = owner.requireWrite(req, {
-    allowRunning: false,
-    visualChangesetId,
-  });
+  owner.requireWrite(req, { allowRunning: false, visualChangesetId });
 
   // For a duplicate, resolve the source variation's visual change (matched
   // on the internal `variation` id).
@@ -92,7 +88,6 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     context,
     updates: { visualChanges: nextVisualChanges },
   });
-  await auditLiveEdit();
 
   // Re-read so the response matches the initial-load shape (variation
   // IDs under `variationId` rather than the internal `id`).
@@ -102,7 +97,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   );
   const apiExperiment = await owner.toEditorExperiment();
   if (!apiExperiment) {
-    throw new Error("Experiment vanished between write and re-read");
+    throw new Error("Visual changesets are not supported on holdouts");
   }
 
   return {

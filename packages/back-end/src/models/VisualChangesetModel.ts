@@ -200,7 +200,7 @@ export async function createVisualChange(
   context: ReqContext | ApiReqContext,
   id: string,
   visualChange: VisualChange,
-  owner: ChangesetOwner | null,
+  owner: ChangesetOwner,
 ): Promise<{ nModified: number }> {
   const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(id, organization);
@@ -237,7 +237,7 @@ export async function updateVisualChange({
   payload,
 }: {
   context: ReqContext | ApiReqContext;
-  owner: ChangesetOwner | null;
+  owner: ChangesetOwner;
   changesetId: string;
   visualChangeId: string;
   payload: Partial<VisualChange>;
@@ -319,7 +319,6 @@ export const createVisualChangeset = async ({
     }),
   );
 
-  // mark the owner as having a visual changeset
   await owner.setHasVisualChangesets(true);
 
   await onVisualChangesetCreate({
@@ -409,7 +408,6 @@ export const updateVisualChangeset = async ({
     },
   );
 
-  // double-check that the owner is marked as having visual changesets
   if (owner) {
     await owner.setHasVisualChangesets(true);
   }
@@ -530,7 +528,6 @@ export const deleteVisualChangesetById = async ({
     organization: context.org.id,
   });
 
-  // if the owner has no more visual changesets, clear its flag
   if (owner) {
     const remaining = await findVisualChangesetsByExperiment(
       owner.id,

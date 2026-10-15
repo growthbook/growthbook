@@ -47,10 +47,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   if (!owner.canManageVariations()) {
     context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = owner.requireWrite(req, {
-    allowRunning: false,
-    visualChangesetId,
-  });
+  owner.requireWrite(req, { allowRunning: false, visualChangesetId });
 
   const removed = await owner.removeVariation(variationId);
 
@@ -92,7 +89,6 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   if (removedVisualChange) {
     await owner.refreshPayloads("updated", visualChangesetId);
   }
-  await auditLiveEdit();
 
   const refreshedChangeset = await findVisualChangesetById(
     visualChangesetId,
@@ -100,7 +96,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   );
   const apiExperiment = await owner.toEditorExperiment();
   if (!apiExperiment) {
-    throw new Error("Experiment vanished between write and re-read");
+    throw new Error("Visual changesets are not supported on holdouts");
   }
 
   return {

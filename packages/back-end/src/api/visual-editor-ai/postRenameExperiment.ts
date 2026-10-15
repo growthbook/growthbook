@@ -41,8 +41,6 @@ export const postRenameExperiment = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
-  // Skip the write when unchanged to avoid spurious dateUpdated bumps
-  // (which would invalidate SDK payload caches).
   const renamed = await owner.rename(name);
   return { name: renamed };
 });

@@ -23,19 +23,6 @@ export const putVisualChangeset = createApiRequestHandler(
     throw new Error("Visual Changeset not found");
   }
 
-  const updates: VisualChangesetUpdates = {
-    ...omit(req.body, ["urlPatterns", "allowRunningExperiment"]),
-    ...(req.body.urlPatterns !== undefined
-      ? {
-          urlPatterns: req.body.urlPatterns.map((p) => ({
-            type: p.type,
-            pattern: p.pattern,
-            include: p.include ?? true,
-          })),
-        }
-      : {}),
-  };
-
   const owner = await resolveChangesetOwner(req.context, visualChangeset);
   if (!owner) {
     throw new Error(ownerNotFoundMessage());
@@ -48,6 +35,19 @@ export const putVisualChangeset = createApiRequestHandler(
     allowRunning: !!req.body.allowRunningExperiment,
     visualChangesetId: visualChangeset.id,
   });
+
+  const updates: VisualChangesetUpdates = {
+    ...omit(req.body, ["urlPatterns", "allowRunningExperiment"]),
+    ...(req.body.urlPatterns !== undefined
+      ? {
+          urlPatterns: req.body.urlPatterns.map((p) => ({
+            type: p.type,
+            pattern: p.pattern,
+            include: p.include ?? true,
+          })),
+        }
+      : {}),
+  };
 
   const res = await updateVisualChangeset({
     visualChangeset,

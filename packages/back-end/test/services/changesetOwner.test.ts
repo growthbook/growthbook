@@ -134,17 +134,14 @@ function makeStoredOwner(
   return new ExperimentChangesetOwner(context, experiment);
 }
 
-function changeset(
-  owner: Partial<Pick<VisualChangesetInterface, "experiment">>,
-): VisualChangesetInterface {
+function changeset(): VisualChangesetInterface {
   return {
     id: "vcs_1",
     organization: "org_1",
     urlPatterns: [],
     editorUrl: "https://example.com",
     visualChanges: [],
-    experiment: "",
-    ...owner,
+    experiment: "exp_1",
   } as unknown as VisualChangesetInterface;
 }
 
@@ -571,28 +568,20 @@ describe("ExperimentChangesetOwner", () => {
 describe("resolveChangesetOwner", () => {
   it("resolves an experiment-owned changeset", async () => {
     mockGetExperimentById.mockResolvedValue(makeExperiment());
-    const owner = await resolveChangesetOwner(
-      makeContext(),
-      changeset({ experiment: "exp_1" }),
-    );
+    const owner = await resolveChangesetOwner(makeContext(), changeset());
     expect(owner).toBeInstanceOf(ExperimentChangesetOwner);
     expect(owner?.id).toBe("exp_1");
   });
 
   it("returns null when the experiment is gone", async () => {
     mockGetExperimentById.mockResolvedValue(null);
-    expect(
-      await resolveChangesetOwner(
-        makeContext(),
-        changeset({ experiment: "exp_1" }),
-      ),
-    ).toBeNull();
+    expect(await resolveChangesetOwner(makeContext(), changeset())).toBeNull();
   });
 });
 
 describe("loadChangesetWithOwner", () => {
   it("returns the changeset with its owner", async () => {
-    const cs = changeset({ experiment: "exp_1" });
+    const cs = changeset();
     mockFindVisualChangeset.mockResolvedValue(cs);
     mockGetExperimentById.mockResolvedValue(makeExperiment());
     const result = await loadChangesetWithOwner(makeContext(), "vcs_1");
@@ -609,9 +598,7 @@ describe("loadChangesetWithOwner", () => {
   });
 
   it("404s a changeset whose experiment is gone", async () => {
-    mockFindVisualChangeset.mockResolvedValue(
-      changeset({ experiment: "exp_1" }),
-    );
+    mockFindVisualChangeset.mockResolvedValue(changeset());
     mockGetExperimentById.mockResolvedValue(null);
     await expect(
       loadChangesetWithOwner(makeContext(), "vcs_1"),

@@ -36,13 +36,9 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
   if (!owner.canUpdateOwner()) {
     context.permissions.throwPermissionError();
   }
-  const auditLiveEdit = owner.requireWrite(req, {
-    allowRunning: false,
-    visualChangesetId,
-  });
+  owner.requireWrite(req, { allowRunning: false, visualChangesetId });
 
   const renamed = await owner.renameVariation(variationId, name);
-  await auditLiveEdit();
 
   return { variationId, name: renamed };
 });
