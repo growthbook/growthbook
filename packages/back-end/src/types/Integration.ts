@@ -30,6 +30,8 @@ import {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQueryResponse,
   ExternalIdCallback,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
@@ -253,6 +255,10 @@ export interface SourceIntegrationInterface<
   runFeatureEvalDiagnosticsQuery(
     query: string,
   ): Promise<FeatureEvalDiagnosticsQueryResponse>;
+  getExperimentExposuresQuery?(params: ExperimentExposuresQueryParams): string;
+  runExperimentExposuresQuery?(
+    query: string,
+  ): Promise<ExperimentExposuresQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

@@ -75,6 +75,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 
 jest.mock("back-end/src/util/http.util", () => ({
+  ...jest.requireActual("back-end/src/util/http.util"),
   cancellableFetch: jest.fn(),
 }));
 

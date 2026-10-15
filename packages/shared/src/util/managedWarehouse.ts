@@ -202,6 +202,10 @@ const RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS = new Set([
   "pageTitle",
 ]);
 
+// Reserved keys extracted to a same-named top-level column; as identifiers
+// they're read from that column rather than aliased out of `attributes`.
+const PHYSICAL_IDENTIFIER_ATTRIBUTE_KEYS = new Set(["page_id", "session_id"]);
+
 // Default exposure-query dimensions; all always-present top-level columns.
 export const MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS = [
   "geo_country",
@@ -311,6 +315,18 @@ export function getManagedWarehouseCustomIdentifiers(
   return out;
 }
 
+/** hashAttribute attributes backed by an existing top-level column (e.g. `session_id`). */
+export function getManagedWarehousePhysicalIdentifiers(
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const out = new Set<string>();
+  for (const a of attributeSchema || []) {
+    if (!a.hashAttribute || a.archived) continue;
+    if (PHYSICAL_IDENTIFIER_ATTRIBUTE_KEYS.has(a.property)) out.add(a.property);
+  }
+  return [...out].sort();
+}
+
 /** Map an SDK attribute datatype to the fact-table column type used for JSON fields. */
 function attributeDatatypeToFactColumnType(
   datatype: SDKAttributeType,
@@ -369,8 +385,9 @@ export function getManagedWarehouseAttributesJsonFields(
  *
  * v2: built-in identifier columns fall back to their folded `attributes` JSON
  * paths in generated SQL (pre-plugin integrations never populate the columns).
+ * v3: `session_id` / `page_id` hashAttributes become identifiers on their columns.
  */
-export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 2;
+export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 3;
 
 /**
  * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
@@ -430,13 +447,14 @@ export function getManagedWarehouseTypedAttributeColumns(
   );
 }
 
-/** Full identifier/userIdType list: built-in identity columns + custom JSON identifiers. */
+/** Full identifier/userIdType list: built-in + physical identity columns + custom JSON identifiers. */
 export function getManagedWarehouseUserIdTypes(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
 ): string[] {
   return [
     ...MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS,
+    ...getManagedWarehousePhysicalIdentifiers(attributeSchema),
     ...getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
   ];
 }
@@ -607,6 +625,7 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
 // feeds exactly one identifier, so a value can never resolve under both.
 function builtinIdentifierReplaceClause(
   idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
+  physicalIdentifiers: string[],
 ): string {
   // nullIf-wrapped so empty strings fall through, matching the plugin's falsy
   // `||` chain — a JSON `device_id: ""` must not shadow a populated `id`.
@@ -623,18 +642,22 @@ function builtinIdentifierReplaceClause(
   (idAttributeIdentifier === "user_id" ? userIdSources : deviceIdSources).push(
     path("id"),
   );
-  return ` REPLACE (
-  coalesce(${userIdSources.join(", ")}) AS user_id,
-  coalesce(${deviceIdSources.join(", ")}) AS device_id
-)`;
+  const replacements = [
+    `coalesce(${userIdSources.join(", ")}) AS user_id`,
+    `coalesce(${deviceIdSources.join(", ")}) AS device_id`,
+    // Ingest writes '' for a missing value; NULL keeps those rows out of the join.
+    ...physicalIdentifiers.map((c) => `nullIf(${c}, '') AS ${c}`),
+  ];
+  return ` REPLACE (\n  ${replacements.join(",\n  ")}\n)`;
 }
 
 // The full SELECT-list decoration for a JSON-columns warehouse, placed directly
-// after `SELECT *`: the built-in identifier fallback REPLACE, then custom
+// after `SELECT *`: the built-in + physical identifier REPLACE, then custom
 // identifiers (join-key aliases) and preserved dimensions, each aliased out of
 // `attributes`. Callers must pass dimensions already deduped against the
 // identifiers via `dedupeMigratedDimensions`.
 function attributeAliasClause(
+  physicalIdentifiers: string[],
   customIdentifiers: string[],
   dimensions: MaterializedColumn[],
   idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
@@ -644,7 +667,10 @@ function attributeAliasClause(
     ...dimensions.map(migratedColumnSelectExpr),
   ];
   const aliases = exprs.length ? ",\n  " + exprs.join(",\n  ") : "";
-  return builtinIdentifierReplaceClause(idAttributeIdentifier) + aliases;
+  return (
+    builtinIdentifierReplaceClause(idAttributeIdentifier, physicalIdentifiers) +
+    aliases
+  );
 }
 
 /**
@@ -671,14 +697,16 @@ export function buildManagedWarehouseAttributeAliasClause(
   // unexpected reserved name in persisted `userIdTypes` can't produce a duplicate
   // SELECT alias. Keeps this clause identical to the one the fact table emits.
   const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
-  const customIdentifiers = (s.userIdTypes || [])
-    .map((u) => u.userIdType)
-    .filter(
-      (t) =>
-        !builtins.has(t) &&
-        !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(t.toLowerCase()),
-    );
+  const userIdTypes = (s.userIdTypes || []).map((u) => u.userIdType);
+  const customIdentifiers = userIdTypes.filter(
+    (t) =>
+      !builtins.has(t) &&
+      !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(t.toLowerCase()),
+  );
   return attributeAliasClause(
+    [...new Set(userIdTypes)]
+      .filter((t) => PHYSICAL_IDENTIFIER_ATTRIBUTE_KEYS.has(t))
+      .sort(),
     customIdentifiers,
     dedupeMigratedDimensions(customIdentifiers, s.migratedColumns || []),
     getIdAttributeIdentifier(s),
@@ -703,6 +731,7 @@ export function buildManagedWarehouseEventsFactTableSql(
     migratedColumns,
   );
   return `SELECT *${attributeAliasClause(
+    getManagedWarehousePhysicalIdentifiers(attributeSchema),
     customIdentifiers,
     dimensionAliases,
     idAttributeIdentifier,
@@ -727,6 +756,7 @@ export function buildManagedWarehouseExposureQueries(
     migratedColumns,
   );
   const query = `SELECT *${attributeAliasClause(
+    getManagedWarehousePhysicalIdentifiers(attributeSchema),
     customIdentifiers,
     dimensionAliases,
     idAttributeIdentifier,
@@ -814,12 +844,13 @@ export function getManagedWarehouseEventsFactTableColumns(
         ? { ...c, jsonFields }
         : c,
     );
-  const custom: ManagedWarehouseFactColumn[] = customIdentifiers.map(
-    (property) => ({
-      column: property,
-      datatype: "string",
-    }),
-  );
+  const custom: ManagedWarehouseFactColumn[] = [
+    ...getManagedWarehousePhysicalIdentifiers(attributeSchema),
+    ...customIdentifiers,
+  ].map((property) => ({
+    column: property,
+    datatype: "string",
+  }));
   // Preserved dimensions are real top-level columns (via the SELECT alias), so a bare
   // metric ref to one validates without any rewrite. A live attribute also remains an
   // `attributes.<field>` JSON field; that duplicate listing is harmless (both resolve).
