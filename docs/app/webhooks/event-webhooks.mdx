@@ -2,7 +2,6 @@
 title: "Event Webhooks"
 description: Event Webhooks to help you update your cache or take other actions when the state changes on GrowthBook
 sidebarTitle: Event Webhooks
-slug: /app/webhooks/event-webhooks
 ---
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
@@ -33,15 +32,17 @@ You can also add your own custom headers. The format of custom headers is a JSON
 }
 ```
 
+Each request waits up to 30 seconds for a response by default. You can set a different timeout (in seconds) per webhook. The maximum is 2 minutes on GrowthBook Cloud and configurable with `MAX_WEBHOOK_TIMEOUT_SECONDS` when self-hosting.
+
 ## Slack notifications
 
-Webhooks can be used to send notifications to Slack channels and users with much less overhead than setting up a whole Slack integration!
+For most teams, the [GrowthBook Slack app](/integrations/slack) is the easiest way to get notifications in Slack. It supports per-channel filters and image cards.
 
-Follow our instructions on [setting up a Slack integration](/integrations/slack) to create a Slack application and connect it to GrowthBook events.
+You can also send events to Slack with an event webhook and a Slack incoming webhook URL. These messages are plain text. Follow the instructions in [Legacy Slack webhooks](/integrations/slack/legacy-webhooks#send-alerts-with-an-event-webhook).
 
 ## Discord notifications
 
-Discord notifications work the same way as Slack notifications. The only difference is that you need to follow our instructions on [setting up a Discord integration](/integrations/discord).
+Discord notifications work the same way as Slack event webhook notifications. The only difference is that you need to follow our instructions on [setting up a Discord integration](/integrations/discord).
 
 ## Projects, tags and environments filtering
 

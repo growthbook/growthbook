@@ -6,6 +6,7 @@ import {
   QueryPointer,
   QueryStatus,
   QueryRunnerFailureCause,
+  QueryMetadata,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -26,13 +27,16 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
+import {
+  cancelExternalJobsForQueries,
+  cancelQueryAndConfirm,
+} from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,
+  SnapshotRunnerRole,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
@@ -61,6 +65,9 @@ export type RowsType = Record<
 // eslint-disable-next-line
 export type ProcessedRowsType = Record<string, any>;
 
+// Not stored on the query doc; merged into the run metadata in executeQuery
+type InMemoryQueryMetadata = Pick<QueryMetadata, "factTableIds">;
+
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   displayTitle?: string;
@@ -77,6 +84,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   onFailure?: () => void;
   queryType: QueryType;
   runAtEnd?: boolean;
+  metadata?: InMemoryQueryMetadata;
 };
 
 const FINISH_EVENT = "finish";
@@ -237,6 +245,7 @@ export abstract class QueryRunner<
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
       onFailure: () => void;
+      metadata?: InMemoryQueryMetadata;
     };
   } = {};
   /** Blocks refresh until startAnalysis has persisted the query DAG. */
@@ -251,6 +260,8 @@ export abstract class QueryRunner<
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
+  // Snapshot runners report this as who concluded the snapshot.
+  protected concludedBy: SnapshotRunnerRole = "runner";
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -675,6 +686,23 @@ export abstract class QueryRunner<
     return newModel;
   }
 
+  /**
+   * Recovers a snapshot so it goes to a terminal state.
+   * Returns true if the snapshot was finalized successfully.
+   */
+  public async finalizeFromPersistedResults(): Promise<boolean> {
+    this.concludedBy = "recovery";
+    // Direct assignment: setStatus("running") arms heartbeat and watchdog
+    // timers, which a one-shot job must not.
+    this.status = "running";
+    await this.refreshQueryStatuses();
+    return this.finishedWithoutError();
+  }
+
+  private finishedWithoutError(): boolean {
+    return this.status === "finished" && !this.error;
+  }
+
   private setStatus(
     status: RunnerStatus,
     error: string = "",
@@ -956,74 +984,12 @@ export abstract class QueryRunner<
         "Marked queries as cancelled in Mongo",
       );
 
-      const queryDocs = await getQueriesByIds(this.context, pendingIds, false);
-
-      // Cached copies (createNewQueryFromCached) share their upstream's
-      // externalId via cachedQueryUsed; chase one hop to find it.
-      const cachedSourceIds = Array.from(
-        new Set(
-          queryDocs
-            .map((q) => q.cachedQueryUsed)
-            .filter((id): id is string => Boolean(id)),
-        ),
+      await cancelExternalJobsForQueries(
+        this.context,
+        this.integration,
+        pendingIds,
+        { modelId: this.model.id },
       );
-      const cachedSourceDocs = cachedSourceIds.length
-        ? await getQueriesByIds(this.context, cachedSourceIds, false)
-        : [];
-      const cachedSourceById = new Map(cachedSourceDocs.map((q) => [q.id, q]));
-
-      // Dedupe by externalId so cached copies don't trigger duplicate cancels.
-      type ExternalJob = { id: string; metadata?: Record<string, string> };
-      const externalJobsById = new Map<string, ExternalJob>();
-      for (const q of queryDocs) {
-        if (q.externalId) {
-          if (!externalJobsById.has(q.externalId)) {
-            externalJobsById.set(q.externalId, {
-              id: q.externalId,
-              metadata: q.externalIdMetadata,
-            });
-          }
-          continue;
-        }
-        if (q.cachedQueryUsed) {
-          const source = cachedSourceById.get(q.cachedQueryUsed);
-          if (source?.externalId && !externalJobsById.has(source.externalId)) {
-            externalJobsById.set(source.externalId, {
-              id: source.externalId,
-              metadata: source.externalIdMetadata,
-            });
-          }
-        }
-      }
-      const externalJobs = [...externalJobsById.values()];
-      logger.debug(
-        {
-          datasourceId: this.integration.datasource.id,
-          modelId: this.model.id,
-          externalJobs: externalJobs.map((j) => ({
-            id: j.id,
-            metadataKeys: j.metadata ? Object.keys(j.metadata) : [],
-          })),
-        },
-        `Cancelling ${externalJobs.length} external jobs`,
-      );
-
-      if (externalJobs.length) {
-        await promiseAllChunks(
-          externalJobs.map(({ id, metadata }) => {
-            return () =>
-              cancelQueryAndConfirm(
-                this.integration,
-                { externalId: id, metadata },
-                {
-                  datasourceId: this.integration.datasource.id,
-                  modelId: this.model.id,
-                },
-              );
-          }),
-          5,
-        );
-      }
     }
 
     this.clearAllTimers();
@@ -1106,6 +1072,7 @@ export abstract class QueryRunner<
       process,
       onFailure,
       onSuccess,
+      metadata,
     }: {
       run: (
         query: string,
@@ -1115,6 +1082,7 @@ export abstract class QueryRunner<
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
       onSuccess?: (rows: Rows) => void | Promise<void>;
+      metadata?: InMemoryQueryMetadata;
     },
   ): Promise<void> {
     // Update heartbeat for the query once every 30 seconds
@@ -1181,7 +1149,11 @@ export abstract class QueryRunner<
       }
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
+    run(doc.query, setExternalId, {
+      ...metadata,
+      queryType: doc.queryType || "unknown",
+      queryId: doc.id,
+    })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
@@ -1234,6 +1206,7 @@ export abstract class QueryRunner<
       onFailure: specifiedOnFailureCallback,
       onSuccess,
       queryType,
+      metadata,
     } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
@@ -1340,9 +1313,10 @@ export abstract class QueryRunner<
       onSuccess: onSuccess as
         | ((rows: RowsType) => void | Promise<void>)
         | undefined,
+      metadata,
     };
     if (readyToRun) {
-      this.executeQuery(doc, { run, process, onFailure, onSuccess });
+      this.executeQuery(doc, { run, process, onFailure, onSuccess, metadata });
     } else if (dependenciesComplete && !runAtEnd) {
       this.runCallbacks[doc.id] = runCallbacksEntry;
       this.queueQueryExecution(doc);

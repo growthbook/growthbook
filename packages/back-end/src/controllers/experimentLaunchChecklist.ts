@@ -1,6 +1,11 @@
 import { Response } from "express";
+import { z } from "zod";
 import { ExperimentInterface } from "shared/types/experiment";
-import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import { builtInChecklistItemKeyValidator } from "shared/validators";
+import {
+  BuiltInChecklistItemKey,
+  ChecklistTask,
+} from "shared/types/experimentLaunchChecklist";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -17,9 +22,31 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { BadRequestError } from "back-end/src/util/errors";
+
+const hiddenBuiltInItemsValidator = z
+  .array(builtInChecklistItemKeyValidator)
+  .nullish();
+
+// Omitted means "leave unchanged" (undefined), null clears the list
+function parseHiddenBuiltInItems(
+  value: unknown,
+): BuiltInChecklistItemKey[] | undefined {
+  const parsed = hiddenBuiltInItemsValidator.safeParse(value);
+  if (!parsed.success) {
+    throw new BadRequestError(
+      `hiddenBuiltInItems must only contain: ${builtInChecklistItemKeyValidator.options.join(", ")}`,
+    );
+  }
+  return parsed.data === null ? [] : parsed.data;
+}
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
+  req: AuthRequest<{
+    tasks: ChecklistTask[];
+    projectId?: string;
+    hiddenBuiltInItems?: unknown;
+  }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -50,6 +77,9 @@ export async function postExperimentLaunchChecklist(
     }
   }
 
+  const hiddenBuiltInItems =
+    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems) ?? [];
+
   const existingChecklist = await getExperimentLaunchChecklist(
     org.id,
     projectId || "",
@@ -69,6 +99,7 @@ export async function postExperimentLaunchChecklist(
     userId,
     tasks,
     projectId || "",
+    hiddenBuiltInItems,
   );
 
   return res.status(200).json({
@@ -151,7 +182,10 @@ export async function getExperimentCheckList(
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
+  req: AuthRequest<
+    { tasks: ChecklistTask[]; hiddenBuiltInItems?: unknown },
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -187,7 +221,13 @@ export async function putExperimentLaunchChecklist(
     }
   }
 
-  await updateExperimentLaunchChecklist(org.id, userId, id, tasks);
+  await updateExperimentLaunchChecklist(
+    org.id,
+    userId,
+    id,
+    tasks,
+    parseHiddenBuiltInItems(req.body.hiddenBuiltInItems),
+  );
 
   return res.status(200).json({
     status: 200,

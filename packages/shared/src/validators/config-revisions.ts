@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  apiEventUser,
+  actorIdField,
+  REQUIRES_PERSON_NOTE,
+  REVIEW_VERDICT_NOTE,
+} from "./event-user";
+import {
   booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
@@ -77,16 +83,22 @@ const revisionStatusQuery = z.string().refine(
 const apiReviewValidator = namedSchema(
   "ConfigRevisionReview",
   reviewValidator
-    .omit({ dateCreated: true })
-    .extend({ dateCreated: z.string().meta({ format: "date-time" }) })
+    .omit({ dateCreated: true, user: true })
+    .extend({
+      dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
+    })
     .strict(),
 );
 
 const apiActivityLogEntryValidator = namedSchema(
   "ConfigRevisionActivityLogEntry",
   activityLogEntryValidator
-    .omit({ dateCreated: true })
-    .extend({ dateCreated: z.string().meta({ format: "date-time" }) })
+    .omit({ dateCreated: true, user: true })
+    .extend({
+      dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
+    })
     .strict(),
 );
 
@@ -99,7 +111,10 @@ export const apiConfigRevisionValidator = namedSchema(
       version: z.number().int().optional(),
       title: z.string().optional(),
       status: revisionStatusSchema,
-      authorId: z.string(),
+      authorId: actorIdField,
+      author: apiEventUser
+        .optional()
+        .describe("Who created the revision, with an API key's name"),
       authorEmail: z.string().optional(),
       contributors: z.array(z.string()).optional(),
       revertedFrom: z.string().optional(),
@@ -110,7 +125,8 @@ export const apiConfigRevisionValidator = namedSchema(
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
-          userId: z.string(),
+          userId: actorIdField,
+          user: apiEventUser.optional(),
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .strict()
@@ -176,7 +192,7 @@ export const listConfigRevisionsValidator = {
         ),
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),
@@ -206,7 +222,7 @@ export const getConfigRevisionsValidator = {
         ),
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),
@@ -221,15 +237,14 @@ export const getConfigRevisionLatestValidator = {
   path: "/configs-revisions/:key/latest",
   operationId: "getConfigRevisionLatest",
   summary: "Get the most recent active draft revision",
-  description:
-    "Returns the most recently updated open (non-merged, non-discarded) revision for the config. Returns 404 if there is no active draft. Pass `mine=true` to restrict to drafts authored by the calling user (requires a user-scoped API key).",
+  description: `Returns the most recently updated open (non-merged, non-discarded) revision for the config. Returns 404 if there is no active draft. Pass \`mine=true\` to restrict to drafts authored by the calling user. ${REQUIRES_PERSON_NOTE}`,
   tags: ["config-revisions"],
   paramsSchema: configKeyParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
       mine: booleanQueryField.describe(
-        "If true, return only the most recent active draft authored by the calling user. Requires a user-scoped API key.",
+        `If true, return only the most recent active draft authored by the calling user. ${REQUIRES_PERSON_NOTE}`,
       ),
     })
     .strict(),
@@ -406,8 +421,7 @@ export const postConfigRevisionSubmitReviewValidator = {
   path: "/configs-revisions/:key/:version/submit-review",
   operationId: "postConfigRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
-  description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Submitting `approve` or `request-changes` needs Review access. A `comment` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+  description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -700,8 +714,7 @@ export const postConfigRevisionUndoReviewValidator = {
   path: "/configs-revisions/:key/:version/undo-review",
   operationId: "postConfigRevisionUndoReview",
   summary: "Retract your own review verdict",
-  description:
-    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),

@@ -200,6 +200,8 @@ export interface SearchReturn<T> {
     className?: string;
     children: ReactNode;
     style?: React.CSSProperties;
+    /** Rendered as a sibling of the sort target, e.g. a resize handle. */
+    endAdornment?: ReactNode;
   }>;
   page: number;
   resetPage: () => void;
@@ -395,9 +397,14 @@ export function useSearch<T extends { id: string }>({
 
     const sorted = [...filtered];
 
+    // 0 is a real value; other falsy values fall back to the default mapping
+    const sortValue = (item: T) =>
+      item[sort.field] === 0
+        ? 0
+        : item[sort.field] || defaultMappings[sort.field];
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field] || defaultMappings[sort.field];
-      const comp2 = b[sort.field] || defaultMappings[sort.field];
+      const comp1 = sortValue(a);
+      const comp2 = sortValue(b);
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
@@ -490,7 +497,9 @@ export function useSearch<T extends { id: string }>({
       className?: string;
       children: ReactNode;
       style?: React.CSSProperties;
-    }> = ({ children, field, className, style }) => {
+      /** Rendered as a sibling of the sort target, e.g. a resize handle. */
+      endAdornment?: ReactNode;
+    }> = ({ children, field, className, style, endAdornment }) => {
       const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
@@ -522,6 +531,7 @@ export function useSearch<T extends { id: string }>({
               )}
             </a>
           </span>
+          {endAdornment}
         </TableColumnHeader>
       );
     };

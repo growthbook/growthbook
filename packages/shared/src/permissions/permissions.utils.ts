@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, pick } from "lodash";
 import {
   Permission,
   UserPermissions,
@@ -104,7 +104,18 @@ export function areProjectRolesValid(
   if (!hasNoDuplicateProjects(projectRoles)) {
     return false;
   }
-  return projectRoles.every((p) => isRoleValid(p.role, org));
+  return projectRoles.every(
+    (p) =>
+      isRoleValid(p.role, org) &&
+      areAdditionalRolesValid(p.additionalRoles, org),
+  );
+}
+
+export function areAdditionalRolesValid(
+  additionalRoles: MemberRoleInfo["additionalRoles"],
+  org: Partial<OrganizationInterface>,
+) {
+  return (additionalRoles ?? []).every((r) => isRoleValid(r.role, org));
 }
 
 // The role-bearing fields of a team, as the model and the REST bodies carry them.
@@ -167,6 +178,146 @@ export function changedProjectRoleProjects(
   );
 }
 
+const ROLE_RULE_FIELDS = [
+  "role",
+  "limitAccessByEnvironment",
+  "environments",
+] as const;
+
+// Drops unknown keys and any non-array role list, so every consumer (reads,
+// join sites, delete guard) gets a well-formed value. Malformed writes are
+// rejected earlier by assertRoleListsAreArrays, not silently cleaned here.
+export function pickDefaultRoleFields(
+  defaultRole: MemberRoleWithProjects,
+): MemberRoleWithProjects {
+  const pickRules = (rules: unknown) =>
+    Array.isArray(rules)
+      ? rules.map((r) => pick(r, ROLE_RULE_FIELDS))
+      : undefined;
+  return {
+    ...pick(defaultRole, ROLE_RULE_FIELDS),
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: pickRules(defaultRole.additionalRoles) }
+      : {}),
+    ...(Array.isArray(defaultRole.projectRoles)
+      ? {
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...pick(p, [...ROLE_RULE_FIELDS, "project"]),
+            ...(p.additionalRoles
+              ? { additionalRoles: pickRules(p.additionalRoles) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
+// A non-array role list would be dropped by pickDefaultRoleFields, silently
+// discarding an override; reject it so a write reports the bad shape instead.
+export function assertDefaultRoleListsAreArrays(
+  defaultRole: MemberRoleWithProjects,
+): void {
+  const lists: unknown[] = [
+    defaultRole.additionalRoles,
+    defaultRole.projectRoles,
+  ];
+  if (Array.isArray(defaultRole.projectRoles)) {
+    for (const p of defaultRole.projectRoles) lists.push(p.additionalRoles);
+  }
+  if (lists.some((list) => list != null && !Array.isArray(list))) {
+    throw new Error("additionalRoles and projectRoles must be arrays");
+  }
+}
+
+// Maps a transform over every role rule (top level, additionalRoles, and each
+// projectRole plus its additionalRoles).
+function mapRoleRules(
+  defaultRole: MemberRoleWithProjects,
+  fn: <
+    T extends { limitAccessByEnvironment?: boolean; environments?: string[] },
+  >(
+    rule: T,
+  ) => T,
+): MemberRoleWithProjects {
+  return {
+    ...fn(defaultRole),
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: defaultRole.additionalRoles.map(fn) }
+      : {}),
+    ...(defaultRole.projectRoles
+      ? {
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...fn(p),
+            ...(p.additionalRoles
+              ? { additionalRoles: p.additionalRoles.map(fn) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
+// Legacy configs stored a role as just { role }; fill the required fields so it
+// still validates instead of failing the whole import.
+export function withDefaultRoleDefaults(
+  defaultRole: MemberRoleWithProjects,
+): MemberRoleWithProjects {
+  return mapRoleRules(defaultRole, (rule) => ({
+    ...rule,
+    limitAccessByEnvironment: rule.limitAccessByEnvironment ?? false,
+    environments: rule.environments ?? [],
+  }));
+}
+
+// Drops references to environments that won't exist after the write, so an
+// unchanged default role isn't left pointing at a removed environment.
+export function pruneRoleEnvironments(
+  defaultRole: MemberRoleWithProjects,
+  validEnvironments: string[],
+): MemberRoleWithProjects {
+  const valid = new Set(validEnvironments);
+  return mapRoleRules(defaultRole, (rule) => ({
+    ...rule,
+    ...(rule.environments
+      ? { environments: rule.environments.filter((e) => valid.has(e)) }
+      : {}),
+  }));
+}
+
+export function normalizeDefaultRole(
+  defaultRole: MemberRoleWithProjects,
+  org: Partial<OrganizationInterface>,
+): MemberRoleWithProjects {
+  return normalizeStaleRoleRules(pickDefaultRoleFields(defaultRole), org);
+}
+
+// A custom role deleted while referenced here must not block automated joins
+function normalizeStaleRoleRules(
+  defaultRole: MemberRoleWithProjects,
+  org: Partial<OrganizationInterface>,
+): MemberRoleWithProjects {
+  const validRules = <T extends { role: string }>(rules: T[] | undefined) =>
+    rules?.filter((r) => isRoleValid(r.role, org));
+  return {
+    ...defaultRole,
+    ...(defaultRole.additionalRoles
+      ? { additionalRoles: validRules(defaultRole.additionalRoles) }
+      : {}),
+    ...(defaultRole.projectRoles
+      ? {
+          projectRoles: defaultRole.projectRoles.map((p) => ({
+            ...p,
+            // Removing the override would grant the global role in this project.
+            role: isRoleValid(p.role, org) ? p.role : "noaccess",
+            ...(p.additionalRoles
+              ? { additionalRoles: validRules(p.additionalRoles) }
+              : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
 ): MemberRoleWithProjects {
@@ -175,7 +326,7 @@ export function getDefaultRole(
     org.settings?.defaultRole?.role &&
     isRoleValid(org.settings.defaultRole.role, org)
   ) {
-    return org.settings.defaultRole;
+    return normalizeDefaultRole(org.settings.defaultRole, org);
   }
 
   // Fall back to using "collaborator"
@@ -206,26 +357,32 @@ export function hasPermission(
   return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
 }
 
-// Resolve coverage from relevant grants; use merged legacy fields only when none exist.
+// Environments a permission covers (null = all): the union across relevant
+// grants, falling back to the merged legacy fields only when none exist.
+export function allowedEnvironments(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+): string[] | null {
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
+  );
+  if (relevantGrants.length) {
+    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return null;
+    return [...new Set(relevantGrants.flatMap((g) => g.environments))];
+  }
+  return userPermission.limitAccessByEnvironment
+    ? userPermission.environments
+    : null;
+}
+
 export function envsAllowedBy(
   userPermission: UserPermission,
   permissionToCheck: Permission,
   envs?: string[],
 ): boolean {
   if (!envs) return true;
-
-  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
-    g.permissions.includes(permissionToCheck),
-  );
-  if (relevantGrants.length) {
-    // Union environments across grants carrying this permission.
-    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
-    const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
-    return envs.every((env) => allowed.has(env));
-  }
-
-  if (!userPermission.limitAccessByEnvironment) return true;
-  return envs.every((env) => userPermission.environments.includes(env));
+  const allowed = allowedEnvironments(userPermission, permissionToCheck);
+  return allowed === null || envs.every((env) => allowed.includes(env));
 }
 
 // Unbound changes need this: an empty footprint would otherwise pass vacuously.
@@ -233,13 +390,7 @@ export function hasUnrestrictedEnvAuthority(
   userPermission: UserPermission,
   permissionToCheck: Permission,
 ): boolean {
-  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
-    g.permissions.includes(permissionToCheck),
-  );
-  if (relevantGrants.length) {
-    return relevantGrants.some((g) => !g.limitAccessByEnvironment);
-  }
-  return !userPermission.limitAccessByEnvironment;
+  return allowedEnvironments(userPermission, permissionToCheck) === null;
 }
 
 export const userHasPermission = (
@@ -264,7 +415,7 @@ export const userHasPermission = (
       // add all of the projects the user has project-level roles for
       checkProjects.push(...Object.keys(userPermissions.projects));
     }
-    // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
+    // Read only type permissions grant permission if the user has the permission globally or in at least 1 project
     return checkProjects.some((p) =>
       hasPermission(userPermissions, permission, p, envs),
     );

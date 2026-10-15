@@ -4,6 +4,7 @@ import {
   FormatDialect,
   GlobMatchFn,
   SqlDialect,
+  SqlIdentifierQuote,
   StringMatchFn,
 } from "../types/sql";
 import { FormatError } from "../types/error";
@@ -113,6 +114,12 @@ export function createLikeMatchFns(options: LikeMatchOptions): {
   };
 }
 
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
+}
+
 export const SQL_ROW_LIMIT = 1000;
 export const ASK_ROW_LIMIT = 500;
 
@@ -154,6 +161,12 @@ export function format(
  */
 export function stripTrailingSemicolon(sql: string): string {
   return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
+}
+
+// Any template variable built on startDate, e.g. {{startDate}} or
+// {{date startDateISO "yyyyMMdd"}}. Without one, every query scans the whole table.
+export function hasStartDateFilter(sql: string): boolean {
+  return /\{\{[^}]*startDate/.test(sql);
 }
 
 export function ensureLimit(sql: string, limit: number): string {

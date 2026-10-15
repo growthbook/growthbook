@@ -16,7 +16,7 @@ const exposureQuery: ExposureQuery = {
 
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const factTable = factTableFactory.build({
@@ -101,6 +101,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     jest.useFakeTimers().setSystemTime(NOW);
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });
@@ -229,6 +230,8 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
   } as unknown as Parameters<
     typeof getIncrementalRefreshMetricSources
   >[0]["integration"];
+  // Fact table id plus the random suffix, so no conversion-window key in any spelling.
+  const groupIdWithoutWindowKey = /^ft_events_[a-z0-9]+$/;
 
   it("keeps metrics with different conversion windows in one cache when included", () => {
     const groups = getIncrementalRefreshMetricSources({
@@ -256,8 +259,7 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       "fact_long_window",
       "fact_short_window",
     ]);
-    expect(groups[0].groupId).not.toContain("_cw");
-    expect(groups[0].groupId).not.toContain(".");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 
   it("does not encode a sub-hour window in the group key", () => {
@@ -284,9 +286,7 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       snapshotSettings: { ...baseSettings, skipPartialData: true },
     });
     expect(groups).toHaveLength(1);
-    expect(groups[0].groupId).toContain("ft_events_");
-    expect(groups[0].groupId).not.toContain("_cw");
-    expect(groups[0].groupId).not.toContain(".");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 
   it("keeps same-window metrics together when excluded", () => {
@@ -305,6 +305,6 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       "fact_long_window",
       "fact_long_window_2",
     ]);
-    expect(groups[0].groupId).not.toContain("_cw");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 });

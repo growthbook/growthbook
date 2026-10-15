@@ -19,7 +19,7 @@ const exposureQuery: ExposureQuery = {
 
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const segment: SegmentInterface = {
@@ -77,6 +77,7 @@ describe("incremental refresh units query segment and query filter", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
+      type: "bigquery",
       settings: { queries: { exposure: [exposureQuery] } },
     });
   });

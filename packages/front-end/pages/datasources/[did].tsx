@@ -52,7 +52,10 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
-import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
+import LinkButton from "@/ui/LinkButton";
+import AddEventTrackerModal, {
+  getAddableEventTrackers,
+} from "@/components/Settings/EditDataSource/AddEventTrackerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -70,6 +73,7 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [eventTrackerOpen, setEventTrackerOpen] = useState(false);
   const [
     deleteBlockedByEventForwarderModalOpen,
     setDeleteBlockedByEventForwarderModalOpen,
@@ -146,6 +150,12 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
+  const canAddEventTracker =
+    !!d &&
+    getAddableEventTrackers(d).length > 0 &&
+    canUpdateDataSourceSettings &&
+    permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
+
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
@@ -194,10 +204,6 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
-  const canOpenInExplorer =
-    supportsSQL &&
-    !!d.properties?.supportsInformationSchema &&
-    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -239,13 +245,9 @@ const DataSourcePage: FC = () => {
           />
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          <OpenInExplorerButton
-            enabled={canOpenInExplorer}
-            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
-              d.id,
-            )}`}
-            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
-          />
+          <LinkButton href={`/datasources/queries/${did}`} variant="outline">
+            View usage
+          </LinkButton>
           {(canUpdateConnectionParams ||
             canUpdateDataSourceSettings ||
             canDelete) && (
@@ -274,6 +276,16 @@ const DataSourcePage: FC = () => {
                   }}
                 >
                   Edit Connection Info
+                </DropdownMenuItem>
+              )}
+              {canAddEventTracker && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEventTrackerOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Add Event Tracker
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -309,14 +321,6 @@ const DataSourcePage: FC = () => {
                   View SQL Explorer
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setDropdownOpen(false);
-                  router.push(`/datasources/queries/${did}`);
-                }}
-              >
-                View Queries
-              </DropdownMenuItem>
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
@@ -665,6 +669,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           header="SQL Explorer"
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
+        />
+      )}
+      {eventTrackerOpen && (
+        <AddEventTrackerModal
+          datasource={d}
+          close={() => {
+            setEventTrackerOpen(false);
+            mutateCurrentDataSource();
+          }}
         />
       )}
       {auditModal && (

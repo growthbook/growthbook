@@ -155,6 +155,8 @@ export default function FeaturesHeader({
     healthHook.fetchSome([feature.id]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feature.id]);
+  const watchHealth = healthHook.watch;
+  useEffect(() => watchHealth([feature.id]), [feature.id, watchHealth]);
 
   // Sticky tabs header — mirrors the experiment page pattern
   // NB: Keep in sync with .feature-tabs top property in global.scss

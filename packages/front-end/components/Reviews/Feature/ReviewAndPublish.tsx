@@ -1,4 +1,13 @@
 import {
+  EventUser as EventUserType,
+  eventUserIdentity,
+  eventUserLabel,
+  eventUserPersonId,
+  revisionActor,
+  RampScheduleInterface,
+  ACTIVE_DRAFT_STATUSES,
+} from "shared/validators";
+import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
@@ -8,10 +17,6 @@ import {
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import {
-  RampScheduleInterface,
-  ACTIVE_DRAFT_STATUSES,
-} from "shared/validators";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -45,10 +50,6 @@ import {
   findPublishLockingScheduledRevision,
   isInReviewCycle,
 } from "shared/enterprise";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
@@ -81,7 +82,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -104,6 +105,9 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import { getErrorDetails } from "@/services/apiCallError";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -268,6 +272,18 @@ export default function ReviewAndPublish({
       : `/feature/${feature.id}/0/log`,
     { shouldRun: () => !!revision },
   );
+  // Who's behind an identity on this draft, from its stored actors.
+  const actorFor = (id: string) =>
+    revisionActor(
+      {
+        createdBy: revision?.createdBy ?? undefined,
+        publishedBy: revision?.publishedBy ?? undefined,
+        reviews: revision?.reviews,
+        activityLog: logData?.log,
+      },
+      id,
+    );
+  const nameFor = (id: string) => users.get(id)?.name;
   const { reviewers, approvedAt } = useMemo<{
     reviewers: {
       id: string;
@@ -277,10 +293,7 @@ export default function ReviewAndPublish({
       // possible when the org doesn't reset reviews on change — otherwise
       // the verdict would have been cleared server-side).
       stale: boolean;
-      // Display fallbacks from the baked review's event user, for reviewers
-      // not present in the members map (e.g. API keys).
-      name?: string;
-      email?: string;
+      user?: EventUserType;
     }[];
     // Timestamp of the most recent *surviving* approval (retractions and
     // recalls invalidate earlier verdicts). Used to quantify how stale an
@@ -319,8 +332,7 @@ export default function ReviewAndPublish({
         timestamp: string;
         // The model already demoted this verdict to a "-stale" variant.
         forceStale?: boolean;
-        name?: string;
-        email?: string;
+        user?: EventUserType;
       }[],
     ) => {
       const approvedTimestamps = entries
@@ -355,12 +367,7 @@ export default function ReviewAndPublish({
             r.status === "approved-stale" ||
             r.status === "changes-requested-stale",
           timestamp: new Date(r.timestamp).toISOString(),
-          name:
-            r.user && "name" in r.user && r.user.name ? r.user.name : undefined,
-          email:
-            r.user && "email" in r.user && r.user.email
-              ? r.user.email
-              : undefined,
+          user: r.user,
         })),
       );
     }
@@ -372,7 +379,11 @@ export default function ReviewAndPublish({
     // their approval would still appear listed with the stale verdict.
     const byUser = new Map<
       string,
-      { status: "approved" | "changes-requested"; timestamp: string }
+      {
+        status: "approved" | "changes-requested";
+        timestamp: string;
+        user?: EventUserType;
+      }
     >();
     for (const entry of sorted) {
       if (entry.action === "Review Requested") {
@@ -385,30 +396,25 @@ export default function ReviewAndPublish({
         byUser.clear();
         continue;
       }
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
+      const uid = eventUserIdentity(entry.user ?? null);
       if (!uid) continue;
       const timestamp = entry.timestamp as unknown as string;
+      const user = entry.user ?? undefined;
       if (entry.action === "Approved") {
-        byUser.set(uid, { status: "approved", timestamp });
+        byUser.set(uid, { status: "approved", timestamp, user });
       } else if (entry.action === "Requested Changes") {
-        byUser.set(uid, { status: "changes-requested", timestamp });
+        byUser.set(uid, { status: "changes-requested", timestamp, user });
       } else if (entry.action === "Undo Review") {
         byUser.delete(uid);
       }
     }
-    return finish(
-      Array.from(byUser, ([id, v]) => ({
-        id,
-        status: v.status,
-        timestamp: v.timestamp,
-      })),
-    );
+    return finish(Array.from(byUser, ([id, v]) => ({ id, ...v })));
   }, [logData, revision]);
 
-  // User ID of whoever most recently submitted a "Review Requested" entry.
-  // Drives the header attribution and (together with author/contributor
-  // status) gates "Return to draft".
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  // Whoever most recently submitted a "Review Requested" entry. Drives the
+  // header attribution and (together with author/contributor status) gates
+  // "Return to draft".
+  const reviewRequest = useMemo(() => {
     const log = logData?.log;
     if (!log) return undefined;
     const sorted = [...log].sort((a, b) =>
@@ -418,11 +424,12 @@ export default function ReviewAndPublish({
     );
     for (const entry of sorted) {
       if (entry.action !== "Review Requested") continue;
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
-      if (uid) return uid;
+      const uid = eventUserIdentity(entry.user ?? null);
+      if (uid && entry.user) return { id: uid, user: entry.user };
     }
     return undefined;
   }, [logData]);
+  const reviewRequesterId = reviewRequest?.id;
   // --- Read-only review (selected version is not an active draft) ----------
   const [revertOpen, setRevertOpen] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -441,22 +448,31 @@ export default function ReviewAndPublish({
   const readonlyBaseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion,
   );
-  const readonlyBeforeInput = readonlyBaseRevision
-    ? toDiffInput(readonlyBaseRevision)
-    : liveBaseInput;
-  const readonlyAfterInput = revision ? toDiffInput(revision) : liveBaseInput;
+  // Stable inputs keep useFeatureRevisionDiff's memo, and the diff viewers
+  // below it, from recomputing on every render
+  const readonlyBeforeInput = useMemo(
+    () =>
+      readonlyBaseRevision ? toDiffInput(readonlyBaseRevision) : liveBaseInput,
+    [readonlyBaseRevision, toDiffInput, liveBaseInput],
+  );
+  const readonlyAfterInput = useMemo(
+    () => (revision ? toDiffInput(revision) : liveBaseInput),
+    [revision, toDiffInput, liveBaseInput],
+  );
   const readonlyDiffs = useFeatureRevisionDiff({
     current: readonlyBeforeInput,
     draft: readonlyAfterInput,
   });
-  // The previously-published revision to roll back to when viewing the live one.
-  const previousPublishedRevision = useMemo(() => {
-    const live = revisions.find((r) => r.version === feature.version);
+  // The previously-published revision to roll back to when viewing the live
+  // one, and the one this draft reverts to. Found in the full list, then
+  // loaded, since neither is necessarily among the revisions the page has.
+  const previousPublishedVersion = useMemo(() => {
+    const live = revisionList.find((r) => r.version === feature.version);
     const livePublishedAt = live?.datePublished
       ? new Date(live.datePublished).getTime()
       : Infinity;
     return (
-      revisions
+      revisionList
         .filter(
           (r) =>
             r.status === "published" &&
@@ -468,9 +484,15 @@ export default function ReviewAndPublish({
           const bt = b.datePublished ? new Date(b.datePublished).getTime() : 0;
           const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
           return bt - at;
-        })[0] ?? null
+        })[0]?.version ?? null
     );
-  }, [revisions, feature.version]);
+  }, [revisionList, feature.version]);
+  const pastRevisions = useFeatureRevisions(feature.id, [
+    previousPublishedVersion,
+    revision?.revertedFromVersion,
+  ]);
+  const previousPublishedRevision =
+    pastRevisions.get(previousPublishedVersion) ?? null;
 
   const [strategies, setStrategies] = useState<Record<string, MergeStrategy>>(
     {},
@@ -497,6 +519,13 @@ export default function ReviewAndPublish({
   const [experimentsStep, setExperimentsStep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+    null,
+  );
+  const failSubmit = (e: unknown, fallback: string) => {
+    setSubmitError((e as Error).message || fallback);
+    setSubmitErrorDetails(getErrorDetails(e));
+  };
   const [secondaryLoading, setSecondaryLoading] = useState<
     "recall" | "undo" | null
   >(null);
@@ -771,11 +800,9 @@ export default function ReviewAndPublish({
     revision.status !== "discarded"
       ? revision.revertedFrom
       : undefined;
-  const revertDraftTarget = useFeatureRevisionByVersion(
-    feature.id,
+  const revertDraftTarget = useFeatureRevisions(feature.id, [
     revertDraftTargetVersion,
-    revisions,
-  );
+  ]).get(revertDraftTargetVersion);
   const revertDraftDetaches = useMemo(
     () =>
       revertDraftTarget
@@ -846,15 +873,11 @@ export default function ReviewAndPublish({
   // scheduled publish that locks publishing of other drafts. Blocks publishing
   // THIS revision (the scheduled sibling is excluded so it can still publish).
   const lockingScheduledSibling = findPublishLockingScheduledRevision(
-    revisions,
+    revisionList,
     revision?.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
 
-  const createdBy = revision?.createdBy as
-    | EventUserLoggedIn
-    | EventUserApiKey
-    | undefined;
   const requireReviewSettings = settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviewSettings)
     ? getReviewSetting(requireReviewSettings, feature)
@@ -862,12 +885,13 @@ export default function ReviewAndPublish({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some((id) => id === user?.id);
+  const draftAuthorId = eventUserPersonId(revision?.createdBy ?? null);
   // The whole review cycle accepts verdicts, "approved" included (matching the
   // server): an approval that doesn't satisfy coverage or a required team must
   // not lock out the one that would.
   const canReview =
     isInReviewCycle(revision?.status) &&
-    createdBy?.id !== user?.id &&
+    draftAuthorId !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
@@ -887,21 +911,14 @@ export default function ReviewAndPublish({
     NO_ENVIRONMENT_BINDING,
   );
   const authoredDraft =
-    (!!userId &&
-      !!revision?.createdBy &&
-      "id" in revision.createdBy &&
-      revision.createdBy.id === userId) ||
-    (!!userId && (revision?.contributors ?? []).includes(userId));
+    !!userId &&
+    (draftAuthorId === userId ||
+      (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
+  const revertedFrom = pastRevisions.get(revision?.revertedFromVersion);
   const revertTargetRevision =
-    revision?.revertedFromVersion !== undefined
-      ? revisions.find(
-          (r) =>
-            r.version === revision.revertedFromVersion &&
-            r.status === "published",
-        )
-      : undefined;
+    revertedFrom?.status === "published" ? revertedFrom : undefined;
   const draftStagesRevert =
     !!revision &&
     !!revertTargetRevision &&
@@ -1115,13 +1132,13 @@ export default function ReviewAndPublish({
   const revisionsSinceApproval = useMemo<number | null>(() => {
     const approvedBase = revision?.approvedBaseVersion ?? null;
     if (approvedBase === null) return null;
-    return revisions.filter(
+    return revisionList.filter(
       (r) =>
         r.status === "published" &&
         r.version > approvedBase &&
         r.version <= feature.version,
     ).length;
-  }, [revisions, revision, feature.version]);
+  }, [revisionList, revision, feature.version]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -1191,7 +1208,7 @@ export default function ReviewAndPublish({
     [],
   );
 
-  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const currentRevisionData = liveBaseInput;
   // Three modes, picked by what's available:
   //  - merge success: diff against the merged result (what publish would do).
   //    `draftDiffInput` is intentionally sparse — only fields the merge
@@ -1200,11 +1217,15 @@ export default function ReviewAndPublish({
   //    to the raw draft revision so reviewers can still see what's at stake
   //    (draft vs live, with conflicting items marked by the conflict modal).
   //  - no revision: shouldn't happen at this point, but keep a no-op shape.
-  const draftDiffInput: FeatureRevisionDiffInput = mergeResult?.success
-    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-    : revision
-      ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
-      : currentRevisionData;
+  const draftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      mergeResult?.success
+        ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+        : revision
+          ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
+          : currentRevisionData,
+    [mergeResult, revision, currentRevisionData],
+  );
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: draftDiffInput,
@@ -1212,10 +1233,16 @@ export default function ReviewAndPublish({
   // Preview diffs for the conflict modal's "Review Changes" step: what the
   // draft will contain once the chosen resolutions are applied and the
   // rebase runs.
-  const resolvedDraftDiffInput: FeatureRevisionDiffInput =
-    resolvedMergeResult?.success
-      ? mergeResultToDiffInput(resolvedMergeResult.result, currentRevisionData)
-      : draftDiffInput;
+  const resolvedDraftDiffInput: FeatureRevisionDiffInput = useMemo(
+    () =>
+      resolvedMergeResult?.success
+        ? mergeResultToDiffInput(
+            resolvedMergeResult.result,
+            currentRevisionData,
+          )
+        : draftDiffInput,
+    [resolvedMergeResult, draftDiffInput, currentRevisionData],
+  );
   const resolvedResultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: resolvedDraftDiffInput,
@@ -1254,7 +1281,7 @@ export default function ReviewAndPublish({
       await mutate();
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Failed to update from live");
+      failSubmit(e, "Failed to update from live");
     } finally {
       setRebasing(false);
     }
@@ -1433,15 +1460,10 @@ export default function ReviewAndPublish({
   const systemCreator =
     revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
-    !apiKeyCreator &&
-    !systemCreator &&
-    revision.createdBy &&
-    "id" in revision.createdBy &&
-    revision.createdBy.id
-      ? revision.createdBy.id
-      : undefined;
+    !apiKeyCreator && !systemCreator ? (draftAuthorId ?? undefined) : undefined;
+  const keyCreatorId = apiKeyCreator ? eventUserIdentity(apiKeyCreator) : null;
   const contribIds = (revision.contributors ?? []).filter(
-    (id) => id !== apiKeyCreator?.id && id !== systemCreator?.id,
+    (id) => id !== keyCreatorId && id !== systemCreator?.id,
   );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
@@ -1590,17 +1612,9 @@ export default function ReviewAndPublish({
                 Contributors
               </Text>
               <Flex direction="column" gap="2">
-                {contributorIds.map((id) => {
-                  const u = users.get(id);
-                  return (
-                    <PersonRow
-                      key={id}
-                      id={id}
-                      name={u?.name || ""}
-                      email={u?.email || ""}
-                    />
-                  );
-                })}
+                {contributorIds.map((id) => (
+                  <PersonRow key={id} user={actorFor(id)} />
+                ))}
               </Flex>
             </Box>
           )}
@@ -1611,20 +1625,16 @@ export default function ReviewAndPublish({
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
@@ -1707,7 +1717,6 @@ export default function ReviewAndPublish({
             feature={feature}
             revision={revertTarget}
             revisionList={revisionList}
-            allRevisions={revisions}
             rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}
@@ -1874,11 +1883,6 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
-      feature,
-      reviewFootprint,
-      approverProjects,
-    ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.
@@ -1950,7 +1954,7 @@ export default function ReviewAndPublish({
       }
     } catch (e) {
       await mutate();
-      setSubmitError(e.message || "Something went wrong");
+      failSubmit(e, "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -2484,9 +2488,15 @@ export default function ReviewAndPublish({
   // the review log — the same source that feeds the "Return to draft" gate).
   // The revision author is only a fallback while the log loads, since the
   // requester is often a different person than the author.
-  const requesterId = reviewRequesterId || authorId;
-  const requester = requesterId ? users.get(requesterId) : undefined;
-  const requesterName = requester?.name || requester?.email || "";
+  const requesterId = reviewRequesterId || draftAuthorId || undefined;
+  const requesterName = requesterId
+    ? eventUserLabel(
+        reviewRequest && reviewRequest.id === requesterId
+          ? reviewRequest.user
+          : actorFor(requesterId),
+        { nameFor },
+      )
+    : "";
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
@@ -2669,17 +2679,9 @@ export default function ReviewAndPublish({
               Contributors
             </Text>
             <Flex direction="column" gap="2">
-              {contributorIds.map((id) => {
-                const u = users.get(id);
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={u?.name || ""}
-                    email={u?.email || ""}
-                  />
-                );
-              })}
+              {contributorIds.map((id) => (
+                <PersonRow key={id} user={actorFor(id)} />
+              ))}
             </Flex>
           </Box>
         )}
@@ -2697,20 +2699,16 @@ export default function ReviewAndPublish({
                   </Text>
                 )}
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
@@ -3050,7 +3048,7 @@ export default function ReviewAndPublish({
                       )}
                       {scheduleError && (
                         <Callout status="error" mt="2">
-                          {scheduleError}
+                          <MarkdownLinks text={scheduleError} />
                         </Callout>
                       )}
                       {/* Unchecking "Automatically publish" cancels the schedule;
@@ -3310,13 +3308,15 @@ export default function ReviewAndPublish({
                   {(submitError || secondaryError) && (
                     <Flex direction="column" gap="2" mt="3">
                       {submitError && (
-                        <Callout status="error" size="sm">
-                          {submitError}
-                        </Callout>
+                        <ErrorDisplay
+                          error={submitError}
+                          details={submitErrorDetails}
+                          maxLines={12}
+                        />
                       )}
                       {secondaryError && (
                         <Callout status="error" size="sm">
-                          {secondaryError}
+                          <MarkdownLinks text={secondaryError} />
                         </Callout>
                       )}
                     </Flex>

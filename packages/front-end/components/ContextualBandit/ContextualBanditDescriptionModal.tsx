@@ -1,7 +1,8 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -16,7 +17,7 @@ export default function ContextualBanditDescriptionModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const form = useForm<{ description: string }>({
     defaultValues: {
       description: cb.description || "",
@@ -48,9 +49,9 @@ export default function ContextualBanditDescriptionModal({
       close={close}
       cta="Save"
       submit={form.handleSubmit(async ({ description }) => {
-        await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ description }),
+        await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+          params: { id: cb.id },
+          body: { description },
         });
         mutate();
       })}

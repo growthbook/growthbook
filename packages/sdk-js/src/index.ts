@@ -18,10 +18,13 @@ export type {
   DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
+  ContextualBanditDefinitions,
+  ContextualBanditDefinition,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,
   Experiment,
+  CBContext,
   Result,
   ExperimentOverride,
   ExperimentStatus,
@@ -54,6 +57,8 @@ export type {
   Helpers,
   GrowthBookPayload,
   SavedGroupsValues,
+  SavedGroupsPayload,
+  SavedGroupPayloadEntry,
   EventLogger,
   EventProperties,
   Plugin,
@@ -63,6 +68,8 @@ export type {
 export type {
   ConditionInterface,
   ParentConditionInterface,
+  SavedGroupReference,
+  SavedGroupCondition,
 } from "./types/mongrule";
 
 export {
@@ -89,6 +96,14 @@ export {
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,
   RedisStickyBucketService,
+} from "./sticky-bucket-service";
+
+export type {
+  CookieAttributes,
+  JsCookiesCompat,
+  IORedisCompat,
+  RequestCompat,
+  ResponseCompat,
 } from "./sticky-bucket-service";
 
 export { evalCondition } from "./mongrule";

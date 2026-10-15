@@ -26,7 +26,7 @@ pnpm lint             # ESLint with auto-fix
 pnpm type-check       # TypeScript check all packages
 pnpm pretty           # Prettier formatting (writes)
 pnpm pretty:check     # Prettier check only
-node scripts/check-docs-frontmatter.mjs  # Quote YAML values that contain ": "
+node scripts/check-docs-frontmatter.mjs  # Validate docs frontmatter
 
 # Single-package type-check
 pnpm --filter front-end type-check
@@ -35,6 +35,7 @@ pnpm --filter shared type-check
 
 # OpenAPI spec generation
 pnpm --filter back-end generate-openapi  # Regenerate spec from Zod validators
+pnpm doc-gen                             # Regenerate event webhook docs from shared event schemas
 
 # Testing
 pnpm test             # All packages

@@ -19,7 +19,7 @@ import {
   assertFeatureValuesValid,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -244,6 +244,13 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     await createFeature(req.context, feature, {
       comment: req.body.comment,
     });
+    if (req.context.actingUserId) {
+      await req.context.models.watch.upsertWatch({
+        userId: req.context.actingUserId,
+        item: feature.id,
+        type: "features",
+      });
+    }
 
     await req.audit({
       event: "feature.create",
@@ -251,13 +258,14 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       details: auditDetailsCreate(feature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
     );
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [feature], experiments: experimentMap.values() },
+    );
     const revision = await getRevision({
       context: req.context,
       organization: feature.organization,

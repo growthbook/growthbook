@@ -1,5 +1,7 @@
 import {
   autoMerge,
+  AutoMergeResult,
+  reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
@@ -14,20 +16,27 @@ import {
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
+  scrubDeadProjectScopes,
 } from "back-end/src/models/FeatureModel";
-import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
+import {
+  computeRevisionPublishChanges,
+  liveRevisionBeforePublish,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
   getLiveAndBaseRevisionsForFeature,
@@ -190,14 +199,12 @@ export async function assessRevisionApproval({
     }),
     liveRampScheduleEnvs,
   });
-  const approvers = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id)
-    .map((id) => ({
-      id,
-      roleInfo: context.org.members.find((m) => m.id === id) ?? null,
-    }));
+  const approvals = (revision.reviews ?? []).filter(
+    (r): r is typeof r & { userId: string } =>
+      r.status === "approved" && !!r.userId,
+  );
+  const roles = await getApproverRoles(context, approvalRoleIds(approvals));
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
   const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,
@@ -347,7 +354,7 @@ export async function planFeatureRevisionMerge({
 
   return {
     environmentIds,
-    mergeResult: merged.result,
+    mergeResult: await scrubDeadProjectScopes(context, merged.result),
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
@@ -592,9 +599,10 @@ export async function collectFeaturePublishGates({
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
+        { result: plan.mergeResult, environmentIds: plan.environmentIds },
       ),
     },
-    original: revision,
+    original: liveRevisionBeforePublish(revision, feature),
   });
   const hookHardErrors = [
     ...featureHookResults.hardErrors,
@@ -642,4 +650,42 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// The merge an unattended publish lands, under the governance the publish button
+// applies. `rebaseRequired` is the mergeable-but-blocked case; conflicts are the
+// caller's to report.
+export function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
 }

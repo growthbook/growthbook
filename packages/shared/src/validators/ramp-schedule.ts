@@ -1,8 +1,13 @@
 import { z } from "zod";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
+import { apiEventUser, eventUser } from "./event-user";
 
 export const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
 
@@ -84,6 +89,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
@@ -101,6 +107,22 @@ export const rampMonitoringConfig = z.object({
   multipleExposureAction: experimentHealthAction.optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
+
+/**
+ * API shape: `exposureQuery` supersedes the deprecated `exposureQueryId`. The
+ * internal rampMonitoringConfig stays flat.
+ */
+export const apiRampMonitoringConfig = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryResponseFields("exposureQuery"));
+export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
+
+export const apiRampMonitoringConfigInput = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryInputFields("exposureQuery"));
+export type ApiRampMonitoringConfigInput = z.infer<
+  typeof apiRampMonitoringConfigInput
+>;
 
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
@@ -283,7 +305,14 @@ export const rampScheduleValidator = baseSchema
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.date().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: eventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),
@@ -570,7 +599,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
     order: z
       .number()
@@ -579,6 +608,9 @@ export const apiRampScheduleTemplateValidator = namedSchema(
       ),
   }),
 );
+export type ApiRampScheduleTemplateInterface = z.infer<
+  typeof apiRampScheduleTemplateValidator
+>;
 
 const apiRampStep = z.object({
   ...apiRampStepCommon,
@@ -659,7 +691,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     stepApproval: z
@@ -669,7 +701,14 @@ export const apiRampScheduleInterface = namedSchema(
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.iso.datetime().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: apiEventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),

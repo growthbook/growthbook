@@ -3,3 +3,5 @@ components/
 .claude
 docs-slug-map*.json
 *.py
+# Generated and deleted by scripts/check-doclink-registry.mjs
+/doclink-targets.mdx

@@ -20,6 +20,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -69,6 +70,7 @@ import {
   type MessageTurn,
   groupMessagesByTurn,
   classifyTurn,
+  interactionContextTextId,
   assistantText,
   getUserText,
 } from "./agentMessageUtils";
@@ -77,6 +79,9 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 
+// Scoped per org and user below: conversation ids are unique across the whole
+// collection but only readable by their owner, so a stale id from another org
+// or account would make the next send collide on insert.
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
@@ -204,6 +209,7 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
@@ -372,7 +378,7 @@ export default function AgentPanel({
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
-    conversationStorageKey: STORAGE_KEY,
+    conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
     onMessageComplete: (info) => {
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
@@ -410,14 +416,20 @@ export default function AgentPanel({
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
 
+  const contextTextId = interactionContextTextId(
+    activeTurnItems,
+    (askPrompt !== null && !askPrompt.resolved) ||
+      (confirmPrompt !== null && !confirmPrompt.resolved),
+  );
   const { collapsedItems, visibleItems, fadingTextIds } =
     useCollapsibleActiveTurnItems(activeTurnItems, displayedTextMap, {
       fadeSupersededText: true,
       isPinned: (item) =>
-        item.kind === "tool-status" &&
-        item.status === "done" &&
-        !!item.toolResultData &&
-        chartDataFromRecord(item.toolResultData) !== null,
+        item.id === contextTextId ||
+        (item.kind === "tool-status" &&
+          item.status === "done" &&
+          !!item.toolResultData &&
+          chartDataFromRecord(item.toolResultData) !== null),
     });
 
   // Focus the composer after a short delay so any layout transition settles
@@ -589,6 +601,12 @@ export default function AgentPanel({
             }
           : null;
   const persistedTurns = groupMessagesByTurn(messages);
+  // A confirm/cancel decision resumes the last turn without a user bubble, so
+  // its live steps belong in that turn's drawer rather than a second one.
+  const continuesLastTurn =
+    (loading || activeTurnItems.length > 0) &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role !== "user";
   const confirmationPending =
     confirmPrompt !== null && (!confirmPrompt.resolved || loading);
   const interactionPending =
@@ -790,11 +808,16 @@ export default function AgentPanel({
               awaitingInteraction={
                 interactionPending && idx === persistedTurns.length - 1
               }
+              liveSteps={
+                continuesLastTurn && idx === persistedTurns.length - 1
+                  ? collapsedActiveSteps
+                  : undefined
+              }
             />
           ))}
 
           {(loading ||
-            collapsedActiveSteps.length > 0 ||
+            (!continuesLastTurn && collapsedActiveSteps.length > 0) ||
             visibleItems.length > 0 ||
             activeStatus) && (
             <Flex
@@ -803,7 +826,7 @@ export default function AgentPanel({
               gap="3"
               style={{ minHeight: activeTurnMinHeight }}
             >
-              {collapsedActiveSteps.length > 0 && (
+              {!continuesLastTurn && collapsedActiveSteps.length > 0 && (
                 <CollapsedSteps
                   count={collapsedActiveSteps.length}
                   items={collapsedActiveSteps}
@@ -827,7 +850,9 @@ export default function AgentPanel({
                   <div
                     key={key}
                     className={`${aiChatStyles.activeTurnItemWrapper}${
-                      item.kind === "text" && fadingTextIds.has(item.id)
+                      item.kind === "text" &&
+                      fadingTextIds.has(item.id) &&
+                      item.id !== contextTextId
                         ? ` ${aiChatStyles.collapsingItem}`
                         : ""
                     }`}
@@ -999,7 +1024,8 @@ function ActiveTurnItemRow({
 /**
  * Renders a single persisted turn: user bubble (if any), the collapsed
  * "Completed N steps" drawer for intermediate work, then the assistant's
- * visible reply (the last plain-text message).
+ * visible reply (the last plain-text message). `liveSteps` are the active
+ * turn's collapsed steps when it is resuming this turn; they join its drawer.
  */
 function PersistedTurn({
   turn,
@@ -1010,6 +1036,7 @@ function PersistedTurn({
   stepsExpanded,
   onStepsToggle,
   awaitingInteraction,
+  liveSteps,
 }: {
   turn: MessageTurn;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
@@ -1023,12 +1050,22 @@ function PersistedTurn({
   stepsExpanded: boolean;
   onStepsToggle?: (expanded: boolean) => void;
   awaitingInteraction: boolean;
+  liveSteps?: CollapsedStepItem[];
 }) {
-  const { preWork, replyContent, replyMessageId, replyIsError } = classifyTurn(
-    turn.rest,
+  const {
+    preWork,
+    replyContent,
+    replyMessageId,
+    replyIsError,
+    replyAwaitsUser,
+  } = classifyTurn(turn.rest, {
     awaitingInteraction,
-  );
-  const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
+    continuing: liveSteps !== undefined,
+  });
+  const steps = [
+    ...preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef),
+    ...(liveSteps ?? []),
+  ];
   const charts = preWork.flatMap((msg) => {
     if (msg.role !== "tool") return [];
     return msg.content.flatMap((part, i) => {
@@ -1100,7 +1137,7 @@ function PersistedTurn({
         </AssistantBubble>
       )}
 
-      {hasReply && !replyIsError && replyMessageId && (
+      {hasReply && !replyIsError && !replyAwaitsUser && replyMessageId && (
         <AIChatFeedback
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}

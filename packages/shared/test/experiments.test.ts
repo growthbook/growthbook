@@ -27,11 +27,14 @@ import {
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
   isFactMetricJoinable,
+  getFactTableIdsForMetrics,
   parseSliceQueryString,
   parseSliceMetricId,
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
+  isAutoSnapshotScheduled,
   ExperimentMetricInterface,
+  withScheduledBy,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3006,5 +3009,78 @@ describe("conditional inline filter prompts", () => {
         reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
       ).toEqual([pageView]);
     });
+  });
+});
+
+describe("isAutoSnapshotScheduled", () => {
+  const on = {
+    autoSnapshots: true,
+    disableAutoSnapshots: false,
+    archived: false,
+  };
+
+  it("is scheduled only when every flag allows it", () => {
+    expect(isAutoSnapshotScheduled(on)).toBe(true);
+    expect(isAutoSnapshotScheduled({ ...on, autoSnapshots: false })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, disableAutoSnapshots: true })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, archived: true })).toBe(false);
+  });
+
+  it("treats a missing user override as not disabled", () => {
+    expect(
+      isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
+    ).toBe(true);
+  });
+});
+
+describe("withScheduledBy", () => {
+  const staged = { type: "start" as const, date: new Date(0) };
+  it.each([
+    ["a user", { userId: "u_1", apiKey: "key_1" }, { scheduledBy: "u_1" }],
+    ["a key", { apiKey: "key_1" }, { scheduledByApiKey: "key_1" }],
+    ["nobody", undefined, staged],
+  ])("stamps %s", (_who, by, expected) => {
+    expect(withScheduledBy(staged, by)).toEqual({ ...staged, ...expected });
+  });
+});
+
+describe("getFactTableIdsForMetrics", () => {
+  const metric = (m: object) => m as unknown as FactMetricInterface;
+  const mean = (factTableId: string) =>
+    metric({ metricType: "mean", numerator: { factTableId } });
+  const ratio = (numerator: string, denominator: string) =>
+    metric({
+      metricType: "ratio",
+      numerator: { factTableId: numerator },
+      denominator: { factTableId: denominator },
+    });
+  const funnel = (steps: string[]) =>
+    metric({
+      metricType: "funnel",
+      numerator: null,
+      funnelSettings: { steps: steps.map((factTableId) => ({ factTableId })) },
+    });
+
+  it("returns nothing for no metrics", () => {
+    expect(getFactTableIdsForMetrics([])).toEqual([]);
+  });
+
+  it("dedupes ids shared across metrics", () => {
+    expect(
+      getFactTableIdsForMetrics([mean("ft_a"), mean("ft_a"), mean("ft_b")]),
+    ).toEqual(["ft_a", "ft_b"]);
+  });
+
+  it("includes ratio denominators and every funnel step", () => {
+    expect(
+      getFactTableIdsForMetrics([
+        ratio("ft_a", "ft_b"),
+        funnel(["ft_b", "ft_c", "ft_d"]),
+      ]),
+    ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
   });
 });

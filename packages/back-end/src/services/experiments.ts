@@ -39,7 +39,9 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   naiveFlattenV1Rules,
-  validateCondition,
+  assertExposureQueryDeclaresIdentifierType,
+  toApiAssignmentQueryRef,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -47,6 +49,7 @@ import {
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
+  needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -73,6 +76,7 @@ import {
   getPhaseVariations,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
+  withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -187,6 +191,7 @@ import {
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -233,6 +238,7 @@ import {
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -249,6 +255,7 @@ import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "./datasource";
+import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
@@ -256,6 +263,9 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
+  getContextForAgendaJobByOrgObject,
+  getContextForApiKeyIdInOrg,
+  getContextForUserIdInOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
@@ -552,20 +562,19 @@ export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,
-  exposureQuery,
+  identifierType,
   datasource,
 }: {
   metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery?: ExposureQuery;
+  identifierType?: string;
   datasource?: DataSourceInterface;
 }): boolean {
-  if (!exposureQuery || !datasource) {
+  if (!identifierType || !datasource) {
     // be lenient and allow metrics through
     return true;
   }
-  const experimentIdType = exposureQuery.userIdType;
   const metric = metricMap.get(metricId);
 
   if (!metric) {
@@ -576,7 +585,7 @@ export function isJoinableMetric({
   if (isFactMetric(metric)) {
     return isFactMetricJoinable(
       metric,
-      experimentIdType,
+      identifierType,
       (id) => factTableMap.get(id),
       datasource.settings,
     );
@@ -584,7 +593,7 @@ export function isJoinableMetric({
 
   return isMetricJoinable(
     metric.userIdTypes ?? [],
-    experimentIdType,
+    identifierType,
     datasource.settings,
   );
 }
@@ -641,6 +650,17 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
+  // A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -692,7 +712,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -704,7 +724,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -716,7 +736,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -893,6 +913,7 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -1072,10 +1093,10 @@ export function resetExperimentBanditSettings({
     changes.goalMetrics = [];
   }
 
-  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  // Percentile caps on either tail are incompatible with Bandits.
   if (goalMetric && metricMap) {
     const metric = metricMap.get(goalMetric);
-    if (metric && metric?.cappingSettings?.type === "percentile") {
+    if (metric && needsPercentileCapSubquery(metric)) {
       changes.goalMetrics = [];
     }
   }
@@ -1721,6 +1742,7 @@ async function planSnapshotQueryRunner({
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
       incrementalRefreshModel,
       latestOverallSnapshotId,
     })
@@ -1910,6 +1932,7 @@ export async function planSnapshot({
           ...snapshotSettingsArgs,
           incrementalRefreshModel: null,
         }),
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
       })
     ) {
       legacyIncrementalRefresh = legacyDoc;
@@ -2085,6 +2108,7 @@ export async function createSnapshotFromPlan({
         legacyExperimentSettingsHash:
           getExperimentSettingsHashForIncrementalRefresh(
             plan.snapshot.settings,
+            datasource.settings.queries?.exposure ?? [],
           ),
       });
     if (!hasIncrementalRefreshLock) {
@@ -2146,14 +2170,7 @@ export async function createSnapshotFromPlan({
 
     experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
       experimentUpdateLog,
-      {
-        experimentId: experiment.id,
-        snapshotId: snapshot.id,
-        snapshotType,
-        triggeredBy:
-          snapshot.triggeredBy ?? plan.snapshot.triggeredBy ?? "manual",
-        datasource,
-      },
+      { datasource },
     );
 
     let queryRunner: ExperimentSnapshotQueryRunner;
@@ -2280,6 +2297,7 @@ export async function createSnapshotFromPlan({
           status: "error",
           error: e.message,
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger,
       });
     }
@@ -2475,6 +2493,51 @@ export async function getExperimentAffectedEnvs(
     hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
   }
 
+  const pendingDrafts = await loadPendingFeatureDrafts(
+    context,
+    experiment,
+    linkedFeatures,
+  );
+
+  return getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+    pendingDrafts,
+  });
+}
+
+// The principal a staged status change runs as: whoever armed it, user or org
+// API key, with the rights they hold now, project restrictions included.
+// Nobody recorded means nobody to run as.
+export async function getScheduledStatusContext(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.scheduledBy) {
+    return getContextForUserIdInOrg(context.org, staged.scheduledBy);
+  }
+  if (staged?.scheduledByApiKey) {
+    return getContextForApiKeyIdInOrg(context.org, staged.scheduledByApiKey);
+  }
+  // A stop staged before armers were recorded runs as the owner, as it did
+  // then; a start would publish drafts, so it has nobody to run as.
+  if (staged?.type === "stop" && experiment.owner) {
+    return getContextForUserIdInOrg(context.org, experiment.owner);
+  }
+  return null;
+}
+
+// The drafts a start publishes, with the features they land on.
+async function loadPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  linkedFeatures: FeatureInterface[] = [],
+): Promise<
+  { feature: FeatureInterface; revision: FeatureRevisionInterface }[]
+> {
   const pendingDrafts: {
     feature: FeatureInterface;
     revision: FeatureRevisionInterface;
@@ -2498,14 +2561,35 @@ export async function getExperimentAffectedEnvs(
       pendingDrafts.push({ feature, revision });
     }
   }
+  return pendingDrafts;
+}
 
-  return getAffectedEnvsForExperiment({
+// The fire publishes the pending drafts as the armer, so the arm asks the same
+// question up front. Loaded org-wide: a draft the armer cannot read is refused.
+export async function assertCanPublishPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const orgEnvironments = context.org.settings?.environments || [];
+  const drafts = await loadPendingFeatureDrafts(
+    getContextForAgendaJobByOrgObject(context.org),
     experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    // Passing undefined here makes it return __ALL__ envs.
-    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
-    pendingDrafts,
-  });
+  );
+  for (const draft of drafts) {
+    const envs = getAffectedEnvsForExperiment({
+      experiment: {
+        ...experiment,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      },
+      orgEnvironments,
+      linkedFeatures: [],
+      pendingDrafts: [draft],
+    });
+    if (!context.permissions.canPublishFeature(draft.feature, envs)) {
+      context.permissions.throwPermissionError();
+    }
+  }
 }
 
 // Run-experiments permission over the affected environments, on the
@@ -2557,9 +2641,79 @@ export function assertValidReleasedVariationId(
   }
 }
 
+type BucketVersionFields = Pick<
+  ExperimentInterface,
+  "bucketVersion" | "minBucketVersion"
+>;
+
+// A minBucketVersion above bucketVersion blocks every sticky-bucketed user after
+// their first exposure. Only a write that introduces a bad pair is rejected; a
+// pre-existing one is left alone.
+export function assertValidBucketVersions(
+  updated: Partial<BucketVersionFields>,
+  existing?: Partial<BucketVersionFields>,
+): void {
+  const bucketVersion = updated.bucketVersion ?? 0;
+  const minBucketVersion = updated.minBucketVersion ?? 0;
+  if (
+    existing &&
+    (existing.bucketVersion ?? 0) === bucketVersion &&
+    (existing.minBucketVersion ?? 0) === minBucketVersion
+  ) {
+    return;
+  }
+
+  for (const [field, value] of [
+    ["bucketVersion", bucketVersion],
+    ["minBucketVersion", minBucketVersion],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new BadRequestError(
+        `invalid_bucket_version: ${field} must be a non-negative integer`,
+      );
+    }
+  }
+  if (minBucketVersion > bucketVersion) {
+    throw new BadRequestError(
+      "invalid_bucket_version: minBucketVersion cannot be greater than bucketVersion",
+    );
+  }
+}
+
+export async function assertExperimentKeyFormat(
+  context: ReqContext | ApiReqContext,
+  trackingKey: string | undefined,
+  datasourceId: string | undefined,
+) {
+  const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
+    context.org.settings ?? {};
+  if (!pattern) return;
+  const example = experimentKeyExample ?? "";
+  if (!trackingKey) {
+    throw new InvalidTrackingKeyError(
+      "Your organization requires an experiment tracking key to be entered.",
+      pattern,
+      example,
+    );
+  }
+  if (new RegExp(pattern).test(trackingKey)) return;
+  // Keys discovered in the Data Source can't be renamed, so they're exempt
+  const pastExperiments = datasourceId
+    ? await getPastExperimentsModelByDatasource(context.org.id, datasourceId)
+    : null;
+  if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
+    return;
+  throw new InvalidTrackingKeyError(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${example}'`,
+    pattern,
+    example,
+  );
+}
+
 // Assigns missing ids and keys, then checks both are unique. On an update
 // (`existing`), an omitted id keeps the stored one by key, else by position,
 // so linked feature rules keep pointing at the same variations.
+
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
   existing?: Pick<Variation, "id" | "key">[],
@@ -3308,6 +3462,11 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        await getExposureQueriesForDatasource(context, experiment.datasource),
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
@@ -3473,6 +3632,7 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3539,6 +3699,15 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
+      /**
+       * Legacy contract: settings describe the current experiment, not the
+       * snapshot (bulk results are the snapshot-authoritative view).
+       */
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        exposureQueries,
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
@@ -4000,13 +4169,11 @@ export function postMetricApiPayloadToMetricInterface(
   // Assign all undefined behavior fields to the metric
   if (behavior) {
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
       // handle old post requests
     } else if (typeof behavior.capping !== "undefined") {
@@ -4154,14 +4321,11 @@ export function putMetricApiPayloadToMetricInterface(
     }
 
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        ...behavior.cappingSettings,
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings = {
@@ -4567,8 +4731,18 @@ function apiScheduleToInterface(
   };
 }
 
+export type PostExperimentApiPayload = z.infer<
+  typeof postExperimentValidator.bodySchema
+> & {
+  /**
+   * Internal-only: the handler resolves this from assignmentQuery or a
+   * template.
+   */
+  assignmentQueryIdentifierType?: string;
+};
+
 export function postExperimentApiPayloadToInterface(
-  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
@@ -4584,18 +4758,6 @@ export function postExperimentApiPayloadToInterface(
     // Accept the GET-response field names as aliases so a GET -> POST
     // round-trip is lossless. The POST-only fields take precedence when set.
     const condition = p.condition || p.targetingCondition || "{}";
-    const conditionRes = validateCondition(condition);
-    if (!conditionRes.success) {
-      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-    }
-    p.prerequisites?.forEach((prerequisite) => {
-      const conditionRes = validateCondition(prerequisite.condition);
-      if (!conditionRes.success) {
-        throw new Error(
-          `Invalid prerequisite condition: ${conditionRes.error}`,
-        );
-      }
-    });
 
     return {
       ...p,
@@ -4668,6 +4830,8 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
+    /** Parsed by the caller, which has the data source's queries. */
+    exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4759,7 +4923,7 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-type UpdateExperimentApiPayload = z.infer<
+export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 >;
 
@@ -4840,18 +5004,6 @@ function resolveExperimentUpdateVariationsAndPhases(
       // Accept the GET-response field names as aliases so a GET -> POST
       // round-trip is lossless. The POST-only fields take precedence when set.
       const condition = p.condition || p.targetingCondition || "{}";
-      const conditionRes = validateCondition(condition);
-      if (!conditionRes.success) {
-        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-      }
-      p.prerequisites?.forEach((prerequisite) => {
-        const conditionRes = validateCondition(prerequisite.condition);
-        if (!conditionRes.success) {
-          throw new Error(
-            `Invalid prerequisite condition: ${conditionRes.error}`,
-          );
-        }
-      });
 
       // Update phase variations to match new variations payload if it exists
       // otherwise, use the existing phase variations
@@ -4916,6 +5068,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
+  by?: { userId?: string; apiKey?: string },
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -4960,7 +5113,7 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = stagedStop;
+      changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
     }
   } else if (
     changes.status &&
@@ -5259,12 +5412,15 @@ export async function getRefLinkedFeatureInfo({
   refIsDraft,
   matchRule,
   pendingFeatureDrafts,
+  publisher = context,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
   pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+  // Who a start would publish each draft as; null when nobody can be resolved.
+  publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
 
@@ -5455,6 +5611,16 @@ export async function getRefLinkedFeatureInfo({
           : undefined) ??
         !!feature.environmentSettings?.[environmentId]?.enabled;
 
+      const cannotPublish =
+        state === "draft" && !!matchedDraftRevision
+          ? !publisher ||
+            !publisher.permissions.canPublishFeature(
+              feature,
+              matches
+                .filter((m) => envEnabled(m.environmentId))
+                .map((m) => m.environmentId),
+            )
+          : undefined;
       const environmentStates: Record<string, LinkedFeatureEnvState> = {};
       environments.forEach((env) => (environmentStates[env] = "missing"));
       matches.forEach((match) => {
@@ -5535,6 +5701,7 @@ export async function getRefLinkedFeatureInfo({
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(cannotPublish !== undefined && { cannotPublish }),
         ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
@@ -5548,7 +5715,15 @@ export async function getRefLinkedFeatureInfo({
 export async function getLinkedFeatureInfo(
   context: ReqContext,
   experiment: ExperimentInterface,
+  { publisher }: { publisher?: ReqContext | ApiReqContext } = {},
 ) {
+  // Once a start is armed the drafts publish as the armer, so judge as them;
+  // a caller about to arm replaces the armer and is judged as itself.
+  const judgedAs =
+    publisher ??
+    (experiment.nextScheduledStatusUpdate?.type === "start"
+      ? await getScheduledStatusContext(context, experiment)
+      : context);
   return getRefLinkedFeatureInfo({
     context,
     linkedFeatureIds: experiment.linkedFeatures || [],
@@ -5556,6 +5731,7 @@ export async function getLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
     pendingFeatureDrafts: experiment.pendingFeatureDrafts,
+    publisher: judgedAs,
   });
 }
 
@@ -5712,7 +5888,7 @@ export async function getChangesToStartExperiment(
     if (!metric) {
       throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
     }
-    if (metric.cappingSettings.type === "percentile") {
+    if (needsPercentileCapSubquery(metric)) {
       throw new Error("Goal metric must not use percentile capping");
     }
   }

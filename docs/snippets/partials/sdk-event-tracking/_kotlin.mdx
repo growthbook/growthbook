@@ -1,0 +1,40 @@
+Requires the GrowthBook Kotlin SDK v7.8.0 or later, with `NetworkDispatcherKtor` v1.2.0+ or `NetworkDispatcherOkHttp` v1.1.0+.
+
+```kotlin
+import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.GBNetworkDispatcherKtor
+import com.sdk.growthbook.plugin.TrackingPluginConfig
+import com.sdk.growthbook.plugin.tracking.GrowthBookTrackingPlugin
+
+val networkDispatcher = GBNetworkDispatcherKtor()
+
+val growthBook = GBSDKBuilder(
+    apiKey = "YOUR_CLIENT_KEY",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = attributes,
+    networkDispatcher = networkDispatcher,
+    trackingCallback = { _, _ -> },
+)
+    .setPlugins(
+        listOf(
+            GrowthBookTrackingPlugin(
+                TrackingPluginConfig(
+                    clientKey = "YOUR_CLIENT_KEY",
+                    networkDispatcher = networkDispatcher,
+                    ingestorHost = "https://us-east-1.gb-ingest.com",
+                )
+            )
+        )
+    )
+    .initialize()
+```
+
+The plugin doesn't inherit the builder's client key or network dispatcher, so pass both to `TrackingPluginConfig`. Without a network dispatcher, no events are sent.
+
+Custom events aren't supported yet. Send them with the [Ingestion API](/app/managed-warehouse#ingestion-api).
+
+| Option         | Description                                                            |
+| -------------- | ---------------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                         |
+| `batchSize`    | Events to queue before sending. Default `100`.                         |
+| `batchTimeout` | How long to wait before sending a partial batch. Default `10.seconds`. |

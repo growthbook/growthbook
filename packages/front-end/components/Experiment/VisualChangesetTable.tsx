@@ -711,7 +711,7 @@ function UrlCard({
               useRadix={false}
               visualChangeset={vc}
               useLink
-              button={<Button variant="ghost">Launch visual editor</Button>}
+              button={<Button variant="ghost">Launch AI Visual Editor</Button>}
             />
           )}
         </Box>

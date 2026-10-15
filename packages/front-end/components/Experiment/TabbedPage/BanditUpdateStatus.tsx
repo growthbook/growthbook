@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { isAutoSnapshotScheduled } from "shared/experiments";
 import { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
@@ -146,8 +147,7 @@ export default function BanditUpdateStatus({
                       <td className="text-muted">Next scheduled update:</td>
                       <td>
                         {experiment.nextSnapshotAttempt &&
-                        experiment.autoSnapshots &&
-                        !experiment.disableAutoSnapshots ? (
+                        isAutoSnapshotScheduled(experiment) ? (
                           ago(experiment.nextSnapshotAttempt)
                         ) : (
                           <em>Not scheduled</em>

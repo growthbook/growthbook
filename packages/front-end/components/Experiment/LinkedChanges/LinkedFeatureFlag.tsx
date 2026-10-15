@@ -236,6 +236,20 @@ export default function LinkedFeatureFlag({
             </Link>
           </Callout>
         )}
+        {info.state === "draft" && info.cannotPublish && (
+          <Callout status="error" my="4">
+            {experiment.nextScheduledStatusUpdate?.type === "start"
+              ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule the start, then approve it again from an account that can."
+              : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts."}{" "}
+            <Link
+              href={`/features/${info.feature?.id}${(info.draftRevisionVersion ?? null) !== null ? `?v=${info.draftRevisionVersion}` : ""}`}
+              target="_blank"
+            >
+              View draft
+              <PiArrowSquareOut className="ml-1" />
+            </Link>
+          </Callout>
+        )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
           info.hasUnrelatedDraftChanges && (
@@ -255,7 +269,8 @@ export default function LinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges && (
+          !info.hasUnrelatedDraftChanges &&
+          !info.cannotPublish && (
             <Callout
               status="info"
               my="4"

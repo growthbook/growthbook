@@ -46,7 +46,6 @@ import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModa
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
@@ -119,7 +118,6 @@ export default function EditSavedGroupPage() {
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
@@ -161,10 +159,12 @@ export default function EditSavedGroupPage() {
   );
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
+  const referencingBandits = references?.contextualBandits ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
   const totalReferences =
     referencingFeatures.length +
     referencingExperiments.length +
+    referencingBandits.length +
     referencingSavedGroups.length;
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -392,8 +392,7 @@ export default function EditSavedGroupPage() {
     permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup) &&
     (!approvalRequired || canAdminPublish);
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
-    useLargeSavedGroupSupport();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
@@ -445,13 +444,6 @@ export default function EditSavedGroupPage() {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="large-saved-groups"
-          commercialFeature="large-saved-groups"
-        />
-      )}
       {showAuditModal && savedGroup && (
         <AuditHistoryExplorerModal<SavedGroupInterface>
           entityId={savedGroup.id}
@@ -753,7 +745,6 @@ export default function EditSavedGroupPage() {
             <IdListItemInput
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
-              openUpgradeModal={() => setUpgradeModal(true)}
               listAboveSizeLimit={listAboveSizeLimit}
               bypassSizeLimit={adminBypassSizeLimit}
               setBypassSizeLimit={setAdminBypassSizeLimit}
@@ -861,6 +852,7 @@ export default function EditSavedGroupPage() {
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
+            contextualBandits={referencingBandits}
             savedGroups={referencingSavedGroups}
           />
         </Modal>
@@ -1399,14 +1391,10 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
-            {savedGroup.type === "list" && (
-              <LargeSavedGroupPerformanceWarning
-                hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-                unsupportedConnections={unsupportedConnections}
-                connections={connections}
-                openUpgradeModal={() => setUpgradeModal(true)}
-              />
-            )}
+            <LargeSavedGroupPerformanceWarning
+              {...largeSavedGroupSupport}
+              type={savedGroup.type === "condition" ? "condition" : "list"}
+            />
             {savedGroup.type === "condition" ? (
               <>
                 <Heading size="md" as="h2" mb="3">
@@ -1454,7 +1442,7 @@ export default function EditSavedGroupPage() {
                   </Flex>
                   <Flex direction="row" gap="2">
                     <Text weight="medium">IF</Text>
-                    <Box>
+                    <Box flexGrow="1" minWidth="0">
                       <ConditionDisplay
                         condition={displayedSavedGroup?.condition || ""}
                         savedGroups={[]}

@@ -16,7 +16,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -66,9 +65,8 @@ export default function IdLists({ groups, mutate }: Props) {
     [idLists, project],
   );
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
-    useLargeSavedGroupSupport();
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
+  const { unsupportedConnections } = largeSavedGroupSupport;
   const [showArchived, setShowArchived] = useState(false);
 
   const idListsWithOwners = useAddComputedFields(
@@ -152,13 +150,6 @@ export default function IdLists({ groups, mutate }: Props) {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="large-saved-groups"
-          commercialFeature="large-saved-groups"
-        />
-      )}
       {deleteModal && (
         <SavedGroupDeleteModal
           savedGroup={deleteModal}
@@ -203,12 +194,7 @@ export default function IdLists({ groups, mutate }: Props) {
 
         {unsupportedConnections.length > 0 ? (
           <Box mt="4">
-            <LargeSavedGroupPerformanceWarning
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              unsupportedConnections={unsupportedConnections}
-              connections={connections}
-              openUpgradeModal={() => setUpgradeModal(true)}
-            />
+            <LargeSavedGroupPerformanceWarning {...largeSavedGroupSupport} />
           </Box>
         ) : null}
 

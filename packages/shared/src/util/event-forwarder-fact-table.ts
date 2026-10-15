@@ -11,9 +11,16 @@ import {
   isEventForwarderManaged,
 } from "./event-forwarder-datasource";
 import {
+  quoteDatabricksIdentifier,
   resolveBigQueryEventForwarderTableNames,
+  resolveDatabricksEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
 } from "./event-forwarder-destination";
+
+export type EventForwarderQuerySinkType =
+  | "bigquery"
+  | "snowflake"
+  | "databricks";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
@@ -125,6 +132,16 @@ export function buildSnowflakeEventForwarderTableReference(
   return `${database.trim()}.${schema.trim()}.${tableName.trim()}`;
 }
 
+export function buildDatabricksEventForwarderTableReference(
+  catalog: string,
+  schema: string,
+  tableName: string,
+): string {
+  return [catalog, schema, tableName]
+    .map((identifier) => quoteDatabricksIdentifier(identifier.trim()))
+    .join(".");
+}
+
 export function quoteBigQueryIdentifier(identifier: string): string {
   return `\`${identifier}\``;
 }
@@ -144,6 +161,32 @@ function escapeBigQueryJsonPathKey(key: string): string {
 
 function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
+}
+
+// Keys are sanitized Avro field names, so only the SQL string literal needs escaping.
+function buildDatabricksVariantPath(key: string): string {
+  return `'$.${key.replace(/'/g, "''")}'`;
+}
+
+function buildDatabricksFlatMapAttributeValueSql(
+  fieldName: string,
+  valueDatatype: EventForwarderAttributeValueDatatype,
+): string {
+  const path = buildDatabricksVariantPath(fieldName);
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD;
+
+  switch (valueDatatype) {
+    case "number":
+      return `variant_get(${attributesCol}, ${path}, 'DOUBLE')`;
+    case "boolean":
+      return `variant_get(${attributesCol}, ${path}, 'BOOLEAN')`;
+    case "json":
+      // Untyped variant_get keeps VARIANT so the column refresh infers "json".
+      return `variant_get(${attributesCol}, ${path})`;
+    case "string":
+    default:
+      return `variant_get(${attributesCol}, ${path}, 'STRING')`;
+  }
 }
 
 /** Warehouse value type used when casting flat map<string, string> entries. */
@@ -258,7 +301,7 @@ export function buildEventForwarderNestedAttributeValueSql({
   valueDatatype,
   castToString = false,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   attributeName: string;
   /** SDK attribute datatype (fact tables derive effective casts from this). */
   attributeDatatype?: SDKAttributeType;
@@ -286,6 +329,18 @@ export function buildEventForwarderNestedAttributeValueSql({
     return valueSql;
   }
 
+  if (sinkType === "databricks") {
+    // variant_get(..., 'STRING') already yields STRING; no extra cast needed.
+    return coalesceSqlExpressions(
+      lookupKeys.map((fieldName) =>
+        buildDatabricksFlatMapAttributeValueSql(
+          fieldName,
+          resolvedValueDatatype,
+        ),
+      ),
+    );
+  }
+
   return coalesceSqlExpressions(
     lookupKeys.map((fieldName) =>
       buildSnowflakeFlatMapAttributeValueSqlForKey({
@@ -307,7 +362,7 @@ export function buildEventForwarderPropertyValueSql({
   sinkType,
   propertyKey,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   propertyKey: string;
 }): string {
   if (sinkType === "bigquery") {
@@ -317,6 +372,10 @@ export function buildEventForwarderPropertyValueSql({
     return `JSON_VALUE(${propertiesCol}, '$."${escapeBigQueryJsonPathKey(
       propertyKey,
     )}"')`;
+  }
+
+  if (sinkType === "databricks") {
+    return `variant_get(${EVENT_FORWARDER_AVRO_PROPERTIES_FIELD}, ${buildDatabricksVariantPath(propertyKey)}, 'STRING')`;
   }
 
   const propertiesCol = EVENT_FORWARDER_AVRO_PROPERTIES_FIELD.toUpperCase();
@@ -369,15 +428,15 @@ function buildEventForwarderEventsFactTableSelect({
   datasourceProjects,
   userIdTypes = [],
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   attributeSchema?: SDKAttributeSchema;
   datasourceProjects?: string[];
   userIdTypes?: UserIdType[];
 }): string {
   const baseColumns =
-    sinkType === "bigquery"
-      ? ["  timestamp", "  event_name"]
-      : ["  TIMESTAMP AS timestamp", "  EVENT_NAME AS event_name"];
+    sinkType === "snowflake"
+      ? ["  TIMESTAMP AS timestamp", "  EVENT_NAME AS event_name"]
+      : ["  timestamp", "  event_name"];
   const attributes = getEventForwarderEventsFactTableAttributes(
     attributeSchema,
     datasourceProjects,
@@ -454,6 +513,15 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
       userIdTypes?: UserIdType[];
+    }
+  | {
+      sinkType: "databricks";
+      catalog: string;
+      schema: string;
+      tablePrefix: string;
+      attributeSchema?: SDKAttributeSchema;
+      datasourceProjects?: string[];
+      userIdTypes?: UserIdType[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -471,6 +539,20 @@ export function buildEventForwarderEventsFactTableSql(
       tableNames.events,
     );
     const select = buildEventForwarderEventsFactTableSelect(params);
+    return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
+  }
+
+  if (params.sinkType === "databricks") {
+    const tableNames = resolveDatabricksEventForwarderTableNames(
+      params.tablePrefix,
+    );
+    const tableRef = buildDatabricksEventForwarderTableReference(
+      params.catalog,
+      params.schema,
+      tableNames.events,
+    );
+    const select = buildEventForwarderEventsFactTableSelect(params);
+    // Tables are liquid-clustered on received_at, so the filter prunes files.
     return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
   }
 

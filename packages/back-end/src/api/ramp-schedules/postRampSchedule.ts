@@ -11,6 +11,7 @@ import {
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
+  apiAssignmentQueryInputFields,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -32,6 +33,7 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -106,7 +108,7 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),
@@ -428,6 +430,10 @@ export const postRampSchedule = createApiRequestHandler(
     } as unknown as RampScheduleInterface);
   }
 
+  const monitoringConfig = body.monitoringConfig
+    ? await resolveApiMonitoringConfig(req.context, body.monitoringConfig, null)
+    : null;
+
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
     entityType: "feature",
@@ -454,7 +460,7 @@ export const postRampSchedule = createApiRequestHandler(
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(
-      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+      monitoringConfig ?? template?.monitoringConfig ?? null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     ...(body.experimentHealthAction
@@ -489,5 +495,5 @@ export const postRampSchedule = createApiRequestHandler(
     await dispatchAwaitingStartApproval(req.context, schedule);
   }
 
-  return { rampSchedule: rampScheduleToApiInterface(schedule) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, schedule) };
 });

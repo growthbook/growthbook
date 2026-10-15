@@ -40,8 +40,11 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
 
       // Validate condition
-      const allSavedGroups = await req.context.models.savedGroups.getAll();
-      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const referencedGroups =
+        await req.context.models.savedGroups.getReferencedWithoutValues(
+          condition,
+        );
+      const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
       const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
@@ -87,7 +90,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       groupName: name,
       // Falls back to the authenticated user (only present for Personal Access
       // Tokens) when no owner is provided, otherwise stays empty.
-      owner: owner || req.context.userId || "",
+      owner: owner || req.context.actingUserId,
       condition: condition || "",
       attributeKey,
       projects,

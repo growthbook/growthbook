@@ -6,6 +6,7 @@ import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
 } from "shared/constants";
 import { z } from "zod";
 
@@ -233,6 +234,13 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
 
+// Upper bound for the per-webhook request timeout users can configure
+export const MAX_WEBHOOK_TIMEOUT_SECONDS = parseEnvInt(
+  process.env.MAX_WEBHOOK_TIMEOUT_SECONDS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
+  { min: 1, name: "MAX_WEBHOOK_TIMEOUT_SECONDS" },
+);
+
 // Must exceed the idle timeout of any load balancer in front of us, or the LB
 // reuses connections we already closed and returns spurious 502s to clients.
 export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
@@ -376,6 +384,11 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+
+// Self-hosted only: extra AI Assistant skills, layered over the built-ins.
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
 // Kraken.io credentials — AI-generated images are resized + re-encoded to
 // WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
 // which proved unreliable in production. When unset, optimization is skipped
