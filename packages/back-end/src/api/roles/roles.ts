@@ -1,3 +1,4 @@
+import { pick } from "lodash";
 import {
   deleteRoleValidator,
   listRolesValidator,
@@ -60,7 +61,11 @@ async function auditRoles(
     entity: { object: "organization", id: org.id },
     details: auditDetailsUpdate(
       { customRoles: org.customRoles, deactivatedRoles: org.deactivatedRoles },
-      after,
+      {
+        customRoles: org.customRoles,
+        deactivatedRoles: org.deactivatedRoles,
+        ...after,
+      },
     ),
   });
 }
@@ -75,7 +80,12 @@ export const postRole = createApiRequestHandler(postRoleValidator)(async (
   req,
 ) => {
   assertCanManageCustomRoles(req.context);
-  const role: Role = req.body;
+  const role: Role = pick(req.body, [
+    "id",
+    "displayName",
+    "description",
+    "policies",
+  ]);
   await addCustomRole(req.context.org, role);
   await auditRoles(req, {
     customRoles: [...(req.context.org.customRoles ?? []), role],
@@ -91,7 +101,10 @@ export const putRole = createApiRequestHandler(putRoleValidator)(async (
   if (RESERVED_ROLE_IDS.includes(existing.id)) {
     req.context.throwBadRequestError("Built-in roles can't be edited.");
   }
-  const { id, ...rest } = { ...existing, ...req.body };
+  const { id, ...rest } = {
+    ...existing,
+    ...pick(req.body, ["displayName", "description", "policies"]),
+  };
   await editCustomRole(req.context.org, id, rest);
   const updated = { id, ...rest };
   await auditRoles(req, {

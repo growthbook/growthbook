@@ -26,6 +26,15 @@ const roleFields = {
   policies: z.array(z.enum(POLICIES)),
 };
 
+// Returned by GET; accepted so a role can be sent back as-is.
+const readOnlyRoleFields = {
+  isCustom: z.boolean().optional().describe("Read-only; ignored."),
+  deactivated: z
+    .boolean()
+    .optional()
+    .describe("Read-only; ignored. Use the activate and deactivate endpoints."),
+};
+
 const idParams = z.object({ id: z.string().describe("The role id") }).strict();
 
 const roleResponse = z.object({ role: apiRoleValidator }).strict();
@@ -55,6 +64,7 @@ export const postRoleValidator = {
         .regex(/^[a-zA-Z0-9_]+$/)
         .describe("Letters, numbers and underscores only"),
       ...roleFields,
+      ...readOnlyRoleFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -76,7 +86,13 @@ export const postRoleValidator = {
 };
 
 export const putRoleValidator = {
-  bodySchema: z.object(roleFields).partial().strict(),
+  bodySchema: z
+    .object({
+      ...z.object(roleFields).partial().shape,
+      id: z.string().optional().describe("Read-only; the path names the role."),
+      ...readOnlyRoleFields,
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: roleResponse,
