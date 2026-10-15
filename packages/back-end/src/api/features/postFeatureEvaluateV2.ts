@@ -103,6 +103,7 @@ export const postFeatureEvaluateV2 = createApiRequestHandler(
     attributes,
     skipRulesWithPrerequisites: req.body.skipRulesWithPrerequisites ?? true,
     date: req.body.evalDate ? new Date(req.body.evalDate) : new Date(),
+    includeRuleIds: true,
   });
 
   return { results: results.map(toApiEvaluation) };

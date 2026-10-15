@@ -24,7 +24,12 @@ export const apiFeatureEvaluationValidator = namedSchema(
         ])
         .nullable()
         .describe("Why this value was chosen. Null when disabled."),
-      ruleId: z.string().nullable().describe("The rule that matched, if any"),
+      ruleId: z
+        .string()
+        .nullable()
+        .describe(
+          "The rule that matched, if any, as the SDK payload names it (without any `__<environment>` suffix)",
+        ),
       experiment: z
         .object({
           key: z.string(),
@@ -56,7 +61,7 @@ export const postFeatureEvaluateValidator = {
         .int()
         .optional()
         .describe(
-          "Revision to evaluate, including unpublished drafts. Defaults to the live version.",
+          "Revision to evaluate, including unpublished drafts. Defaults to the live version. Rules and values come from this revision; environment toggles and archived state are always the live ones.",
         ),
       environments: z
         .array(z.string())
@@ -109,7 +114,7 @@ export const getFeatureDependentsValidator = {
     .strict(),
   summary: "Get the flags and experiments that depend on a feature flag",
   description:
-    "Check this before archiving or deleting a flag. Includes archived dependents.",
+    "Check this before archiving or deleting a flag. Includes archived dependents, but only those in projects the caller can read.",
   operationId: "getFeatureDependents",
   tags: ["features-v2"],
   method: "get" as const,
