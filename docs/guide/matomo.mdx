@@ -46,7 +46,7 @@ const growthbook = new GrowthBook({
       "trackEvent",
       "ExperimentViewed",
       experiment.key,
-      "v" + result.variationId,
+      "v" + result.key,
     ]);
   },
 });
@@ -87,7 +87,7 @@ const growthbook = new GrowthBook({
     trackingCallback: (experiment, result) => {
         if (window) {
             window["_paq"] = window._paq || [];
-            window._paq.push(['trackEvent', 'ExperimentViewed', experiment.key, "v"+result.variationId]);
+            window._paq.push(['trackEvent', 'ExperimentViewed', experiment.key, "v"+result.key]);
         }
     }
 });
