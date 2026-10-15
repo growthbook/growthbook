@@ -65,6 +65,30 @@
   }
 }
 
+// Dark mode (set in review): the rail in the app's own navy rather than
+// Radix's neutral --slate-2, which there is near-black (#18191b) and sat
+// beside the navy page as a different hue. Its background is the app's
+// dark page background navy (#10172e), a step darker than
+// the navy panels the content uses (--color-panel-solid, #1c2339), as the
+// light rail is a step darker than the white page. Its border, dividers
+// and keycaps in translucent white (--slate-a4 / --slate-a5), which take
+// the navy beneath rather than a neutral grey. The hover and selected
+// greys are translucent already.
+//
+// The navy is fixed here, not var(--color-background) (fix, set in
+// review): redesigned pages repoint that token to the panel navy, so the
+// rail matched the content there and was darker elsewhere. Fixed, it's the
+// same on every page. (To come from the dark mode colour work, as a nav
+// surface token.)
+$rail-dark-bg: #10172e;
+
+:global(.dark-theme) .rail {
+  --rail-bg: #{$rail-dark-bg};
+  --rail-border: var(--slate-a4);
+  --rail-divider: var(--slate-a5);
+  --rail-keycap: var(--slate-a4);
+}
+
 // PROTOTYPE (set in review): with "Existing page colors" on in the
 // prototype settings (PrototypeControls.tsx), the rail is white
 // (--color-panel-solid; the dark panel colour in dark mode) beside the
@@ -496,6 +520,12 @@
       animation: none;
     }
   }
+}
+
+// Dark mode: the collapsed rail's menus in the rail's navy too (above), as
+// the rail they come out of.
+:global(.dark-theme) .popover.popover.popover {
+  background: $rail-dark-bg;
 }
 
 // With "Existing page colors" on (above), the collapsed rail's menus are
