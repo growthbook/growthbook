@@ -143,7 +143,18 @@ const dataSourceSettingsInput = {
         id: z.string().optional().describe("Omit to create a new query"),
         name: z.string(),
         description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-        identifierType: z.string(),
+        identifierTypes: z
+          .array(z.string())
+          .min(1)
+          .optional()
+          .describe("Required for a new query unless identifierType is set"),
+        identifierType: z
+          .string()
+          .optional()
+          .describe(
+            "Deprecated: use identifierTypes, which wins if both are set",
+          )
+          .meta({ deprecated: true }),
         sql: z.string(),
         includesNameColumns: z.boolean().optional(),
         dimensionColumns: z.array(z.string()).optional(),
@@ -151,7 +162,7 @@ const dataSourceSettingsInput = {
     )
     .optional()
     .describe(
-      'Replaces the list. An entry with an existing `id` keeps `description`, `includesNameColumns` and `dimensionColumns` if left out; send `""`, `false` or `[]` to clear them. Each query is validated against the warehouse.',
+      'Replaces the list. An entry with an existing `id` keeps `description`, `identifierTypes`, `includesNameColumns` and `dimensionColumns` if left out; clear the others with `""`, `false` or `[]`. Each query is validated against the warehouse.',
     ),
   identifierJoinQueries: z
     .array(z.object({ identifierTypes: z.array(z.string()), sql: z.string() }))

@@ -115,6 +115,17 @@ export async function getQueryById(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50,
+) {
+  const docs = await QueryModel.find({ organization, datasource })
+    .limit(limit)
+    .sort({ createdAt: -1 });
+  return docs.map((doc) => toInterface(doc));
+}
+
 // Queries still in flight; querylogs only gets a row once a query finishes
 export async function getRunningQueriesByDatasource(
   organization: string,
