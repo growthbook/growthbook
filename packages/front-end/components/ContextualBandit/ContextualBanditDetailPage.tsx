@@ -258,14 +258,15 @@ export default function ContextualBanditDetailPage({
   const pendingVariations = cb.variations
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
+  const pendingEach = pendingVariations.length === 1 ? "it" : "each of them";
   const pendingReasons = [
     linkedFeatures.length > 0
       ? "a linked Feature Flag rule to be published"
       : null,
     visualChangesets.length > 1
-      ? "a visual editor change to be saved for it on every page"
+      ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
       : visualChangesets.length > 0
-        ? "a visual editor change to be saved for it"
+        ? `an AI Visual Editor change to be saved for ${pendingEach}`
         : null,
   ]
     .filter(Boolean)
@@ -561,13 +562,17 @@ export default function ContextualBanditDetailPage({
                         </Box>
                       ))}
                       <Text>
-                        {pendingVariations.length === 1 ? "is" : "are"} waiting
-                        on {pendingReasons} and will not receive any traffic
-                        until then.{" "}
+                        {pendingVariations.length === 1 ? "is" : "are"}{" "}
+                        {pendingReasons
+                          ? `waiting on ${pendingReasons} and will not receive any traffic until then. `
+                          : "not receiving any traffic yet. "}
                         {pendingVariations.length === 1
                           ? "It activates"
                           : "They activate"}{" "}
-                        automatically once that happens.
+                        automatically once{" "}
+                        {pendingReasons
+                          ? "that happens."
+                          : "a linked change is ready."}
                       </Text>
                     </Flex>
                   </Callout>

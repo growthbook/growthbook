@@ -10,7 +10,7 @@ import {
 export type VisualChangesetOwnerVariation = {
   id: string;
   name: string;
-  weight: number;
+  weight?: number;
   previewIndex?: number;
 };
 
@@ -56,32 +56,23 @@ export function experimentVisualChangesetOwner(
 export function contextualBanditVisualChangesetOwner(
   cb: Pick<
     ApiContextualBanditInterface,
-    | "id"
-    | "trackingKey"
-    | "status"
-    | "archived"
-    | "variations"
-    | "variationWeights"
+    "id" | "trackingKey" | "status" | "archived" | "variations"
   >,
   deleteVariation?: (variationId: string) => Promise<void>,
 ): VisualChangesetOwnerView {
   const variations = getVisibleVariations(cb.variations);
   const activeIds = getActiveVariations(cb.variations).map((v) => v.id);
-  const weightFor = (variationId: string) =>
-    cb.variationWeights?.find((w) => w.variationId === variationId)?.weight ??
-    0;
   const isDraft = cb.status === "draft";
   return {
     id: cb.id,
     trackingKey: cb.trackingKey,
     status: cb.status,
-    noun: "contextual bandit",
+    noun: "Contextual Bandit",
     variations: variations.map((v) => {
       const sdkIndex = activeIds.indexOf(v.id);
       return {
         id: v.id,
         name: v.name,
-        weight: weightFor(v.id),
         previewIndex: sdkIndex >= 0 ? sdkIndex : undefined,
       };
     }),

@@ -24,7 +24,7 @@ const experimentTarget: LinkedChangeTarget = {
 
 const cbTarget: LinkedChangeTarget = {
   project: "prj_a",
-  noun: "contextual bandit",
+  noun: "Contextual Bandit",
   types: ["feature-flag", "visual-editor"],
   extraSdkCapabilities: { "visual-editor": ["contextualBanditsAuto"] },
   sdkUnsupportedCopy: { "visual-editor": "Bandit copy" },
@@ -86,6 +86,6 @@ describe("linked change copy", () => {
   });
 
   it("names the target in the premium copy", () => {
-    expect(linkedChangePremiumCopy(cbTarget)).toContain("contextual bandit");
+    expect(linkedChangePremiumCopy(cbTarget)).toContain("Contextual Bandit");
   });
 });

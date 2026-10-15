@@ -336,7 +336,7 @@ function VariationRow({
   previewIndex?: number;
   variationId: string;
   variationName: string;
-  splitPct: number;
+  splitPct?: number;
   canEdit: boolean;
   // Whether the row should render its own trash icon (variation-level).
   // Gated by the caller so we can disable for Control / running
@@ -466,9 +466,11 @@ function VariationRow({
             size="md"
           />
         </Box>
-        <Flex flexBasis="90px" flexShrink="0" justify="end">
-          <Metadata label="Split" value={splitPct + "%"} />
-        </Flex>
+        {splitPct !== undefined && (
+          <Flex flexBasis="90px" flexShrink="0" justify="end">
+            <Metadata label="Split" value={splitPct + "%"} />
+          </Flex>
+        )}
         <Box className={styles.changesArea}>
           {count === 0 ? (
             <span className={styles.changesEmpty}>No visual changes</span>
@@ -528,13 +530,18 @@ function VariationRow({
       </Flex>
       {confirmingVariantDelete && (
         <ConfirmDialog
-          title={`Delete "${variationName}"?`}
+          title="Delete this variation?"
           content={
             <>
-              This will remove <strong>{variationName}</strong> from the{" "}
-              {owner.noun}, along with all of its visual changes across every
-              targeted URL. Other variations are unaffected. This can&rsquo;t be
-              undone.
+              This will remove{" "}
+              <VariationLabel
+                number={variationIndex}
+                name={variationName}
+                size="md"
+              />{" "}
+              from the {owner.noun}, along with all of its visual changes across
+              every targeted URL. Other variations are unaffected. This
+              can&rsquo;t be undone.
             </>
           }
           yesText="Delete variation"
@@ -736,7 +743,9 @@ function UrlCard({
               previewIndex={v.previewIndex}
               variationId={v.id}
               variationName={v.name}
-              splitPct={decimalToPercent(v.weight)}
+              splitPct={
+                v.weight !== undefined ? decimalToPercent(v.weight) : undefined
+              }
               canEdit={canEdit}
               // Deleting a variation is allowed only on drafts (running
               // experiments shouldn't lose buckets retroactively), only
