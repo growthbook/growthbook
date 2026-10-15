@@ -49,11 +49,40 @@ function toApiEvent(e: EventInterface) {
   };
 }
 
+type Cursor = { date: Date; seen: string[] };
+
+// `before` is a date-time, or a nextCursor "<date-time>_<ids>" listing the
+// entries already returned at that time, so ties at a page boundary aren't lost.
+function parseBefore(context: ApiReqContext, before?: string): Cursor | null {
+  if (!before) return null;
+  const sep = before.indexOf("_");
+  const date = new Date(sep === -1 ? before : before.slice(0, sep));
+  if (isNaN(date.getTime())) context.throwBadRequestError("Invalid `before`");
+  return { date, seen: sep === -1 ? [] : before.slice(sep + 1).split(",") };
+}
+
+// Wrapped in $or so it composes with the events `after` filter on dateCreated
+function cursorFilter(cursor: Cursor | null) {
+  if (!cursor) return {};
+  const unseenAtDate = cursor.seen.length
+    ? [{ dateCreated: cursor.date, id: { $nin: cursor.seen } }]
+    : [];
+  return { $or: [{ dateCreated: { $lt: cursor.date } }, ...unseenAtDate] };
+}
+
 // A full page may have more behind it; a short one is the end.
-function getNextCursor(page: { dateCreated: Date }[], limit: number) {
-  return page.length < limit
-    ? null
-    : page[page.length - 1].dateCreated.toISOString();
+function getNextCursor(
+  page: { id: string; dateCreated: Date }[],
+  limit: number,
+  cursor: Cursor | null,
+) {
+  if (page.length < limit) return null;
+  const date = page[page.length - 1].dateCreated;
+  const seen = page
+    .filter((e) => e.dateCreated.getTime() === date.getTime())
+    .map((e) => e.id);
+  if (cursor?.date.getTime() === date.getTime()) seen.push(...cursor.seen);
+  return `${date.toISOString()}_${seen.join(",")}`;
 }
 
 export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
@@ -69,7 +98,8 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
 
   const limit = req.query.limit ?? DEFAULT_LIMIT;
   const options = { limit, sort: { dateCreated: -1 as const } };
-  const filter = before ? { dateCreated: { $lt: new Date(before) } } : {};
+  const cursor = parseBefore(context, before);
+  const filter = cursorFilter(cursor);
   const orgId = context.org.id;
 
   const [own, children] = await Promise.all(
@@ -89,7 +119,7 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
 
   return {
     audits: page.map(toApiAudit),
-    nextCursor: getNextCursor(page, limit),
+    nextCursor: getNextCursor(page, limit, cursor),
   };
 });
 
@@ -99,25 +129,29 @@ export const listEvents = createApiRequestHandler(listEventsValidator)(async (
   const { context } = req;
   assertCanViewAuditLogs(context);
   const limit = req.query.limit ?? DEFAULT_LIMIT;
+  const cursor = parseBefore(context, req.query.before);
 
-  const page = await getEventsForOrganization(context.org.id, {
-    page: 1,
-    perPage: limit,
-    eventTypes: req.query.events
-      ?.split(",")
-      .map((e) => e.trim())
-      .filter(Boolean),
-    from: req.query.after,
-    to: req.query.before,
-    sortOrder: -1,
-  });
+  const page = await getEventsForOrganization(
+    context.org.id,
+    {
+      page: 1,
+      perPage: limit,
+      eventTypes: req.query.events
+        ?.split(",")
+        .map((e) => e.trim())
+        .filter(Boolean),
+      from: req.query.after,
+      sortOrder: -1,
+    },
+    cursorFilter(cursor),
+  );
 
   return {
     // Cursor from the unfiltered page, so hidden events don't end paging early
     events: page
       .filter((e) => context.permissions.canViewEvent(e.data))
       .map(toApiEvent),
-    nextCursor: getNextCursor(page, limit),
+    nextCursor: getNextCursor(page, limit, cursor),
   };
 });
 

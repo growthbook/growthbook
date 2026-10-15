@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   deleteSdkWebhookValidator,
   listSdkConnectionWebhooksValidator,
@@ -38,10 +39,16 @@ function toApiSdkWebhook(w: WebhookInterface, canSeeSigningKey: boolean) {
 
 function assertHeadersJson(context: ApiReqContext, headers?: string) {
   if (!headers) return;
+  let parsed: unknown;
   try {
-    JSON.parse(headers);
+    parsed = JSON.parse(headers);
   } catch (e) {
-    context.throwBadRequestError("headers must be a JSON-encoded object");
+    parsed = null;
+  }
+  if (!z.record(z.string(), z.string()).safeParse(parsed).success) {
+    context.throwBadRequestError(
+      "headers must be a JSON-encoded object of strings",
+    );
   }
 }
 
@@ -52,16 +59,23 @@ async function getConnection(context: ApiReqContext, id: string) {
 }
 
 // Webhooks can span connections, so every one of them must allow the action.
+// As in the app, only delete may act on a webhook whose connections are gone.
 async function getWebhookForUpdate(
   context: ApiReqContext,
   id: string,
   can: (conn: SDKConnectionInterface) => boolean,
+  allowOrphan = false,
 ) {
   const webhook = await context.models.sdkWebhooks.getById(id);
   if (!webhook) context.throwNotFoundError(`SDK webhook not found: ${id}`);
   const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+  if (!conns.length && !allowOrphan) {
+    context.throwBadRequestError(
+      "Could not find any SDK Connection tied to this webhook",
+    );
+  }
   if (!conns.every(can)) context.permissions.throwPermissionError();
-  return { webhook, conns };
+  return webhook;
 }
 
 export const listSdkConnectionWebhooks = createApiRequestHandler(
@@ -111,7 +125,7 @@ export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
     const { context } = req;
     const can = (c: SDKConnectionInterface) =>
       context.permissions.canUpdateSDKWebhook(c);
-    const { webhook } = await getWebhookForUpdate(context, req.params.id, can);
+    const webhook = await getWebhookForUpdate(context, req.params.id, can);
     const { sdkConnections, ...updates } = req.body;
     assertHeadersJson(context, updates.headers);
 
@@ -147,9 +161,11 @@ export const deleteSdkWebhook = createApiRequestHandler(
   deleteSdkWebhookValidator,
 )(async (req) => {
   const { context } = req;
-  // Orphaned webhooks (no connections left) stay deletable
-  await getWebhookForUpdate(context, req.params.id, (c) =>
-    context.permissions.canDeleteSDKWebhook(c),
+  await getWebhookForUpdate(
+    context,
+    req.params.id,
+    (c) => context.permissions.canDeleteSDKWebhook(c),
+    true,
   );
   await context.models.sdkWebhooks.deleteById(req.params.id);
   return { deletedId: req.params.id };
@@ -159,16 +175,9 @@ export const postSdkWebhookTest = createApiRequestHandler(
   postSdkWebhookTestValidator,
 )(async (req) => {
   const { context } = req;
-  const { webhook, conns } = await getWebhookForUpdate(
-    context,
-    req.params.id,
-    (c) => context.permissions.canUpdateSDKWebhook(c),
+  const webhook = await getWebhookForUpdate(context, req.params.id, (c) =>
+    context.permissions.canUpdateSDKWebhook(c),
   );
-  if (!conns.length) {
-    context.throwBadRequestError(
-      "Could not find any SDK Connection tied to this webhook",
-    );
-  }
   await fireSdkWebhook(context, webhook).catch(() => {
     // The outcome is recorded on the webhook
   });
