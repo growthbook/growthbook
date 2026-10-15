@@ -16,6 +16,9 @@ export default class Athena extends SqlIntegration {
     this.params =
       decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
+  getPartitionColumnCondition(): string {
+    return "extra_info = 'partition key'";
+  }
   runQuery(
     sql: string,
     setExternalId: ExternalIdCallback,

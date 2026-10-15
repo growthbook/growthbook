@@ -190,6 +190,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
              * on the template, not in this body.
              */
             field: template ? "exposureQuery" : "assignmentQuery",
+            scope: {
+              project: fields.project ?? "",
+              datasourceProjects: datasource.projects,
+            },
           },
         )
       : null;
@@ -253,7 +257,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
     const ownerId =
       (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
-      req.context.userId;
+      req.context.actingUserId;
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();

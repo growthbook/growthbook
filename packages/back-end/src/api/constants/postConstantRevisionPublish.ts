@@ -91,7 +91,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // that were bypassed. The approval and stale-base checks below stay in place
   // as the enforcement backstop; the adapter-collected guard gates are enforced
   // solely here.
-  const gates: PublishGate[] = collectRevisionGovernanceGates({
+  const gates: PublishGate[] = await collectRevisionGovernanceGates({
     context: req.context,
     adapter,
     targetType: "constant",

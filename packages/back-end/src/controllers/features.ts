@@ -54,6 +54,7 @@ import {
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
+  getMalformedPrereqConditionError,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -68,6 +69,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
+  eventUserIdentity,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -92,10 +94,7 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "shared/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -307,7 +306,7 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 import {
@@ -1057,11 +1056,7 @@ export async function postFeatures(
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
   await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
-  validatePrerequisiteConditions(
-    (feature.prerequisites ?? []).filter(
-      (p) => !source?.prerequisites?.some((sp) => isEqual(sp, p)),
-    ),
-  );
+  validatePrerequisiteConditions(feature.prerequisites ?? []);
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,
@@ -1221,7 +1216,7 @@ export async function postFeatureRebase(
     feature,
     finalRevision,
     "revision.rebased",
-    { baseVersion: live.version },
+    {},
   );
 
   // A clean rebase (no review reset) keeps an approved+armed draft approved;
@@ -1538,14 +1533,15 @@ export async function postFeatureReviewOrComment(
       context.permissions.throwPermissionError();
     }
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
 
-  if (createdByUser?.id === context.userId && review !== "Comment") {
+  if (
+    eventUserIdentity(revision.createdBy) === context.actorId &&
+    review !== "Comment"
+  ) {
     throw Error("cannot submit a review for yourself");
   }
 
@@ -1607,12 +1603,6 @@ export async function postFeatureReviewOrComment(
   });
   const finalRevision = updatedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1620,7 +1610,6 @@ export async function postFeatureReviewOrComment(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (review === "Approved") {
@@ -1686,8 +1675,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
+  if (eventUserIdentity(revision.createdBy) === context.actorId) {
     throw Error("Cannot approve a draft you created");
   }
 
@@ -1928,12 +1916,6 @@ export async function postFeatureApproveAndPublish(
   });
   const finalApproved = approvedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1941,7 +1923,6 @@ export async function postFeatureApproveAndPublish(
     finalApproved,
     "Approved",
     comment,
-    reviewer,
   );
 
   if (armedApproval) {
@@ -3423,16 +3404,17 @@ export async function postFeatureRule(
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
   let validatedSafeRolloutFields: Awaited<
-    ReturnType<typeof validateCreateSafeRolloutFields>
+    ReturnType<typeof validateSafeRolloutFields>
   > | null = null;
   if (rule.type === "safe-rollout") {
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
 
-    validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    validatedSafeRolloutFields = await validateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
+      { project: feature.project ?? "" },
     );
 
     rule.status = "running";
@@ -6265,10 +6247,7 @@ export async function postFeatureArchive(
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          targetDraft.createdBy && "id" in targetDraft.createdBy
-            ? targetDraft.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(targetDraft.createdBy) ?? undefined,
         contributors: targetDraft.contributors,
       },
       userId: context.userId,
@@ -7684,6 +7663,7 @@ function evalDeterministicPrereqValueBackend(
   value: any,
   condition: string,
 ): "pass" | "fail" {
+  if (getMalformedPrereqConditionError(condition)) return "fail";
   try {
     const conditionObj = JSON.parse(condition || "{}");
     // Empty condition means "is truthy"

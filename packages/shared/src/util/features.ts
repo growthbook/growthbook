@@ -2565,67 +2565,6 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
-function isConditionObject(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
-}
-
-function isOperatorValue(v: unknown): v is Record<string, unknown> {
-  if (!isConditionObject(v)) return false;
-  const keys = Object.keys(v);
-  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
-}
-
-// Catches sub-condition shapes the SDKs cannot evaluate (e.g. {"$not": null})
-function describeConditionShapeError(
-  condition: Record<string, unknown>,
-): string | null {
-  for (const [key, value] of Object.entries(condition)) {
-    if (key === "$and" || key === "$or" || key === "$nor") {
-      if (!Array.isArray(value) || !value.every(isConditionObject)) {
-        return `"${key}" must be an array of condition objects`;
-      }
-      for (const sub of value) {
-        const err = describeConditionShapeError(sub);
-        if (err) return err;
-      }
-    } else if (key === "$not") {
-      if (!isConditionObject(value)) {
-        return `"$not" must be a condition object`;
-      }
-      const err = describeConditionShapeError(value);
-      if (err) return err;
-    } else if (!key.startsWith("$")) {
-      const err = describeOperatorValueShapeError(value);
-      if (err) return err;
-    }
-  }
-  return null;
-}
-
-function describeOperatorValueShapeError(value: unknown): string | null {
-  if (!isOperatorValue(value)) return null;
-  for (const [op, arg] of Object.entries(value)) {
-    let err: string | null = null;
-    if (op === "$elemMatch") {
-      if (!isConditionObject(arg)) {
-        return `"$elemMatch" must be an object`;
-      }
-      err = isOperatorValue(arg)
-        ? describeOperatorValueShapeError(arg)
-        : describeConditionShapeError(arg);
-    } else if (op === "$not" || op === "$size") {
-      err = describeOperatorValueShapeError(arg);
-    } else if ((op === "$all" || op === "$alli") && Array.isArray(arg)) {
-      for (const item of arg) {
-        err = describeOperatorValueShapeError(item);
-        if (err) break;
-      }
-    }
-    if (err) return err;
-  }
-  return null;
-}
-
 export function validateCondition(
   condition?: string,
   groupMap?: GroupMap,
@@ -2639,9 +2578,10 @@ export function validateCondition(
     if (!res || typeof res !== "object") {
       return { success: false, empty: false, error: "Must be object" };
     }
-    const shapeError = describeConditionShapeError(res);
-    if (shapeError) {
-      return { success: false, empty: false, error: shapeError };
+
+    const structureError = findMalformedConditionOperator(res);
+    if (structureError) {
+      return { success: false, empty: false, error: structureError };
     }
 
     const scrubbed = cloneDeep(res);
@@ -2705,6 +2645,62 @@ export function validatePrerequisiteCondition(
     };
   }
   return validateCondition(condition);
+}
+
+const isNonNullObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object";
+
+// Shapes that make evalCondition throw rather than return false: a null
+// operand under a logical operator or $elemMatch.
+function findMalformedConditionOperator(condition: unknown): string | null {
+  if (!isNonNullObject(condition)) return null;
+  for (const [key, value] of Object.entries(condition)) {
+    if (key === "$and" || key === "$or" || key === "$nor") {
+      if ((value ?? null) === null) return `${key} cannot be null`;
+      if (!Array.isArray(value)) continue;
+      for (const item of value) {
+        if ((item ?? null) === null) return `${key} cannot contain null`;
+        const err = findMalformedConditionOperator(item);
+        if (err) return err;
+      }
+    } else if (key === "$not") {
+      if ((value ?? null) === null) return "$not cannot be null";
+      const err = findMalformedConditionOperator(value);
+      if (err) return err;
+    } else if (!key.startsWith("$")) {
+      const err = findMalformedOperatorValue(value);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+const isOperatorObject = (v: unknown): v is Record<string, unknown> => {
+  if (!isNonNullObject(v) || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
+};
+
+function findMalformedOperatorValue(value: unknown): string | null {
+  if (!isOperatorObject(value)) return null;
+  for (const [op, operand] of Object.entries(value)) {
+    if (op === "$elemMatch") {
+      if ((operand ?? null) === null) return "$elemMatch cannot be null";
+      const err = isOperatorObject(operand)
+        ? findMalformedOperatorValue(operand)
+        : findMalformedConditionOperator(operand);
+      if (err) return err;
+    } else if (op === "$not" || op === "$size") {
+      const err = findMalformedOperatorValue(operand);
+      if (err) return err;
+    } else if ((op === "$all" || op === "$alli") && Array.isArray(operand)) {
+      for (const item of operand) {
+        const err = findMalformedOperatorValue(item);
+        if (err) return err;
+      }
+    }
+  }
+  return null;
 }
 
 export function validateAndFixCondition(
@@ -3174,6 +3170,12 @@ export function getDependentExperiments(
     const phase = e.phases.slice(-1)?.[0] ?? null;
     return phase?.prerequisites?.some((p) => p.id === feature.id);
   });
+}
+
+export function getMalformedPrereqConditionError(
+  condition: string,
+): string | null {
+  return findMalformedConditionOperator(getParsedPrereqCondition(condition));
 }
 
 // Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts

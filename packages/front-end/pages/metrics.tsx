@@ -5,11 +5,11 @@ import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -29,21 +29,16 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
+  const canCreateMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
   });
 
-  const [showNewModal, setShowNewModal] = React.useState(false);
+  const factMetricFlow = useFactMetricFlow("metrics-empty-state");
 
   return (
     <Box className="pagecontents container-fluid">
-      {showNewModal && (
-        <NewMetricModal
-          close={() => setShowNewModal(false)}
-          source={"metrics-empty-state"}
-        />
-      )}
-      <CreateMetricFromTemplate />
+      {factMetricFlow.modal}
+      <MetricTemplateRedirect />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
       </Box>
@@ -67,15 +62,20 @@ const MetricsPage = (): React.ReactElement => {
               </>
             ) : (
               <Tooltip
-                body="You don't have permission to add metrics in this project."
+                body="You don't have permission to add Fact Metrics in this Project."
                 shouldDisplay={!canCreateMetric}
               >
-                <Button
-                  disabled={!canCreateMetric}
-                  onClick={() => setShowNewModal(true)}
-                >
-                  Add Metric
-                </Button>
+                {canCreateMetric && factMetricFlow.newFlow ? (
+                  <LinkButton href={factMetricFlow.href()}>
+                    Add metric
+                  </LinkButton>
+                ) : canCreateMetric ? (
+                  <Button onClick={() => factMetricFlow.open()}>
+                    Add metric
+                  </Button>
+                ) : (
+                  <Button disabled>Add metric</Button>
+                )}
               </Tooltip>
             )}
           </Box>

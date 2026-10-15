@@ -21,8 +21,10 @@ export interface Props {
     | "dashboard"
     | "custom field"
     | "experiment"
+    | "experiment assignment query"
     | "contextual bandit"
-    | "constant";
+    | "constant"
+    | "population";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;

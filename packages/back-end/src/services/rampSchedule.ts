@@ -70,6 +70,7 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   assertValidAssignmentQuerySelectionChange,
   getExposureQueriesForDatasource,
+  RecordAssignmentQueryScope,
 } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
@@ -1201,7 +1202,7 @@ export async function applyRampBaseStateSync(
       }
       const eventHistory = appendRampEvent(fresh, "config-edited", {
         reason: baseStateSyncReason(revisionVersion, patches),
-        userId: ctx.userId,
+        userId: ctx.actorId,
       });
       written.push({
         id: fresh.id,
@@ -1552,12 +1553,14 @@ export async function assertValidMonitoringConfigChange(
   ctx: ReqContext | ApiReqContext,
   previous: RampMonitoringConfig | null | undefined,
   next: RampMonitoringConfig | null | undefined,
+  scope?: RecordAssignmentQueryScope,
 ): Promise<void> {
   if (!next) return;
   await assertValidAssignmentQuerySelectionChange(
     ctx,
     previous ? toMonitoringSelection(previous) : null,
     toMonitoringSelection(next),
+    scope,
   );
 }
 
@@ -3647,7 +3650,8 @@ export async function approveAndPublishStep(
     stepApproval: {
       stepIndex,
       approvedAt: now,
-      approvedBy: ctx.userId,
+      approvedBy: ctx.actorId,
+      ...(ctx.auditUser ? { approvedByUser: ctx.auditUser } : {}),
       context,
     },
     phaseStartedAt: rebasedPhaseStart,
@@ -3744,7 +3748,7 @@ export async function approveScheduleStart(
         stepIndex: -1,
         status: schedule.status,
         previousStatus: schedule.status,
-        userId: ctx.userId,
+        userId: ctx.actorId,
       }),
     });
     await dispatchRampEvent(
@@ -3776,7 +3780,7 @@ export async function approveScheduleStart(
       stepIndex: -1,
       status: schedule.status,
       previousStatus: schedule.status,
-      userId: ctx.userId,
+      userId: ctx.actorId,
     }),
   });
   await startReadyScheduleNowLocked(ctx, approved);

@@ -5,7 +5,11 @@ import {
   StripeAddress,
   TaxIdType,
 } from "shared/types/subscriptions";
-import { DailyUsage, UsageLimits } from "shared/types/organization";
+import {
+  DailyUsage,
+  DailyUsageByKey,
+  UsageLimits,
+} from "shared/types/organization";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { LicenseServerError } from "back-end/src/util/errors";
 import {
@@ -35,6 +39,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import {
+  getDailyUsageByKeyForOrg,
   getDailyUsageForOrg,
   migrateOverageEventsForOrgId,
 } from "back-end/src/services/licenseServerManagedClickhouse";
@@ -445,6 +450,27 @@ export async function deletePaymentMethod(
   });
 }
 
+/** The UTC calendar month `monthsAgo` months back, up to 12. */
+function getUsageMonth(monthsAgo: number): { start: Date; end: Date } {
+  if (monthsAgo < 0 || monthsAgo > 12) {
+    throw new Error("Usage data only available for the past 12 months");
+  }
+
+  // Beginning of the month
+  const start = new Date();
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCMonth(start.getUTCMonth() - monthsAgo);
+
+  // End of the month
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCDate(0);
+  end.setUTCHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
 export async function getUsage(
   req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
   res: Response<{
@@ -459,24 +485,8 @@ export async function getUsage(
     context.permissions.throwPermissionError();
   }
 
-  const monthsAgo = Math.round(req.query.monthsAgo || 0);
-  if (monthsAgo < 0 || monthsAgo > 12) {
-    throw new Error("Usage data only available for the past 12 months");
-  }
-
   const { org } = context;
-
-  // Beginning of the month
-  const start = new Date();
-  start.setUTCDate(1);
-  start.setUTCHours(0, 0, 0, 0);
-  start.setUTCMonth(start.getUTCMonth() - monthsAgo);
-
-  // End of the month
-  const end = new Date(start);
-  end.setUTCMonth(end.getUTCMonth() + 1);
-  end.setUTCDate(0);
-  end.setUTCHours(23, 59, 59, 999);
+  const { start, end } = getUsageMonth(Math.round(req.query.monthsAgo || 0));
 
   const usage = await getDailyUsageForOrg(org.id, start, end);
 
@@ -497,6 +507,28 @@ export async function getUsage(
       managedClickhouseEvents,
     },
   });
+}
+
+// Separate from getUsage so the month scan by key only runs when the page asks for it.
+export async function getUsageByKey(
+  req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
+  res: Response<{
+    status: 200;
+    rows: DailyUsageByKey[];
+  }>,
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const { start, end } = getUsageMonth(Math.round(req.query.monthsAgo || 0));
+
+  const rows = await getDailyUsageByKeyForOrg(org.id, start, end);
+
+  res.json({ status: 200, rows });
 }
 
 export async function getCustomerData(

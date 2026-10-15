@@ -5,6 +5,7 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getFactTableIdsForMetrics,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -349,6 +350,7 @@ export const startExperimentResultQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "experimentMultiMetric",
       }),
     );
@@ -390,6 +392,7 @@ export const startExperimentResultQueries = async (
                 setExternalId,
                 queryMetadata,
               ),
+            metadata: { factTableIds: getFactTableIdsForMetrics(m) },
             queryType: "experimentMultiMetric",
           }),
         );

@@ -26,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getDefaultIdentifierType,
+  getExposureQueriesInScope,
   getExposureQuery,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
@@ -81,6 +82,10 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  /**
+   * A holdout's assignment query must cover every Project the holdout spans.
+   */
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -88,6 +93,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -146,9 +152,8 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
-  const initialDatasourceSettings = getDatasourceById(
-    experiment.datasource,
-  )?.settings;
+  const initialDatasource = getDatasourceById(experiment.datasource);
+  const initialDatasourceSettings = initialDatasource?.settings;
   const initialExposureQuery = getExposureQuery(
     initialDatasourceSettings,
     experiment.exposureQueryId,
@@ -165,7 +170,13 @@ const AnalysisForm: FC<{
       )
     : getDefaultIdentifierType({
         identifierTypes: getSelectableIdentifierTypes(
-          initialDatasourceSettings?.queries?.exposure ?? [],
+          initialDatasource
+            ? getExposureQueriesInScope(
+                initialDatasource,
+                experiment.project,
+                holdoutProjects,
+              )
+            : [],
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
           initialDatasourceSettings?.userIdTypes,
@@ -345,6 +356,8 @@ const AnalysisForm: FC<{
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment.project,
+    holdoutProjects,
     hashAttribute: experiment.hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -651,7 +664,13 @@ const AnalysisForm: FC<{
                     "exposureQueryIdentifierType",
                     getDefaultIdentifierType({
                       identifierTypes: getSelectableIdentifierTypes(
-                        ds?.settings?.queries?.exposure ?? [],
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
                       ),
                       hashAttributeIdentifierTypeMap:
                         getHashAttributeIdentifierTypeMap(
