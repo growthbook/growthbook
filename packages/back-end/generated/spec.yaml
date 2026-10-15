@@ -137,6 +137,95 @@ info:
     ```
 
 
+    ## Waiting for confirmation
+
+
+    A key can require a person to confirm some writes before they run (see [API
+    Keys for Agents](/integrations/ai-agents/api-keys#require-confirmation)). A
+    held write doesn't run. It answers `202 Accepted` with the confirmation, a
+    `Location` header to poll, and a `Retry-After` header with the seconds to
+    wait between polls:
+
+
+    ```json
+
+    {
+      "confirmation": {
+        "id": "cnf_abc123",
+        "status": "pending",
+        "actions": [
+          { "action": "feature.publish", "environments": ["production"] }
+        ],
+        "summary": "Publish revision 3 of checkout-redesign",
+        "url": "https://app.growthbook.io/confirmations/cnf_abc123",
+        "expiresAt": "2026-10-15T18:00:00.000Z",
+        "response": null,
+        "note": null
+      },
+      "message": "A person must confirm this in GrowthBook. Give them the url, then poll the Location."
+    }
+
+    ```
+
+
+    Give the person the `url`, then poll [`GET
+    /v1/confirmations/{id}`](/api/meta/operation/getConfirmation). Pass `wait`
+    (in seconds, up to 30) to hold the poll open until the status changes:
+
+
+    ```bash
+
+    curl "https://api.growthbook.io/api/v1/confirmations/cnf_abc123?wait=30" \
+
+    -H "Authorization: Bearer secret_abc123DEF456"
+
+    ```
+
+
+    | `status`    |
+    Meaning                                                                                                         
+    |
+
+    | ----------- |
+    ----------------------------------------------------------------------------------------------------------------
+    |
+
+    | `pending`   | Waiting for a person, until `expiresAt` (an hour after the
+    request)                                              |
+
+    | `running`   | Confirmed, and running
+    now                                                                                      
+    |
+
+    | `completed` | It ran. `response` holds the status and body the request
+    returned, which may be an error                         |
+
+    | `rejected`  | A person declined it, and nothing
+    ran                                                                           
+    |
+
+    | `expired`   | Nobody decided in time, or what it would change changed
+    after it was held (with a `400` `response`). Nothing ran |
+
+
+    `note` carries anything the person left for the agent when they decided.
+    `actions` lists what the request was held for, each with the environments it
+    touches.
+
+
+    - Only the key that made the request, or another token of the same person,
+    can read the confirmation.
+
+    - Sending the same request again while it's pending returns the same
+    confirmation.
+
+    - A confirmed request runs once, with the key's permissions (or the member's
+    role it assumes), not the confirmer's. Send it again to retry, which asks
+    for a new confirmation.
+
+    - Confirming isn't a review approval.
+
+
     ## Errors
 
 

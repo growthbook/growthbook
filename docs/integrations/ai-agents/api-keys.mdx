@@ -1,0 +1,66 @@
+---
+title: "API Keys for Agents"
+description: "Name the member an agent works for with X-GrowthBook-Requested-By, and require a person to confirm risky changes before they run."
+keywords: [AI, agents, API keys, human-in-the-loop, confirmation, Requested-By]
+sidebarTitle: API Keys for Agents
+---
+
+Agents reach GrowthBook through the [REST API](/app/api), with a Personal Access Token or a Secret Key (the [MCP server](/integrations/mcp) and the [Agent Skills plugin](/integrations/ai-agents/agent-skills) both work this way). Two key settings help keep that work accountable:
+
+- **X-GrowthBook-Requested-By** names the member who asked for each change, so history shows who it was for.
+- **Human-in-the-Loop** holds risky changes until a person confirms them in GrowthBook.
+
+Edit a Secret Key under **Settings → API Keys**, or your own token under **Personal Access Tokens** in your user menu. Requested-By applies to Secret Keys only, since a Personal Access Token already acts as its owner. Confirmation applies to both.
+
+## Name who asked
+
+A request made with a Secret Key can send an `X-GrowthBook-Requested-By` header with a member's id or email address. History, revision logs and webhooks show that member next to the key.
+
+- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it.
+- **Permissions**: **Assume member's role** (the default) acts as that member, with only what both the key and the member can do. **Use key's role** acts with the key's own permissions and only records the name.
+
+The header isn't verified, so whoever holds the key can name any member. See [Naming who asked](/api/introduction#naming-who-asked) in the API docs for the full rules.
+
+## Require confirmation
+
+With **Require confirmation** on, a write the key's rules cover isn't run when the agent sends it. GrowthBook holds it and answers with a link to a confirmation page. A person opens the link, reviews the change, and confirms or rejects it, optionally leaving a note for the agent. A confirmed request then runs, with the key's permissions.
+
+The confirmation page shows:
+
+- **The change**: a summary, such as "Update Project Checkout: name", with links to what it affects
+- **The request**: its method, path and body
+- **Checks it skips**: anything the request asks to bypass, and what that check said when it last refused the agent
+
+### Recommended or all actions
+
+New rules default to **recommended actions**, which hold:
+
+- Publishing, archiving and deleting
+- Starting, stopping or changing live Experiments and ramps, including their targeting and traffic
+- Skipping a check, such as `ignoreWarnings`, `skipHooks` or a required review, even when the change itself wouldn't be held
+- Editing settings, members and teams, environments, Projects, SDK Connections, custom hooks, attributes, custom fields, metrics, fact tables, segments and dimensions
+
+Creating things, working on drafts, Visual Editor changes, and writes like dashboards and comments run without confirmation. Arming a publish or an Experiment start to happen later, on approval or on a schedule, counts as the publish or start itself, and so does editing a draft that's armed. Creating a Feature Flag that's on in an environment counts as publishing there.
+
+Choose **All actions** to hold every write, including creates and drafts. Reads and calculations never wait.
+
+To narrow or widen this, choose **Customize behavior** and add rules. Each rule picks actions and, optionally, environments, and a write is held when any rule matches it. A rule limited to some environments still holds actions that don't belong to an environment, such as editing settings.
+
+### Who can confirm
+
+- **A Personal Access Token**: only its owner.
+- **A Secret Key that names a member** with X-GrowthBook-Requested-By: only that member.
+- **A Secret Key otherwise**: any member of the organization.
+
+A confirmed request runs as the key, not as the person who confirmed it. Anyone who can use an agent with the key can already act through it, so limit who can use a key to limit who can confirm its requests. Each decision is recorded in the audit log, with who made it.
+
+Confirming isn't a review approval. A change that needs approval still needs it.
+
+### Limits
+
+- A request waits an hour for a decision, then expires.
+- If what a request would change has changed since it was held, it isn't run. The agent can send it again for a new confirmation.
+- A confirmed request runs once. If it fails, the agent gets the error and can ask again.
+- Confirmation rules apply to Secret Keys and Personal Access Tokens. The hosted MCP endpoint's sign-in doesn't use them.
+
+To build an agent that handles held requests, see [Waiting for confirmation](/api/introduction#waiting-for-confirmation) in the API docs.
