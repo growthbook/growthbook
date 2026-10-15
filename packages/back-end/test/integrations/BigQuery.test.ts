@@ -1037,6 +1037,118 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     );
   });
 
+  it("keys the sub-unit cluster metric cache on the sub-unit id and joins units directly", () => {
+    const subUnitFactTable = factTableFactory.build({
+      id: "ft_subunit",
+      name: "Sub-unit events",
+      sql: "SELECT * FROM events",
+      userIdTypes: ["user_id"],
+    });
+    const meanMetric = factMetricFactory.build({
+      id: "fact_mean_su",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_subunit",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const clusterSettings: ExperimentSnapshotSettings = {
+      ...settings,
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+    };
+    const factTableMap = new Map([["ft_subunit", subUnitFactTable]]);
+
+    const createSql = integration.getCreateMetricSourceTableQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      factTableId: "ft_subunit",
+      metrics: [meanMetric],
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source_su",
+    });
+    // Cache table is keyed on the sub-unit id, not the cluster (exposure) id.
+    expect(createSql).toContain("user_id");
+    expect(createSql).not.toContain("region_id");
+
+    const insertSql = integration.getInsertMetricSourceDataQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      factTableMap,
+      factTableId: "ft_subunit",
+      metricSourceTableFullName: "proj.ds.metric_source_su",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+      incrementalRefreshStartTime: new Date("2024-01-31T00:00:00Z"),
+    });
+    // Units are joined directly on the sub-unit id (no cluster collapse).
+    expect(insertSql).toMatch(/d\.user_id = m\.user_id/);
+    expect(insertSql).not.toMatch(/GROUP BY\s+region_id/);
+    // Daily values are aggregated per sub-unit.
+    expect(insertSql).toMatch(/__newDailyValues[\s\S]*GROUP BY[\s\S]*user_id/);
+  });
+
+  it("keys the cluster-level metric cache on the cluster id and collapses units to the cluster", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const clusterSettings: ExperimentSnapshotSettings = {
+      ...settings,
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      clusterLevelMetricIds: ["fact_cluster"],
+    };
+    const factTableMap = new Map([["ft_cluster", clusterFactTable]]);
+
+    const createSql = integration.getCreateMetricSourceTableQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      factTableId: "ft_cluster",
+      metrics: [clusterMetric],
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source_cluster",
+    });
+    // Cluster-level cache is keyed on the cluster id.
+    expect(createSql).toContain("region_id");
+    expect(createSql).not.toContain("user_id");
+
+    const insertSql = integration.getInsertMetricSourceDataQuery({
+      settings: clusterSettings,
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      factTableMap,
+      factTableId: "ft_cluster",
+      metricSourceTableFullName: "proj.ds.metric_source_cluster",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+      incrementalRefreshStartTime: new Date("2024-01-31T00:00:00Z"),
+    });
+    // The sub-unit-grained units cache is collapsed to one row per cluster
+    // before the join so cluster-level rows don't fan out.
+    expect(insertSql).toMatch(
+      /SELECT[\s\S]*region_id[\s\S]*MIN\(first_exposure_timestamp\)[\s\S]*FROM\s+proj\.ds\.units[\s\S]*GROUP BY\s+region_id/,
+    );
+    expect(insertSql).toMatch(/d\.region_id = m\.region_id/);
+  });
+
   it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
     const prebuiltSketchMetric = factMetricFactory.build({
       id: "fact_eq_sketch_xp",

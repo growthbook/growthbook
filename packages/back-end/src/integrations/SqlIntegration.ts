@@ -181,6 +181,7 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getQuantileSketchGridColumns as getQuantileSketchGridColumnsFromSql } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "back-end/src/integrations/sql/queries/metric-analysis-query";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getMetricSourceCovariateTableColumnDefinitions } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
 import { getInsertMetricSourceCovariateDataLegacyQuery } from "back-end/src/integrations/sql/queries/insert-metric-source-covariate-data-legacy-query";
 import { getInsertMetricSourceCovariateFromAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/insert-metric-source-covariate-from-aggregated-fact-table-query";
@@ -2163,7 +2164,11 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.identifierType;
+    const { baseIdType } = resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: params.metrics,
+      exposureIdentifierType: params.exposureQuery.identifierType,
+    });
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -2208,7 +2213,11 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const baseIdType = params.exposureQuery.identifierType;
+    const { baseIdType } = resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: params.metrics,
+      exposureIdentifierType: params.exposureQuery.identifierType,
+    });
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2311,16 +2320,23 @@ export default abstract class SqlIntegration
       );
     }
 
+    const { baseIdType: effectiveBaseIdType, isClusterLevelGroup } =
+      resolveClusterMetricGrain({
+        settings: params.settings,
+        metrics: params.metrics,
+        exposureIdentifierType: exposureQuery.identifierType,
+      });
+
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [[exposureQuery.identifierType], factTable?.userIdTypes || []],
+        objects: [[effectiveBaseIdType], factTable?.userIdTypes || []],
         // TODO(incremental-refresh): this gets all identities from history
         // of experiment, which we think is right, but could be improved
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.identifierType,
+        forcedBaseIdType: effectiveBaseIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2328,6 +2344,16 @@ export default abstract class SqlIntegration
     const sortedMetrics = [...params.metrics].sort((a, b) =>
       a.id.localeCompare(b.id),
     );
+
+    const unitsJoinSource = isClusterLevelGroup
+      ? `(
+          SELECT
+            ${baseIdType}
+            , MIN(first_exposure_timestamp) AS first_exposure_timestamp
+          FROM ${params.unitsSourceTableFullName}
+          GROUP BY ${baseIdType}
+        )`
+      : params.unitsSourceTableFullName;
 
     // Scope FT discovery to this insert's target FT so a pipeline with
     // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`) only
@@ -2523,7 +2549,7 @@ export default abstract class SqlIntegration
               })
               .join("\n")}
           FROM __factTable m
-          INNER JOIN ${params.unitsSourceTableFullName} d
+          INNER JOIN ${unitsJoinSource} d
             ON (d.${baseIdType} = m.${baseIdType})
         )
         , __newDailyValues AS (
@@ -2969,10 +2995,7 @@ export default abstract class SqlIntegration
         .join("\n")}
       , __experimentUnits AS (${
         isClusterLevelQuery
-          ? // Cluster-level metrics analyze the cluster as the unit. The units
-            // cache is sub-unit-grained carrying the cluster id, so collapse it
-            // to one row per cluster (baseIdType === the cluster id here).
-            `SELECT
+          ? `SELECT
           e.${baseIdType} AS ${baseIdType}
           , ${this.getSqlDialect().ifElse(
             "COUNT(DISTINCT e.variation) > 1",
