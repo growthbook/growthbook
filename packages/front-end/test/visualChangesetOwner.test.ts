@@ -86,8 +86,11 @@ describe("experimentVisualChangesetOwner", () => {
 });
 
 describe("contextualBanditVisualChangesetOwner", () => {
-  it("numbers previews by active arm only and shows no split", () => {
-    const owner = contextualBanditVisualChangesetOwner(draftCb);
+  it("numbers previews by active arm only, and only while running", () => {
+    const owner = contextualBanditVisualChangesetOwner({
+      ...draftCb,
+      status: "running",
+    });
     expect(owner.noun).toBe("Contextual Bandit");
     expect(owner.trackingKey).toBe("cb-1");
     expect(owner.variations).toEqual([
@@ -96,6 +99,11 @@ describe("contextualBanditVisualChangesetOwner", () => {
       { id: "a2", name: "a2", previewIndex: undefined },
       { id: "a3", name: "a3", previewIndex: 2 },
     ]);
+    expect(
+      contextualBanditVisualChangesetOwner(draftCb).variations.map(
+        (v) => v.previewIndex,
+      ),
+    ).toEqual([undefined, undefined, undefined, undefined]);
   });
 
   it("allows editing changes while the bandit is not stopped or archived", () => {

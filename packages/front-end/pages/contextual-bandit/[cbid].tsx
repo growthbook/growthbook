@@ -117,7 +117,8 @@ const ContextualBanditPage = (): ReactElement => {
     canEditContextualBanditVisualChanges(cb) &&
     permissionsUtil.canUpdateVisualChange({ project: cb.project }) &&
     (cb.status !== "running" || canRun);
-  const canRemoveVisualChangesets = canRun && canUpdate;
+  const canRemoveVisualChangesets =
+    canRun && canUpdate && canEditContextualBanditVisualChanges(cb);
   const mutateLinkedChanges = () => {
     mutate();
     mutateLinkedFeatures();
@@ -200,10 +201,7 @@ const ContextualBanditPage = (): ReactElement => {
         <ContextualBanditVariationsModal
           cb={cb}
           linkedFeatures={linkedFeatures}
-          mutate={() => {
-            mutate();
-            mutateLinkedFeatures();
-          }}
+          mutate={mutateLinkedChanges}
           close={() => setVariationsModalOpen(false)}
         />
       )}

@@ -58,6 +58,19 @@ describe("linkedChangeSdkSupported", () => {
     ).toBe(true);
   });
 
+  it("needs one connection that supports every capability itself", () => {
+    const serverOnly: Partial<SDKConnectionInterface> = {
+      languages: ["nodejs"],
+      sdkVersion: "1.8.1",
+    };
+    expect(
+      linkedChangeSdkSupported("visual-editor", cbTarget, [
+        connection("1.8.0"),
+        serverOnly,
+      ]),
+    ).toBe(false);
+  });
+
   it("ignores connections scoped to other projects", () => {
     expect(
       linkedChangeSdkSupported("visual-editor", cbTarget, [

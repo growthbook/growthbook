@@ -136,7 +136,8 @@ export default function ContextualBanditLinkedChanges({
 
       {visualChangesetsError ? (
         <Callout status="error" mx="1" my="2">
-          Couldn&apos;t load visual changes: {visualChangesetsError.message}
+          Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
+          {visualChangesetsError.message}). Reload the page and try again.
         </Callout>
       ) : visualChangesetsLoading ? (
         <Box mx="1" my="2">
