@@ -1,5 +1,5 @@
 import cronParser from "cron-parser";
-import { putSettingsValidator } from "shared/validators";
+import { AGREEMENT_TYPE_AI, putSettingsValidator } from "shared/validators";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { AI_MODEL_SETTINGS, getProviderForAIModel } from "shared/ai";
 import {
@@ -14,6 +14,7 @@ import {
   validateOrgSettingsUpdate,
 } from "back-end/src/services/orgSettings";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { toApiSettings } from "./getSettings";
 
 export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
@@ -59,6 +60,18 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
       throw new Error(`Unknown ${kind} model for ${key}: ${model}`);
     }
   });
+
+  // Cloud orgs accept the AI terms in the UI before AI can be turned on.
+  if (
+    IS_CLOUD &&
+    changes.aiEnabled &&
+    !org.settings?.aiEnabled &&
+    !(await context.models.agreements.getAgreementForOrg(AGREEMENT_TYPE_AI))
+  ) {
+    throw new Error(
+      "Accept the AI terms in GrowthBook (Settings > General) before enabling AI.",
+    );
+  }
 
   if (
     changes.defaultDataSource &&
