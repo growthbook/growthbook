@@ -45,6 +45,7 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   createVisualChangeset,
+  deleteVisualChangesetsByContextualBandit,
   findVisualChangesetsByContextualBandit,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
@@ -78,7 +79,6 @@ import {
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
-import { deleteVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 
 const COLLECTION = "contextualbandits";
 
@@ -139,16 +139,14 @@ const BaseClass = MakeModelClass({
             req.context,
             cb,
           );
-          if (linkedFeatures.length === 0 && !cb.hasURLRedirects) {
-            const changesets = cb.hasVisualChangesets
-              ? await findVisualChangesetsByContextualBandit(
-                  cb.id,
-                  req.context.org.id,
-                )
-              : [];
+          if (linkedFeatures.length === 0) {
+            const changesets = await findVisualChangesetsByContextualBandit(
+              cb.id,
+              req.context.org.id,
+            );
             if (!contextualBanditHasServableVisualChanges(cb, changesets)) {
               throw new Error(
-                "Link at least one Feature Flag or save a Visual Editor change before starting this contextual bandit",
+                "Link at least one Feature Flag or save an AI Visual Editor change before starting this Contextual Bandit",
               );
             }
           }
@@ -313,7 +311,7 @@ const BaseClass = MakeModelClass({
             !capabilities.includes("contextualBanditsAuto")
           ) {
             throw new BadRequestError(
-              "None of the SDK connections in this contextual bandit's project support contextual bandit visual changes. Upgrade an SDK connection to a supported version first.",
+              "None of the SDK Connections in this Contextual Bandit's Project support Contextual Bandit visual changes. Upgrade an SDK Connection to a supported version first.",
             );
           }
           const urlPatterns: VisualChangesetURLPattern[] =
@@ -419,7 +417,6 @@ export function toApiContextualBandit(
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
     hasVisualChangesets: doc.hasVisualChangesets,
-    hasURLRedirects: doc.hasURLRedirects,
   };
 }
 

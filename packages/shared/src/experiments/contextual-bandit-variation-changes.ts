@@ -2,6 +2,7 @@ import {
   ContextualBanditVariationStatus,
   VariationWeightPair,
 } from "shared/validators";
+import type { VisualChange } from "shared/types/visual-changeset";
 import { visualChangeHasContent } from "../util";
 import { getEqualWeights } from "./experiments";
 
@@ -45,9 +46,10 @@ export function canEditContextualBanditVisualChanges(cb: {
   return !cb.archived && cb.status !== "stopped";
 }
 
-type ServableVisualChange = Parameters<typeof visualChangeHasContent>[0] & {
-  variation: string;
-};
+type ServableVisualChange = Pick<
+  VisualChange,
+  "variation" | "js" | "domMutations"
+> & { css?: string };
 
 export function contextualBanditHasServableVisualChanges(
   cb: { variations: VariationWithStatus[] },
