@@ -35,7 +35,7 @@ import { ALL, mergeConfirmRules, presetOf } from "./confirmRulesUtils";
 
 const PRESET_HELP = {
   recommended: (
-    <Flex direction="column" gap="2">
+    <Flex as="span" direction="column" gap="2">
       <span>
         Waits for confirmation before publishing, archiving or deleting,
         changing live experiments or ramps, skipping checks, or editing
