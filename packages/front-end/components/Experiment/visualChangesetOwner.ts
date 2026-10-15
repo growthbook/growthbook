@@ -62,6 +62,8 @@ export function contextualBanditVisualChangesetOwner(
   const variations = getVisibleVariations(cb.variations);
   const activeIds = getActiveVariations(cb.variations).map((v) => v.id);
   const isDraft = cb.status === "draft";
+  // Visual changes are only served for running bandits, so a preview of any other state shows the original page.
+  const isRunning = cb.status === "running";
   return {
     trackingKey: cb.trackingKey,
     status: cb.status,
@@ -71,7 +73,7 @@ export function contextualBanditVisualChangesetOwner(
       return {
         id: v.id,
         name: v.name,
-        previewIndex: sdkIndex >= 0 ? sdkIndex : undefined,
+        previewIndex: isRunning && sdkIndex >= 0 ? sdkIndex : undefined,
       };
     }),
     canEditChanges: canEditContextualBanditVisualChanges(cb),

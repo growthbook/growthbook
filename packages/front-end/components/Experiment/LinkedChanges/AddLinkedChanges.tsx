@@ -1,7 +1,7 @@
 import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
-  getConnectionsSDKCapabilities,
+  someConnectionSupportsCapabilities,
 } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
@@ -83,11 +83,11 @@ export function linkedChangeSdkSupported(
     ...(target.extraSdkCapabilities?.[type] ?? []),
   ];
   if (required.length === 0) return true;
-  const capabilities = getConnectionsSDKCapabilities({
+  return someConnectionSupportsCapabilities({
     connections,
+    capabilities: required,
     project: target.project,
   });
-  return required.every((c) => capabilities.includes(c));
 }
 
 const AddLinkedChangeRow = ({

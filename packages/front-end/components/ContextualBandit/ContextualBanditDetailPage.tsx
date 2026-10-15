@@ -259,15 +259,19 @@ export default function ContextualBanditDetailPage({
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
   const pendingEach = pendingVariations.length === 1 ? "it" : "each of them";
+  const visualChangesetsSettled =
+    !visualChangesetsLoading && !visualChangesetsError;
   const pendingReasons = [
     linkedFeatures.length > 0
       ? "a linked Feature Flag rule to be published"
       : null,
-    visualChangesets.length > 1
-      ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
-      : visualChangesets.length > 0
-        ? `an AI Visual Editor change to be saved for ${pendingEach}`
-        : null,
+    !visualChangesetsSettled
+      ? "its AI Visual Editor changes to load"
+      : visualChangesets.length > 1
+        ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
+        : visualChangesets.length > 0
+          ? `an AI Visual Editor change to be saved for ${pendingEach}`
+          : null,
   ]
     .filter(Boolean)
     .join(" and ");
