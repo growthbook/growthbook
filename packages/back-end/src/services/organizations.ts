@@ -133,7 +133,10 @@ import {
   isArmingApiKeyId,
   SECRET_API_KEY_ID,
 } from "back-end/src/util/armingApiKeyId";
-import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
+import {
+  getKeyPermissionsForRequest,
+  keyPermissionsCappedBy,
+} from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1890,6 +1893,8 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
+  // An org key acting as itself does only what this member may also do.
+  cappedBy?: string,
 ): Promise<ApiReqContext | null> {
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
   const key = await getOrgApiKey(org, apiKeyId);
@@ -1949,13 +1954,17 @@ export async function getContextForApiKeyIdInOrg(
     apiKeyData: key,
     teams,
     restrictedProjects,
-    userPermissions: getKeyPermissionsForRequest({
-      apiKey: key,
-      requesterId,
-      org,
-      teams,
-      restrictedProjects,
-    }),
+    userPermissions:
+      getKeyPermissionsForRequest({
+        apiKey: key,
+        requesterId,
+        org,
+        teams,
+        restrictedProjects,
+      }) ??
+      (cappedBy && !key.userId
+        ? keyPermissionsCappedBy(key, cappedBy, org, teams, restrictedProjects)
+        : undefined),
   });
 }
 

@@ -347,7 +347,7 @@ export const postFeatureRevisionRequestReviewValidator = {
 export const postFeatureRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
-  confirmation: ["feature.draft"] as const,
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,

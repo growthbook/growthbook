@@ -8228,7 +8228,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.draft
+        - feature.review
   /v1/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatus
@@ -14964,7 +14964,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.draft
+        - feature.review
   /v2/features/{id}/revisions/{version}/recall-review:
     post:
       operationId: postFeatureRevisionRecallReviewV2
@@ -15105,7 +15105,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - feature.draft
+        - feature.review
   /v2/features/{id}/revisions/{version}/log:
     get:
       operationId: getFeatureRevisionLogV2
@@ -25375,7 +25375,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - savedGroup.draft
+        - savedGroup.review
   /v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review:
     post:
       operationId: postSavedGroupRevisionRecallReview
@@ -25674,7 +25674,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - savedGroup.draft
+        - savedGroup.review
   /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
     get:
       operationId: getSavedGroupRevisionMergeStatus
@@ -27553,7 +27553,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - constant.draft
+        - constant.review
   /v1/constants-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConstantRevisionRecallReview
@@ -27871,7 +27871,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - constant.draft
+        - constant.review
   /v1/constants-revisions/{key}/{version}/merge-status:
     get:
       operationId: getConstantRevisionMergeStatus
@@ -31127,7 +31127,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - config.draft
+        - config.review
   /v1/configs-revisions/{key}/{version}/undo-review:
     post:
       operationId: postConfigRevisionUndoReview
@@ -31196,7 +31196,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
-        - config.draft
+        - config.review
   /v1/configs-revisions/{key}/{version}/recall-review:
     post:
       operationId: postConfigRevisionRecallReview
@@ -78799,6 +78799,7 @@ components:
                 enum:
                   - feature.create
                   - feature.draft
+                  - feature.review
                   - feature.publish
                   - feature.archive
                   - feature.delete
@@ -78813,18 +78814,21 @@ components:
                   - experiment.other
                   - savedGroup.create
                   - savedGroup.draft
+                  - savedGroup.review
                   - savedGroup.publish
                   - savedGroup.archive
                   - savedGroup.delete
                   - savedGroup.other
                   - constant.create
                   - constant.draft
+                  - constant.review
                   - constant.publish
                   - constant.archive
                   - constant.delete
                   - constant.other
                   - config.create
                   - config.draft
+                  - config.review
                   - config.publish
                   - config.archive
                   - config.delete
@@ -87573,6 +87577,7 @@ components:
                     enum:
                       - feature.create
                       - feature.draft
+                      - feature.review
                       - feature.publish
                       - feature.archive
                       - feature.delete
@@ -87587,18 +87592,21 @@ components:
                       - experiment.other
                       - savedGroup.create
                       - savedGroup.draft
+                      - savedGroup.review
                       - savedGroup.publish
                       - savedGroup.archive
                       - savedGroup.delete
                       - savedGroup.other
                       - constant.create
                       - constant.draft
+                      - constant.review
                       - constant.publish
                       - constant.archive
                       - constant.delete
                       - constant.other
                       - config.create
                       - config.draft
+                      - config.review
                       - config.publish
                       - config.archive
                       - config.delete

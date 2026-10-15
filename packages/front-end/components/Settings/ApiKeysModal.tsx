@@ -153,13 +153,16 @@ const ApiKeysModal: FC<{
     !!source?.confirmRules,
   );
   // Kept while the checkbox is off, so turning it back on restores the edits.
-  const [rules, setRules] = useState<ConfirmRule[]>(
-    source?.confirmRules ?? SUGGESTED_CONFIRM_RULES,
+  // Saved rules load in the picker's own terms.
+  const [rules, setRules] = useState<ConfirmRule[]>(() =>
+    source?.confirmRules
+      ? mergeConfirmRules(source.confirmRules)
+      : SUGGESTED_CONFIRM_RULES,
   );
   // The editor stays tucked away until asked for, unless this key already has
   // rules beyond a preset.
   const [customizing, setCustomizing] = useState(
-    !!source?.confirmRules && !presetOf(source.confirmRules),
+    () => !!source?.confirmRules && !presetOf(rules),
   );
   const allActions = presetOf(rules) === ALL;
   // Gated like org-key roles; with only the admin role there is nothing to narrow to.

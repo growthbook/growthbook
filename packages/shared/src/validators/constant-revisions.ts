@@ -431,7 +431,7 @@ export const postConstantRevisionRequestReviewValidator = {
 export const postConstantRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/submit-review",
-  confirmation: ["constant.draft"] as const,
+  confirmation: ["constant.review"] as const,
   operationId: "postConstantRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -588,7 +588,7 @@ export const postConstantRevisionRecallReviewValidator = {
 export const postConstantRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/undo-review",
-  confirmation: ["constant.draft"] as const,
+  confirmation: ["constant.review"] as const,
   operationId: "postConstantRevisionUndoReview",
   summary: "Retract your own review verdict",
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,

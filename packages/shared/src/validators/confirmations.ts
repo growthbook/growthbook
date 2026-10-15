@@ -6,10 +6,11 @@ import { namedSchema } from "./openapi-helpers";
 
 // `model.action`, model-first like webhook events. `override.*` actions are the
 // checks a request skips, whatever it changes. `draft` is a change that doesn't
-// reach users yet.
+// reach users yet; `review` approves or rejects one.
 export const CONFIRM_ACTIONS = [
   "feature.create",
   "feature.draft",
+  "feature.review",
   "feature.publish",
   "feature.archive",
   "feature.delete",
@@ -24,18 +25,21 @@ export const CONFIRM_ACTIONS = [
   "experiment.other",
   "savedGroup.create",
   "savedGroup.draft",
+  "savedGroup.review",
   "savedGroup.publish",
   "savedGroup.archive",
   "savedGroup.delete",
   "savedGroup.other",
   "constant.create",
   "constant.draft",
+  "constant.review",
   "constant.publish",
   "constant.archive",
   "constant.delete",
   "constant.other",
   "config.create",
   "config.draft",
+  "config.review",
   "config.publish",
   "config.archive",
   "config.delete",

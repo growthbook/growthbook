@@ -627,6 +627,36 @@ describe("confirmations", () => {
     });
   });
 
+  it("replays an org key's request with no more than its confirmer may do", async () => {
+    await seed("production");
+    const { getContextForApiKeyIdInOrg } = await import(
+      "back-end/src/services/organizations"
+    );
+    const env = { projects: [], id: "production" };
+    expect(
+      (
+        await getContextForApiKeyIdInOrg(org, bot.id)
+      )?.permissions.canUpdateEnvironment(env, env),
+    ).toBe(true);
+    expect(
+      (
+        await getContextForApiKeyIdInOrg(org, bot.id, "u_viewer")
+      )?.permissions.canUpdateEnvironment(env, env),
+    ).toBe(false);
+  });
+
+  it("holds approving a draft as a review, not a draft edit", async () => {
+    await seed("production");
+    setReqContext(asKey(bot));
+    const held = await auth(
+      request(app).post(`/api/v2/features/${FLAG}/revisions/2/submit-review`),
+    ).send({ action: "approve" });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.review", environments: [] },
+    ]);
+  });
+
   it("leaves an org key without rules alone", async () => {
     await seed("production");
     setReqContext(asKey(ci));

@@ -784,7 +784,7 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
 export const postFeatureRevisionSubmitReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
-  confirmation: ["feature.draft"] as const,
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
   description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts when \`blockSelfApproval\` is enabled.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -823,7 +823,7 @@ export const postFeatureRevisionRecallReviewV2Validator = {
 export const postFeatureRevisionUndoReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/undo-review",
-  confirmation: ["feature.draft"] as const,
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
   description: `Reviewer retracts their own verdict. ${REVIEW_VERDICT_NOTE} The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding \`Requested Changes\` → \`changes-requested\`, else any outstanding \`Approved\` → \`approved\`, else \`pending-review\`. Existing review comments are preserved. If the retraction resolves the revision to \`approved\` and auto-publish-on-approval is armed, the revision is published.`,

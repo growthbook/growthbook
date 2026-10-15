@@ -112,6 +112,23 @@ export function getKeyPermissionsForRequest({
   if (apiKey.userId || !requesterId || !assumesRequesterRole(apiKey)) {
     return undefined;
   }
+  return keyPermissionsCappedBy(
+    apiKey,
+    requesterId,
+    org,
+    teams,
+    restrictedProjects,
+  );
+}
+
+// An org key's role, limited to what one member may also do.
+export function keyPermissionsCappedBy(
+  apiKey: ApiKeyInterface,
+  memberId: string,
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  restrictedProjects: string[],
+): UserPermissions {
   return intersectUserPermissions(
     getRolePermissions(
       { ...apiKey, role: apiKey.role ?? "noaccess" },
@@ -119,6 +136,6 @@ export function getKeyPermissionsForRequest({
       teams,
       restrictedProjects,
     ),
-    getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
+    getUserPermissions({ id: memberId }, org, teams, restrictedProjects),
   );
 }

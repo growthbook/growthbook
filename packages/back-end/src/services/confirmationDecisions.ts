@@ -26,7 +26,8 @@ function deciderCan(
 ): boolean {
   const [model, verb] = action.split(".");
   const projects = project ? [project] : [];
-  const scoped = { projects, managedBy: "" as const };
+  // As if official, the strictest case: the hold doesn't know which it is.
+  const scoped = { projects, managedBy: "admin" as const };
   const byVerb = (
     create: () => boolean,
     edit: () => boolean,
@@ -39,7 +40,7 @@ function deciderCan(
     case "config":
       return p.canRevisionAction(
         REVISION_MODELS[model],
-        verb === "create" || verb === "draft"
+        verb === "create" || verb === "draft" || verb === "review"
           ? verb
           : verb === "delete" || verb === "archive"
             ? "delete"
@@ -48,7 +49,9 @@ function deciderCan(
         envs,
       );
     case "rampSchedule":
-      return p.canRevisionAction("feature", "publish", { project }, envs);
+      return verb === "create"
+        ? p.canRevisionAction("feature", "draft", { project })
+        : p.canRevisionAction("feature", "publish", { project }, envs);
     case "experiment":
       return verb === "create"
         ? p.canCreateExperiment({ project })
@@ -56,8 +59,10 @@ function deciderCan(
           ? p.canUpdateExperiment({ project }, { project })
           : p.canRunExperiment({ project }, envs);
     case "settings":
-    case "other":
       return p.canManageOrgSettings();
+    // Writes with no one permission behind them: whoever manages the team can
+    // grant any permission anyway.
+    case "other":
     case "access":
       return p.canManageTeam();
     case "customField":
@@ -253,12 +258,14 @@ export async function decideConfirmation(
     });
     if (decision === "reject") return toApiConfirmation(claimed);
 
+    // Whoever confirms an org key's request lends it no more than they could do.
     const requester = await getContextForApiKeyIdInOrg(
       context.org,
       encodeArmingApiKeyId(
         c.apiKeyId,
         c.assumedRole ? c.requestedBy?.id : undefined,
       ),
+      context.userId,
     );
     if (!requester) {
       await confirmations.updateWithCas(id, ["status"], () => ({
