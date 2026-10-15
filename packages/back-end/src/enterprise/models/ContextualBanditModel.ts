@@ -54,6 +54,10 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  queuedDraftsHold,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 const COLLECTION = "contextualbandits";
 
@@ -115,6 +119,17 @@ const BaseClass = MakeModelClass({
               "Link at least one Feature Flag before starting this contextual bandit",
             );
           }
+          const queued = await queuedDraftsHold(
+            req.context,
+            cb.pendingFeatureDrafts,
+          );
+          await requireConfirmation(req.context, {
+            actions: ["experiment.start", ...queued.actions],
+            project: cb.project,
+            summary: `Start ${cb.name}`,
+            links: queued.links,
+            pin: [cb.status, queued.pin],
+          });
           const { updated } = await executeContextualBanditStart(
             req.context,
             cb,

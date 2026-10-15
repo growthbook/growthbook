@@ -20,6 +20,7 @@ import ReactSelect, {
   ClearIndicatorProps,
   DropdownIndicatorProps,
   FilterOptionOption,
+  ActionMeta,
 } from "react-select";
 import {
   SortableContainer,
@@ -281,7 +282,11 @@ export type MultiSelectFieldProps = Omit<
   placeholder?: string;
   options: (Option | GroupedValue)[];
   initialOption?: string;
-  onChange: (value: string[]) => void;
+  // `action` tells removing a chip apart from picking in the menu.
+  onChange: (
+    value: string[],
+    action?: ActionMeta<SingleValue>["action"],
+  ) => void;
   sort?: boolean;
   customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;
@@ -553,8 +558,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   isDisabled={disabled || false}
                   options={sorted}
                   isMulti={true}
-                  onChange={(selected) => {
-                    onChange(selected?.map((s) => s.value) ?? []);
+                  onChange={(selected, meta) => {
+                    onChange(selected?.map((s) => s.value) ?? [], meta.action);
                   }}
                   isValidNewOption={(value) => {
                     if (!pattern) return !!value;

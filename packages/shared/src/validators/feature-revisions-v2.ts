@@ -503,6 +503,7 @@ export const postFeatureRevisionRevertV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
   confirmation: [
+    "feature.draft",
     "feature.publish",
     "feature.archive",
     ...PUBLISH_OVERRIDE_ACTIONS,

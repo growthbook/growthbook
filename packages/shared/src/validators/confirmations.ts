@@ -92,6 +92,8 @@ export const CONFIRM_ACTIONS = [
   "override.bypassApproval",
   "override.restBypassesReviews",
   "override.draftLimit",
+  "override.skipChecklist",
+  "override.bypassDuplicateKeyCheck",
   "other.write",
 ] as const;
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
@@ -114,6 +116,8 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   skipHooks: "override.skipHooks",
   bypassApproval: "override.bypassApproval",
   overrideDraftLimit: "override.draftLimit",
+  skipChecklist: "override.skipChecklist",
+  bypassDuplicateKeyCheck: "override.bypassDuplicateKeyCheck",
 } as const satisfies Record<string, ConfirmAction>;
 
 // The checks a publishing write can ask to skip.
@@ -308,7 +312,15 @@ export const getConfirmationValidator = {
     "Poll a held request until a person confirms or rejects it in GrowthBook. Pass `wait` (seconds, max 30) to hold the request open until the status changes.",
   tags: ["meta"],
   paramsSchema: z.strictObject({ id: z.string() }),
-  querySchema: z.strictObject({ wait: z.coerce.number().optional() }),
+  querySchema: z.strictObject({
+    wait: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(30)
+      .optional()
+      .describe("Seconds to wait for a decision before responding, up to 30"),
+  }),
   bodySchema: z.never(),
   responseSchema: z.strictObject({ confirmation: apiConfirmationValidator }),
 };

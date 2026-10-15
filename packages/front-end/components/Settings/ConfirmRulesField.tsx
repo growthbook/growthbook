@@ -147,18 +147,23 @@ function ActionsField({
         const value = document
           .querySelector(".gb-multi-select__option--is-focused [data-action]")
           ?.getAttribute("data-action");
-        if (!value || isPreset(value) || isSingleAction(categoryOf(value))) {
-          return;
-        }
+        if (!value) return;
+        // While a row is highlighted the arrows only open and close categories.
+        e.preventDefault();
+        if (!isCategory(value) || isSingleAction(categoryOf(value))) return;
         const category = categoryOf(value);
         const open = isOpen(category);
-        if (e.key === "ArrowRight" ? !open && isCategory(value) : open) {
-          e.preventDefault();
-          setOpen(category, !open);
-        }
+        if (e.key === "ArrowRight" ? !open : open) setOpen(category, !open);
       }}
-      onChange={(next) => {
-        if (!next.length) return onChange([]);
+      onChange={(next, action) => {
+        // Removing a chip drops just that pick; a menu row toggles all it covers.
+        if (
+          !next.length ||
+          action === "remove-value" ||
+          action === "pop-value"
+        ) {
+          return onChange(next);
+        }
         const clicked =
           next.find((v) => !value.includes(v)) ??
           value.find((v) => !next.includes(v));
@@ -286,6 +291,7 @@ export default function ConfirmRulesField({
               <Flex align="center" justify="end">
                 <Tooltip content="Remove rule">
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="red"
                     radius="full"

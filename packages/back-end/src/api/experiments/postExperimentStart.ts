@@ -14,6 +14,7 @@ import {
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   confirmationLink,
+  queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
@@ -48,12 +49,16 @@ export const postExperimentStart = createApiRequestHandler(
   }
 
   // Staging a scheduled start is held too: it starts later with no one present.
+  const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
   await requireConfirmation(context, {
-    actions: ["experiment.start"],
+    actions: ["experiment.start", ...queued.actions],
     project: existing.project,
     summary: `Start ${existing.name}`,
-    links: [confirmationLink("experiment", existing.id, existing.name)],
-    pin: existing.status,
+    links: [
+      confirmationLink("experiment", existing.id, existing.name),
+      ...queued.links,
+    ],
+    pin: [existing.status, queued.pin],
   });
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.

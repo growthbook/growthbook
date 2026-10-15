@@ -303,7 +303,7 @@ export const archiveSavedGroupValidator = {
   summary: "Archive a single saved group",
   description:
     'Archives a Saved Group. If it is still referenced by a Feature Flag, experiment, or another Saved Group, the API returns 422 with the affected references. Send `"ignoreWarnings": true` to acknowledge those references and continue. When approval is required, create and publish an archive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.',
-  confirmation: ["savedGroup.archive"] as const,
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
@@ -325,7 +325,7 @@ export const unarchiveSavedGroupValidator = {
   summary: "Unarchive a single saved group",
   description:
     "Unarchives a Saved Group. When approval is required, create and publish an unarchive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.",
-  confirmation: ["savedGroup.archive"] as const,
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],

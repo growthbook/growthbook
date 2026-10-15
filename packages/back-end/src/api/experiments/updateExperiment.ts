@@ -51,6 +51,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   experimentChangeActions,
   confirmationLink,
+  queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import {
@@ -459,12 +460,24 @@ export const updateExperiment = createApiRequestHandler(
   await validateExperimentChange({ context: req.context, experiment, changes });
 
   const liveActions = experimentChangeActions(experiment, changes);
+  const queued = await queuedDraftsHold(
+    req.context,
+    changes.status === "running" && experiment.status !== "running"
+      ? experiment.pendingFeatureDrafts
+      : undefined,
+  );
   await requireConfirmation(req.context, {
-    actions: liveActions.length ? liveActions : ["experiment.draft"],
+    actions: [
+      ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
+      ...queued.actions,
+    ],
     project: experiment.project,
     summary: `Change ${experiment.name}`,
-    links: [confirmationLink("experiment", experiment.id, experiment.name)],
-    pin: [experiment.status, experiment.phases],
+    links: [
+      confirmationLink("experiment", experiment.id, experiment.name),
+      ...queued.links,
+    ],
+    pin: [experiment.status, experiment.phases, queued.pin],
   });
 
   let experimentForUpdate = experiment;

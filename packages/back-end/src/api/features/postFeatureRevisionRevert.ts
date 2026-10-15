@@ -365,6 +365,13 @@ export async function revertFeatureRevision(
       context.permissions.throwPermissionError();
     }
 
+    await requireConfirmation(context, {
+      actions: ["feature.draft"],
+      project: feature.project,
+      summary: `Draft a revert of ${feature.id} to revision ${targetRevision.version}`,
+      links: [confirmationLink("feature", feature.id)],
+      pin: feature.dateUpdated,
+    });
     const newDraft = await createRevision({
       context,
       feature,

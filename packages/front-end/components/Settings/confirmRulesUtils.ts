@@ -78,6 +78,7 @@ export const isSingleAction = (category: Category) =>
 export const verbOf = (action: string) => {
   const verb = action.split(".")[1];
   if (verb === "other") return "other actions";
+  if (verb === "restBypassesReviews") return "REST bypasses reviews";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };
 

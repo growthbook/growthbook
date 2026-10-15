@@ -129,6 +129,9 @@ function asUser(id: string) {
 }
 
 async function seed(env: string) {
+  // Written through the driver, so the harness doesn't clear them between tests.
+  await mongoose.connection.collection("confirmations").deleteMany({});
+  await mongoose.connection.collection("confirmationattempts").deleteMany({});
   await mongoose.connection.collection("organizations").insertOne({ ...org });
   await mongoose.connection.collection("users").insertMany(
     Object.keys(members).map((id) => ({
@@ -290,7 +293,35 @@ describe("confirmations", () => {
       );
 
     const done = await decideConfirmation(asUser("u_torres"), id, "confirm");
-    expect(done.status).toBe("expired");
+    expect(done).toMatchObject({
+      status: "expired",
+      response: {
+        status: 400,
+        body: { message: expect.stringContaining("changed after it was") },
+      },
+    });
+    expect(await featureVersion()).toBe(1);
+  });
+
+  it("runs nothing once a hold has expired or its key is gone", async () => {
+    await seed("production");
+    setReqContext(asKey(pat));
+    const expired = (await publish()).body.confirmation.id;
+    await mongoose.connection
+      .collection("confirmations")
+      .updateOne({ id: expired }, { $set: { expiresAt: new Date(0) } });
+    expect((await poll(expired)).body.confirmation.status).toBe("expired");
+    await expect(
+      decideConfirmation(asUser("u_torres"), expired, "confirm"),
+    ).rejects.toThrow(/already decided or has expired/);
+
+    const orphaned = (await publish()).body.confirmation.id;
+    expect(orphaned).not.toBe(expired);
+    await mongoose.connection.collection("apikeys").deleteOne({ id: pat.id });
+    await expect(
+      decideConfirmation(asUser("u_torres"), orphaned, "confirm"),
+    ).rejects.toThrow(/key that made this request is gone/);
+    expect((await poll(orphaned)).body.confirmation.status).toBe("expired");
     expect(await featureVersion()).toBe(1);
   });
 

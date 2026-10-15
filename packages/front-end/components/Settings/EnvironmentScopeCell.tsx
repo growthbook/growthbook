@@ -36,6 +36,7 @@ export default function EnvironmentScopeCell({
         )}
         {onChange && (
           <IconButton
+            type="button"
             variant="ghost"
             radius="full"
             size="1"

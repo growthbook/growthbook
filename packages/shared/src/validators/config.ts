@@ -952,7 +952,7 @@ export const archiveConfigValidator = {
   summary: "Archive a single config",
   description:
     'Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it. When archiving would strip a value that live features or other configs still consume, the request returns a 422 listing the blocking gates — re-submit with `"ignoreWarnings": true` in the request body to acknowledge and proceed. A locked config, or one whose org requires approval, returns its own gate (unlock or route the change through a draft revision).',
-  confirmation: ["config.archive"] as const,
+  confirmation: ["config.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "archiveConfig",
   tags: ["configs"],
@@ -967,7 +967,7 @@ export const unarchiveConfigValidator = {
   paramsSchema: configKeyParams,
   responseSchema: apiConfigArchiveResponse,
   summary: "Unarchive a single config",
-  confirmation: ["config.archive"] as const,
+  confirmation: ["config.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "unarchiveConfig",
   tags: ["configs"],

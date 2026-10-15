@@ -170,17 +170,18 @@ export function buildContextualBanditRefRule(
   };
 }
 
-// Publishing the rule change now is held; staging it in a draft is not.
+// Publishing the rule change now holds as a publish; staging it, as a draft.
 export async function holdLinkedFeaturePublish(
   context: ApiReqContext,
   feature: FeatureInterface,
   autoPublish: boolean | undefined,
 ) {
-  if (!autoPublish) return;
   await requireConfirmation(context, {
-    actions: ["feature.publish"],
+    actions: [autoPublish ? "feature.publish" : "feature.draft"],
     project: feature.project,
-    summary: `Publish the contextual bandit rule on ${feature.id}`,
+    summary: autoPublish
+      ? `Publish the contextual bandit rule on ${feature.id}`
+      : `Draft the contextual bandit rule on ${feature.id}`,
     links: [confirmationLink("feature", feature.id)],
     pin: feature.dateUpdated,
   });

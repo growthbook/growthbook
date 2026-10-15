@@ -229,12 +229,14 @@ export async function requireConfirmation(
     const id = context.confirmationId;
     const stored = await confirmations.getById(id);
     if (stored?.fingerprint === fingerprint) return;
+    const message =
+      "This request changed after it was confirmed, so it was not run. Send it again for a new confirmation.";
     await confirmations.updateWithCas(id, ["status"], (doc) =>
-      doc.status === "running" ? { status: "expired" } : null,
+      doc.status === "running"
+        ? { status: "expired", response: { status: 400, body: { message } } }
+        : null,
     );
-    throw new BadRequestError(
-      "This request changed after it was confirmed, so it was not run. Send it again for a new confirmation.",
-    );
+    throw new BadRequestError(message);
   }
 
   const req = context.req;
@@ -587,6 +589,41 @@ const differs = (before: unknown, after: unknown) =>
 const changed = (before: unknown, after: unknown) =>
   after !== undefined && differs(before, after);
 
+// Starting an experiment or bandit publishes the feature drafts queued on it, so
+// the start holds as their publish too, pinned to how they look now.
+export async function queuedDraftsHold(
+  context: ReqContext,
+  queued: { featureId: string; revisionVersion: number }[] | undefined,
+): Promise<{
+  actions: ConfirmAction[];
+  links: ConfirmationLink[];
+  pin: unknown[];
+}> {
+  if (!queued?.length) return { actions: [], links: [], pin: [] };
+  const { getRevision } = await import(
+    "back-end/src/models/FeatureRevisionModel"
+  );
+  const pin = await Promise.all(
+    queued.map(async ({ featureId, revisionVersion }) => {
+      const revision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId,
+        feature: undefined,
+        version: revisionVersion,
+      });
+      return [featureId, revisionVersion, revision?.dateUpdated ?? null];
+    }),
+  );
+  return {
+    actions: ["feature.publish"],
+    links: [...new Set(queued.map(({ featureId }) => featureId))].map((id) =>
+      confirmationLink("feature", id),
+    ),
+    pin,
+  };
+}
+
 // What an update does to a live experiment, in the Make Changes flow's terms.
 // Edits to a draft aren't live, so only starting it counts.
 export function experimentChangeActions(
@@ -597,12 +634,21 @@ export function experimentChangeActions(
   if (changes.status === "running" && existing.status !== "running") {
     actions.add("experiment.start");
   }
-  if (changes.status === "stopped" && existing.status !== "stopped") {
+  // Back to draft takes it out of the payload, like stopping it.
+  if (
+    (changes.status === "stopped" || changes.status === "draft") &&
+    existing.status !== changes.status &&
+    existing.status !== "draft"
+  ) {
     actions.add("experiment.stop");
   }
   const schedule = changes.statusUpdateSchedule;
   if (schedule && !isEqual(schedule, existing.statusUpdateSchedule)) {
     scheduleActions(schedule).forEach((action) => actions.add(action));
+  }
+  // Clearing a schedule cancels a start or stop that was due.
+  if (schedule === null && existing.statusUpdateSchedule) {
+    actions.add("experiment.other");
   }
   if (existing.status === "draft") return [...actions];
 
@@ -612,7 +658,14 @@ export function experimentChangeActions(
   const before = existing.phases ?? [];
   const after = changes.phases;
   if (after) {
-    if (after.length !== before.length) actions.add("experiment.phases");
+    if (after.length !== before.length) {
+      actions.add("experiment.phases");
+      // A new latest phase is what serves, so it's compared with the old one.
+      const [was, now] = [before.at(-1), after.at(-1)];
+      for (const [field, action] of PHASE_ACTIONS) {
+        if (was && now && differs(was[field], now[field])) actions.add(action);
+      }
+    }
     before.forEach((phase, i) => {
       if (!after[i]) return;
       const isLatest = i === before.length - 1;

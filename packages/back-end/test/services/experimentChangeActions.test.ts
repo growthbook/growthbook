@@ -17,6 +17,30 @@ const running = {
 } as unknown as ExperimentInterface;
 
 describe("experimentChangeActions", () => {
+  it("names taking a live experiment back to draft, or clearing its schedule", () => {
+    expect(experimentChangeActions(running, { status: "draft" })).toEqual([
+      "experiment.stop",
+    ]);
+    expect(
+      experimentChangeActions(
+        { ...running, statusUpdateSchedule: { stopAt: new Date() } },
+        { statusUpdateSchedule: null },
+      ),
+    ).toEqual(["experiment.other"]);
+  });
+
+  it("names what a new latest phase changes from the old one", () => {
+    expect(
+      experimentChangeActions(running, {
+        phases: [
+          phase({ name: "First" }),
+          phase(),
+          phase({ condition: '{"country":"US"}', coverage: 1 }),
+        ],
+      }).sort(),
+    ).toEqual(["experiment.phases", "experiment.targeting"]);
+  });
+
   it("names Make Changes edits to the live phase", () => {
     expect(
       experimentChangeActions(running, {

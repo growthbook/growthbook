@@ -90,6 +90,8 @@ export type OpenApiEndpointSpec = {
   possibleErrors?: readonly ApiErrorCode[];
   /** Actions a person may have to confirm before this request runs. */
   confirmation?: readonly ConfirmAction[];
+  /** The handler holds for confirmation itself, once it knows the change. */
+  confirmationInHandler?: boolean;
 };
 
 /**
@@ -301,6 +303,7 @@ export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
   possibleErrors?: readonly ApiErrorCode[];
   version?: "v1" | "v2";
   confirmation?: readonly ConfirmAction[];
+  confirmationInHandler?: boolean;
 };
 
 /** The endpoint the back-end mounts for one of a spec's custom endpoints. */
@@ -320,6 +323,7 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
     possibleErrors: endpoint.possibleErrors,
     version: endpoint.version,
     confirmation: endpoint.confirmation,
+    confirmationInHandler: endpoint.confirmationInHandler,
   };
 }
 

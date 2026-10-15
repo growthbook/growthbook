@@ -20,7 +20,8 @@ import {
 export const startContextualBanditEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
-  confirmation: ["experiment.start"] as const,
+  confirmation: ["experiment.start", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "startContextualBandit",
   validator: apiContextualBanditStartValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -40,7 +41,7 @@ export const stopContextualBanditEndpoint = {
 export const refreshContextualBanditEndpoint = {
   pathFragment: "/:id/refresh",
   verb: "post" as const,
-  confirmation: [],
+  confirmation: ["experiment.traffic"] as const,
   operationId: "refreshContextualBandit",
   validator: apiContextualBanditRefreshValidator,
   zodReturnObject: apiContextualBanditRefreshReturn,

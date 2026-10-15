@@ -4052,6 +4052,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
     delete:
       operationId: deleteFeature
       summary: Deletes a single feature
@@ -4217,6 +4219,11 @@ paths:
               -d '{"reason":"Kill switch activated","environments":{"production":false}}'
       x-growthbook-confirmation:
         - feature.publish
+        - override.ignoreWarnings
+        - override.skipSchemaValidation
+        - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/features/{id}/revert:
     post:
       operationId: revertFeature
@@ -4340,6 +4347,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/feature-keys:
     get:
       operationId: getFeatureKeys
@@ -8715,6 +8724,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
         - feature.archive
         - override.ignoreWarnings
@@ -10608,6 +10618,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
     delete:
       operationId: deleteFeatureV2
       summary: Deletes a single feature
@@ -10761,6 +10773,11 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - feature.publish
+        - override.ignoreWarnings
+        - override.skipSchemaValidation
+        - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v2/features/{id}/revert:
     post:
       operationId: revertFeatureV2
@@ -10877,6 +10894,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v2/feature-keys:
     get:
       operationId: getFeatureKeysV2
@@ -16066,6 +16085,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
         - feature.archive
         - override.ignoreWarnings
@@ -17086,6 +17106,7 @@ paths:
         - experiment.start
         - experiment.stop
         - override.ignoreWarnings
+        - override.bypassDuplicateKeyCheck
   /v1/experiments/results:
     get:
       operationId: listExperimentResults
@@ -17892,6 +17913,7 @@ paths:
         - experiment.phases
         - experiment.other
         - override.ignoreWarnings
+        - override.bypassDuplicateKeyCheck
   /v1/experiments/{id}/start-checklist:
     get:
       operationId: getExperimentStartChecklist
@@ -18092,6 +18114,7 @@ paths:
       x-growthbook-confirmation:
         - experiment.start
         - override.ignoreWarnings
+        - override.skipChecklist
   /v1/experiments/{id}/start-checklist/manual/complete:
     post:
       operationId: postExperimentStartChecklistManualComplete
@@ -19794,6 +19817,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
     put:
       operationId: updateContextualBanditLinkedFeature
@@ -19940,6 +19964,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
     delete:
       operationId: deleteContextualBanditLinkedFeature
@@ -20020,6 +20045,7 @@ paths:
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
+        - feature.draft
         - feature.publish
   /v1/snapshots/{id}:
     get:
@@ -24304,6 +24330,10 @@ paths:
       x-growthbook-confirmation:
         - savedGroup.archive
         - override.ignoreWarnings
+        - override.skipSchemaValidation
+        - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/saved-groups/{id}/unarchive:
     post:
       operationId: unarchiveSavedGroup
@@ -24363,6 +24393,11 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - savedGroup.archive
+        - override.ignoreWarnings
+        - override.skipSchemaValidation
+        - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/saved-groups/{id}/references:
     get:
       operationId: getSavedGroupReferences
@@ -26090,6 +26125,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - savedGroup.publish
+        - savedGroup.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -26703,6 +26739,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/constants/{key}/unarchive:
     post:
       operationId: unarchiveConstant
@@ -26805,6 +26843,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/constants-revisions/{key}:
     get:
       operationId: getConstantRevisions
@@ -28312,6 +28352,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - constant.publish
+        - constant.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -29487,6 +29528,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/configs/{key}/unarchive:
     post:
       operationId: unarchiveConfig
@@ -29588,6 +29631,8 @@ paths:
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
+        - override.bypassApproval
+        - override.restBypassesReviews
   /v1/configs/{key}/lock:
     post:
       operationId: lockConfig
@@ -31905,6 +31950,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - config.publish
+        - config.archive
         - override.ignoreWarnings
         - override.skipSchemaValidation
         - override.skipHooks
@@ -56679,6 +56725,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
       x-growthbook-confirmation:
         - experiment.start
+        - feature.publish
   /v1/contextual-bandits/{id}/stop:
     post:
       operationId: stopContextualBandit
@@ -56760,12 +56807,31 @@ paths:
                 required:
                   - snapshotId
                 additionalProperties: false
+        '202':
+          description: >-
+            Held until a person confirms it in GrowthBook. Poll the Location
+            until the confirmation completes.
+          headers:
+            Location:
+              description: The confirmation to poll
+              schema:
+                type: string
+            Retry-After:
+              description: Seconds to wait before polling
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+      x-growthbook-confirmation:
+        - experiment.traffic
   /v1/contextual-bandits/{id}/variations:
     post:
       operationId: updateContextualBanditVariations
@@ -68468,9 +68534,12 @@ components:
     wait:
       name: wait
       in: query
-      description: ''
+      description: Seconds to wait for a decision before responding, up to 30
       schema:
-        type: number
+        description: Seconds to wait for a decision before responding, up to 30
+        type: integer
+        minimum: 0
+        maximum: 30
     tableId:
       name: tableId
       in: path
@@ -78881,6 +78950,8 @@ components:
                   - override.bypassApproval
                   - override.restBypassesReviews
                   - override.draftLimit
+                  - override.skipChecklist
+                  - override.bypassDuplicateKeyCheck
                   - other.write
               environments:
                 type: array
@@ -87471,76 +87542,6 @@ components:
         - experiment
         - status
       additionalProperties: false
-    FeatureDefinition:
-      type: object
-      properties:
-        defaultValue:
-          anyOf:
-            - type: string
-            - type: number
-            - type: array
-              items: {}
-            - type: object
-              propertyNames:
-                type: string
-              additionalProperties: {}
-            - type: 'null'
-        rules:
-          type: array
-          items:
-            type: object
-            properties:
-              force:
-                anyOf:
-                  - type: string
-                  - type: number
-                  - type: array
-                    items: {}
-                  - type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties: {}
-                  - type: 'null'
-              weights:
-                type: array
-                items:
-                  type: number
-              variations:
-                type: array
-                items:
-                  anyOf:
-                    - type: string
-                    - type: number
-                    - type: array
-                      items: {}
-                    - type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties: {}
-                    - type: 'null'
-              hashAttribute:
-                type: string
-              namespace:
-                minItems: 3
-                maxItems: 3
-                type: array
-                items:
-                  anyOf:
-                    - type: number
-                    - type: string
-              key:
-                type: string
-              coverage:
-                type: number
-              condition:
-                type: object
-                propertyNames:
-                  type: string
-                additionalProperties: {}
-            additionalProperties: false
-      required:
-        - defaultValue
-      additionalProperties: false
     ConfirmationHeld:
       type: object
       properties:
@@ -87659,6 +87660,8 @@ components:
                       - override.bypassApproval
                       - override.restBypassesReviews
                       - override.draftLimit
+                      - override.skipChecklist
+                      - override.bypassDuplicateKeyCheck
                       - other.write
                   environments:
                     type: array
@@ -87700,6 +87703,76 @@ components:
             - response
             - note
           additionalProperties: false
+    FeatureDefinition:
+      type: object
+      properties:
+        defaultValue:
+          anyOf:
+            - type: string
+            - type: number
+            - type: array
+              items: {}
+            - type: object
+              propertyNames:
+                type: string
+              additionalProperties: {}
+            - type: 'null'
+        rules:
+          type: array
+          items:
+            type: object
+            properties:
+              force:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: array
+                    items: {}
+                  - type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
+                  - type: 'null'
+              weights:
+                type: array
+                items:
+                  type: number
+              variations:
+                type: array
+                items:
+                  anyOf:
+                    - type: string
+                    - type: number
+                    - type: array
+                      items: {}
+                    - type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                    - type: 'null'
+              hashAttribute:
+                type: string
+              namespace:
+                minItems: 3
+                maxItems: 3
+                type: array
+                items:
+                  anyOf:
+                    - type: number
+                    - type: string
+              key:
+                type: string
+              coverage:
+                type: number
+              condition:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+            additionalProperties: false
+      required:
+        - defaultValue
+      additionalProperties: false
     ConfigReferences:
       type: object
       properties:

@@ -187,7 +187,7 @@ export default function ConfirmationPage() {
       shouldRun: () => !!id,
       // Stays current while open, until someone decides or it expires.
       refreshInterval: (latest) =>
-        !latest || ["pending", "running"].includes(latest.confirmation.status)
+        latest && ["pending", "running"].includes(latest.confirmation.status)
           ? 5000
           : 0,
     },
@@ -211,7 +211,8 @@ export default function ConfirmationPage() {
     setSubmitting(false);
   };
 
-  if (error) {
+  // A failed refresh keeps the page it already loaded.
+  if (error && !data) {
     return (
       <Wrapper>
         <Callout status="error">{error.message}</Callout>

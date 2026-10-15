@@ -29,6 +29,7 @@ import {
   apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- V2 scope extension ----
 
@@ -922,7 +923,11 @@ export const updateFeatureV2Validator = {
   summary: "Partially update a feature",
   description:
     "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",
-  confirmation: ["feature.publish", "feature.archive"] as const,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
   confirmationInHandler: true,
   operationId: "updateFeatureV2",
   tags: ["features-v2"],
@@ -990,7 +995,7 @@ export const toggleFeatureV2Validator = {
   summary: "Toggle a feature in one or more environments",
   description:
     "Enables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
-  confirmation: ["feature.publish"] as const,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "toggleFeatureV2",
   tags: ["features-v2"],
@@ -1015,7 +1020,11 @@ export const revertFeatureV2Validator = {
   summary: "Revert a feature to a specific revision",
   description:
     'Restores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
-  confirmation: ["feature.publish", "feature.archive"] as const,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
   confirmationInHandler: true,
   operationId: "revertFeatureV2",
   tags: ["features-v2"],

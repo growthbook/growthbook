@@ -353,7 +353,11 @@ export const postConfigRevisionPublishValidator = {
 export const postConfigRevisionRevertValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/revert",
-  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmation: [
+    "config.publish",
+    "config.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
   operationId: "postConfigRevisionRevert",
   summary: "Revert the config to a prior revision",
   description:

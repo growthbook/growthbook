@@ -377,7 +377,11 @@ export const postSavedGroupRevisionPublishValidator = {
 export const postSavedGroupRevisionRevertValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/revert",
-  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmation: [
+    "savedGroup.publish",
+    "savedGroup.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
