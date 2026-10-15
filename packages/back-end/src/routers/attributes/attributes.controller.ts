@@ -280,7 +280,7 @@ export const getAttributeReferences = async (
 ) => {
   const context = getContextFromReq(req);
   const attributeKeys = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
+    ? req.query.ids.split(",").filter(Boolean).map(decodeURIComponent)
     : [];
 
   if (!attributeKeys.length) {

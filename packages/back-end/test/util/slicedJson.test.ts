@@ -10,13 +10,13 @@ function appSending(
 ) {
   const app = express();
   app.use(compression());
-  app.get("/", (_req, res) => {
+  app.get("/", (req, res) => {
     void sendJsonWithSlicedList(res, fields, "items", items, signal);
   });
   return app;
 }
 
-const items = Array.from({ length: 250 }, (_, i) => ({
+const items = Array.from({ length: 250 }, (item, i) => ({
   id: `f_${i}`,
   date: new Date(Date.UTC(2026, 0, 1, 0, 0, i)),
   note: i % 2 ? 'quote " and comma, ünicode' : null,
@@ -68,7 +68,7 @@ describe("sendJsonWithSlicedList", () => {
     aborted.abort();
     const app = express();
     let headersSent = true;
-    app.get("/", async (_req, res) => {
+    app.get("/", async (req, res) => {
       await sendJsonWithSlicedList(
         res,
         { status: 200 },

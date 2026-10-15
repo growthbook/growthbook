@@ -34,7 +34,8 @@ export function useAttributeReferences(attributeKeys: string[]): {
   const { apiCall, orgId } = useAuth();
 
   const sortedKeys = [...attributeKeys].sort();
-  const idsParam = sortedKeys.join(",");
+  // Each name is encoded on its own so a comma inside one survives the split
+  const idsParam = sortedKeys.map(encodeURIComponent).join(",");
   const path = idsParam
     ? `/attribute/references?ids=${encodeURIComponent(idsParam)}`
     : null;

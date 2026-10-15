@@ -130,6 +130,7 @@ import {
   getAffectedSDKPayloadKeys,
   getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
+  toFeatureMetaInfo,
 } from "back-end/src/util/features";
 import {
   assertHoldoutAvailableForProject,
@@ -4944,46 +4945,7 @@ export async function getFeatureMetaInfoById(
     const f = features[i];
     if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
-    const rules = f.rules as
-      | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
-      | undefined;
-    const envSettings = f.environmentSettings as
-      | Record<string, { prerequisites?: unknown[] }>
-      | undefined;
-    const hasPrerequisites =
-      (f.prerequisites?.length ?? 0) > 0 ||
-      (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
-      Object.values(envSettings ?? {}).some(
-        (e) => (e.prerequisites?.length ?? 0) > 0,
-      );
-    const hasSavedGroups = (rules ?? []).some(
-      (r) => (r.savedGroups?.length ?? 0) > 0,
-    );
-
-    metaInfo.push({
-      id: f.id,
-      project: f.project,
-      // Lean documents leave out the empty lists hydration would add
-      targetingProjects: f.targetingProjects ?? [],
-      targetingAllProjects: f.targetingAllProjects,
-      archived: f.archived,
-      description: f.description,
-      dateCreated: f.dateCreated,
-      dateUpdated: f.dateUpdated,
-      tags: f.tags ?? [],
-      owner: f.owner,
-      valueType: f.valueType,
-      version: f.version,
-      linkedExperiments: f.linkedExperiments ?? [],
-      neverStale: f.neverStale,
-      hasPrerequisites,
-      hasSavedGroups,
-      // The list shows "Config · <name>" from the flag's first-class
-      // `baseConfig` (authoritative), not by parsing the default value.
-      configBackingKey: f.baseConfig ?? null,
-      revision: f.revision as FeatureMetaInfo["revision"],
-      ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-    });
+    metaInfo.push(toFeatureMetaInfo(f, includeDefaultValue));
   }
   return metaInfo;
 }
