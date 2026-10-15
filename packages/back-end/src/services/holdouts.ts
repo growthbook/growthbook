@@ -297,11 +297,11 @@ export async function addNewExperimentToHoldout(
 }
 
 /**
- * Moves an experiment into, between or out of holdouts ("" leaves). Only a
- * draft may join, and only one with no linked changes may leave or switch;
- * the caller stores holdoutId.
+ * Checks a move into, between or out of holdouts ("" leaves). Only a draft may
+ * join, and only one with no linked changes may leave or switch. Call before
+ * saving the experiment, then applyExperimentHoldoutChange after.
  */
-export async function applyExperimentHoldoutChange(
+export async function assertExperimentHoldoutChange(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   { holdoutId, project }: { holdoutId?: string; project?: string },
@@ -342,6 +342,21 @@ export async function applyExperimentHoldoutChange(
           : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
       );
     }
+  }
+}
+
+/**
+ * Updates holdout membership to match a holdoutId change checked by
+ * assertExperimentHoldoutChange. `experiment` is the pre-update experiment.
+ */
+export async function applyExperimentHoldoutChange(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  holdoutId: string | undefined,
+) {
+  const current = experiment.holdoutId;
+  if (holdoutId === undefined || holdoutId === (current || "")) return;
+  if (current) {
     await context.models.holdout.removeExperimentFromHoldout(
       current,
       experiment.id,
