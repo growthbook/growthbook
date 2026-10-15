@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { PiRobotBold } from "react-icons/pi";
 import Button from "@/ui/Button";
@@ -9,6 +9,7 @@ import listTableStyles from "@/components/Experiment/ExperimentsListTable.module
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import { useGrowthBotPrototype } from "@/components/Agent/prototypeGrowthBotState";
 import GrowthBotStateNotice from "@/components/Agent/GrowthBotStateNotice";
+import { usePrototypeExistingPageColors } from "./PrototypeControls";
 import styles from "./GrowthBotButton.module.scss";
 
 // The header's GrowthBot (AI Assistant) button (moved out of TopNav.tsx,
@@ -40,6 +41,10 @@ export default function GrowthBotButton() {
     togglePanel: toggleAgentPanel,
   } = useAgentPanel();
   const { state, canUpgrade } = useGrowthBotPrototype();
+  // PROTOTYPE: with "Interim colors" on, the button's look before the
+  // redesign (set in review): Button's own grey outline, without the
+  // Check Hypothesis styling below.
+  const interimColors = usePrototypeExistingPageColors();
   const [noticeOpen, setNoticeOpen] = useState(false);
   // Opened by a click (focus moves in, and it stays until dismissed), not
   // just shown by hover or focus.
@@ -68,14 +73,18 @@ export default function GrowthBotButton() {
     variant: "outline",
     color: "gray",
     size: "sm",
-    className: clsx(
-      experimentHeaderStyles.outlineButton,
-      modalStandardStyles.ghostButton,
-    ),
-    style: {
-      borderRadius: "var(--radius-3)",
-      color: "var(--slate-12)",
-    },
+    className: interimColors
+      ? undefined
+      : clsx(
+          experimentHeaderStyles.outlineButton,
+          modalStandardStyles.ghostButton,
+        ),
+    style: (interimColors
+      ? {}
+      : {
+          borderRadius: "var(--radius-3)",
+          color: "var(--slate-12)",
+        }) as CSSProperties,
   } as const;
 
   if (state === "default") {

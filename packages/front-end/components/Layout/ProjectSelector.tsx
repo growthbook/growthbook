@@ -17,6 +17,7 @@ import Tooltip from "@/ui/Tooltip";
 import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import LetterAvatar from "./LetterAvatar";
+import { usePrototypeExistingPageColors } from "./PrototypeControls";
 import headerStyles from "./HeaderBreadcrumb.module.scss";
 
 const demoBadge = {
@@ -157,6 +158,10 @@ export function HeaderProjectSelector({
     searchInputProps,
   } = useProjectSelector();
   const [open, setOpen] = useState(false);
+  // PROTOTYPE: with "Interim colors" on, the button's look before the
+  // redesign (set in review): Button's own ghost, without the 400 label,
+  // the --slate-12 text and the 6px corners below.
+  const interimColors = usePrototypeExistingPageColors();
 
   if (!projects.length) return null;
 
@@ -188,10 +193,20 @@ export function HeaderProjectSelector({
       preventDefault={false}
       className={clsx(
         headerStyles.headerButton,
-        modalStandardStyles.ghostButton,
+        !interimColors && modalStandardStyles.ghostButton,
       )}
-      style={{ borderRadius: "var(--radius-3)", color: "var(--slate-12)" }}
-      icon={<PiFolder size={14} className={headerStyles.projectIcon} />}
+      style={
+        interimColors
+          ? undefined
+          : { borderRadius: "var(--radius-3)", color: "var(--slate-12)" }
+      }
+      icon={
+        <PiFolder
+          size={14}
+          // Interim: the button's own text colour, not the redesign's grey.
+          className={interimColors ? undefined : headerStyles.projectIcon}
+        />
+      }
       aria-label={`Project: ${name}${disabled ? " (not used on this page)" : ""}`}
       disabled={disabled}
     >

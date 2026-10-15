@@ -4,7 +4,6 @@ import clsx from "clsx";
 import { IconType } from "react-icons";
 import {
   PiBuildingBold,
-  PiCaretRightBold,
   PiCircleHalf,
   PiFileText,
   PiHourglassHigh,
@@ -96,27 +95,16 @@ function MenuItemContent({
   Icon,
   label,
   trailing,
-  submenu = false,
 }: {
   Icon: IconType;
   label: string;
   trailing?: React.ReactNode;
-  // A submenu's trigger: the side nav's chevron at the end (set in review;
-  // in place of Radix's, hidden in .item).
-  submenu?: boolean;
 }) {
   return (
     <span className={styles.itemContent}>
       <Icon size={18} className={styles.itemIcon} aria-hidden="true" />
       <span className={styles.itemLabel}>{label}</span>
       {trailing}
-      {submenu ? (
-        <PiCaretRightBold
-          size={12}
-          className={styles.chevron}
-          aria-hidden="true"
-        />
-      ) : null}
     </span>
   );
 }
@@ -455,7 +443,6 @@ export default function ProfileMenu({
             <MenuItemContent
               Icon={ThemeIcon}
               label="Theme"
-              submenu
               trailing={
                 <span className={styles.themeValue}>
                   {THEME_LABELS[themeKey] ?? "System"}

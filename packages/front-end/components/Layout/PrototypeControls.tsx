@@ -384,7 +384,7 @@ export default function PrototypeControls() {
           <Toggle
             // "Interim colors" (set in review; was "Existing page colors").
             label="Interim colors"
-            info="Shows side nav coloring before we do a full product re-design, turn this on when viewing pages with light purple backgrounds"
+            info="Shows side nav coloring and header button styling before we do a full product re-design, turn this on when viewing pages with light purple backgrounds"
             checked={existingColors}
             onChange={(v) => writeSetting(EXISTING_COLORS_KEY, v)}
           />

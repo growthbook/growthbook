@@ -166,13 +166,14 @@
       color: var(--slate-12);
     }
   }
+}
 
-  // Radix's submenu chevron hidden, with the slot that holds it (its
-  // margin pushed the row's own chevron in from the right; fix, set in
-  // review): the side nav's own is drawn instead (.chevron).
-  :global(.rt-BaseMenuShortcut):has(:global(.rt-BaseMenuSubTriggerIcon)) {
-    display: none;
-  }
+// Theme's submenu chevron: the design system's own, in the side nav's
+// chevron colour, --slate-10 (set in review), hovered or open too.
+.item.item :global(.rt-BaseMenuSubTriggerIcon),
+.item.item[data-highlighted] :global(.rt-BaseMenuSubTriggerIcon),
+.item.item[data-state="open"] :global(.rt-BaseMenuSubTriggerIcon) {
+  color: var(--slate-10);
 }
 
 .itemContent {
@@ -199,13 +200,6 @@
   // in review), so the widest, Join Slack Community, isn't crowded.
   margin-left: 4px;
   color: var(--slate-9);
-}
-
-// A submenu's chevron, as the side nav's (AppRail.module.scss's .chevron;
-// set in review): Phosphor's bold caret, 12px, --slate-10.
-.chevron {
-  flex-shrink: 0;
-  color: var(--slate-10);
 }
 
 .itemLabel {

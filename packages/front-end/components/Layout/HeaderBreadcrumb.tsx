@@ -10,6 +10,7 @@ import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import { HeaderProjectSelector } from "./ProjectSelector";
 import { usePageHead } from "./PageHead";
 import { useUserOrganizations } from "./ProfileMenu";
+import { usePrototypeExistingPageColors } from "./PrototypeControls";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 // The header's breadcrumb (app header redesign), up to 3 levels:
@@ -56,6 +57,12 @@ export default function HeaderBreadcrumb() {
   const { orgId } = useAuth();
   const { projects } = useDefinitions();
   const organizations = useUserOrganizations();
+  // PROTOTYPE: with "Interim colors" on, the crumbs' look before the
+  // redesign (set in review): Button's own ghost, without the 400 label,
+  // the --slate-12 / --gray-9 text and the 6px corners.
+  const interimColors = usePrototypeExistingPageColors();
+  const crumbStyle = (color: string) =>
+    interimColors ? undefined : { borderRadius: "var(--radius-3)", color };
 
   const orgName =
     organizations.length > 1
@@ -99,7 +106,10 @@ export default function HeaderBreadcrumb() {
     variant: "ghost",
     color: "gray",
     size: "sm",
-    className: clsx(styles.headerButton, modalStandardStyles.ghostButton),
+    className: clsx(
+      styles.headerButton,
+      !interimColors && modalStandardStyles.ghostButton,
+    ),
   } as const;
   if (section) {
     if (section.href) buttonParts.add(parts.length);
@@ -109,7 +119,7 @@ export default function HeaderBreadcrumb() {
           key="section"
           href={section.href}
           {...crumbButtonProps}
-          style={{ borderRadius: "var(--radius-3)", color: "var(--slate-12)" }}
+          style={crumbStyle("var(--slate-12)")}
         >
           <span className={styles.projectName}>{section.display}</span>
         </LinkButton>
@@ -139,7 +149,7 @@ export default function HeaderBreadcrumb() {
           {...crumbButtonProps}
           className={clsx(crumbButtonProps.className, styles.currentButton)}
           disabled
-          style={{ borderRadius: "var(--radius-3)", color: "var(--gray-9)" }}
+          style={crumbStyle("var(--gray-9)")}
         >
           <span className={styles.projectName}>{object.display}</span>
         </Button>
