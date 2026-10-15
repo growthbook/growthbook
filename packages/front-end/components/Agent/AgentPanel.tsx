@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -14,16 +20,17 @@ import {
   PiX,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
-import type { AIChatMessage } from "shared/ai-chat";
+import { getMessageText, type AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -107,6 +114,7 @@ const STARTER_PROMPTS = [
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
   { prompt: "Help me create an experiment", Icon: PiFlask },
 ];
+const STARTER_PROMPT_TEXTS = STARTER_PROMPTS.map((p) => p.prompt);
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -216,6 +224,7 @@ export default function AgentPanel({
   const stepsExpandedRef = useRef(false);
   const router = useRouter();
   const { defaultAIModel } = useAISettings();
+  const { aiAutocompleteEnabled = true } = useOrgSettings();
   // Read latest pathname inside the callback (not at render) so the URL
   // captured matches where the user is when they hit send, not where they
   // were when the panel rendered.
@@ -403,6 +412,24 @@ export default function AgentPanel({
   // Keep the feedback hook's ref in sync with the current conversation id.
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
+
+  // An empty draft offers the assistant's likeliest option word for word, no
+  // model call: a pending askUser prompt's recommended (else first) option,
+  // or the "(recommended)" item when the last message ended on a plain list.
+  const suggestedReply = useMemo(() => {
+    if (loading) return undefined;
+    if (askPrompt && !askPrompt.resolved) {
+      const pick =
+        askPrompt.options.find((o) => o.recommended) ?? askPrompt.options[0];
+      return pick
+        ? { key: `ask-${askPrompt.seq}`, text: pick.label }
+        : undefined;
+    }
+    const last = messages[messages.length - 1];
+    if (last?.role !== "assistant" || last.isError) return undefined;
+    const text = suggestedReplyFromOptions(getMessageText(last));
+    return text ? { key: last.id, text } : undefined;
+  }, [askPrompt, messages, loading]);
 
   // Panel stays mounted while closed; listeners need the container to exist.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
@@ -896,6 +923,12 @@ export default function AgentPanel({
         mentionItems={mentionItems}
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
+        autocomplete={aiAutocompleteEnabled}
+        suggestedReply={suggestedReply}
+        quickSuggestions={
+          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+        }
+        conversationId={conversationId}
         value={input}
         onChange={setInput}
         onSend={handleSend}
