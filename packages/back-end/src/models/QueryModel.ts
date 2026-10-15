@@ -126,7 +126,11 @@ export async function getQueriesByDatasource(
   datasource: string,
   limit: number = 50,
 ) {
-  const docs = await QueryModel.find({ organization, datasource })
+  // Results aren't returned and can be large
+  const docs = await QueryModel.find(
+    { organization, datasource },
+    { result: 0, rawResult: 0 },
+  )
     .limit(limit)
     .sort({ createdAt: -1 });
   return docs.map((doc) => toInterface(doc));

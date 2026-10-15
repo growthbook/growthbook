@@ -74,4 +74,33 @@ describe("applyApiDataSourceSettings", () => {
     expect(settings.queryCacheTTLMins).toBe("60");
     expect(settings.maxConcurrentQueries).toBe("5");
   });
+
+  it("restores every experiment to the pipeline on a null included list", () => {
+    const pipelineSettings = {
+      allowWriting: true,
+      mode: "incremental" as const,
+      writeDataset: "gb",
+      unitsTableRetentionHours: 24,
+    };
+    const scoped = applyApiDataSourceSettings(
+      { pipelineSettings },
+      {
+        pipelineSettings: {
+          ...pipelineSettings,
+          includedExperimentIds: ["exp_1"],
+          excludedExperimentIds: ["exp_2"],
+        },
+      },
+    );
+    expect(scoped.pipelineSettings?.includedExperimentIds).toEqual(["exp_1"]);
+
+    const all = applyApiDataSourceSettings(
+      {
+        pipelineSettings: { ...pipelineSettings, includedExperimentIds: null },
+      },
+      scoped,
+    );
+    expect(all.pipelineSettings).not.toHaveProperty("includedExperimentIds");
+    expect(all.pipelineSettings?.excludedExperimentIds).toEqual(["exp_2"]);
+  });
 });
