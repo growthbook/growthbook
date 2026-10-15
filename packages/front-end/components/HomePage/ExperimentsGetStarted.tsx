@@ -223,14 +223,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta="Add metric"
+                    cta={
+                      canOpenFactMetricFlow ? "Add metric" : "Create Fact Table"
+                    }
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateFactMetric({
+                      !hasMetrics &&
+                      (!permissionsUtil.canCreateFactMetric({
                         projects: [project],
-                      }) &&
-                      !hasMetrics
+                      }) ||
+                        (!canOpenFactMetricFlow &&
+                          !permissionsUtil.canViewCreateFactTableModal(
+                            project,
+                            projects,
+                          )))
                     }
                     imageLeft={false}
                     onClick={(finished) => {
