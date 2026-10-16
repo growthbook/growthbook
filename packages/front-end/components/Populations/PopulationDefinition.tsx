@@ -32,7 +32,7 @@ export default function PopulationDefinition({
             const factTableId = step.source.factTableId;
             const factTable = getFactTableById(factTableId);
             const factTableName = factTable?.name || factTableId;
-            const sentence = describePopulationStep({
+            const { before, after } = describePopulationStep({
               steps: population.steps,
               index: i,
               factTableName,
@@ -41,21 +41,18 @@ export default function PopulationDefinition({
               )?.name,
               unit,
             });
-            const nameAt = sentence.indexOf(factTableName);
             return (
               <li key={i}>
                 <Text size="sm">
-                  {factTable && nameAt >= 0 ? (
-                    <>
-                      {sentence.slice(0, nameAt)}
-                      <Link href={`/fact-tables/${factTableId}`}>
-                        {factTableName}
-                      </Link>
-                      {sentence.slice(nameAt + factTableName.length)}
-                    </>
+                  {before}
+                  {factTable ? (
+                    <Link href={`/fact-tables/${factTableId}`}>
+                      {factTableName}
+                    </Link>
                   ) : (
-                    sentence
+                    factTableName
                   )}
+                  {after}
                 </Text>
               </li>
             );

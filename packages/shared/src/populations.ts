@@ -78,8 +78,16 @@ function pluralize(n: number, unit: string): string {
   return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
 }
 
+export type PopulationStepDescription = {
+  before: string;
+  factTableName: string;
+  after: string;
+};
+
 // A one-line summary such as "Doesn't have an Orders row within 7 days after
-// step 1". Row filters are counted rather than spelled out.
+// step 1", split around the fact table name so callers can link it without
+// searching the text (a name like "Has" would match the wrong words). Row
+// filters are counted rather than spelled out.
 export function describePopulationStep({
   steps,
   index,
@@ -92,12 +100,10 @@ export function describePopulationStep({
   factTableName: string;
   aggregateColumnName?: string;
   unit: string;
-}): string {
+}): PopulationStepDescription {
   const step = steps[index];
   const article = /^[aeiou]/i.test(factTableName) ? "an" : "a";
-  const parts = [
-    `${step.negation ? "Doesn't have" : "Has"} ${article} ${factTableName} row`,
-  ];
+  const parts = ["row"];
 
   if (step.rowFilters.length) {
     parts.push(`matching ${pluralize(step.rowFilters.length, "filters")}`);
@@ -136,7 +142,11 @@ export function describePopulationStep({
     }
   }
 
-  return parts.join(" ");
+  return {
+    before: `${step.negation ? "Doesn't have" : "Has"} ${article} `,
+    factTableName,
+    after: ` ${parts.join(" ")}`,
+  };
 }
 
 // Returns null when the filter can't be shown as one operator and value, such

@@ -154,14 +154,31 @@ describe("describePopulationStep", () => {
     index: number,
     factTableName: string,
     aggregateColumnName?: string,
-  ) =>
-    describePopulationStep({
+  ) => {
+    const { before, after } = describePopulationStep({
       steps,
       index,
       factTableName,
       aggregateColumnName,
       unit: "user_id",
     });
+    return `${before}${factTableName}${after}`;
+  };
+
+  it("splits the sentence around the fact table name", () => {
+    expect(
+      describePopulationStep({
+        steps: [step("ftb_events"), { ...step("ftb_has"), negation: true }],
+        index: 1,
+        factTableName: "Has",
+        unit: "user_id",
+      }),
+    ).toEqual({
+      before: "Doesn't have a ",
+      factTableName: "Has",
+      after: " row",
+    });
+  });
 
   it("describes a plain step", () => {
     expect(describe1([step("ftb_events")], 0, "Sessions")).toBe(
