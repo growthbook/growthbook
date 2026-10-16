@@ -81,6 +81,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  CLUSTER_TRAFFIC_QUERY_NAME,
   CLUSTER_UNITS_QUERY_NAME,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -1248,9 +1249,28 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(trafficQuery);
 
-    // Cluster experiments: count sub-units in each of the largest clusters (for
-    // cluster-concentration health), in addition to the per-variation traffic.
     if (snapshotSettings.isClusterExperiment) {
+      const clusterTrafficQuery = await startQuery({
+        name: CLUSTER_TRAFFIC_QUERY_NAME,
+        query: integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+          clusterGrain: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterTrafficQuery);
+
+      // Per-cluster sub-unit counts (for cluster-concentration health).
       const clusterUnitsQuery = await startQuery({
         name: CLUSTER_UNITS_QUERY_NAME,
         query: integration.getExperimentClusterUnitsQuery({
@@ -1409,6 +1429,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterTrafficQuery = queryMap.get(CLUSTER_TRAFFIC_QUERY_NAME);
+      if (clusterTrafficQuery) {
+        result.health.clusterTraffic = analyzeExperimentTraffic({
+          rows: clusterTrafficQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+          error: clusterTrafficQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
 
       const clusterUnitsQuery = queryMap.get(CLUSTER_UNITS_QUERY_NAME);
       if (clusterUnitsQuery) {

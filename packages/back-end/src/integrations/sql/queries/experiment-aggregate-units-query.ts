@@ -34,6 +34,9 @@ export function getExperimentAggregateUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const clusterGrain =
+    !!params.clusterGrain && !!unitsSettings.isClusterExperiment;
+
   const banditDates = getBanditDates(settings.banditSettings);
   const variationPeriodWeights = getBanditVariationPeriodWeights(
     settings.banditSettings,
@@ -72,6 +75,32 @@ export function getExperimentAggregateUnitsQuery(
             })},`
           : ""
       }
+      ${
+        clusterGrain
+          ? `__clusterCollapsedUnits AS (
+        SELECT
+          ${baseIdType}
+          , ${dialect.ifElse(
+            "COUNT(DISTINCT variation) > 1",
+            "'__multiple__'",
+            "MAX(variation)",
+          )} AS variation
+          , MIN(first_exposure_timestamp) AS first_exposure_timestamp
+          ${experimentDimensions
+            .map((d) => `, MAX(dim_exp_${d.id}) AS dim_exp_${d.id}`)
+            .join("\n")}
+          ${
+            activationMetric
+              ? `, MIN(first_activation_timestamp) AS first_activation_timestamp`
+              : ""
+          }
+        FROM ${
+          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
+        }
+        GROUP BY ${baseIdType}
+      ),`
+          : ""
+      }
       __distinctUnits AS (
         SELECT
           ${baseIdType}
@@ -100,7 +129,11 @@ export function getExperimentAggregateUnitsQuery(
               : ""
           }
         FROM ${
-          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
+          clusterGrain
+            ? "__clusterCollapsedUnits"
+            : useUnitsTable
+              ? `${params.unitsTableFullName}`
+              : "__experimentUnits"
         }
       )
       , __unitsByDimension AS (

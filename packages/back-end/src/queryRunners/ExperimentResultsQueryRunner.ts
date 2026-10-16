@@ -97,6 +97,10 @@ export type ExperimentResultsQueryParams = {
 
 export const TRAFFIC_QUERY_NAME = "traffic";
 
+// Cluster experiments: a second traffic query counted at the cluster
+// (randomization-unit) grain, so the balance check / SRM is per-cluster.
+export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
+
 export const CLUSTER_UNITS_QUERY_NAME = "clusterUnits";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
@@ -488,6 +492,30 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
 
     if (snapshotSettings.isClusterExperiment) {
+      // Traffic counted at the cluster (randomization-unit) grain, so the
+      // balance check / SRM is per-cluster rather than per sub-unit.
+      const clusterTrafficQuery = await startQuery({
+        name: CLUSTER_TRAFFIC_QUERY_NAME,
+        query: integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+          clusterGrain: true,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterTrafficQuery);
+
       const clusterUnitsQuery = await startQuery({
         name: CLUSTER_UNITS_QUERY_NAME,
         query: integration.getExperimentClusterUnitsQuery({
@@ -621,6 +649,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterTrafficQuery = queryMap.get(CLUSTER_TRAFFIC_QUERY_NAME);
+      if (clusterTrafficQuery) {
+        result.health.clusterTraffic = analyzeExperimentTraffic({
+          rows: clusterTrafficQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+          error: clusterTrafficQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
 
       const clusterUnitsQuery = queryMap.get(CLUSTER_UNITS_QUERY_NAME);
       if (clusterUnitsQuery) {

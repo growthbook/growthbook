@@ -2400,6 +2400,48 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     ).toThrow("cannot share a query");
   });
 
+  const buildClusterTrafficSql = (clusterGrain: boolean): string =>
+    datasourceIntegration.getExperimentAggregateUnitsQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable: true,
+      unitsTableFullName: "proj.ds.units",
+      clusterGrain,
+    });
+
+  it("counts traffic per sub-unit by default (no cluster collapse)", () => {
+    const normalized = buildClusterTrafficSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+    // Without clusterGrain the sub-unit rows are counted directly.
+    expect(normalized).not.toContain("__clusterCollapsedUnits");
+    expect(normalized).toMatch(/__distinctUnits AS \( SELECT region_id/);
+  });
+
+  it("collapses sub-units to one row per cluster for cluster-grain traffic", () => {
+    const normalized = buildClusterTrafficSql(true).replace(/\s+/g, " ").trim();
+
+    // Sub-units are rolled up to one row per cluster before counting, so the
+    // downstream COUNT(*) counts clusters (the randomization unit), not users.
+    expect(normalized).toContain("__clusterCollapsedUnits");
+    expect(normalized).toMatch(
+      /__clusterCollapsedUnits AS \([\s\S]*GROUP BY region_id/,
+    );
+    // The collapsed set resolves a single variation and exposure date per cluster.
+    expect(normalized).toMatch(/MIN\(first_exposure_timestamp\)/);
+    // __distinctUnits then reads the collapsed per-cluster set.
+    expect(normalized).toMatch(
+      /__distinctUnits AS \( SELECT region_id[\s\S]*FROM __clusterCollapsedUnits/,
+    );
+  });
+
   const buildClusterUnitsSql = (useUnitsTable: boolean): string =>
     datasourceIntegration.getExperimentClusterUnitsQuery({
       settings: baseSettings,

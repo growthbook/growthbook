@@ -272,6 +272,14 @@ export default function HealthTab({
 
   const traffic = snapshot.health.traffic;
 
+  const clusterTraffic =
+    snapshot.settings.isClusterExperiment && snapshot.health.clusterTraffic
+      ? snapshot.health.clusterTraffic
+      : null;
+  const srmTraffic = clusterTraffic ?? traffic;
+  const srmTotalUsers =
+    srmTraffic?.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
+
   const phaseObj = experiment.phases?.[phase];
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => {
@@ -305,9 +313,9 @@ export default function HealthTab({
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard
-            traffic={traffic}
+            traffic={srmTraffic}
             variations={variations}
-            totalUsers={totalUsers}
+            totalUsers={srmTotalUsers}
             onNotify={handleHealthNotification}
             dataSource={datasource}
             exposureQuery={exposureQuery}

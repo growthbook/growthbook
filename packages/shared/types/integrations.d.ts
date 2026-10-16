@@ -629,6 +629,7 @@ export interface ExperimentAggregateUnitsQueryParams
   extends Omit<ExperimentBaseQueryParams, "dimensions"> {
   dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
+  clusterGrain?: boolean;
 }
 
 export type DimensionSlicesQueryParams = {
