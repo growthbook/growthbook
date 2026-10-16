@@ -1,5 +1,5 @@
-// Webhook payload schemas for constant revision events (`constant.revision.*`): a
-// reference to the revision plus each event's own fields.
+// Webhook payload schemas for constant revision events (`constant.revision.*`): the
+// revision with its before, after and patch, plus each event's own fields.
 
 import { z } from "zod";
 import {
@@ -10,10 +10,15 @@ import {
   keyedEntityReference,
   revisionWebhookReference,
   revisionWebhookReview,
+  webhookProposedChanges,
 } from "./revision-webhook-reference";
+import { apiConstantValidator } from "./constant";
 
 const constantRevisionWebhookPayload = revisionWebhookReference.extend({
   constant: keyedEntityReference,
+  baseConstant: apiConstantValidator,
+  proposedConstant: apiConstantValidator,
+  proposedChanges: webhookProposedChanges,
 });
 
 export const constantRevisionCreatedPayload = constantRevisionWebhookPayload;

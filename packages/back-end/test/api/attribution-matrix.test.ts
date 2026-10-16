@@ -565,8 +565,10 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         feature: { id },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+        // The draft's content rides along.
+        defaultValue: "false",
+        rules: expect.any(Object),
       });
-      expect(approvedObject).not.toHaveProperty("rules");
 
       const log = await as(actor).get(`${path}/log`);
       const commentEntry = log.body.log.find(
@@ -1248,7 +1250,7 @@ describe("attribution across callers", () => {
   });
 
   describe("revision webhooks", () => {
-    it("report the version a draft is based on", async () => {
+    it("carry a draft's base version, before, after and patch", async () => {
       const created = await as("a personal token").post(
         "/api/v1/saved-groups",
         {
@@ -1279,6 +1281,9 @@ describe("attribution across callers", () => {
       expect(event?.data?.data?.object).toMatchObject({
         version: second,
         baseVersion: first,
+        baseSavedGroup: { values: ["u2"] },
+        proposedSavedGroup: { values: ["u3"] },
+        proposedChanges: [{ op: "replace", path: "/values", value: ["u3"] }],
       });
     });
   });

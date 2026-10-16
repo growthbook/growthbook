@@ -11,7 +11,9 @@ import {
   webhookActor,
 } from "back-end/src/events/revisionReference";
 import { Context } from "back-end/src/models/BaseModel";
+import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { toApiConfigRevision } from "back-end/src/api/configs/toApiConfigRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
@@ -55,13 +57,18 @@ export async function dispatchConfigRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "config") return;
   try {
-    const reference = {
+    const { baseConfig, proposedConfig, proposedChanges } =
+      await toApiConfigRevision(revision, context as ApiReqContext);
+    const payload = {
       ...(await revisionReference(context, revision)),
       config: {
         id: revision.target.id,
         key: revision.target.snapshot.key,
         name: revision.target.snapshot.name,
       },
+      baseConfig,
+      proposedConfig,
+      proposedChanges,
     };
     const liveForRouting = await context.models.configs.getById(
       revision.target.id,
@@ -96,11 +103,11 @@ export async function dispatchConfigRevisionEvent(
 
     switch (action.type) {
       case "created":
-        await emit("revision.created", reference);
+        await emit("revision.created", payload);
         break;
       case "updated":
         await emit("revision.updated", {
-          ...reference,
+          ...payload,
           change:
             action.change === "metadata" ||
             action.change === "schema" ||
@@ -110,26 +117,26 @@ export async function dispatchConfigRevisionEvent(
         });
         break;
       case "reviewRequested":
-        await emit("revision.reviewRequested", reference);
+        await emit("revision.reviewRequested", payload);
         break;
       case "reviewed": {
         const reviewer = webhookActor(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment ?? null,
           });
         } else if (action.decision === "request-changes") {
           await emit("revision.changesRequested", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment ?? null,
           });
         } else {
           if (!action.comment) break;
           await emit("revision.commented", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment,
           });
@@ -137,17 +144,17 @@ export async function dispatchConfigRevisionEvent(
         break;
       }
       case "rebased":
-        await emit("revision.rebased", reference);
+        await emit("revision.rebased", payload);
         break;
       case "published":
         await emit("revision.published", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
         });
         break;
       case "publishFailed":
         await emit("revision.publishFailed", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
           failureReason: action.reason,
           terminal: action.terminal,
@@ -155,19 +162,19 @@ export async function dispatchConfigRevisionEvent(
         });
         break;
       case "discarded":
-        await emit("revision.discarded", reference);
+        await emit("revision.discarded", payload);
         break;
       case "reopened":
-        await emit("revision.reopened", reference);
+        await emit("revision.reopened", payload);
         break;
       case "recalled":
-        await emit("revision.recalled", reference);
+        await emit("revision.recalled", payload);
         break;
       case "reviewRetracted":
-        await emit("revision.reviewRetracted", reference);
+        await emit("revision.reviewRetracted", payload);
         break;
       case "publishScheduleChanged":
-        await emit("revision.publishScheduleChanged", reference);
+        await emit("revision.publishScheduleChanged", payload);
         break;
       case "reverted": {
         const source = revision.revertedFrom
@@ -176,7 +183,7 @@ export async function dispatchConfigRevisionEvent(
               .catch(() => null)
           : null;
         await emit("revision.reverted", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }

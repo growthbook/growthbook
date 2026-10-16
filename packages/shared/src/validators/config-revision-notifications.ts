@@ -1,5 +1,5 @@
-// Webhook payload schemas for config revision events (`config.revision.*`): a
-// reference to the revision plus each event's own fields.
+// Webhook payload schemas for config revision events (`config.revision.*`): the
+// revision with its before, after and patch, plus each event's own fields.
 
 import { z } from "zod";
 import {
@@ -10,10 +10,15 @@ import {
   keyedEntityReference,
   revisionWebhookReference,
   revisionWebhookReview,
+  webhookProposedChanges,
 } from "./revision-webhook-reference";
+import { apiConfigValidator } from "./config";
 
 const configRevisionWebhookPayload = revisionWebhookReference.extend({
   config: keyedEntityReference,
+  baseConfig: apiConfigValidator,
+  proposedConfig: apiConfigValidator,
+  proposedChanges: webhookProposedChanges,
 });
 
 export const configRevisionCreatedPayload = configRevisionWebhookPayload;

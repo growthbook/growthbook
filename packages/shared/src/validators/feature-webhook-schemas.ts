@@ -10,6 +10,11 @@ import { revisionWebhookReference } from "./revision-webhook-reference";
 const deprecated = <T extends z.ZodType>(schema: T, instead: string) =>
   schema.describe(`Deprecated: use ${instead}.`).meta({ deprecated: true });
 
+const revisionPrerequisite = z.object({
+  id: z.string().describe("Feature ID"),
+  condition: z.string(),
+});
+
 export const featureRevisionWebhookPayload = revisionWebhookReference
   .extend({
     feature: z.object({ id: z.string() }),
@@ -20,6 +25,19 @@ export const featureRevisionWebhookPayload = revisionWebhookReference
       z.string().optional(),
       "the `user` on `feature.revision.published`",
     ),
+    defaultValue: z
+      .string()
+      .describe("The default value at the time this revision was created")
+      .optional(),
+    // Rules are typed loosely — consumers should use the REST API for full detail.
+    rules: z.record(z.string(), z.array(z.any())),
+    definitions: z.record(z.string(), z.string()).optional(),
+    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    envPrerequisites: z
+      .record(z.string(), z.array(revisionPrerequisite))
+      .optional(),
+    prerequisites: z.array(revisionPrerequisite).optional(),
+    metadata: z.object({}).passthrough().optional(),
   })
   .strict();
 

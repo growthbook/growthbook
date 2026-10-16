@@ -1,5 +1,5 @@
 // Webhook payload schemas for savedGroup revision events (`savedGroup.revision.*`):
-// a reference to the revision plus each event's own fields.
+// the revision with its before, after and patch, plus each event's own fields.
 
 import { z } from "zod";
 import {
@@ -9,10 +9,15 @@ import {
 import {
   revisionWebhookReference,
   revisionWebhookReview,
+  webhookProposedChanges,
 } from "./revision-webhook-reference";
+import { apiSavedGroupValidator } from "./saved-group";
 
 const savedGroupRevisionWebhookPayload = revisionWebhookReference.extend({
   savedGroup: z.object({ id: z.string(), name: z.string() }),
+  baseSavedGroup: apiSavedGroupValidator,
+  proposedSavedGroup: apiSavedGroupValidator,
+  proposedChanges: webhookProposedChanges,
 });
 
 // Events with no extra fields reuse the base revision payload directly.

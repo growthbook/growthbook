@@ -13,6 +13,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { toApiRevision } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 import {
   featureRevisionReference,
@@ -94,9 +95,25 @@ export async function dispatchFeatureRevisionEvent<
       opts.environments,
     );
 
+    const {
+      defaultValue,
+      rules,
+      definitions,
+      environmentsEnabled,
+      envPrerequisites,
+      prerequisites,
+      metadata,
+    } = toApiRevision(revision, ctx, feature);
     const object: FeatureRevisionWebhookPayload = {
       ...featureRevisionReference(revision),
       feature: { id: feature.id },
+      defaultValue,
+      rules,
+      definitions,
+      environmentsEnabled,
+      envPrerequisites,
+      prerequisites,
+      metadata,
     };
 
     await createEvent({
