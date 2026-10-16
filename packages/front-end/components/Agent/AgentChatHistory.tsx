@@ -1,14 +1,22 @@
 import { useCallback } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiChatCircleDots, PiClockCounterClockwise } from "react-icons/pi";
+import {
+  PiCaretDownBold,
+  PiChatCircleTextBold,
+  PiChatCircleDots,
+  PiClockCounterClockwise,
+  PiPlus,
+} from "react-icons/pi";
 import { datetime, formatShortAgo } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
@@ -22,6 +30,16 @@ interface AgentChatHistoryProps {
   activeConversationId: string;
   /** Switch the panel to a previously persisted conversation. */
   onSelect: (id: string) => void;
+  /**
+   * PROTOTYPE (set in review), opt-in: one control for history and new
+   * conversations. The trigger is the current conversation's title (or
+   * "New Conversation") with a caret, on the left of the panel's header,
+   * and the menu starts with "New Conversation". Without it, the clock
+   * icon as before.
+   */
+  onNewChat?: () => void;
+  /** With onNewChat: no new conversations (e.g. at the usage limit). */
+  newChatDisabled?: boolean;
 }
 
 /**
@@ -33,6 +51,8 @@ interface AgentChatHistoryProps {
 export default function AgentChatHistory({
   activeConversationId,
   onSelect,
+  onNewChat,
+  newChatDisabled = false,
 }: AgentChatHistoryProps) {
   const { data, mutate } = useApi<{ conversations: ConversationSummary[] }>(
     "/agent/chat",
@@ -47,25 +67,95 @@ export default function AgentChatHistory({
     [mutate],
   );
 
+  // Combined (onNewChat): the current conversation's title, or "New
+  // conversation" before it's saved with one.
+  const combined = !!onNewChat;
+  const currentTitle =
+    conversations.find((c) => c.conversationId === activeConversationId)
+      ?.title || "New Conversation";
+
   return (
     <DropdownMenu
       onOpenChange={handleOpenChange}
-      menuPlacement="end"
+      menuPlacement={combined ? "start" : "end"}
       menuWidth={MENU_WIDTH}
       menuMaxHeight={420}
       menuZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
       variant="soft"
       trigger={
-        <IconButton
-          variant="ghost"
-          size="1"
-          title="Chat history"
-          aria-label="Chat history"
-        >
-          <PiClockCounterClockwise size={18} />
-        </IconButton>
+        combined ? (
+          // A ghost button, medium (set in review; tried outline, and
+          // small), pulled left by its 12px padding (set in review) so its
+          // text lines up with the panel's content below; its hover fill
+          // reaches out into the margin, as ghost buttons do. The title
+          // truncated to keep the right side's icons clear.
+          <Button
+            variant="ghost"
+            color="gray"
+            size="md"
+            icon={<PiCaretDownBold size={12} />}
+            iconPosition="right"
+            aria-label={`${currentTitle}. Conversations: start a new one or open a recent one`}
+            style={{
+              maxWidth: "100%",
+              // Shifted, not a margin: the app forces ghost buttons'
+              // margins to 0 (.rt-Button.rt-variant-ghost, !important).
+              position: "relative",
+              left: "calc(-1 * var(--space-3))",
+              color: "var(--slate-12)",
+            }}
+          >
+            {/* A chat bubble icon (set in review; tried the details page's
+              comments icon, two bubbles), so it reads as the conversation
+              picker whatever the title; on one line with it (Button puts its children in a
+              wrapper of their own, where they'd stack). */}
+            <Flex as="span" align="center" gap="2" minWidth="0">
+              <PiChatCircleTextBold
+                size={16}
+                aria-hidden="true"
+                style={{ flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  display: "block",
+                  maxWidth: 200,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontWeight: 500,
+                }}
+              >
+                {currentTitle}
+              </span>
+            </Flex>
+          </Button>
+        ) : (
+          <IconButton
+            variant="ghost"
+            size="1"
+            title="Chat history"
+            aria-label="Chat history"
+          >
+            <PiClockCounterClockwise size={18} />
+          </IconButton>
+        )
       }
     >
+      {onNewChat ? (
+        <>
+          <DropdownMenuItem
+            onClick={onNewChat}
+            disabled={newChatDisabled}
+            style={{ padding: "8px 10px" }}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} aria-hidden="true" />
+              New Conversation
+            </Flex>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      ) : null}
       {groups.length === 0 ? (
         <Flex
           direction="column"

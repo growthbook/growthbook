@@ -238,6 +238,12 @@
   }
 }
 
+// UserBubble's soft option (PROTOTYPE, set in review): dark text on the
+// soft violet fill.
+.userBubbleSoft {
+  color: var(--slate-12);
+}
+
 .collapsedToggle {
   &:hover {
     color: var(--gray-12);

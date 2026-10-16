@@ -37,19 +37,33 @@ export function AssistantBubble({
   );
 }
 
-export function UserBubble({ children }: { children: React.ReactNode }) {
+export function UserBubble({
+  children,
+  soft = false,
+}: {
+  children: React.ReactNode;
+  /**
+   * Opt-in (PROTOTYPE, set in review; the docked agent rail): a soft violet
+   * fill with dark text and speech-bubble corners (16px, the bottom right
+   * 4px, toward the user's side), so it reads as a message, not a primary
+   * button. Without it, as before.
+   */
+  soft?: boolean;
+}) {
   return (
     <Box
       style={{
-        borderRadius: "var(--radius-3)",
+        borderRadius: soft ? "16px 16px 4px 16px" : "var(--radius-3)",
         padding: "8px 12px",
         maxWidth: "85%",
         alignSelf: "flex-end",
-        background: "var(--violet-10)",
+        background: soft ? "var(--violet-a3)" : "var(--violet-10)",
         marginLeft: "auto",
         whiteSpace: "pre-wrap",
       }}
-      className={`${aiChatStyles.bubble} ${aiChatStyles.userBubble}`}
+      className={`${aiChatStyles.bubble} ${
+        soft ? aiChatStyles.userBubbleSoft : aiChatStyles.userBubble
+      }`}
     >
       {children}
     </Box>

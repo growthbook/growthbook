@@ -1,0 +1,41 @@
+// PROTOTYPE ("Docked GrowthBot", set in review): the docked rail's
+// conversation fades at its top and bottom edges while there's more to
+// scroll to that way, as the experiment page's variation row does at its
+// sides (SetupFunnel.module.scss's .variationScroller): a hint that it
+// continues. Each fade is 32px, eased in and out over 200ms, off once
+// scrolled to that end. AgentPanel.tsx sets .fadeTop and .fadeBottom.
+.dockedMessages {
+  // Tried a more gradual top (64px, eased); it hid too much (set in
+  // review).
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--messages-fade-top)) 0,
+    #000 32px,
+    #000 calc(100% - 32px),
+    rgb(0 0 0 / var(--messages-fade-bottom)) 100%
+  );
+  transition:
+    --messages-fade-top 200ms ease,
+    --messages-fade-bottom 200ms ease;
+}
+
+.dockedMessages.fadeTop {
+  --messages-fade-top: 0;
+}
+
+.dockedMessages.fadeBottom {
+  --messages-fade-bottom: 0;
+}
+
+// Registered, so the fades can ease in and out: 1 is no fade.
+@property --messages-fade-top {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --messages-fade-bottom {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}

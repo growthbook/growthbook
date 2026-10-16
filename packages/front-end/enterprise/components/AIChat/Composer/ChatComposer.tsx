@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import React, {
   forwardRef,
   useCallback,
@@ -13,7 +14,12 @@ import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowRightBold, PiStop } from "react-icons/pi";
+import {
+  PiArrowElbowDownLeftBold,
+  PiArrowRightBold,
+  PiStop,
+  PiStopBold,
+} from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
@@ -78,6 +84,12 @@ export interface ChatComposerProps {
   autoFocus?: boolean;
   /** "wide" = PA chat, "compact" = agent panel, "hero" = PA empty state. */
   variant?: "wide" | "compact" | "hero";
+  /**
+   * Compact only, opt-in (PROTOTYPE, set in review): the footer on its
+   * container's own colour, with no line above it, e.g. the docked agent
+   * rail. Without it, as before.
+   */
+  seamless?: boolean;
   mentionItems?: MentionItem[];
   /** Until true, mentions aren't marked stale — the list may still be loading. */
   mentionItemsReady?: boolean;
@@ -138,6 +150,7 @@ function ChatComposer(
     placeholder = "Ask about metrics, experiments, or setup...",
     autoFocus = false,
     variant = "wide",
+    seamless = false,
     mentionItems,
     mentionItemsReady = false,
     skillItems,
@@ -408,35 +421,57 @@ function ChatComposer(
   const isCompact = variant === "compact";
   const isHero = variant === "hero";
 
-  const Icon = isLocalStream ? PiStop : PiArrowRightBold;
+  // Seamless (opt-in; PROTOTYPE), the stop icon bold (set in review), as
+  // the send icon.
+  const Icon = isLocalStream
+    ? seamless
+      ? PiStopBold
+      : PiStop
+    : PiArrowRightBold;
   const action = isLocalStream
     ? { onClick: onCancel, label: "Cancel generation", disabled: false }
     : { onClick: submit, label: "Send message", disabled: !canSend };
 
-  const sendButton = isCompact ? (
-    <button
-      type="button"
-      className={`${styles.sendButton}${isLocalStream ? ` ${styles.stopButton}` : ""}`}
-      onClick={action.onClick}
-      disabled={action.disabled}
-      title={action.label}
-      aria-label={action.label}
-    >
-      <Icon size={16} />
-    </button>
-  ) : (
-    <Button
-      className={styles.wideSendButton}
-      color={isLocalStream ? "gray" : "violet"}
-      variant={isLocalStream ? "soft" : "solid"}
-      onClick={action.onClick}
-      disabled={action.disabled}
-      title={action.label}
-      aria-label={action.label}
-    >
-      <Icon size={16} />
-    </Button>
-  );
+  const sendButton =
+    isCompact && seamless && !isLocalStream ? (
+      // Seamless (opt-in; PROTOTYPE, set in review): the design system's
+      // primary button (@/ui/Button, violet and solid, so its hover lift,
+      // press and bubbles), at the send button's 30px square. Stop, while
+      // streaming, stays as below.
+      <Button
+        className={styles.primarySendButton}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        {/* The enter key's arrow (set in review; was arrow-right). */}
+        <PiArrowElbowDownLeftBold size={16} />
+      </Button>
+    ) : isCompact ? (
+      <button
+        type="button"
+        className={`${styles.sendButton}${isLocalStream ? ` ${styles.stopButton}` : ""}`}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        <Icon size={16} />
+      </button>
+    ) : (
+      <Button
+        className={styles.wideSendButton}
+        color={isLocalStream ? "gray" : "violet"}
+        variant={isLocalStream ? "soft" : "solid"}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        <Icon size={16} />
+      </Button>
+    );
 
   // Typing dismisses a stale dictation error.
   const { clearError: clearDictationError } = dictation;
@@ -511,7 +546,16 @@ function ChatComposer(
   );
 
   if (isCompact) {
-    return <div className={styles.compactWrapper}>{box}</div>;
+    return (
+      <div
+        className={clsx(
+          styles.compactWrapper,
+          seamless && styles.compactWrapperSeamless,
+        )}
+      >
+        {box}
+      </div>
+    );
   }
 
   if (isHero) return box;

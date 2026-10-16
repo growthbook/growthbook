@@ -81,7 +81,13 @@ $sidebarwidth: var(--app-rail-width, 240px);
   position: fixed;
   top: 44px;
   left: $sidebarwidth;
-  right: 0;
+  // Clear of the docked GrowthBot rail, moving with it (PROTOTYPE, set in
+  // review).
+  right: var(--agent-rail-width, 0px);
+  transition: right 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   height: 56px;
   z-index: 995;
 }

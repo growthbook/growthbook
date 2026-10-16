@@ -26,6 +26,7 @@ import styles from "./PrototypeControls.module.scss";
 const MULTI_ORG_KEY = "gb-prototype-multiple-orgs";
 const EXISTING_COLORS_KEY = "gb-prototype-existing-page-colors";
 const INTERIM_SETTINGS_KEY = "gb-prototype-interim-settings";
+const DOCKED_GROWTHBOT_KEY = "gb-prototype-docked-growthbot";
 const COLLAPSED_KEY = "gb-prototype-panel-collapsed";
 // v2: right and bottom (was left and top).
 const POSITION_KEY = "gb-prototype-panel-position-v2";
@@ -89,6 +90,14 @@ export function usePrototypeExistingPageColors(): boolean {
 // /settings a placeholder).
 export function usePrototypeInterimSettings(): boolean {
   return useSetting(INTERIM_SETTINGS_KEY);
+}
+
+// "Docked GrowthBot" (set in review): the GrowthBot drawer as part of the
+// page's chrome, a right rail below the header (set in review; tried full
+// height) that the page makes room for, instead of floating over it (AgentPanel.tsx). Expanded, it fills the
+// page area (focus mode). Off: as before.
+export function usePrototypeDockedGrowthBot(): boolean {
+  return useSetting(DOCKED_GROWTHBOT_KEY);
 }
 
 function Toggle({
@@ -230,6 +239,7 @@ export default function PrototypeControls() {
   const multipleOrgs = usePrototypeMultipleOrgs();
   const existingColors = usePrototypeExistingPageColors();
   const interimSettings = usePrototypeInterimSettings();
+  const dockedGrowthBot = usePrototypeDockedGrowthBot();
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -393,6 +403,12 @@ export default function PrototypeControls() {
             info="Turn this on to see how we'll treat settings before we get the full re-design in place"
             checked={interimSettings}
             onChange={(v) => writeSetting(INTERIM_SETTINGS_KEY, v)}
+          />
+          <Toggle
+            label="Docked GrowthBot"
+            info="Shows the GrowthBot drawer as a right rail below the header, with the page making room for it, instead of floating over the page. Expanding it fills the page area. On smaller screens it still floats."
+            checked={dockedGrowthBot}
+            onChange={(v) => writeSetting(DOCKED_GROWTHBOT_KEY, v)}
           />
         </div>
         {isPrototype() ? <GrowthBotControls /> : null}

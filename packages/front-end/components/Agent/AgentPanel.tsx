@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
@@ -5,6 +6,8 @@ import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsInSimple,
   PiArrowsOutSimple,
+  PiCornersInBold,
+  PiCornersOutBold,
   PiChartLine,
   PiChartLineUp,
   PiFlag,
@@ -12,6 +15,7 @@ import {
   PiPlus,
   PiSparkle,
   PiX,
+  PiXBold,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
@@ -61,6 +65,8 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { usePrototypeDockedGrowthBot } from "@/components/Layout/PrototypeControls";
+import Tooltip from "@/ui/Tooltip";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -79,6 +85,7 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 import GrowthBotStateNotice from "./GrowthBotStateNotice";
+import styles from "./AgentPanel.module.scss";
 import { useGrowthBotPrototype } from "./prototypeGrowthBotState";
 
 // Scoped per org and user below: conversation ids are unique across the whole
@@ -206,6 +213,13 @@ function preWorkToSteps(
  */
 // The slide in and out's length (set in review), as the side nav's.
 const PANEL_SLIDE_MS = 200;
+// PROTOTYPE ("Docked GrowthBot", set in review): the docked rail's width,
+// the page's head start when it opens, and the header's height, which it
+// sits below.
+// 416px (set in review; was 400px, then 424px).
+const DOCKED_WIDTH = "416px";
+const HEADER_HEIGHT = "44px";
+const DOCKED_OPEN_DELAY_MS = 50;
 
 export default function AgentPanel({
   open,
@@ -418,6 +432,19 @@ export default function AgentPanel({
     enabled: open,
   });
 
+  // PROTOTYPE ("Docked GrowthBot", set in review): whether there's more of
+  // the conversation above or below what's shown, for the fades at its
+  // edges (AgentPanel.module.scss). Checked on scroll, on resize, and as
+  // replies stream in.
+  const [fadeTop, setFadeTop] = useState(false);
+  const [fadeBottom, setFadeBottom] = useState(false);
+  const checkFades = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setFadeTop(el.scrollTop > 1);
+    setFadeBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, [scrollContainerRef]);
+
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
 
@@ -467,6 +494,55 @@ export default function AgentPanel({
   const reduceMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // PROTOTYPE ("Docked GrowthBot" in the prototype panel; set in review):
+  // part of the page's chrome rather than over the page. A right rail
+  // below the header (set in review; tried full height, beside the
+  // header), and the page makes room for it (--agent-rail-width,
+  // global.scss's .main), so its 32px right padding is the gap between
+  // them; the header stays full width. The page moves over as the rail slides in, in
+  // step (set in review; the page was instant). Expanded, it's a
+  // focus mode, filling the page area beside the side nav, below the
+  // header.
+  // Not modal, so a complementary region, not a dialog. Where the side
+  // nav is off-canvas (1180px and under), it floats as before.
+  const dockSetting = usePrototypeDockedGrowthBot();
+  const docked = dockSetting && !sidebarCollapsed;
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!docked || !rendered || !el) return;
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(checkFades);
+    };
+    schedule();
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+  }, [docked, rendered, checkFades, scrollContainerRef]);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (docked && open)
+      root.style.setProperty("--agent-rail-width", DOCKED_WIDTH);
+    else root.style.removeProperty("--agent-rail-width");
+  }, [docked, open]);
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty("--agent-rail-width");
+    },
+    [],
+  );
 
   // Focus the composer after a short delay so any layout transition settles
   // first. Used on new chat, conversation select, and turn end — opening the
@@ -657,14 +733,14 @@ export default function AgentPanel({
 
   const panel = (
     <Box
-      role="dialog"
+      role={docked ? "complementary" : "dialog"}
       aria-label="GrowthBook AI assistant"
       // Hidden from screen readers while it slides out (set in review).
       aria-hidden={open ? undefined : true}
       style={{
         position: "fixed",
         right: 0,
-        top: 0,
+        top: docked ? HEADER_HEIGHT : 0,
         bottom: 0,
         // Right-anchored, overlapping the navbar. Expanded grows to ~90% of the
         // main content region (100vw minus the 240px sidebar, or full width when
@@ -672,110 +748,238 @@ export default function AgentPanel({
         // behind it; collapsed is a lightweight right-edge overlay. Width
         // animates between the two states.
         left: "auto",
-        width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"}) * 0.9)`
-          : "min(400px, 100vw)",
+        width: docked
+          ? expanded
+            ? // The page area: 100% is the viewport without its scrollbar,
+              // so it meets the side nav exactly.
+              "calc(100% - var(--app-rail-width, 240px))"
+            : DOCKED_WIDTH
+          : expanded
+            ? `calc((100vw - ${sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"}) * 0.9)`
+            : "min(400px, 100vw)",
         // The page's background, or, on the redesigned pages, the side nav's
         // grey (--agent-panel-background, set by those pages; set in review).
         background: "var(--agent-panel-background, var(--color-background))",
-        borderLeft: "1px solid var(--gray-a3)",
+        // Docked in focus mode, no line on the left (set in review): it
+        // meets the side nav, whose own border is that edge.
+        borderLeft: docked && expanded ? "none" : "1px solid var(--gray-a3)",
+        // Docked (set in review): a panel set into the page, its top edge
+        // defined, as the header has no line under it: the outline along
+        // the top too, and a 12px top-left corner, its contents clipped to
+        // it.
+        ...(docked
+          ? {
+              borderTop: "1px solid var(--gray-a3)",
+              // Square in focus mode (set in review), where it fills the
+              // page area beside the side nav.
+              borderTopLeftRadius: expanded ? 0 : 12,
+              overflow: "hidden",
+            }
+          : {}),
         // The side nav menus' soft layered shadow (ExperimentsListTable
         // .module.scss's .menuShadow), turned to fall left, off the drawer's
         // edge (set in review; was -8px 0 24px --black-a4), in a softer
         // slate grey than the menus' black, and blurred a little more (set
         // in review; the outer layer was 8px).
-        boxShadow:
-          "0 0 3px var(--slate-a3), -1px 0 2px var(--slate-a3), -4px 0 12px -2px var(--slate-a4)",
+        // Docked, no shadow: it's beside the page, not over it.
+        boxShadow: docked
+          ? "none"
+          : "0 0 3px var(--slate-a3), -1px 0 2px var(--slate-a3), -4px 0 12px -2px var(--slate-a4)",
         display: "flex",
         flexDirection: "column",
         zIndex: AGENT_PANEL_Z_INDEX,
         transform: shown ? "translateX(0)" : "translateX(100%)",
+        // Its own layer, so the slide runs off the main thread (set in
+        // review): docked, the page re-lays itself out on every frame as it
+        // makes room, and with the slide on the same thread it sometimes
+        // skipped frames and seemed to jump in.
+        willChange: "transform",
         pointerEvents: open ? undefined : "none",
+        // Docked, opening: the slide starts 50ms after the page starts
+        // making room (set in review), so the page, re-laid out as it goes
+        // and sometimes a frame or two behind, stays ahead of the rail
+        // rather than being briefly covered. Closing, no wait.
         transition: reduceMotion
           ? "none"
-          : `width 220ms cubic-bezier(0.4, 0, 0.2, 1), transform ${PANEL_SLIDE_MS}ms ease`,
+          : `width 220ms cubic-bezier(0.4, 0, 0.2, 1), transform ${PANEL_SLIDE_MS}ms ease ${
+              docked && shown ? DOCKED_OPEN_DELAY_MS : 0
+            }ms`,
       }}
     >
       {/* Header */}
+      {/* Docked (set in review): no sparkle or "AI Assistant" title (it
+        stays for screen readers). On the left, one control for
+        conversations, the current one's title opening the recent ones and
+        New conversation (was a clock icon and a "+"); on the right, expand
+        and close. */}
       <Flex
         align="center"
         justify="between"
-        px="4"
-        py="3"
+        // Docked, 24px on the left, as the rest of the rail, and 32px on
+        // the right, so the close button lines up with the header's
+        // GrowthBot button (set in review; was 16px).
+        pl={docked ? "5" : "4"}
+        pr={docked ? "6" : "4"}
+        // Docked, 20px above (set in review; was 12px, tried 24px, the page
+        // frame's top), so this row lines up with the page's title row
+        // beside it. 20px isn't on Radix's scale, so it's in style.
+        pt={docked ? undefined : "3"}
+        pb="3"
         style={{
-          borderBottom: "1px solid var(--gray-a3)",
-          background: "var(--color-panel-solid)",
+          paddingTop: docked ? 20 : undefined,
+          // Docked, no line under it (set in review): one continuous panel.
+          borderBottom: docked ? "none" : "1px solid var(--gray-a3)",
+          // Docked, on the rail's own colour (set in review), so it's one
+          // panel, not a white strip on a grey one.
+          background: docked ? "transparent" : "var(--color-panel-solid)",
         }}
       >
-        <Flex align="center" gap="3">
-          <Flex
-            align="center"
-            justify="center"
-            style={{
-              width: 32,
-              height: 32,
-              flexShrink: 0,
-              background: "var(--violet-a4)",
-              borderRadius: "999px",
-            }}
-          >
-            <PiSparkle size={16} color="var(--violet-11)" />
+        {docked ? (
+          <Flex align="center" minWidth="0">
+            <h2 className="sr-only">AI Assistant</h2>
+            <AgentChatHistory
+              activeConversationId={conversationId}
+              onSelect={handleSelectConversation}
+              onNewChat={handleNewChat}
+              // At the limit (prototype), no new conversations.
+              newChatDisabled={limitReached}
+            />
           </Flex>
-          <Heading as="h2" size="xs">
-            AI Assistant
-          </Heading>
-        </Flex>
-        <Flex align="center" gap="3">
-          <AgentChatHistory
-            activeConversationId={conversationId}
-            onSelect={handleSelectConversation}
-          />
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={handleNewChat}
-            // At the limit (prototype), no new conversations (set in review).
-            disabled={limitReached}
-            title="Start new conversation"
-            aria-label="Start new conversation"
-          >
-            <PiPlus size={18} />
-          </IconButton>
+        ) : (
+          <Flex align="center" gap="3">
+            <Flex
+              align="center"
+              justify="center"
+              style={{
+                width: 32,
+                height: 32,
+                flexShrink: 0,
+                background: "var(--violet-a4)",
+                borderRadius: "999px",
+              }}
+            >
+              <PiSparkle size={16} color="var(--violet-11)" />
+            </Flex>
+            <Heading as="h2" size="xs">
+              AI Assistant
+            </Heading>
+          </Flex>
+        )}
+        <Flex align="center" gap="3" flexShrink="0">
+          {docked ? null : (
+            <>
+              <AgentChatHistory
+                activeConversationId={conversationId}
+                onSelect={handleSelectConversation}
+              />
+              <IconButton
+                variant="ghost"
+                size="1"
+                onClick={handleNewChat}
+                // At the limit (prototype), no new conversations (set in
+                // review).
+                disabled={limitReached}
+                title="Start new conversation"
+                aria-label="Start new conversation"
+              >
+                <PiPlus size={18} />
+              </IconButton>
+            </>
+          )}
           {onToggleExpanded && (
+            <Tooltip
+              // Docked, the design system's tooltip on hover and focus (set
+              // in review; was the browser's), over the rail.
+              enabled={docked}
+              content={expanded ? "Collapse" : "Expand"}
+              side="bottom"
+              style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+            >
+              <IconButton
+                variant="ghost"
+                // Docked, as the conversation button (set in review): grey,
+                // medium (32px), its icon bold, 16px, in --slate-12.
+                color={docked ? "gray" : undefined}
+                size={docked ? "2" : "1"}
+                style={docked ? { color: "var(--slate-12)" } : undefined}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onToggleExpanded}
+                title={
+                  docked
+                    ? undefined
+                    : expanded
+                      ? "Minimize panel"
+                      : "Maximize panel"
+                }
+                aria-label={
+                  expanded ? "Minimize agent panel" : "Maximize agent panel"
+                }
+              >
+                {/* Docked, corners in and out (set in review; were arrows). */}
+                {docked ? (
+                  expanded ? (
+                    <PiCornersInBold size={16} />
+                  ) : (
+                    <PiCornersOutBold size={16} />
+                  )
+                ) : expanded ? (
+                  <PiArrowsInSimple size={18} />
+                ) : (
+                  <PiArrowsOutSimple size={18} />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip
+            enabled={docked}
+            content="Close"
+            side="bottom"
+            style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+          >
             <IconButton
               variant="ghost"
-              size="1"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={onToggleExpanded}
-              title={expanded ? "Minimize panel" : "Maximize panel"}
-              aria-label={
-                expanded ? "Minimize agent panel" : "Maximize agent panel"
-              }
+              // Docked, as the conversation button (set in review).
+              color={docked ? "gray" : undefined}
+              size={docked ? "2" : "1"}
+              style={docked ? { color: "var(--slate-12)" } : undefined}
+              onClick={onClose}
+              title={docked ? undefined : "Close"}
+              aria-label="Close agent panel"
             >
-              {expanded ? (
-                <PiArrowsInSimple size={18} />
-              ) : (
-                <PiArrowsOutSimple size={18} />
-              )}
+              {/* Docked, an X, bold, as the other icons here (set in review;
+              tried the side nav's collapse icon, mirrored). */}
+              {docked ? <PiXBold size={16} /> : <PiX size={18} />}
             </IconButton>
-          )}
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={onClose}
-            title="Close"
-            aria-label="Close agent panel"
-          >
-            <PiX size={18} />
-          </IconButton>
+          </Tooltip>
         </Flex>
       </Flex>
 
       {/* Messages */}
       <Box
         ref={scrollContainerRef}
-        onScroll={handleScroll}
-        style={{ flex: 1, overflowY: "auto", padding: "20px" }}
+        onScroll={() => {
+          handleScroll();
+          if (docked) checkFades();
+        }}
+        className={
+          docked
+            ? clsx(
+                styles.dockedMessages,
+                fadeTop && styles.fadeTop,
+                fadeBottom && styles.fadeBottom,
+              )
+            : undefined
+        }
+        // Docked, 24px either side (set in review; was 20px; tried 32px
+        // either side, which made the gap from the page's content look too
+        // wide, then 24px left and 32px right, which looked uneven).
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          // Docked, 16px on top (set in review; was 20px), with no line
+          // above it now.
+          padding: docked ? "16px 24px 20px" : "20px",
+        }}
       >
         {/* At the limit (prototype) with no conversation open: the limit
           notice alone, as the body's empty state, centred, in place of the
@@ -810,13 +1014,20 @@ export default function AgentPanel({
                   width: expanded ? "100%" : "min(640px, 100%)",
                 }}
               >
+                {/* Docked, the greeting sits on the rail, without its box
+                  (set in review), so its text starts at the rail's 32px
+                  edge, as everything else in it. */}
                 <Box
-                  p="4"
-                  style={{
-                    border: "1px solid var(--violet-a3)",
-                    borderRadius: "var(--radius-3)",
-                    background: "var(--gray-a2)",
-                  }}
+                  p={docked ? "0" : "4"}
+                  style={
+                    docked
+                      ? undefined
+                      : {
+                          border: "1px solid var(--violet-a3)",
+                          borderRadius: "var(--radius-3)",
+                          background: "var(--gray-a2)",
+                        }
+                  }
                 >
                   <Flex direction="column" gap="3">
                     <Text size="md" weight="semibold">
@@ -872,6 +1083,7 @@ export default function AgentPanel({
             <PersistedTurn
               key={idx}
               turn={turn}
+              docked={docked}
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
@@ -973,12 +1185,20 @@ export default function AgentPanel({
       {limitEmptyState ? null : limitReached ? (
         <Box
           role="status"
-          px="4"
+          // Docked, 24px either side, as the rail's other rows (set in
+          // review).
+          px={docked ? "5" : "4"}
           py="4"
-          style={{
-            borderTop: "1px solid var(--gray-a3)",
-            background: "var(--color-panel-solid)",
-          }}
+          // Docked, on the rail's colour with no line above (set in
+          // review), as the message box.
+          style={
+            docked
+              ? undefined
+              : {
+                  borderTop: "1px solid var(--gray-a3)",
+                  background: "var(--color-panel-solid)",
+                }
+          }
         >
           <GrowthBotStateNotice
             state="limit"
@@ -988,6 +1208,9 @@ export default function AgentPanel({
       ) : (
         <ChatComposer
           variant="compact"
+          // Docked, the footer on the rail's colour, no line above it (set
+          // in review).
+          seamless={docked}
           ref={composerRef}
           autoFocus
           mentionItems={mentionItems}
@@ -1135,6 +1358,7 @@ function PersistedTurn({
   onStepsToggle,
   awaitingInteraction,
   liveSteps,
+  docked = false,
 }: {
   turn: MessageTurn;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
@@ -1149,6 +1373,9 @@ function PersistedTurn({
   onStepsToggle?: (expanded: boolean) => void;
   awaitingInteraction: boolean;
   liveSteps?: CollapsedStepItem[];
+  // PROTOTYPE ("Docked GrowthBot", set in review): the user's messages at
+  // the replies' size.
+  docked?: boolean;
 }) {
   const {
     preWork,
@@ -1201,8 +1428,14 @@ function PersistedTurn({
   return (
     <>
       {turn.user && (
-        <UserBubble>
-          <Text size="sm">
+        <UserBubble
+          // Docked, soft with speech-bubble corners (set in review; was
+          // solid violet, which read as a button).
+          soft={docked}
+        >
+          {/* Docked, at the replies' size (set in review; was a size
+            smaller). */}
+          <Text size={docked ? "md" : "sm"}>
             <MessageTokens
               text={getUserText(turn.user)}
               mentions={

@@ -63,7 +63,15 @@ body {
 
 .main {
   padding-left: var(--app-rail-width, 240px);
-  transition: padding-left 200ms ease;
+  // PROTOTYPE ("Docked GrowthBot", set in review): room for the GrowthBot
+  // rail while it's docked and open (AgentPanel.tsx); none otherwise.
+  padding-right: var(--agent-rail-width, 0px);
+  // Both sides move over 200ms: the side nav collapsing or expanding, and
+  // the GrowthBot rail sliding in or out (set in review; it was instant),
+  // in step with the rail's own slide.
+  transition:
+    padding-left 200ms ease,
+    padding-right 200ms ease;
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }

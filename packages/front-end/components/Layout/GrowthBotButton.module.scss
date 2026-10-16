@@ -46,3 +46,21 @@
 .anchor {
   display: inline-flex;
 }
+
+// PROTOTYPE ("Docked GrowthBot", set in review): on while the docked rail
+// is open, as the side nav's current page (AppRail.module.scss's
+// --rail-active): a --slate-a3 fill, --slate-a4 on hover. Its outline, its
+// hover darkening and its focus ring stay as usual (set in review; the
+// outline was dropped).
+.dockedOpen.dockedOpen.dockedOpen {
+  background-color: var(--slate-a3);
+  // Its label at 500 (set in review; 400 otherwise), on the label's own
+  // text element, where ModalStandard's .ghostButton sets 400.
+  :global(.rt-Text) {
+    font-weight: 500;
+  }
+
+  &:hover {
+    background-color: var(--slate-a4);
+  }
+}

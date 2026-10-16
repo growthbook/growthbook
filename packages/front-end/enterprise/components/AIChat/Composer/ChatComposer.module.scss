@@ -101,6 +101,49 @@
   padding: 10px 12px 12px;
 }
 
+// Opt-in (PROTOTYPE, set in review): on its container's colour, no line
+// above it, 32px below the message box and 24px either side of it (set
+// in review; were 12px; tried 32px either side).
+.compactWrapperSeamless {
+  border-top: none;
+  background: transparent;
+  padding: 10px 24px 32px;
+}
+
+// And the message box lifted a little off its container (set in review):
+// the side nav menus' soft layered shadow (ExperimentsListTable.module
+// .scss's .menuShadow), in slate, as the GrowthBot drawer's. Its outline
+// as the redesign's fields (SetupPage/_hoverOutline.scss; set in review):
+// easing to --slate-9 on hover over 150ms, and a firmer --slate-11 when
+// focused, in place of the violet border and ring (still a clear change
+// from its resting border, so focus stays visible). Off for reduced motion.
+.compactWrapperSeamless .compactBox {
+  box-shadow:
+    0 0 3px var(--slate-a2),
+    0 1px 2px var(--slate-a2),
+    0 4px 8px -2px var(--slate-a3);
+  transition: border-color 150ms ease;
+
+  &:hover:not(.compactBoxFocused) {
+    border-color: var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.compactWrapperSeamless .compactBoxFocused {
+  border-color: var(--slate-11);
+}
+
+// Two lines tall at rest (set in review; was one), so it reads as the place
+// to write to the assistant; it still grows as you type, up to six lines.
+// On the text itself, so the whole area is clickable.
+.compactWrapperSeamless .editor :global(.ProseMirror) {
+  min-height: 52px;
+}
+
 .compactBox {
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-4);
@@ -217,6 +260,26 @@
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+}
+
+// The seamless footer's send button (PROTOTYPE, set in review): the design
+// system's primary button, a 28px square (set in review; was 30px), 6px
+// from the box's top, right and bottom edges on a single line: the box's
+// 4px padding and 2px more here, which also centres it on the 32px-tall
+// line. Still bottom-aligned, so it stays put as the message grows.
+.primarySendButton.primarySendButton {
+  width: 28px;
+  height: 28px;
+  margin: 0 2px 2px 0;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-3);
+
+  > span {
+    display: flex;
+    align-items: center;
+    line-height: 0;
   }
 }
 
