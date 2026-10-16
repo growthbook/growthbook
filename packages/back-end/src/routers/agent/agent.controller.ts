@@ -384,6 +384,13 @@ export const postAutocomplete = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+  // The composer aborts its fetch when the draft changes. Listen before the
+  // first await so an early close is seen, and stop the model call rather
+  // than pay for a reply nobody will read.
+  const abort = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) abort.abort();
+  });
   if (!(await runAIEnabledGates(context, res))) return;
   // Opt-out separate from AI as a whole: every pause in typing is a call.
   if (context.org.settings?.aiAutocompleteEnabled === false) {
@@ -432,18 +439,27 @@ export const postAutocomplete = async (
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 
+  if (abort.signal.aborted) return;
   const raw = await simpleCompletion({
     context,
     type: "chat-autocomplete",
     isDefaultPrompt: true,
     resolvedModel: autocompleteAIModel,
     temperature: 0.2,
-    // Room to echo the draft (~3 chars per token, generous) plus a short
-    // phrase; anything longer is the model rambling.
-    maxOutputTokens: Math.ceil(text.length / 3) + 24,
+    abortSignal: abort.signal,
+    // Thinking first would eat a budget this small and return nothing.
+    lowEffort: true,
+    // Room to echo the draft (~3 chars per token, generous), a short phrase,
+    // and a little reasoning on models that still do some at low effort.
+    maxOutputTokens: Math.ceil(text.length / 3) + 120,
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
+  }).catch((e) => {
+    // Nobody is listening; nothing to answer or log.
+    if (abort.signal.aborted) return null;
+    throw e;
   });
+  if (raw === null) return;
 
   return res.status(200).json({
     status: 200,
