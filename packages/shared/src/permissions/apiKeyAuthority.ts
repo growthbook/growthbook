@@ -37,6 +37,18 @@ export function canSetApiKeyDisabled(
     : permissions.canUpdateApiKey();
 }
 
+export function canApplyExpirationPolicy(
+  permissions: Pick<
+    Permissions,
+    "canDeleteApiKey" | "canManagePersonalAccessTokens"
+  >,
+  kind: "pat" | "secret",
+): boolean {
+  return kind === "pat"
+    ? permissions.canManagePersonalAccessTokens()
+    : permissions.canDeleteApiKey();
+}
+
 export function requesterHeaderPolicy(
   key: Pick<ApiKeyInterface, "requesterHeader">,
 ): NonNullable<ApiKeyInterface["requesterHeader"]> {

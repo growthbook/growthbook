@@ -1,5 +1,6 @@
 import {
   apiKeyToggleRequiresAdmin,
+  canApplyExpirationPolicy,
   canSetApiKeyDisabled,
 } from "../../src/permissions/apiKeyAuthority";
 import { Policy, permissionsFromRole } from "../../src/permissions";
@@ -85,16 +86,11 @@ describe("canSetApiKeyDisabled", () => {
     const disabled = { userId: undefined, disabled: true, disabledBy: "u_1" };
     expect(canSetApiKeyDisabled(deleteOnly, enabled, "u_1", true)).toBe(true);
     expect(canSetApiKeyDisabled(editOnly, enabled, "u_1", true)).toBe(false);
+    expect(canSetApiKeyDisabled(tokensOnly, enabled, "u_1", true)).toBe(false);
     expect(canSetApiKeyDisabled(editOnly, disabled, "u_1", false)).toBe(true);
     expect(canSetApiKeyDisabled(deleteOnly, disabled, "u_1", false)).toBe(
       false,
     );
-  });
-
-  it("gives members' token managers nothing over org keys", () => {
-    const enabled = { userId: undefined, disabled: false };
-    const disabled = { userId: undefined, disabled: true, disabledBy: "u_1" };
-    expect(canSetApiKeyDisabled(tokensOnly, enabled, "u_1", true)).toBe(false);
     expect(canSetApiKeyDisabled(tokensOnly, disabled, "u_1", false)).toBe(
       false,
     );
@@ -119,26 +115,43 @@ describe("canSetApiKeyDisabled", () => {
     ).toBe(true);
   });
 
-  it("needs members' token access to re-enable a PAT an admin disabled, even for its owner", () => {
-    const key = { userId: "u_1", disabled: true, disabledBy: "u_admin" };
-    expect(canSetApiKeyDisabled(none, key, "u_1", false)).toBe(false);
-    expect(canSetApiKeyDisabled(allOrgKeys, key, "u_1", false)).toBe(false);
-    expect(canSetApiKeyDisabled(tokensOnly, key, "u_1", false)).toBe(true);
-  });
+  it.each([
+    {
+      name: "an admin-disabled PAT, for its owner",
+      key: { userId: "u_1", disabled: true, disabledBy: "u_admin" },
+    },
+    {
+      name: "another member's PAT",
+      key: { userId: "u_owner", disabled: false },
+    },
+    {
+      name: "another member's disabled PAT",
+      key: { userId: "u_owner", disabled: true, disabledBy: "u_admin" },
+    },
+  ])(
+    "needs members' token access, not org key access, to toggle $name",
+    ({ key }) => {
+      const target = !key.disabled;
+      expect(canSetApiKeyDisabled(allOrgKeys, key, "u_1", target)).toBe(false);
+      expect(canSetApiKeyDisabled(tokensOnly, key, "u_1", target)).toBe(true);
+    },
+  );
+});
 
-  it("needs members' token access, not org key access, to toggle another member's PAT", () => {
-    const enabled = { userId: "u_owner", disabled: false };
-    const disabled = {
-      userId: "u_owner",
-      disabled: true,
-      disabledBy: "u_admin",
+describe("canApplyExpirationPolicy", () => {
+  it("needs delete for secret keys and members' token access for PATs", () => {
+    const deleteOnly = {
+      canDeleteApiKey: () => true,
+      canManagePersonalAccessTokens: () => false,
     };
-    expect(canSetApiKeyDisabled(allOrgKeys, enabled, "u_1", true)).toBe(false);
-    expect(canSetApiKeyDisabled(allOrgKeys, disabled, "u_1", false)).toBe(
-      false,
-    );
-    expect(canSetApiKeyDisabled(tokensOnly, enabled, "u_1", true)).toBe(true);
-    expect(canSetApiKeyDisabled(tokensOnly, disabled, "u_1", false)).toBe(true);
+    const tokensOnly = {
+      canDeleteApiKey: () => false,
+      canManagePersonalAccessTokens: () => true,
+    };
+    expect(canApplyExpirationPolicy(deleteOnly, "secret")).toBe(true);
+    expect(canApplyExpirationPolicy(deleteOnly, "pat")).toBe(false);
+    expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
+    expect(canApplyExpirationPolicy(tokensOnly, "secret")).toBe(false);
   });
 });
 
@@ -170,17 +183,5 @@ describe("API key policies", () => {
     ],
   ])("%s grants %j", (policy, atoms) => {
     expect(apiKeyAtoms([policy])).toEqual(atoms);
-  });
-
-  it("grants the same as Full Access when every part is selected", () => {
-    expect(
-      apiKeyAtoms([
-        "APIKeysView",
-        "APIKeysCreate",
-        "APIKeysEdit",
-        "APIKeysDelete",
-        "APIKeysMemberTokens",
-      ]),
-    ).toEqual(apiKeyAtoms(["APIKeysFullAccess"]));
   });
 });

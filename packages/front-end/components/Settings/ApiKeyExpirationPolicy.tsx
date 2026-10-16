@@ -4,6 +4,7 @@ import {
   maxExpirationDate,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
+import { canApplyExpirationPolicy } from "shared/permissions";
 import { date } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -98,12 +99,8 @@ const ApiKeyExpirationPolicy: FC<{
   const nonCompliant = keys.filter((k) =>
     violatesExpirationPolicy(k.expiresAt, saved),
   );
-  const permissionsUtil = usePermissionsUtil();
-  const canApply =
-    kind === "pat"
-      ? permissionsUtil.canManagePersonalAccessTokens()
-      : permissionsUtil.canDeleteApiKey();
-  const clickable = canApply && !hasFileConfig();
+  const clickable =
+    canApplyExpirationPolicy(usePermissionsUtil(), kind) && !hasFileConfig();
   const badge = (
     <Badge
       color="amber"

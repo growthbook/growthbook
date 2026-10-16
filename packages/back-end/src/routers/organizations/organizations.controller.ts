@@ -10,7 +10,7 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { getRoles } from "shared/permissions";
+import { canApplyExpirationPolicy, getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
@@ -1917,11 +1917,7 @@ export async function postApplyExpirationPolicy(
   if (kind !== "pat" && kind !== "secret") {
     context.throwBadRequestError("Invalid key kind");
   }
-  if (
-    kind === "pat"
-      ? !context.permissions.canManagePersonalAccessTokens()
-      : !context.permissions.canDeleteApiKey()
-  ) {
+  if (!canApplyExpirationPolicy(context.permissions, kind)) {
     context.permissions.throwPermissionError();
   }
 
