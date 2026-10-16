@@ -146,7 +146,11 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getAuditHistory } from "back-end/src/models/AuditModel";
+import {
+  getAuditHistory,
+  getPersonalAccessTokenAuditIds,
+} from "back-end/src/models/AuditModel";
+import { ReqContext } from "back-end/types/request";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -280,14 +284,17 @@ export async function getHistory(
   }
 
   // API key history can expose roles/scope/descriptions, so it needs the same
-  // permission as listing keys. Other entity types keep their org-scoped access.
-  if (type === "apiKey" && !context.permissions.canViewApiKeys()) {
-    // Managing members' tokens covers one token's history, not every key's.
-    const token =
-      id && context.permissions.canManagePersonalAccessTokens()
-        ? await context.models.apiKeys.getById(id)
-        : null;
-    if (!token?.userId) context.permissions.throwPermissionError();
+  // permission as listing the key. Other entity types keep their org-scoped access.
+  if (type === "apiKey") {
+    // Reading a member's token already requires owning it or managing members' tokens.
+    const key = id ? await context.models.apiKeys.getById(id) : null;
+    if (
+      id
+        ? !key || (!key.userId && !context.permissions.canViewApiKeys())
+        : !context.permissions.canViewApiKeys()
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
   if (
     type === "project" &&
@@ -298,12 +305,17 @@ export async function getHistory(
   }
 
   // Leave out Projects the user can't read; deleted ones stay visible.
+  // Members' tokens share the apiKey log, so leave them out unless the user manages them.
   const excludeIds =
     type === "project"
       ? (await context.getAllProjectIds()).filter(
           (p) => !context.permissions.canReadSingleProjectResource(p),
         )
-      : [];
+      : type === "apiKey" &&
+          !id &&
+          !context.permissions.canManagePersonalAccessTokens()
+        ? await getPersonalAccessTokenIds(context)
+        : [];
 
   const history = await getAuditHistory(
     context.org.id,
@@ -318,6 +330,22 @@ export async function getHistory(
   );
 
   res.status(200).json({ status: 200, ...history });
+}
+
+// Every token the org has had, including deleted ones, which only their audits still name.
+async function getPersonalAccessTokenIds(
+  context: ReqContext,
+): Promise<string[]> {
+  const [keys, audited] = await Promise.all([
+    context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
+    getPersonalAccessTokenAuditIds(context.org.id),
+  ]);
+  return [
+    ...new Set([
+      ...keys.filter((k) => k.userId && k.id).map((k) => k.id as string),
+      ...audited,
+    ]),
+  ];
 }
 
 export async function putMemberRole(
