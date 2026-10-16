@@ -5,9 +5,7 @@ import type {
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import {
-  analyzeExperimentClusterAssignment,
-  analyzeExperimentClusterSubUnitMapping,
-  analyzeExperimentClusterUnits,
+  analyzeExperimentClusterHealth,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
@@ -324,95 +322,96 @@ describe("analyzeExperimentTraffic", () => {
   });
 });
 
-describe("analyzeExperimentClusterUnits", () => {
-  const row = (
+describe("analyzeExperimentClusterHealth", () => {
+  const reliability = (
     cluster_id: string,
     variation: string,
     units: number,
     pct: number,
-  ) => ({ cluster_id, variation, units, pct });
+  ) => ({
+    kind: "reliability" as const,
+    cluster_id,
+    variation,
+    metric_a: units,
+    metric_b: pct,
+  });
+  const assignment = (total: number, mixed: number) => ({
+    kind: "assignment" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: mixed,
+  });
+  const mapping = (total: number, multi: number) => ({
+    kind: "mapping" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: multi,
+  });
 
-  it("maps variation ids to indices and preserves query order", () => {
-    const result = analyzeExperimentClusterUnits({
+  it("splits reliability/assignment/mapping rows into the three results", () => {
+    const result = analyzeExperimentClusterHealth({
       variations,
       rows: [
-        row("region_a", "treatment", 500, 0.5),
-        row("region_b", "control", 300, 0.3),
-        row("region_c", "control", 200, 0.2),
+        reliability("region_a", "treatment", 500, 0.5),
+        reliability("region_b", "control", 300, 0.3),
+        reliability("region_c", "control", 200, 0.2),
+        assignment(100, 3),
+        mapping(1000, 7),
       ],
     });
-    expect(result.error).toBeUndefined();
-    expect(result.clusters).toEqual([
+
+    expect(result.clusterUnits.error).toBeUndefined();
+    expect(result.clusterUnits.clusters).toEqual([
       { id: "region_a", variation: 1, units: 500, pct: 0.5 },
       { id: "region_b", variation: 0, units: 300, pct: 0.3 },
       { id: "region_c", variation: 0, units: 200, pct: 0.2 },
     ]);
-  });
-
-  it("uses -1 for unknown variations (e.g. __multiple__)", () => {
-    const result = analyzeExperimentClusterUnits({
-      variations,
-      rows: [row("region_a", "__multiple__", 10, 1)],
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 100,
+      mixedClusters: 3,
     });
-    expect(result.clusters[0].variation).toBe(-1);
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 1000,
+      multiClusterUnits: 7,
+    });
   });
 
-  it("returns an empty cluster list and the error when the query failed", () => {
-    const result = analyzeExperimentClusterUnits({
+  it("uses -1 for unknown reliability variations", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [reliability("region_a", "__unknown__", 10, 1)],
+    });
+    expect(result.clusterUnits.clusters[0].variation).toBe(-1);
+  });
+
+  it("defaults to zero when summary rows are absent", () => {
+    const result = analyzeExperimentClusterHealth({ variations, rows: [] });
+    expect(result.clusterUnits.clusters).toEqual([]);
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
+    });
+  });
+
+  it("returns empty/zeroed results and the error when the query failed", () => {
+    const result = analyzeExperimentClusterHealth({
       variations,
       rows: [],
       error: "boom",
     });
-    expect(result.clusters).toEqual([]);
-    expect(result.error).toBe("boom");
-  });
-});
-
-describe("analyzeExperimentClusterAssignment", () => {
-  it("reads total and mixed cluster counts from the first row", () => {
-    const result = analyzeExperimentClusterAssignment({
-      rows: [{ total_clusters: 100, mixed_clusters: 3 }],
-    });
-    expect(result).toEqual({ totalClusters: 100, mixedClusters: 3 });
-  });
-
-  it("defaults to zero when there are no rows", () => {
-    const result = analyzeExperimentClusterAssignment({ rows: [] });
-    expect(result).toEqual({ totalClusters: 0, mixedClusters: 0 });
-  });
-
-  it("returns zeros and the error when the query failed", () => {
-    const result = analyzeExperimentClusterAssignment({
-      rows: [],
-      error: "boom",
-    });
-    expect(result).toEqual({
+    expect(result.clusterUnits).toEqual({ clusters: [], error: "boom" });
+    expect(result.clusterAssignment).toEqual({
       totalClusters: 0,
       mixedClusters: 0,
       error: "boom",
     });
-  });
-});
-
-describe("analyzeExperimentClusterSubUnitMapping", () => {
-  it("reads total and multi-cluster sub-unit counts from the first row", () => {
-    const result = analyzeExperimentClusterSubUnitMapping({
-      rows: [{ total_units: 1000, multi_cluster_units: 7 }],
-    });
-    expect(result).toEqual({ totalUnits: 1000, multiClusterUnits: 7 });
-  });
-
-  it("defaults to zero when there are no rows", () => {
-    const result = analyzeExperimentClusterSubUnitMapping({ rows: [] });
-    expect(result).toEqual({ totalUnits: 0, multiClusterUnits: 0 });
-  });
-
-  it("returns zeros and the error when the query failed", () => {
-    const result = analyzeExperimentClusterSubUnitMapping({
-      rows: [],
-      error: "boom",
-    });
-    expect(result).toEqual({
+    expect(result.clusterSubUnitMapping).toEqual({
       totalUnits: 0,
       multiClusterUnits: 0,
       error: "boom",

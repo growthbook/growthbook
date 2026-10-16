@@ -46,9 +46,7 @@ import {
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
-  ExperimentClusterAssignmentQueryResponse,
-  ExperimentClusterSubUnitMappingQueryResponse,
-  ExperimentClusterUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
@@ -169,9 +167,7 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
-import { getExperimentClusterUnitsQuery as getExperimentClusterUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-units-query";
-import { getExperimentClusterAssignmentQuery as getExperimentClusterAssignmentQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-assignment-query";
-import { getExperimentClusterSubUnitMappingQuery as getExperimentClusterSubUnitMappingQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-subunit-mapping-query";
+import { getExperimentClusterHealthQuery as getExperimentClusterHealthQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import {
   getConsistentClusterCondition,
   getSingleClusterPerUnitCondition,
@@ -836,11 +832,11 @@ export default abstract class SqlIntegration
     };
   }
 
-  async runExperimentClusterUnitsQuery(
+  async runExperimentClusterHealthQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterUnitsQueryResponse> {
+  ): Promise<ExperimentClusterHealthQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
       setExternalId,
@@ -849,52 +845,11 @@ export default abstract class SqlIntegration
     return {
       rows: rows.map((row) => {
         return {
+          kind: row.kind ?? "",
           cluster_id: row.cluster_id ?? "",
           variation: row.variation ?? "",
-          units: parseFloat(row.units) || 0,
-          pct: parseFloat(row.pct) || 0,
-        };
-      }),
-      statistics: statistics,
-    };
-  }
-
-  async runExperimentClusterAssignmentQuery(
-    query: string,
-    setExternalId: ExternalIdCallback,
-    queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterAssignmentQueryResponse> {
-    const { rows, statistics } = await this.runQuery(
-      query,
-      setExternalId,
-      queryMetadata,
-    );
-    return {
-      rows: rows.map((row) => {
-        return {
-          total_clusters: parseFloat(row.total_clusters) || 0,
-          mixed_clusters: parseFloat(row.mixed_clusters) || 0,
-        };
-      }),
-      statistics: statistics,
-    };
-  }
-
-  async runExperimentClusterSubUnitMappingQuery(
-    query: string,
-    setExternalId: ExternalIdCallback,
-    queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterSubUnitMappingQueryResponse> {
-    const { rows, statistics } = await this.runQuery(
-      query,
-      setExternalId,
-      queryMetadata,
-    );
-    return {
-      rows: rows.map((row) => {
-        return {
-          total_units: parseFloat(row.total_units) || 0,
-          multi_cluster_units: parseFloat(row.multi_cluster_units) || 0,
+          metric_a: parseFloat(row.metric_a) || 0,
+          metric_b: parseFloat(row.metric_b) || 0,
         };
       }),
       statistics: statistics,
@@ -1169,30 +1124,10 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentClusterUnitsQuery(
+  getExperimentClusterHealthQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
-    return getExperimentClusterUnitsQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
-  }
-
-  getExperimentClusterAssignmentQuery(
-    params: ExperimentAggregateUnitsQueryParams,
-  ): string {
-    return getExperimentClusterAssignmentQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
-  }
-
-  getExperimentClusterSubUnitMappingQuery(
-    params: ExperimentAggregateUnitsQueryParams,
-  ): string {
-    return getExperimentClusterSubUnitMappingQueryFromSql(
+    return getExperimentClusterHealthQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
       params,

@@ -856,23 +856,18 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
-export type ExperimentClusterUnitsQueryResponseRows = {
+export type ExperimentClusterHealthQueryResponseRows = {
+  // Row discriminator: "reliability" | "assignment" | "mapping".
+  kind: string;
+  // Only meaningful for reliability rows ("" for summary rows).
   cluster_id: string;
   variation: string;
-  units: number;
-  // Share (0..1) of all sub-units in the experiment that fall in this cluster.
-  pct: number;
-}[];
-
-export type ExperimentClusterAssignmentQueryResponseRows = {
-  total_clusters: number;
-  mixed_clusters: number;
-}[];
-
-export type ExperimentClusterSubUnitMappingQueryResponseRows = {
-  total_units: number;
-  // Sub-units observed in more than one cluster (randomization is per cluster).
-  multi_cluster_units: number;
+  // Payload columns; meaning depends on `kind`:
+  //  - reliability: metric_a = sub-unit count, metric_b = share (0..1)
+  //  - assignment:  metric_a = total clusters, metric_b = mixed clusters
+  //  - mapping:     metric_a = total sub-units, metric_b = multi-cluster sub-units
+  metric_a: number;
+  metric_b: number;
 }[];
 
 export type DimensionSlicesQueryResponseRows = {
@@ -941,12 +936,8 @@ export type ExperimentFactMetricsQueryResponse =
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
-export type ExperimentClusterUnitsQueryResponse =
-  QueryResponse<ExperimentClusterUnitsQueryResponseRows>;
-export type ExperimentClusterAssignmentQueryResponse =
-  QueryResponse<ExperimentClusterAssignmentQueryResponseRows>;
-export type ExperimentClusterSubUnitMappingQueryResponse =
-  QueryResponse<ExperimentClusterSubUnitMappingQueryResponseRows>;
+export type ExperimentClusterHealthQueryResponse =
+  QueryResponse<ExperimentClusterHealthQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =

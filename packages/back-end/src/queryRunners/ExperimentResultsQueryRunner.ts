@@ -18,9 +18,7 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentClusterAssignmentQueryResponseRows,
-  ExperimentClusterSubUnitMappingQueryResponseRows,
-  ExperimentClusterUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
@@ -61,9 +59,7 @@ import {
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
-  analyzeExperimentClusterAssignment,
-  analyzeExperimentClusterSubUnitMapping,
-  analyzeExperimentClusterUnits,
+  analyzeExperimentClusterHealth,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -103,11 +99,7 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
 
-export const CLUSTER_UNITS_QUERY_NAME = "clusterUnits";
-
-export const CLUSTER_ASSIGNMENT_QUERY_NAME = "clusterAssignment";
-
-export const CLUSTER_SUBUNIT_MAPPING_QUERY_NAME = "clusterSubUnitMapping";
+export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -522,9 +514,9 @@ export const startExperimentResultQueries = async (
       });
       queries.push(clusterTrafficQuery);
 
-      const clusterUnitsQuery = await startQuery({
-        name: CLUSTER_UNITS_QUERY_NAME,
-        query: integration.getExperimentClusterUnitsQuery({
+      const clusterHealthQuery = await startQuery({
+        name: CLUSTER_HEALTH_QUERY_NAME,
+        query: integration.getExperimentClusterHealthQuery({
           ...unitQueryParams,
           settings: snapshotSettings,
           dimensions: snapshotDimensionsForTraffic.length
@@ -534,58 +526,14 @@ export const startExperimentResultQueries = async (
         }),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
-          integration.runExperimentClusterUnitsQuery(
+          integration.runExperimentClusterHealthQuery(
             query,
             setExternalId,
             queryMetadata,
           ),
         queryType: "experimentTraffic",
       });
-      queries.push(clusterUnitsQuery);
-
-      // Health check: verify all sub-units in a cluster share one assignment.
-      const clusterAssignmentQuery = await startQuery({
-        name: CLUSTER_ASSIGNMENT_QUERY_NAME,
-        query: integration.getExperimentClusterAssignmentQuery({
-          ...unitQueryParams,
-          settings: snapshotSettings,
-          dimensions: snapshotDimensionsForTraffic.length
-            ? snapshotDimensionsForTraffic
-            : dimensionsForTraffic,
-          useUnitsTable: !!unitQuery,
-        }),
-        dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runExperimentClusterAssignmentQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentTraffic",
-      });
-      queries.push(clusterAssignmentQuery);
-
-      // Health check: verify each sub-unit maps to a single cluster.
-      const clusterSubUnitMappingQuery = await startQuery({
-        name: CLUSTER_SUBUNIT_MAPPING_QUERY_NAME,
-        query: integration.getExperimentClusterSubUnitMappingQuery({
-          ...unitQueryParams,
-          settings: snapshotSettings,
-          dimensions: snapshotDimensionsForTraffic.length
-            ? snapshotDimensionsForTraffic
-            : dimensionsForTraffic,
-          useUnitsTable: !!unitQuery,
-        }),
-        dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runExperimentClusterSubUnitMappingQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentTraffic",
-      });
-      queries.push(clusterSubUnitMappingQuery);
+      queries.push(clusterHealthQuery);
     }
   }
 
@@ -709,34 +657,17 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         });
       }
 
-      const clusterUnitsQuery = queryMap.get(CLUSTER_UNITS_QUERY_NAME);
-      if (clusterUnitsQuery) {
-        result.health.clusterUnits = analyzeExperimentClusterUnits({
-          rows: clusterUnitsQuery.result as ExperimentClusterUnitsQueryResponseRows,
-          error: clusterUnitsQuery.error,
+      const clusterHealthQuery = queryMap.get(CLUSTER_HEALTH_QUERY_NAME);
+      if (clusterHealthQuery) {
+        const clusterHealth = analyzeExperimentClusterHealth({
+          rows: clusterHealthQuery.result as ExperimentClusterHealthQueryResponseRows,
+          error: clusterHealthQuery.error,
           variations: this.model.settings.variations,
         });
-      }
-
-      const clusterAssignmentQuery = queryMap.get(
-        CLUSTER_ASSIGNMENT_QUERY_NAME,
-      );
-      if (clusterAssignmentQuery) {
-        result.health.clusterAssignment = analyzeExperimentClusterAssignment({
-          rows: clusterAssignmentQuery.result as ExperimentClusterAssignmentQueryResponseRows,
-          error: clusterAssignmentQuery.error,
-        });
-      }
-
-      const clusterSubUnitMappingQuery = queryMap.get(
-        CLUSTER_SUBUNIT_MAPPING_QUERY_NAME,
-      );
-      if (clusterSubUnitMappingQuery) {
+        result.health.clusterUnits = clusterHealth.clusterUnits;
+        result.health.clusterAssignment = clusterHealth.clusterAssignment;
         result.health.clusterSubUnitMapping =
-          analyzeExperimentClusterSubUnitMapping({
-            rows: clusterSubUnitMappingQuery.result as ExperimentClusterSubUnitMappingQueryResponseRows,
-            error: clusterSubUnitMappingQuery.error,
-          });
+          clusterHealth.clusterSubUnitMapping;
       }
 
       const relativeAnalysis = this.model.analyses.find(

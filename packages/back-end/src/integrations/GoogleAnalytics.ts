@@ -9,9 +9,7 @@ import {
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
-  ExperimentClusterAssignmentQueryResponse,
-  ExperimentClusterSubUnitMappingQueryResponse,
-  ExperimentClusterUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
   DropTableQueryResponse,
@@ -152,40 +150,16 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentClusterUnitsQuery(
+  getExperimentClusterHealthQuery(
     _: ExperimentAggregateUnitsQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentClusterUnitsQuery(
+  runExperimentClusterHealthQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
-  ): Promise<ExperimentClusterUnitsQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  getExperimentClusterAssignmentQuery(
-    _: ExperimentAggregateUnitsQueryParams,
-  ): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentClusterAssignmentQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-    _queryMetadata?: QueryMetadata,
-  ): Promise<ExperimentClusterAssignmentQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  getExperimentClusterSubUnitMappingQuery(
-    _: ExperimentAggregateUnitsQueryParams,
-  ): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentClusterSubUnitMappingQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-    _queryMetadata?: QueryMetadata,
-  ): Promise<ExperimentClusterSubUnitMappingQueryResponse> {
+  ): Promise<ExperimentClusterHealthQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runSnapshotMetricQuery(

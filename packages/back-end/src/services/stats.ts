@@ -26,9 +26,7 @@ import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentClusterAssignmentQueryResponseRows,
-  ExperimentClusterSubUnitMappingQueryResponseRows,
-  ExperimentClusterUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -55,6 +53,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotClusterAssignment,
   ExperimentSnapshotClusterSubUnitMapping,
+  ExperimentSnapshotClusterUnit,
   ExperimentSnapshotClusterUnits,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -79,6 +78,11 @@ import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
+import {
+  CLUSTER_HEALTH_KIND_ASSIGNMENT,
+  CLUSTER_HEALTH_KIND_MAPPING,
+  CLUSTER_HEALTH_KIND_RELIABILITY,
+} from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
@@ -944,17 +948,25 @@ export function analyzeExperimentTraffic({
   return trafficResults;
 }
 
-export function analyzeExperimentClusterUnits({
+export function analyzeExperimentClusterHealth({
   rows,
   error,
   variations,
 }: {
-  rows: ExperimentClusterUnitsQueryResponseRows;
+  rows: ExperimentClusterHealthQueryResponseRows;
   error?: string;
   variations: SnapshotSettingsVariation[];
-}): ExperimentSnapshotClusterUnits {
+}): {
+  clusterUnits: ExperimentSnapshotClusterUnits;
+  clusterAssignment: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping;
+} {
   if (error) {
-    return { clusters: [], error };
+    return {
+      clusterUnits: { clusters: [], error },
+      clusterAssignment: { totalClusters: 0, mixedClusters: 0, error },
+      clusterSubUnitMapping: { totalUnits: 0, multiClusterUnits: 0, error },
+    };
   }
 
   const variationIdMap: { [key: string]: number } = {};
@@ -962,46 +974,40 @@ export function analyzeExperimentClusterUnits({
     variationIdMap[v.id] = i;
   });
 
-  const clusters = (rows ?? []).map((r) => ({
-    id: r.cluster_id,
-    variation: variationIdMap[r.variation] ?? -1,
-    units: r.units,
-    pct: r.pct,
-  }));
-
-  return { clusters };
-}
-
-export function analyzeExperimentClusterAssignment({
-  rows,
-  error,
-}: {
-  rows: ExperimentClusterAssignmentQueryResponseRows;
-  error?: string;
-}): ExperimentSnapshotClusterAssignment {
-  if (error) {
-    return { totalClusters: 0, mixedClusters: 0, error };
-  }
-  const row = rows?.[0];
-  return {
-    totalClusters: row?.total_clusters ?? 0,
-    mixedClusters: row?.mixed_clusters ?? 0,
+  const clusters: ExperimentSnapshotClusterUnit[] = [];
+  const clusterAssignment: ExperimentSnapshotClusterAssignment = {
+    totalClusters: 0,
+    mixedClusters: 0,
   };
-}
+  const clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping = {
+    totalUnits: 0,
+    multiClusterUnits: 0,
+  };
 
-export function analyzeExperimentClusterSubUnitMapping({
-  rows,
-  error,
-}: {
-  rows: ExperimentClusterSubUnitMappingQueryResponseRows;
-  error?: string;
-}): ExperimentSnapshotClusterSubUnitMapping {
-  if (error) {
-    return { totalUnits: 0, multiClusterUnits: 0, error };
-  }
-  const row = rows?.[0];
+  (rows ?? []).forEach((r) => {
+    switch (r.kind) {
+      case CLUSTER_HEALTH_KIND_RELIABILITY:
+        clusters.push({
+          id: r.cluster_id,
+          variation: variationIdMap[r.variation] ?? -1,
+          units: r.metric_a,
+          pct: r.metric_b,
+        });
+        break;
+      case CLUSTER_HEALTH_KIND_ASSIGNMENT:
+        clusterAssignment.totalClusters = r.metric_a;
+        clusterAssignment.mixedClusters = r.metric_b;
+        break;
+      case CLUSTER_HEALTH_KIND_MAPPING:
+        clusterSubUnitMapping.totalUnits = r.metric_a;
+        clusterSubUnitMapping.multiClusterUnits = r.metric_b;
+        break;
+    }
+  });
+
   return {
-    totalUnits: row?.total_units ?? 0,
-    multiClusterUnits: row?.multi_cluster_units ?? 0,
+    clusterUnits: { clusters },
+    clusterAssignment,
+    clusterSubUnitMapping,
   };
 }

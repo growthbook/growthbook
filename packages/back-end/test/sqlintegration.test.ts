@@ -2446,8 +2446,8 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     );
   });
 
-  const buildClusterUnitsSql = (useUnitsTable: boolean): string =>
-    datasourceIntegration.getExperimentClusterUnitsQuery({
+  const buildClusterHealthSql = (useUnitsTable: boolean): string =>
+    datasourceIntegration.getExperimentClusterHealthQuery({
       settings: baseSettings,
       unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
         query: clusterExposureQuery.query,
@@ -2461,159 +2461,86 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
     });
 
-  it("counts sub-units per cluster from the materialized units table", () => {
-    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
+  it("aggregates clusters once and reuses the aggregate for every branch", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
 
-    // One row per cluster: the cluster id, its variation, and its sub-unit count.
-    expect(normalized).toContain("region_id AS cluster_id");
-    expect(normalized).toContain("COUNT(DISTINCT user_id) AS units");
-    expect(normalized).toMatch(/GROUP BY region_id\s*,\s*variation/);
-
-    // Share of all sub-units: numerator over a window SUM of the full group-by,
-    // so the denominator is the whole-experiment total (not just returned rows).
+    // A single per-cluster aggregate (cluster id, min/max assignment, sub-unit
+    // count) is computed once from the units table and reused by all branches.
     expect(normalized).toMatch(
-      /SUM\(COUNT\(DISTINCT user_id\)\) OVER \(\s*\) AS pct/,
+      /__clusterAgg AS \([\s\S]*region_id AS cluster_id[\s\S]*MIN\(variation\) AS min_variation[\s\S]*MAX\(variation\) AS max_variation[\s\S]*COUNT\(DISTINCT user_id\) AS units[\s\S]*FROM proj\.ds\.units[\s\S]*GROUP BY region_id/,
     );
-
-    // Reads the already-built units table rather than rebuilding units inline.
-    expect(normalized).toContain("FROM proj.ds.units");
+    // The units table is scanned once (by __clusterAgg); branches read the CTEs.
+    expect((normalized.match(/FROM proj\.ds\.units/g) ?? []).length).toBe(1);
     expect(normalized).not.toContain("__rawExperiment");
     expect(normalized).not.toContain("__experimentUnits");
+  });
 
-    // Largest clusters first, and only the top few are returned (we never ship a
-    // row per cluster), so the biggest cluster is always the first row.
+  it("emits a reliability branch with top-N clusters by sub-unit count", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // Share of all surviving sub-units: numerator over a window SUM.
+    expect(normalized).toMatch(/\/ SUM\(units\) OVER \(\s*\) AS pct/);
+    // Reliability rows carry the cluster id, variation, and counts.
+    expect(normalized).toContain("'reliability' AS kind");
+    // Largest clusters first, capped at the row limit.
     expect(normalized).toMatch(/ORDER BY units DESC/);
     expect(normalized).toMatch(
       new RegExp(`LIMIT ${MAX_ROWS_CLUSTER_UNITS_QUERY}`),
     );
   });
 
-  it("counts sub-units per cluster by building units inline when no units table", () => {
-    const normalized = buildClusterUnitsSql(false).replace(/\s+/g, " ").trim();
+  it("emits an assignment branch with total and mixed cluster counts", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
 
-    // Builds the sub-unit-grained units set inline, then rolls up to the cluster.
-    expect(normalized).toContain("__rawExperiment");
-    expect(normalized).toContain("__experimentUnits");
-    expect(normalized).toContain("FROM __experimentUnits");
-    expect(normalized).toContain("region_id AS cluster_id");
-    expect(normalized).toContain("COUNT(DISTINCT user_id) AS units");
+    expect(normalized).toContain("'assignment' AS kind");
+    // Counts every cluster, flagging those with mixed assignment, off the shared
+    // per-cluster aggregate.
+    expect(normalized).toMatch(/COUNT\(\*\)[\s\S]*AS metric_a/);
     expect(normalized).toMatch(
-      /SUM\(COUNT\(DISTINCT user_id\)\) OVER \(\s*\) AS pct/,
+      /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\)[\s\S]*AS metric_b/,
     );
-    expect(normalized).toMatch(/GROUP BY region_id\s*,\s*variation/);
+    expect(normalized).toMatch(/'assignment' AS kind[\s\S]*FROM __clusterAgg/);
   });
 
-  it("drops clusters with mixed assignment from the per-cluster units query", () => {
-    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
+  it("emits a mapping branch counting multi-cluster sub-units", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
 
-    // Only keep clusters whose sub-units all agree on their variation.
+    expect(normalized).toContain("'mapping' AS kind");
+    expect(normalized).toMatch(/SUM\(units\)[\s\S]*AS metric_a/);
     expect(normalized).toMatch(
-      /region_id IN \(\s*SELECT region_id\s*FROM proj\.ds\.units\s*GROUP BY region_id\s*HAVING MIN\(variation\) = MAX\(variation\)\s*\)/,
+      /SUM\(\s*CASE WHEN cluster_id = '__multiple__' THEN units ELSE 0 END\s*\)[\s\S]*AS metric_b/,
+    );
+    expect(normalized).toMatch(/'mapping' AS kind[\s\S]*FROM __clusterAgg/);
+  });
+
+  it("drops multi-cluster sub-units and mixed clusters from the reliability branch", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // The reliability set only keeps real, single-assignment clusters.
+    expect(normalized).toMatch(
+      /__realClusters AS \([\s\S]*WHERE cluster_id <> '__multiple__'[\s\S]*AND min_variation = max_variation/,
     );
   });
 
-  const buildClusterAssignmentSql = (useUnitsTable: boolean): string =>
-    datasourceIntegration.getExperimentClusterAssignmentQuery({
-      settings: baseSettings,
-      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
-        query: clusterExposureQuery.query,
-        identifierType: "region_id",
-      }),
-      activationMetric: null,
-      dimensions: [],
-      segment: null,
-      factTableMap,
-      useUnitsTable,
-      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
-    });
+  it("builds units inline when no units table is available", () => {
+    const normalized = buildClusterHealthSql(false).replace(/\s+/g, " ").trim();
 
-  it("counts total and mixed-assignment clusters from the units table", () => {
-    const normalized = buildClusterAssignmentSql(true)
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // One row per cluster with its min/max assignment, read from the units table.
-    expect(normalized).toMatch(
-      /__clusterAssignment AS \([\s\S]*MIN\(variation\) AS min_variation[\s\S]*MAX\(variation\) AS max_variation[\s\S]*FROM proj\.ds\.units[\s\S]*GROUP BY region_id/,
-    );
-
-    // A single summary row: total clusters, and how many have mixed assignment.
-    expect(normalized).toContain("COUNT(*) AS total_clusters");
-    expect(normalized).toMatch(
-      /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\) AS mixed_clusters/,
-    );
-    expect(normalized).toContain("FROM __clusterAssignment");
-  });
-
-  it("builds units inline for the assignment check when no units table", () => {
-    const normalized = buildClusterAssignmentSql(false)
-      .replace(/\s+/g, " ")
-      .trim();
-
+    // Builds the sub-unit-grained units set inline, then aggregates per cluster.
     expect(normalized).toContain("__rawExperiment");
     expect(normalized).toContain("__experimentUnits");
     expect(normalized).toMatch(
-      /__clusterAssignment AS \([\s\S]*FROM __experimentUnits/,
-    );
-  });
-
-  const buildClusterSubUnitMappingSql = (useUnitsTable: boolean): string =>
-    datasourceIntegration.getExperimentClusterSubUnitMappingQuery({
-      settings: baseSettings,
-      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
-        query: clusterExposureQuery.query,
-        identifierType: "region_id",
-      }),
-      activationMetric: null,
-      dimensions: [],
-      segment: null,
-      factTableMap,
-      useUnitsTable,
-      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
-    });
-
-  it("counts total and multi-cluster sub-units from the units table", () => {
-    const normalized = buildClusterSubUnitMappingSql(true)
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // One summary row: total sub-units, and how many map to multiple clusters.
-    expect(normalized).toContain("COUNT(*) AS total_units");
-    expect(normalized).toMatch(
-      /SUM\(\s*CASE WHEN region_id = '__multiple__' THEN 1 ELSE 0 END\s*\) AS multi_cluster_units/,
-    );
-    expect(normalized).toContain("FROM proj.ds.units");
-  });
-
-  it("builds units inline for the mapping check when no units table", () => {
-    const normalized = buildClusterSubUnitMappingSql(false)
-      .replace(/\s+/g, " ")
-      .trim();
-
-    expect(normalized).toContain("__rawExperiment");
-    expect(normalized).toContain("__experimentUnits");
-    expect(normalized).toMatch(
-      /__clusterSubUnitMapping AS \([\s\S]*FROM __experimentUnits/,
+      /__clusterAgg AS \([\s\S]*FROM __experimentUnits/,
     );
   });
 
   it("marks a sub-unit's cluster id as __multiple__ when it maps to >1 cluster", () => {
     // The inline units build collapses to one row per sub-unit and flags
     // sub-units observed in more than one cluster.
-    const normalized = buildClusterSubUnitMappingSql(false)
-      .replace(/\s+/g, " ")
-      .trim();
+    const normalized = buildClusterHealthSql(false).replace(/\s+/g, " ").trim();
 
     expect(normalized).toMatch(
       /CASE WHEN count\(distinct e\.region_id\) > 1 THEN '__multiple__' ELSE max\(e\.region_id\) END\s*\) AS region_id/,
     );
-  });
-
-  it("drops multi-cluster sub-units from the per-cluster units query", () => {
-    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
-
-    // Multi-cluster sub-units are excluded before counting per-cluster units.
-    expect(normalized).toContain("region_id <> '__multiple__'");
   });
 
   it("drops multi-cluster sub-units from the traffic query", () => {

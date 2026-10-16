@@ -22,9 +22,7 @@ import {
   ContextualBanditSrmQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
-  ExperimentClusterAssignmentQueryResponse,
-  ExperimentClusterSubUnitMappingQueryResponse,
-  ExperimentClusterUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   ExperimentMetricQueryParams,
@@ -172,13 +170,7 @@ export interface SourceIntegrationInterface<
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
-  getExperimentClusterUnitsQuery(
-    params: ExperimentAggregateUnitsQueryParams,
-  ): string;
-  getExperimentClusterAssignmentQuery(
-    params: ExperimentAggregateUnitsQueryParams,
-  ): string;
-  getExperimentClusterSubUnitMappingQuery(
+  getExperimentClusterHealthQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
   getContextualBanditSrmQuery?(params: ContextualBanditSrmQueryParams): string;
@@ -301,21 +293,11 @@ export interface SourceIntegrationInterface<
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
-  runExperimentClusterUnitsQuery(
+  runExperimentClusterHealthQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterUnitsQueryResponse>;
-  runExperimentClusterAssignmentQuery(
-    query: string,
-    setExternalId: ExternalIdCallback,
-    queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterAssignmentQueryResponse>;
-  runExperimentClusterSubUnitMappingQuery(
-    query: string,
-    setExternalId: ExternalIdCallback,
-    queryMetadata: RunQueryMetadata,
-  ): Promise<ExperimentClusterSubUnitMappingQueryResponse>;
+  ): Promise<ExperimentClusterHealthQueryResponse>;
   runContextualBanditSrmQuery?(
     query: string,
     setExternalId: ExternalIdCallback,
