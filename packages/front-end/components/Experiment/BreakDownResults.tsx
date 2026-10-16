@@ -27,6 +27,7 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
@@ -114,6 +115,12 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
 }> = ({
   experimentId,
   significanceThresholds,
@@ -162,6 +169,7 @@ const BreakDownResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  customMetricSlices,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
@@ -171,8 +179,8 @@ const BreakDownResults: FC<{
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
 
-  // Funnel step child rows nest under their dimension-value parent and stay
-  // collapsed until the parent's chevron is toggled. The key matches the
+  // Funnel step and metric slice child rows nest under their dimension-value
+  // parent and stay collapsed until the parent's chevron is toggled. The key matches the
   // `parentRowId` (`metricId:dimensionValue`) each child row carries.
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const toggleExpandedRow = (parentRowId: string) => {
@@ -207,6 +215,7 @@ const BreakDownResults: FC<{
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    customMetricSlices,
   });
 
   const activationMetricObj = activationMetric
@@ -265,7 +274,8 @@ const BreakDownResults: FC<{
       </div>
 
       {tables.map((table, i) => {
-        // Hide funnel step child rows whose dimension-value parent is collapsed.
+        // Hide child rows (funnel steps, metric slices) whose dimension-value
+        // parent is collapsed.
         const visibleRows = table.rows.filter(
           (row) =>
             !row.isChildRow ||
@@ -330,10 +340,20 @@ const BreakDownResults: FC<{
                 if (row?.childRowType === "funnelStep") {
                   return <FunnelStepLabel label={label} row={row} />;
                 }
+                if (row?.isSliceRow) {
+                  return getRenderLabelColumn({})({
+                    label,
+                    metric: row.metric,
+                    row,
+                  });
+                }
 
                 const hasSteps = !!row?.numChildren;
                 const parentRowId = `${row?.metric?.id}:${row?.label ?? ""}`;
                 const isExpanded = !!expandedRows[parentRowId];
+                const childLabel = isFactFunnelMetric(table.metric)
+                  ? "funnel steps"
+                  : "metric slices";
                 return (
                   <div
                     className="pl-3 font-weight-bold"
@@ -359,8 +379,8 @@ const BreakDownResults: FC<{
                         <RadixTooltip
                           content={
                             isExpanded
-                              ? "Collapse funnel steps"
-                              : "Expand funnel steps"
+                              ? `Collapse ${childLabel}`
+                              : `Expand ${childLabel}`
                           }
                           side="top"
                         >
@@ -370,8 +390,8 @@ const BreakDownResults: FC<{
                             radius="full"
                             aria-label={
                               isExpanded
-                                ? "Collapse funnel steps"
-                                : "Expand funnel steps"
+                                ? `Collapse ${childLabel}`
+                                : `Expand ${childLabel}`
                             }
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >
