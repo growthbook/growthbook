@@ -35,7 +35,6 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/ui/Button";
 import {
   MetricModal,
   MetricModalState,
@@ -43,10 +42,8 @@ import {
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
-import UILink from "@/ui/Link";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -402,7 +399,6 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
-    factTables,
     metrics: legacyMetrics,
     ready,
   } = useDefinitions();
@@ -447,22 +443,6 @@ const MetricsList = (): React.ReactElement => {
       f.datasource !== demoDataSourceId,
   ); // Don't factor in demo datasource metrics
 
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
-  );
-
-  // Show the create fact table button if there are no legacy metrics and no fact tables
-  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
-  const showCreateFactTableButton = disableLegacyMetricCreation
-    ? !hasFactTables
-    : !hasLegacyMetrics && !hasFactTables;
-
-  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
-    projects: project ? [project] : [],
-  });
-  // The new page explains a missing fact table; the old modal can't.
-  const canAddFactMetric =
-    canCreateFactMetric && (factMetricFlow.newFlow || hasFactTables);
   const canCreateLegacyMetric =
     !disableLegacyMetricCreation &&
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
@@ -594,34 +574,12 @@ const MetricsList = (): React.ReactElement => {
           </DocLink>
         </Flex>
         <Box style={{ flex: 1 }} />
-        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
+        {envAllowsCreatingMetrics() ? (
           <Flex gap="2" align="center">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Tooltip
-              content={
-                !canCreateFactMetric
-                  ? "You don't have permission to add Fact Metrics in this Project."
-                  : "Create a Fact Table before adding a metric."
-              }
-              enabled={!canAddFactMetric}
-            >
-              {!canAddFactMetric ? (
-                // A disabled button gets no hover, so the span shows the tooltip.
-                <span style={{ cursor: "not-allowed" }}>
-                  <Button disabled style={{ pointerEvents: "none" }}>
-                    Add metric
-                  </Button>
-                </span>
-              ) : factMetricFlow.newFlow ? (
-                <LinkButton href={factMetricFlow.href()}>Add metric</LinkButton>
-              ) : (
-                <Button onClick={() => factMetricFlow.open()}>
-                  Add metric
-                </Button>
-              )}
-            </Tooltip>
+            {factMetricFlow.createButton()}
             {showLegacyOption && (
               // Legacy creation stays possible for orgs that already use
               // it, tucked behind this menu and a confirmation.
@@ -654,13 +612,15 @@ const MetricsList = (): React.ReactElement => {
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
-                        {factMetricFlow.newFlow && (
-                          <Text as="p" mb="0">
-                            <UILink href={factMetricFlow.href()}>
-                              Create a Fact Metric instead
-                            </UILink>
-                          </Text>
-                        )}
+                        <Text as="p" mb="0">
+                          {factMetricFlow.createButton(
+                            {},
+                            {
+                              variant: "ghost",
+                              children: "Create a Fact Metric instead",
+                            },
+                          )}
+                        </Text>
                       </Flex>
                     ),
                   }}
@@ -670,10 +630,6 @@ const MetricsList = (): React.ReactElement => {
               </DropdownMenu>
             )}
           </Flex>
-        ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
-          <Box>
-            <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-          </Box>
         ) : null}
       </Flex>
       <Box mt="4">

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isFactFunnelMetric } from "shared/experiments";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
@@ -56,8 +56,7 @@ export default function FactMetricPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   // Tracking source for an edit started from another page's Edit link.
-  const [editSource, setEditSource] = useState<string | null>(null);
-  const factMetricFlow = useFactMetricFlow("fact-metric");
+  const [editSource, setEditSource] = useState("fact-metric");
   const [actionsContainer, setActionsContainer] =
     useState<HTMLDivElement | null>(null);
 
@@ -74,6 +73,19 @@ export default function FactMetricPage() {
     `metricTabbedPageTab__${fmid}`,
     "overview",
   );
+  const enterInlineEdit = useCallback(
+    (source: string) => {
+      setTab("overview");
+      setEditSource(source);
+      setIsEditing(true);
+    },
+    [setTab],
+  );
+  const {
+    edit: editMetric,
+    editDisabled,
+    modal: metricModal,
+  } = useFactMetricFlow("fact-metric", enterInlineEdit);
   const activeTab =
     tab === "experiments" || tab === "bandits" ? tab : "overview";
   const { apiCall } = useAuth();
@@ -117,36 +129,26 @@ export default function FactMetricPage() {
     permissionsUtil.canDeleteFactMetric(factMetric);
   const editViaApiOnly = !!factMetric && isMergeAggregationMetric(factMetric);
 
-  // Edit in place on this page, or in the old FactMetricModal when the
-  // new-metric-creation-flow experiment has this user on the old flow.
   const startEditing = () => {
-    if (!factMetricFlow.newFlow && factMetric) {
-      factMetricFlow.edit(factMetric);
-      return;
-    }
-    setTab("overview");
-    setEditSource(null);
-    setIsEditing(true);
+    if (factMetric) editMetric(factMetric);
   };
 
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
-    // Wait for the flag so the link opens the editor this user is assigned.
-    if (!factMetricFlow.ready) return;
-    if (canEdit && !editViaApiOnly) {
-      startEditing();
-      if (typeof router.query.source === "string") {
-        setEditSource(router.query.source);
-      }
+    if (canEdit && !editViaApiOnly && factMetric) {
+      const source =
+        typeof router.query.source === "string"
+          ? router.query.source
+          : "fact-metric";
+      if (!editMetric(factMetric, source)) return;
     }
-    const { edit, source, ...query } = router.query;
-    void edit;
-    void source;
+    const query = { ...router.query };
+    delete query.edit;
+    delete query.source;
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, ready, canEdit, editViaApiOnly, factMetricFlow.ready]);
+  }, [router, ready, canEdit, editViaApiOnly, factMetric, editMetric]);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -168,7 +170,7 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {factMetricFlow.modal}
+      {metricModal}
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -322,7 +324,11 @@ export default function FactMetricPage() {
                 </span>
               </Tooltip>
             ) : (
-              <Button variant="soft" onClick={startEditing}>
+              <Button
+                variant="soft"
+                onClick={startEditing}
+                disabled={editDisabled}
+              >
                 Edit metric
               </Button>
             ))}
@@ -373,7 +379,7 @@ export default function FactMetricPage() {
                 setOpenDropdown(false);
                 startEditing();
               }}
-              disabled={!canEdit || editViaApiOnly}
+              disabled={!canEdit || editViaApiOnly || editDisabled}
             >
               <Tooltip
                 content={REST_API_ONLY_EDIT_MESSAGE}
@@ -548,7 +554,7 @@ export default function FactMetricPage() {
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             mutate={mutateDefinitions}
-            source={editSource ?? "fact-metric"}
+            source={editSource}
           />
         </TabsContent>
 

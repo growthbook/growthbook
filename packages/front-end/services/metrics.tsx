@@ -42,6 +42,31 @@ import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
+export function resolveFactMetricCreation(
+  ready: boolean,
+  newFlow: boolean,
+  hasFactTable: boolean,
+) {
+  return !ready
+    ? "pending"
+    : newFlow
+      ? "page"
+      : hasFactTable
+        ? "modal"
+        : "fact-table";
+}
+
+export function duplicateFactMetric(
+  metric: FactMetricInterface,
+  canCreateOfficial: boolean,
+): FactMetricInterface {
+  return {
+    ...metric,
+    name: `${metric.name} (copy)`,
+    managedBy: metric.managedBy === "admin" && canCreateOfficial ? "admin" : "",
+  };
+}
+
 export function getInitialInlineFilters(
   factTable: Pick<
     FactTableDefinition,
