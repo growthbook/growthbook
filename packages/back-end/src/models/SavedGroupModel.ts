@@ -12,7 +12,17 @@ import {
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import {
+  assertRemoteSavedGroupsEnabled,
+  assertRemoteSavedGroupsLicensed,
+  assertRemoteSavedGroupAttribute,
+  savedGroupUpdated,
+} from "back-end/src/services/savedGroups";
+import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertUsableUploadVersion,
+  deleteRemoteSavedGroupUploads,
+} from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
@@ -155,6 +165,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
       await assertSavedGroupProjectScope(this.context, doc, previousDoc);
     }
+    if (doc.type === "remote") {
+      await this.validateRemoteGroup(doc, previousDoc, writeOptions);
+    } else if (doc.currentUploadVersion !== undefined) {
+      throw new BadRequestError(
+        "Only remote Saved Groups can have a currentUploadVersion",
+      );
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -163,6 +180,51 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         "saved group",
         previousDoc ? { condition: previousDoc.condition } : undefined,
         doc.projects,
+      );
+    }
+  }
+
+  private async validateRemoteGroup(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    // Archiving stays possible after the flag or the plan is turned off, for
+    // cleanup.
+    const onlyArchiving =
+      !!previousDoc &&
+      isEqual(
+        omit(doc, ["archived", "dateUpdated"]),
+        omit(previousDoc, ["archived", "dateUpdated"]),
+      );
+    if (!onlyArchiving && !writeOptions?.isCompensation) {
+      assertRemoteSavedGroupsEnabled(this.context.org);
+      assertRemoteSavedGroupsLicensed(this.context);
+    }
+    // Every write path ends here (APIs, revisions), unlike request validators.
+    if (doc.values?.length || doc.condition) {
+      throw new BadRequestError(
+        "Remote Saved Groups cannot have values or a condition",
+      );
+    }
+    if (!previousDoc) {
+      assertRemoteSavedGroupAttribute(this.context.org, doc.attributeKey);
+    } else if (doc.attributeKey !== previousDoc.attributeKey) {
+      // Loaders store IDs by attribute, so changing it would need a reload.
+      throw new BadRequestError(
+        "The attributeKey of a remote Saved Group cannot change",
+      );
+    }
+    // Compensation restores a version that was valid when it was written.
+    if (
+      doc.currentUploadVersion !== undefined &&
+      doc.currentUploadVersion !== previousDoc?.currentUploadVersion &&
+      !writeOptions?.isCompensation
+    ) {
+      await assertUsableUploadVersion(
+        this.context,
+        doc.id,
+        doc.currentUploadVersion,
       );
     }
   }
@@ -219,6 +281,17 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: SavedGroupInterface) {
+    if (doc.type === "remote") {
+      // The group is already gone, so a failure here can't be retried through
+      // it; the rest of the delete still runs, and the upload cleanup job
+      // removes what's left.
+      await deleteRemoteSavedGroupUploads(this.context, doc.id).catch((err) =>
+        this.context.logger.error(
+          err,
+          "Could not delete a remote Saved Group's uploads",
+        ),
+      );
+    }
     await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
@@ -373,6 +446,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       projects: savedGroup.projects || [],
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
+      currentUploadVersion: savedGroup.currentUploadVersion,
     };
   }
   /**

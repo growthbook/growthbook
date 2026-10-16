@@ -80,7 +80,8 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         req.context.org.settings?.savedGroupSizeLimit,
         req.context.permissions.canBypassSavedGroupSizeLimit(projects),
       );
-    } else {
+    } else if (type !== "remote") {
+      // Remote groups are checked when the model saves them.
       throw new Error("Must specify a saved group type");
     }
 

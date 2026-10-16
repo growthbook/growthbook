@@ -6,6 +6,7 @@ import {
   UrlTargetType,
   VariationRange,
 } from "./types/growthbook";
+import { TestedObj } from "./types/mongrule";
 
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
@@ -302,6 +303,21 @@ export async function decrypt(
   } catch (e) {
     throw new Error("Failed to decrypt");
   }
+}
+
+// Return value at dot-separated path of an object
+export function getPath(obj: TestedObj, path: string) {
+  const parts = path.split(".");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let current: any = obj;
+  for (let i = 0; i < parts.length; i++) {
+    if (current && typeof current === "object" && parts[i] in current) {
+      current = current[parts[i]];
+    } else {
+      return null;
+    }
+  }
+  return current;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

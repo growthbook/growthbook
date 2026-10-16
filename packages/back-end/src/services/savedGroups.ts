@@ -1,6 +1,7 @@
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
+  isRemoteGroupSupportedAttribute,
   targetingReferencesSavedGroup,
   contextualBanditTargetingServes,
 } from "shared/util";
@@ -22,7 +23,15 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
+import { UPLOAD_METHOD } from "back-end/src/util/secrets";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import {
   getSavedGroupIdsForFeatureDefinitions,
@@ -344,4 +353,72 @@ export async function assertSavedGroupDeletable(
       ", ",
     )}. Remove these references first.`,
   );
+}
+
+export function isRemoteSavedGroupsEnabled(
+  org: ReqContext["org"] | ApiReqContext["org"],
+): boolean {
+  return getBackendFeatureValue(
+    "remote-saved-groups",
+    false,
+    getTrustedOrgAttributes(org),
+  );
+}
+
+export function assertRemoteSavedGroupsEnabled(
+  org: ReqContext["org"] | ApiReqContext["org"],
+): void {
+  if (!isRemoteSavedGroupsEnabled(org)) {
+    throw new BadRequestError(
+      "Remote Saved Groups are not enabled for this organization",
+    );
+  }
+}
+
+/**
+ * Creating and changing Remote Groups needs an Enterprise plan. Existing groups
+ * keep working without it: loaders, downloads, deleting uploads and archiving.
+ */
+export function assertRemoteSavedGroupsLicensed(
+  context: Pick<ReqContext | ApiReqContext, "hasPremiumFeature">,
+): void {
+  if (!context.hasPremiumFeature("large-saved-groups")) {
+    throw new PlanDoesNotAllowError(
+      "Remote Saved Groups require an Enterprise plan",
+    );
+  }
+}
+
+/** Remote groups' files go straight from the client to storage, by signed URL. */
+export function assertRemoteSavedGroupStorage(): void {
+  if (UPLOAD_METHOD === "local") {
+    throw new BadRequestError(
+      "Remote Saved Groups need S3 or Google Cloud Storage for uploads",
+    );
+  }
+}
+
+/**
+ * A remote group needs one of the organization's string or number attributes.
+ * Checked here, not in a request validator, because it depends on the
+ * organization's attributes.
+ */
+export function assertRemoteSavedGroupAttribute(
+  org: ReqContext["org"] | ApiReqContext["org"],
+  attributeKey: string | undefined,
+): void {
+  if (!attributeKey) {
+    throw new BadRequestError("Remote Saved Groups must have an attributeKey");
+  }
+  const attribute = org.settings?.attributeSchema?.find(
+    (a) => a.property === attributeKey,
+  );
+  if (!attribute) {
+    throw new BadRequestError("Unknown attributeKey");
+  }
+  if (!isRemoteGroupSupportedAttribute(attribute)) {
+    throw new BadRequestError(
+      "Remote Saved Groups can only use string or number attributes",
+    );
+  }
 }

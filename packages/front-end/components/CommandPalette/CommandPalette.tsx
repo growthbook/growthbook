@@ -191,7 +191,15 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { experiments } = useExperiments();
   const { dashboards } = useDashboards(false);
 
-  const docPaletteRows = useMemo(() => getDocSectionsForCommandPalette(), []);
+  const remoteGroupsOn = growthbook?.isOn("remote-saved-groups") ?? false;
+  const docPaletteRows = useMemo(
+    () =>
+      getDocSectionsForCommandPalette().filter(
+        // Its docs page is unlisted while the feature is behind a flag
+        (row) => row.section !== "remoteSavedGroups" || remoteGroupsOn,
+      ),
+    [remoteGroupsOn],
+  );
   const apiReferenceRows = useMemo(() => getApiReferencePaletteRows(), []);
 
   // Build unified item list

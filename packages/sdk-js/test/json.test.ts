@@ -48,6 +48,11 @@ type Cases = {
     feature: [string, Context, string, FeatureResult][];
     run: [string, Context, Experiment<any>, any, boolean, boolean][];
   };
+  // Gated behind the savedGroupReferencesRemote capability, like the above.
+  savedGroupReferencesRemote: {
+    evalCondition: [string, any, any, boolean, SavedGroupsPayload][];
+    feature: [string, Context, string, FeatureResult][];
+  };
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,
@@ -152,6 +157,24 @@ describe("json test suite", () => {
       expect(res.value).toEqual(value);
       expect(res.inExperiment).toEqual(inExperiment);
       expect(res.hashUsed).toEqual(hashUsed);
+      growthbook.destroy();
+    },
+  );
+
+  const remote = (cases as Cases).savedGroupReferencesRemote;
+
+  it.each(remote.evalCondition)(
+    "savedGroupReferencesRemote.evalCondition[%#] %s",
+    (name, condition, value, expected, savedGroups = {}) => {
+      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
+    },
+  );
+
+  it.each(remote.feature)(
+    "savedGroupReferencesRemote.feature[%#] %s",
+    (name, ctx, key, expected) => {
+      const growthbook = new GrowthBook(ctx);
+      expect(growthbook.evalFeature(key)).toEqual(expected);
       growthbook.destroy();
     },
   );

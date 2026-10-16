@@ -73,6 +73,7 @@ import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { SavedGroupUploadModel } from "back-end/src/models/SavedGroupUploadModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
 import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
@@ -154,6 +155,7 @@ export type ModelName =
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "savedGroupUploads"
   | "constants"
   | "configs"
   | "teams"
@@ -217,6 +219,7 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  savedGroupUploads: SavedGroupUploadModel,
   constants: ConstantModel,
   configs: ConfigModel,
   teams: TeamModel,
@@ -401,6 +404,7 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      savedGroupUploads: new SavedGroupUploadModel(this),
       constants: new ConstantModel(this),
       configs: new ConfigModel(this),
       teams: new TeamModel(this),
@@ -769,7 +773,11 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(data: AuditInterfaceInput) {
+  /**
+   * Records an audit event. Pass `id` to write it at most once: a repeat with
+   * the same id throws a duplicate key error.
+   */
+  public async auditLog(data: AuditInterfaceInput, id?: string) {
     const apiKeyUser =
       this.auditUser?.type === "api_key" ? this.auditUser : undefined;
     const auditUser = this.isApiRequest
@@ -793,12 +801,15 @@ export class ReqContextClass {
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
-    await insertAudit({
-      ...data,
-      user: auditUser,
-      organization: this.org.id,
-      dateCreated: new Date(),
-    });
+    await insertAudit(
+      {
+        ...data,
+        user: auditUser,
+        organization: this.org.id,
+        dateCreated: new Date(),
+      },
+      id,
+    );
   }
 
   // Cache common foreign references

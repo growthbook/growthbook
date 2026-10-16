@@ -782,7 +782,11 @@
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
                   "api/saved-groups/operation/unarchiveSavedGroup",
-                  "api/saved-groups/operation/getSavedGroupReferences"
+                  "api/saved-groups/operation/getSavedGroupReferences",
+                  "api/saved-groups/operation/listSavedGroupUploads",
+                  "api/saved-groups/operation/postSavedGroupUpload",
+                  "api/saved-groups/operation/postSavedGroupUploadUrl",
+                  "api/saved-groups/operation/postSavedGroupUploadLoad"
                 ]
               },
               {
@@ -1245,6 +1249,7 @@
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedGroupUpload_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
