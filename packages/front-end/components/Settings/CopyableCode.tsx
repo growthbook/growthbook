@@ -69,6 +69,7 @@ export default function CopyableCode({
           <button
             type="button"
             className={styles.value}
+            aria-label={`Copy ${value}`}
             onClick={() => {
               performCopy(value);
               setCopied(true);
