@@ -617,6 +617,35 @@ const REVIEWED_WRITES = new Set(
   Object.values(REVISION_MODEL).flatMap((model) => landingActions(model, true)),
 );
 
+// The backstop for any path that edits an armed draft without classifying it: an
+// unconfirmed edit by a key whose rules would hold that draft's landing disarms
+// it, so nothing it changed publishes without a person. Only a direct request
+// does; an armed publish firing never does.
+function editDisarms(context: ReqContext, lands: ConfirmAction[]): boolean {
+  if (!context.req || context.confirmationId) return false;
+  const held = lands.map((action) => ({ action, environments: [] }));
+  return matchConfirmRules(rulesFor(context), held).length > 0;
+}
+export const editDisarmsFeatureDraft = (
+  context: ReqContext,
+  revision: FeatureRevisionInterface,
+) => isArmed(revision) && editDisarms(context, featureLanding(revision));
+export const editDisarmsDraft = (
+  context: ReqContext,
+  model: "savedGroup" | "constant" | "config",
+  revision: ArmableRevision & { target: { proposedChanges: unknown } },
+) =>
+  isArmed(revision) &&
+  editDisarms(
+    context,
+    landingActions(
+      model,
+      proposedArchivedValue(revision.target.proposedChanges) === true,
+    ),
+  );
+export const DISARMED_BY_EDIT =
+  "Canceled because an API key whose publishes need a person's confirmation edited the draft";
+
 // Everything landing a draft can do, for an edit that may add any of it.
 const everyLanding = (
   model: "feature" | "savedGroup" | "constant" | "config",
@@ -625,13 +654,12 @@ const everyLanding = (
     ? [...FEATURE_LANDING_ACTIONS]
     : landingActions(model, true);
 
-// A write into a flag draft: publishing it now lands it as it is, and staging
-// into it is draft work, plus all a landing can do when the draft is armed.
+// A write into a flag draft is draft work, plus all a landing can do when the
+// draft is armed to publish later.
 export async function featureDraftActions(
   context: ReqContext,
   featureId: string,
   version: number | string | undefined,
-  publishNow: boolean,
 ): Promise<ConfirmAction[]> {
   const state =
     version === undefined
@@ -640,7 +668,6 @@ export async function featureDraftActions(
           id: featureId,
           version: String(version),
         });
-  if (publishNow) return state?.lands ?? ["feature.publish"];
   return ["feature.draft", ...(state?.armed ? everyLanding("feature") : [])];
 }
 
@@ -896,12 +923,12 @@ export function experimentChangeActions(
         ? changes.statusUpdateSchedule
         : existing.statusUpdateSchedule;
     // A draft armed to start ships its edits when it starts, so they hold as on
-    // a live experiment, and as the start.
-    if (schedule?.startAt && !changes.status) {
+    // a live experiment, and as the start. Echoing "draft" leaves it armed.
+    if (schedule?.startAt && (changes.status ?? "draft") === "draft") {
       actions.add("experiment.start");
       experimentChangeActions(
         { ...existing, status: "running" },
-        omit(changes, "statusUpdateSchedule"),
+        omit(changes, ["status", "statusUpdateSchedule"]),
       ).forEach((action) => actions.add(action));
     }
     return [...actions];

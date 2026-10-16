@@ -59,6 +59,13 @@ describe("experimentChangeActions", () => {
         phases: [phase({ name: "First" }), phase({ coverage: 0.5 })],
       }).sort(),
     ).toEqual(["experiment.start", "experiment.traffic"]);
+    // Echoing the draft status leaves it armed.
+    expect(
+      experimentChangeActions(armed, {
+        status: "draft",
+        phases: [phase({ name: "First" }), phase({ coverage: 0.5 })],
+      }).sort(),
+    ).toEqual(["experiment.start", "experiment.traffic"]);
   });
 
   it("names what a new latest phase changes from the old one", () => {

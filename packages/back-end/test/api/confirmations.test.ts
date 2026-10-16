@@ -1056,6 +1056,14 @@ describe("confirmations", () => {
     await expect(
       holdLinkedFeatureWrite(publishOnly, feature, false, 2),
     ).rejects.toThrow("only a direct API request");
+    // Publishing now branches from live, so the armed draft's ramp isn't in it.
+    const rampOnly = asKey({
+      ...bot,
+      confirmRules: [{ actions: ["rampSchedule.start"] }],
+    });
+    await expect(
+      holdLinkedFeatureWrite(rampOnly, feature, true, 2),
+    ).resolves.toBeUndefined();
     expect(
       (
         await queuedDraftsHold(asKey(ci), [
@@ -1063,6 +1071,86 @@ describe("confirmations", () => {
         ])
       ).actions.sort(),
     ).toEqual(["feature.archive", "feature.publish", "rampSchedule.start"]);
+  });
+
+  it("disarms an armed draft that a key needing confirmation edits by any path", async () => {
+    await seed("production");
+    await insertConstant("hitl_disarm");
+    setReqContext(asKey(ci));
+    const constantDraft = (
+      await auth(
+        request(app).put("/api/v1/constants-revisions/hitl_disarm/new/value"),
+      ).send({ value: "after" })
+    ).body.revision;
+    const flagDraft = { organization: ORG_ID, featureId: FLAG, version: 2 };
+    const arm = async () => {
+      await mongoose.connection
+        .collection("featurerevisions")
+        .updateOne(flagDraft, { $set: { autoPublishOnApproval: true } });
+      await mongoose.connection
+        .collection("revisions")
+        .updateOne(
+          { id: constantDraft.id },
+          { $set: { autoPublishOnApproval: true } },
+        );
+    };
+    const armed = async () => [
+      (
+        await mongoose.connection
+          .collection("featurerevisions")
+          .findOne(flagDraft)
+      )?.autoPublishOnApproval,
+      (
+        await mongoose.connection
+          .collection("revisions")
+          .findOne({ id: constantDraft.id })
+      )?.autoPublishOnApproval,
+    ];
+    // A direct request reaching each draft writer, as a path that doesn't
+    // classify its edit would.
+    const { updateRevision, getRevision } = await import(
+      "back-end/src/models/FeatureRevisionModel"
+    );
+    const feature = (await mongoose.connection
+      .collection("features")
+      .findOne({ id: FLAG })) as unknown as FeatureInterface;
+    const editBoth = async (key: ApiKeyInterface, confirmationId?: string) => {
+      const context = asKey(key);
+      context.req = {} as Request;
+      context.confirmationId = confirmationId;
+      const revision = await getRevision({
+        context,
+        organization: ORG_ID,
+        featureId: FLAG,
+        feature,
+        version: 2,
+      });
+      await updateRevision(
+        context,
+        feature,
+        revision as FeatureRevisionInterface,
+        { comment: `edited by ${key.id}` },
+        { user: context.auditUser, action: "edit", subject: "", value: "" },
+      );
+      await context.models.revisions.updateProposedChanges(
+        constantDraft.id,
+        [{ op: "replace", path: "/value", value: key.id }],
+        "u_admin",
+        { authorizedByFlow: "test" },
+      );
+    };
+    const publishOnly = {
+      ...bot,
+      confirmRules: [{ actions: ["feature.publish", "constant.publish"] }],
+    };
+
+    await arm();
+    await editBoth(ci);
+    expect(await armed()).toEqual([true, true]);
+    await editBoth(publishOnly, "cnf_confirmed");
+    expect(await armed()).toEqual([true, true]);
+    await editBoth(publishOnly);
+    expect(await armed()).toEqual([false, false]);
   });
 
   it("holds a revert as the draft or the publish its strategy makes", async () => {
