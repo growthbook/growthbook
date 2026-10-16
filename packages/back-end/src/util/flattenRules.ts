@@ -12,6 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // Re-exported for back-end callers; new code should import from shared/validators.
 export type { V1FeatureRule };
@@ -458,4 +459,70 @@ export function flattenV1ToV2Rules(
   }
 
   return output;
+}
+
+export function mergeSyncRules({
+  liveRules,
+  environments,
+  envSettings,
+  rules,
+  knownEnvironments,
+}: {
+  liveRules: FeatureRule[];
+  environments: string[];
+  envSettings?: Record<string, { rules?: FeatureRule[] }>;
+  rules?: FeatureRule[];
+  // Environments the caller knows about; live rules in any other environment
+  // are kept when `rules` replaces the rest
+  knownEnvironments?: string[];
+}): { rules: FeatureRule[]; replacedAll: boolean } {
+  const inboundEnvs = new Set(
+    environments.filter((e) => envSettings?.[e]?.rules !== undefined),
+  );
+  if (rules?.length && inboundEnvs.size) {
+    throw new BadRequestError(
+      "Feature Flag sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
+    );
+  }
+  if (rules && !inboundEnvs.size) {
+    const known = new Set(knownEnvironments ?? environments);
+    const unknown = environments.filter((e) => !known.has(e));
+    const kept: FeatureRule[] = [];
+    for (const r of liveRules) {
+      const envs = r.allEnvironments ? environments : (r.environments ?? []);
+      const remaining = envs.filter((e) => unknown.includes(e));
+      if (!remaining.length) continue;
+      kept.push({ ...r, allEnvironments: false, environments: remaining });
+    }
+    return { rules: [...rules, ...kept], replacedAll: true };
+  }
+
+  const result: FeatureRule[] = [];
+  for (const r of liveRules) {
+    let remainingEnvs: string[];
+    if (r.allEnvironments) {
+      remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+      if (remainingEnvs.length === environments.length) {
+        result.push(r);
+        continue;
+      }
+    } else {
+      remainingEnvs = (r.environments ?? []).filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+    }
+    result.push({ ...r, allEnvironments: false, environments: remainingEnvs });
+  }
+
+  environments.forEach((env) => {
+    envSettings?.[env]?.rules?.forEach((r) =>
+      result.push({
+        ...r,
+        allEnvironments: false,
+        environments: [env],
+      } as FeatureRule),
+    );
+  });
+
+  return { rules: result, replacedAll: false };
 }

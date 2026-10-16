@@ -718,7 +718,7 @@ This accepts a parsed JSON object as input and returns `true` if every key in th
 - `{"foo": "bar"}` -> `false`
 - `{"$gt": 1, "foo": "bar"}` -> `false`
 
-If the object is empty and has no keys, this should also return true.
+If the object is empty and has no keys, this should also return true, so a condition value of `{}` always passes. An array is never an operator object.
 
 ### private getType(attributeValue): string
 
@@ -749,7 +749,7 @@ The value `unknown` is there just in case you can't figure out the data type for
 
 ### private getPath(attributes: Attributes, path: string): any
 
-Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist)
+Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist). Only read an object's own keys, so a missing attribute named like a built-in property, such as `constructor` or `toString`, is missing.
 
 Given the input:
 
@@ -792,10 +792,17 @@ At least one item of `attributeValue` must match the condition, like `evalOr`.
 
 ```ts
 function elemMatch(conditionValue, attributeValue) {
-  if (!Array.isArray(attributeValue)) return false;
+  if (!Array.isArray(attributeValue) || conditionValue == null) return false;
+  // Operators test each item itself. A condition, including one that only
+  // uses $or, $and, $nor, or $savedGroup, tests each item's fields.
+  const operators =
+    isOperatorObject(conditionValue) &&
+    !Object.keys(conditionValue).some((key) =>
+      ["$or", "$and", "$nor", "$savedGroup"].includes(key),
+    );
   let result = false;
   for (const item of attributeValue) {
-    const r = isOperatorObject(conditionValue)
+    const r = operators
       ? evalConditionValue(conditionValue, item)
       : evalConditionResult(item, conditionValue);
     if (r === true) return true;
@@ -903,6 +910,8 @@ There are 3 other operators:
   1. Return `getType(attributeValue) == conditionValue`
 - `$not`
   1. Return `not(evalConditionValue(conditionValue, attributeValue))`, which leaves `null` as `null`
+
+For `$inGroup` and `$notInGroup`, a saved group of a type this SDK doesn't support returns `null`.
 
 There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
 
@@ -1534,8 +1543,13 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
-- **v0.10.0** 2026-10-04
+- **v0.10.0** 2026-10-15
+  - Condition helpers return `null` when the result depends on an operator or saved group type the SDK doesn't support, including through `$inGroup` and `$notInGroup`. `evalCondition` treats it as failing, so such a condition now fails under `$not` and `$nor` too, where it used to pass
+  - `$elemMatch` treats a value that uses `$or`, `$and`, `$nor`, or `$savedGroup` as a condition on each item's fields, rather than as operators. `$elemMatch: null` fails
+  - `getPath` only reads an object's own keys, so a missing attribute named like a built-in property, such as `constructor`, is missing
+  - A condition value of `{}` always passes, as `isOperatorObject` already described
+  - New `evalCondition` and `savedGroupReferencesV2.evalCondition` cases for these
+- **v0.11.0** 2026-10-15
   - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
   - New public `reducePayload` method that shrinks a payload for one user: it includes or excludes features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups and contextual bandits nothing references any more
   - New `pruneCondition` and `reducePayload` keys in the test cases
-  - Condition helpers return `null` when the result depends on an operator or saved group type the SDK doesn't support. `evalCondition` treats it as failing, so such a condition now fails under `$not` and `$nor` too, where it used to pass. New `evalCondition` cases cover this

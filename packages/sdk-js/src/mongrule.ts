@@ -19,6 +19,10 @@ const _regexCache: { [key: string]: RegExp } = {};
 type Result = boolean | null;
 const not = (r: Result): Result => (r === null ? null : !r);
 
+// Keys a condition can have that aren't attributes, besides $not, which is
+// also an operator on a value
+const CONDITION_OPERATORS = ["$or", "$nor", "$and", "$savedGroup"];
+
 // The top-level condition evaluation function
 export function evalCondition(
   obj: TestedObj,
@@ -218,7 +222,8 @@ function getPath(obj: TestedObj, path: string) {
   const parts = path.split(".");
   let current: any = obj;
   for (let i = 0; i < parts.length; i++) {
-    if (current && typeof current === "object" && parts[i] in current) {
+    // Own keys only, so a missing `constructor` isn't the inherited one
+    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
       current = current[parts[i]];
     } else {
       return null;
@@ -286,11 +291,9 @@ function evalConditionValue(
 }
 
 // If the object has only keys that start with '$'
+// An empty object has no operators, so it passes
 function isOperatorObject(obj: any): boolean {
-  const keys = Object.keys(obj);
-  return (
-    keys.length > 0 && keys.filter((k) => k[0] === "$").length === keys.length
-  );
+  return !Array.isArray(obj) && Object.keys(obj).every((k) => k[0] === "$");
 }
 
 // Return the data type of a value
@@ -311,10 +314,14 @@ function elemMatch(
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
 ): Result {
-  if (!Array.isArray(actual)) return false;
-  const check = isOperatorObject(expected)
-    ? (v: any) => evalConditionValue(expected, v, savedGroups, false, visited)
-    : (v: any) => evalConditionResult(v, expected, savedGroups, visited);
+  if (!Array.isArray(actual) || (expected ?? null) === null) return false;
+  // Operators test each element itself. A condition, including one that only
+  // uses $or, $and, $nor, or $savedGroup, tests each element's fields.
+  const check =
+    isOperatorObject(expected) &&
+    !Object.keys(expected).some((k) => CONDITION_OPERATORS.includes(k))
+      ? (v: any) => evalConditionValue(expected, v, savedGroups, false, visited)
+      : (v: any) => evalConditionResult(v, expected, savedGroups, visited);
   let result: Result = false;
   for (let i = 0; i < actual.length; i++) {
     // Only skip nullish elements; falsy values like 0, "" and false are valid
@@ -370,6 +377,17 @@ function getSavedGroupArrayValues(
 
   // A condition group, a malformed entry, or an unknown type
   return null;
+}
+
+// A saved group type added after this SDK was built
+function isNewGroupType(entry: SavedGroupsPayload[string] | undefined) {
+  return (
+    !!entry &&
+    typeof entry === "object" &&
+    !Array.isArray(entry) &&
+    entry.type !== "list" &&
+    entry.type !== "condition"
+  );
 }
 
 function isInAll(
@@ -446,10 +464,12 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected, true);
     case "$inGroup": {
+      if (isNewGroupType(savedGroups[expected])) return null;
       const values = getSavedGroupArrayValues(savedGroups[expected]);
       return values === null ? false : isIn(actual, values);
     }
     case "$notInGroup": {
+      if (isNewGroupType(savedGroups[expected])) return null;
       // No values means matching nobody. An empty list would pass everyone.
       const values = getSavedGroupArrayValues(savedGroups[expected]);
       return values === null ? false : !isIn(actual, values);
@@ -496,6 +516,9 @@ function evalOperatorCondition(
     case "$type":
       return getType(actual) === expected;
     default:
+      // Keys this SDK knows, but on a condition rather than on a value, where
+      // they never match
+      if (CONDITION_OPERATORS.includes(operator)) return false;
       console.error("Unknown operator: " + operator);
       return null;
   }
