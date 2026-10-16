@@ -205,6 +205,12 @@ const experimentSnapshotSchema = new mongoose.Schema({
       mixedClusters: Number,
       error: String,
     },
+    clusterSubUnitMapping: {
+      _id: false,
+      totalUnits: Number,
+      multiClusterUnits: Number,
+      error: String,
+    },
     power: {
       _id: false,
       type: { type: String },

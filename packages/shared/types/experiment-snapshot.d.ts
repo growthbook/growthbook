@@ -297,8 +297,16 @@ export interface ExperimentSnapshotHealth {
    */
   clusterUnits?: ExperimentSnapshotClusterUnits;
   clusterAssignment?: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping?: ExperimentSnapshotClusterSubUnitMapping;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
+}
+
+export interface ExperimentSnapshotClusterSubUnitMapping {
+  totalUnits: number;
+  // Sub-units that mapped to more than one cluster.
+  multiClusterUnits: number;
+  error?: string;
 }
 
 export interface ExperimentSnapshotClusterAssignment {

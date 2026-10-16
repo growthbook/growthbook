@@ -2349,6 +2349,10 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     );
     expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
 
+    // Multi-cluster sub-units (region_id = '__multiple__') are dropped before the
+    // region collapse, so they never form a phantom cluster in the analysis.
+    expect(normalized).toContain("region_id <> '__multiple__'");
+
     // A standard per-unit analysis: no sub-unit rollup or mean-to-ratio conversion.
     expect(normalized).not.toContain("__clusterRollup");
     expect(normalized).not.toContain("m0_denominator");
@@ -2504,7 +2508,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
 
     // Only keep clusters whose sub-units all agree on their variation.
     expect(normalized).toMatch(
-      /WHERE region_id IN \(\s*SELECT region_id\s*FROM proj\.ds\.units\s*GROUP BY region_id\s*HAVING MIN\(variation\) = MAX\(variation\)\s*\)/,
+      /region_id IN \(\s*SELECT region_id\s*FROM proj\.ds\.units\s*GROUP BY region_id\s*HAVING MIN\(variation\) = MAX\(variation\)\s*\)/,
     );
   });
 
@@ -2551,5 +2555,72 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toMatch(
       /__clusterAssignment AS \([\s\S]*FROM __experimentUnits/,
     );
+  });
+
+  const buildClusterSubUnitMappingSql = (useUnitsTable: boolean): string =>
+    datasourceIntegration.getExperimentClusterSubUnitMappingQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable,
+      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
+    });
+
+  it("counts total and multi-cluster sub-units from the units table", () => {
+    const normalized = buildClusterSubUnitMappingSql(true)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // One summary row: total sub-units, and how many map to multiple clusters.
+    expect(normalized).toContain("COUNT(*) AS total_units");
+    expect(normalized).toMatch(
+      /SUM\(\s*CASE WHEN region_id = '__multiple__' THEN 1 ELSE 0 END\s*\) AS multi_cluster_units/,
+    );
+    expect(normalized).toContain("FROM proj.ds.units");
+  });
+
+  it("builds units inline for the mapping check when no units table", () => {
+    const normalized = buildClusterSubUnitMappingSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(normalized).toContain("__rawExperiment");
+    expect(normalized).toContain("__experimentUnits");
+    expect(normalized).toMatch(
+      /__clusterSubUnitMapping AS \([\s\S]*FROM __experimentUnits/,
+    );
+  });
+
+  it("marks a sub-unit's cluster id as __multiple__ when it maps to >1 cluster", () => {
+    // The inline units build collapses to one row per sub-unit and flags
+    // sub-units observed in more than one cluster.
+    const normalized = buildClusterSubUnitMappingSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(normalized).toMatch(
+      /CASE WHEN count\(distinct e\.region_id\) > 1 THEN '__multiple__' ELSE max\(e\.region_id\) END\s*\) AS region_id/,
+    );
+  });
+
+  it("drops multi-cluster sub-units from the per-cluster units query", () => {
+    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
+
+    // Multi-cluster sub-units are excluded before counting per-cluster units.
+    expect(normalized).toContain("region_id <> '__multiple__'");
+  });
+
+  it("drops multi-cluster sub-units from the traffic query", () => {
+    const normalized = buildClusterTrafficSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(normalized).toContain("region_id <> '__multiple__'");
   });
 });

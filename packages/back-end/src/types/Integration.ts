@@ -23,6 +23,7 @@ import {
   ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentClusterAssignmentQueryResponse,
+  ExperimentClusterSubUnitMappingQueryResponse,
   ExperimentClusterUnitsQueryResponse,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
@@ -177,6 +178,9 @@ export interface SourceIntegrationInterface<
   getExperimentClusterAssignmentQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
+  getExperimentClusterSubUnitMappingQuery(
+    params: ExperimentAggregateUnitsQueryParams,
+  ): string;
   getContextualBanditSrmQuery?(params: ContextualBanditSrmQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getCreateExperimentIncrementalUnitsQuery(
@@ -307,6 +311,11 @@ export interface SourceIntegrationInterface<
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentClusterAssignmentQueryResponse>;
+  runExperimentClusterSubUnitMappingQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ExperimentClusterSubUnitMappingQueryResponse>;
   runContextualBanditSrmQuery?(
     query: string,
     setExternalId: ExternalIdCallback,

@@ -4,7 +4,10 @@ import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrati
 import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_CLUSTER_UNITS_QUERY } from "back-end/src/services/experimentQueries/constants";
 
-import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 
 /**
@@ -48,11 +51,15 @@ export function getExperimentClusterUnitsQuery(
             `COUNT(DISTINCT ${subUnitColumn})`,
           )} / SUM(COUNT(DISTINCT ${subUnitColumn})) OVER () AS pct
         FROM ${unitsSourceName}
-        -- Drop clusters with mixed assignment (randomization is per cluster).
-        WHERE ${getConsistentClusterCondition({
-          sourceTable: unitsSourceName,
-          clusterIdColumn,
-        })}
+        -- Drop sub-units that map to multiple clusters, and clusters with mixed
+        -- assignment (randomization is per cluster).
+        WHERE ${[
+          getSingleClusterPerUnitCondition({ clusterIdColumn }),
+          getConsistentClusterCondition({
+            sourceTable: unitsSourceName,
+            clusterIdColumn,
+          }),
+        ].join(" AND ")}
         GROUP BY
           ${clusterIdColumn}
           , variation

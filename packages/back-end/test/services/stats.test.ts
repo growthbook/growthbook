@@ -6,6 +6,7 @@ import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import {
   analyzeExperimentClusterAssignment,
+  analyzeExperimentClusterSubUnitMapping,
   analyzeExperimentClusterUnits,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
@@ -388,6 +389,32 @@ describe("analyzeExperimentClusterAssignment", () => {
     expect(result).toEqual({
       totalClusters: 0,
       mixedClusters: 0,
+      error: "boom",
+    });
+  });
+});
+
+describe("analyzeExperimentClusterSubUnitMapping", () => {
+  it("reads total and multi-cluster sub-unit counts from the first row", () => {
+    const result = analyzeExperimentClusterSubUnitMapping({
+      rows: [{ total_units: 1000, multi_cluster_units: 7 }],
+    });
+    expect(result).toEqual({ totalUnits: 1000, multiClusterUnits: 7 });
+  });
+
+  it("defaults to zero when there are no rows", () => {
+    const result = analyzeExperimentClusterSubUnitMapping({ rows: [] });
+    expect(result).toEqual({ totalUnits: 0, multiClusterUnits: 0 });
+  });
+
+  it("returns zeros and the error when the query failed", () => {
+    const result = analyzeExperimentClusterSubUnitMapping({
+      rows: [],
+      error: "boom",
+    });
+    expect(result).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
       error: "boom",
     });
   });

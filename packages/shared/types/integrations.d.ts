@@ -869,6 +869,12 @@ export type ExperimentClusterAssignmentQueryResponseRows = {
   mixed_clusters: number;
 }[];
 
+export type ExperimentClusterSubUnitMappingQueryResponseRows = {
+  total_units: number;
+  // Sub-units observed in more than one cluster (randomization is per cluster).
+  multi_cluster_units: number;
+}[];
+
 export type DimensionSlicesQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
@@ -939,6 +945,8 @@ export type ExperimentClusterUnitsQueryResponse =
   QueryResponse<ExperimentClusterUnitsQueryResponseRows>;
 export type ExperimentClusterAssignmentQueryResponse =
   QueryResponse<ExperimentClusterAssignmentQueryResponseRows>;
+export type ExperimentClusterSubUnitMappingQueryResponse =
+  QueryResponse<ExperimentClusterSubUnitMappingQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =

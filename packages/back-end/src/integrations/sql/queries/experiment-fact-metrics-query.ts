@@ -16,7 +16,10 @@ import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
-import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -248,8 +251,6 @@ export function getExperimentFactMetricsQuery(
       `${timestampColumn} <= ${dialect.toTimestamp(endDate)}`,
     );
   }
-  // Cluster experiments randomize on the cluster, so every sub-unit in a cluster
-  // must share one assignment. Drop clusters with mixed assignment.
   const factMetricsUnitsSource =
     params.unitsSource === "exposureTable"
       ? `${params.unitsTableFullName}`
@@ -261,6 +262,11 @@ export function getExperimentFactMetricsQuery(
     distinctUsersWhere.push(
       getConsistentClusterCondition({
         sourceTable: factMetricsUnitsSource,
+        clusterIdColumn: clusterConsistencyKey,
+      }),
+    );
+    distinctUsersWhere.push(
+      getSingleClusterPerUnitCondition({
         clusterIdColumn: clusterConsistencyKey,
       }),
     );

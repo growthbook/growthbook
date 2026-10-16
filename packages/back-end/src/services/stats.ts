@@ -27,6 +27,7 @@ import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentClusterAssignmentQueryResponseRows,
+  ExperimentClusterSubUnitMappingQueryResponseRows,
   ExperimentClusterUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -53,6 +54,7 @@ import {
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotClusterAssignment,
+  ExperimentSnapshotClusterSubUnitMapping,
   ExperimentSnapshotClusterUnits,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -984,5 +986,22 @@ export function analyzeExperimentClusterAssignment({
   return {
     totalClusters: row?.total_clusters ?? 0,
     mixedClusters: row?.mixed_clusters ?? 0,
+  };
+}
+
+export function analyzeExperimentClusterSubUnitMapping({
+  rows,
+  error,
+}: {
+  rows: ExperimentClusterSubUnitMappingQueryResponseRows;
+  error?: string;
+}): ExperimentSnapshotClusterSubUnitMapping {
+  if (error) {
+    return { totalUnits: 0, multiClusterUnits: 0, error };
+  }
+  const row = rows?.[0];
+  return {
+    totalUnits: row?.total_units ?? 0,
+    multiClusterUnits: row?.multi_cluster_units ?? 0,
   };
 }

@@ -5,6 +5,7 @@ import {
   DropTableQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentClusterAssignmentQueryResponse,
+  ExperimentClusterSubUnitMappingQueryResponse,
   ExperimentClusterUnitsQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
@@ -157,6 +158,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentClusterAssignmentQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentClusterSubUnitMappingQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentClusterSubUnitMappingQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
+  ): Promise<ExperimentClusterSubUnitMappingQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runSnapshotMetricQuery(

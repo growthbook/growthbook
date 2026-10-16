@@ -7,7 +7,10 @@ import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
-import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import {
   getBanditDates,
   getBanditVariationPeriodWeights,
@@ -68,13 +71,14 @@ export function getExperimentAggregateUnitsQuery(
     ? `${params.unitsTableFullName}`
     : "__experimentUnits";
 
-  // Cluster experiments randomize on the cluster, so drop clusters whose
-  // sub-units disagree on their assignment (mixed assignment) before counting.
   const clusterConsistencyWhere = isClusterExperiment
-    ? `WHERE ${getConsistentClusterCondition({
-        sourceTable: unitsSourceName,
-        clusterIdColumn: baseIdType,
-      })}`
+    ? `WHERE ${[
+        getSingleClusterPerUnitCondition({ clusterIdColumn: baseIdType }),
+        getConsistentClusterCondition({
+          sourceTable: unitsSourceName,
+          clusterIdColumn: baseIdType,
+        }),
+      ].join(" AND ")}`
     : "";
 
   return format(

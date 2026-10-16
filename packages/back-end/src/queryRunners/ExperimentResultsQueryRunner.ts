@@ -19,6 +19,7 @@ import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentClusterAssignmentQueryResponseRows,
+  ExperimentClusterSubUnitMappingQueryResponseRows,
   ExperimentClusterUnitsQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
@@ -61,6 +62,7 @@ import {
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentClusterAssignment,
+  analyzeExperimentClusterSubUnitMapping,
   analyzeExperimentClusterUnits,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -99,13 +101,13 @@ export type ExperimentResultsQueryParams = {
 
 export const TRAFFIC_QUERY_NAME = "traffic";
 
-// Cluster experiments: a second traffic query counted at the cluster
-// (randomization-unit) grain, so the balance check / SRM is per-cluster.
 export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
 
 export const CLUSTER_UNITS_QUERY_NAME = "clusterUnits";
 
 export const CLUSTER_ASSIGNMENT_QUERY_NAME = "clusterAssignment";
+
+export const CLUSTER_SUBUNIT_MAPPING_QUERY_NAME = "clusterSubUnitMapping";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -562,6 +564,28 @@ export const startExperimentResultQueries = async (
         queryType: "experimentTraffic",
       });
       queries.push(clusterAssignmentQuery);
+
+      // Health check: verify each sub-unit maps to a single cluster.
+      const clusterSubUnitMappingQuery = await startQuery({
+        name: CLUSTER_SUBUNIT_MAPPING_QUERY_NAME,
+        query: integration.getExperimentClusterSubUnitMappingQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterSubUnitMappingQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterSubUnitMappingQuery);
     }
   }
 
@@ -702,6 +726,17 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           rows: clusterAssignmentQuery.result as ExperimentClusterAssignmentQueryResponseRows,
           error: clusterAssignmentQuery.error,
         });
+      }
+
+      const clusterSubUnitMappingQuery = queryMap.get(
+        CLUSTER_SUBUNIT_MAPPING_QUERY_NAME,
+      );
+      if (clusterSubUnitMappingQuery) {
+        result.health.clusterSubUnitMapping =
+          analyzeExperimentClusterSubUnitMapping({
+            rows: clusterSubUnitMappingQuery.result as ExperimentClusterSubUnitMappingQueryResponseRows,
+            error: clusterSubUnitMappingQuery.error,
+          });
       }
 
       const relativeAnalysis = this.model.analyses.find(
