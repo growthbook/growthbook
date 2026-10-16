@@ -33,7 +33,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { generateId } from "back-end/src/util/uuid";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
   InternalServerError,
@@ -54,6 +54,7 @@ import {
   rampPatchEntries,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
@@ -232,7 +233,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
       rules: [rule as FeatureRule],
     });
     // Config-backed rule values additionally validate against the backing
@@ -265,11 +266,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(
+      const validatedFields = await validateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
-        null,
-        "requireUnambiguous",
+        {
+          onOmitted: "requireUnambiguous",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [

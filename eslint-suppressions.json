@@ -540,7 +540,7 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 19
+      "count": 16
     }
   },
   "packages/front-end/components/FactTables/FactTableAutoSliceSelector.tsx": {
@@ -1513,11 +1513,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/DataSourceMetrics.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -1945,9 +1940,6 @@
     }
   },
   "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }

@@ -552,7 +552,7 @@ export async function collectFeaturePublishGates({
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
     ...collectFeatureValueErrorsForPublish(
-      feature,
+      proposedFeature,
       {
         defaultValue: plan.mergeResult.defaultValue,
         rules: plan.mergeResult.rules,
