@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { isProjectListValidForProject } from "shared/util";
 import { FactMetricInterface } from "shared/types/fact-table";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { buildFactMetricDuplicate } from "@/services/metrics";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import Tooltip from "@/ui/Tooltip";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 
 export type FactMetricCreationTarget = {
@@ -21,18 +27,22 @@ export default function useFactMetricFlow(source: string) {
   const newFlow = useFeatureIsOn("new-metric-creation-flow");
   // False until flag values load; newFlow reads as off until then.
   const ready = !!useGrowthBook()?.ready;
+  const { factTables, project } = useDefinitions();
+  // The new page explains a missing Fact Table; the old modal can't.
+  const canOpen =
+    ready &&
+    (newFlow ||
+      factTables.some((table) =>
+        isProjectListValidForProject(table.projects, project),
+      ));
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
 
-  const sourceFor = (target: FactMetricCreationTarget) =>
-    target.duplicate ? `${source}-duplicate` : source;
-
   const href = (target: FactMetricCreationTarget = {}) => {
     const params = new URLSearchParams({
       returnUrl: router.asPath,
-      // Lets the page report the same tracking source as the modal.
-      source: sourceFor(target),
+      source: target.duplicate ? `${source}-duplicate` : source,
     });
     if (target.factTable) params.set("factTable", target.factTable);
     if (target.duplicate) params.set("duplicate", target.duplicate.id);
@@ -41,17 +51,52 @@ export default function useFactMetricFlow(source: string) {
   };
 
   const open = (target: FactMetricCreationTarget = {}) => {
+    if (!ready) return;
     if (newFlow) router.push(href(target));
     else setModalTarget(target);
   };
 
-  const edit = (metric: FactMetricInterface) => {
-    if (newFlow) {
-      const params = new URLSearchParams({ edit: "true", source });
-      router.push(`/fact-metrics/${metric.id}?${params.toString()}`);
-    } else {
-      setModalTarget({ edit: metric });
+  const edit = useCallback(
+    (metric: FactMetricInterface) => {
+      if (!ready) return;
+      if (newFlow) {
+        const params = new URLSearchParams({ edit: "true", source });
+        router.push(`/fact-metrics/${metric.id}?${params.toString()}`);
+      } else {
+        setModalTarget({ edit: metric });
+      }
+    },
+    [ready, newFlow, router, source],
+  );
+
+  const button = (
+    target: FactMetricCreationTarget = {},
+    disabledReason?: string,
+    label = "Add metric",
+  ) => {
+    const reason =
+      disabledReason ||
+      (!ready
+        ? "Loading metric creation options."
+        : !canOpen
+          ? "Create a Fact Table before adding a metric."
+          : null);
+    if (reason) {
+      return (
+        <Tooltip content={reason}>
+          <span style={{ cursor: "not-allowed" }}>
+            <Button disabled style={{ pointerEvents: "none" }}>
+              {label}
+            </Button>
+          </span>
+        </Tooltip>
+      );
     }
+    return newFlow ? (
+      <LinkButton href={href(target)}>{label}</LinkButton>
+    ) : (
+      <Button onClick={() => open(target)}>{label}</Button>
+    );
   };
 
   const duplicate = modalTarget?.duplicate;
@@ -68,23 +113,16 @@ export default function useFactMetricFlow(source: string) {
       datasource={modalTarget.datasource}
       existing={
         duplicate
-          ? {
-              ...duplicate,
-              name: `${duplicate.name} (copy)`,
-              // Only an admin-managed copy the user could create themselves
-              // stays official; anything else saves as an ordinary metric.
-              managedBy:
-                duplicate.managedBy === "admin" &&
-                permissionsUtil.canCreateOfficialResources(duplicate)
-                  ? "admin"
-                  : "",
-            }
+          ? buildFactMetricDuplicate(
+              duplicate,
+              permissionsUtil.canCreateOfficialResources(duplicate),
+            )
           : undefined
       }
       duplicate={!!duplicate}
-      source={sourceFor(modalTarget)}
+      source={duplicate ? `${source}-duplicate` : source}
     />
   );
 
-  return { newFlow, ready, href, open, edit, modal };
+  return { newFlow, ready, canOpen, button, open, edit, modal };
 }

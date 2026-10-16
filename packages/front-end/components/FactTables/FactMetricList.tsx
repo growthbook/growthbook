@@ -29,8 +29,6 @@ import RecommendedFactMetricsModal, {
 } from "@/components/FactTables/RecommendedFactMetricsModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
-import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   DropdownMenu,
@@ -355,31 +353,12 @@ export default function FactMetricList({
           </>
         )}
         <Box ml="auto">
-          <Tooltip
-            content="You don't have permission to add Fact Metrics to this fact table."
-            enabled={!canCreateMetrics}
-          >
-            {!canCreateMetrics ? (
-              // A disabled button gets no hover, so the span shows the tooltip.
-              <span style={{ cursor: "not-allowed" }}>
-                <Button disabled style={{ pointerEvents: "none" }}>
-                  Add metric
-                </Button>
-              </span>
-            ) : factMetricFlow.newFlow ? (
-              <LinkButton
-                href={factMetricFlow.href({ factTable: factTable.id })}
-              >
-                Add metric
-              </LinkButton>
-            ) : (
-              <Button
-                onClick={() => factMetricFlow.open({ factTable: factTable.id })}
-              >
-                Add metric
-              </Button>
-            )}
-          </Tooltip>
+          {factMetricFlow.button(
+            { factTable: factTable.id },
+            !canCreateMetrics
+              ? "You don't have permission to add Fact Metrics to this fact table."
+              : undefined,
+          )}
         </Box>
       </Flex>
       {metrics.length > 0 && (

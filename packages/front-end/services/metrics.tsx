@@ -42,6 +42,17 @@ import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
+export function buildFactMetricDuplicate(
+  source: FactMetricInterface,
+  canCreateOfficial: boolean,
+): FactMetricInterface {
+  return {
+    ...source,
+    name: `${source.name} (copy)`,
+    managedBy: source.managedBy === "admin" && canCreateOfficial ? "admin" : "",
+  };
+}
+
 export function getInitialInlineFilters(
   factTable: Pick<
     FactTableDefinition,

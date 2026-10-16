@@ -1291,6 +1291,7 @@ function StandardFactMetricModal({
       track("Viewed Edit Fact Metric Modal", {
         type: initialType,
         source,
+        flow: "modal",
       });
     }
   }, [isNew, initialType, source]);

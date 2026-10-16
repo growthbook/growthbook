@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isFactFunnelMetric } from "shared/experiments";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
@@ -119,25 +119,29 @@ export default function FactMetricPage() {
 
   // Edit in place on this page, or in the old FactMetricModal when the
   // new-metric-creation-flow experiment has this user on the old flow.
-  const startEditing = () => {
-    if (!factMetricFlow.newFlow && factMetric) {
-      factMetricFlow.edit(factMetric);
-      return;
-    }
-    setTab("overview");
-    setEditSource(null);
-    setIsEditing(true);
-  };
+  const { newFlow, ready: flowReady, edit: editFactMetric } = factMetricFlow;
+  const startEditing = useCallback(
+    (source: string | null = null) => {
+      if (!flowReady) return;
+      if (!newFlow && factMetric) {
+        editFactMetric(factMetric);
+        return;
+      }
+      setTab("overview");
+      setEditSource(source);
+      setIsEditing(true);
+    },
+    [flowReady, newFlow, factMetric, editFactMetric, setTab],
+  );
 
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
     // Wait for the flag so the link opens the editor this user is assigned.
-    if (!factMetricFlow.ready) return;
+    if (!flowReady) return;
     if (canEdit && !editViaApiOnly) {
-      startEditing();
-      if (typeof router.query.source === "string") {
-        setEditSource(router.query.source);
-      }
+      startEditing(
+        typeof router.query.source === "string" ? router.query.source : null,
+      );
     }
     const { edit, source, ...query } = router.query;
     void edit;
@@ -145,8 +149,7 @@ export default function FactMetricPage() {
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, ready, canEdit, editViaApiOnly, factMetricFlow.ready]);
+  }, [router, ready, canEdit, editViaApiOnly, flowReady, startEditing]);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -322,7 +325,7 @@ export default function FactMetricPage() {
                 </span>
               </Tooltip>
             ) : (
-              <Button variant="soft" onClick={startEditing}>
+              <Button variant="soft" onClick={() => startEditing()}>
                 Edit metric
               </Button>
             ))}

@@ -6,9 +6,7 @@ import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
-import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -61,22 +59,12 @@ const MetricsPage = (): React.ReactElement => {
                 <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
               </>
             ) : (
-              <Tooltip
-                body="You don't have permission to add Fact Metrics in this Project."
-                shouldDisplay={!canCreateMetric}
-              >
-                {canCreateMetric && factMetricFlow.newFlow ? (
-                  <LinkButton href={factMetricFlow.href()}>
-                    Add metric
-                  </LinkButton>
-                ) : canCreateMetric ? (
-                  <Button onClick={() => factMetricFlow.open()}>
-                    Add metric
-                  </Button>
-                ) : (
-                  <Button disabled>Add metric</Button>
-                )}
-              </Tooltip>
+              factMetricFlow.button(
+                {},
+                !canCreateMetric
+                  ? "You don't have permission to add Fact Metrics in this Project."
+                  : undefined,
+              )
             )}
           </Box>
         </Box>

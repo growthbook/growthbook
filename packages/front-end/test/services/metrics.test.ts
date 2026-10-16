@@ -1,5 +1,7 @@
+import { FactMetricInterface } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
+  buildFactMetricDuplicate,
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
@@ -62,6 +64,41 @@ function formValues(
     ...overrides,
   } as CreateFactMetricFormProps;
 }
+
+describe("buildFactMetricDuplicate", () => {
+  it.each([
+    ["admin", true, "admin"],
+    ["admin", false, ""],
+    ["api", true, ""],
+    ["api", false, ""],
+    [undefined, true, ""],
+    [undefined, false, ""],
+    ["", true, ""],
+    ["", false, ""],
+  ] as const)(
+    "normalizes managedBy=%s with create permission=%s",
+    (managedBy, canCreateOfficial, expectedManagedBy) => {
+      const source: FactMetricInterface = {
+        ...formValues(),
+        metricType: "mean",
+        funnelSettings: null,
+        id: "fact__revenue",
+        organization: "org_1",
+        dateCreated: new Date("2026-01-01"),
+        dateUpdated: new Date("2026-01-01"),
+        managedBy,
+      };
+      const result = buildFactMetricDuplicate(source, canCreateOfficial);
+      expect(result).toEqual({
+        ...source,
+        name: "Revenue (copy)",
+        managedBy: expectedManagedBy,
+      });
+      expect(source.name).toBe("Revenue");
+      expect(source.managedBy).toBe(managedBy);
+    },
+  );
+});
 
 const placeholder = {
   column: "event_name",

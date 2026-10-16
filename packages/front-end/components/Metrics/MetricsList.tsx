@@ -35,7 +35,6 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/ui/Button";
 import {
   MetricModal,
   MetricModalState,
@@ -46,7 +45,6 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
-import UILink from "@/ui/Link";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -197,7 +195,6 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
-  enableRowActions,
   onDuplicateFactMetric,
   onEditFactMetric,
   afterArchive,
@@ -206,9 +203,6 @@ export function useCombinedMetrics({
   // the modal state) - not a stand-in for "does this caller want row
   // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
-  // The real "did this caller opt into row actions" signal, explicit rather
-  // than inferred from setMetricModalProps's presence.
-  enableRowActions?: boolean;
   // Open the caller's fact metric flow (useFactMetricFlow).
   onDuplicateFactMetric?: (metric: FactMetricInterface) => void;
   onEditFactMetric?: (metric: FactMetricInterface) => void;
@@ -365,13 +359,11 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions && onDuplicateFactMetric
+          canDuplicate && onDuplicateFactMetric
             ? () => onDuplicateFactMetric(m)
             : undefined,
         onEdit:
-          canEdit && enableRowActions && onEditFactMetric
-            ? () => onEditFactMetric(m)
-            : undefined,
+          canEdit && onEditFactMetric ? () => onEditFactMetric(m) : undefined,
         onDelete: canDelete
           ? async () => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -418,7 +410,6 @@ const MetricsList = (): React.ReactElement => {
   const factMetricFlow = useFactMetricFlow("blank-state");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    enableRowActions: true,
     onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
     onEditFactMetric: (m) => factMetricFlow.edit(m),
   });
@@ -460,9 +451,6 @@ const MetricsList = (): React.ReactElement => {
   const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
     projects: project ? [project] : [],
   });
-  // The new page explains a missing fact table; the old modal can't.
-  const canAddFactMetric =
-    canCreateFactMetric && (factMetricFlow.newFlow || hasFactTables);
   const canCreateLegacyMetric =
     !disableLegacyMetricCreation &&
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
@@ -599,29 +587,14 @@ const MetricsList = (): React.ReactElement => {
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Tooltip
-              content={
-                !canCreateFactMetric
-                  ? "You don't have permission to add Fact Metrics in this Project."
-                  : "Create a Fact Table before adding a metric."
-              }
-              enabled={!canAddFactMetric}
-            >
-              {!canAddFactMetric ? (
-                // A disabled button gets no hover, so the span shows the tooltip.
-                <span style={{ cursor: "not-allowed" }}>
-                  <Button disabled style={{ pointerEvents: "none" }}>
-                    Add metric
-                  </Button>
-                </span>
-              ) : factMetricFlow.newFlow ? (
-                <LinkButton href={factMetricFlow.href()}>Add metric</LinkButton>
-              ) : (
-                <Button onClick={() => factMetricFlow.open()}>
-                  Add metric
-                </Button>
-              )}
-            </Tooltip>
+            {factMetricFlow.button(
+              {},
+              !canCreateFactMetric
+                ? "You don't have permission to add Fact Metrics in this Project."
+                : !factMetricFlow.canOpen
+                  ? "Create a Fact Table before adding a metric."
+                  : undefined,
+            )}
             {showLegacyOption && (
               // Legacy creation stays possible for orgs that already use
               // it, tucked behind this menu and a confirmation.
@@ -654,13 +627,15 @@ const MetricsList = (): React.ReactElement => {
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
-                        {factMetricFlow.newFlow && (
-                          <Text as="p" mb="0">
-                            <UILink href={factMetricFlow.href()}>
-                              Create a Fact Metric instead
-                            </UILink>
-                          </Text>
-                        )}
+                        <Text as="p" mb="0">
+                          {factMetricFlow.button(
+                            {},
+                            !canCreateFactMetric
+                              ? "You don't have permission to add Fact Metrics in this Project."
+                              : undefined,
+                            "Create a Fact Metric instead",
+                          )}
+                        </Text>
                       </Flex>
                     ),
                   }}
