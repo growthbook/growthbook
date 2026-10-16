@@ -607,7 +607,7 @@ export default function FinishSettingUp({
                   <Text size="sm" color="text-mid">
                     Shared across all Data Sources.{" "}
                     <Link size="sm" href="/attributes">
-                      Manage Attributes
+                      Manage attributes
                     </Link>
                   </Text>
                 </>
@@ -623,7 +623,7 @@ export default function FinishSettingUp({
         current={currentStep === "queries"}
         expanded={expandedStep === "queries"}
         title="Add exposure queries"
-        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. Every identifier type needs to be in at least one query; a single query can cover several."
+        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. One query is enough to continue. Add another if identifier types live in different tables."
         actions={
           expandedStep === "queries"
             ? null
@@ -649,10 +649,9 @@ export default function FinishSettingUp({
               {exposureQueries.length === 0 && (
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
-                    No exposure queries yet.{" "}
-                    {identifierTypes.length > 1
-                      ? "Write one query that returns every identifier type, or split them across queries if they live in different tables."
-                      : "Write one to start running experiments."}
+                    No exposure queries yet. Write a query to start running
+                    experiments. Add another if identifier types live in
+                    different tables.
                   </Text>
                 </Box>
               )}
@@ -777,6 +776,7 @@ export default function FinishSettingUp({
       {factTableOpen && (
         <NewFactTableModal
           datasourceId={dataSource.id}
+          lockDatasource
           close={() => setFactTableOpen(false)}
         />
       )}

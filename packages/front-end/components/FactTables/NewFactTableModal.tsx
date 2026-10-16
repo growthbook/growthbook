@@ -417,9 +417,11 @@ const BODY_HEIGHT = "calc(93vh - 200px)";
 export default function NewFactTableModal({
   close,
   datasourceId: initialDatasourceId,
+  lockDatasource = false,
 }: {
   close: () => void;
   datasourceId?: string;
+  lockDatasource?: boolean;
 }) {
   const router = useRouter();
   const growthbook = useGrowthBook();
@@ -1019,6 +1021,7 @@ export default function NewFactTableModal({
             key={mode}
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
+            lockDatasource={lockDatasource}
             sql={factTableSql}
             setSql={setSql}
             detected={detected}
