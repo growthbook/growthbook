@@ -1,11 +1,8 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
-import {
-  findVisualChangesetById,
-  updateVisualChange,
-} from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -32,7 +29,6 @@ import {
   newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -794,20 +790,20 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
   // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) requireDraftExperiment(context, experiment);
+  const auditLiveEdit = persist
+    ? owner.requireWrite(req, {
+        allowRunning: false,
+        visualChangesetId,
+      })
+    : async () => {};
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -1280,6 +1276,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       const change = currentChange;
       await updateVisualChange({
         context,
+        owner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {
@@ -1292,6 +1289,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           ...(finalized.js !== undefined ? { js: finalized.js } : {}),
         },
       });
+      await auditLiveEdit();
       return {
         ...finalized,
         saved: true as const,
