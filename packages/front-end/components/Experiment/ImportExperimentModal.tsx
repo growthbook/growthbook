@@ -31,11 +31,10 @@ const ImportExperimentModal: FC<{
     );
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
+  const validDatasources = datasources
+    .filter((d) => d.properties?.pastExperiments)
+    .filter((d) => isProjectListValidForProject(d.projects, project));
   const [datasourceId, setDatasourceId] = useState(() => {
-    const validDatasources = datasources
-      .filter((d) => d.properties?.pastExperiments)
-      .filter((d) => isProjectListValidForProject(d.projects, project));
-
     if (!validDatasources?.length) return null;
 
     if (settings?.defaultDataSource) {
@@ -132,7 +131,10 @@ const ImportExperimentModal: FC<{
             label="Choose a Data Source"
             value={datasourceId}
             onChange={(value) => setDatasourceId(value)}
-            options={datasources.map((d) => ({ label: d.name, value: d.id }))}
+            options={validDatasources.map((d) => ({
+              label: d.name,
+              value: d.id,
+            }))}
           />
         </>
       ) : null}

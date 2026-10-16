@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
+  factTableToColumnSource,
   isDateOnlyOperator,
   isDateRangeOperator,
   reshapeDateValueForOperator,
@@ -417,5 +418,30 @@ describe("isRowFilterComplete", () => {
     expect(
       isRowFilterComplete({ operator: "=", column: "a", values: ["x"] }),
     ).toBe(true);
+  });
+});
+
+describe("factTableToColumnSource", () => {
+  it("excludes configured identifiers from top-level and JSON field options", () => {
+    const source = factTableToColumnSource({
+      filters: [],
+      userIdTypes: ["user_id", "properties.account_id"],
+      columns: [
+        col("user_id"),
+        col("country"),
+        col("properties", {
+          datatype: "json",
+          jsonFields: {
+            account_id: { datatype: "string" },
+            plan: { datatype: "string" },
+          },
+        }),
+      ],
+    });
+    expect(source.columns.map((column) => column.value)).toEqual([
+      "country",
+      "properties",
+      "properties.plan",
+    ]);
   });
 });

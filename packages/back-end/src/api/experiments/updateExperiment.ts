@@ -139,6 +139,12 @@ export const updateExperiment = createApiRequestHandler(
         },
         onOmitted: "requireUnambiguous",
         field: "assignmentQuery",
+        // Only a newly chosen query is checked. Moving an experiment to another
+        // project keeps its query, which then shows as out of scope.
+        scope: {
+          project: payload.project ?? experiment.project ?? "",
+          datasourceProjects: datasource.projects,
+        },
       },
     );
     if (!resolved.ok) throw new Error(resolved.error);

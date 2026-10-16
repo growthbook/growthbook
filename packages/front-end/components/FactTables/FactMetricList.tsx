@@ -30,6 +30,8 @@ import RecommendedFactMetricsModal, {
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -40,7 +42,6 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
-import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
   metric,
@@ -171,7 +172,6 @@ export default function FactMetricList({
   factTable,
   metrics: providedMetrics,
 }: Props) {
-  const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const { _factMetricsIncludingArchived: factMetrics, getProjectById } =
@@ -193,12 +193,7 @@ export default function FactMetricList({
     hasCommercialFeature("metric-slices") &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
-  const [editMetric, setEditMetric] = useState<
-    FactMetricInterface | undefined
-  >();
-  const [duplicateMetric, setDuplicateMetric] = useState<
-    FactMetricInterface | undefined
-  >();
+  const factMetricFlow = useFactMetricFlow("fact-table");
 
   const canEdit = (factMetric: FactMetricInterface) => {
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
@@ -314,28 +309,7 @@ export default function FactMetricList({
 
   return (
     <>
-      {editMetric && (
-        <FactMetricModal
-          close={() => setEditMetric(undefined)}
-          existing={editMetric}
-          source="fact-metric"
-        />
-      )}
-      {newOpen && (
-        <FactMetricModal
-          close={() => setNewOpen(false)}
-          initialFactTable={factTable.id}
-          source="fact-table"
-        />
-      )}
-      {duplicateMetric && (
-        <FactMetricModal
-          close={() => setDuplicateMetric(undefined)}
-          existing={duplicateMetric}
-          duplicate
-          source="fact-table-duplicate"
-        />
-      )}
+      {factMetricFlow.modal}
       {showRecommendedMetricsModal && (
         <RecommendedFactMetricsModal
           factTable={factTable}
@@ -382,18 +356,29 @@ export default function FactMetricList({
         )}
         <Box ml="auto">
           <Tooltip
-            content={`You don't have permission to add metrics to this fact table`}
+            content="You don't have permission to add Fact Metrics to this fact table."
             enabled={!canCreateMetrics}
           >
-            <Button
-              onClick={() => {
-                if (!canCreateMetrics) return;
-                setNewOpen(true);
-              }}
-              disabled={!canCreateMetrics}
-            >
-              Add Metric
-            </Button>
+            {!canCreateMetrics ? (
+              // A disabled button gets no hover, so the span shows the tooltip.
+              <span style={{ cursor: "not-allowed" }}>
+                <Button disabled style={{ pointerEvents: "none" }}>
+                  Add metric
+                </Button>
+              </span>
+            ) : factMetricFlow.newFlow ? (
+              <LinkButton
+                href={factMetricFlow.href({ factTable: factTable.id })}
+              >
+                Add metric
+              </LinkButton>
+            ) : (
+              <Button
+                onClick={() => factMetricFlow.open({ factTable: factTable.id })}
+              >
+                Add metric
+              </Button>
+            )}
           </Tooltip>
         </Box>
       </Flex>
@@ -516,22 +501,14 @@ export default function FactMetricList({
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
-                      onEdit={() => setEditMetric(metric)}
+                      onEdit={() => factMetricFlow.edit(metric)}
                       editDisabledReason={
                         isMergeAggregationMetric(metric)
                           ? REST_API_ONLY_EDIT_MESSAGE
                           : undefined
                       }
                       onDuplicate={() =>
-                        setDuplicateMetric({
-                          ...metric,
-                          name: `${metric.name} (Copy)`,
-                          managedBy:
-                            metric.managedBy === "admin" &&
-                            permissionsUtil.canCreateOfficialResources(metric)
-                              ? "admin"
-                              : "",
-                        })
+                        factMetricFlow.open({ duplicate: metric })
                       }
                     />
                   </td>
