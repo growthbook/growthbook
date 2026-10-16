@@ -526,7 +526,7 @@ export class DashboardModel extends BaseClass {
   protected async processApiCreateBody(rawBody: unknown) {
     return this.buildApiCreateDoc(
       apiCreateDashboardBody.parse(rawBody),
-      this.context.userId,
+      this.context.actingUserId,
     );
   }
 

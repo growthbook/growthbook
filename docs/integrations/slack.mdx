@@ -146,6 +146,14 @@ Use the **Manage workspace** menu next to the workspace name:
 
 Disconnecting only removes the connection on the GrowthBook side. To fully revoke GrowthBook's access, also remove the GrowthBook app from your workspace in Slack.
 
+## Best practices
+
+- **Start with the recommended events** — New channels already get the experiment and Feature Flag events most teams act on: launches, results and decisions, health warnings, published flag changes, Safe Rollout alerts, and review requests. Live with those for a while before adding more, so the channel doesn't turn into noise people mute.
+- **Give each audience its own channel** — Route notifications by who acts on them instead of sending everything to one channel. For example, send experiment results and decisions to a product channel, and Feature Flag changes and Safe Rollout alerts to the owning team's engineering channel. Use the **Projects** filter so each team only hears about its own work.
+- **Make sure health warnings reach someone** — **Warnings** (such as SRM) and **Safe rollout unhealthy** mean something may be wrong with live traffic. Send them to a channel someone watches, even if everything else goes somewhere quieter.
+- **Put review requests where reviewers are** — If you use [approval flows](/features/publishing-and-approval-flows), **Review requested** and **Changes requested** are on by default. Send them to a channel your reviewers follow so drafts don't sit waiting.
+- **Retire old webhooks** — Once the app is working, delete any [legacy Slack webhooks](/integrations/slack/legacy-webhooks) or Slack event webhooks posting to the same channels, so people don't get every notification twice.
+
 ## Troubleshooting
 
 **A private channel isn't in the list.**
