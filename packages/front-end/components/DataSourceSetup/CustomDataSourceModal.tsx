@@ -57,7 +57,7 @@ export default function CustomDataSourceModal({
         setValue={(value) => setType(value as DataSourceType)}
         options={warehouses.map((connection) => ({
           value: connection.type,
-          label: connection.shortDisplay ?? connection.display,
+          label: connection.display,
           avatar: (
             <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
               {connection.icon}
