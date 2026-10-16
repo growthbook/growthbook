@@ -4,6 +4,10 @@ import { crudEndpoint, customEndpoint } from "../api-model";
 import { booleanQueryField } from "../validators/shared";
 import { FEATURE_LANDING_ACTIONS } from "../validators/confirmations";
 import { contextualLeafClauseValidator } from "../validators/contextual-bandit-event";
+import {
+  contextualBanditSrmLatestPeriodValidator,
+  contextualBanditTrafficValidator,
+} from "../validators/contextual-bandit-snapshot";
 import { queryPointerValidator } from "../validators/queries";
 import {
   contextualBanditEventResponseShape,
@@ -253,8 +257,10 @@ export const getContextualBanditResults = {
               statistic: z.number(),
               pValue: z.number(),
               degreesOfFreedom: z.number().int().nonnegative(),
+              latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
             })
             .nullable(),
+          traffic: contextualBanditTrafficValidator.nullable(),
         })
         .nullable(),
     })

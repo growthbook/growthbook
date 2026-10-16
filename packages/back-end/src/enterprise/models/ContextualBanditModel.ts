@@ -12,6 +12,7 @@ import {
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  ContextualBanditAnalysisSummary,
   contextualBanditApiSpec,
   ContextualBanditInterface,
   ContextualBanditVariation,
@@ -73,8 +74,16 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
-  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipAuditLogFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
+  skipDateUpdatedFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
   defaultValues: {
     holdoutPercent: 0,
     archived: false,
@@ -310,6 +319,7 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    analysisSummary: doc.analysisSummary,
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
@@ -389,8 +399,6 @@ export class ContextualBanditModel extends BaseClass {
       );
     }
 
-    // Targeting reaches the SDK payload through the linked feature's rule, so it
-    // gets the rule write checks. Changed fields only, as on feature rules.
     await validateChangedRuleReferences(
       [doc],
       previousDoc ? [previousDoc] : [],
@@ -615,6 +623,20 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
+  /**
+   * Persists the latest health summary on the CB doc.
+   */
+  public async patchAnalysisSummary(
+    cbId: string,
+    analysisSummary: ContextualBanditAnalysisSummary,
+  ): Promise<void> {
+    const existingCB = await this.getById(cbId);
+    if (!existingCB) {
+      throw new Error(`ContextualBandit not found: ${cbId}`);
+    }
+    await this.update(existingCB, { analysisSummary });
+  }
+
   public async activatePendingVariationsForFeature(
     feature: FeatureInterface,
   ): Promise<void> {
@@ -666,9 +688,7 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Every bandit relevant to planning one feature's linkage, in a single query:
-   * those still holding an entry for it (however stale) union those its rules
-   * currently reference (which may not hold an entry yet).
+   * Every bandit relevant to planning one feature's linkage, in a single query.
    */
   public getLinkageCandidates(
     featureId: string,

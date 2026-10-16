@@ -6,6 +6,8 @@ import {
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isSafeSqlIdentifier,
+  queryHasContextualBanditSrmColumns,
+  queryHasContextualBanditVersionColumn,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
 const schema: SDKAttributeSchema = [
@@ -114,6 +116,62 @@ describe("exposure query targeting attribute columns", () => {
         },
       ]),
     ).toThrow(/is not a valid column name/);
+  });
+
+  describe("queryHasContextualBanditVersionColumn", () => {
+    it("detects a real bandit_version output column", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, variation_id, bandit_version FROM exposures",
+        ),
+      ).toBe(true);
+    });
+
+    it("ignores bandit_version inside a line comment", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, variation_id -- bandit_version not selected\nFROM exposures",
+        ),
+      ).toBe(false);
+    });
+
+    it("ignores bandit_version inside a block comment", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id /* bandit_version TODO */ FROM exposures",
+        ),
+      ).toBe(false);
+    });
+
+    it("ignores bandit_version inside a string literal", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, 'bandit_version' AS note FROM exposures",
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false for undefined queries", () => {
+      expect(queryHasContextualBanditVersionColumn(undefined)).toBe(false);
+    });
+  });
+
+  describe("queryHasContextualBanditSrmColumns", () => {
+    it("detects all required SRM columns", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id, variation_weights FROM exposures",
+        ),
+      ).toBe(true);
+    });
+
+    it("ignores required columns that appear only in comments", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id -- variation_weights not selected\nFROM exposures",
+        ),
+      ).toBe(false);
+    });
   });
 
   it("formatInvalidTargetingAttributeColumnMessages uses entered names and dedupes", () => {

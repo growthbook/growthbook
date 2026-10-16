@@ -413,7 +413,7 @@ function HealthSnapshotCards({
           <MultipleExposuresCard
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}
-            snapshot={snapshot}
+            multipleExposures={snapshot.multipleExposures}
           />
         </div>
       )}

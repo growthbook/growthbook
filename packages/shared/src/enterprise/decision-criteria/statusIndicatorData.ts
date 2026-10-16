@@ -6,7 +6,10 @@ import {
   ExperimentDataForStatus,
 } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { getExperimentResultStatus } from "./decisionCriteria";
+import {
+  getContextualBanditResultStatus,
+  getExperimentResultStatus,
+} from "./decisionCriteria";
 
 export type MetricNameResolver = (metricId: string) => string;
 
@@ -60,6 +63,29 @@ export function getStatusIndicatorData({
   }
 
   if (experimentData.status == "running") {
+    // Contextual bandits reuse this badge but run their own SRM / multiple
+    // exposure health checks (with bandit-specific thresholds) instead of the
+    // full experiment decision framework.
+    if (experimentData.type === "contextual-bandit") {
+      const health = experimentData.analysisSummary?.health;
+      if (health) {
+        const cbResultStatus = getContextualBanditResultStatus({
+          srm: health.srm ?? null,
+          totalUsers: health.totalUsers ?? 0,
+          numOfVariations: experimentData.variations.length,
+          healthSettings,
+        });
+        if (cbResultStatus?.status === "unhealthy") {
+          return getDetailedRunningStatusIndicatorData(cbResultStatus);
+        }
+      }
+      return {
+        color: "indigo",
+        status: "Running",
+        sortOrder: 7,
+      };
+    }
+
     const runningStatusData = getExperimentResultStatus({
       experimentData,
       healthSettings,

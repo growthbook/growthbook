@@ -20,6 +20,7 @@ export const getContextualBanditResults = createApiRequestHandler(
     latestSnapshotSummary,
     snapshotVariationIds,
     srm,
+    traffic,
   } = await getContextualBanditResultsForUi(req.context, contextualBandit);
 
   const snapshotVariations = resolveSnapshotVariations(
@@ -75,8 +76,10 @@ export const getContextualBanditResults = createApiRequestHandler(
                 statistic: srm.statistic,
                 pValue: srm.pValue,
                 degreesOfFreedom: srm.degreesOfFreedom,
+                ...(srm.latestPeriod ? { latestPeriod: srm.latestPeriod } : {}),
               }
             : null,
+          traffic: traffic ?? null,
         }
       : null,
   };
