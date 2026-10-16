@@ -13,6 +13,7 @@ import Callout from "@/ui/Callout";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
+import MultiSelectField from "@/ui/MultiSelectField";
 import PageHead from "@/components/Layout/PageHead";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -226,18 +227,19 @@ export default function PopulationEditor({
                 </SelectItem>
               ))}
             </Select>
-            <Select
-              label="Identifier type"
-              value={draft.userIdTypes[0] ?? ""}
-              setValue={(t) => setDraft((d) => ({ ...d, userIdTypes: [t] }))}
-              placeholder="Choose an identifier type..."
-            >
-              {userIdTypeOptions.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </Select>
+            <MultiSelectField
+              label="Identifier types"
+              size="md"
+              legacyLabelFormatting={false}
+              containerClassName="mb-0"
+              value={draft.userIdTypes}
+              onChange={(userIdTypes) =>
+                setDraft((d) => ({ ...d, userIdTypes }))
+              }
+              options={userIdTypeOptions.map((t) => ({ label: t, value: t }))}
+              placeholder="Choose identifier types..."
+              showCopyButton={false}
+            />
           </Grid>
 
           <Box mb="4">

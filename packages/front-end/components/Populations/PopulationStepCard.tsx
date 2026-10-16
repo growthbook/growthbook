@@ -189,7 +189,7 @@ export default function PopulationStepCard({
               factTable={factTable}
               column={step.aggregateFilterColumn}
               filter={step.aggregateFilter ?? ""}
-              unit={userIdTypes[0] ?? "unit"}
+              unit={userIdTypes.join(", ") || "unit"}
               onChange={(aggregateFilterColumn, aggregateFilter) =>
                 update({ aggregateFilterColumn, aggregateFilter })
               }
