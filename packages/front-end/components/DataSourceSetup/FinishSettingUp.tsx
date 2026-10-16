@@ -11,8 +11,11 @@ import {
 import { SDKAttribute } from "shared/types/organization";
 import {
   attributeMatchesDatasourceProjects,
+  attributeToUserIdTypeName,
   getExposureQueryIdentifierTypes,
   isEventForwarderManaged,
+  isValidUserIdTypeName,
+  USER_ID_TYPE_NAME_RULE,
 } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -63,8 +66,6 @@ type QueryModal =
 
 const EXPANDABLE_STEPS: StepId[] = ["identifiers", "queries"];
 
-const IDENTIFIER_PATTERN = /^[a-z_]+$/;
-
 // Status icon or checkbox, identifier type, description, row actions.
 const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
 
@@ -93,15 +94,6 @@ function getCompletion(
     queries: exposureQueries.length > 0,
     factTable: factTableCount > 0,
   };
-}
-
-// The column a "deviceId" or "Device-ID" attribute most likely lives in: device_id.
-function defaultColumnName(attribute: string): string {
-  return attribute
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .toLowerCase()
-    .replace(/[^a-z_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 // On a Data Source that already has identifiers, attributes it never mapped
@@ -208,7 +200,7 @@ export default function FinishSettingUp({
       const saved =
         identifierTypes.find((type) => type.attributes?.includes(property)) ??
         null;
-      const name = saved?.userIdType ?? defaultColumnName(property);
+      const name = saved?.userIdType ?? attributeToUserIdTypeName(property);
       return {
         key,
         attribute: property,
@@ -284,9 +276,9 @@ export default function FinishSettingUp({
     // type with every attribute linked.
     const byName = new Map<string, UserIdType>();
     for (const row of includedRows) {
-      if (!IDENTIFIER_PATTERN.test(row.name)) {
+      if (!isValidUserIdTypeName(row.name)) {
         throw new Error(
-          `"${row.name}" can only contain lowercase letters and underscores`,
+          `"${row.name}" is not a valid identifier type name. ${USER_ID_TYPE_NAME_RULE}`,
         );
       }
       const existing = byName.get(row.name);
