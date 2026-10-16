@@ -137,6 +137,15 @@ export function getValidDateOffsetByUTC(
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }
 
+// Warehouse values like "2026-10-01 07:00:00" carry no zone; read them as UTC, not as the runtime's local time.
+export function parseWarehouseDate(value: string | Date | number): Date {
+  if (typeof value !== "string") return new Date(value);
+  const s = value.trim();
+  return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)
+    ? new Date(`${s.replace(" ", "T")}Z`)
+    : new Date(s);
+}
+
 // Compact relative time using single-char units: "5s ago", "3m ago", "2h ago", "7d ago"
 export function formatShortAgo(dateOrTimestamp: Date | number): string {
   const ts =
