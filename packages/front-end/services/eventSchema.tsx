@@ -536,7 +536,6 @@ export const dataSourceConnections: {
   {
     type: "adobe_experience_platform_query_service",
     display: "Adobe Experience Platform Query Service",
-    // The Adobe logo sits next to it, so "Adobe" is redundant.
     shortDisplay: "Experience Platform",
     icon: <SiAdobe />,
     docs: "adobe_experience_platform_query_service",
