@@ -1,5 +1,8 @@
+import { FactMetricInterface } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
+  duplicateFactMetric,
+  resolveFactMetricCreation,
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
@@ -444,4 +447,49 @@ describe("getDefaultFactMetricProps datasource", () => {
         .datasource,
     ).toBe("ds_default");
   });
+});
+
+describe("fact metric creation flow", () => {
+  it.each([
+    [false, false, false, "pending"],
+    [false, false, true, "pending"],
+    [false, true, false, "pending"],
+    [false, true, true, "pending"],
+    [true, true, false, "page"],
+    [true, true, true, "page"],
+    [true, false, true, "modal"],
+    [true, false, false, "fact-table"],
+  ] as const)(
+    "resolves ready=%s, treatment=%s, fact table=%s to %s",
+    (ready, treatment, hasFactTable, expected) => {
+      expect(resolveFactMetricCreation(ready, treatment, hasFactTable)).toBe(
+        expected,
+      );
+    },
+  );
+});
+
+describe("duplicateFactMetric", () => {
+  it.each([
+    ["admin", true, "admin"],
+    ["admin", false, ""],
+    ["api", true, ""],
+    ["config", true, ""],
+    ["", true, ""],
+  ] as const)(
+    "normalizes managedBy=%s with official permission=%s",
+    (managedBy, canCreateOfficial, expected) => {
+      const metric = {
+        name: "Revenue",
+        managedBy,
+        numerator: { factTableId: "ft_1", column: "amount" },
+      } as FactMetricInterface;
+      const duplicate = duplicateFactMetric(metric, canCreateOfficial);
+      expect(duplicate.name).toBe("Revenue (copy)");
+      expect(duplicate.managedBy).toBe(expected);
+      expect(duplicate.numerator).toEqual(metric.numerator);
+      expect(metric.name).toBe("Revenue");
+      expect(metric.managedBy).toBe(managedBy);
+    },
+  );
 });
