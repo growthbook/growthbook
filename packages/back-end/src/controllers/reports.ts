@@ -12,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import { assumeUtc } from "back-end/src/util/dates";
@@ -36,7 +37,10 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -454,9 +458,18 @@ type ReportAssignmentQuerySelection = {
  */
 async function applyReportAssignmentQuery(
   context: ReqContext,
-  previous: ReportAssignmentQuerySelection,
-  next: ReportAssignmentQuerySelection,
-  requestedIdentifierType: string | undefined,
+  {
+    previous,
+    next,
+    experiment,
+    requestedIdentifierType,
+  }: {
+    previous: ReportAssignmentQuerySelection;
+    next: ReportAssignmentQuerySelection;
+    /** The report's experiment, whose project the query must fit. */
+    experiment: ExperimentInterface | null;
+    requestedIdentifierType: string | undefined;
+  },
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
@@ -467,6 +480,14 @@ async function applyReportAssignmentQuery(
     previous: toSelection(previous),
     next: { ...toSelection(next), identifierType: requestedIdentifierType },
     onOmitted: "defaultToFirst",
+    scope: experiment
+      ? () =>
+          getExperimentAssignmentQueryScope(
+            context,
+            experiment,
+            experiment.project ?? "",
+          )
+      : { project: "" },
   });
   // `next` is saved whole: an absent key clears the stored identifier, where an
   // undefined one would persist as null.
@@ -574,12 +595,13 @@ export async function putReport(
     }
 
     if (updates.experimentAnalysisSettings) {
-      await applyReportAssignmentQuery(
-        context,
-        report.experimentAnalysisSettings,
-        updates.experimentAnalysisSettings,
-        data.experimentAnalysisSettings?.exposureQueryIdentifierType,
-      );
+      await applyReportAssignmentQuery(context, {
+        previous: report.experimentAnalysisSettings,
+        next: updates.experimentAnalysisSettings,
+        experiment,
+        requestedIdentifierType:
+          data.experimentAnalysisSettings?.exposureQueryIdentifierType,
+      });
     }
 
     updates.dateUpdated = new Date();
@@ -627,12 +649,12 @@ export async function putReport(
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
-      await applyReportAssignmentQuery(
-        context,
-        report.args,
-        updates.args,
-        req.body.args?.exposureQueryIdentifierType,
-      );
+      await applyReportAssignmentQuery(context, {
+        previous: report.args,
+        next: updates.args,
+        experiment,
+        requestedIdentifierType: req.body.args?.exposureQueryIdentifierType,
+      });
 
       needsRun = true;
     }

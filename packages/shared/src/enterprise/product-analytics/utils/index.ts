@@ -34,13 +34,26 @@ export function mapColumnTypeToExplorationType(
   }
 }
 
+// Checked first, since inner types like `ARRAY<INT64>` would match a primitive
+const COMPLEX_TYPE =
+  /^(struct|array|map|jsonb?|variant|object|tuple|row|record|super|nested|vector|range)\b/;
+
 export function mapDatabaseTypeToEnum(
   dbType: string,
 ): "string" | "number" | "date" | "boolean" | "other" {
   const lowerType = dbType.toLowerCase();
 
+  // ClickHouse wraps the real type, as in `LowCardinality(Nullable(String))`
+  if (
+    COMPLEX_TYPE.test(lowerType.replace(/^((nullable|lowcardinality)\()+/, ""))
+  ) {
+    return "other";
+  }
+
   if (
     lowerType.includes("int") ||
+    // Snowflake and Oracle report every fixed-point column as NUMBER
+    lowerType.includes("number") ||
     lowerType.includes("numeric") ||
     lowerType.includes("decimal") ||
     lowerType.includes("float") ||

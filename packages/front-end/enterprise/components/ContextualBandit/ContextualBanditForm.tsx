@@ -52,10 +52,8 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
 import DatePicker from "@/components/DatePicker";
-import {
-  getDefaultVariations,
-  getNewExperimentDatasourceDefaults,
-} from "@/components/Experiment/NewExperimentForm";
+import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
 type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   Partial<
