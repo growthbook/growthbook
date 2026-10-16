@@ -2,6 +2,7 @@ import {
   dateStringArrayBetweenDates,
   getValidDate,
   lastMondayString,
+  parseWarehouseDate,
   resolveScheduleStopAfter,
   resolveScheduledStop,
   snapToMinuteEnd,
@@ -25,6 +26,32 @@ describe("getValidDate", () => {
     expect(getValidDate(d, fallback)).toEqual(d);
     expect(getValidDate(t, fallback)).toEqual(d);
     expect(getValidDate(d.toISOString(), fallback)).toEqual(d);
+  });
+});
+
+describe("parseWarehouseDate", () => {
+  it("reads zoneless warehouse timestamps as UTC", () => {
+    expect(parseWarehouseDate("2026-10-01 07:00:00").toISOString()).toBe(
+      "2026-10-01T07:00:00.000Z",
+    );
+    expect(parseWarehouseDate("2026-10-01T07:00:00.123").toISOString()).toBe(
+      "2026-10-01T07:00:00.123Z",
+    );
+    expect(parseWarehouseDate("2026-03-08 02:30").toISOString()).toBe(
+      "2026-03-08T02:30:00.000Z",
+    );
+  });
+
+  it("leaves Dates, timestamps and explicit zones alone", () => {
+    expect(parseWarehouseDate("2026-10-01").toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
+    expect(parseWarehouseDate("2026-10-01T07:00:00+02:00").toISOString()).toBe(
+      "2026-10-01T05:00:00.000Z",
+    );
+    const d = new Date("2026-10-01T07:00:00Z");
+    expect(parseWarehouseDate(d).getTime()).toBe(d.getTime());
+    expect(parseWarehouseDate(d.getTime()).getTime()).toBe(d.getTime());
   });
 });
 

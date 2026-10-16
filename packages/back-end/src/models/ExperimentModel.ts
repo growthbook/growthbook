@@ -1190,11 +1190,17 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   }));
 }
 
+/**
+ * Experiments in Projects the user can't read come back without an id, so the
+ * import list can still tell them apart from experiments not yet imported.
+ */
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string,
 ): Promise<
-  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+  (Pick<ExperimentInterface, "trackingKey" | "exposureQueryId"> & {
+    id: string | null;
+  })[]
 > {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -1210,12 +1216,10 @@ export async function getPastExperimentsByDatasource(
     })
     .toArray();
 
-  const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
-  );
-
-  return experimentsUserCanAccess.map((exp) => ({
-    id: exp.id,
+  return experiments.map((exp) => ({
+    id: context.permissions.canReadSingleProjectResource(exp.project)
+      ? exp.id
+      : null,
     trackingKey: exp.trackingKey,
     exposureQueryId: exp.exposureQueryId,
   }));

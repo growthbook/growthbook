@@ -753,6 +753,7 @@ export const postMetricValidator = {
     })
     .strict(),
   summary: "Create a single metric",
+  confirmation: ["metric.create"] as const,
   operationId: "postMetric",
   tags: ["metrics"],
   method: "post" as const,
@@ -901,6 +902,7 @@ export const putMetricValidator = {
     })
     .strict(),
   summary: "Update a metric",
+  confirmation: ["metric.edit"] as const,
   operationId: "putMetric",
   tags: ["metrics"],
   method: "put" as const,
@@ -924,6 +926,7 @@ export const deleteMetricValidator = {
     })
     .strict(),
   summary: "Deletes a metric",
+  confirmation: ["metric.delete"] as const,
   operationId: "deleteMetric",
   tags: ["metrics"],
   method: "delete" as const,

@@ -58,6 +58,7 @@ import {
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { validateEnvKeys } from "./postFeature";
 import {
   validateChangedRuleReferences,
@@ -600,6 +601,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           metadataChanges,
         );
       }
+      // `canBypass` ORs the two sources, so it cannot name which one applied.
+      // Ask the org setting directly; the permission is what remains.
+      const approvalGate: BypassedGate = {
+        type: "approval-required",
+        outcome: "bypassed",
+        via: canUseRestApiBypassSetting(req)
+          ? "restApiBypassesReviews"
+          : "bypassApprovalPermission",
+      };
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
@@ -631,6 +641,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         changes: revisionChanges,
         comment: req.body.comment ?? "Created via REST API",
         canBypassApprovalChecks: canBypass,
+        beforeLanding: ({ bypassesApproval }) =>
+          holdFeatureUpdate(
+            req.context,
+            feature,
+            {
+              archived: newArchived,
+              envEnabled: changedEnvEnabled,
+              defaultValue: defaultValueChanged,
+              rules: changedRuleEnvironments.length > 0,
+              metadata: Object.keys(metadataChanges),
+              prerequisites: hasPrereqChanges,
+              holdout: hasHoldoutChange,
+            },
+            bypassesApproval ? [approvalGate] : [],
+          ),
       });
 
       updatedFeature = updatedFeatureFromRevision;
@@ -666,17 +691,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           `Failed to dispatch revision.published for feature ${feature.id}`,
         );
       }
-      if (bypassedApproval) {
-        bypassedGates.push({
-          type: "approval-required",
-          outcome: "bypassed",
-          // `canBypass` ORs the two sources, so it cannot name which one applied.
-          // Ask the org setting directly; the permission is what remains.
-          via: canUseRestApiBypassSetting(req)
-            ? "restApiBypassesReviews"
-            : "bypassApprovalPermission",
-        });
-      }
+      if (bypassedApproval) bypassedGates.push(approvalGate);
     }
 
     await addTagsDiff(
