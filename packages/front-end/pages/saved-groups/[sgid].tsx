@@ -17,6 +17,7 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
+  isSavedGroupRevisionArchiveOnly,
   getApprovalFlowRules,
   getApprovalFlowSettings,
 } from "shared/enterprise";
@@ -1344,7 +1345,14 @@ export default function EditSavedGroupPage() {
               setConfirmRevert(true);
             }}
             publishBlockedReason={
-              remoteLocked ? REMOTE_LOCKED_REASON : undefined
+              // Archiving still works without Enterprise, for cleanup, so an
+              // archive-only draft can be published (the back end allows it)
+              remoteLocked &&
+              !isSavedGroupRevisionArchiveOnly(
+                (selectedRevision ?? displayRevision)?.target.proposedChanges,
+              )
+                ? REMOTE_LOCKED_REASON
+                : undefined
             }
             revertBlockedReason={
               remoteLocked ? REMOTE_LOCKED_REASON : undefined

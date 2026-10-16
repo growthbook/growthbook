@@ -119,32 +119,43 @@ type UploadStage =
   | { type: "valid"; version: number; idCount: number };
 
 /**
- * The upload's progress. It keeps the same lines through every stage, so the
- * modal doesn't change size as the upload moves along.
+ * The upload's progress: the file transfer, then the check. It keeps the same
+ * lines through every stage, so the modal doesn't change size as the upload
+ * moves along.
  */
 function UploadProgress({ stage }: { stage: UploadStage }) {
   const percent =
     stage.type === "uploading" ? Math.round(stage.progress * 100) : 100;
   const label =
     stage.type === "uploading"
-      ? `Uploading... ${percent}%`
+      ? "Uploading..."
       : stage.type === "saving"
         ? "Saving the upload..."
         : stage.type === "validating"
           ? "Validating the file..."
-          : `File version ${stage.version} uploaded successfully with ${stage.idCount.toLocaleString()} IDs`;
+          : `File version ${stage.version} is ready, with ${stage.idCount.toLocaleString()} IDs`;
+  const color = stage.type === "valid" ? "green" : "violet";
   return (
     <Box mt="3">
-      <Text as="p" color="text-mid">
-        {label}
-      </Text>
+      {/* Announces each stage; the percentage is visual only, so it isn't
+          read on every tick */}
+      <Box role="status">
+        <Text as="p" color="text-mid">
+          {label}
+          {stage.type === "uploading" && (
+            <span aria-hidden="true"> {percent}%</span>
+          )}
+        </Text>
+      </Box>
+      {/* The check's part stays unfilled until the file is valid */}
       <ProgressBar
         segments={[
+          { id: "upload", weight: 80, completion: percent, color },
           {
-            id: "upload",
-            weight: 100,
-            completion: percent,
-            color: stage.type === "valid" ? "green" : "violet",
+            id: "check",
+            weight: 20,
+            completion: stage.type === "valid" ? 100 : 0,
+            color,
           },
         ]}
       />
@@ -338,18 +349,26 @@ function UploadModal({
           {stage && <UploadProgress stage={stage} />}
         </Modal.Body>
         <Modal.Footer justify="between">
-          <Modal.Close>
-            <Button
-              variant="ghost"
-              // Saving is brief; closing then would still record the upload
-              disabled={stage?.type === "saving"}
-              onClick={closeModal}
-            >
-              {stage?.type === "validating" || stage?.type === "valid"
-                ? "Close"
-                : "Cancel"}
-            </Button>
-          </Modal.Close>
+          {/* Saving is brief; closing then would still record the upload. A
+              disabled button gets no hover events, so the tooltip wraps a span */}
+          <Tooltip
+            content="Saving the upload. This takes a moment."
+            enabled={stage?.type === "saving"}
+          >
+            <span>
+              <Modal.Close>
+                <Button
+                  variant="ghost"
+                  disabled={stage?.type === "saving"}
+                  onClick={closeModal}
+                >
+                  {stage?.type === "validating" || stage?.type === "valid"
+                    ? "Close"
+                    : "Cancel"}
+                </Button>
+              </Modal.Close>
+            </span>
+          </Tooltip>
           {stage?.type !== "valid" ? (
             <SubmitButton disabled={!file} />
           ) : (
