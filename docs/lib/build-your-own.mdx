@@ -505,6 +505,8 @@ function evalAnd(attributes, conditions) {
 
 Partially evaluates a condition when only some attributes are known, for example on a server that knows the user's id and nothing else. It returns `true` or `false` once the result no longer depends on unknown attributes, and otherwise the condition with every decided part removed. For any full set of attributes that agrees with the known ones, `evalCondition` must return the same result for the pruned condition as for the original.
 
+If evaluating it throws, for example on a malformed condition such as `{"$not": null}`, return the whole condition as written so the client decides. Only catch at this top level: the client fails the whole condition when any part throws, so no other part can be decided.
+
 ```ts
 function pruneCondition(attributes, condition) {
   const out = {};

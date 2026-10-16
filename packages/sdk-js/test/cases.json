@@ -3992,6 +3992,12 @@
       { "tags": { "$elemMatch": { "$notAnOperator": "x" } } }
     ],
     [
+      "a condition that throws stays as written, even when another $or branch passes",
+      { "$or": [{ "$not": null }, { "id": "123" }] },
+      { "id": "123" },
+      { "$or": [{ "$not": null }, { "id": "123" }] }
+    ],
+    [
       "an attribute named like a built-in object property is unknown until given",
       { "toString": "x", "country": "US" },
       { "country": "US" },
@@ -5063,6 +5069,36 @@
                 ],
                 "force": true
               }
+            ]
+          }
+        },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a condition that throws as written, rather than throwing",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                { "condition": { "$or": null, "id": "123" }, "force": 1 },
+                { "condition": { "id": "123" }, "force": 2 }
+              ]
+            }
+          }
+        },
+        "attributes": { "id": "123" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              { "condition": { "$or": null, "id": "123" }, "force": 1 },
+              { "force": 2 }
             ]
           }
         },

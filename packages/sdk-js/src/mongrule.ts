@@ -96,8 +96,26 @@ export function pruneCondition(
   savedGroups?: SavedGroupsPayload,
   visited?: Set<string>,
 ): ConditionInterface | boolean {
-  savedGroups = savedGroups || {};
-  visited = visited || new Set();
+  // One that throws, such as a malformed one, stays as written. Evaluating it
+  // fails as a whole, so no part of it can be decided.
+  try {
+    return pruneEntries(
+      obj,
+      condition,
+      savedGroups || {},
+      visited || new Set(),
+    );
+  } catch (e) {
+    return condition;
+  }
+}
+
+function pruneEntries(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  savedGroups: SavedGroupsPayload,
+  visited: Set<string>,
+): ConditionInterface | boolean {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(condition)) {
     let r: any;
@@ -114,10 +132,10 @@ export function pruneCondition(
         );
         break;
       case "$not":
-        r = pruneCondition(obj, v as ConditionInterface, savedGroups, visited);
+        r = pruneEntries(obj, v as ConditionInterface, savedGroups, visited);
         break;
       case "$savedGroup":
-        r = evalSavedGroup(obj, v, savedGroups, visited, pruneCondition);
+        r = evalSavedGroup(obj, v, savedGroups, visited, pruneEntries);
         // Keep an undecided reference as is rather than inlining the group
         if (typeof r !== "boolean") r = null;
         break;
@@ -151,7 +169,7 @@ function pruneList(
 ): ConditionInterface[] | boolean {
   const out: ConditionInterface[] = [];
   for (const condition of conditions) {
-    const r = pruneCondition(obj, condition, savedGroups, visited);
+    const r = pruneEntries(obj, condition, savedGroups, visited);
     // One passing condition decides an $or, and one failing condition an $and
     if (or && r === true) return true;
     if (!or && r === false) return false;
@@ -174,9 +192,9 @@ export function evalSavedGroup(
   reference: unknown,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
-  // pruneCondition, to return null or a condition while unknown attributes
+  // A pruning function, to return null or a condition while unknown attributes
   // decide the result. Passed in so that builds that never prune leave it out.
-  prune?: typeof pruneCondition,
+  prune?: typeof pruneEntries,
 ): Result | ConditionInterface {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
