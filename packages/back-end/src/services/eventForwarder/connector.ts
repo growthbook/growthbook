@@ -44,6 +44,8 @@ import {
   assertEventForwarderWriteAccessResult,
   testEventForwarderWriteAccess,
 } from "back-end/src/services/eventForwarder/writeAccess";
+// After writeAccess: the Snowflake service loads SqlIntegration, which must already be initialised.
+import { ensureEventForwarderSnowflakeTables } from "back-end/src/services/eventForwarder/snowflake";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -294,6 +296,14 @@ export async function provisionEventForwarderThroughLicenseServer(
             config: decrypted,
           }),
         );
+
+        // Connector configs own their tables (Snowpipe schematization); consumer configs get them from the app.
+        if (isInHouseConsumerTopic(eventForwarderConfig.topic, "snowflake")) {
+          await ensureEventForwarderSnowflakeTables(
+            datasourceParams as SnowflakeConnectionParams,
+            decrypted,
+          );
+        }
 
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,

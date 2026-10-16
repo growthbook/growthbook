@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REQUIRES_PERSON_NOTE, REVIEW_VERDICT_NOTE } from "./event-user";
 import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
@@ -136,8 +137,7 @@ export const getFeatureRevisionLatestValidator = {
   path: "/features/:id/revisions/latest",
   operationId: "getFeatureRevisionLatest",
   summary: "Get the most recent active draft revision",
-  description:
-    "**Deprecated.** Use [GET /v2/features/:id/revisions/latest](#operation/getFeatureRevisionLatestV2) instead.\n\nReturns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass `mine=true` to return the most recent draft authored by or contributed to by the calling user (requires a user-scoped API key).",
+  description: `**Deprecated.** Use [GET /v2/features/:id/revisions/latest](#operation/getFeatureRevisionLatestV2) instead.\n\nReturns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass \`mine=true\` to return the most recent draft authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE}`,
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -146,7 +146,7 @@ export const getFeatureRevisionLatestValidator = {
   querySchema: z
     .object({
       mine: booleanQueryField.describe(
-        "If true, return only the most recent active draft authored by or contributed to by the calling user. Requires a user-scoped API key.",
+        `If true, return only the most recent active draft authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE}`,
       ),
     })
     .strict(),
@@ -330,8 +330,7 @@ export const postFeatureRevisionSubmitReviewValidator = {
   path: "/features/:id/revisions/:version/submit-review",
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
-  description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+  description: `**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -793,7 +792,7 @@ export const listRevisionsValidator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

@@ -39,16 +39,9 @@ You can grant this at the dataset level in the BigQuery console or via the `role
 
 ### Snowflake
 
-The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. The Snowflake role you provide must have the following privileges:
+The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. GrowthBook creates the three destination tables itself during setup, then streams events into them through [Snowpipe Streaming](https://docs.snowflake.com/en/user-guide/snowpipe-streaming/data-load-snowpipe-streaming-overview) as the connection's user.
 
-| Privilege       | Object                   |
-| --------------- | ------------------------ |
-| `USAGE`         | Database                 |
-| `USAGE`         | Schema                   |
-| `USAGE`         | Warehouse (if specified) |
-| `CREATE SCHEMA` | Database                 |
-| `CREATE TABLE`  | Schema                   |
-| `INSERT`        | Tables                   |
+Snowpipe Streaming runs under the user's **default role**, so the role you enter in the Event Forwarder must be that user's default role (`ALTER USER <user> SET DEFAULT_ROLE = <role>`). Setup creates the tables and checks them as that same role, so it needs the following privileges:
 
 `CREATE TABLE` and `CREATE SCHEMA` are required because we use Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
 

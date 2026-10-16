@@ -8,14 +8,14 @@ import {
 import { evaluatePublishGates } from "back-end/src/revisions/publishGates";
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-eval", () => ({
-  collectValidateFeatureHookResults: jest.fn(async () => ({
+  collectValidateFeatureHookResults: jest.fn().mockResolvedValue({
     hardErrors: [],
     warnings: [],
-  })),
-  collectValidateFeatureRevisionHookResults: jest.fn(async () => ({
+  }),
+  collectValidateFeatureRevisionHookResults: jest.fn().mockResolvedValue({
     hardErrors: [],
     warnings: [],
-  })),
+  }),
 }));
 
 const plan: FeatureMergePlan = {
@@ -37,6 +37,81 @@ const revision = { version: 2, status: "draft" } as FeatureRevisionInterface;
 const context = { org: { settings: {} } } as unknown as ReqContext;
 
 describe("feature value publish gates", () => {
+  const schema = (values: string[], enabled = true) => ({
+    schemaType: "schema" as const,
+    schema: JSON.stringify({ type: "string", enum: values }),
+    simple: { type: "object" as const, fields: [] },
+    date: new Date(),
+    enabled,
+  });
+
+  describe.each(["default", "rule"])("%s value schema", (target) => {
+    it.each([
+      {
+        name: "rejects values forbidden by a tighter staged schema",
+        liveSchema: schema(["old", "new"]),
+        stagedSchema: schema(["old"]),
+        blocked: true,
+      },
+      {
+        name: "allows values accepted by a looser staged schema",
+        liveSchema: schema(["old"]),
+        stagedSchema: schema(["old", "new"]),
+        blocked: false,
+      },
+      {
+        name: "allows values when the staged schema is disabled",
+        liveSchema: schema(["old"]),
+        stagedSchema: schema(["old"], false),
+        blocked: false,
+      },
+      {
+        name: "uses the live schema when no schema is staged",
+        liveSchema: schema(["old"]),
+        stagedSchema: null,
+        blocked: true,
+      },
+    ])("$name", async ({ liveSchema, stagedSchema, blocked }) => {
+      const feature = {
+        id: "json-feature",
+        valueType: "json",
+        defaultValue: '"old"',
+        rules: [],
+        jsonSchema: liveSchema,
+      } as unknown as FeatureInterface;
+      const metadata = stagedSchema ? { jsonSchema: stagedSchema } : {};
+      const gates = await collectFeaturePublishGates({
+        context,
+        feature,
+        revision: { ...revision, metadata },
+        plan: {
+          ...plan,
+          mergeResult: {
+            metadata,
+            ...(target === "default"
+              ? { defaultValue: '"new"' }
+              : {
+                  rules: [
+                    {
+                      id: "new-rule",
+                      type: "force" as const,
+                      value: '"new"',
+                      description: "",
+                      allEnvironments: true,
+                    },
+                  ],
+                }),
+          },
+        },
+        includeValidationGates: true,
+      });
+      expect(gates.map((gate) => gate.type)).toEqual(
+        blocked ? ["schema-validation"] : [],
+      );
+      expect(feature.jsonSchema).toBe(liveSchema);
+    });
+  });
+
   it.each(["json", "boolean", "number"] as const)(
     "returns a blocking gate for invalid %s instead of throwing",
     async (valueType) => {
@@ -109,15 +184,15 @@ describe("feature value publish gates", () => {
   });
 
   describe("staged JSON schema", () => {
-    const schema = (json: object) => ({
+    const objectSchema = (json: object) => ({
       schemaType: "schema" as const,
       schema: JSON.stringify(json),
       simple: { type: "object" as const, fields: [] },
       date: new Date(),
       enabled: true,
     });
-    const loose = schema({ type: "object" });
-    const tight = schema({ type: "object", required: ["color"] });
+    const loose = objectSchema({ type: "object" });
+    const tight = objectSchema({ type: "object", required: ["color"] });
     const jsonFeature = (overrides: Partial<FeatureInterface>) =>
       ({
         id: "schema-feature",
@@ -163,14 +238,6 @@ describe("feature value publish gates", () => {
         expect.stringContaining("Default value"),
         expect.stringContaining("Rule #1"),
       ]);
-    });
-
-    it("accepts a changed value that only the loosened staged schema allows", async () => {
-      const gate = await schemaGate(jsonFeature({ jsonSchema: tight }), {
-        defaultValue: '{"size":1}',
-        metadata: { jsonSchema: loose },
-      });
-      expect(gate).toBeUndefined();
     });
 
     it("still skips unchanged values when the staged schema matches live", async () => {

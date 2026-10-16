@@ -2,7 +2,10 @@ import { z } from "zod";
 import {
   queryPointerValidator,
   queryRunnerFailureCause,
+  queryStatisticsValidator,
   queryStatusValidator,
+  queryLogValidator,
+  testQueryTypeValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
@@ -19,17 +22,30 @@ export type QueryPointer = z.infer<typeof queryPointerValidator>;
 
 export type Queries = QueryPointer[];
 
-export type QueryStatistics = {
-  executionDurationMs?: number;
-  totalSlotMs?: number;
-  rowsProcessed?: number;
-  bytesProcessed?: number;
-  bytesBilled?: number;
-  rowsInserted?: number;
-  warehouseCachedResult?: boolean;
-  partitionsUsed?: boolean;
-  physicalWrittenBytes?: number;
+export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
+
+export type QueryLogInterface = z.infer<typeof queryLogValidator>;
+
+// Summed querylogs rows; stats a warehouse doesn't report sum to 0
+export type QueryLogUsage = {
+  queries: number;
+  durationMs: number;
+  executionDurationMs: number;
+  bytesProcessed: number;
+  bytesBilled: number;
+  totalSlotMs: number;
 };
+// id is null for rows without the grouped field, e.g. scheduled runs have no user
+export type QueryLogUsageGroup = QueryLogUsage & { id: string | null };
+export type DataSourceUsage = {
+  total: QueryLogUsage;
+  factTables: QueryLogUsageGroup[];
+  experiments: QueryLogUsageGroup[];
+  users: QueryLogUsageGroup[];
+  queryTypes: QueryLogUsageGroup[];
+};
+
+export type TestQueryType = z.infer<typeof testQueryTypeValidator>;
 
 export type QueryType =
   // Internal fallback. Do not use this value.
@@ -100,8 +116,12 @@ export type QueryType =
   // ---
   // User-provided SQL (SQL explorer ad-hoc queries)
   | "freeFormQuery"
-  // User-initiated datasource test / validation queries
-  | "testQuery"
+  // "Test Query" button runs, one type per SQL editor
+  | TestQueryType
+  // Validates new or changed exposure queries when a data source is saved
+  | "exposureQueryValidation"
+  // Validates new or changed feature usage queries when a data source is saved
+  | "featureUsageQueryValidation"
   // Datasource connectivity probe (SELECT 1)
   | "connectionTest"
   // Schema introspection: list tables + column counts
@@ -123,6 +143,8 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // Experiment exposure log
+  | "experimentExposures"
   // AI agent SQL queries (Ask Your Data)
   | "askDataAgentQuery"
 
@@ -151,6 +173,8 @@ export type QueryMetadata = AdditionalQueryMetadata &
   QueryDocMetadata & {
     userName?: string;
     userId?: string;
+    // Fact tables the query reads, for warehouse usage attribution
+    factTableIds?: string[];
   };
 
 // queryType is required to ensure visibility into query costs at the data warehouse
@@ -177,6 +201,8 @@ export interface QueryInterface {
   dependencies?: string[]; // must succeed before running query
   runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
+  cacheKey?: string;
+  resolvedWindow?: { startDate: Date; endDate: Date };
   statistics?: QueryStatistics;
   externalId?: string;
   // Integration-specific side-data for managing the external job (e.g.

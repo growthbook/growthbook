@@ -1,7 +1,6 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
 import {
+  eventUserToApiEventUser,
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
@@ -13,6 +12,8 @@ import {
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
+import mongoose from "mongoose";
+import { UpdateProps } from "shared/types/base-model";
 import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,
@@ -311,6 +312,9 @@ export function rampScheduleToApiInterface(
         ? {
             ...doc.stepApproval,
             approvedAt: doc.stepApproval.approvedAt.toISOString(),
+            approvedByUser: eventUserToApiEventUser(
+              doc.stepApproval.approvedByUser ?? undefined,
+            ),
           }
         : undefined,
     awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
@@ -444,10 +448,13 @@ export class RampScheduleModel extends BaseClass {
     doc: RampScheduleInterface,
     previousDoc?: RampScheduleInterface,
   ) {
+    const project = this.getProject(doc);
     await assertValidMonitoringConfigChange(
       this.context,
       previousDoc?.monitoringConfig,
       doc.monitoringConfig,
+      // A ramp without an anchoring feature has no project to check against.
+      project === undefined ? undefined : { project },
     );
   }
   protected override async beforeUpdate(

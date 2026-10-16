@@ -5,6 +5,7 @@ import {
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
+  assumesRequesterRole,
   getRolePermissions,
   intersectUserPermissions,
 } from "shared/permissions";
@@ -89,5 +90,35 @@ export function getPersonalAccessTokenPermissions(
       teams,
       restrictedProjects,
     ),
+  );
+}
+
+// An org key that assumes the role of the member it names gets only what both
+// its role and that member allow: the unverified header can narrow a key,
+// never widen it. Undefined when the key's own role applies, and for PATs.
+export function getKeyPermissionsForRequest({
+  apiKey,
+  requesterId,
+  org,
+  teams,
+  restrictedProjects,
+}: {
+  apiKey: ApiKeyInterface;
+  requesterId: string | null;
+  org: OrganizationInterface;
+  teams: TeamInterface[];
+  restrictedProjects: string[];
+}): UserPermissions | undefined {
+  if (apiKey.userId || !requesterId || !assumesRequesterRole(apiKey)) {
+    return undefined;
+  }
+  return intersectUserPermissions(
+    getRolePermissions(
+      { ...apiKey, role: apiKey.role ?? "noaccess" },
+      org,
+      teams,
+      restrictedProjects,
+    ),
+    getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
 }

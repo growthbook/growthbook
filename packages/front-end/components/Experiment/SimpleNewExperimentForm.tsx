@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
   resolveAnalysisIdentifierType,
@@ -28,6 +31,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
   getHashAttributeIdentifierTypeMap,
 } from "@/services/datasources";
@@ -95,14 +99,20 @@ export function getAutoDatasourceId({
 export function getAutoExposureQueryId({
   datasource,
   hashAttribute,
+  project,
   templateExposureQueryId,
 }: {
   datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
+  project?: string;
   templateExposureQueryId?: string;
 }): string {
   const dsSettings = datasource?.settings;
-  const exposureQueries = dsSettings?.queries?.exposure || [];
+  const exposureQueries = getExposureQueriesForProject(
+    dsSettings?.queries?.exposure || [],
+    project,
+    datasource?.projects,
+  );
 
   if (templateExposureQueryId) {
     const templateExposureQueryIsValid = exposureQueries.some(
@@ -117,10 +127,13 @@ export function getAutoExposureQueryId({
   // lookup below can't resolve the assignment query. Map the hash attribute to its
   // exposure query directly instead.
   if (datasource?.type === "growthbook_clickhouse") {
-    return getManagedWarehouseExposureQueryIdForAttribute({
+    const managedQueryId = getManagedWarehouseExposureQueryIdForAttribute({
       settings: datasource.settings,
       attribute: hashAttribute,
     });
+    return exposureQueries.some((q) => q.id === managedQueryId)
+      ? managedQueryId
+      : "";
   }
 
   if (exposureQueries.length > 1) {
@@ -144,21 +157,28 @@ export function getAutoExposureQueryId({
 /**
  * A template's assignment selection, kept when its query still declares the
  * identifier and otherwise moved to one that does, since a different
- * identifier would measure different units. "unavailable" when no query
- * declares it, so the experiment is created without assignment settings. Null
- * when the template has no selection to honor.
+ * identifier would measure different units. "unavailable" when no query in
+ * the Project's scope declares it, so the experiment is created without
+ * assignment settings. Null when the template has no selection to honor.
  */
 export function resolveTemplateAssignment({
   datasource,
+  project,
   templateExposureQueryId,
   templateIdentifierType,
 }: {
   datasource?: DataSourceInterfaceWithParams;
+  project?: string;
   templateExposureQueryId?: string;
   templateIdentifierType?: string;
 }):
   | { kind: "selected"; exposureQueryId: string; identifierType: string }
-  | { kind: "unavailable"; identifierType: string }
+  | {
+      kind: "unavailable";
+      identifierType: string;
+      /** Queries declare the identifier, but none in this Project's scope. */
+      outOfScope: boolean;
+    }
   | null {
   const queries = datasource?.settings?.queries?.exposure ?? [];
   const templateQuery = queries.find((q) => q.id === templateExposureQueryId);
@@ -168,12 +188,20 @@ export function resolveTemplateAssignment({
     templateIdentifierType,
   );
   if (!identifierType) return null;
-  const query = [templateQuery, ...queries].find((q) =>
-    getExposureQueryIdentifierTypes(q).includes(identifierType),
-  );
+  const declaresIt = (q: ExposureQuery) =>
+    getExposureQueryIdentifierTypes(q).includes(identifierType);
+  const query = getExposureQueriesForProject(
+    [templateQuery, ...queries],
+    project,
+    datasource?.projects,
+  ).find(declaresIt);
   return query
     ? { kind: "selected", exposureQueryId: query.id, identifierType }
-    : { kind: "unavailable", identifierType };
+    : {
+        kind: "unavailable",
+        identifierType,
+        outOfScope: queries.some(declaresIt),
+      };
 }
 
 function getAutoExposureQueryIdentifierType({
@@ -362,8 +390,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const autoDatasource = autoDatasourceId
     ? getDatasourceById(autoDatasourceId)
     : null;
-  const autoDsExposureQueries =
-    autoDatasource?.settings?.queries?.exposure || [];
+  const autoDsExposureQueries = getExposureQueriesForProject(
+    autoDatasource?.settings?.queries?.exposure || [],
+    selectedProject,
+    autoDatasource?.projects,
+  );
   const hashAttributeLinkedToIdentifier = (
     autoDatasource?.settings?.userIdTypes || []
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
@@ -371,11 +402,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     getAutoExposureQueryId({
       datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
+      project: selectedProject,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
   const unavailableTemplateAssignment = watchedTemplate
     ? resolveTemplateAssignment({
         datasource: autoDatasource ?? undefined,
+        project: selectedProject,
         templateExposureQueryId: watchedTemplate.exposureQueryId,
         templateIdentifierType: watchedTemplate.exposureQueryIdentifierType,
       })
@@ -460,6 +493,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       : null;
     const templateAssignment = resolveTemplateAssignment({
       datasource: selectedDatasource ?? undefined,
+      project,
       templateExposureQueryId: data.exposureQueryId,
       templateIdentifierType: data.exposureQueryIdentifierType,
     });
@@ -471,6 +505,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           : getAutoExposureQueryId({
               datasource: selectedDatasource ?? undefined,
               hashAttribute: hashAttribute || "",
+              project,
               templateExposureQueryId: data.exposureQueryId || "",
             });
     const exposureQueryIdentifierType =
@@ -706,8 +741,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <Callout status="warning" mb="3">
           This template&apos;s identifier type (&quot;
           {unavailableTemplateAssignment.identifierType}&quot;) isn&apos;t
-          declared by any assignment query. The experiment will be created
-          without assignment settings, so choose them before analyzing results.
+          declared by{" "}
+          {unavailableTemplateAssignment.outOfScope
+            ? "an assignment query scoped to this Project"
+            : "any assignment query"}
+          . The experiment will be created without assignment settings, so
+          choose them before analyzing results.
         </Callout>
       )}
       {showLinkIdentifierCallout && autoDatasource && (
