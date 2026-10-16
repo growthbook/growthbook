@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { radixSize } from "@/ui/sizes";
 import {
   DropdownMenu,
@@ -16,18 +17,22 @@ export default function PopulationMoreMenu({
   population,
   onDuplicated,
   onDeleted,
+  onAuditLog,
 }: {
   population: ApiPopulation;
   onDuplicated: (copy: ApiPopulation) => Promise<unknown> | void;
   onDeleted: () => Promise<unknown> | void;
+  onAuditLog?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
 
+  const canEdit = permissionsUtil.canUpdatePopulation(population, population);
   const canDuplicate = permissionsUtil.canCreatePopulation(population);
   const canDelete = permissionsUtil.canDeletePopulation(population);
-  if (!canDuplicate && !canDelete) return null;
+  if (!canEdit && !canDuplicate && !canDelete && !onAuditLog) return null;
 
   return (
     <DropdownMenu
@@ -42,12 +47,34 @@ export default function PopulationMoreMenu({
           highContrast
           aria-label="Population actions"
         >
-          <PiDotsThreeVertical size={18} />
+          <BsThreeDotsVertical size={16} />
         </IconButton>
       }
       menuPlacement="end"
       variant="soft"
     >
+      {canEdit && (
+        <DropdownMenuItem
+          onClick={async () => {
+            await router.push(`/populations/${population.id}/edit`);
+          }}
+        >
+          Edit
+        </DropdownMenuItem>
+      )}
+      {onAuditLog && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpen(false);
+            onAuditLog();
+          }}
+        >
+          Audit log
+        </DropdownMenuItem>
+      )}
+      {(canEdit || onAuditLog) && (canDuplicate || canDelete) && (
+        <DropdownMenuSeparator />
+      )}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
@@ -71,7 +98,6 @@ export default function PopulationMoreMenu({
           Duplicate
         </DropdownMenuItem>
       )}
-      {canDuplicate && canDelete && <DropdownMenuSeparator />}
       {canDelete && (
         <DropdownMenuItem
           color="red"

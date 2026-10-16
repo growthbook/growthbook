@@ -1,7 +1,11 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
-import { parseAggregateFilter } from "./aggregate-filters";
+import {
+  AggregateFilterCondition,
+  PARTIAL_AGGREGATE_CONDITION_REGEX,
+  parseAggregateFilter,
+} from "./aggregate-filters";
 
 export const MAX_POPULATION_STEPS = 20;
 /** Distinct fact tables a population's steps may read from. */
@@ -14,7 +18,9 @@ export type PopulationRuleFactTable = Pick<
 
 // Unlike fact metrics, a filter with no comparisons (such as ",") is invalid:
 // it would silently drop the step's threshold.
-function isValidAggregateFilter(aggregateFilter: string): boolean {
+export function isValidPopulationAggregateFilter(
+  aggregateFilter: string,
+): boolean {
   const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
   return conditions.length > 0 && !invalid.length;
 }
@@ -23,6 +29,8 @@ export type PopulationRuleInput = {
   datasource: string;
   userIdTypes: string[];
   steps: PopulationStep[];
+  // Needs each column's jsonFields to type JSON sub-fields, which the slim
+  // definitions payload strips.
   factTables: PopulationRuleFactTable[];
 };
 
@@ -37,11 +45,138 @@ export function getPopulationStepsLabel(
   getFactTableName: (factTableId: string) => string | undefined,
 ): string {
   return steps
-    .map(
-      (step) =>
-        getFactTableName(step.source.factTableId) || step.source.factTableId,
-    )
+    .map((step) => {
+      const name =
+        getFactTableName(step.source.factTableId) || step.source.factTableId;
+      return step.negation ? `no ${name}` : name;
+    })
     .join(" → ");
+}
+
+// The step a conversion window is measured from. Negated steps have no date,
+// so they are skipped. Returns null for the first step.
+export function getPopulationStepAnchorIndex(
+  steps: Pick<PopulationStep, "negation">[],
+  stepIndex: number,
+): number | null {
+  for (let i = stepIndex - 1; i >= 0; i--) {
+    if (!steps[i].negation) return i;
+  }
+  return null;
+}
+
+export const POPULATION_AGGREGATE_OPERATORS = [
+  { operator: ">=", label: "at least" },
+  { operator: ">", label: "more than" },
+  { operator: "=", label: "exactly" },
+  { operator: "<=", label: "at most" },
+  { operator: "<", label: "less than" },
+  { operator: "!=", label: "not equal to" },
+] as const;
+
+function pluralize(n: number, unit: string): string {
+  return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
+}
+
+export type PopulationStepDescription = {
+  before: string;
+  factTableName: string;
+  after: string;
+};
+
+// A one-line summary such as "Doesn't have an Orders row within 7 days after
+// step 1", split around the fact table name so callers can link it without
+// searching the text (a name like "Has" would match the wrong words). Row
+// filters are counted rather than spelled out.
+export function describePopulationStep({
+  steps,
+  index,
+  factTableName,
+  aggregateColumnName,
+  unit,
+}: {
+  steps: PopulationStep[];
+  index: number;
+  factTableName: string;
+  aggregateColumnName?: string;
+  unit: string;
+}): PopulationStepDescription {
+  const step = steps[index];
+  const article = /^[aeiou]/i.test(factTableName) ? "an" : "a";
+  const parts = ["row"];
+
+  if (step.rowFilters.length) {
+    parts.push(`matching ${pluralize(step.rowFilters.length, "filters")}`);
+  }
+
+  const { aggregateFilter, aggregateFilterColumn } = step;
+  if (aggregateFilter && aggregateFilterColumn) {
+    const subject =
+      aggregateFilterColumn === "$$count"
+        ? "rows"
+        : `total ${aggregateColumnName || aggregateFilterColumn}`;
+    const single = parseSingleAggregateFilter(aggregateFilter);
+    const label = single
+      ? POPULATION_AGGREGATE_OPERATORS.find(
+          (o) => o.operator === single.operator,
+        )?.label
+      : undefined;
+    parts.push(
+      single && label
+        ? aggregateFilterColumn === "$$count"
+          ? `with ${label} ${single.value} rows per ${unit}`
+          : `with ${subject} ${label} ${single.value} per ${unit}`
+        : `with ${subject} ${aggregateFilter} per ${unit}`,
+    );
+  }
+
+  const { type, windowValue, windowUnit } = step.windowSettings;
+  if (type === "lookback") {
+    parts.push(`in the last ${pluralize(windowValue, windowUnit)}`);
+  } else if (type === "conversion") {
+    const anchor = getPopulationStepAnchorIndex(steps, index);
+    if (anchor !== null) {
+      parts.push(
+        `within ${pluralize(windowValue, windowUnit)} after step ${anchor + 1}`,
+      );
+    }
+  }
+
+  return {
+    before: `${step.negation ? "Doesn't have" : "Has"} ${article} `,
+    factTableName,
+    after: ` ${parts.join(" ")}`,
+  };
+}
+
+// Returns null when the filter can't be shown as one operator and value, such
+// as a range like ">=3,<10". "<>" is normalized to "!=".
+export function parseSingleAggregateFilter(
+  aggregateFilter: string,
+): AggregateFilterCondition | null {
+  const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
+  if (conditions.length !== 1 || invalid.length) return null;
+  const [{ operator, value }] = conditions;
+  return { operator: normalizeOperator(operator), value };
+}
+
+// Splits an aggregate filter into the editor's operator dropdown and number
+// box. Unlike parseSingleAggregateFilter, the value may be empty or a partial
+// number while the user types. An empty filter starts at "at least". Returns
+// null when the filter can only be edited as raw text, such as ">=3,<10".
+export function parseAggregateFilterForEditor(
+  aggregateFilter: string,
+): AggregateFilterCondition | null {
+  const compact = aggregateFilter.replace(/\s*/g, "");
+  if (!compact) return { operator: ">=", value: "" };
+  const match = compact.match(PARTIAL_AGGREGATE_CONDITION_REGEX);
+  if (!match) return null;
+  return { operator: normalizeOperator(match[1]), value: match[2] };
+}
+
+// POPULATION_AGGREGATE_OPERATORS offers "!=" but not its "<>" synonym.
+function normalizeOperator(operator: string): string {
+  return operator === "<>" ? "!=" : operator;
 }
 
 // Returns every violation so an editor can show them all at once.
@@ -55,6 +190,9 @@ export function getPopulationRuleViolations({
 
   if (steps[0]?.windowSettings.type === "conversion") {
     violations.push("The first step cannot use a conversion window.");
+  }
+  if (steps[0]?.negation) {
+    violations.push(`The first step cannot be a "doesn't have" step.`);
   }
 
   const halfAggregateSteps = steps
@@ -102,7 +240,7 @@ export function getPopulationRuleViolations({
     const { aggregateFilter, aggregateFilterColumn } = step;
     if (!aggregateFilter || !aggregateFilterColumn) return;
 
-    if (!isValidAggregateFilter(aggregateFilter)) {
+    if (!isValidPopulationAggregateFilter(aggregateFilter)) {
       violations.push(
         `Invalid aggregate filter "${aggregateFilter}" (step ${i + 1}). Use comparisons such as ">=3" or ">=3,<10".`,
       );
