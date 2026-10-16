@@ -115,7 +115,10 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -142,10 +145,14 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
+import {
+  PastExperimentsQueryRunner,
+  withCountedIdentifierTypes,
+} from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { assumeUtc } from "back-end/src/util/dates";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
@@ -1313,6 +1320,7 @@ export async function postExperiments(
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
+    winner: data.winner,
     analysis: data.analysis || "",
     releasedVariationId: "",
     excludeFromPayload: true,
@@ -1385,6 +1393,10 @@ export async function postExperiments(
           exposureQueryId: obj.exposureQueryId,
           identifierType: obj.exposureQueryIdentifierType,
           onOmitted: "defaultToFirst",
+          scope: {
+            project: obj.project ?? "",
+            datasourceProjects: datasource.projects,
+          },
         },
       );
       if (!parsed.ok) throw new Error(parsed.error);
@@ -2024,13 +2036,19 @@ export async function postExperiment(
     next: {
       datasource: changes.datasource ?? experiment.datasource ?? "",
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      /**
-       * The body's, not `changes`: re-sending the stored value on a new query
-       * leaves it out of `changes` but is still an explicit choice.
-       */
+      // Read from the body, not `changes`: the diff drops an identifier equal
+      // to the stored one, but on a newly chosen query it's still an explicit
+      // selection.
       identifierType: data.exposureQueryIdentifierType,
     },
     onOmitted: "defaultToFirst",
+    // A newly chosen query must fit the experiment's project after this edit.
+    scope: () =>
+      getExperimentAssignmentQueryScope(
+        context,
+        experiment,
+        changes.project ?? experiment.project ?? "",
+      ),
   });
   // Also overrides an echoed identifier on an unchanged selection, so an
   // implicit experiment stays implicit.
@@ -2101,13 +2119,13 @@ export async function postExperiment(
     const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(assumeUtc(phaseStartDate));
     }
     if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
       // update both phases when stopped
       if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        firstPhaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
         phases[0] = firstPhaseClone; // update the first phase to the same date ended
       }
     }
@@ -2441,7 +2459,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
-      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : new Date(),
     };
     changes.phases = phases;
   }
@@ -2668,7 +2686,9 @@ export async function postExperimentStop(
             : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
-        dateEnded: req.body.dateEnded ? `${req.body.dateEnded}:00Z` : undefined,
+        dateEnded: req.body.dateEnded
+          ? assumeUtc(req.body.dateEnded)
+          : undefined,
       },
       allowAlreadyStopped: true,
     });
@@ -2862,10 +2882,10 @@ export async function putExperimentPhase(
   );
 
   phase.dateStarted = phase.dateStarted
-    ? getValidDate(phase.dateStarted + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateStarted))
     : new Date();
   phase.dateEnded = phase.dateEnded
-    ? getValidDate(phase.dateEnded + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateEnded))
     : undefined;
 
   await validateChangedPhaseReferences(
@@ -3165,7 +3185,7 @@ export async function postExperimentPhase(
     experiment.phases.slice(-1),
     context,
   );
-  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(assumeUtc(dateStarted)) : new Date();
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -3905,23 +3925,32 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
+  const datasource = await getDataSourceById(
+    context,
+    pastExperiments.datasource,
+  );
+  if (!datasource) {
+    return context.permissions.throwPermissionError();
+  }
+
   const experiments = await getPastExperimentsByDatasource(
     context,
     pastExperiments.datasource,
   );
 
-  const experimentMap = new Map<string, string>();
+  const experimentMap = new Map<string, string | null>();
   (experiments || []).forEach((e) => {
-    experimentMap.set(e.trackingKey, e.id);
-    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
+    [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId].forEach((key) => {
+      if (!experimentMap.get(key)) experimentMap.set(key, e.id);
+    });
   });
 
-  const trackingKeyMap: Record<string, string> = {};
+  const trackingKeyMap: Record<string, string | null> = {};
   (pastExperiments.experiments || []).forEach((e) => {
     const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
     keys.forEach((key) => {
       const id = experimentMap.get(key);
-      if (id) {
+      if (id !== undefined) {
         trackingKeyMap[key] = id;
       }
     });
@@ -3929,7 +3958,13 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: pastExperiments,
+    experiments: {
+      ...pastExperiments,
+      experiments: withCountedIdentifierTypes(
+        pastExperiments.experiments ?? [],
+        datasource.settings?.queries?.exposure ?? [],
+      ),
+    },
     existing: trackingKeyMap,
     lookbackDays: IMPORT_LIMIT_DAYS,
   });
@@ -3970,6 +4005,12 @@ export async function postPastExperiments(
 
   let needsRun = false;
   if (force) {
+    // Before touching the shared record; the runner would refuse anyway.
+    if (
+      !context.permissions.canRunPastExperimentQueries(integration.datasource)
+    ) {
+      context.permissions.throwPermissionError();
+    }
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
