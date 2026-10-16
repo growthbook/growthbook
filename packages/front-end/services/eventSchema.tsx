@@ -368,6 +368,8 @@ export const eventSchemas: eventSchema[] = [
 export const dataSourceConnections: {
   type: DataSourceType;
   display: string;
+  /** Shorter name for compact pickers where `display` would truncate. */
+  shortDisplay?: string;
   icon: ReactElement;
   docs: DocSection;
   default: Partial<DataSourceParams>;
@@ -534,6 +536,8 @@ export const dataSourceConnections: {
   {
     type: "adobe_experience_platform_query_service",
     display: "Adobe Experience Platform Query Service",
+    // The Adobe logo sits next to it, so "Adobe" is redundant.
+    shortDisplay: "Experience Platform",
     icon: <SiAdobe />,
     docs: "adobe_experience_platform_query_service",
     default: {
