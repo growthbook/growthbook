@@ -110,6 +110,8 @@ describe("mergeConfirmRules", () => {
         { actions: ["feature.publish"], environments: ["prod", "staging"] },
         { actions: ["experiment.stop"] },
         { actions: ["feature.archive"], environments: ["staging", "prod"] },
+        // A comma in an environment id doesn't make it a different list.
+        { actions: ["feature.delete"], environments: ["prod,staging"] },
       ]),
     ).toEqual([
       {
@@ -117,6 +119,7 @@ describe("mergeConfirmRules", () => {
         environments: ["prod", "staging"],
       },
       { actions: ["experiment.stop"] },
+      { actions: ["feature.delete"], environments: ["prod,staging"] },
     ]);
   });
 

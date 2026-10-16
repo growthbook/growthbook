@@ -36,7 +36,12 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
   }
 
   const autoPublish = stringToBoolean(req.query.autoPublish?.toString());
-  await holdLinkedFeatureWrite(req.context, feature, autoPublish);
+  await holdLinkedFeatureWrite(
+    req.context,
+    feature,
+    autoPublish,
+    req.query.draftVersion,
+  );
   const result = await unlinkFeatureFromContextualBandit({
     context: req.context,
     contextualBandit,

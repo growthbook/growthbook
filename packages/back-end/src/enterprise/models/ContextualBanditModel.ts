@@ -56,6 +56,7 @@ import {
 import { getCollection } from "back-end/src/util/mongo.util";
 import {
   contextualBanditChangeActions,
+  pinnedFields,
   plainWriteSummary,
   queuedDraftsHold,
   requireConfirmation,
@@ -459,12 +460,10 @@ export class ContextualBanditModel extends BaseClass {
     const existing = await this.getById(id);
     if (existing) {
       const body = (req.body ?? {}) as Record<string, unknown>;
+      const changes = await this.processApiUpdateBody(body);
       const path = "/contextual-bandits/:id";
       await requireConfirmation(req.context, {
-        actions: contextualBanditChangeActions(
-          existing,
-          await this.processApiUpdateBody(body),
-        ),
+        actions: contextualBanditChangeActions(existing, changes),
         project: existing.project,
         summary:
           plainWriteSummary(
@@ -475,7 +474,7 @@ export class ContextualBanditModel extends BaseClass {
             body,
           ) ?? `Update ${existing.name}`,
         links: [],
-        pin: existing.status,
+        pin: [existing.status, pinnedFields(existing, changes)],
       });
     }
     return super.handleApiUpdate(req);

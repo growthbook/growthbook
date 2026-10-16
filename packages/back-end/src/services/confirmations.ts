@@ -172,7 +172,8 @@ function heldRequest(req: IncomingRequest): HeldRequest {
   return JSON.parse(
     JSON.stringify({
       method: req.method,
-      path: req.originalUrl.split("?")[0],
+      // Express also routes a trailing slash, which the replay's router doesn't.
+      path: req.originalUrl.split("?")[0].replace(/(.)\/+$/, "$1"),
       query: req.query ?? {},
       body: req.body ?? {},
     }),
@@ -592,12 +593,32 @@ async function armedRevisionActions(
   if (!arming && !actions.includes(`${draft.model}.draft`)) return [];
   const state = await draft.load(context, params);
   if (!arming && !state?.armed) return [];
-  return [
-    `${draft.model}.publish`,
-    ...(state?.archives || body.archived === true
-      ? ([`${draft.model}.archive`] as const)
-      : []),
-  ];
+  return publishActions(
+    draft.model,
+    !!state?.archives || body.archived === true,
+  );
+}
+
+const publishActions = (
+  model: "feature" | "savedGroup" | "constant" | "config",
+  archives: boolean,
+): ConfirmAction[] => [
+  `${model}.publish`,
+  ...(archives ? ([`${model}.archive`] as const) : []),
+];
+
+// Staging into a flag draft that's armed to publish later edits what that
+// publish ships, so it holds as the publish.
+export async function armedFeatureDraftActions(
+  context: ReqContext,
+  featureId: string,
+  version: number | string,
+): Promise<ConfirmAction[]> {
+  const state = await loadFeatureRevision(context, {
+    id: featureId,
+    version: String(version),
+  });
+  return state?.armed ? publishActions("feature", state.archives) : [];
 }
 
 // The route-level hold: the endpoint's actions, with no environments, before the
@@ -615,6 +636,8 @@ export async function holdAtRoute(
   if (!rulesFor(context).length) return;
   const params = (req.params ?? {}) as Record<string, string>;
   const body = asRecord(req.body);
+  // A dry run writes nothing, so there's nothing to confirm.
+  if (body.dryRun === true) return;
   const route = await describeRouteWrite(
     context,
     tags,
@@ -779,20 +802,35 @@ export async function queuedDraftsHold(
   const { getRevision } = await import(
     "back-end/src/models/FeatureRevisionModel"
   );
-  const pin = await Promise.all(
-    queued.map(async ({ featureId, revisionVersion }) => {
-      const revision = await getRevision({
+  const revisions = await Promise.all(
+    queued.map(({ featureId, revisionVersion }) =>
+      getRevision({
         context,
         organization: context.org.id,
         featureId,
         feature: undefined,
         version: revisionVersion,
-      });
-      return [featureId, revisionVersion, revision?.dateUpdated ?? null];
-    }),
+      }),
+    ),
   );
+  const pin = queued.map(({ featureId, revisionVersion }, i) => [
+    featureId,
+    revisionVersion,
+    revisions[i]?.dateUpdated ?? null,
+  ]);
+  // Each publishes whole, with any archive or ramp plan it carries.
   return {
-    actions: ["feature.publish"],
+    actions: [
+      ...new Set([
+        ...publishActions(
+          "feature",
+          revisions.some((r) => r?.archived === true),
+        ),
+        ...revisions.flatMap((r) =>
+          (r?.rampActions ?? []).map(({ mode }) => rampScheduleAction(mode)),
+        ),
+      ]),
+    ],
     links: [...new Set(queued.map(({ featureId }) => featureId))].map((id) =>
       confirmationLink("feature", id),
     ),
@@ -800,8 +838,14 @@ export async function queuedDraftsHold(
   };
 }
 
-// What an update does to a live experiment, in the Make Changes flow's terms.
-// Edits to a draft aren't live, so only starting it counts.
+// The stored values a change replaces, pinned so a confirmed change can't
+// overwrite a newer edit to the same fields.
+export const pinnedFields = <T extends object>(existing: T, changes: object) =>
+  Object.keys(changes).map((field) => [
+    field,
+    (existing as Record<string, unknown>)[field],
+  ]);
+
 // Going live starts it; back to draft takes it out of the payload, like stopping.
 const statusActions = (
   from: string,
@@ -816,6 +860,8 @@ const statusActions = (
     : []),
 ];
 
+// What an update does to a live experiment, in the Make Changes flow's terms.
+// Edits to a draft aren't live, so only starting it counts.
 export function experimentChangeActions(
   existing: Omit<ExperimentInterface, "id" | "dateCreated" | "dateUpdated">,
   changes: Partial<ExperimentInterface>,

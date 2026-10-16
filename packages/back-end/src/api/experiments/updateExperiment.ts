@@ -50,6 +50,7 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   experimentChangeActions,
+  pinnedFields,
   confirmationLink,
   queuedDraftsHold,
   requireConfirmation,
@@ -483,7 +484,12 @@ export const updateExperiment = createApiRequestHandler(
       confirmationLink("experiment", experiment.id, experiment.name),
       ...queued.links,
     ],
-    pin: [experiment.status, experiment.phases, queued.pin],
+    pin: [
+      experiment.status,
+      experiment.phases,
+      pinnedFields(experiment, changes),
+      queued.pin,
+    ],
   });
 
   let experimentForUpdate = experiment;

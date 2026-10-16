@@ -8,6 +8,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
+  armedFeatureDraftActions,
   confirmationLink,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -170,14 +171,27 @@ export function buildContextualBanditRefRule(
   };
 }
 
-// Publishing the rule change now holds as a publish; staging it, as a draft.
+// Publishing the rule change now holds as a publish; staging it, as a draft, and
+// as the publish too when that draft is armed to publish later.
 export async function holdLinkedFeatureWrite(
   context: ApiReqContext,
   feature: FeatureInterface,
   autoPublish: boolean | undefined,
+  draftVersion: number | string | undefined,
 ) {
   await requireConfirmation(context, {
-    actions: [autoPublish ? "feature.publish" : "feature.draft"],
+    actions: autoPublish
+      ? ["feature.publish"]
+      : [
+          "feature.draft",
+          ...(draftVersion === undefined
+            ? []
+            : await armedFeatureDraftActions(
+                context,
+                feature.id,
+                draftVersion,
+              )),
+        ],
     project: feature.project,
     summary: autoPublish
       ? `Publish the contextual bandit rule on ${feature.id}`

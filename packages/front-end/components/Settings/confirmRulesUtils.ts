@@ -154,7 +154,7 @@ export function toggleAction(picks: string[], clicked: string): string[] {
 export function mergeConfirmRules(rules: ConfirmRule[]): ConfirmRule[] {
   const byEnvironments = new Map<string, ConfirmRule>();
   for (const rule of rules) {
-    const key = [...(rule.environments ?? [])].sort().join(",");
+    const key = JSON.stringify([...(rule.environments ?? [])].sort());
     const into = byEnvironments.get(key);
     byEnvironments.set(key, {
       ...(into ?? rule),

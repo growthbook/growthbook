@@ -84,7 +84,7 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     withStagedSchema(feature, staged),
     rule,
   );
-  await holdLinkedFeatureWrite(req.context, feature, autoPublish);
+  await holdLinkedFeatureWrite(req.context, feature, autoPublish, draftVersion);
   const result = await linkFeatureToContextualBandit({
     context: req.context,
     contextualBandit,

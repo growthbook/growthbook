@@ -355,10 +355,13 @@ export const postConstantRevisionRevertValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/revert",
   confirmation: [
+    "constant.draft",
     "constant.publish",
     "constant.archive",
     ...PUBLISH_OVERRIDE_ACTIONS,
   ] as const,
+  // Holds once the strategy is known: a draft, or a publish that lands.
+  confirmationInHandler: true,
   operationId: "postConstantRevisionRevert",
   summary: "Revert the constant to a prior revision",
   description:

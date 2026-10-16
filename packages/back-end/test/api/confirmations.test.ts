@@ -928,7 +928,95 @@ describe("confirmations", () => {
 
     setReqContext(asKey(recommended));
     expect((await update("cb_draft", { coverage: 0.5 })).status).toBe(200);
-    expect((await update("cb_live", { coverage: 0.25 })).status).toBe(202);
+    const held = await update("cb_live", { coverage: 0.25 });
+    expect(held.status).toBe(202);
+
+    // A newer edit to the same field voids the held one.
+    await mongoose.connection
+      .collection("contextualbandits")
+      .updateOne({ id: "cb_live" }, { $set: { coverage: 0.75 } });
+    const premium = jest
+      .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
+      .mockReturnValue(true);
+    const done = await decideConfirmation(
+      asUser("u_admin"),
+      held.body.confirmation.id,
+      "confirm",
+    );
+    premium.mockRestore();
+    expect(done.status).toBe("expired");
+  });
+
+  it("holds work that lands a queued or armed flag draft as what it lands", async () => {
+    await seed("production");
+    const { holdLinkedFeatureWrite } = await import(
+      "back-end/src/api/contextual-bandits/_shared"
+    );
+    const { queuedDraftsHold } = await import(
+      "back-end/src/services/confirmations"
+    );
+    const feature = (await mongoose.connection
+      .collection("features")
+      .findOne({ id: FLAG })) as unknown as FeatureInterface;
+    // With no request to hold, a matching rule refuses instead.
+    const publishOnly = asKey({
+      ...bot,
+      confirmRules: [{ actions: ["feature.publish"] }],
+    });
+    await expect(
+      holdLinkedFeatureWrite(publishOnly, feature, false, 2),
+    ).resolves.toBeUndefined();
+
+    await mongoose.connection.collection("featurerevisions").updateOne(
+      { organization: ORG_ID, featureId: FLAG, version: 2 },
+      {
+        $set: {
+          autoPublishOnApproval: true,
+          archived: true,
+          rampActions: [{ mode: "create" }],
+        },
+      },
+    );
+    await expect(
+      holdLinkedFeatureWrite(publishOnly, feature, false, 2),
+    ).rejects.toThrow("only a direct API request");
+    expect(
+      (
+        await queuedDraftsHold(asKey(ci), [
+          { featureId: FLAG, revisionVersion: 2 },
+        ])
+      ).actions.sort(),
+    ).toEqual(["feature.archive", "feature.publish", "rampSchedule.start"]);
+  });
+
+  it("holds a revert as the draft or the publish its strategy makes", async () => {
+    await seed("production");
+    await insertConstant("hitl_revert");
+    setReqContext(asKey(ci));
+    const draft = await auth(
+      request(app).put("/api/v1/constants-revisions/hitl_revert/new/value"),
+    ).send({ value: "after" });
+    expect(
+      (
+        await auth(
+          request(app).post(
+            `/api/v1/constants-revisions/hitl_revert/${draft.body.revision.version}/publish`,
+          ),
+        ).send({})
+      ).status,
+    ).toBe(200);
+
+    setReqContext(asKey(recommended));
+    const revert = (strategy: "draft" | "publish") =>
+      auth(
+        request(app).post("/api/v1/constants-revisions/hitl_revert/1/revert"),
+      ).send({ strategy });
+    expect((await revert("draft")).status).toBe(200);
+    const landed = await revert("publish");
+    expect(landed.status).toBe(202);
+    expect(landed.body.confirmation.actions).toEqual([
+      { action: "constant.publish", environments: [] },
+    ]);
   });
 
   it("holds starting an experiment as a publish of its queued drafts, pinned to them", async () => {
@@ -1180,8 +1268,9 @@ describe("confirmations", () => {
     });
     expect(created.status).toBe(200);
 
+    // Express also routes a trailing slash, so the replay has to as well.
     const held = await auth(
-      request(app).put("/api/v1/environments/production"),
+      request(app).put("/api/v1/environments/production/"),
     ).send({ description: "Live" });
     expect(held.status).toBe(202);
     expect(held.body.confirmation.actions).toEqual([
