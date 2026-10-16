@@ -13,16 +13,20 @@ type ExpiringKey = ReturnType<typeof useUser>["expiringApiKeys"][number];
 // organization's keys, that lapse soon or lapsed but are still in use. Expiry
 // events go only to org webhooks, so this is how people hear about them.
 export default function useKeyExpiryNotices(): AppNotice[] {
-  const { expiringPersonalAccessTokens, expiringApiKeys } = useUser();
+  const { expiringPersonalAccessTokens, expiringApiKeys, settings } = useUser();
   const canReplaceApiKeys = usePermissionsUtil().canCreateApiKey();
   return [
-    expiryNotice(expiringPersonalAccessTokens, {
-      id: "personal-access-token-expiry",
-      noun: "personal access token",
-      href: "/account/personal-access-tokens",
-      fix: "on your Personal Access Tokens page",
-      canReplace: true,
-    }),
+    // Disabled tokens fail at authentication whatever their expiry.
+    expiryNotice(
+      settings?.disablePersonalAccessTokens ? [] : expiringPersonalAccessTokens,
+      {
+        id: "personal-access-token-expiry",
+        noun: "personal access token",
+        href: "/account/personal-access-tokens",
+        fix: "on your Personal Access Tokens page",
+        canReplace: true,
+      },
+    ),
     expiryNotice(expiringApiKeys, {
       id: "api-key-expiry",
       noun: "API key",
@@ -80,7 +84,12 @@ function expiryNotice(
               {fix}.
             </>
           ) : (
-            `To extend one that hasn't expired, edit its expiration date ${fix}. Replacing an expired ${noun} requires permission to create them.`
+            <>
+              To extend one that hasn&apos;t expired, use{" "}
+              <strong>Edit key</strong> {fix}. An expired {noun} can&apos;t be
+              extended, and replacing it requires permission to create a new
+              one.
+            </>
           )}
         </Text>
       </Flex>

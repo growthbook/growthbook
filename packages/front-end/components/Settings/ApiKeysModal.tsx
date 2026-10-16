@@ -15,6 +15,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
@@ -72,6 +73,7 @@ const ApiKeysModal: FC<{
   const { apiCall } = useAuth();
   const { organization, settings } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
+  const canCreateApiKey = usePermissionsUtil().canCreateApiKey();
 
   const maxLifetimeDays = personalAccessToken
     ? settings?.maxPatLifetimeDays
@@ -260,6 +262,7 @@ const ApiKeysModal: FC<{
         value={expiresAt}
         setValue={setExpiresAt}
         existing={existingKey}
+        canReplace={personalAccessToken || canCreateApiKey}
       />
       {canDeleteSource && (
         <Box mt="3">
