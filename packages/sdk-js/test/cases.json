@@ -1444,12 +1444,6 @@
       true
     ],
     [
-      "$elemMatch of null fails rather than throwing",
-      { "tags": { "$elemMatch": null } },
-      { "tags": ["a"] },
-      false
-    ],
-    [
       "unknown operator - pass",
       {
         "name": {

@@ -264,10 +264,10 @@ export function evalFeature<V = unknown>(
           }
 
           const evalObj = { value: parentResult.value };
-          const evaled = evalCondition(
+          const evaled = evalConditionSafely(
             evalObj,
             parentCondition.condition || {},
-            ctx.global.savedGroups || {},
+            ctx,
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -638,11 +638,7 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (
-          !evalCondition(
-            evalObj,
-            parentCondition.condition || {},
-            ctx.global.savedGroups || {},
-          )
+          !evalConditionSafely(evalObj, parentCondition.condition || {}, ctx)
         ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
@@ -896,7 +892,14 @@ function getContextualBanditLeaf(
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
   for (const context of cbDefinition.contexts || []) {
-    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+    // A condition that throws makes the bandit use its fallback weights
+    if (
+      evalCondition(
+        getAttributes(ctx.user),
+        (context.condition || {}) as ConditionInterface,
+        ctx.global.savedGroups || {},
+      )
+    ) {
       return { leafId: context.leafId, weights: context.weights };
     }
   }
@@ -962,11 +965,23 @@ function conditionPasses(
   condition: ConditionInterface,
   ctx: EvalContext,
 ): boolean {
-  return evalCondition(
-    getAttributes(ctx.user),
-    condition,
-    ctx.global.savedGroups || {},
-  );
+  return evalConditionSafely(getAttributes(ctx.user), condition, ctx);
+}
+
+// A condition that throws, such as a malformed one, fails rather than breaking
+// evaluation
+function evalConditionSafely(
+  obj: Record<string, unknown>,
+  condition: ConditionInterface,
+  ctx: EvalContext,
+): boolean {
+  try {
+    return evalCondition(obj, condition, ctx.global.savedGroups || {});
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Condition evaluation failed", { condition, error: e });
+    return false;
+  }
 }
 
 function isFilteredOut(filters: Filter[], ctx: EvalContext): boolean {

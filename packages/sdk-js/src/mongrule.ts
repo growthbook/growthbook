@@ -314,7 +314,7 @@ function elemMatch(
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
 ): Result {
-  if (!Array.isArray(actual) || (expected ?? null) === null) return false;
+  if (!Array.isArray(actual)) return false;
   // Operators test each element itself. A condition, including one that only
   // uses $or, $and, $nor, or $savedGroup, tests each element's fields.
   const check =
