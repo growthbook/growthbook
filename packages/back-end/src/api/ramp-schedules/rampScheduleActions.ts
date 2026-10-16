@@ -78,6 +78,7 @@ export const startRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/start",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "startRampSchedule",
   summary: "Start a ramp schedule",
   description:
@@ -128,6 +129,7 @@ export const pauseRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/pause",
+  confirmation: ["rampSchedule.pause"] as const,
   operationId: "pauseRampSchedule",
   summary: "Pause a ramp schedule",
   description:
@@ -167,6 +169,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/resume",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "resumeRampSchedule",
   summary: "Resume a paused ramp schedule",
   description:
@@ -212,6 +215,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/jump",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "jumpRampSchedule",
   summary: "Jump to a specific step",
   description:
@@ -256,6 +260,7 @@ export const completeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/complete",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
@@ -316,6 +321,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "approveStepRampSchedule",
   summary: "Approve the pending approval gate",
   description:
@@ -416,6 +422,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/rollback",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "rollbackRampSchedule",
   summary: "Roll back a ramp schedule",
   description:
@@ -457,6 +464,7 @@ export const restartRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/restart",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "restartRampSchedule",
   summary: "Restart a terminal ramp schedule",
   description:
@@ -505,6 +513,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/add-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "addTargetRampSchedule",
   summary: "Add a target rule to a ramp schedule",
   description:
@@ -685,6 +694,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     .or(z.object({ deleted: z.boolean(), rampScheduleId: z.string() })),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/eject-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "ejectTargetRampSchedule",
   summary: "Remove a target rule from a ramp schedule",
   description:
@@ -767,6 +777,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/advance",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "apiAdvanceRampSchedule",
   summary: "Advance to the next step, overriding any holds",
   description:
@@ -1310,6 +1321,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-monitoring-mode",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setMonitoringModeRampSchedule",
   summary: "Set ramp monitoring mode",
   description:
@@ -1342,6 +1354,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-auto-update",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setAutoUpdateRampSchedule",
   summary: "Toggle automatic monitoring updates",
   description:
@@ -1374,6 +1387,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/monitoring",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleMonitoring",
   summary: "Update ramp monitoring configuration",
   description:
@@ -1408,6 +1422,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/lockdown",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleLockdown",
   summary: "Update ramp lockdown configuration",
   description:
@@ -1474,6 +1489,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   }),
   method: "put" as const,
   path: "/ramp-schedules/:id/steps",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
@@ -1529,6 +1545,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   }),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/refresh-monitoring",
+  confirmation: [],
   operationId: "refreshMonitoringRampSchedule",
   summary: "Trigger a manual monitoring update",
   description:

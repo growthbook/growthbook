@@ -14,6 +14,7 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -231,6 +232,7 @@ export const postSavedGroupValidator = {
     })
     .strict(),
   summary: "Create a single saved group",
+  confirmation: ["savedGroup.create"] as const,
   operationId: "postSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -277,6 +279,7 @@ export const updateSavedGroupValidator = {
   summary: "Partially update a single saved group",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -300,6 +303,8 @@ export const archiveSavedGroupValidator = {
   summary: "Archive a single saved group",
   description:
     'Archives a Saved Group. If it is still referenced by a Feature Flag, experiment, or another Saved Group, the API returns 422 with the affected references. Send `"ignoreWarnings": true` to acknowledge those references and continue. When approval is required, create and publish an archive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.',
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -320,6 +325,8 @@ export const unarchiveSavedGroupValidator = {
   summary: "Unarchive a single saved group",
   description:
     "Unarchives a Saved Group. When approval is required, create and publish an unarchive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.",
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -337,6 +344,7 @@ export const deleteSavedGroupValidator = {
     })
     .strict(),
   summary: "Deletes a single saved group",
+  confirmation: ["savedGroup.delete"] as const,
   operationId: "deleteSavedGroup",
   tags: ["saved-groups"],
   method: "delete" as const,

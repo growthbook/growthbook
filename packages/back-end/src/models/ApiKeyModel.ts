@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
+import { apiKeySchema, ConfirmRule } from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
   canSetApiKeyDisabled,
@@ -163,6 +163,7 @@ export class ApiKeyModel extends BaseClass {
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
+      confirmRules: doc.confirmRules,
     };
   }
 
@@ -395,6 +396,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader,
     requesterPermissions,
     expiresAt,
+    confirmRules,
   }: {
     description: string;
     roleId: string;
@@ -405,6 +407,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader?: ApiKeyInterface["requesterHeader"];
     requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -420,6 +423,7 @@ export class ApiKeyModel extends BaseClass {
       requesterHeader,
       requesterPermissions,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -433,6 +437,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     userId: string;
     description: string;
@@ -442,6 +447,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -457,6 +463,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -529,6 +536,7 @@ export class ApiKeyModel extends BaseClass {
       requesterHeader,
       requesterPermissions,
       expiresAt,
+      confirmRules,
     }: {
       role?: string;
       scopedRole?: string;
@@ -541,6 +549,7 @@ export class ApiKeyModel extends BaseClass {
       requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
+      confirmRules?: ConfirmRule[] | null;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -576,6 +585,7 @@ export class ApiKeyModel extends BaseClass {
           additionalRoles: scopedRole ? additionalRoles : undefined,
           projectRoles: scopedRole ? projectRoles : undefined,
           ...(expiresAt !== undefined && { expiresAt }),
+          ...(confirmRules !== undefined && { confirmRules }),
         },
         { forceCanUpdate: true },
       );
@@ -613,6 +623,7 @@ export class ApiKeyModel extends BaseClass {
         ...(requesterHeader !== undefined && { requesterHeader }),
         ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
+        ...(confirmRules !== undefined && { confirmRules }),
       },
       { forceCanUpdate: true },
     );
@@ -763,22 +774,33 @@ export class ApiKeyModel extends BaseClass {
     )) as SecretApiKey;
   }
 
-  // The member's own PATs worth a top-nav warning: lapsing soon, or lapsed but still in use.
+  // The member's own PATs worth a warning: lapsing soon, or lapsed but still in use.
   public async getExpiringPersonalAccessTokens(userId: string) {
-    const now = new Date();
-    const tokens = await this._find({
+    return this.findExpiring({
       userId,
       oauthClientId: { $exists: false },
-      disabled: { $ne: true },
-      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
       // The app mints and replaces its own Visual Editor key; the member never made it.
       $nor: [{ role: "visualEditor", scoped: { $ne: true } }],
     });
-    return tokens
+  }
+
+  // The organization's own API keys worth a warning, for people who manage them.
+  public async getExpiringOrgApiKeys() {
+    return this.findExpiring({ userId: null, secret: true });
+  }
+
+  private async findExpiring(filter: Record<string, unknown>) {
+    const now = new Date();
+    const keys = await this._find({
+      ...filter,
+      disabled: { $ne: true },
+      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+    });
+    return keys
       .filter(
-        (t) =>
-          !isExpired(t.expiresAt, now) ||
-          (!!t.lastUsed && !!t.expiresAt && t.lastUsed > t.expiresAt),
+        (k) =>
+          !isExpired(k.expiresAt, now) ||
+          (!!k.lastUsed && !!k.expiresAt && k.lastUsed > k.expiresAt),
       )
       .map(({ id, description, expiresAt, lastUsed }) => ({
         id,
@@ -867,6 +889,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader,
     requesterPermissions,
     expiresAt,
+    confirmRules,
   }: {
     environment: string;
     project: string;
@@ -883,6 +906,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader?: ApiKeyInterface["requesterHeader"];
     requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -915,6 +939,7 @@ export class ApiKeyModel extends BaseClass {
       ...(requesterHeader !== undefined && { requesterHeader }),
       ...(requesterPermissions !== undefined && { requesterPermissions }),
       expiresAt,
+      ...(confirmRules ? { confirmRules } : {}),
     });
   }
 }

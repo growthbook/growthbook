@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // Releases — the REST namespace for coordinated multi-entity publishing. The
 // bare `POST /releases` slot stays free for a future full Release entity.
@@ -116,6 +117,20 @@ const publishRevisionsBypassedGate = z.object({
 export const postReleasePublishRevisionsValidator = {
   method: "post" as const,
   path: "/releases/publish-revisions",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "savedGroup.publish",
+    "savedGroup.archive",
+    "constant.publish",
+    "constant.archive",
+    "config.publish",
+    "config.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postReleasePublishRevisions",
   summary: "Atomically publish revisions across multiple entities",
   description:

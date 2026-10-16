@@ -23,6 +23,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/delete-variant",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVisualEditorDeleteVariant",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.

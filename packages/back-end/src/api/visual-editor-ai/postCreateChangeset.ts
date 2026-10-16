@@ -38,6 +38,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/create-changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "postVisualEditorCreateChangeset",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
