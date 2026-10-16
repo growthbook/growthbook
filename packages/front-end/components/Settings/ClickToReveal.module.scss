@@ -3,24 +3,58 @@
   color: transparent;
 }
 
+// Both states share this box, so revealing keeps the size and click target.
+// It bleeds into the margins so the padding doesn't move the text.
+.frame {
+  margin: -2px -4px;
+  padding: 2px 4px;
+  border-radius: var(--radius-2);
+}
+
+.hidden {
+  cursor: pointer;
+
+  // Radix's outline hover, for anywhere on the widget.
+  &:hover .reveal {
+    background-color: var(--accent-a2);
+  }
+}
+
+// Invisible, so the revealed key takes exactly the hidden one's space.
+.sizer {
+  visibility: hidden;
+}
+
+// One line, fading out where it runs past that space.
 .secret {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
   color: var(--text-color-main);
-  overflow-wrap: anywhere;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 
 // Nested to outrank the popover anchor's `all: unset`.
-.revealed .value {
+.frame .key {
+  position: absolute;
+  inset: 0;
   display: block;
-  margin-left: -4px;
-  padding: 2px 4px;
-  border-radius: var(--radius-2);
+  padding: inherit;
+  border-radius: inherit;
   text-align: left;
-  cursor: pointer;
+  transition: padding-right 150ms ease;
+}
 
-  &:hover,
-  &:focus-visible {
-    background-color: var(--gray-a3);
-  }
+// Ends the key where the Hide button starts, while it shows.
+.revealed:hover .key,
+.revealed:has(:focus-visible) .key {
+  padding-right: 42px;
+}
+
+// Over the Hide button too, which sits on the key rather than in it.
+.revealed:hover,
+.revealed:has(:focus-visible) {
+  background-color: var(--gray-a3);
 }
 
 // Solid behind a button over text, so the text doesn't show through and the
@@ -33,8 +67,9 @@
 // Shown while the key is hovered or keyboard-focused; a click's focus would
 // keep it up after the pointer leaves.
 .hide {
-  right: -4px;
-  bottom: -6px;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 150ms ease;
