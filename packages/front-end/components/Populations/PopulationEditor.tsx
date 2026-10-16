@@ -4,7 +4,10 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
 import type { ApiPopulation, PopulationStep } from "shared/validators";
-import { MAX_POPULATION_STEPS } from "shared/populations";
+import {
+  getPopulationFactTableIds,
+  MAX_POPULATION_STEPS,
+} from "shared/populations";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -19,6 +22,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useFullFactTables from "@/hooks/useFullFactTables";
 import { useRefreshPopulations } from "@/hooks/usePopulations";
 import PopulationStepCard from "./PopulationStepCard";
 import {
@@ -93,9 +97,20 @@ export default function PopulationEditor({
   const canSave = population
     ? permissionsUtil.canUpdatePopulation(population, { projects })
     : permissionsUtil.canCreatePopulation({ projects });
-  const issue = canSave
-    ? getPopulationDraftIssue(draft, allFactTables)
-    : "You don't have permission to save this Population.";
+  const stepFactTableIds = getPopulationFactTableIds(draft.steps).filter((id) =>
+    allFactTables.some((ft) => ft.id === id),
+  );
+  const { getById: getFullFactTable, isLoadedFor: fullFactTablesLoadedFor } =
+    useFullFactTables(stepFactTableIds);
+  const ruleFactTables = allFactTables.map((ft) => ({
+    ...ft,
+    columns: getFullFactTable(ft.id)?.columns ?? ft.columns,
+  }));
+  const issue = !canSave
+    ? "You don't have permission to save this Population."
+    : !fullFactTablesLoadedFor(stepFactTableIds)
+      ? "Loading fact tables..."
+      : getPopulationDraftIssue(draft, ruleFactTables);
 
   const userIdTypeOptions =
     getDatasourceById(draft.datasource)?.settings.userIdTypes?.map(

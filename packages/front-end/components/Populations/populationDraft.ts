@@ -100,6 +100,8 @@ export function removePopulationStep(
 
 // The first reason the draft can't be saved yet, or null when it's complete.
 // Incomplete fields come first, then the same rules the server enforces.
+// `factTables` must carry full columns (with jsonFields) for the steps' fact
+// tables, or JSON sub-field aggregates are rejected.
 export function getPopulationDraftIssue(
   draft: PopulationDraft,
   factTables: PopulationRuleFactTable[],
@@ -129,7 +131,6 @@ export function getPopulationDraftIssue(
     userIdTypes: draft.userIdTypes,
     steps: draft.steps,
     factTables,
-    jsonFieldTypesUnknown: true,
   });
   return violation ?? null;
 }

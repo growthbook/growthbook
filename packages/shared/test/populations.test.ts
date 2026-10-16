@@ -560,26 +560,20 @@ describe("getPopulationRuleViolations", () => {
       ]);
     });
 
-    it("skips JSON sub-field types only when told they are unknown", () => {
+    it("rejects JSON sub-fields when the fact table has no jsonFields", () => {
       const slimEvents: PopulationRuleFactTable = {
         ...events,
         columns: events.columns.map((c) => ({ ...c, jsonFields: undefined })),
       };
-      const input = {
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: [withAggregate("props.quantity"), withAggregate("country")],
-        factTables: [slimEvents],
-      };
-
-      expect(getPopulationRuleViolations(input)).toEqual([
-        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
-        `Aggregate filter column 'country' must be a numeric column or "$$count" (step 2).`,
-      ]);
       expect(
-        getPopulationRuleViolations({ ...input, jsonFieldTypesUnknown: true }),
+        getPopulationRuleViolations({
+          datasource: "ds_main",
+          userIdTypes: ["user_id"],
+          steps: [withAggregate("props.quantity")],
+          factTables: [slimEvents],
+        }),
       ).toEqual([
-        `Aggregate filter column 'country' must be a numeric column or "$$count" (step 2).`,
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
       ]);
     });
 

@@ -29,10 +29,9 @@ export type PopulationRuleInput = {
   datasource: string;
   userIdTypes: string[];
   steps: PopulationStep[];
+  // Needs each column's jsonFields to type JSON sub-fields, which the slim
+  // definitions payload strips.
   factTables: PopulationRuleFactTable[];
-  // Slim fact tables (such as the front-end's definitions) omit jsonFields, so
-  // a JSON sub-field's type can't be checked. The server always checks it.
-  jsonFieldTypesUnknown?: boolean;
 };
 
 export function getPopulationFactTableIds(steps: PopulationStep[]): string[] {
@@ -176,7 +175,6 @@ export function getPopulationRuleViolations({
   userIdTypes,
   steps,
   factTables,
-  jsonFieldTypesUnknown = false,
 }: PopulationRuleInput): string[] {
   const violations: string[] = [];
 
@@ -240,18 +238,6 @@ export function getPopulationRuleViolations({
 
     const factTable = factTableMap.get(step.source.factTableId);
     if (!factTable || aggregateFilterColumn === "$$count") return;
-    if (jsonFieldTypesUnknown) {
-      const baseColumn = factTable.columns.find(
-        (c) => c.column === aggregateFilterColumn.split(".")[0],
-      );
-      if (
-        aggregateFilterColumn.includes(".") &&
-        baseColumn?.datatype === "json" &&
-        !baseColumn.jsonFields
-      ) {
-        return;
-      }
-    }
     const columnType = getSelectedColumnDatatype({
       factTable,
       column: aggregateFilterColumn,

@@ -224,36 +224,40 @@ describe("getPopulationDraftIssue", () => {
     );
   });
 
-  it("doesn't reject JSON sub-field aggregates the slim fact table can't type", () => {
-    expect(
-      issue(
-        {
-          ...complete,
-          steps: [
-            step("a", {
-              windowSettings: anyTime,
-              aggregateFilterColumn: "props.quantity",
-              aggregateFilter: ">=1",
-            }),
-          ],
-        },
-        [
-          factTable("a", {
-            columns: [
-              {
-                dateCreated: new Date(0),
-                dateUpdated: new Date(0),
-                name: "props",
-                description: "",
-                column: "props",
-                datatype: "json",
-                numberFormat: "",
-                deleted: false,
-              },
-            ],
-          }),
+  it("checks JSON sub-field aggregates against the column's jsonFields", () => {
+    const withAggregate = (aggregateFilterColumn: string) => ({
+      ...complete,
+      steps: [
+        step("a", {
+          windowSettings: anyTime,
+          aggregateFilterColumn,
+          aggregateFilter: ">=1",
+        }),
+      ],
+    });
+    const tables = [
+      factTable("a", {
+        columns: [
+          {
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+            name: "props",
+            description: "",
+            column: "props",
+            datatype: "json",
+            numberFormat: "",
+            deleted: false,
+            jsonFields: {
+              quantity: { datatype: "number" },
+              coupon: { datatype: "string" },
+            },
+          },
         ],
-      ),
-    ).toBeNull();
+      }),
+    ];
+    expect(issue(withAggregate("props.quantity"), tables)).toBeNull();
+    expect(issue(withAggregate("props.coupon"), tables)).toBe(
+      `Aggregate filter column 'props.coupon' must be a numeric column or "$$count" (step 1).`,
+    );
   });
 });
