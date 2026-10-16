@@ -62,9 +62,7 @@ const MemberPersonalAccessTokens: FC = () => {
   const { users, settings } = useUser();
   const orgTokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtil = usePermissionsUtil();
-  const canManage = permissionsUtil.canDeleteApiKey();
-  // The apiKey history endpoint gates on create, not delete.
-  const canViewAuditLog = permissionsUtil.canCreateApiKey();
+  const canManage = permissionsUtil.canManagePersonalAccessTokens();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
@@ -284,14 +282,12 @@ const MemberPersonalAccessTokens: FC = () => {
                         >
                           {token.disabled ? "Enable" : "Disable"}
                         </Button>
-                        {canViewAuditLog && (
-                          <Button
-                            variant="ghost"
-                            onClick={() => setAuditLogToken(token)}
-                          >
-                            Audit log
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          onClick={() => setAuditLogToken(token)}
+                        >
+                          Audit log
+                        </Button>
                       </Flex>
                     </TableCell>
                   </TableRow>

@@ -275,11 +275,15 @@ export async function getHistory(
     });
   }
 
-  // API key history can expose roles/scope/descriptions, so gate it behind the
-  // same admin permission used to manage keys (matching the admin-gated UI).
-  // Other entity types keep their existing org-scoped access.
-  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
-    context.permissions.throwPermissionError();
+  // API key history can expose roles/scope/descriptions, so it needs the same
+  // permission as listing keys. Other entity types keep their org-scoped access.
+  if (type === "apiKey" && !context.permissions.canViewApiKeys()) {
+    // Managing members' tokens covers one token's history, not every key's.
+    const token =
+      id && context.permissions.canManagePersonalAccessTokens()
+        ? await context.models.apiKeys.getById(id)
+        : null;
+    if (!token?.userId) context.permissions.throwPermissionError();
   }
   if (
     type === "project" &&
@@ -1856,7 +1860,7 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteApiKey()) {
+  if (!context.permissions.canManagePersonalAccessTokens()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1913,7 +1917,11 @@ export async function postApplyExpirationPolicy(
   if (kind !== "pat" && kind !== "secret") {
     context.throwBadRequestError("Invalid key kind");
   }
-  if (!context.permissions.canDeleteApiKey()) {
+  if (
+    kind === "pat"
+      ? !context.permissions.canManagePersonalAccessTokens()
+      : !context.permissions.canDeleteApiKey()
+  ) {
     context.permissions.throwPermissionError();
   }
 

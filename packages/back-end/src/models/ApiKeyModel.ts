@@ -2,7 +2,11 @@ import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
-import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
+import {
+  apiKeyToggleRequiresAdmin,
+  canSetApiKeyDisabled,
+  getRoleById,
+} from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
@@ -76,8 +80,10 @@ export class ApiKeyModel extends BaseClass {
       // filters to the caller's userId and postApiKeyReveal checks ownership.
       return (
         apiKey.userId === this.context.userId ||
-        this.context.permissions.canDeleteApiKey()
+        this.context.permissions.canManagePersonalAccessTokens()
       );
+    } else if (apiKey.secret) {
+      return this.context.permissions.canViewApiKeys();
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -96,8 +102,17 @@ export class ApiKeyModel extends BaseClass {
     if (!keys.length || keys.some((k) => !editable.has(k))) return false;
     // Admins can disable another member's PAT without being able to delete it —
     // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKey.secret && updates.disabled !== undefined) {
+      return canSetApiKeyDisabled(
+        this.context.permissions,
+        apiKey,
+        this.context.userId,
+        updates.disabled,
+      );
+    }
+    // Expiry-only updates come from applying the expiration policy.
     if (apiKeyToggleRequiresAdmin(apiKey, this.context.userId)) {
-      return this.context.permissions.canDeleteApiKey();
+      return this.context.permissions.canManagePersonalAccessTokens();
     }
     return this.canDelete(apiKey);
   }
@@ -567,9 +582,7 @@ export class ApiKeyModel extends BaseClass {
       return { before: doc, after };
     }
 
-    // Editing a key's authority is at least as sensitive as revealing it, so we
-    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
-    if (!this.context.permissions.canCreateApiKey()) {
+    if (!this.context.permissions.canUpdateApiKey()) {
       this.context.permissions.throwPermissionError();
     }
     if (!role) {

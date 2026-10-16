@@ -105,7 +105,10 @@ const OrganizationPoliciesCard: FC<{
   const canDisable = kind === "pat" && canManageOrgSettings;
   // Key managers see the policy and can apply it to keys; changing it is also
   // an org setting, which is what saving it checks.
-  const canSeeExpiry = permissionsUtil.canDeleteApiKey();
+  const canSeeExpiry =
+    kind === "pat"
+      ? permissionsUtil.canManagePersonalAccessTokens()
+      : permissionsUtil.canViewApiKeys();
   const canExpire = canSeeExpiry && canManageOrgSettings;
   const [editing, setEditing] = useState(false);
   const locked = hasFileConfig();
