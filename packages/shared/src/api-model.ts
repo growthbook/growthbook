@@ -132,6 +132,8 @@ export type OpenApiModelSpec<
   possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
   /** Actions a person may have to confirm before each CRUD action runs. */
   confirmation?: Partial<Record<CrudAction, readonly ConfirmAction[]>>;
+  /** CRUD actions whose handler holds for confirmation itself, once it knows the change. */
+  confirmationInHandler?: Partial<Record<CrudAction, boolean>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
@@ -221,6 +223,7 @@ export type CrudEndpoint<S extends OpenApiModelSpec, A extends CrudAction> = {
   tags: string[];
   possibleErrors?: readonly ApiErrorCode[];
   confirmation?: readonly ConfirmAction[];
+  confirmationInHandler?: boolean;
 };
 
 function getFullPath(basePath: string, pathFragment: string): string {
@@ -289,6 +292,7 @@ export function crudEndpoint<
     tags: [getApiModelTag(spec)],
     possibleErrors: spec.possibleErrors?.[action],
     confirmation: spec.confirmation?.[action],
+    confirmationInHandler: spec.confirmationInHandler?.[action],
   } as CrudEndpoint<S, A>;
 }
 

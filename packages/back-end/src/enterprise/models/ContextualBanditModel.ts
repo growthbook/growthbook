@@ -55,6 +55,8 @@ import {
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 import {
+  contextualBanditChangeActions,
+  plainWriteSummary,
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -447,6 +449,36 @@ export class ContextualBanditModel extends BaseClass {
       banditVersion: 0,
       seed: uuidv4(),
     };
+  }
+
+  // Held by what the update changes, which takes the bandit as it is now.
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (existing) {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const path = "/contextual-bandits/:id";
+      await requireConfirmation(req.context, {
+        actions: contextualBanditChangeActions(
+          existing,
+          await this.processApiUpdateBody(body),
+        ),
+        project: existing.project,
+        summary:
+          plainWriteSummary(
+            "put",
+            path,
+            "Contextual Bandit",
+            existing.name,
+            body,
+          ) ?? `Update ${existing.name}`,
+        links: [],
+        pin: existing.status,
+      });
+    }
+    return super.handleApiUpdate(req);
   }
 
   protected async processApiUpdateBody(rawBody: unknown) {

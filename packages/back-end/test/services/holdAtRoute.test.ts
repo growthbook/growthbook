@@ -13,6 +13,7 @@ const hold = (req: { query?: unknown; body?: unknown }) =>
   holdAtRoute(
     {
       isApiRequest: true,
+      org: { settings: {} },
       apiKeyData: { confirmRules: [{ actions: ["override.*"] }] },
       models: {},
       req,

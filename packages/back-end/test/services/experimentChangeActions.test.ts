@@ -1,5 +1,12 @@
-import type { ExperimentInterface, ExperimentPhase } from "shared/validators";
-import { experimentChangeActions } from "back-end/src/services/confirmations";
+import type {
+  ContextualBanditInterface,
+  ExperimentInterface,
+  ExperimentPhase,
+} from "shared/validators";
+import {
+  contextualBanditChangeActions,
+  experimentChangeActions,
+} from "back-end/src/services/confirmations";
 
 const phase = (overrides: Partial<ExperimentPhase> = {}): ExperimentPhase => ({
   dateStarted: new Date("2026-01-01"),
@@ -154,5 +161,35 @@ describe("experimentChangeActions", () => {
     expect(experimentChangeActions(running, { status: "stopped" })).toEqual([
       "experiment.stop",
     ]);
+  });
+});
+
+describe("contextualBanditChangeActions", () => {
+  const bandit = (status: string) =>
+    ({
+      status,
+      condition: "",
+      seed: "a",
+      maxLeaves: 12,
+    }) as ContextualBanditInterface;
+
+  it("names targeting, re-randomizing and anything else a live bandit serves", () => {
+    expect(
+      contextualBanditChangeActions(bandit("running"), {
+        condition: '{"country":"US"}',
+        seed: "b",
+        maxLeaves: 6,
+      }).sort(),
+    ).toEqual([
+      "experiment.other",
+      "experiment.phases",
+      "experiment.targeting",
+    ]);
+    expect(
+      contextualBanditChangeActions(bandit("draft"), { status: "running" }),
+    ).toEqual(["experiment.start"]);
+    expect(
+      contextualBanditChangeActions(bandit("draft"), { maxLeaves: 6 }),
+    ).toEqual(["experiment.draft"]);
   });
 });

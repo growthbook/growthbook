@@ -132,6 +132,8 @@ function ActionsField({
       options={options}
       sort={false}
       hideSelectedOptions={false}
+      // Rows covered by a broader pick read as selected, like their check.
+      isOptionChecked={(row) => isPicked(value, row)}
       // Searching reaches every action; otherwise only expanded ones show.
       filterOption={(option, input) =>
         input
@@ -224,6 +226,7 @@ function ActionsField({
             )}
             <Box pl={header ? "0" : "4"}>
               {header ? option.label : verbOf(option.value)}
+              {isPartly && <span className="sr-only">Partly selected</span>}
             </Box>
           </Flex>
         );

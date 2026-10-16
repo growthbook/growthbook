@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import type {
+  ContextualBanditInterface,
   ExperimentInterface,
   ExperimentPhase,
   ApiConfirmation,
@@ -17,6 +18,7 @@ import {
   armedActions,
   capitalizeFirstCharacter,
   matchConfirmRules,
+  proposedArchivedValue,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
@@ -46,6 +48,19 @@ const OVERRIDE_ACTIONS: Record<BypassVia, ConfirmAction | null> = {
   restApiBypassesReviews: "override.restBypassesReviews",
   revertsBypassApproval: null,
 };
+
+// With REST bypassing reviews org-wide, any key's publish or archive of something
+// reviewed may be skipping a review.
+const REVIEWED_WRITES = new Set<ConfirmAction>([
+  "feature.publish",
+  "feature.archive",
+  "savedGroup.publish",
+  "savedGroup.archive",
+  "constant.publish",
+  "constant.archive",
+  "config.publish",
+  "config.archive",
+]);
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -230,6 +245,10 @@ export async function requireConfirmation(
       ...(opts.bypassing ?? []).flatMap(
         ({ via }) => OVERRIDE_ACTIONS[via] ?? [],
       ),
+      ...(context.org.settings?.restApiBypassesReviews &&
+      opts.actions.some((action) => REVIEWED_WRITES.has(action))
+        ? (["override.restBypassesReviews"] as const)
+        : []),
       ...requestedOverrides(context),
     ]),
   ].map((action) => ({ action, environments }));
@@ -466,10 +485,21 @@ async function describeRouteWrite(
   };
 }
 
-type Armable = {
+// What publishing a draft would do: run later unattended, and archive.
+type DraftState = { armed: boolean; archives: boolean } | null;
+type ArmableRevision = {
   autoPublishOnApproval?: boolean;
   scheduledPublishAt?: Date | null;
-} | null;
+};
+const isArmed = (revision: ArmableRevision) =>
+  !!revision.autoPublishOnApproval || !!revision.scheduledPublishAt;
+const patchDraftState = (
+  revision: (ArmableRevision & { target: { proposedChanges: unknown } }) | null,
+): DraftState =>
+  revision && {
+    armed: isArmed(revision),
+    archives: proposedArchivedValue(revision.target.proposedChanges) === true,
+  };
 
 // Draft routes by API tag: how to load the revision they write to.
 const DRAFT_REVISIONS: Record<
@@ -479,18 +509,20 @@ const DRAFT_REVISIONS: Record<
     load: (
       context: ReqContext,
       params: Record<string, string>,
-    ) => Promise<Armable>;
+    ) => Promise<DraftState>;
   }
 > = {
   "feature-revisions": { model: "feature", load: loadFeatureRevision },
   "feature-revisions-v2": { model: "feature", load: loadFeatureRevision },
   "saved-group-revisions": {
     model: "savedGroup",
-    load: (context, { savedGroupId, version }) =>
-      context.models.revisions.getByTargetAndVersion(
-        "saved-group",
-        savedGroupId,
-        Number(version),
+    load: async (context, { savedGroupId, version }) =>
+      patchDraftState(
+        await context.models.revisions.getByTargetAndVersion(
+          "saved-group",
+          savedGroupId,
+          Number(version),
+        ),
       ),
   },
   "constant-revisions": {
@@ -505,15 +537,17 @@ function loadKeyedRevision(type: "constant" | "config") {
   return async (
     context: ReqContext,
     { key, version }: Record<string, string>,
-  ): Promise<Armable> => {
+  ): Promise<DraftState> => {
     const entity = await (
       type === "constant" ? context.models.constants : context.models.configs
     ).getByKey(key);
     return entity
-      ? context.models.revisions.getByTargetAndVersion(
-          type,
-          entity.id,
-          Number(version),
+      ? patchDraftState(
+          await context.models.revisions.getByTargetAndVersion(
+            type,
+            entity.id,
+            Number(version),
+          ),
         )
       : null;
   };
@@ -522,41 +556,48 @@ function loadKeyedRevision(type: "constant" | "config") {
 async function loadFeatureRevision(
   context: ReqContext,
   { id, version }: Record<string, string>,
-): Promise<Armable> {
+): Promise<DraftState> {
   const { getRevision } = await import(
     "back-end/src/models/FeatureRevisionModel"
   );
-  return getRevision({
+  const revision = await getRevision({
     context,
     organization: context.org.id,
     featureId: id,
     feature: undefined,
     version: Number(version),
   });
+  return (
+    revision && {
+      armed: isArmed(revision),
+      archives: revision.archived === true,
+    }
+  );
 }
 
-// Editing a draft that's armed to publish later edits what that publish ships,
-// so it holds as the publish.
+// Arming a draft to publish later holds as the publish, and so does editing a
+// draft that's armed, since it edits what that publish ships. Either holds as an
+// archive too when the draft archives.
 async function armedRevisionActions(
   context: ReqContext,
   tags: readonly string[] | undefined,
   actions: readonly ConfirmAction[],
   params: Record<string, string>,
+  body: Record<string, unknown>,
 ): Promise<ConfirmAction[]> {
   const draft = tags?.map((tag) => DRAFT_REVISIONS[tag]).find(Boolean);
   // "new" asks for a fresh draft, which nothing has armed yet.
-  if (
-    !draft ||
-    !params.version ||
-    params.version === "new" ||
-    !actions.includes(`${draft.model}.draft`)
-  ) {
-    return [];
-  }
-  const revision = await draft.load(context, params);
-  return revision?.autoPublishOnApproval || revision?.scheduledPublishAt
-    ? [`${draft.model}.publish`]
-    : [];
+  if (!draft || !params.version || params.version === "new") return [];
+  const arming = armedActions(tags, body).length > 0;
+  if (!arming && !actions.includes(`${draft.model}.draft`)) return [];
+  const state = await draft.load(context, params);
+  if (!arming && !state?.armed) return [];
+  return [
+    `${draft.model}.publish`,
+    ...(state?.archives || body.archived === true
+      ? ([`${draft.model}.archive`] as const)
+      : []),
+  ];
 }
 
 // The route-level hold: the endpoint's actions, with no environments, before the
@@ -586,7 +627,7 @@ export async function holdAtRoute(
     actions: [
       ...actions.filter((action) => !action.startsWith("override.")),
       ...armedActions(tags, body),
-      ...(await armedRevisionActions(context, tags, actions, params)),
+      ...(await armedRevisionActions(context, tags, actions, params, body)),
     ],
     summary:
       route.summary ||
@@ -761,21 +802,27 @@ export async function queuedDraftsHold(
 
 // What an update does to a live experiment, in the Make Changes flow's terms.
 // Edits to a draft aren't live, so only starting it counts.
+// Going live starts it; back to draft takes it out of the payload, like stopping.
+const statusActions = (
+  from: string,
+  to: string | undefined,
+): ConfirmAction[] => [
+  ...(to === "running" && from !== "running"
+    ? (["experiment.start"] as const)
+    : []),
+  ...((to === "stopped" && from !== "stopped") ||
+  (to === "draft" && from !== "draft")
+    ? (["experiment.stop"] as const)
+    : []),
+];
+
 export function experimentChangeActions(
   existing: Omit<ExperimentInterface, "id" | "dateCreated" | "dateUpdated">,
   changes: Partial<ExperimentInterface>,
 ): ConfirmAction[] {
-  const actions = new Set<ConfirmAction>();
-  if (changes.status === "running" && existing.status !== "running") {
-    actions.add("experiment.start");
-  }
-  // Back to draft takes it out of the payload, like stopping it.
-  if (
-    (changes.status === "stopped" && existing.status !== "stopped") ||
-    (changes.status === "draft" && existing.status !== "draft")
-  ) {
-    actions.add("experiment.stop");
-  }
+  const actions = new Set<ConfirmAction>(
+    statusActions(existing.status, changes.status),
+  );
   const schedule = changes.statusUpdateSchedule;
   if (schedule && !isEqual(schedule, existing.statusUpdateSchedule)) {
     scheduleActions(schedule).forEach((action) => actions.add(action));
@@ -822,4 +869,41 @@ export function experimentChangeActions(
     actions.add("experiment.other");
   }
   return [...actions];
+}
+
+// What changing each field of a live bandit holds as, or null when it never
+// reaches users. Fields not listed hold as experiment.other.
+const BANDIT_FIELD_ACTIONS: Partial<
+  Record<keyof ContextualBanditInterface, ConfirmAction | null>
+> = {
+  coverage: "experiment.traffic",
+  condition: "experiment.targeting",
+  savedGroups: "experiment.targeting",
+  prerequisites: "experiment.targeting",
+  seed: "experiment.phases",
+  hashAttribute: "experiment.phases",
+  trackingKey: "experiment.phases",
+  name: null,
+  description: null,
+  owner: null,
+  tags: null,
+};
+
+// A bandit update holds like an experiment's: a draft's edits are draft work, and
+// a live one's by what they change about how it serves.
+export function contextualBanditChangeActions(
+  existing: ContextualBanditInterface,
+  changes: Partial<ContextualBanditInterface>,
+): ConfirmAction[] {
+  const actions = new Set(statusActions(existing.status, changes.status));
+  if (existing.status !== "draft") {
+    const before = existing as Record<string, unknown>;
+    for (const [field, after] of Object.entries(changes)) {
+      if (field === "status" || !changed(before[field], after)) continue;
+      const action =
+        BANDIT_FIELD_ACTIONS[field as keyof ContextualBanditInterface];
+      if (action !== null) actions.add(action ?? "experiment.other");
+    }
+  }
+  return actions.size ? [...actions] : ["experiment.draft"];
 }

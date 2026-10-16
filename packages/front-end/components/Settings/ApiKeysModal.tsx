@@ -42,7 +42,7 @@ const PRESET_HELP = {
         settings, access, environments, SDK Connections, metrics and the like.
       </span>
       <span>
-        Creating things, working on drafts, visual editor changes, and writes
+        Creating things, working on drafts, AI Visual Editor changes, and writes
         like dashboards and comments run without confirmation.
       </span>
     </Flex>

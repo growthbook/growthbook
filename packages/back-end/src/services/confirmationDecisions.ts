@@ -94,6 +94,17 @@ export async function decideConfirmation(
         "The key that made this request is gone, disabled or expired.",
       );
     }
+    // A member named only for attribution keeps the credit; the key keeps its role.
+    if (
+      c.requestedBy &&
+      !c.assumedRole &&
+      requester.auditUser?.type === "api_key"
+    ) {
+      requester.auditUser = {
+        ...requester.auditUser,
+        requestedBy: c.requestedBy,
+      };
+    }
     requester.confirmationId = id;
     requester.dispatchedRequest = { body: c.body, query: c.query };
     response = await dispatchInternal(

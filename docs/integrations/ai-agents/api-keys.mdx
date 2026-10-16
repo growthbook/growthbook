@@ -41,7 +41,9 @@ New rules default to **recommended actions**, which hold:
 - Skipping a check, such as `ignoreWarnings`, `skipHooks` or a required review, even when the change itself wouldn't be held
 - Editing settings, members and teams, environments, Projects, SDK Connections, custom hooks, attributes, custom fields, metrics, fact tables, segments and dimensions
 
-Creating things, working on drafts, Visual Editor changes, and writes like dashboards and comments run without confirmation. Arming a publish or an Experiment start to happen later, on approval or on a schedule, counts as the publish or start itself, and so does editing a draft that's armed. Creating a Feature Flag that's on in an environment counts as publishing there.
+Creating things, working on drafts, AI Visual Editor changes, and writes like dashboards and comments run without confirmation. Arming a publish or an Experiment start to happen later, on approval or on a schedule, counts as the publish or start itself (and as archiving, when the draft archives), and so does editing a draft that's armed. Creating a Feature Flag that's on in an environment counts as publishing there.
+
+If your organization lets REST requests bypass reviews, a key's publishes and archives of Feature Flags, Saved Groups, Constants and Configs also count as skipping a review.
 
 Choose **All actions** to hold every write, including creates and drafts. Reads and calculations never wait.
 

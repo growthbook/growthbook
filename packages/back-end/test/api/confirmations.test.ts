@@ -248,6 +248,42 @@ const insertConstant = (key: string) =>
     dateUpdated: now,
   });
 
+const insertBandit = (id: string, status: "draft" | "running") =>
+  mongoose.connection.collection("contextualbandits").insertOne({
+    id,
+    organization: ORG_ID,
+    dateCreated: now,
+    dateUpdated: now,
+    name: id,
+    description: "",
+    project: "",
+    owner: "",
+    tags: [],
+    archived: false,
+    status,
+    trackingKey: id,
+    hashAttribute: "id",
+    variations: [
+      { id: "v0", key: "0", name: "Control", screenshots: [] },
+      { id: "v1", key: "1", name: "Treatment", screenshots: [] },
+    ],
+    datasource: "",
+    contextualBanditQueryId: "",
+    coverage: 1,
+    seed: id,
+    variationWeights: [
+      { variationId: "v0", weight: 0.5 },
+      { variationId: "v1", weight: 0.5 },
+    ],
+    currentLeafWeights: [],
+    banditVersion: 0,
+    contextualAttributes: ["country"],
+    minUsersPerLeaf: 100,
+    maxLeaves: 12,
+    holdoutPercent: 0,
+    banditModelVersion: 1,
+  });
+
 const featureVersion = async () =>
   (
     await mongoose.connection
@@ -705,6 +741,15 @@ describe("confirmations", () => {
     expect(
       (await decideConfirmation(asUser("u_engineer"), id, "confirm")).status,
     ).toBe("completed");
+    // Named for attribution only, they keep the credit for the change.
+    const revision = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: FLAG, version: 2 });
+    expect(revision?.publishedBy).toMatchObject({
+      apiKey: "key_bot",
+      requestedBy: { id: "u_engineer" },
+    });
+    expect(revision?.publishedBy?.assumedRole).toBeFalsy();
   });
 
   it("lets only the member an org key assumes confirm, and replays as them", async () => {
@@ -800,6 +845,90 @@ describe("confirmations", () => {
     ]);
     // A fresh draft isn't armed, whatever else is.
     expect((await toggle("new")).status).toBe(200);
+  });
+
+  it("holds arming a draft that archives as the archive", async () => {
+    await seed("production");
+    setReqContext(asKey(ci));
+    expect(
+      (
+        await auth(
+          request(app).put(`/api/v2/features/${FLAG}/revisions/2/archive`),
+        ).send({ archived: true })
+      ).status,
+    ).toBe(200);
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["feature.archive"] }] }),
+    );
+    const held = await auth(
+      request(app).post(
+        `/api/v2/features/${FLAG}/revisions/2/schedule-publish`,
+      ),
+    ).send({
+      scheduledPublishAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.archive", environments: [] },
+    ]);
+  });
+
+  it("holds every publish as skipping a review when REST bypasses reviews", async () => {
+    await seed("production");
+    await insertConstant("hitl_bypass");
+    setReqContext(asKey(ci));
+    expect((await publish()).status).toBe(200);
+
+    setReqContext(
+      asKey(
+        {
+          ...bot,
+          confirmRules: [{ actions: ["override.restBypassesReviews"] }],
+        },
+        { restApiBypassesReviews: true },
+      ),
+    );
+    const skipping = [
+      { action: "override.restBypassesReviews", environments: [] },
+    ];
+    // Held at the route, and inside a handler that holds itself.
+    const update = await auth(
+      request(app).post("/api/v1/constants/hitl_bypass"),
+    ).send({ value: "after" });
+    expect(update.status).toBe(202);
+    expect(update.body.confirmation.actions).toEqual(skipping);
+    const revert = await auth(
+      request(app).post(`/api/v2/features/${FLAG}/revisions/1/revert`),
+    ).send({ strategy: "publish" });
+    expect(revert.status).toBe(202);
+    expect(revert.body.confirmation.actions).toEqual(skipping);
+  });
+
+  it("holds a bandit update by what it changes, and a draft's as draft work", async () => {
+    await seed("production");
+    await insertBandit("cb_live", "running");
+    await insertBandit("cb_draft", "draft");
+    const update = (id: string, body: Record<string, unknown>) =>
+      auth(request(app).put(`/api/v1/contextual-bandits/${id}`)).send(body);
+
+    setReqContext(
+      asKey({
+        ...bot,
+        confirmRules: [{ actions: ["experiment.stop", "experiment.traffic"] }],
+      }),
+    );
+    expect(
+      (await update("cb_live", { status: "stopped" })).body.confirmation
+        ?.actions,
+    ).toEqual([{ action: "experiment.stop", environments: [] }]);
+    expect(
+      (await update("cb_live", { coverage: 0.5 })).body.confirmation?.actions,
+    ).toEqual([{ action: "experiment.traffic", environments: [] }]);
+    expect((await update("cb_live", { name: "Renamed" })).status).toBe(200);
+
+    setReqContext(asKey(recommended));
+    expect((await update("cb_draft", { coverage: 0.5 })).status).toBe(200);
+    expect((await update("cb_live", { coverage: 0.25 })).status).toBe(202);
   });
 
   it("holds starting an experiment as a publish of its queued drafts, pinned to them", async () => {

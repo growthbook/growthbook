@@ -101,15 +101,24 @@ const SortableMultiValueLabel = (
   return tooltip ? <Tooltip content={tooltip}>{label}</Tooltip> : label;
 };
 
+// Whether a menu row reads as selected, when that isn't just its value being picked.
+const OptionCheckedContext = createContext<((value: string) => boolean) | null>(
+  null,
+);
+
 const OptionWithTooltip = (
   props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
+  const isChecked = useContext(OptionCheckedContext);
+  const innerProps = isChecked
+    ? { ...props.innerProps, "aria-selected": isChecked(props.data.value) }
+    : props.innerProps;
   const tooltip = props.data?.tooltip;
-  if (!tooltip) return <components.Option {...props} />;
+  if (!tooltip) return <components.Option {...props} innerProps={innerProps} />;
   // Anchored to the label, not the full-width row, so the tooltip sits beside
   // the text and stays out of the way while moving down the list.
   return (
-    <components.Option {...props}>
+    <components.Option {...props} innerProps={innerProps}>
       <Tooltip content={tooltip} side="right">
         <span style={{ display: "inline-block" }}>{props.children}</span>
       </Tooltip>
@@ -301,6 +310,8 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   /** Keep chosen options in the menu (e.g. to show checkmarks) instead of hiding them. */
   hideSelectedOptions?: boolean;
+  /** Whether a menu row is announced as selected, when rows can be covered by other picks. */
+  isOptionChecked?: (value: string) => boolean;
   filterOption?: (
     option: FilterOptionOption<SingleValue>,
     inputValue: string,
@@ -340,6 +351,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   onPaste: userOnPaste,
   isOptionDisabled,
   hideSelectedOptions,
+  isOptionChecked,
   filterOption,
   onKeyDown,
   noMenu,
@@ -497,197 +509,205 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     [resolvedSize, sort, usesLegacyHeight, valueTitles],
   );
   return (
-    <MultiValueLabelStyleContext.Provider value={labelStyle}>
-      <Field
-        {...fieldProps}
-        customClassName={clsx(customClassName, {
-          "cursor-disabled": disabled,
-        })}
-        render={(id, ref) => {
-          return (
-            <>
-              {!legacyLabelFormatting &&
-                label !== undefined &&
-                (typeof label === "string" ? (
-                  <Text
-                    as="label"
-                    htmlFor={id}
-                    size={labelSize ?? "md"}
-                    weight={labelWeight}
-                  >
-                    {label}
-                  </Text>
-                ) : (
-                  label
-                ))}
-              <div style={{ position: "relative" }}>
-                <Component
-                  className={clsx(`gb-multi-select--${styleSize}`, {
-                    error: !!error && errorLevel === "error",
-                    warning: !!error && errorLevel === "warning",
-                  })}
-                  onPaste={handlePaste}
-                  showCopyButton={showCopyButton}
-                  classNamePrefix="gb-multi-select"
-                  helperClass={`multi-select-container gb-multi-select--${styleSize}`}
-                  axis="xy"
-                  shouldCancelStart={() => !sort}
-                  onSortEnd={(s, e) => {
-                    onSortEnd(s, e);
-                    // The following is a hack to clean up elements that might be
-                    // left in the dom after dragging. Hopefully we can remove this
-                    // if react-select and react-sortable fixes it.
-                    setTimeout(() => {
-                      const nodes = document.querySelectorAll(
-                        "body > .multi-select-container",
+    <OptionCheckedContext.Provider value={isOptionChecked ?? null}>
+      <MultiValueLabelStyleContext.Provider value={labelStyle}>
+        <Field
+          {...fieldProps}
+          customClassName={clsx(customClassName, {
+            "cursor-disabled": disabled,
+          })}
+          render={(id, ref) => {
+            return (
+              <>
+                {!legacyLabelFormatting &&
+                  label !== undefined &&
+                  (typeof label === "string" ? (
+                    <Text
+                      as="label"
+                      htmlFor={id}
+                      size={labelSize ?? "md"}
+                      weight={labelWeight}
+                    >
+                      {label}
+                    </Text>
+                  ) : (
+                    label
+                  ))}
+                <div style={{ position: "relative" }}>
+                  <Component
+                    className={clsx(`gb-multi-select--${styleSize}`, {
+                      error: !!error && errorLevel === "error",
+                      warning: !!error && errorLevel === "warning",
+                    })}
+                    onPaste={handlePaste}
+                    showCopyButton={showCopyButton}
+                    classNamePrefix="gb-multi-select"
+                    helperClass={`multi-select-container gb-multi-select--${styleSize}`}
+                    axis="xy"
+                    shouldCancelStart={() => !sort}
+                    onSortEnd={(s, e) => {
+                      onSortEnd(s, e);
+                      // The following is a hack to clean up elements that might be
+                      // left in the dom after dragging. Hopefully we can remove this
+                      // if react-select and react-sortable fixes it.
+                      setTimeout(() => {
+                        const nodes = document.querySelectorAll(
+                          "body > .multi-select-container",
+                        );
+                        nodes.forEach((n) => {
+                          n.remove();
+                        });
+                      }, 100);
+                    }}
+                    distance={4}
+                    getHelperDimensions={({ node }) =>
+                      node.getBoundingClientRect()
+                    }
+                    inputId={id}
+                    aria-label={ariaLabel}
+                    ref={ref}
+                    formatOptionLabel={formatOptionLabel}
+                    formatGroupLabel={formatGroupLabel}
+                    isDisabled={disabled || false}
+                    options={sorted}
+                    isMulti={true}
+                    onChange={(selected, meta) => {
+                      onChange(
+                        selected?.map((s) => s.value) ?? [],
+                        meta.action,
                       );
-                      nodes.forEach((n) => {
-                        n.remove();
-                      });
-                    }, 100);
-                  }}
-                  distance={4}
-                  getHelperDimensions={({ node }) =>
-                    node.getBoundingClientRect()
-                  }
-                  inputId={id}
-                  aria-label={ariaLabel}
-                  ref={ref}
-                  formatOptionLabel={formatOptionLabel}
-                  formatGroupLabel={formatGroupLabel}
-                  isDisabled={disabled || false}
-                  options={sorted}
-                  isMulti={true}
-                  onChange={(selected, meta) => {
-                    onChange(selected?.map((s) => s.value) ?? [], meta.action);
-                  }}
-                  isValidNewOption={(value) => {
-                    if (!pattern) return !!value;
-                    return new RegExp(pattern).test(value);
-                  }}
-                  components={{
-                    MultiValue: SortableMultiValue,
-                    MultiValueLabel: SortableMultiValueLabel,
-                    MultiValueRemove: CustomMultiValueRemove,
-                    Option: OptionWithTooltip,
-                    Input,
-                    ClearIndicator: CustomClearIndicator,
-                    GroupHeading,
-                    ...(showCopyButton
-                      ? {
-                          IndicatorsContainer:
-                            IndicatorsContainerWithCopyButton,
-                        }
-                      : {}),
-                    ...(creatable && noMenu
-                      ? {
-                          Menu: () => null,
-                          DropdownIndicator: () => null,
-                          IndicatorSeparator: () => null,
-                        }
-                      : creatable
+                    }}
+                    isValidNewOption={(value) => {
+                      if (!pattern) return !!value;
+                      return new RegExp(pattern).test(value);
+                    }}
+                    components={{
+                      MultiValue: SortableMultiValue,
+                      MultiValueLabel: SortableMultiValueLabel,
+                      MultiValueRemove: CustomMultiValueRemove,
+                      Option: OptionWithTooltip,
+                      Input,
+                      ClearIndicator: CustomClearIndicator,
+                      GroupHeading,
+                      ...(showCopyButton
                         ? {
-                            DropdownIndicator: CustomDropdownIndicator,
-                            IndicatorSeparator: () => null,
-                            MenuList: (props) => {
-                              return (
-                                <>
-                                  <div
-                                    style={{
-                                      fontWeight: 500,
-                                      fontSize: "var(--font-size-1)",
-                                      marginLeft: "var(--space-2)",
-                                      marginRight: "var(--space-2)",
-                                      marginTop: "var(--space-2)",
-                                      marginBottom: "var(--space-1)",
-                                    }}
-                                  >
-                                    Select an option or create one
-                                  </div>
-                                  <VirtualizedMenuList {...props} />
-                                </>
-                              );
-                            },
+                            IndicatorsContainer:
+                              IndicatorsContainerWithCopyButton,
                           }
-                        : {
-                            DropdownIndicator: CustomDropdownIndicator,
+                        : {}),
+                      ...(creatable && noMenu
+                        ? {
+                            Menu: () => null,
+                            DropdownIndicator: () => null,
                             IndicatorSeparator: () => null,
-                            MenuList: VirtualizedMenuList,
-                          }),
-                  }}
-                  {...(creatable && noMenu
-                    ? {
-                        // Prevent multi-select from submitting if you type the same value twice
-                        onKeyDown: (e) => {
-                          const v = (e.target as HTMLInputElement).value;
-                          if (e.code === "Enter" && (!v || value.includes(v))) {
-                            e.preventDefault();
                           }
-                        },
-                      }
-                    : {})}
-                  closeMenuOnSelect={closeMenuOnSelect}
-                  maxMenuHeight={maxMenuHeight}
-                  autoFocus={autoFocus}
-                  value={selected}
-                  {...(creatable
-                    ? {
-                        formatCreateLabel: (input: string) => {
-                          return (
-                            <span>
-                              <Text as="span" color="text-mid">
-                                Create
-                              </Text>{" "}
-                              <Badge
-                                color="violet"
-                                variant="soft"
-                                radius="small"
-                                label={input}
-                              />
-                            </span>
-                          );
-                        },
-                      }
-                    : {})}
-                  placeholder={initialOption ?? placeholder}
-                  isOptionDisabled={isOptionDisabled}
-                  hideSelectedOptions={hideSelectedOptions}
-                  filterOption={filterOption}
-                  {...(onKeyDown ? { onKeyDown } : {})}
-                  {...{ ...ReactSelectProps, ...mergeStyles }}
-                />
-                {required && (
-                  <input
-                    tabIndex={-1}
-                    autoComplete="off"
-                    style={{
-                      opacity: 0,
-                      width: "100%",
-                      height: 0,
-                      position: "absolute",
-                      pointerEvents: "none",
+                        : creatable
+                          ? {
+                              DropdownIndicator: CustomDropdownIndicator,
+                              IndicatorSeparator: () => null,
+                              MenuList: (props) => {
+                                return (
+                                  <>
+                                    <div
+                                      style={{
+                                        fontWeight: 500,
+                                        fontSize: "var(--font-size-1)",
+                                        marginLeft: "var(--space-2)",
+                                        marginRight: "var(--space-2)",
+                                        marginTop: "var(--space-2)",
+                                        marginBottom: "var(--space-1)",
+                                      }}
+                                    >
+                                      Select an option or create one
+                                    </div>
+                                    <VirtualizedMenuList {...props} />
+                                  </>
+                                );
+                              },
+                            }
+                          : {
+                              DropdownIndicator: CustomDropdownIndicator,
+                              IndicatorSeparator: () => null,
+                              MenuList: VirtualizedMenuList,
+                            }),
                     }}
-                    value={value.join(",")}
-                    onChange={() => {}}
-                    onFocus={() => {
-                      if (ref?.current) {
-                        ref.current.focus();
-                      }
-                    }}
-                    required
+                    {...(creatable && noMenu
+                      ? {
+                          // Prevent multi-select from submitting if you type the same value twice
+                          onKeyDown: (e) => {
+                            const v = (e.target as HTMLInputElement).value;
+                            if (
+                              e.code === "Enter" &&
+                              (!v || value.includes(v))
+                            ) {
+                              e.preventDefault();
+                            }
+                          },
+                        }
+                      : {})}
+                    closeMenuOnSelect={closeMenuOnSelect}
+                    maxMenuHeight={maxMenuHeight}
+                    autoFocus={autoFocus}
+                    value={selected}
+                    {...(creatable
+                      ? {
+                          formatCreateLabel: (input: string) => {
+                            return (
+                              <span>
+                                <Text as="span" color="text-mid">
+                                  Create
+                                </Text>{" "}
+                                <Badge
+                                  color="violet"
+                                  variant="soft"
+                                  radius="small"
+                                  label={input}
+                                />
+                              </span>
+                            );
+                          },
+                        }
+                      : {})}
+                    placeholder={initialOption ?? placeholder}
+                    isOptionDisabled={isOptionDisabled}
+                    hideSelectedOptions={hideSelectedOptions}
+                    filterOption={filterOption}
+                    {...(onKeyDown ? { onKeyDown } : {})}
+                    {...{ ...ReactSelectProps, ...mergeStyles }}
                   />
+                  {required && (
+                    <input
+                      tabIndex={-1}
+                      autoComplete="off"
+                      style={{
+                        opacity: 0,
+                        width: "100%",
+                        height: 0,
+                        position: "absolute",
+                        pointerEvents: "none",
+                      }}
+                      value={value.join(",")}
+                      onChange={() => {}}
+                      onFocus={() => {
+                        if (ref?.current) {
+                          ref.current.focus();
+                        }
+                      }}
+                      required
+                    />
+                  )}
+                </div>
+                {error && (
+                  <HelperText status={errorLevel} mt="1">
+                    {error}
+                  </HelperText>
                 )}
-              </div>
-              {error && (
-                <HelperText status={errorLevel} mt="1">
-                  {error}
-                </HelperText>
-              )}
-            </>
-          );
-        }}
-      />
-    </MultiValueLabelStyleContext.Provider>
+              </>
+            );
+          }}
+        />
+      </MultiValueLabelStyleContext.Provider>
+    </OptionCheckedContext.Provider>
   );
 };
 
