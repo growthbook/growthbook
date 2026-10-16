@@ -476,6 +476,8 @@ export const updateExperiment = createApiRequestHandler(
   await requireConfirmation(req.context, {
     actions: [
       ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
+      // Starting a draft here skips the launch checklist, as if asked to.
+      ...(isStartingFromDraft ? (["override.skipChecklist"] as const) : []),
       ...queued.actions,
     ],
     project: experiment.project,

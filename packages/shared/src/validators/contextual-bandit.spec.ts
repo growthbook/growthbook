@@ -1,4 +1,5 @@
 import { OpenApiModelSpec } from "../api-model";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
@@ -20,7 +21,7 @@ import {
 export const startContextualBanditEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
-  confirmation: ["experiment.start", "feature.publish"] as const,
+  confirmation: ["experiment.start", ...FEATURE_LANDING_ACTIONS] as const,
   confirmationInHandler: true,
   operationId: "startContextualBandit",
   validator: apiContextualBanditStartValidator,

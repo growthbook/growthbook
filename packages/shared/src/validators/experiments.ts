@@ -5,6 +5,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
 import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
   apiAssignmentQueryResponseFields,
@@ -2107,6 +2108,8 @@ export const updateExperimentValidator = {
     "experiment.traffic",
     "experiment.phases",
     "experiment.other",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
   ] as const,
   confirmationInHandler: true,
   operationId: "updateExperiment",
@@ -2134,7 +2137,11 @@ export const postExperimentStartValidator = {
   summary: "Start/Stage an experiment",
   description:
     "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
-  confirmation: ["experiment.start"] as const,
+  confirmation: [
+    "experiment.start",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
   confirmationInHandler: true,
   operationId: "postExperimentStart",
   tags: ["experiments"],

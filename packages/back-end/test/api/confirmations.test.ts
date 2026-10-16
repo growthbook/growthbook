@@ -871,6 +871,62 @@ describe("confirmations", () => {
     expect(held.body.confirmation.actions).toEqual([
       { action: "feature.archive", environments: [] },
     ]);
+
+    // A ramp plan on the draft starts when it lands, so arming it holds too.
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: FLAG, version: 2 },
+        { $set: { rampActions: [{ mode: "create" }] } },
+      );
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["rampSchedule.start"] }] }),
+    );
+    const ramp = await auth(
+      request(app).post(
+        `/api/v2/features/${FLAG}/revisions/2/schedule-publish`,
+      ),
+    ).send({
+      scheduledPublishAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    expect(ramp.body.confirmation?.actions).toEqual([
+      { action: "rampSchedule.start", environments: [] },
+    ]);
+  });
+
+  it("holds a real bulk import, but not its dry run, and dryRun skips nothing else", async () => {
+    await seed("production");
+    setReqContext(asKey(recommended));
+    const importFacts = (dryRun: boolean) =>
+      auth(request(app).post("/api/v1/bulk-import/facts")).send({ dryRun });
+    expect((await importFacts(true)).status).toBe(200);
+    expect((await importFacts(false)).status).toBe(202);
+    // Routes without a dry run ignore the flag, so it can't skip their hold.
+    expect(
+      (
+        await auth(request(app).delete("/api/v1/environments/dev")).send({
+          dryRun: true,
+        })
+      ).status,
+    ).toBe(202);
+  });
+
+  it("holds starting a draft by update as skipping its launch checklist", async () => {
+    await seed("production");
+    await seedExperiment();
+    setReqContext(
+      asKey({
+        ...bot,
+        confirmRules: [{ actions: ["override.skipChecklist"] }],
+      }),
+    );
+    const held = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ status: "running" });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "override.skipChecklist", environments: [] },
+    ]);
   });
 
   it("holds every publish as skipping a review when REST bypasses reviews", async () => {

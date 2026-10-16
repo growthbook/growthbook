@@ -82967,20 +82967,6 @@ components:
         - userIdTypes
         - steps
       additionalProperties: false
-    ExperimentSnapshot:
-      type: object
-      properties:
-        id:
-          type: string
-        experiment:
-          type: string
-        status:
-          type: string
-      required:
-        - id
-        - experiment
-        - status
-      additionalProperties: false
     ConfirmationHeld:
       type: object
       properties:
@@ -83143,6 +83129,20 @@ components:
             - response
             - note
           additionalProperties: false
+    ExperimentSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - experiment
+        - status
+      additionalProperties: false
     FeatureDefinition:
       type: object
       properties:

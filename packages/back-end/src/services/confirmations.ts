@@ -14,6 +14,7 @@ import type {
 } from "shared/validators";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   armedActions,
   capitalizeFirstCharacter,
@@ -486,8 +487,8 @@ async function describeRouteWrite(
   };
 }
 
-// What publishing a draft would do: run later unattended, and archive.
-type DraftState = { armed: boolean; archives: boolean } | null;
+// Whether a draft is armed to publish later unattended, and what landing it does.
+type DraftState = { armed: boolean; lands: ConfirmAction[] } | null;
 type ArmableRevision = {
   autoPublishOnApproval?: boolean;
   scheduledPublishAt?: Date | null;
@@ -495,11 +496,15 @@ type ArmableRevision = {
 const isArmed = (revision: ArmableRevision) =>
   !!revision.autoPublishOnApproval || !!revision.scheduledPublishAt;
 const patchDraftState = (
+  model: "savedGroup" | "constant" | "config",
   revision: (ArmableRevision & { target: { proposedChanges: unknown } }) | null,
 ): DraftState =>
   revision && {
     armed: isArmed(revision),
-    archives: proposedArchivedValue(revision.target.proposedChanges) === true,
+    lands: landingActions(
+      model,
+      proposedArchivedValue(revision.target.proposedChanges) === true,
+    ),
   };
 
 // Draft routes by API tag: how to load the revision they write to.
@@ -519,6 +524,7 @@ const DRAFT_REVISIONS: Record<
     model: "savedGroup",
     load: async (context, { savedGroupId, version }) =>
       patchDraftState(
+        "savedGroup",
         await context.models.revisions.getByTargetAndVersion(
           "saved-group",
           savedGroupId,
@@ -544,6 +550,7 @@ function loadKeyedRevision(type: "constant" | "config") {
     ).getByKey(key);
     return entity
       ? patchDraftState(
+          type,
           await context.models.revisions.getByTargetAndVersion(
             type,
             entity.id,
@@ -569,10 +576,7 @@ async function loadFeatureRevision(
     version: Number(version),
   });
   return (
-    revision && {
-      armed: isArmed(revision),
-      archives: revision.archived === true,
-    }
+    revision && { armed: isArmed(revision), lands: featureLanding(revision) }
   );
 }
 
@@ -593,19 +597,28 @@ async function armedRevisionActions(
   if (!arming && !actions.includes(`${draft.model}.draft`)) return [];
   const state = await draft.load(context, params);
   if (!arming && !state?.armed) return [];
-  return publishActions(
-    draft.model,
-    !!state?.archives || body.archived === true,
-  );
+  return [
+    ...(state?.lands ?? landingActions(draft.model, false)),
+    ...(body.archived === true ? ([`${draft.model}.archive`] as const) : []),
+  ];
 }
 
-const publishActions = (
+// Publishing a draft: the publish, plus any archive or ramp plan it carries.
+const landingActions = (
   model: "feature" | "savedGroup" | "constant" | "config",
   archives: boolean,
+  ramps: ConfirmAction[] = [],
 ): ConfirmAction[] => [
   `${model}.publish`,
   ...(archives ? ([`${model}.archive`] as const) : []),
+  ...ramps,
 ];
+const featureLanding = (revision: FeatureRevisionInterface) =>
+  landingActions(
+    "feature",
+    revision.archived === true,
+    (revision.rampActions ?? []).map(({ mode }) => rampScheduleAction(mode)),
+  );
 
 // Staging into a flag draft that's armed to publish later edits what that
 // publish ships, so it holds as the publish.
@@ -618,7 +631,7 @@ export async function armedFeatureDraftActions(
     id: featureId,
     version: String(version),
   });
-  return state?.armed ? publishActions("feature", state.archives) : [];
+  return state?.armed ? state.lands : [];
 }
 
 // The route-level hold: the endpoint's actions, with no environments, before the
@@ -636,8 +649,6 @@ export async function holdAtRoute(
   if (!rulesFor(context).length) return;
   const params = (req.params ?? {}) as Record<string, string>;
   const body = asRecord(req.body);
-  // A dry run writes nothing, so there's nothing to confirm.
-  if (body.dryRun === true) return;
   const route = await describeRouteWrite(
     context,
     tags,
@@ -822,13 +833,8 @@ export async function queuedDraftsHold(
   return {
     actions: [
       ...new Set([
-        ...publishActions(
-          "feature",
-          revisions.some((r) => r?.archived === true),
-        ),
-        ...revisions.flatMap((r) =>
-          (r?.rampActions ?? []).map(({ mode }) => rampScheduleAction(mode)),
-        ),
+        "feature.publish" as const,
+        ...revisions.flatMap((r) => (r ? featureLanding(r) : [])),
       ]),
     ],
     links: [...new Set(queued.map(({ featureId }) => featureId))].map((id) =>

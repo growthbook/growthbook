@@ -133,6 +133,15 @@ export const PUBLISH_OVERRIDE_ACTIONS = [
   "override.restBypassesReviews",
 ] as const satisfies readonly ConfirmAction[];
 
+// What landing a Feature Flag draft can do: publish it, archive the flag, and
+// start or edit the ramps it plans.
+export const FEATURE_LANDING_ACTIONS = [
+  "feature.publish",
+  "feature.archive",
+  "rampSchedule.start",
+  "rampSchedule.edit",
+] as const satisfies readonly ConfirmAction[];
+
 type ModelOf<L> = L extends `${infer M}.other` ? M : never;
 type ConfirmModel = ModelOf<ConfirmAction>;
 

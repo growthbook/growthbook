@@ -26,7 +26,7 @@ const hold = (req: { query?: unknown; body?: unknown }) =>
   );
 
 describe("holdAtRoute", () => {
-  it("holds a skip asked for in the query or the body, except on a dry run", async () => {
+  it("holds a skip asked for in either the query or the body", async () => {
     await expect(
       hold({ query: { skipHooks: "yes" }, body: { skipHooks: false } }),
     ).rejects.toThrow("only a direct API request");
@@ -34,9 +34,6 @@ describe("holdAtRoute", () => {
       hold({ body: { skipSchemaValidation: true } }),
     ).rejects.toThrow("only a direct API request");
     await expect(hold({ query: { skipHooks: "no" } })).resolves.toBeUndefined();
-    await expect(
-      hold({ body: { dryRun: true, skipHooks: true } }),
-    ).resolves.toBeUndefined();
   });
 });
 

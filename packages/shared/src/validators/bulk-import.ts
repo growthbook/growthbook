@@ -103,6 +103,7 @@ export const postBulkImportFactsValidator = {
     "metric.create",
     "metric.edit",
   ] as const,
+  confirmationInHandler: true,
   operationId: "postBulkImportFacts",
   tags: ["fact-tables"],
   method: "post" as const,
