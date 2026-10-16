@@ -46,6 +46,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -1491,7 +1492,7 @@ export async function postExperiments(
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
-          experiment,
+          owner: new ExperimentChangesetOwner(context, experiment),
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
           context,
@@ -4073,7 +4074,7 @@ export async function postVisualChangeset(
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
@@ -4128,7 +4129,7 @@ export async function putVisualChangeset(
 
   const ret = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     context,
     updates,
   });
@@ -4177,7 +4178,9 @@ export async function deleteVisualChangeset(
 
   await deleteVisualChangesetById({
     visualChangeset,
-    experiment,
+    owner: experiment
+      ? new ExperimentChangesetOwner(context, experiment)
+      : null,
     context,
   });
 
