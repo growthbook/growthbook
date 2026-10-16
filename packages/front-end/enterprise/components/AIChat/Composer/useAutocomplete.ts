@@ -8,7 +8,7 @@ import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics
 // Shorter than a natural typing pause fires a request only to cancel it.
 const DEBOUNCE_MS = 500;
 // "I want" says little; three words is about where a continuation stops being a guess.
-const MIN_WORDS = 3;
+const MIN_WORDS = 2;
 const RETRY_AFTER_ERROR_MS = 60_000;
 // The route's limit; past it is an input case, not a failure to stop on.
 const MAX_CHARS = 2000;
