@@ -11,8 +11,8 @@ import {
 import type { Context } from "back-end/src/models/BaseModel";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 
-// What a revision event carries about its revision: who wrote it and its review
-// and schedule state. The content is a REST lookup.
+// What every revision event carries about its revision: who wrote it and its
+// review and schedule state. Each entity's dispatcher adds the content.
 function reference({
   id,
   version,
