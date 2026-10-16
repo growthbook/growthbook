@@ -6,6 +6,7 @@ import {
 import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import { FactTableDefinition } from "shared/types/fact-table";
+import { CustomMetricSlice } from "shared/validators";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
@@ -59,12 +60,7 @@ export interface UseExperimentDimensionRowsParams {
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
   pValueThreshold: number;
-  customMetricSlices?: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
+  customMetricSlices?: CustomMetricSlice[];
 }
 
 export interface UseExperimentDimensionRowsReturn {

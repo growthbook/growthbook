@@ -30,6 +30,7 @@ import {
   isFactFunnelMetric,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
+import { CustomMetricSlice } from "shared/validators";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -115,12 +116,7 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
-  customMetricSlices?: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
+  customMetricSlices?: CustomMetricSlice[];
 }> = ({
   experimentId,
   significanceThresholds,

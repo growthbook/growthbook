@@ -31,6 +31,7 @@ import {
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
+import { CustomMetricSlice } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 // Special metric selector IDs that should be filtered out of customMetricOrder
@@ -521,12 +522,7 @@ export function getSliceDataForMetric({
 }: {
   metric: ExperimentMetricDefinition;
   metricName: string;
-  customMetricSlices?: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
+  customMetricSlices?: CustomMetricSlice[];
   getFactTableById: (id: string) => FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // TODO(funnel-metrics): Add support for slices on funnel metrics
