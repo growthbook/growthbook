@@ -21,6 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
 import { getInitialSettings } from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
@@ -34,9 +35,14 @@ import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
+import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
+import {
+  generateSnowflakeKeyPair,
+  SnowflakeKeyPair,
+} from "./generateSnowflakeKeyPair";
 import { DATA_SOURCE_TYPE_AVATAR } from "./dataSourceTypeAvatar";
 
 type TestStatus = "idle" | "running" | "passed" | "failed";
@@ -61,6 +67,10 @@ export default function ConnectDataSourceLayout({
   onSuccess,
 }: ConnectDataSourceLayoutProps) {
   const existing = mode === "edit";
+  // Saved Event Forwarder configs predating the region field are us-east-1.
+  const eventForwarderRegion = initial.eventForwarderConfig
+    ? (initial.eventForwarderConfig.region ?? DEFAULT_DATA_REGION)
+    : null;
   const { mutateDefinitions, projects: orgProjects } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -141,6 +151,43 @@ export default function ConnectDataSourceLayout({
     });
   };
 
+  // Snowflake key pair created on request. Lives here rather than in the
+  // page so the form (private key) and the instructions (public key) agree,
+  // and so the edit page can offer it when moving off password auth.
+  const [snowflakeKeyPair, setSnowflakeKeyPair] =
+    useState<SnowflakeKeyPair | null>(null);
+  const usingGeneratedKey =
+    snowflakeKeyPair !== null &&
+    datasource.params !== undefined &&
+    "privateKey" in datasource.params &&
+    datasource.params.privateKey === snowflakeKeyPair.privateKey;
+  const generateKeyPair = useCallback(async () => {
+    const keyPair = await generateSnowflakeKeyPair();
+    if (!keyPair) return false;
+    setSnowflakeKeyPair(keyPair);
+    // The generated key is unencrypted, so drop any passphrase left over
+    // from an uploaded file.
+    updateDatasource({
+      ...datasource,
+      params: {
+        ...datasource.params,
+        privateKey: keyPair.privateKey,
+        privateKeyPassword: "",
+      },
+    } as Partial<DataSourceInterfaceWithParams>);
+    return true;
+  }, [datasource, updateDatasource]);
+  const keyPairGenerator = useMemo(
+    (): KeyPairGenerator | undefined =>
+      datasource.type === "snowflake"
+        ? {
+            usingGenerated: usingGeneratedKey,
+            generate: generateKeyPair,
+            keyPairRequired: setup === "event_forwarder",
+          }
+        : undefined,
+    [datasource.type, usingGeneratedKey, generateKeyPair, setup],
+  );
   // Create mode only: let the user scope the new Data Source to Projects they
   // can create in. An empty selection is All Projects, which needs a global role.
   const projectOptions = useProjectOptions(
@@ -459,6 +506,7 @@ export default function ConnectDataSourceLayout({
             setDatasource={updateDatasource}
             setDirty={setDirty}
             connectionOnly
+            keyPairGenerator={keyPairGenerator}
           />
         </Frame>
 
@@ -515,6 +563,11 @@ export default function ConnectDataSourceLayout({
           setup={setup}
           params={datasource.params}
           existing={existing}
+          // Saving requires a passing connection test, so on edit the saved
+          // user exists in the warehouse and the SQL can alter it.
+          savedParams={existing ? initial.params : null}
+          eventForwarderRegion={eventForwarderRegion}
+          snowflakeKeyPair={snowflakeKeyPair}
         />
       </Box>
 
@@ -537,7 +590,7 @@ export default function ConnectDataSourceLayout({
           </Text>
         ) : null}
         <Button variant="ghost" onClick={onCancel}>
-          Cancel
+          {existing ? "Cancel" : "Back"}
         </Button>
         <Button disabled={!canSave} loading={saving} onClick={handleSave}>
           {existing ? "Save changes" : "Create Data Source"}

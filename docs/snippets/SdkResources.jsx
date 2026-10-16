@@ -1802,7 +1802,7 @@ export const SdkResources = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.11.0",
+      version: "0.11.1",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -1834,6 +1834,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v0.11.1",
+        },
+        {
+          trackingPlugin: "≥ v0.11.1",
         },
         {
           caseInsensitiveMembership: "≥ v0.10.9",

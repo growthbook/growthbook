@@ -602,7 +602,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
+                    // Checks edit permission per query internally, against each
+                    // query's projects, so only the config-file lock is passed in.
+                    canEdit={!hasFileConfig()}
                   />
                 </Frame>
 
