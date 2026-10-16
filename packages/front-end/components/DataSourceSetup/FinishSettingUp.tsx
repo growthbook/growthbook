@@ -88,13 +88,9 @@ function getCompletion(
   return {
     connect: true,
     identifiers: identifierTypes.length > 0,
-    queries:
-      identifierTypes.length > 0 &&
-      identifierTypes.every(({ userIdType }) =>
-        exposureQueries.some((query) =>
-          getExposureQueryIdentifierTypes(query).includes(userIdType),
-        ),
-      ),
+    // One exposure query is enough. Identifier types are also used for joins
+    // and metrics, so they don't each need to appear in an exposure query.
+    queries: exposureQueries.length > 0,
     factTable: factTableCount > 0,
   };
 }
@@ -338,7 +334,7 @@ export default function FinishSettingUp({
 
   const identifierDescription =
     expandedStep === "identifiers"
-      ? "Identifier types let allow you to split traffic in an experiment and track metric conversions. Click `Edit` to uncheck any that aren't relevant for this Data Source."
+      ? "Identifier types let you split traffic in an experiment and track metric conversions. Click Edit to uncheck any that aren't relevant for this Data Source."
       : hasIdentifiers
         ? identifierTypes.map((t) => t.userIdType).join(", ")
         : "Tell us how you identify your users, such as user_id or anonymous_id. You can add several identifier types, but you need at least one.";
@@ -402,11 +398,8 @@ export default function FinishSettingUp({
             Finish Setting Up
           </Heading>
           <Text as="p" color="text-mid" mb="0">
-            {/* We don&apos;t assume anything about your data. Tell GrowthBook where
-            to find experiment exposures and metrics. You can change all of this
-            later. */}
-            Tell GrowthBook a bit more about how you identifier your users,
-            where `events` are stored in your warehouse.
+            Tell GrowthBook how you identify your users and where events are
+            stored in your warehouse.
           </Text>
         </Box>
         <Flex direction="column" align="end" gap="1" flexShrink="0">
@@ -606,6 +599,7 @@ export default function FinishSettingUp({
                       <Button
                         onClick={confirmIdentifiers}
                         setError={setIdentifierError}
+                        disabled={identifierRows.length === 0}
                       >
                         Confirm and continue
                       </Button>
@@ -797,7 +791,7 @@ export default function FinishSettingUp({
       {attributeModal && (
         <AttributeModal
           attribute={attributeModal.attribute ?? undefined}
-          initialValues={{ hashAttribute: true }}
+          defaultHashAttribute
           close={() => setAttributeModal(null)}
         />
       )}

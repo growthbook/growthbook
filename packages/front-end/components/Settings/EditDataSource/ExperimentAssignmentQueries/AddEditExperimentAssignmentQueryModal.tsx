@@ -28,7 +28,6 @@ type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  /** Identifiers the new query should start with. Falls back to the first type. */
   defaultIdentifierTypes?: string[];
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;

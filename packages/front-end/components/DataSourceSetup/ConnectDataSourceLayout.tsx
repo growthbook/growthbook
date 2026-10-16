@@ -22,7 +22,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
-import { getInitialSettings, hasEventTrackerSql } from "@/services/datasources";
+import { getInitialSettings } from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import { ensureAndReturn } from "@/types/utils";
@@ -364,10 +364,8 @@ export default function ConnectDataSourceLayout({
           schemaFormat,
           ensureAndReturn(datasource.params),
         );
-        // Event trackers come with known identifiers and assignment SQL. A
-        // custom warehouse starts empty so the user defines them in Finish
-        // Setting Up.
-        const prefill = hasEventTrackerSql(schemaFormat);
+        // This page only creates custom warehouses. Start without identifier
+        // types or exposure queries so Finish Setting Up collects them.
         const res = await apiCall<{ id: string }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
@@ -375,16 +373,12 @@ export default function ConnectDataSourceLayout({
             settings: {
               ...initialSettings,
               ...(datasource.settings || {}),
-              ...(prefill
-                ? {}
-                : {
-                    userIdTypes: [],
-                    queries: {
-                      ...initialSettings.queries,
-                      ...(datasource.settings?.queries || {}),
-                      exposure: [],
-                    },
-                  }),
+              userIdTypes: [],
+              queries: {
+                ...initialSettings.queries,
+                ...(datasource.settings?.queries || {}),
+                exposure: [],
+              },
             },
           }),
         });
