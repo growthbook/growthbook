@@ -178,9 +178,12 @@ export function buildPayloadMetadata<
   const metadata: T = {} as T;
 
   if (opts.includeProjectIdInMetadata && projectsMap) {
-    // Explicit delivery projects as public ids; all-projects emits nothing (absent = all).
+    // Explicit delivery projects as public ids. All projects is marked rather
+    // than listed, since an absent list means no project.
     const ids = getTargetingProjectIds(entity);
-    if (ids !== null) {
+    if (ids === null) {
+      metadata.allProjects = true;
+    } else {
       const publicIds = toProjectPublicIds(
         ids.filter((id) => !!id),
         projectsMap,
