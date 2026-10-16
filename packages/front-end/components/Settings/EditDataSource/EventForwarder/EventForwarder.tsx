@@ -25,8 +25,13 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { isCloud } from "@/services/env";
+import { UsageMeter } from "@/components/Settings/Usage/CloudUsage";
 import PremiumCallout from "@/ui/PremiumCallout";
 import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
@@ -609,9 +614,24 @@ export default function EventForwarder({
   const [showEditModal, setShowEditModal] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const { apiCall } = useAuth();
-  const { effectiveAccountPlan, subscription, hasCommercialFeature } =
+  const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
+  const permissionsUtil = usePermissionsUtil();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
+  // Metered plans only; the month-to-date total comes from the usage endpoint.
+  const isMetered =
+    isCloud() && !hasCommercialFeature("unlimited-event-forwarder-usage");
+  const { data: usageData } = useApi<{
+    usage: DailyUsage[];
+    limits: UsageLimits;
+  }>("/billing/usage?monthsAgo=0", {
+    shouldRun: () =>
+      isMetered && !!eventForwarderConfig && permissionsUtil.canViewUsage(),
+  });
+  const forwarderLimit = usageData?.limits.eventForwarderEvents;
+  const forwardedThisMonth =
+    usageData?.usage.reduce((sum, u) => sum + u.eventForwarderEvents, 0) ?? 0;
+  const isBlocked = isMetered && !!usage?.eventForwarder?.blocked;
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
     "OFF",
@@ -882,6 +902,22 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
+
+            {isBlocked ? (
+              <Callout status="warning">
+                Forwarding is paused until the 1st of next month because this
+                organization reached its monthly event limit. Upgrade to Pro or
+                Enterprise to resume now.
+              </Callout>
+            ) : null}
+
+            {typeof forwarderLimit === "number" ? (
+              <UsageMeter
+                used={forwardedThisMonth}
+                limit={forwarderLimit}
+                noun="events"
+              />
+            ) : null}
 
             {isProvisioning ? (
               <Callout status="info">

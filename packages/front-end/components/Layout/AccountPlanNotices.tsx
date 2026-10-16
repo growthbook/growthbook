@@ -157,7 +157,80 @@ export default function AccountPlanNotices() {
     );
   }
 
-  const usageMessage = cdnUsageMessage || managedWarehouseUsageMessage;
+  const eventForwarderUsageTooltipBody = permissionsUtil.canViewUsage() ? (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or go to{" "}
+      <Link href="/settings/usage">Settings &gt; Usage</Link> to learn more
+    </Box>
+  ) : (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or visit{" "}
+      <a
+        href="https://docs.growthbook.io/app/event-forwarder#usage-limits"
+        className="text-decoration-none"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          track("Clicked Read About Event Forwarder Limits Link in Tooltip");
+        }}
+      >
+        Growthbook Docs &gt; Event Forwarder
+      </a>
+    </Box>
+  );
+
+  let eventForwarderUsageMessage: JSX.Element | null = null;
+  if (usage?.eventForwarder?.status === "approaching") {
+    eventForwarderUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"event-forwarder-usage-approaching-topnav-notification"}
+              commercialFeature="unlimited-event-forwarder-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={eventForwarderUsageTooltipBody}>
+          <Box className={styles["warning-notification"]}>
+            Approaching Event Forwarder event limit. Events stop forwarding once
+            exceeded.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  } else if (usage?.eventForwarder?.status === "over") {
+    eventForwarderUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"event-forwarder-usage-exceeded-topnav-notification"}
+              commercialFeature="unlimited-event-forwarder-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={eventForwarderUsageTooltipBody}>
+          <Box className={styles["error-notification"]}>
+            Event Forwarder event limit exceeded.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  }
+
+  const usageMessage =
+    cdnUsageMessage ||
+    managedWarehouseUsageMessage ||
+    eventForwarderUsageMessage;
   if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
       <>

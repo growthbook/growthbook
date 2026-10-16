@@ -56,6 +56,30 @@ describe("AccountPlanNotices", () => {
     expect(screen.getByText(/Upgrade license/i)).toBeInTheDocument();
   });
 
+  it("renders a warning notification when Event Forwarder usage is approaching", () => {
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        eventForwarder: { lastUpdated: new Date(), status: "approaching" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+    // @ts-expect-error "partial test mock"
+    vi.mocked(usePermissionsUtil).mockReturnValue({
+      canManageBilling: () => true,
+      canViewUsage: () => true,
+    });
+
+    render(<AccountPlanNotices />);
+
+    expect(
+      screen.getByText(/Approaching Event Forwarder event limit/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Upgrade license/i)).toBeInTheDocument();
+  });
+
   describe("enterprise license seat quota", () => {
     it("does not render an error when seats is within limit", () => {
       // @ts-expect-error "partial test mock"

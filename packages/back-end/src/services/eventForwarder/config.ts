@@ -701,6 +701,15 @@ export async function syncEventForwarderConfigFromDatasource({
   const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
+    // One forwarder per org: usage is metered per org, and the wizard already
+    // hides the option once one exists. Lift when per-destination event
+    // splitting lands.
+    const [other] = await context.models.eventForwarderConfigs.getAll();
+    if (other) {
+      throw new Error(
+        `This organization already has an Event Forwarder on Data Source ${other.datasourceId}. Only one Event Forwarder is allowed per organization.`,
+      );
+    }
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,
