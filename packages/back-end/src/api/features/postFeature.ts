@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
-import { postFeatureValidator } from "shared/validators";
+import { FEATURE_KEY_REGEX, postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
@@ -84,9 +84,9 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error(`Feature id '${req.body.id}' already exists.`);
   }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+  if (!req.body.id.match(FEATURE_KEY_REGEX)) {
     throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
+      "Feature keys can only include letters, numbers, and the characters _-.:|",
     );
   }
 

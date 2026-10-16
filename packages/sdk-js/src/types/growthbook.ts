@@ -66,6 +66,13 @@ export type ContextualBanditDefinitions = Record<
   ContextualBanditDefinition
 >;
 
+export type InterleavingDefinition = {
+  trackingKey: string;
+  variations: { key: string; config: Record<string, unknown> }[];
+};
+
+export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
+
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
@@ -501,6 +508,8 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 };
 
 // Alias
