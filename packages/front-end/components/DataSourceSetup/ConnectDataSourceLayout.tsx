@@ -360,16 +360,25 @@ export default function ConnectDataSourceLayout({
           setup,
         });
       } else {
+        const initialSettings = getInitialSettings(
+          schemaFormat,
+          ensureAndReturn(datasource.params),
+        );
+        // This page only creates custom warehouses. Start without identifier
+        // types or exposure queries so Finish Setting Up collects them.
         const res = await apiCall<{ id: string }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
             ...datasource,
             settings: {
-              ...getInitialSettings(
-                schemaFormat,
-                ensureAndReturn(datasource.params),
-              ),
+              ...initialSettings,
               ...(datasource.settings || {}),
+              userIdTypes: [],
+              queries: {
+                ...initialSettings.queries,
+                ...(datasource.settings?.queries || {}),
+                exposure: [],
+              },
             },
           }),
         });
