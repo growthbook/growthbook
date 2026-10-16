@@ -917,9 +917,6 @@
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
     }
   },
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {

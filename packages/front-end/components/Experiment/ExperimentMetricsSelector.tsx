@@ -16,6 +16,7 @@ import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import MetricsSelector from "./MetricsSelector";
 
@@ -72,6 +73,12 @@ export default function ExperimentMetricsSelector({
   requireDatasource = false,
   experimentType,
 }: Props) {
+  const settings = useOrgSettings();
+  const maxGoalMetrics =
+    experimentType !== "holdout"
+      ? settings?.maxGoalMetricsPerExperiment
+      : undefined;
+
   const {
     getExperimentMetricById,
     getDatasourceById,
@@ -259,7 +266,13 @@ export default function ExperimentMetricsSelector({
             {goalMetricsDescription
               ? goalMetricsDescription
               : !forceSingleGoalMetric
-                ? "The primary metrics you are trying to improve with this experiment. "
+                ? `The primary metrics you are trying to improve with this experiment.${
+                    maxGoalMetrics && maxGoalMetrics > 0
+                      ? ` Your organization allows a maximum of ${maxGoalMetrics} goal metric${
+                          maxGoalMetrics === 1 ? "" : "s"
+                        }.`
+                      : ""
+                  }`
                 : "Choose the goal metric that will be used to update variation weights. "}
           </Text>
           <MetricsSelector
@@ -271,6 +284,13 @@ export default function ExperimentMetricsSelector({
             autoFocus={autoFocus}
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
+            maxSelected={
+              forceSingleGoalMetric
+                ? 1
+                : maxGoalMetrics && maxGoalMetrics > 0
+                  ? maxGoalMetrics
+                  : undefined
+            }
             includeGroups={!forceSingleGoalMetric}
             excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
             allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
@@ -280,6 +300,16 @@ export default function ExperimentMetricsSelector({
             requireDatasource={requireDatasource}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
+          {maxGoalMetrics &&
+            maxGoalMetrics > 0 &&
+            goalMetrics.length > maxGoalMetrics && (
+              <Callout status="error" my="2">
+                Your organization limits experiments to a maximum of{" "}
+                {maxGoalMetrics} goal metric{maxGoalMetrics === 1 ? "" : "s"}.
+                Additional outcomes can be tracked as secondary or guardrail
+                metrics.
+              </Callout>
+            )}
           {hasIdentifierTypeMismatch && (
             <Callout status="warning" my="4">
               Mismatch between the randomization unit and the Decision Metric

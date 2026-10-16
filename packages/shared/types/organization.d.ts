@@ -388,6 +388,7 @@ export interface OrganizationSettings {
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
+  maxGoalMetricsPerExperiment?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;

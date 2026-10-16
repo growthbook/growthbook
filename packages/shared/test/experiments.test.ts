@@ -30,6 +30,7 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   ExperimentMetricInterface,
+  validateMaxGoalMetrics,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -2861,5 +2862,73 @@ describe("isFactMetricJoinable", () => {
         },
       ),
     ).toBe(true);
+  });
+
+  describe("validateMaxGoalMetrics", () => {
+    it("allows any number of goal metrics when maxGoalMetricsPerExperiment is undefined or null", () => {
+      expect(() =>
+        validateMaxGoalMetrics(undefined, ["m1", "m2", "m3"]),
+      ).not.toThrow();
+      expect(() =>
+        validateMaxGoalMetrics({}, ["m1", "m2", "m3"]),
+      ).not.toThrow();
+      expect(() =>
+        validateMaxGoalMetrics({ maxGoalMetricsPerExperiment: undefined }, [
+          "m1",
+          "m2",
+          "m3",
+        ]),
+      ).not.toThrow();
+    });
+
+    it("allows any number of goal metrics when maxGoalMetricsPerExperiment is 0 or negative", () => {
+      expect(() =>
+        validateMaxGoalMetrics({ maxGoalMetricsPerExperiment: 0 }, [
+          "m1",
+          "m2",
+          "m3",
+        ]),
+      ).not.toThrow();
+      expect(() =>
+        validateMaxGoalMetrics({ maxGoalMetricsPerExperiment: -1 }, [
+          "m1",
+          "m2",
+          "m3",
+        ]),
+      ).not.toThrow();
+    });
+
+    it("allows goal metrics count less than or equal to maxGoalMetricsPerExperiment", () => {
+      const settings = { maxGoalMetricsPerExperiment: 1 };
+      expect(() => validateMaxGoalMetrics(settings, [])).not.toThrow();
+      expect(() => validateMaxGoalMetrics(settings, undefined)).not.toThrow();
+      expect(() => validateMaxGoalMetrics(settings, ["m1"])).not.toThrow();
+
+      const settings3 = { maxGoalMetricsPerExperiment: 3 };
+      expect(() =>
+        validateMaxGoalMetrics(settings3, ["m1", "m2", "m3"]),
+      ).not.toThrow();
+    });
+
+    it("throws an error when goal metrics exceed maxGoalMetricsPerExperiment", () => {
+      const settings1 = { maxGoalMetricsPerExperiment: 1 };
+      expect(() => validateMaxGoalMetrics(settings1, ["m1", "m2"])).toThrow(
+        "Experiments can have a maximum of 1 goal metric. Additional outcomes can be tracked as secondary or guardrail metrics.",
+      );
+
+      const settings3 = { maxGoalMetricsPerExperiment: 3 };
+      expect(() =>
+        validateMaxGoalMetrics(settings3, ["m1", "m2", "m3", "m4"]),
+      ).toThrow(
+        "Experiments can have a maximum of 3 goal metrics. Additional outcomes can be tracked as secondary or guardrail metrics.",
+      );
+    });
+
+    it("ignores holdout experiments", () => {
+      const settings = { maxGoalMetricsPerExperiment: 1 };
+      expect(() =>
+        validateMaxGoalMetrics(settings, ["m1", "m2"], "holdout"),
+      ).not.toThrow();
+    });
   });
 });

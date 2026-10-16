@@ -2977,3 +2977,28 @@ export function getEffectiveLookbackOverride(
   }
   return undefined;
 }
+
+/**
+ * Validates that an experiment's goal metrics do not exceed the organization's maximum goal metric setting.
+ */
+export function validateMaxGoalMetrics(
+  settings: OrganizationSettings | undefined,
+  goalMetrics: string[] | undefined,
+  experimentType?: ExperimentInterface["type"],
+): void {
+  const maxGoalMetrics = settings?.maxGoalMetricsPerExperiment;
+  if (!maxGoalMetrics || maxGoalMetrics < 1) {
+    return;
+  }
+  if (experimentType === "holdout") {
+    return;
+  }
+  const count = goalMetrics?.length ?? 0;
+  if (count > maxGoalMetrics) {
+    throw new Error(
+      `Experiments can have a maximum of ${maxGoalMetrics} goal metric${
+        maxGoalMetrics === 1 ? "" : "s"
+      }. Additional outcomes can be tracked as secondary or guardrail metrics.`,
+    );
+  }
+}

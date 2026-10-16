@@ -139,6 +139,35 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* Maximum goal metrics per experiment */}
+            <Box mb="6">
+              <Flex mb="2">
+                <label htmlFor="input-maxGoalMetricsPerExperiment">
+                  <Text size="3" className="font-weight-semibold">
+                    Maximum goal metrics per experiment
+                  </Text>
+                </label>
+              </Flex>
+              <Box width="150px">
+                <Field
+                  id="input-maxGoalMetricsPerExperiment"
+                  type="number"
+                  step="1"
+                  min="1"
+                  placeholder="Unlimited"
+                  disabled={hasFileConfig()}
+                  {...form.register("maxGoalMetricsPerExperiment", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </Box>
+              <HelperText status="info" size="sm" mt="1">
+                Limit the number of goal metrics that can be added to an
+                experiment. Leave blank for unlimited. Additional outcomes can
+                still be tracked as secondary or guardrail metrics.
+              </HelperText>
+            </Box>
+
             {/* import length */}
             <Box mb="6">
               <Flex mb="2">
@@ -150,7 +179,6 @@ export default function ExperimentSettings({
               </Flex>
               <Box width="150px">
                 <Field
-                  size="legacy"
                   type="number"
                   append="days"
                   step="1"
@@ -286,7 +314,6 @@ export default function ExperimentSettings({
                       value: "stale",
                       description: (
                         <Field
-                          size="legacy"
                           label="Refresh when"
                           append="hours old"
                           type="number"
@@ -312,7 +339,6 @@ export default function ExperimentSettings({
                             an hour.
                           </Text>
                           <Field
-                            size="legacy"
                             disabled={
                               hasFileConfig() ||
                               form.watch("updateSchedule.type") !== "cron"
@@ -388,7 +414,6 @@ export default function ExperimentSettings({
                     className="form-inline flex-column align-items-start"
                   >
                     <Field
-                      size="legacy"
                       type="number"
                       step="0.001"
                       style={{
@@ -430,7 +455,6 @@ export default function ExperimentSettings({
                   </Text>
                   <Flex>
                     <Field
-                      size="legacy"
                       type="number"
                       step="1"
                       min="0"

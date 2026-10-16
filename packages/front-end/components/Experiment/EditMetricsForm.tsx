@@ -10,7 +10,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -195,6 +198,7 @@ const EditMetricsForm: FC<{
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
+        validateMaxGoalMetrics(settings, value.goalMetrics, experiment.type);
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {

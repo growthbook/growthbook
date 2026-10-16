@@ -1,4 +1,7 @@
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
@@ -355,6 +358,14 @@ export const updateExperiment = createApiRequestHandler(
       goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
       incoming: req.body.statusUpdateSchedule,
     });
+  }
+
+  if (changes.goalMetrics !== undefined) {
+    validateMaxGoalMetrics(
+      req.organization.settings,
+      changes.goalMetrics,
+      changes.type ?? experiment.type,
+    );
   }
 
   const isStartingFromDraft =

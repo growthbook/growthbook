@@ -1,4 +1,7 @@
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
@@ -333,6 +336,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         incoming: payload.statusUpdateSchedule,
       });
     }
+
+    validateMaxGoalMetrics(
+      req.organization.settings,
+      newExperiment.goalMetrics,
+      newExperiment.type,
+    );
 
     const experiment = await createExperiment({
       data: newExperiment,

@@ -18,6 +18,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   getActivePhase,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -1186,6 +1187,8 @@ export async function postExperiments(
       project: data.project,
     });
 
+    validateMaxGoalMetrics(org.settings, data.goalMetrics, data.type);
+
     result = await validateExperimentData(context, data);
   } catch (e) {
     res.status(400).json({
@@ -1710,6 +1713,22 @@ export async function postExperiment(
       ) {
         data.activationMetric = "";
       }
+    }
+  }
+
+  if (data.goalMetrics !== undefined) {
+    try {
+      validateMaxGoalMetrics(
+        org.settings,
+        data.goalMetrics,
+        data.type ?? experiment.type,
+      );
+    } catch (e) {
+      res.status(400).json({
+        status: 400,
+        message: e.message,
+      });
+      return;
     }
   }
 

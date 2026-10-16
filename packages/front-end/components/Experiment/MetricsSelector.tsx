@@ -113,6 +113,7 @@ const MetricsSelector: FC<{
   disabled?: boolean;
   helpText?: ReactNode;
   groupOptions?: boolean;
+  maxSelected?: number;
   getMetricDisabledInfo?: (
     metricId: string,
     isGroup: boolean,
@@ -133,6 +134,7 @@ const MetricsSelector: FC<{
   excludeQuantiles,
   allowedFactMetricTypes,
   forceSingleMetric = false,
+  maxSelected,
   noManual = false,
   noLegacyMetrics = false,
   filterConversionWindowMetrics,
@@ -316,9 +318,17 @@ const MetricsSelector: FC<{
       if ("options" in option) {
         return false;
       }
+      if (
+        maxSelected !== undefined &&
+        maxSelected > 0 &&
+        selected.length >= maxSelected &&
+        !selected.includes(option.value)
+      ) {
+        return true;
+      }
       return filteredOptionsMap.get(option.value)?.disabled ?? false;
     },
-    [filteredOptionsMap],
+    [filteredOptionsMap, maxSelected, selected],
   );
 
   const tagCounts = useMemo(() => {
@@ -589,7 +599,13 @@ const MetricsSelector: FC<{
                         const tag = v;
                         filteredOptions.forEach((m) => {
                           if (m.tags && m.tags.includes(tag)) {
-                            newValue.add(m.id);
+                            if (
+                              maxSelected === undefined ||
+                              maxSelected <= 0 ||
+                              newValue.size < maxSelected
+                            ) {
+                              newValue.add(m.id);
+                            }
                           }
                         });
                         onChange(Array.from(newValue));

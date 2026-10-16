@@ -15,7 +15,11 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getEqualWeights,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Heading, Separator } from "@radix-ui/themes";
 import {
@@ -591,6 +595,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         }
       }
     }
+
+    validateMaxGoalMetrics(settings, data.goalMetrics, data.type);
 
     if (duplicate && data.phases?.[0]) {
       data.phases[0].seed = useSameSeedAsOriginal

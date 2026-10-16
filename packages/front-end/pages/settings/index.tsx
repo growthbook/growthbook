@@ -195,6 +195,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
         settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      maxGoalMetricsPerExperiment:
+        settings.maxGoalMetricsPerExperiment ?? undefined,
       decisionFrameworkEnabled:
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
@@ -450,6 +452,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: value.preferredEnvironment || null,
       // A cleared number input yields NaN — normalize to 0 (cap disabled)
       maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+      maxGoalMetricsPerExperiment:
+        value.maxGoalMetricsPerExperiment &&
+        !isNaN(value.maxGoalMetricsPerExperiment) &&
+        value.maxGoalMetricsPerExperiment > 0
+          ? value.maxGoalMetricsPerExperiment
+          : null,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
         hasRequireApprovals,

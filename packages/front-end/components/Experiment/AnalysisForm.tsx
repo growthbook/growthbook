@@ -16,7 +16,10 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -501,6 +504,14 @@ const AnalysisForm: FC<{
               "Enter a conversion window override or disable the conversion window override",
             );
           }
+        }
+
+        if (body.goalMetrics) {
+          validateMaxGoalMetrics(
+            orgSettings,
+            body.goalMetrics,
+            experiment.type,
+          );
         }
 
         await apiCall(`/experiment/${experiment.id}`, {

@@ -203,6 +203,12 @@ export default function TabbedPage({
         setTab(tabName);
         setTabPath(tabPath);
       } else if (!hash) {
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/experiment/")
+        ) {
+          return;
+        }
         // If no hash in URL, add the current tab from state to the URL
         const newUrl =
           window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
@@ -317,6 +323,12 @@ export default function TabbedPage({
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
   const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/experiment/")
+    ) {
+      return;
+    }
     setTab(tab);
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
@@ -348,6 +360,12 @@ export default function TabbedPage({
 
   const persistTabPath = useCallback(
     (path: string) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/experiment/")
+      ) {
+        return;
+      }
       setTabPath(path);
       const newUrl =
         window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;

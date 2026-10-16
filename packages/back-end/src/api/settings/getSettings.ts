@@ -34,6 +34,8 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       ),
     },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
+    maxGoalMetricsPerExperiment:
+      req.context.org.settings?.maxGoalMetricsPerExperiment ?? null,
     preferredEnvironment:
       req.context.org.settings?.preferredEnvironment ?? null,
   };

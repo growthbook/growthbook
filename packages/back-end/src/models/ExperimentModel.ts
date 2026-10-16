@@ -6,6 +6,7 @@ import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
@@ -730,6 +731,7 @@ export async function createExperiment({
   );
 
   validateMetricOverrides(data.metricOverrides);
+  validateMaxGoalMetrics(context.org.settings, data.goalMetrics, data.type);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -817,6 +819,13 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
+  if (allChanges.goalMetrics !== undefined) {
+    validateMaxGoalMetrics(
+      context.org.settings,
+      allChanges.goalMetrics,
+      allChanges.type ?? experiment.type,
+    );
+  }
 
   const writeResult = await ExperimentModel.updateOne(
     {
