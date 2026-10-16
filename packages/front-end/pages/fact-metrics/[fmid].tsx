@@ -85,7 +85,7 @@ export default function FactMetricPage() {
     edit: editMetric,
     editDisabled,
     modal: metricModal,
-  } = useFactMetricFlow("fact-metric", enterInlineEdit);
+  } = useFactMetricFlow("fact-metric", { onInlineEdit: enterInlineEdit });
   const activeTab =
     tab === "experiments" || tab === "bandits" ? tab : "overview";
   const { apiCall } = useAuth();

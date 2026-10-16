@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
@@ -604,7 +605,7 @@ const MetricsList = (): React.ReactElement => {
                     cta: "Continue with legacy SQL metric",
                     ctaColor: "violet",
                     submit: () => setShowLegacyForm(true),
-                    getConfirmationContent: async () => (
+                    getConfirmationContent: async (close) => (
                       <Flex direction="column" gap="2">
                         <Text as="p" mb="0">
                           Legacy SQL metrics are no longer the recommended way
@@ -619,6 +620,8 @@ const MetricsList = (): React.ReactElement => {
                               variant: "ghost",
                               children: "Create a Fact Metric instead",
                             },
+                            // Unmount the focus trap before opening the legacy portal.
+                            () => flushSync(close),
                           )}
                         </Text>
                       </Flex>
