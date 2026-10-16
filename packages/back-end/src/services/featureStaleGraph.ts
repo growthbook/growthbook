@@ -25,12 +25,18 @@ export async function loadStaleGraph(
   const scan = getContextForAgendaJobByOrgObject(context.org);
   const features = new Map<string, FeatureInterface>();
   let frontier = [...new Set(featureIds)];
+  // Each query scans the organization's features, so a flag's dependents are
+  // looked up once: the requested flags come back from the first query but
+  // aren't searched again
+  const searched = new Set(frontier);
   while (frontier.length) {
     const loaded = await getFeaturesWithPrerequisitesOn(scan, frontier);
     frontier = [];
     for (const feature of loaded) {
       if (features.has(feature.id)) continue;
       features.set(feature.id, feature);
+      if (searched.has(feature.id)) continue;
+      searched.add(feature.id);
       frontier.push(feature.id);
     }
   }

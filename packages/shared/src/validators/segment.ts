@@ -167,6 +167,7 @@ export const postSegmentValidator = {
     })
     .strict(),
   summary: "Create a single segment",
+  confirmation: ["segment.create"] as const,
   operationId: "postSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -209,6 +210,7 @@ export const updateSegmentValidator = {
     })
     .strict(),
   summary: "Update a single segment",
+  confirmation: ["segment.edit"] as const,
   operationId: "updateSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -232,6 +234,7 @@ export const deleteSegmentValidator = {
     })
     .strict(),
   summary: "Deletes a single segment",
+  confirmation: ["segment.delete"] as const,
   operationId: "deleteSegment",
   tags: ["segments"],
   method: "delete" as const,

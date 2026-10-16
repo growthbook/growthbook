@@ -26,6 +26,11 @@ import {
   PublishGate,
   BypassedGate,
 } from "back-end/src/revisions/publishGates";
+import {
+  confirmationLink,
+  gateNotices,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -104,7 +109,7 @@ async function setArchivedState(
     })),
   ];
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
     skipSchemaValidation: context.canSkipSchemaValidationFor("saved-group"),
     skipHooks: context.canSkipHooksFor("saved-group"),
@@ -125,6 +130,17 @@ async function setArchivedState(
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
+
+  await requireConfirmation(context, {
+    actions: ["savedGroup.archive"],
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    summary: `${archived ? "Archive" : "Unarchive"} ${savedGroup.groupName}`,
+    links: [
+      confirmationLink("savedGroup", savedGroup.id, savedGroup.groupName),
+    ],
+    pin: savedGroup.dateUpdated,
+  });
 
   // One recorded, guarded landing whether or not approval was bypassed.
   // History first, then live state: a merged record with no live change is

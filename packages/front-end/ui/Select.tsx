@@ -1,6 +1,6 @@
 import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode } from "react";
+import { forwardRef, ReactNode, useId } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
@@ -56,6 +56,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   }: SelectProps,
   ref,
 ) {
+  const triggerId = useId();
   return (
     <Flex
       direction="column"
@@ -64,7 +65,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
+        <Text
+          as="label"
+          htmlFor={triggerId}
+          size={labelSize ?? "md"}
+          weight={labelWeight}
+        >
           {label}
         </Text>
       ) : label !== undefined ? (
@@ -81,6 +87,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         }}
       >
         <RadixSelect.Trigger
+          id={triggerId}
           autoFocus={autoFocus}
           aria-label={ariaLabel}
           placeholder={placeholder}
@@ -112,15 +119,20 @@ export const SelectItem = forwardRef<
     value: string;
     children: string | string[] | ReactNode;
     disabled?: boolean;
+    className?: string;
+    textValue?: string;
   }
->(function SelectItem({ value, children, disabled = false, ...props }, ref) {
+>(function SelectItem(
+  { value, children, disabled = false, className, ...props },
+  ref,
+) {
   return (
     <RadixSelect.Item
       value={value}
       disabled={disabled}
       {...props}
       ref={ref}
-      className="w-full"
+      className={clsx("w-full", className)}
     >
       {children}
     </RadixSelect.Item>

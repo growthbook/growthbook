@@ -19,6 +19,7 @@ import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
@@ -224,6 +225,10 @@ export default function PrerequisiteStatusRow({
             >
               {prerequisite.id}
             </a>
+            <InvalidPrereqConditionBadge
+              condition={prerequisite.condition}
+              iconOnly
+            />
             <Box style={{ flexShrink: 0 }}>{menu}</Box>
           </Flex>
         </Box>
