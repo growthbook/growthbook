@@ -5815,7 +5815,7 @@ Triggered when a new draft revision is created for a saved group
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -5824,7 +5824,7 @@ Triggered when a new draft revision is created for a saved group
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -5832,10 +5832,19 @@ Triggered when a new draft revision is created for a saved group
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -5844,7 +5853,7 @@ Triggered when a new draft revision is created for a saved group
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -5852,6 +5861,15 @@ Triggered when a new draft revision is created for a saved group
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -6036,7 +6054,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6045,7 +6063,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6053,10 +6071,19 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6065,7 +6092,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6073,6 +6100,15 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -6258,7 +6294,7 @@ Triggered when a draft revision is submitted for review
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6267,7 +6303,7 @@ Triggered when a draft revision is submitted for review
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6275,10 +6311,19 @@ Triggered when a draft revision is submitted for review
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6287,7 +6332,7 @@ Triggered when a draft revision is submitted for review
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6295,6 +6340,15 @@ Triggered when a draft revision is submitted for review
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -6479,7 +6533,7 @@ Triggered when a draft revision is approved by a reviewer
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6488,7 +6542,7 @@ Triggered when a draft revision is approved by a reviewer
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6496,10 +6550,19 @@ Triggered when a draft revision is approved by a reviewer
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6508,7 +6571,7 @@ Triggered when a draft revision is approved by a reviewer
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6516,6 +6579,15 @@ Triggered when a draft revision is approved by a reviewer
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -6722,7 +6794,7 @@ Triggered when a reviewer requests changes on a draft revision
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6731,7 +6803,7 @@ Triggered when a reviewer requests changes on a draft revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6739,10 +6811,19 @@ Triggered when a reviewer requests changes on a draft revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6751,7 +6832,7 @@ Triggered when a reviewer requests changes on a draft revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6759,6 +6840,15 @@ Triggered when a reviewer requests changes on a draft revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -6965,7 +7055,7 @@ Triggered when a comment is added to a draft revision
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6974,7 +7064,7 @@ Triggered when a comment is added to a draft revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -6982,10 +7072,19 @@ Triggered when a comment is added to a draft revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -6994,7 +7093,7 @@ Triggered when a comment is added to a draft revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7002,6 +7101,15 @@ Triggered when a comment is added to a draft revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -7208,7 +7316,7 @@ Triggered when a draft revision is discarded
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7217,7 +7325,7 @@ Triggered when a draft revision is discarded
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7225,10 +7333,19 @@ Triggered when a draft revision is discarded
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7237,7 +7354,7 @@ Triggered when a draft revision is discarded
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7245,6 +7362,15 @@ Triggered when a draft revision is discarded
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -7429,7 +7555,7 @@ Triggered when a draft revision is rebased onto the latest live state
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7438,7 +7564,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7446,10 +7572,19 @@ Triggered when a draft revision is rebased onto the latest live state
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7458,7 +7593,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7466,6 +7601,15 @@ Triggered when a draft revision is rebased onto the latest live state
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -7650,7 +7794,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7659,7 +7803,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7667,10 +7811,19 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7679,7 +7832,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7687,6 +7840,15 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -7872,7 +8034,7 @@ Triggered when a saved group is reverted to a previous published revision
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7881,7 +8043,7 @@ Triggered when a saved group is reverted to a previous published revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7889,10 +8051,19 @@ Triggered when a saved group is reverted to a previous published revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -7901,7 +8072,7 @@ Triggered when a saved group is reverted to a previous published revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -7909,6 +8080,15 @@ Triggered when a saved group is reverted to a previous published revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -8095,7 +8275,7 @@ Triggered when a discarded revision is reopened
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8104,7 +8284,7 @@ Triggered when a discarded revision is reopened
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8112,10 +8292,19 @@ Triggered when a discarded revision is reopened
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8124,7 +8313,7 @@ Triggered when a discarded revision is reopened
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8132,6 +8321,15 @@ Triggered when a discarded revision is reopened
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -8316,7 +8514,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8325,7 +8523,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8333,10 +8531,19 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8345,7 +8552,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8353,6 +8560,15 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -8537,7 +8753,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8546,7 +8762,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8554,10 +8770,19 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8566,7 +8791,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8574,6 +8799,15 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -8758,7 +8992,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8767,7 +9001,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8775,10 +9009,19 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8787,7 +9030,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8795,6 +9038,15 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
@@ -8979,7 +9231,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             };
             baseSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -8988,7 +9240,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -8996,10 +9248,19 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             proposedSavedGroup: {
                 id: string;
-                type: "condition" | "list";
+                type: "condition" | "list" | "remote";
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
@@ -9008,7 +9269,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string | undefined;
-                /** When type = 'list', this is the attribute key the group is based on */
+                /** When type = 'list' or 'remote', this is the attribute key the group is based on */
                 attributeKey?: string | undefined;
                 /** When type = 'list', this is the list of values for the attribute key */
                 values?: string[] | undefined;
@@ -9016,6 +9277,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+                /** When type = 'remote', the version of the upload the group uses. Absent when it uses none. */
+                currentUploadVersion?: number | undefined;
+                /** When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version. */
+                currentUpload?: ({
+                    version: number;
+                    dateCreated: string;
+                    /** Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)). */
+                    numeric: boolean;
+                } | null) | undefined;
             };
             /** The JSON Patch the draft applies, with each change's value */
             proposedChanges: {
