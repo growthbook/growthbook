@@ -3,6 +3,7 @@
 ## **1.8.1** - Unreleased
 
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add `interleavePlugin` and `interleave()` for interleaving experiments
 
 ## **1.8.0** - Sep 29, 2026
 
