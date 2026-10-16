@@ -592,6 +592,7 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  eventForwarderEvents: number;
 };
 
 // One row per day, SDK key and request type; empty key is image traffic.
@@ -603,6 +604,7 @@ export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
   managedClickhouseEvents?: UsageLimit;
+  eventForwarderEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {
@@ -610,6 +612,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    eventForwarderEvents?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -618,5 +621,11 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  eventForwarder?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+    // Set by the license server past a hidden hard limit; forwarding has stopped.
+    blocked?: boolean;
   };
 };

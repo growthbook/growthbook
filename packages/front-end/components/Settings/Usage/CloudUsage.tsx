@@ -43,6 +43,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
+import { ProgressBar } from "@/ui/ProgressBar";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -201,6 +202,7 @@ export default function CloudUsage() {
     cdnRequests: "unlimited",
     cdnBandwidth: "unlimited",
     managedClickhouseEvents: "unlimited",
+    eventForwarderEvents: "unlimited",
   };
 
   const startDate = new Date();
@@ -228,12 +230,14 @@ export default function CloudUsage() {
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
         managedClickhouseEvents: Math.floor(Math.random() * 1000000),
+        eventForwarderEvents: Math.floor(Math.random() * 100000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
 
     limits.cdnRequests = 1_000_000;
     limits.cdnBandwidth = 5_000_000_000;
+    limits.eventForwarderEvents = 1_000_000;
   }
 
   const connections = sdkData?.connections ?? [];
@@ -304,6 +308,10 @@ export default function CloudUsage() {
     (sum, u) => sum + u.managedClickhouseEvents,
     0,
   );
+  const totalEventForwarderEvents = usage.reduce(
+    (sum, u) => sum + u.eventForwarderEvents,
+    0,
+  );
 
   const monthOptions: { value: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
@@ -356,6 +364,7 @@ export default function CloudUsage() {
                     // Raw bytes: full precision, unlike the page's rounded display
                     bandwidth_bytes: u.bandwidth,
                     managed_clickhouse_events: u.managedClickhouseEvents,
+                    event_forwarder_events: u.eventForwarderEvents,
                   })),
                   `cdn-usage-${month}.csv`,
                 );
@@ -418,6 +427,10 @@ export default function CloudUsage() {
         <div>
           <strong>Total managed Clickhouse events: </strong>
           <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
+        </div>
+        <div>
+          <strong>Total Event Forwarder events: </strong>
+          <span>{requestsFormatter.format(totalEventForwarderEvents)}</span>
         </div>
         {isFiltered && (
           <Text color="text-low">
@@ -575,6 +588,43 @@ export default function CloudUsage() {
           />
         </Box>
       )}
+      {totalEventForwarderEvents > 0 && (
+        <Box mt="5">
+          <Heading as="h3" size="sm" mb="2">
+            Event Forwarder Events
+          </Heading>
+          {limits.eventForwarderEvents !== "unlimited" && (
+            <UsageMeter
+              used={totalEventForwarderEvents}
+              limit={limits.eventForwarderEvents ?? 1_000_000}
+              noun="events"
+              period={
+                monthsAgo === 0
+                  ? "this month"
+                  : `in ${monthOptions.find((o) => o.value === monthsAgo + "")?.label ?? "that month"}`
+              }
+            />
+          )}
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: { [TOTAL_KEY]: u.eventForwarderEvents },
+            }))}
+            series={[
+              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+            ]}
+            formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
+            start={startDate}
+            end={endDate}
+            limitLine={
+              limits.eventForwarderEvents === "unlimited"
+                ? null
+                : limits.eventForwarderEvents
+            }
+          />
+        </Box>
+      )}
       <Box mt="5">
         <a
           href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
@@ -592,6 +642,41 @@ export default function CloudUsage() {
         </a>
       </Box>
     </Frame>
+  );
+}
+
+// "X of 1M events": amber from 80%, red at the limit, matching the usage statuses.
+export function UsageMeter({
+  used,
+  limit,
+  noun,
+  period = "this month",
+}: {
+  used: number;
+  limit: number;
+  noun: string;
+  // "this month" or e.g. "in Sep 2026" for a past month
+  period?: string;
+}) {
+  const pct = limit > 0 ? (used / limit) * 100 : 0;
+  const color = pct >= 100 ? "red" : pct >= 80 ? "amber" : "violet";
+  return (
+    <Box mb="3">
+      <Text size="sm" color="text-mid">
+        {requestsFormatter.format(used)} of {requestsFormatter.format(limit)}{" "}
+        {noun} {period}
+      </Text>
+      <ProgressBar
+        segments={[
+          {
+            id: "usage",
+            weight: 100,
+            completion: Math.min(100, pct),
+            color,
+          },
+        ]}
+      />
+    </Box>
   );
 }
 
