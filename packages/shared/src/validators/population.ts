@@ -10,7 +10,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 
 // Only fact table sources for now. Experiment and feature exposure sources are
@@ -94,7 +94,7 @@ export const apiCreatePopulationBody = z
   .strictObject({
     name: z.string().min(1),
     description: z.string().optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     projects: z.array(z.string()).optional(),
     datasource: z.string().describe("Id of the Data Source"),
     userIdTypes: z

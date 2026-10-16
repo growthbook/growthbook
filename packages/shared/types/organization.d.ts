@@ -21,6 +21,7 @@ import {
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
+  dailyUsageByKeyValidator,
   environment,
   expandedMember,
   expandedMemberInfo,
@@ -260,10 +261,6 @@ export type ApprovalFlowPolicy = Omit<
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
@@ -287,6 +284,10 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  /** Inline suggestions in the AI Assistant composer. Unset means on. */
+  aiAutocompleteEnabled?: boolean;
+  // Unset resolves to the cheapest tier in getAISettingsForOrg.
+  aiAutocompleteModel?: AIModel;
   // AI Assistant skill names turned off for this org, so new skills start enabled.
   disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
@@ -590,6 +591,9 @@ export type DailyUsage = {
   bandwidth: number;
   managedClickhouseEvents: number;
 };
+
+// One row per day, SDK key and request type; empty key is image traffic.
+export type DailyUsageByKey = z.infer<typeof dailyUsageByKeyValidator>;
 
 type UsageLimit = number | "unlimited";
 

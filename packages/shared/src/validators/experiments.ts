@@ -4,6 +4,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
+import { REQUIRES_PERSON_NOTE } from "./event-user";
 import {
   apiAssignmentQueryInputFields,
   apiAssignmentQueryResponseFields,
@@ -2143,7 +2144,7 @@ export const postExperimentCommentValidator = {
   paramsSchema: idParams,
   responseSchema: z.strictObject({ status: z.number() }),
   summary: "Post a comment on an experiment",
-  description: "Adds a new comment to an experiment's discussion thread.",
+  description: `Adds a new comment to an experiment's discussion thread, credited to the person behind the request. ${REQUIRES_PERSON_NOTE}`,
   operationId: "postExperimentComment",
   tags: ["experiments"],
   method: "post" as const,

@@ -6,6 +6,7 @@ import type {
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
 import { ignoreWarningsBodyField } from "shared/validators";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 import {
@@ -191,7 +192,7 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
   // Omitting `visualChanges` makes createVisualChangeset auto-generate
   // one empty entry per variation via getLatestPhaseVariations.
   const changeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     context,
     urlPatterns,
     editorUrl: pageUrl,
