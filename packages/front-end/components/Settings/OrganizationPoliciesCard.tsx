@@ -103,8 +103,8 @@ const OrganizationPoliciesCard: FC<{
   const permissionsUtil = usePermissionsUtil();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
   const canDisable = kind === "pat" && canManageOrgSettings;
-  // Key managers see the policy and can apply it to keys; changing it is also
-  // an org setting, which is what saving it checks.
+  // Anyone who can see these keys sees the policy; changing it is an org
+  // setting, which is what saving it checks.
   const canSeeExpiry =
     kind === "pat"
       ? permissionsUtil.canManagePersonalAccessTokens()
