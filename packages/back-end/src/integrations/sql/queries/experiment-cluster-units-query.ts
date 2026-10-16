@@ -4,6 +4,7 @@ import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrati
 import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_CLUSTER_UNITS_QUERY } from "back-end/src/services/experimentQueries/constants";
 
+import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 
 /**
@@ -22,6 +23,10 @@ export function getExperimentClusterUnitsQuery(
   const clusterIdColumn = exposureQuery.identifierType;
   const subUnitColumn =
     unitsSettings.clusterSubUnitIdentifier ?? exposureQuery.identifierType;
+
+  const unitsSourceName = useUnitsTable
+    ? `${params.unitsTableFullName}`
+    : "__experimentUnits";
 
   return format(
     `-- Cluster Units Query for Health Tab
@@ -42,9 +47,12 @@ export function getExperimentClusterUnitsQuery(
           , ${dialect.castToFloat(
             `COUNT(DISTINCT ${subUnitColumn})`,
           )} / SUM(COUNT(DISTINCT ${subUnitColumn})) OVER () AS pct
-        FROM ${
-          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
-        }
+        FROM ${unitsSourceName}
+        -- Drop clusters with mixed assignment (randomization is per cluster).
+        WHERE ${getConsistentClusterCondition({
+          sourceTable: unitsSourceName,
+          clusterIdColumn,
+        })}
         GROUP BY
           ${clusterIdColumn}
           , variation

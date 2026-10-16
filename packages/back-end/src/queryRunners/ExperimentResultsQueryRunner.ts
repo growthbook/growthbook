@@ -18,6 +18,7 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterAssignmentQueryResponseRows,
   ExperimentClusterUnitsQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
@@ -59,6 +60,7 @@ import {
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentClusterAssignment,
   analyzeExperimentClusterUnits,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -102,6 +104,8 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
 
 export const CLUSTER_UNITS_QUERY_NAME = "clusterUnits";
+
+export const CLUSTER_ASSIGNMENT_QUERY_NAME = "clusterAssignment";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
@@ -536,6 +540,28 @@ export const startExperimentResultQueries = async (
         queryType: "experimentTraffic",
       });
       queries.push(clusterUnitsQuery);
+
+      // Health check: verify all sub-units in a cluster share one assignment.
+      const clusterAssignmentQuery = await startQuery({
+        name: CLUSTER_ASSIGNMENT_QUERY_NAME,
+        query: integration.getExperimentClusterAssignmentQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+        }),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterAssignmentQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterAssignmentQuery);
     }
   }
 
@@ -665,6 +691,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           rows: clusterUnitsQuery.result as ExperimentClusterUnitsQueryResponseRows,
           error: clusterUnitsQuery.error,
           variations: this.model.settings.variations,
+        });
+      }
+
+      const clusterAssignmentQuery = queryMap.get(
+        CLUSTER_ASSIGNMENT_QUERY_NAME,
+      );
+      if (clusterAssignmentQuery) {
+        result.health.clusterAssignment = analyzeExperimentClusterAssignment({
+          rows: clusterAssignmentQuery.result as ExperimentClusterAssignmentQueryResponseRows,
+          error: clusterAssignmentQuery.error,
         });
       }
 

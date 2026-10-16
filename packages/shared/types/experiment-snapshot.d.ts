@@ -296,8 +296,15 @@ export interface ExperimentSnapshotHealth {
    * Cluster experiments: the largest clusters by sub-unit count.
    */
   clusterUnits?: ExperimentSnapshotClusterUnits;
+  clusterAssignment?: ExperimentSnapshotClusterAssignment;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
+}
+
+export interface ExperimentSnapshotClusterAssignment {
+  totalClusters: number;
+  mixedClusters: number;
+  error?: string;
 }
 
 export interface ExperimentSnapshotClusterUnits {

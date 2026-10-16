@@ -46,6 +46,7 @@ import {
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterAssignmentQueryResponse,
   ExperimentClusterUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
@@ -168,6 +169,8 @@ import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/dr
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
 import { getExperimentClusterUnitsQuery as getExperimentClusterUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-units-query";
+import { getExperimentClusterAssignmentQuery as getExperimentClusterAssignmentQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-assignment-query";
+import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -850,6 +853,27 @@ export default abstract class SqlIntegration
     };
   }
 
+  async runExperimentClusterAssignmentQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ExperimentClusterAssignmentQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => {
+        return {
+          total_clusters: parseFloat(row.total_clusters) || 0,
+          mixed_clusters: parseFloat(row.mixed_clusters) || 0,
+        };
+      }),
+      statistics: statistics,
+    };
+  }
+
   async runContextualBanditSrmQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -1122,6 +1146,16 @@ export default abstract class SqlIntegration
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
     return getExperimentClusterUnitsQueryFromSql(
+      this.getSqlDialect(),
+      this.datasource,
+      params,
+    );
+  }
+
+  getExperimentClusterAssignmentQuery(
+    params: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    return getExperimentClusterAssignmentQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
       params,
@@ -2810,8 +2844,24 @@ export default abstract class SqlIntegration
       maxHoursToConvert,
       params.asOf,
     );
-    const unitsWhere = params.settings.skipPartialData
-      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`
+    const unitsWhereConditions: string[] = [];
+    if (params.settings.skipPartialData) {
+      unitsWhereConditions.push(
+        `e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`,
+      );
+    }
+    // Cluster experiments (sub-unit metrics): randomization is per cluster, so
+    // drop clusters whose sub-units disagree on their assignment.
+    if (clusterIdColumn) {
+      unitsWhereConditions.push(
+        getConsistentClusterCondition({
+          sourceTable: params.unitsSourceTableFullName,
+          clusterIdColumn,
+        }),
+      );
+    }
+    const unitsWhere = unitsWhereConditions.length
+      ? `WHERE ${unitsWhereConditions.join(" AND ")}`
       : "";
 
     // Every FT that hosts at least one side of an RA metric must also have

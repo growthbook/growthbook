@@ -864,6 +864,11 @@ export type ExperimentClusterUnitsQueryResponseRows = {
   pct: number;
 }[];
 
+export type ExperimentClusterAssignmentQueryResponseRows = {
+  total_clusters: number;
+  mixed_clusters: number;
+}[];
+
 export type DimensionSlicesQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
@@ -932,6 +937,8 @@ export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type ExperimentClusterUnitsQueryResponse =
   QueryResponse<ExperimentClusterUnitsQueryResponseRows>;
+export type ExperimentClusterAssignmentQueryResponse =
+  QueryResponse<ExperimentClusterAssignmentQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =

@@ -16,6 +16,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterAssignmentQueryResponseRows,
   ExperimentClusterUnitsQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
@@ -48,6 +49,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
+  analyzeExperimentClusterAssignment,
   analyzeExperimentClusterUnits,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -81,6 +83,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  CLUSTER_ASSIGNMENT_QUERY_NAME,
   CLUSTER_TRAFFIC_QUERY_NAME,
   CLUSTER_UNITS_QUERY_NAME,
   SnapshotResult,
@@ -1289,6 +1292,26 @@ const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentTraffic",
       });
       queries.push(clusterUnitsQuery);
+
+      // Health check: verify all sub-units in a cluster share one assignment.
+      const clusterAssignmentQuery = await startQuery({
+        name: CLUSTER_ASSIGNMENT_QUERY_NAME,
+        query: integration.getExperimentClusterAssignmentQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterAssignmentQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterAssignmentQuery);
     }
   }
   return queries;
@@ -1445,6 +1468,16 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           rows: clusterUnitsQuery.result as ExperimentClusterUnitsQueryResponseRows,
           error: clusterUnitsQuery.error,
           variations: this.model.settings.variations,
+        });
+      }
+
+      const clusterAssignmentQuery = queryMap.get(
+        CLUSTER_ASSIGNMENT_QUERY_NAME,
+      );
+      if (clusterAssignmentQuery) {
+        result.health.clusterAssignment = analyzeExperimentClusterAssignment({
+          rows: clusterAssignmentQuery.result as ExperimentClusterAssignmentQueryResponseRows,
+          error: clusterAssignmentQuery.error,
         });
       }
 

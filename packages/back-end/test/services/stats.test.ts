@@ -5,6 +5,7 @@ import type {
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import {
+  analyzeExperimentClusterAssignment,
   analyzeExperimentClusterUnits,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
@@ -363,6 +364,32 @@ describe("analyzeExperimentClusterUnits", () => {
     });
     expect(result.clusters).toEqual([]);
     expect(result.error).toBe("boom");
+  });
+});
+
+describe("analyzeExperimentClusterAssignment", () => {
+  it("reads total and mixed cluster counts from the first row", () => {
+    const result = analyzeExperimentClusterAssignment({
+      rows: [{ total_clusters: 100, mixed_clusters: 3 }],
+    });
+    expect(result).toEqual({ totalClusters: 100, mixedClusters: 3 });
+  });
+
+  it("defaults to zero when there are no rows", () => {
+    const result = analyzeExperimentClusterAssignment({ rows: [] });
+    expect(result).toEqual({ totalClusters: 0, mixedClusters: 0 });
+  });
+
+  it("returns zeros and the error when the query failed", () => {
+    const result = analyzeExperimentClusterAssignment({
+      rows: [],
+      error: "boom",
+    });
+    expect(result).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+      error: "boom",
+    });
   });
 });
 

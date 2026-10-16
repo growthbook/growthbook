@@ -9,6 +9,7 @@ import {
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterAssignmentQueryResponse,
   ExperimentClusterUnitsQueryResponse,
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
@@ -160,6 +161,18 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentClusterUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentClusterAssignmentQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentClusterAssignmentQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
+  ): Promise<ExperimentClusterAssignmentQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runSnapshotMetricQuery(

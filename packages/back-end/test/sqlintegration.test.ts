@@ -2498,4 +2498,58 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     );
     expect(normalized).toMatch(/GROUP BY region_id\s*,\s*variation/);
   });
+
+  it("drops clusters with mixed assignment from the per-cluster units query", () => {
+    const normalized = buildClusterUnitsSql(true).replace(/\s+/g, " ").trim();
+
+    // Only keep clusters whose sub-units all agree on their variation.
+    expect(normalized).toMatch(
+      /WHERE region_id IN \(\s*SELECT region_id\s*FROM proj\.ds\.units\s*GROUP BY region_id\s*HAVING MIN\(variation\) = MAX\(variation\)\s*\)/,
+    );
+  });
+
+  const buildClusterAssignmentSql = (useUnitsTable: boolean): string =>
+    datasourceIntegration.getExperimentClusterAssignmentQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable,
+      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
+    });
+
+  it("counts total and mixed-assignment clusters from the units table", () => {
+    const normalized = buildClusterAssignmentSql(true)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // One row per cluster with its min/max assignment, read from the units table.
+    expect(normalized).toMatch(
+      /__clusterAssignment AS \([\s\S]*MIN\(variation\) AS min_variation[\s\S]*MAX\(variation\) AS max_variation[\s\S]*FROM proj\.ds\.units[\s\S]*GROUP BY region_id/,
+    );
+
+    // A single summary row: total clusters, and how many have mixed assignment.
+    expect(normalized).toContain("COUNT(*) AS total_clusters");
+    expect(normalized).toMatch(
+      /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\) AS mixed_clusters/,
+    );
+    expect(normalized).toContain("FROM __clusterAssignment");
+  });
+
+  it("builds units inline for the assignment check when no units table", () => {
+    const normalized = buildClusterAssignmentSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(normalized).toContain("__rawExperiment");
+    expect(normalized).toContain("__experimentUnits");
+    expect(normalized).toMatch(
+      /__clusterAssignment AS \([\s\S]*FROM __experimentUnits/,
+    );
+  });
 });

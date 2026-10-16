@@ -7,6 +7,7 @@ import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import { getConsistentClusterCondition } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import {
   getBanditDates,
   getBanditVariationPeriodWeights,
@@ -34,8 +35,8 @@ export function getExperimentAggregateUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
-  const clusterGrain =
-    !!params.clusterGrain && !!unitsSettings.isClusterExperiment;
+  const isClusterExperiment = !!unitsSettings.isClusterExperiment;
+  const clusterGrain = !!params.clusterGrain && isClusterExperiment;
 
   const banditDates = getBanditDates(settings.banditSettings);
   const variationPeriodWeights = getBanditVariationPeriodWeights(
@@ -62,6 +63,19 @@ export function getExperimentAggregateUnitsQuery(
       experimentId: settings.experimentId,
     },
   );
+
+  const unitsSourceName = useUnitsTable
+    ? `${params.unitsTableFullName}`
+    : "__experimentUnits";
+
+  // Cluster experiments randomize on the cluster, so drop clusters whose
+  // sub-units disagree on their assignment (mixed assignment) before counting.
+  const clusterConsistencyWhere = isClusterExperiment
+    ? `WHERE ${getConsistentClusterCondition({
+        sourceTable: unitsSourceName,
+        clusterIdColumn: baseIdType,
+      })}`
+    : "";
 
   return format(
     `-- Traffic Query for Health Tab
@@ -94,9 +108,8 @@ export function getExperimentAggregateUnitsQuery(
               ? `, MIN(first_activation_timestamp) AS first_activation_timestamp`
               : ""
           }
-        FROM ${
-          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
-        }
+        FROM ${unitsSourceName}
+        ${clusterConsistencyWhere}
         GROUP BY ${baseIdType}
       ),`
           : ""
@@ -128,13 +141,8 @@ export function getExperimentAggregateUnitsQuery(
                 )} AS dim_activated`
               : ""
           }
-        FROM ${
-          clusterGrain
-            ? "__clusterCollapsedUnits"
-            : useUnitsTable
-              ? `${params.unitsTableFullName}`
-              : "__experimentUnits"
-        }
+        FROM ${clusterGrain ? "__clusterCollapsedUnits" : unitsSourceName}
+        ${clusterGrain ? "" : clusterConsistencyWhere}
       )
       , __unitsByDimension AS (
         -- One row per variation per dimension slice

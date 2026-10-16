@@ -26,6 +26,7 @@ import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterAssignmentQueryResponseRows,
   ExperimentClusterUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -51,6 +52,7 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotClusterAssignment,
   ExperimentSnapshotClusterUnits,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -966,4 +968,21 @@ export function analyzeExperimentClusterUnits({
   }));
 
   return { clusters };
+}
+
+export function analyzeExperimentClusterAssignment({
+  rows,
+  error,
+}: {
+  rows: ExperimentClusterAssignmentQueryResponseRows;
+  error?: string;
+}): ExperimentSnapshotClusterAssignment {
+  if (error) {
+    return { totalClusters: 0, mixedClusters: 0, error };
+  }
+  const row = rows?.[0];
+  return {
+    totalClusters: row?.total_clusters ?? 0,
+    mixedClusters: row?.mixed_clusters ?? 0,
+  };
 }
