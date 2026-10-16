@@ -3,7 +3,6 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { getFactMetricFactTableIds } from "shared/experiments";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -32,6 +31,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -172,7 +172,6 @@ export default function FactMetricList({
   factTable,
   metrics: providedMetrics,
 }: Props) {
-  const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
 
   const { _factMetricsIncludingArchived: factMetrics, getProjectById } =
@@ -194,7 +193,7 @@ export default function FactMetricList({
     hasCommercialFeature("metric-slices") &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
-  const returnUrl = `/fact-tables/${factTable.id}`;
+  const factMetricFlow = useFactMetricFlow("fact-table");
 
   const canEdit = (factMetric: FactMetricInterface) => {
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
@@ -310,6 +309,7 @@ export default function FactMetricList({
 
   return (
     <>
+      {factMetricFlow.modal}
       {showRecommendedMetricsModal && (
         <RecommendedFactMetricsModal
           factTable={factTable}
@@ -359,19 +359,25 @@ export default function FactMetricList({
             content="You don't have permission to add Fact Metrics to this fact table."
             enabled={!canCreateMetrics}
           >
-            {canCreateMetrics ? (
-              <LinkButton
-                href={`/fact-metrics/new?${new URLSearchParams({ factTable: factTable.id, returnUrl }).toString()}`}
-              >
-                Add metric
-              </LinkButton>
-            ) : (
+            {!canCreateMetrics ? (
               // A disabled button gets no hover, so the span shows the tooltip.
               <span style={{ cursor: "not-allowed" }}>
                 <Button disabled style={{ pointerEvents: "none" }}>
                   Add metric
                 </Button>
               </span>
+            ) : factMetricFlow.newFlow ? (
+              <LinkButton
+                href={factMetricFlow.href({ factTable: factTable.id })}
+              >
+                Add metric
+              </LinkButton>
+            ) : (
+              <Button
+                onClick={() => factMetricFlow.open({ factTable: factTable.id })}
+              >
+                Add metric
+              </Button>
             )}
           </Tooltip>
         </Box>
@@ -495,18 +501,14 @@ export default function FactMetricList({
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
-                      onEdit={() =>
-                        router.push(`/fact-metrics/${metric.id}?edit=true`)
-                      }
+                      onEdit={() => factMetricFlow.edit(metric)}
                       editDisabledReason={
                         isMergeAggregationMetric(metric)
                           ? REST_API_ONLY_EDIT_MESSAGE
                           : undefined
                       }
                       onDuplicate={() =>
-                        router.push(
-                          `/fact-metrics/new?${new URLSearchParams({ duplicate: metric.id, returnUrl }).toString()}`,
-                        )
+                        factMetricFlow.open({ duplicate: metric })
                       }
                     />
                   </td>

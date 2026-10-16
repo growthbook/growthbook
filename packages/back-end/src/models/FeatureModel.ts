@@ -55,6 +55,7 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
@@ -129,6 +130,7 @@ import {
   getAffectedSDKPayloadKeys,
   getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
+  toFeatureMetaInfo,
 } from "back-end/src/util/features";
 import {
   assertHoldoutAvailableForProject,
@@ -557,11 +559,14 @@ export async function getAllFeatures(
     projectsAreReadAllowlist = false,
     ids,
     includeArchived = false,
+    signal,
   }: {
     projects?: string[];
     projectsAreReadAllowlist?: boolean;
     ids?: string[];
     includeArchived?: boolean;
+    // Stops loading early; the caller must check it and discard the result
+    signal?: AbortSignal;
   } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
@@ -582,9 +587,14 @@ export async function getAllFeatures(
     q.archived = { $ne: true };
   }
 
-  const features = (await FeatureModel.find(q)).map((m) =>
-    toInterface(m, context),
-  );
+  // A cursor hydrates a batch at a time, and yielding between features keeps
+  // a large organization's list from stalling every other request
+  const features: FeatureInterface[] = [];
+  for await (const doc of FeatureModel.find(q).cursor()) {
+    if (signal?.aborted) break;
+    await yieldEventLoop(features.length);
+    features.push(toInterface(doc, context));
+  }
 
   return features.filter((feature) =>
     context.permissions.canReadTargetingScopedResource(feature),
@@ -4955,7 +4965,14 @@ export async function getFeatureMetaInfoById(
     prerequisites: 1,
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
-    environmentSettings: 1,
+    // Only the environments' prerequisites: on older flags the settings still
+    // hold every rule
+    ...Object.fromEntries(
+      getEnvironmentIdsFromOrg(context.org).map((env) => [
+        `environmentSettings.${env}.prerequisites`,
+        1,
+      ]),
+    ),
     // `baseConfig` drives the list's "Config · <name>" type display; the full
     // (potentially large) default value is fetched only when the caller asks for
     // it — the list itself never parses it.
@@ -4963,57 +4980,19 @@ export async function getFeatureMetaInfoById(
     ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
-  const features = await FeatureModel.find(query, projection);
+  const features = await FeatureModel.find(query, projection).lean<
+    LegacyFeatureInterface[]
+  >();
 
-  return features
-    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
-    .map((f) => {
-      const doc = f as unknown as Record<string, unknown>;
-      const rules = doc.rules as
-        | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
-        | undefined;
-      const envSettings = doc.environmentSettings as
-        | Record<string, { prerequisites?: unknown[] }>
-        | undefined;
-      const topPrereqs = doc.prerequisites as unknown[] | undefined;
+  const metaInfo: FeatureMetaInfo[] = [];
+  for (let i = 0; i < features.length; i++) {
+    await yieldEventLoop(i);
+    const f = features[i];
+    if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
-      const hasPrerequisites =
-        (topPrereqs?.length ?? 0) > 0 ||
-        (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
-        Object.values(envSettings ?? {}).some(
-          (e) => (e.prerequisites?.length ?? 0) > 0,
-        );
-
-      const hasSavedGroups = (rules ?? []).some(
-        (r) => (r.savedGroups?.length ?? 0) > 0,
-      );
-
-      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
-      // (authoritative), not by parsing the default value.
-      const configBackingKey = f.baseConfig ?? null;
-
-      return {
-        id: f.id,
-        project: f.project,
-        targetingProjects: f.targetingProjects,
-        targetingAllProjects: f.targetingAllProjects,
-        archived: f.archived,
-        description: f.description,
-        dateCreated: f.dateCreated,
-        dateUpdated: f.dateUpdated,
-        tags: f.tags,
-        owner: f.owner,
-        valueType: f.valueType,
-        version: f.version,
-        linkedExperiments: f.linkedExperiments,
-        neverStale: f.neverStale,
-        hasPrerequisites,
-        hasSavedGroups,
-        configBackingKey,
-        revision: f.revision as FeatureMetaInfo["revision"],
-        ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-      };
-    });
+    metaInfo.push(toFeatureMetaInfo(f, includeDefaultValue));
+  }
+  return metaInfo;
 }
 
 export async function getFeatureMetaInfoByIds(

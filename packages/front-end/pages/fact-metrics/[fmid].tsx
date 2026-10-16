@@ -40,6 +40,7 @@ import {
 } from "@/ui/DropdownMenu";
 import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
@@ -54,6 +55,9 @@ export default function FactMetricPage() {
   const { fmid } = router.query;
 
   const [isEditing, setIsEditing] = useState(false);
+  // Tracking source for an edit started from another page's Edit link.
+  const [editSource, setEditSource] = useState<string | null>(null);
+  const factMetricFlow = useFactMetricFlow("fact-metric");
   const [actionsContainer, setActionsContainer] =
     useState<HTMLDivElement | null>(null);
 
@@ -113,18 +117,36 @@ export default function FactMetricPage() {
     permissionsUtil.canDeleteFactMetric(factMetric);
   const editViaApiOnly = !!factMetric && isMergeAggregationMetric(factMetric);
 
+  // Edit in place on this page, or in the old FactMetricModal when the
+  // new-metric-creation-flow experiment has this user on the old flow.
+  const startEditing = () => {
+    if (!factMetricFlow.newFlow && factMetric) {
+      factMetricFlow.edit(factMetric);
+      return;
+    }
+    setTab("overview");
+    setEditSource(null);
+    setIsEditing(true);
+  };
+
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
+    // Wait for the flag so the link opens the editor this user is assigned.
+    if (!factMetricFlow.ready) return;
     if (canEdit && !editViaApiOnly) {
-      setTab("overview");
-      setIsEditing(true);
+      startEditing();
+      if (typeof router.query.source === "string") {
+        setEditSource(router.query.source);
+      }
     }
-    const { edit, ...query } = router.query;
+    const { edit, source, ...query } = router.query;
     void edit;
+    void source;
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-  }, [router, ready, canEdit, editViaApiOnly, setTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, ready, canEdit, editViaApiOnly, factMetricFlow.ready]);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -146,6 +168,7 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
+      {factMetricFlow.modal}
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -299,13 +322,7 @@ export default function FactMetricPage() {
                 </span>
               </Tooltip>
             ) : (
-              <Button
-                variant="soft"
-                onClick={() => {
-                  setTab("overview");
-                  setIsEditing(true);
-                }}
-              >
+              <Button variant="soft" onClick={startEditing}>
                 Edit metric
               </Button>
             ))}
@@ -354,8 +371,7 @@ export default function FactMetricPage() {
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
-                setTab("overview");
-                setIsEditing(true);
+                startEditing();
               }}
               disabled={!canEdit || editViaApiOnly}
             >
@@ -532,6 +548,7 @@ export default function FactMetricPage() {
             isEditing={isEditing}
             setIsEditing={setIsEditing}
             mutate={mutateDefinitions}
+            source={editSource ?? "fact-metric"}
           />
         </TabsContent>
 

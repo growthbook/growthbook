@@ -15,6 +15,7 @@ import { getAllVariations } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
+import { assumeUtc } from "back-end/src/util/dates";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -636,11 +637,11 @@ export async function putReport(
 
       const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
 
-      updates.args.startDate = getValidDate(updates.args.startDate);
+      updates.args.startDate = getValidDate(assumeUtc(updates.args.startDate));
       if (!updates.args.endDate) {
         delete updates.args.endDate;
       } else {
-        updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+        updates.args.endDate = getValidDate(assumeUtc(updates.args.endDate));
       }
       updates.args.statsEngine = statsEngine;
       updates.args.regressionAdjustmentEnabled =

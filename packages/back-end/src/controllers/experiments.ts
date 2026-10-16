@@ -46,6 +46,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -152,6 +153,7 @@ import {
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { assumeUtc } from "back-end/src/util/dates";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
@@ -1319,6 +1321,7 @@ export async function postExperiments(
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
+    winner: data.winner,
     analysis: data.analysis || "",
     releasedVariationId: "",
     excludeFromPayload: true,
@@ -1489,7 +1492,7 @@ export async function postExperiments(
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
-          experiment,
+          owner: new ExperimentChangesetOwner(context, experiment),
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
           context,
@@ -2117,13 +2120,13 @@ export async function postExperiment(
     const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(assumeUtc(phaseStartDate));
     }
     if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
       // update both phases when stopped
       if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        firstPhaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
         phases[0] = firstPhaseClone; // update the first phase to the same date ended
       }
     }
@@ -2457,7 +2460,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
-      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : new Date(),
     };
     changes.phases = phases;
   }
@@ -2684,7 +2687,9 @@ export async function postExperimentStop(
             : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
-        dateEnded: req.body.dateEnded ? `${req.body.dateEnded}:00Z` : undefined,
+        dateEnded: req.body.dateEnded
+          ? assumeUtc(req.body.dateEnded)
+          : undefined,
       },
       allowAlreadyStopped: true,
     });
@@ -2878,10 +2883,10 @@ export async function putExperimentPhase(
   );
 
   phase.dateStarted = phase.dateStarted
-    ? getValidDate(phase.dateStarted + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateStarted))
     : new Date();
   phase.dateEnded = phase.dateEnded
-    ? getValidDate(phase.dateEnded + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateEnded))
     : undefined;
 
   await validateChangedPhaseReferences(
@@ -3181,7 +3186,7 @@ export async function postExperimentPhase(
     experiment.phases.slice(-1),
     context,
   );
-  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(assumeUtc(dateStarted)) : new Date();
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -4069,7 +4074,7 @@ export async function postVisualChangeset(
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
@@ -4124,7 +4129,7 @@ export async function putVisualChangeset(
 
   const ret = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     context,
     updates,
   });
@@ -4173,7 +4178,9 @@ export async function deleteVisualChangeset(
 
   await deleteVisualChangesetById({
     visualChangeset,
-    experiment,
+    owner: experiment
+      ? new ExperimentChangesetOwner(context, experiment)
+      : null,
     context,
   });
 

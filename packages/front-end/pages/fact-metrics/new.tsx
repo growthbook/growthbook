@@ -235,12 +235,24 @@ export default function NewFactMetricPage() {
             existing={null}
             duplicateFrom={duplicateFrom}
             initialFactTable={initialFactTable}
+            initialDatasource={
+              typeof router.query.datasource === "string"
+                ? router.query.datasource
+                : undefined
+            }
             isEditing={true}
             mutate={mutateDefinitions}
             onSaved={(metric: FactMetricInterface) =>
               router.replace(`/fact-metrics/${metric.id}`)
             }
             onCancel={() => router.push(returnUrl)}
+            source={
+              typeof router.query.source === "string"
+                ? router.query.source
+                : template
+                  ? "querystring"
+                  : "direct"
+            }
           />
         </>
       )}
