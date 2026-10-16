@@ -285,16 +285,8 @@ export async function getHistory(
 
   // API key history can expose roles/scope/descriptions, so it needs the same
   // permission as listing the key. Other entity types keep their org-scoped access.
-  if (type === "apiKey") {
-    // Reading a member's token already requires owning it or managing members' tokens.
-    const key = id ? await context.models.apiKeys.getById(id) : null;
-    if (
-      id
-        ? !key || (!key.userId && !context.permissions.canViewApiKeys())
-        : !context.permissions.canViewApiKeys()
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  if (type === "apiKey" && !(await canReadApiKeyHistory(context, id))) {
+    context.permissions.throwPermissionError();
   }
   if (
     type === "project" &&
@@ -330,6 +322,23 @@ export async function getHistory(
   );
 
   res.status(200).json({ status: 200, ...history });
+}
+
+// A deleted key is known only by its audits, which name a token's owner.
+async function canReadApiKeyHistory(
+  context: ReqContext,
+  id: string | undefined,
+): Promise<boolean> {
+  if (!id) return context.permissions.canViewApiKeys();
+  const key = await context.models.apiKeys.dangerousGetById(id);
+  const isToken = key
+    ? !!key.userId
+    : (await getPersonalAccessTokenAuditIds(context.org.id)).includes(id);
+  if (!isToken) return context.permissions.canViewApiKeys();
+  return (
+    (!!key && key.userId === context.userId) ||
+    context.permissions.canManagePersonalAccessTokens()
+  );
 }
 
 // Every token the org has had, including deleted ones, which only their audits still name.

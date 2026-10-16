@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   Permissions,
   archiveFootprintForControl,
+  canApplyExpirationPolicy,
+  canSetApiKeyDisabled,
   featurePublishFootprint,
   revertFootprint,
   serveFootprint,
@@ -362,5 +364,52 @@ describe("metric creation has no environment footprint", () => {
       true,
     );
     expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(false);
+  });
+});
+
+describe("API key controls have no environment footprint", () => {
+  const envLimited = (granted: string[]) =>
+    new Permissions({
+      global: {
+        permissions: Object.fromEntries(granted.map((p) => [p, true])),
+        limitAccessByEnvironment: true,
+        environments: ["dev"],
+      },
+      projects: {},
+    });
+  const orgKey = { userId: undefined, disabled: false };
+  const disabledOrgKey = {
+    userId: undefined,
+    disabled: true,
+    disabledBy: "u_x",
+  };
+  const membersToken = { userId: "u_owner", disabled: false };
+
+  it("lets an environment-limited Delete-only role disable but not re-enable", () => {
+    const permissions = envLimited(["deleteApiKeys"]);
+    expect(canSetApiKeyDisabled(permissions, orgKey, "u_1", true)).toBe(true);
+    expect(
+      canSetApiKeyDisabled(permissions, disabledOrgKey, "u_1", false),
+    ).toBe(false);
+    expect(canApplyExpirationPolicy(permissions, "secret")).toBe(true);
+  });
+
+  it("lets an environment-limited Edit-only role re-enable but not disable", () => {
+    const permissions = envLimited(["editApiKeys"]);
+    expect(
+      canSetApiKeyDisabled(permissions, disabledOrgKey, "u_1", false),
+    ).toBe(true);
+    expect(canSetApiKeyDisabled(permissions, orgKey, "u_1", true)).toBe(false);
+    expect(canApplyExpirationPolicy(permissions, "secret")).toBe(false);
+  });
+
+  it("lets an environment-limited members' tokens role act only on members' tokens", () => {
+    const permissions = envLimited(["managePersonalAccessTokens"]);
+    expect(canSetApiKeyDisabled(permissions, membersToken, "u_1", true)).toBe(
+      true,
+    );
+    expect(canApplyExpirationPolicy(permissions, "pat")).toBe(true);
+    expect(canSetApiKeyDisabled(permissions, orgKey, "u_1", true)).toBe(false);
+    expect(canApplyExpirationPolicy(permissions, "secret")).toBe(false);
   });
 });
