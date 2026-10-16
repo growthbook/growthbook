@@ -152,22 +152,36 @@ export const getAIProviderClass = async (
 // the handful of models it recognises and falls back to a forced call of a
 // synthetic json tool for the rest — which the newest models (Opus 5.5)
 // reject with a 400, and which also forbids parallel tool calls.
-function getProviderOptions(model: AIModel): {
+// `lowEffort` keeps reasoning models from spending a small output budget on
+// thinking before they write: Claude 5.x thinks by default and can burn a
+// 30-token cap entirely on it. Low is the floor every current model accepts.
+function getProviderOptions(
+  model: AIModel,
+  { lowEffort = false }: { lowEffort?: boolean } = {},
+): {
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
 } {
-  if (getProviderFromModel(model) === "openai") {
+  const provider = getProviderFromModel(model);
+  if (provider === "openai") {
     return {
       providerOptions: {
         openai: {
           store: false,
           include: ["reasoning.encrypted_content"],
+          ...(lowEffort ? { reasoningEffort: "low" } : {}),
         } satisfies OpenAIResponsesProviderOptions,
       },
     };
   }
-  const structuredOutputMode = anthropicStructuredOutputMode(model);
-  if (structuredOutputMode) {
-    return { providerOptions: { anthropic: { structuredOutputMode } } };
+  if (provider === "anthropic") {
+    const structuredOutputMode = anthropicStructuredOutputMode(model);
+    const anthropic = {
+      ...(structuredOutputMode ? { structuredOutputMode } : {}),
+      ...(lowEffort ? { effort: "low" } : {}),
+    };
+    return Object.keys(anthropic).length
+      ? { providerOptions: { anthropic } }
+      : {};
   }
   return {};
 }
@@ -411,6 +425,8 @@ export const simpleCompletion = async ({
   overrideModel,
   resolvedModel,
   maxOutputTokens,
+  lowEffort,
+  abortSignal,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -428,6 +444,10 @@ export const simpleCompletion = async ({
   resolvedModel?: AIModel;
   /** Hard stop on the reply; latency-sensitive callers keep it small. */
   maxOutputTokens?: number;
+  /** Least reasoning the model allows, so a small budget goes to the reply. */
+  lowEffort?: boolean;
+  /** Cancels the model call, e.g. when the client went away. */
+  abortSignal?: AbortSignal;
 }) => {
   const { defaultAIModel, keySource } = await getAISettingsForOrg(
     context,
@@ -456,11 +476,12 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...getProviderOptions(model),
+    ...getProviderOptions(model, { lowEffort }),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
     ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
   };
 
   let numTokensUsed: number | undefined;

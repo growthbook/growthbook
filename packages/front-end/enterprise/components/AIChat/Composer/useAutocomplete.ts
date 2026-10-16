@@ -5,7 +5,8 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
-const DEBOUNCE_MS = 300;
+// Shorter than a natural typing pause fires a request only to cancel it.
+const DEBOUNCE_MS = 500;
 // "I want" says little; three words is about where a continuation stops being a guess.
 const MIN_WORDS = 3;
 const RETRY_AFTER_ERROR_MS = 60_000;
