@@ -109,13 +109,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   return (
     <>
       {expiredCount > 0 && (
-        <Switch
-          mb="2"
-          size="sm"
-          label={`Show expired keys (${expiredCount})`}
-          value={showExpired}
-          onChange={setShowExpired}
-        />
+        <Flex justify="end" mb="2">
+          <Switch
+            size="sm"
+            label={`Show expired keys (${expiredCount})`}
+            value={showExpired}
+            onChange={setShowExpired}
+          />
+        </Flex>
       )}
       <Table variant="surface" layout="fixed" mb="3">
         <TableHeader>

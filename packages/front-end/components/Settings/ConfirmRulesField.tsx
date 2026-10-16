@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton, VisuallyHidden } from "@radix-ui/themes";
 import { createFilter } from "react-select";
 import {
   PiCaretDown,
@@ -226,7 +226,7 @@ function ActionsField({
             )}
             <Box pl={header ? "0" : "4"}>
               {header ? option.label : verbOf(option.value)}
-              {isPartly && <span className="sr-only">Partly selected</span>}
+              {isPartly && <VisuallyHidden>Partly selected</VisuallyHidden>}
             </Box>
           </Flex>
         );
