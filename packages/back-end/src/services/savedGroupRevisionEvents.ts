@@ -54,8 +54,15 @@ export async function dispatchSavedGroupRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "saved-group") return;
   try {
-    const { baseSavedGroup, proposedSavedGroup, proposedChanges } =
-      await toApiSavedGroupRevision(revision, context as ApiReqContext);
+    const {
+      baseSavedGroup,
+      proposedSavedGroup,
+      proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
+    } = await toApiSavedGroupRevision(revision, context as ApiReqContext);
     const payload = {
       ...(await revisionReference(context, revision)),
       savedGroup: {
@@ -65,6 +72,10 @@ export async function dispatchSavedGroupRevisionEvent(
       baseSavedGroup,
       proposedSavedGroup,
       proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
     };
     const liveForRouting = await context.models.savedGroups.getById(
       revision.target.id,

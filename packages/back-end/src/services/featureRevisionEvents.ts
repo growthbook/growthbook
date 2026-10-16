@@ -98,22 +98,20 @@ export async function dispatchFeatureRevisionEvent<
     const {
       defaultValue,
       rules,
-      definitions,
       environmentsEnabled,
-      envPrerequisites,
       prerequisites,
       metadata,
+      rampActions,
     } = toApiRevision(revision, ctx, feature);
     const object: FeatureRevisionWebhookPayload = {
       ...featureRevisionReference(revision),
       feature: { id: feature.id },
       defaultValue,
       rules,
-      definitions,
       environmentsEnabled,
-      envPrerequisites,
       prerequisites,
       metadata,
+      rampActions,
     };
 
     await createEvent({

@@ -1390,19 +1390,15 @@ Triggered when a new draft revision is created for a feature
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -1528,19 +1524,15 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             change: "rule.add" | "rule.update" | "rule.delete" | "rule.reorder" | "rule.rampSchedule.set" | "rule.rampSchedule.remove" | "toggle" | "defaultValue" | "prerequisites" | "holdout" | "archive" | "metadata";
             environments?: string[] | undefined;
         };
@@ -1668,19 +1660,15 @@ Triggered when a draft revision is submitted for review
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             reviewComment: string | null;
         };
     };
@@ -1807,19 +1795,15 @@ Triggered when a draft revision is approved by a reviewer
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -1967,19 +1951,15 @@ Triggered when a reviewer requests changes on a draft revision
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -2127,19 +2107,15 @@ Triggered when a comment is added to a draft revision
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -2287,19 +2263,15 @@ Triggered when a draft revision is discarded
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -2425,19 +2397,15 @@ Triggered when a discarded draft revision is reopened as a draft
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -2563,19 +2531,15 @@ Triggered when the author (or an editor) recalls a review request, returning the
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -2701,19 +2665,15 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -2839,19 +2799,15 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -2977,19 +2933,15 @@ Triggered when a draft revision is rebased onto the latest published version
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
         };
     };
     user: {
@@ -3115,19 +3067,15 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             bulkPublishId?: string | undefined;
         };
     };
@@ -3254,19 +3202,15 @@ Triggered when a feature is reverted to a previous published revision
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             revertedToVersion: number;
             bulkPublishId?: string | undefined;
         };
@@ -3394,19 +3338,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             /** The draft's default value */
             defaultValue?: string | undefined;
             rules: Record<string, unknown[]>;
-            definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
-            envPrerequisites?: Record<string, {
-                /** Feature ID */
-                id: string;
-                condition: string;
-            }[]> | undefined;
             prerequisites?: {
                 /** Feature ID */
                 id: string;
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            /** Ramp schedule steps the draft attaches to its rules */
+            rampActions?: unknown[] | undefined;
             bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
@@ -5882,6 +5822,65 @@ Triggered when a new draft revision is created for a saved group
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -6044,6 +6043,65 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             change: "metadata" | "condition" | "values" | "archive";
         };
     };
@@ -6207,6 +6265,65 @@ Triggered when a draft revision is submitted for review
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -6369,6 +6486,65 @@ Triggered when a draft revision is approved by a reviewer
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -6553,6 +6729,65 @@ Triggered when a reviewer requests changes on a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -6737,6 +6972,65 @@ Triggered when a comment is added to a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -6921,6 +7215,65 @@ Triggered when a draft revision is discarded
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -7083,6 +7436,65 @@ Triggered when a draft revision is rebased onto the latest live state
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -7245,6 +7657,65 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
         };
     };
@@ -7408,6 +7879,65 @@ Triggered when a saved group is reverted to a previous published revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             revertedToVersion?: number | undefined;
             bulkPublishId?: string | undefined;
         };
@@ -7572,6 +8102,65 @@ Triggered when a discarded revision is reopened
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -7734,6 +8323,65 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -7896,6 +8544,65 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -8058,6 +8765,65 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -8220,6 +8986,65 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
@@ -8613,6 +9438,65 @@ Triggered when a new draft revision is created for a constant
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -8776,6 +9660,65 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             change: "metadata" | "value" | "archive";
         };
     };
@@ -8940,6 +9883,65 @@ Triggered when a draft revision is submitted for review
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -9103,6 +10105,65 @@ Triggered when a draft revision is approved by a reviewer
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -9288,6 +10349,65 @@ Triggered when a reviewer requests changes on a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -9473,6 +10593,65 @@ Triggered when a comment is added to a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -9658,6 +10837,65 @@ Triggered when a draft revision is discarded
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -9821,6 +11059,65 @@ Triggered when a draft revision is rebased onto the latest live state
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -9984,6 +11281,65 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
         };
     };
@@ -10148,6 +11504,65 @@ Triggered when a constant is reverted to a previous published revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             revertedToVersion?: number | undefined;
             bulkPublishId?: string | undefined;
         };
@@ -10313,6 +11728,65 @@ Triggered when a discarded revision is reopened
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -10476,6 +11950,65 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -10639,6 +12172,65 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -10802,6 +12394,65 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -10965,6 +12616,65 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
@@ -11652,6 +13362,65 @@ Triggered when a new draft revision is created for a config
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -11913,6 +13682,65 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             change: "metadata" | "value" | "schema" | "archive";
         };
     };
@@ -12175,6 +14003,65 @@ Triggered when a draft revision is submitted for review
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -12436,6 +14323,65 @@ Triggered when a draft revision is approved by a reviewer
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -12719,6 +14665,65 @@ Triggered when a reviewer requests changes on a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -13002,6 +15007,65 @@ Triggered when a comment is added to a draft revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             /** Who performed an action */
             reviewer: {
                 /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
@@ -13285,6 +15349,65 @@ Triggered when a draft revision is discarded
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -13546,6 +15669,65 @@ Triggered when a draft revision is rebased onto the latest live state
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -13807,6 +15989,65 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
         };
     };
@@ -14069,6 +16310,65 @@ Triggered when a config is reverted to a previous published revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             revertedToVersion?: number | undefined;
             bulkPublishId?: string | undefined;
         };
@@ -14332,6 +16632,65 @@ Triggered when a discarded revision is reopened
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -14593,6 +16952,65 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -14854,6 +17272,65 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -15115,6 +17592,65 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
         };
     };
     user: {
@@ -15376,6 +17912,65 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                /** Who acted: a member's user ID, or an API key's ID when it acted as itself */
+                userId: string;
+                /** Who performed an action */
+                user?: {
+                    /** `dashboard` (signed-in member), `api_key` (API key or personal access token) or `system` */
+                    type: "dashboard" | "api_key" | "system";
+                    /** The member's user ID. Absent for an organization API key */
+                    id?: string | undefined;
+                    /** The API key's ID, when the action came through one */
+                    apiKey?: string | undefined;
+                    /** The member's name, or the organization API key's name */
+                    name?: string | undefined;
+                    /** The member's email. Absent for an organization API key */
+                    email?: string | undefined;
+                    /** The member named with `X-GrowthBook-Requested-By` */
+                    requestedBy?: {
+                        id: string;
+                        name: string;
+                        email: string;
+                    } | undefined;
+                    /** Whether the key assumed the named member's role */
+                    assumedRole?: boolean | undefined;
+                } | undefined;
+                dateCreated: string;
+            } | undefined;
             bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;

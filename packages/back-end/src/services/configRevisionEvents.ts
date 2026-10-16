@@ -57,8 +57,15 @@ export async function dispatchConfigRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "config") return;
   try {
-    const { baseConfig, proposedConfig, proposedChanges } =
-      await toApiConfigRevision(revision, context as ApiReqContext);
+    const {
+      baseConfig,
+      proposedConfig,
+      proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
+    } = await toApiConfigRevision(revision, context as ApiReqContext);
     const payload = {
       ...(await revisionReference(context, revision)),
       config: {
@@ -69,6 +76,10 @@ export async function dispatchConfigRevisionEvent(
       baseConfig,
       proposedConfig,
       proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
     };
     const liveForRouting = await context.models.configs.getById(
       revision.target.id,

@@ -12,12 +12,19 @@ import {
   webhookProposedChanges,
 } from "./revision-webhook-reference";
 import { apiSavedGroupValidator } from "./saved-group";
+import { apiSavedGroupRevisionValidator } from "./saved-group-revisions";
 
 const savedGroupRevisionWebhookPayload = revisionWebhookReference.extend({
   savedGroup: z.object({ id: z.string(), name: z.string() }),
   baseSavedGroup: apiSavedGroupValidator,
   proposedSavedGroup: apiSavedGroupValidator,
   proposedChanges: webhookProposedChanges,
+  ...apiSavedGroupRevisionValidator.pick({
+    contributors: true,
+    revertedFrom: true,
+    reviews: true,
+    resolution: true,
+  }).shape,
 });
 
 // Events with no extra fields reuse the base revision payload directly.

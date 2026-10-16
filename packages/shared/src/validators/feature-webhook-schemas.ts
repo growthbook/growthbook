@@ -28,13 +28,13 @@ export const featureRevisionWebhookPayload = revisionWebhookReference
     defaultValue: z.string().describe("The draft's default value").optional(),
     // Loosely typed; the REST API documents each rule's full shape.
     rules: z.record(z.string(), z.array(z.unknown())),
-    definitions: z.record(z.string(), z.string()).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
-    envPrerequisites: z
-      .record(z.string(), z.array(revisionPrerequisite))
-      .optional(),
     prerequisites: z.array(revisionPrerequisite).optional(),
     metadata: z.object({}).passthrough().optional(),
+    rampActions: z
+      .array(z.unknown())
+      .describe("Ramp schedule steps the draft attaches to its rules")
+      .optional(),
   })
   .strict();
 

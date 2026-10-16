@@ -56,8 +56,15 @@ export async function dispatchConstantRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "constant") return;
   try {
-    const { baseConstant, proposedConstant, proposedChanges } =
-      await toApiConstantRevision(revision, context as ApiReqContext);
+    const {
+      baseConstant,
+      proposedConstant,
+      proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
+    } = await toApiConstantRevision(revision, context as ApiReqContext);
     const payload = {
       ...(await revisionReference(context, revision)),
       constant: {
@@ -68,6 +75,10 @@ export async function dispatchConstantRevisionEvent(
       baseConstant,
       proposedConstant,
       proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
     };
     const snapshot = revision.target.snapshot as ConstantInterface;
     const liveForRouting = await context.models.constants.getById(
