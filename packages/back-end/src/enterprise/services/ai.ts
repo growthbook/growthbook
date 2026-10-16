@@ -545,7 +545,7 @@ export const simpleCompletion = async ({
 
 // One record per AI call for analytics, the managed-key cap and the Cloud
 // usage log. Accounting failures never turn a finished AI response into a 500.
-function usageRecorder({
+export function usageRecorder({
   context,
   model,
   ownKey,
