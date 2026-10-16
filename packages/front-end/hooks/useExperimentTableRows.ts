@@ -27,6 +27,7 @@ import {
   isMetricGroupId,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -528,9 +529,10 @@ export function getSliceDataForMetric({
   }>;
   getFactTableById: (id: string) => FactTableDefinition | null;
 }): SliceDataForMetric[] {
-  if (!isFactMetric(metric)) return [];
+  // TODO(funnel-metrics): Add support for slices on funnel metrics
+  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) return [];
   const factTable = getFactTableById(
-    (metric as FactMetricInterface)?.numerator?.factTableId || "",
+    getFactMetricPrimaryFactTableId(metric as FactMetricInterface),
   );
 
   const standardSliceData = createAutoSliceDataForMetric({
