@@ -469,6 +469,24 @@ describe("fact metric creation flow", () => {
   );
 });
 
+describe("embedded fact metric creation", () => {
+  it.each([
+    [false, false, false, "pending"],
+    [false, true, true, "pending"],
+    [true, true, true, "inline"],
+    [true, true, false, "fact-table"],
+    [true, false, true, "modal"],
+    [true, false, false, "fact-table"],
+  ] as const)(
+    "keeps ready=%s, treatment=%s, table=%s on the current form",
+    (ready, treatment, hasFactTable, expected) => {
+      expect(
+        resolveFactMetricCreation(ready, treatment, hasFactTable, true),
+      ).toBe(expected);
+    },
+  );
+});
+
 describe("duplicateFactMetric", () => {
   it.each([
     ["admin", true, "admin"],

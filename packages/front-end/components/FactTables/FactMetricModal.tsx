@@ -89,6 +89,7 @@ export interface Props {
   onSave?: () => void;
   source: string;
   datasource?: string;
+  inline?: boolean;
 }
 
 function QuantileSelector({
@@ -1191,6 +1192,7 @@ function StandardFactMetricModal({
   onSave,
   source,
   datasource,
+  inline = false,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -1208,6 +1210,7 @@ function StandardFactMetricModal({
   const {
     datasources,
     getDatasourceById,
+    factMetrics,
     project,
     getFactTableById,
     mutateDefinitions,
@@ -1354,7 +1357,8 @@ function StandardFactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
+      inline={inline}
+      header={inline ? "" : !isNew ? "Edit Metric" : "Create Fact Table Metric"}
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(
@@ -1603,6 +1607,15 @@ function StandardFactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
+          {duplicate &&
+            factMetrics.some(
+              (metric) => metric.name === form.watch("name"),
+            ) && (
+              <Callout status="warning">
+                A metric with the name &quot;{form.watch("name")}&quot; already
+                exists.
+              </Callout>
+            )}
           <Field
             size="legacy"
             label="Metric Name"

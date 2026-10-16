@@ -68,7 +68,10 @@ export default function ContextualBanditDecisionMetricSettings({
 }: ContextualBanditDecisionMetricSettingsProps) {
   const form = useFormContext();
   const { getExperimentMetricById, factMetrics, factTables } = useDefinitions();
-  const factMetricFlow = useFactMetricFlow("contextual-bandit-decision-metric");
+  const factMetricFlow = useFactMetricFlow(
+    "contextual-bandit-decision-metric",
+    { embedded: true },
+  );
   const datasourceId = form.watch("datasource") ?? "";
   const exposureQueryId = form.watch("exposureQueryId");
 

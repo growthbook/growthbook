@@ -21,7 +21,9 @@ export default function MetricTemplateRedirect() {
   return (
     <>
       {modal}
-      {typeof router.query.addMetric === "string" && !modal ? (
+      {typeof router.query.addMetric === "string" &&
+      !modal &&
+      handled.current !== router.query.addMetric ? (
         <LoadingOverlay />
       ) : null}
     </>

@@ -46,14 +46,12 @@ export function resolveFactMetricCreation(
   ready: boolean,
   newFlow: boolean,
   hasFactTable: boolean,
+  embedded = false,
 ) {
-  return !ready
-    ? "pending"
-    : newFlow
-      ? "page"
-      : hasFactTable
-        ? "modal"
-        : "fact-table";
+  if (!ready) return "pending";
+  if (newFlow && !embedded) return "page";
+  if (!hasFactTable) return "fact-table";
+  return newFlow ? "inline" : "modal";
 }
 
 export function duplicateFactMetric(
