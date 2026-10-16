@@ -9,6 +9,7 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   extendDateBucketsForward,
@@ -595,7 +596,7 @@ export default function ExplorerChart({
             const date =
               typeof params.value === "number"
                 ? new Date(params.value)
-                : new Date(String(params.value));
+                : parseWarehouseDate(String(params.value));
             return formatDateByGranularity(date, resolvedGranularity);
           }
         : undefined;
@@ -703,6 +704,8 @@ export default function ExplorerChart({
     });
 
     return {
+      // Buckets are parsed as UTC, so UTC ticks show the warehouse's dates and times unshifted.
+      useUTC: true,
       tooltip: {
         appendTo: "body",
         trigger: "axis",

@@ -40,6 +40,12 @@ import {
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
+import {
+  confirmationLink,
+  gateNotices,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -132,7 +138,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     })),
   );
 
-  const { bypassed } = resolveEntityPublishGates({
+  const { bypassed, skipped } = resolveEntityPublishGates({
     entityType: "config",
     req,
     gates,
@@ -261,6 +267,19 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     // Hooks already ran above as gates — don't re-execute the sandboxed hook.
     { skipHooks: true },
   );
+
+  await requireConfirmation(req.context, {
+    actions: landingActions(
+      "config",
+      desiredState.archived === true && !config.archived,
+    ),
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    project: config.project,
+    summary: `Publish revision ${revision.version} of ${config.key}`,
+    links: [confirmationLink("config", config.key)],
+    pin: revision.dateUpdated,
+  });
 
   const merged = await publishRevision(
     req.context,

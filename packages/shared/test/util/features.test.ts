@@ -1,3 +1,4 @@
+import { ConditionInterface, evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
   FeatureRule,
@@ -58,6 +59,7 @@ import {
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
   evaluatePrerequisiteState,
+  evalDeterministicPrereqValue,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -2706,6 +2708,83 @@ describe("validatePrerequisiteCondition", () => {
     expect(validatePrerequisiteCondition("{value: true}").suggestedValue).toBe(
       '{"value":true}',
     );
+  });
+});
+
+describe("validateCondition operator structure", () => {
+  const sdkInput = {
+    value: true,
+    tags: ["a"],
+    items: [{ id: 1 }],
+    nested: [[1]],
+  };
+
+  it.each([
+    [{ $not: null }, "$not cannot be null"],
+    [{ $or: null }, "$or cannot be null"],
+    [{ $nor: null }, "$nor cannot be null"],
+    [{ $and: [null] }, "$and cannot contain null"],
+    [{ $or: [{ $not: null }] }, "$not cannot be null"],
+    [{ tags: { $elemMatch: null } }, "$elemMatch cannot be null"],
+    [{ tags: { $not: { $elemMatch: null } } }, "$elemMatch cannot be null"],
+    [
+      { items: { $elemMatch: { id: 1, $and: [null] } } },
+      "$and cannot contain null",
+    ],
+    [{ nested: { $all: [{ $elemMatch: null }] } }, "$elemMatch cannot be null"],
+    [
+      { nested: { $alli: [{ $elemMatch: null }] } },
+      "$elemMatch cannot be null",
+    ],
+  ])("rejects %j", (condition, error) => {
+    expect(validateCondition(JSON.stringify(condition))).toEqual({
+      success: false,
+      empty: false,
+      error,
+    });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).toThrow();
+  });
+
+  // These evaluate without throwing today, so existing flags keep saving.
+  it.each([
+    { $not: { value: true } },
+    { $not: 5 },
+    { $or: [] },
+    { $and: {} },
+    { $and: [{ value: true }, { $or: [{ value: false }] }] },
+    { value: { $not: null } },
+    { value: { $not: { $in: [1, 2] } } },
+    { tags: { $elemMatch: { $eq: "a" } } },
+    { items: { $elemMatch: { id: 1 } } },
+    { tags: { $elemMatch: { $and: [null] } } },
+    { nested: { $all: [[1]] } },
+  ])("accepts %j", (condition) => {
+    expect(validateCondition(JSON.stringify(condition))).toEqual({
+      success: true,
+      empty: false,
+    });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).not.toThrow();
+  });
+});
+
+describe("evalDeterministicPrereqValue", () => {
+  it("fails and reports a condition that throws during evaluation", () => {
+    const onError = jest.fn();
+    for (const condition of [{ $not: null }, { $or: null }, { $and: [null] }]) {
+      expect(
+        evalDeterministicPrereqValue(true, JSON.stringify(condition), onError),
+      ).toBe("fail");
+    }
+    expect(onError).toHaveBeenCalledTimes(3);
+  });
+
+  it("evaluates well-formed conditions", () => {
+    expect(evalDeterministicPrereqValue(true, '{"value": true}')).toBe("pass");
+    expect(evalDeterministicPrereqValue(false, '{"value": true}')).toBe("fail");
   });
 });
 

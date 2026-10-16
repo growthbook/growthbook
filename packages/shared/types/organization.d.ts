@@ -578,6 +578,8 @@ export type GetOrganizationResponse = {
     ApiKeyInterface,
     "id" | "description" | "expiresAt" | "lastUsed"
   >[];
+  // The organization's API keys in the same state, for members who manage API keys
+  expiringApiKeys: GetOrganizationResponse["expiringPersonalAccessTokens"];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];

@@ -182,6 +182,7 @@ export const postOrganizationValidator = {
     .strict(),
   summary:
     "Create a single organization (only for super admins on multi-org Enterprise Plan only)",
+  confirmation: ["settings.other"] as const,
   operationId: "postOrganization",
   tags: ["organizations"],
   method: "post" as const,
@@ -200,6 +201,7 @@ export const putOrganizationValidator = {
     .strict(),
   summary:
     "Edit a single organization (only for super admins on multi-org Enterprise Plan only)",
+  confirmation: ["settings.other"] as const,
   operationId: "putOrganization",
   tags: ["organizations"],
   method: "put" as const,

@@ -1,4 +1,5 @@
 import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
+import { parseWarehouseDate } from "shared/dates";
 import type {
   FactMetricInterface,
   FactTableColumnType,
@@ -710,7 +711,10 @@ export function sortExplorationRows(
 
     if (dim0A !== dim0B) {
       if (isTimeseries) {
-        return new Date(dim0A).getTime() - new Date(dim0B).getTime();
+        return (
+          parseWarehouseDate(dim0A).getTime() -
+          parseWarehouseDate(dim0B).getTime()
+        );
       }
       return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
     }

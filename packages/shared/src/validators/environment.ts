@@ -130,6 +130,7 @@ export const postEnvironmentValidator = {
     })
     .strict(),
   summary: "Create a new environment",
+  confirmation: ["environment.create"] as const,
   operationId: "postEnvironment",
   tags: ["environments"],
   method: "post" as const,
@@ -149,6 +150,7 @@ export const putEnvironmentValidator = {
     })
     .strict(),
   summary: "Update an environment",
+  confirmation: ["environment.edit"] as const,
   operationId: "putEnvironment",
   tags: ["environments"],
   method: "put" as const,
@@ -169,6 +171,7 @@ export const deleteEnvironmentValidator = {
     })
     .strict(),
   summary: "Deletes a single environment",
+  confirmation: ["environment.delete"] as const,
   operationId: "deleteEnvironment",
   tags: ["environments"],
   method: "delete" as const,

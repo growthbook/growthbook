@@ -70,6 +70,11 @@ const FEATURE_HEALTH_COPY: Record<
     label: "Invalid value",
     description: "A value does not match the feature's type or JSON schema.",
   },
+  "invalid-prerequisite": {
+    label: "Invalid prerequisite",
+    description:
+      "A prerequisite condition can't be evaluated, so it's blocking this flag or one of its rules.",
+  },
   "ramp-needs-approval": {
     label: "Ramp needs approval",
     description: "A ramp schedule is waiting for approval to advance.",
