@@ -43,6 +43,7 @@ import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanc
 import {
   confirmationLink,
   gateNotices,
+  landingActions,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
@@ -268,12 +269,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   );
 
   await requireConfirmation(req.context, {
-    actions: [
-      "config.publish",
-      ...(desiredState.archived === true && !config.archived
-        ? (["config.archive"] as const)
-        : []),
-    ],
+    actions: landingActions(
+      "config",
+      desiredState.archived === true && !config.archived,
+    ),
     bypassing: bypassed,
     notices: gateNotices(skipped),
     project: config.project,

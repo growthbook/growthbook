@@ -23,7 +23,10 @@ import {
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
-import { CONFIRM_OVERRIDE_FLAGS } from "shared/validators";
+import {
+  CONFIRM_OVERRIDE_FLAGS,
+  FEATURE_LANDING_ACTIONS,
+} from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
   BypassedGate,
@@ -50,19 +53,6 @@ const OVERRIDE_ACTIONS: Record<BypassVia, ConfirmAction | null> = {
   revertsBypassApproval: null,
 };
 
-// With REST bypassing reviews org-wide, any key's publish or archive of something
-// reviewed may be skipping a review.
-const REVIEWED_WRITES = new Set<ConfirmAction>([
-  "feature.publish",
-  "feature.archive",
-  "savedGroup.publish",
-  "savedGroup.archive",
-  "constant.publish",
-  "constant.archive",
-  "config.publish",
-  "config.archive",
-]);
-
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const asRecord = (v: unknown) =>
@@ -86,9 +76,14 @@ export const REVISION_MODEL = {
   ConfirmationLink["type"]
 >;
 
-// A ramp plan staged on a draft starts a schedule or edits one when it lands.
-export const rampScheduleAction = (mode: string): ConfirmAction =>
-  mode === "create" ? "rampSchedule.start" : "rampSchedule.edit";
+// The ramp plans staged on a flag draft: each starts a schedule or edits one when
+// the draft lands.
+export const rampPlanActions = (
+  revision: Pick<FeatureRevisionInterface, "rampActions">,
+): ConfirmAction[] =>
+  (revision.rampActions ?? []).map(({ mode }) =>
+    mode === "create" ? "rampSchedule.start" : "rampSchedule.edit",
+  );
 
 // Where each kind of thing lives in the app; some only have a list page.
 const LINK_PAGES: Record<ConfirmationLink["type"], (id: string) => string> = {
@@ -580,9 +575,8 @@ async function loadFeatureRevision(
   );
 }
 
-// Arming a draft to publish later holds as the publish, and so does editing a
-// draft that's armed, since it edits what that publish ships. Either holds as an
-// archive too when the draft archives.
+// Arming a draft to publish later holds as what landing it does. An edit to an
+// armed draft can add anything a landing does, so it holds as all of that.
 async function armedRevisionActions(
   context: ReqContext,
   tags: readonly string[] | undefined,
@@ -593,14 +587,12 @@ async function armedRevisionActions(
   const draft = tags?.map((tag) => DRAFT_REVISIONS[tag]).find(Boolean);
   // "new" asks for a fresh draft, which nothing has armed yet.
   if (!draft || !params.version || params.version === "new") return [];
+  const editing = actions.includes(`${draft.model}.draft`);
   const arming = armedActions(tags, body).length > 0;
-  if (!arming && !actions.includes(`${draft.model}.draft`)) return [];
+  if (!editing && !arming) return [];
   const state = await draft.load(context, params);
-  if (!arming && !state?.armed) return [];
-  return [
-    ...(state?.lands ?? landingActions(draft.model, false)),
-    ...(body.archived === true ? ([`${draft.model}.archive`] as const) : []),
-  ];
+  if (editing) return arming || state?.armed ? everyLanding(draft.model) : [];
+  return state?.lands ?? landingActions(draft.model, false);
 }
 
 // Publishing a draft: the publish, plus any archive or ramp plan it carries.
@@ -617,22 +609,39 @@ const featureLanding = (revision: FeatureRevisionInterface) =>
   landingActions(
     "feature",
     revision.archived === true,
-    (revision.rampActions ?? []).map(({ mode }) => rampScheduleAction(mode)),
+    rampPlanActions(revision),
   );
+// With REST bypassing reviews org-wide, any key's publish or archive of something
+// reviewed may be skipping a review.
+const REVIEWED_WRITES = new Set(
+  Object.values(REVISION_MODEL).flatMap((model) => landingActions(model, true)),
+);
 
-// Staging into a flag draft that's armed to publish later edits what that
-// publish ships, so it holds as the publish.
-export async function armedFeatureDraftActions(
+// Everything landing a draft can do, for an edit that may add any of it.
+const everyLanding = (
+  model: "feature" | "savedGroup" | "constant" | "config",
+): ConfirmAction[] =>
+  model === "feature"
+    ? [...FEATURE_LANDING_ACTIONS]
+    : landingActions(model, true);
+
+// A write into a flag draft: publishing it now lands it as it is, and staging
+// into it is draft work, plus all a landing can do when the draft is armed.
+export async function featureDraftActions(
   context: ReqContext,
   featureId: string,
   version: number | string | undefined,
+  publishNow: boolean,
 ): Promise<ConfirmAction[]> {
-  if (version === undefined) return [];
-  const state = await loadFeatureRevision(context, {
-    id: featureId,
-    version: String(version),
-  });
-  return state?.armed ? state.lands : [];
+  const state =
+    version === undefined
+      ? null
+      : await loadFeatureRevision(context, {
+          id: featureId,
+          version: String(version),
+        });
+  if (publishNow) return state?.lands ?? ["feature.publish"];
+  return ["feature.draft", ...(state?.armed ? everyLanding("feature") : [])];
 }
 
 // The route-level hold: the endpoint's actions, with no environments, before the
@@ -737,10 +746,7 @@ export function holdFeatureUpdate(
   environments?: string[],
 ) {
   return requireConfirmation(context, {
-    actions: [
-      "feature.publish",
-      ...(change.archived ? (["feature.archive"] as const) : []),
-    ],
+    actions: landingActions("feature", !!change.archived),
     environments,
     bypassing,
     project: feature.project,
@@ -885,9 +891,18 @@ export function experimentChangeActions(
     actions.add("experiment.other");
   }
   if (existing.status === "draft") {
-    // A draft armed to start later ships whatever it holds then.
-    if (!actions.size && existing.statusUpdateSchedule?.startAt) {
+    const schedule =
+      "statusUpdateSchedule" in changes
+        ? changes.statusUpdateSchedule
+        : existing.statusUpdateSchedule;
+    // A draft armed to start ships its edits when it starts, so they hold as on
+    // a live experiment, and as the start.
+    if (schedule?.startAt && !changes.status) {
       actions.add("experiment.start");
+      experimentChangeActions(
+        { ...existing, status: "running" },
+        omit(changes, "statusUpdateSchedule"),
+      ).forEach((action) => actions.add(action));
     }
     return [...actions];
   }

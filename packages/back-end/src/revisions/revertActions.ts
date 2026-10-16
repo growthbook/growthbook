@@ -24,6 +24,7 @@ import {
   confirmationLink,
   landingActions,
   requireConfirmation,
+  REVISION_MODEL,
 } from "back-end/src/services/confirmations";
 import type {
   BypassedGate,
@@ -408,7 +409,7 @@ function holdRevert(
   landing: boolean,
   bypassing: BypassedGate[] = [],
 ) {
-  const model = entityType === "saved-group" ? "savedGroup" : entityType;
+  const model = REVISION_MODEL[entityType];
   const label = String(entity.key ?? entity.groupName ?? entity.id);
   const archives = isArchiveTransition({
     proposed: "archived" in fields ? !!fields.archived : undefined,

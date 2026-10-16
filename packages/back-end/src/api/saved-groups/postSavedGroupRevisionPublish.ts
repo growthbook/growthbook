@@ -34,6 +34,7 @@ import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanc
 import {
   confirmationLink,
   gateNotices,
+  landingActions,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
@@ -207,12 +208,10 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   await requireConfirmation(req.context, {
-    actions: [
-      "savedGroup.publish",
-      ...(desiredState.archived === true && !savedGroup.archived
-        ? (["savedGroup.archive"] as const)
-        : []),
-    ],
+    actions: landingActions(
+      "savedGroup",
+      desiredState.archived === true && !savedGroup.archived,
+    ),
     bypassing: bypassed,
     notices: gateNotices(skipped),
     summary: `Publish revision ${revision.version} of ${savedGroup.groupName}`,

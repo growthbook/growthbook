@@ -838,11 +838,23 @@ describe("confirmations", () => {
         { organization: ORG_ID, featureId: FLAG, version: 2 },
         { $set: { autoPublishOnApproval: true } },
       );
+    // The edit may add anything a landing does, so it holds as all of it.
     const held = await toggle();
     expect(held.status).toBe(202);
-    expect(held.body.confirmation.actions).toEqual([
-      { action: "feature.publish", environments: [] },
+    expect(
+      held.body.confirmation.actions.map(
+        ({ action }: { action: string }) => action,
+      ),
+    ).toEqual([
+      "feature.publish",
+      "feature.archive",
+      "rampSchedule.start",
+      "rampSchedule.edit",
     ]);
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["rampSchedule.start"] }] }),
+    );
+    expect((await toggle()).status).toBe(202);
     // A fresh draft isn't armed, whatever else is.
     expect((await toggle("new")).status).toBe(200);
   });

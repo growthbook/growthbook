@@ -48,12 +48,17 @@ describe("experimentChangeActions", () => {
       status: "draft",
     } as unknown as ExperimentInterface;
     expect(experimentChangeActions(draft, { name: "Renamed" })).toEqual([]);
+    const armed = { ...draft, statusUpdateSchedule: { startAt: new Date() } };
+    // Its edits go live when it starts, so they hold as on a live experiment.
+    expect(experimentChangeActions(armed, { name: "Renamed" }).sort()).toEqual([
+      "experiment.other",
+      "experiment.start",
+    ]);
     expect(
-      experimentChangeActions(
-        { ...draft, statusUpdateSchedule: { startAt: new Date() } },
-        { name: "Renamed" },
-      ),
-    ).toEqual(["experiment.start"]);
+      experimentChangeActions(armed, {
+        phases: [phase({ name: "First" }), phase({ coverage: 0.5 })],
+      }).sort(),
+    ).toEqual(["experiment.start", "experiment.traffic"]);
   });
 
   it("names what a new latest phase changes from the old one", () => {

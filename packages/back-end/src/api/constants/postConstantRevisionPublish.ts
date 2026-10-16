@@ -34,6 +34,7 @@ import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanc
 import {
   confirmationLink,
   gateNotices,
+  landingActions,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
@@ -208,12 +209,10 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // synchronous override in the logs), so no separate assert runs here.
 
   await requireConfirmation(req.context, {
-    actions: [
-      "constant.publish",
-      ...(desiredState.archived === true && !constant.archived
-        ? (["constant.archive"] as const)
-        : []),
-    ],
+    actions: landingActions(
+      "constant",
+      desiredState.archived === true && !constant.archived,
+    ),
     bypassing: bypassed,
     notices: gateNotices(skipped),
     project: constant.project,
