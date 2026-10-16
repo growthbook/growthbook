@@ -58,8 +58,6 @@ export default function CustomDataSourceModal({
         options={warehouses.map((connection) => ({
           value: connection.type,
           label: connection.shortDisplay ?? connection.display,
-          // Same logo size as DataSourceTypeSelector (Radix text size 7).
-          // The icons are SVGs that scale with font-size.
           avatar: (
             <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
               {connection.icon}
