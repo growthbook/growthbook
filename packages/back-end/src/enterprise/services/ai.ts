@@ -484,66 +484,134 @@ export const simpleCompletion = async ({
     ...(abortSignal ? { abortSignal } : {}),
   };
 
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+    label: "simpleCompletion",
+  });
+
   let numTokensUsed: number | undefined;
   let sdkUsage: Parameters<typeof completionUsageFromSdk>[0];
   let result: string;
 
-  if (returnType === "json" && jsonSchema) {
-    const objectResponse = await generateText({
-      ...generateOptions,
-      output: Output.object({
-        schema: jsonSchema,
-      }),
+  try {
+    if (returnType === "json" && jsonSchema) {
+      const objectResponse = await generateText({
+        ...generateOptions,
+        output: Output.object({
+          schema: jsonSchema,
+        }),
+      });
+      numTokensUsed = objectResponse.usage?.totalTokens;
+      result = JSON.stringify(objectResponse.output);
+      sdkUsage = objectResponse.usage;
+    } else {
+      const textResponse = await generateText(generateOptions);
+      numTokensUsed = textResponse.usage?.totalTokens;
+      result = textResponse.text;
+      sdkUsage = textResponse.usage;
+    }
+  } catch (e) {
+    if (!abortSignal?.aborted) throw e;
+    // The provider still processed the prompt, and nothing reports how far
+    // the reply got. Count the prompt as a lower bound, as streaming does
+    // for a cut-off step, so cancelled calls still show up and meter.
+    const usage = { inputTokens: numTokensFromMessages(messages, model) };
+    await recordUsage({
+      usage,
+      totalTokens: usage.inputTokens,
+      spendUsd: estimateAICompletionUsd(model, usage),
+      outcome: "aborted",
     });
-    numTokensUsed = objectResponse.usage?.totalTokens;
-    result = JSON.stringify(objectResponse.output);
-    sdkUsage = objectResponse.usage;
-  } else {
-    const textResponse = await generateText(generateOptions);
-    numTokensUsed = textResponse.usage?.totalTokens;
-    result = textResponse.text;
-    sdkUsage = textResponse.usage;
+    throw e;
   }
 
   const usage = completionUsageFromSdk(sdkUsage);
-  const spendUsd = estimateAICompletionUsd(model, usage);
+  await recordUsage({
+    usage,
+    totalTokens:
+      numTokensUsed ||
+      (IS_CLOUD && !ownKey ? numTokensFromMessages(messages, model) : 0),
+    spendUsd: estimateAICompletionUsd(model, usage),
+    outcome: "success",
+  });
 
-  if (IS_CLOUD) {
-    if (!ownKey) {
-      if (!numTokensUsed) {
-        numTokensUsed = numTokensFromMessages(messages, model);
+  return result;
+};
+
+// One record per AI call for analytics, the managed-key cap and the Cloud
+// usage log. Accounting failures never turn a finished AI response into a 500.
+function usageRecorder({
+  context,
+  model,
+  ownKey,
+  type,
+  isDefaultPrompt,
+  temperature,
+  label,
+}: {
+  context: ReqContext | ApiReqContext;
+  model: AIModel;
+  ownKey: boolean;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  temperature?: number;
+  label: string;
+}) {
+  return async ({
+    usage,
+    totalTokens,
+    spendUsd,
+    outcome,
+  }: {
+    usage?: ReturnType<typeof completionUsageFromSdk>;
+    totalTokens?: number;
+    spendUsd?: number;
+    outcome: AIUsageOutcome;
+  }) => {
+    const buckets = usage ?? {};
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
+    });
+
+    if (!IS_CLOUD) return;
+
+    const numTokensUsed = totalTokens ?? 0;
+    if (numTokensUsed && !ownKey) {
+      try {
+        await updateTokenUsage({ numTokensUsed, organization: context.org });
+      } catch (e) {
+        logger.error(e, `${label}: could not meter token usage`);
       }
-      await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
 
     logCloudAIUsage({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: usage.inputTokens,
-      numCompletionTokensUsed: usage.outputTokens,
-      temperature: effectiveTemperature,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      temperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
-  }
-
-  trackAIUsage({
-    organizationId: context.org.id,
-    userId: context.userId,
-    type,
-    model,
-    provider: getProviderFromModel(model),
-    numPromptTokensUsed: usage.inputTokens,
-    numCompletionTokensUsed: usage.outputTokens,
-    numCacheReadTokens: usage.cacheReadTokens,
-    numCacheWriteTokens: usage.cacheWriteTokens,
-    spendUsd,
-    usedDefaultPrompt: isDefaultPrompt,
-    usedOwnKey: ownKey,
-  });
-
-  return result;
-};
+  };
+}
 
 export const streamingChatCompletion = async ({
   context,
@@ -586,56 +654,15 @@ export const streamingChatCompletion = async ({
     ? temperature
     : undefined;
 
-  const recordUsage = async ({
-    usage,
-    totalTokens,
-    spendUsd,
-    outcome,
-  }: {
-    usage?: ReturnType<typeof completionUsageFromSdk>;
-    totalTokens?: number;
-    spendUsd?: number;
-    outcome: AIUsageOutcome;
-  }) => {
-    const buckets = usage ?? {};
-    trackAIUsage({
-      organizationId: context.org.id,
-      userId: context.userId,
-      type,
-      model,
-      provider: getProviderFromModel(model),
-      numPromptTokensUsed: buckets.inputTokens,
-      numCompletionTokensUsed: buckets.outputTokens,
-      numCacheReadTokens: buckets.cacheReadTokens,
-      numCacheWriteTokens: buckets.cacheWriteTokens,
-      spendUsd,
-      usedDefaultPrompt: isDefaultPrompt,
-      usedOwnKey: ownKey,
-      outcome,
-    });
-
-    if (!IS_CLOUD) return;
-
-    const numTokensUsed = totalTokens ?? 0;
-    if (numTokensUsed && !ownKey) {
-      try {
-        await updateTokenUsage({ numTokensUsed, organization: context.org });
-      } catch (e) {
-        // Accounting failures must not turn a completed AI response into a 500.
-        logger.error(e, "streamingChatCompletion: could not meter token usage");
-      }
-    }
-
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model,
-      numPromptTokensUsed: buckets.inputTokens,
-      numCompletionTokensUsed: buckets.outputTokens,
-      temperature: effectiveTemperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
-  };
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+    label: "streamingChatCompletion",
+  });
 
   type TerminalUsage = {
     usage?: ReturnType<typeof completionUsageFromSdk>;

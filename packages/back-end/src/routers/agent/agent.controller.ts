@@ -384,6 +384,13 @@ export const postAutocomplete = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+  // The composer aborts its fetch when the draft changes. Listen before the
+  // first await so an early close is seen, and stop the model call rather
+  // than pay for a reply nobody will read.
+  const abort = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) abort.abort();
+  });
   if (!(await runAIEnabledGates(context, res))) return;
   // Opt-out separate from AI as a whole: every pause in typing is a call.
   if (context.org.settings?.aiAutocompleteEnabled === false) {
@@ -432,12 +439,7 @@ export const postAutocomplete = async (
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 
-  // The composer aborts its fetch when the draft changes; stop the model call
-  // too rather than pay for a reply nobody will read.
-  const abort = new AbortController();
-  res.on("close", () => {
-    if (!res.writableFinished) abort.abort();
-  });
+  if (abort.signal.aborted) return;
   const raw = await simpleCompletion({
     context,
     type: "chat-autocomplete",
