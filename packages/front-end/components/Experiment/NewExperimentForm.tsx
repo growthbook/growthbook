@@ -6,14 +6,10 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { OrganizationSettings } from "shared/types/organization";
+import { date, getValidDate } from "shared/dates";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
-  getPreferredIdentifierType,
-  resolveAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -35,8 +31,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   AssignmentQueryCopySource,
-  getExposureQuery,
-  getDefaultIdentifierTypeForQuery,
+  getNewExperimentDatasourceDefaults,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
@@ -141,92 +136,6 @@ export function getDefaultVariations(num: number) {
     });
   }
   return variations;
-}
-
-export function getNewExperimentDatasourceDefaults({
-  datasources,
-  settings,
-  project,
-  initialValue,
-  initialHashAttribute,
-  isImport,
-}: {
-  datasources: DataSourceInterfaceWithParams[];
-  settings: OrganizationSettings;
-  project?: string;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
-  initialHashAttribute?: string;
-  isImport?: boolean;
-}): Pick<
-  ExperimentInterfaceStringDates,
-  "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
-> {
-  const validDatasources = datasources.filter(
-    (d) =>
-      d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
-  );
-
-  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
-
-  const initialId = initialValue?.datasource || settings.defaultDataSource;
-
-  const initialDatasource =
-    (initialId && validDatasources.find((d) => d.id === initialId)) ||
-    validDatasources[0];
-
-  const initialUserIdType = initialHashAttribute
-    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
-        t.attributes?.includes(initialHashAttribute),
-      )?.userIdType ?? "anonymous_id")
-    : "anonymous_id";
-
-  const exposureQuery = getExposureQuery(
-    initialDatasource.settings,
-    initialValue?.exposureQueryId,
-    initialUserIdType,
-  );
-
-  const importedQuery =
-    isImport &&
-    exposureQuery &&
-    exposureQuery.id === initialValue?.exposureQueryId
-      ? exposureQuery
-      : null;
-  // Several identifiers: leave the choice blank so the metrics step can require
-  // one. A single-type import takes the identifier discovery counted on.
-  const requireImportedIdentifierChoice =
-    !!importedQuery &&
-    getExposureQueryIdentifierTypes(importedQuery).length > 1;
-
-  /**
-   * Copies (duplicate, from template) keep what the source analyzes on, even
-   * if the query dropped it: the form then looks for another query declaring
-   * it before falling back, and explains the change.
-   */
-  const sourceIdentifierType =
-    exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
-      ? isImport
-        ? getPreferredIdentifierType(exposureQuery)
-        : resolveAnalysisIdentifierType(
-            exposureQuery,
-            initialValue.exposureQueryIdentifierType,
-          )
-      : undefined;
-
-  return {
-    datasource: initialDatasource.id,
-    exposureQueryId: exposureQuery?.id || "",
-    exposureQueryIdentifierType: requireImportedIdentifierChoice
-      ? undefined
-      : exposureQuery
-        ? (sourceIdentifierType ??
-          getDefaultIdentifierTypeForQuery(
-            exposureQuery,
-            initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
-          ))
-        : undefined,
-  };
 }
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({
@@ -381,14 +290,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 dateEnded: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateEnded ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
                 variationWeights:
@@ -404,8 +309,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           : [
               {
                 coverage: 1,
-                dateStarted: new Date().toISOString().substring(0, 16),
-                dateEnded: new Date().toISOString().substring(0, 16),
+                dateStarted: new Date().toISOString(),
+                dateEnded: new Date().toISOString(),
                 name: "Main",
                 reason: "",
                 variationWeights: toEqualWeights(initialExpVariations),
@@ -579,18 +484,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
-    // Turn phase dates into proper UTC timestamps
     if (data.phases?.[0]) {
-      if (
-        data.phases[0].dateStarted &&
-        !data.phases[0].dateStarted.match(/Z$/)
-      ) {
-        data.phases[0].dateStarted += ":00Z";
-      }
-      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
-        data.phases[0].dateEnded += ":00Z";
-      }
-
       validateSavedGroupTargeting(data.phases[0].savedGroups);
 
       validateAndFixCondition(data.phases[0].condition, (condition) => {
@@ -768,6 +662,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getExposureQueryIdentifierTypes(selectedExposureQuery).length > 1;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: selectedProject,
     hashAttribute: selectedHashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -1357,12 +1252,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time (UTC)"
+                    label="Start time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
                       form.setValue(
                         "phases.0.dateStarted",
-                        v ? datetime(v) : "",
+                        v ? v.toISOString() : "",
                       );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
@@ -1371,10 +1267,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateEnded")}
                     setDate={(v) => {
-                      form.setValue("phases.0.dateEnded", v ? datetime(v) : "");
+                      form.setValue(
+                        "phases.0.dateEnded",
+                        v ? v.toISOString() : "",
+                      );
                     }}
                     scheduleStartDate={form.watch("phases.0.dateStarted")}
                     disableBefore={

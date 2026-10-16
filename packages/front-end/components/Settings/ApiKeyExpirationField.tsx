@@ -195,6 +195,7 @@ const ApiKeyExpirationField: FC<{
                     date={value ?? undefined}
                     setDate={(d) => setValue(d ?? null)}
                     precision="date"
+                    timeZone="local"
                     disableBefore={addDays(new Date(), 1)}
                     disableAfter={latest ?? undefined}
                     clampInput={false}

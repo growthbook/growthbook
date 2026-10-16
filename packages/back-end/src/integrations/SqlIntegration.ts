@@ -30,7 +30,7 @@ import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentMetricQueryResponseRows,
@@ -75,6 +75,8 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
@@ -173,6 +175,7 @@ import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import { getExperimentExposuresQuery as getExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
@@ -206,6 +209,11 @@ const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   rudderstack: true,
   amplitude: true,
 };
+
+const getDateLimitStart = (start?: Date) =>
+  start
+    ? formatDate(start, "yyyy-MM-dd")
+    : `{{date startDateISO "yyyy-MM-dd"}}`;
 
 /**
  * Column names consumed/transformed by funnel resolution CTEs. These are
@@ -519,13 +527,11 @@ export default abstract class SqlIntegration
   hasQuantileSketch(): boolean {
     return false;
   }
-  getPastExperimentQuery(params: PastExperimentParams): string {
-    // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = this.datasource.settings.queries?.exposure || [];
-
+  getPastExperimentQuery(params: PastExperimentQueryParams): string {
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
-      experimentQueries,
+      params.exposureQuery,
+      params.identifierTypes,
       params.from,
       new Date(),
     );
@@ -545,6 +551,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           exposure_query: row.exposure_query,
+          identifier_type: row.identifier_type,
           experiment_id: row.experiment_id,
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",
@@ -1189,6 +1196,21 @@ export default abstract class SqlIntegration
     };
   }
 
+  getExperimentExposuresQuery(params: ExperimentExposuresQueryParams): string {
+    return getExperimentExposuresQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  // Rows are returned raw. shapeExposureRows() owns coercion and the split
+  // between typed columns and the `extra` bag, so it stays unit-testable.
+  async runExperimentExposuresQuery(
+    query: string,
+  ): Promise<ExperimentExposuresQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "experimentExposures",
+    });
+    return { rows, statistics };
+  }
+
   getExperimentFactMetricsQuery(
     params: ExperimentFactMetricsQueryParams,
   ): string {
@@ -1294,15 +1316,25 @@ export default abstract class SqlIntegration
     return { bytesProcessed: 0 };
   }
 
+  // SQL condition on information_schema.columns matching partition columns
+  getPartitionColumnCondition(): string | null {
+    return null;
+  }
+
   async getTableData(
     databaseName: string,
     tableSchema: string,
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }> {
+    const partitionCondition = this.getPartitionColumnCondition();
     const sql = `
   SELECT
     data_type as data_type,
-    column_name as column_name
+    column_name as column_name${
+      partitionCondition
+        ? `,\n    CASE WHEN ${partitionCondition} THEN 1 ELSE 0 END as is_partition`
+        : ""
+    }
   FROM
     ${this.getInformationSchemaTable(tableSchema, databaseName)}
   WHERE
@@ -1344,17 +1376,8 @@ export default abstract class SqlIntegration
               }`,
               schema,
             ),
-          // If dates are provided, format them, otherwise use Sql template variables
-          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
-            const start = dates
-              ? `${formatDate(dates.start, "yyyy-MM-dd")}`
-              : `{{date startDateISO "yyyy-MM-dd"}}`;
-            const end = dates
-              ? `${formatDate(dates.end, "yyyy-MM-dd")}`
-              : `{{date endDateISO "yyyy-MM-dd"}}`;
-
-            return `event_time BETWEEN '${start}' AND '${end}'`;
-          },
+          getDateLimitClause: (start) =>
+            `event_time >= '${getDateLimitStart(start)}'`,
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
             `event_name = '${eventName}'`,
@@ -1375,16 +1398,8 @@ export default abstract class SqlIntegration
           displayNameColumn: "event_text",
           getTrackedEventTablePath: ({ eventName, schema }) =>
             this.generateTablePath(eventName, schema),
-          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
-            // If dates are provided, format them, otherwise use Sql template variables
-            const start = dates
-              ? `${formatDate(dates.start, "yyyy-MM-dd")}`
-              : `{{date startDateISO "yyyy-MM-dd"}}`;
-            const end = dates
-              ? `${formatDate(dates.end, "yyyy-MM-dd")}`
-              : `{{date endDateISO "yyyy-MM-dd"}}`;
-            return `received_at BETWEEN '${start}' AND '${end}'`;
-          },
+          getDateLimitClause: (start) =>
+            `received_at >= '${getDateLimitStart(start)}'`,
           getAdditionalEvents: () => [
             {
               eventName: "pages",
@@ -1530,11 +1545,10 @@ export default abstract class SqlIntegration
     userIdColumn: string,
     timestampColumn: string,
     trackedEventTableName: string,
-    getDateLimitClause: (dates?: { start: Date; end: Date }) => string,
+    getDateLimitClause: SchemaFormatConfig["getDateLimitClause"],
     schema: string,
     groupByColumn?: string,
   ) {
-    const end = new Date();
     const start = subDays(new Date(), 7);
 
     return `
@@ -1551,7 +1565,7 @@ export default abstract class SqlIntegration
           undefined,
           !!schema,
         )}
-      WHERE ${getDateLimitClause({ start, end })}
+      WHERE ${getDateLimitClause(start)}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
       GROUP BY ${groupByColumn || eventColumn}
     `;
