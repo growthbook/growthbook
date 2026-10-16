@@ -842,4 +842,24 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  it("fails a condition that throws, rather than throwing", () => {
+    const growthbook = new GrowthBook({
+      attributes: { id: "1" },
+      features: {
+        feature: {
+          defaultValue: "off",
+          rules: [
+            // Malformed: makes evalCondition throw
+            { condition: { $not: null } as never, force: "on" },
+            { force: "fallback" },
+          ],
+        },
+      },
+    });
+
+    expect(growthbook.getFeatureValue("feature", "")).toEqual("fallback");
+
+    growthbook.destroy();
+  });
 });

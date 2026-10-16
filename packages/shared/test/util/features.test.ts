@@ -2731,6 +2731,7 @@ describe("validateCondition operator structure", () => {
       { items: { $elemMatch: { id: 1, $and: [null] } } },
       "$and cannot contain null",
     ],
+    [{ tags: { $elemMatch: { $and: [null] } } }, "$and cannot contain null"],
     [{ nested: { $all: [{ $elemMatch: null }] } }, "$elemMatch cannot be null"],
     [
       { nested: { $alli: [{ $elemMatch: null }] } },
@@ -2758,7 +2759,6 @@ describe("validateCondition operator structure", () => {
     { value: { $not: { $in: [1, 2] } } },
     { tags: { $elemMatch: { $eq: "a" } } },
     { items: { $elemMatch: { id: 1 } } },
-    { tags: { $elemMatch: { $and: [null] } } },
     { nested: { $all: [[1]] } },
   ])("accepts %j", (condition) => {
     expect(validateCondition(JSON.stringify(condition))).toEqual({
