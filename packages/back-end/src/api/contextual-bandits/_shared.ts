@@ -184,13 +184,11 @@ export async function holdLinkedFeatureWrite(
       ? ["feature.publish"]
       : [
           "feature.draft",
-          ...(draftVersion === undefined
-            ? []
-            : await armedFeatureDraftActions(
-                context,
-                feature.id,
-                draftVersion,
-              )),
+          ...(await armedFeatureDraftActions(
+            context,
+            feature.id,
+            draftVersion,
+          )),
         ],
     project: feature.project,
     summary: autoPublish

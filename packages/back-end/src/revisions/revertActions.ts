@@ -22,6 +22,7 @@ import {
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {
   confirmationLink,
+  landingActions,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import type {
@@ -414,12 +415,7 @@ function holdRevert(
     current: entity.archived as boolean | undefined,
   });
   return requireConfirmation(context, {
-    actions: landing
-      ? [
-          `${model}.publish`,
-          ...(archives ? ([`${model}.archive`] as const) : []),
-        ]
-      : [`${model}.draft`],
+    actions: landing ? landingActions(model, archives) : [`${model}.draft`],
     bypassing,
     project: typeof entity.project === "string" ? entity.project : undefined,
     summary: `${landing ? "Revert" : "Draft a revert of"} ${label}${version === undefined ? "" : ` to revision ${version}`}`,

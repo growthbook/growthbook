@@ -461,14 +461,13 @@ export class ContextualBanditModel extends BaseClass {
     if (existing) {
       const body = (req.body ?? {}) as Record<string, unknown>;
       const changes = await this.processApiUpdateBody(body);
-      const path = "/contextual-bandits/:id";
       await requireConfirmation(req.context, {
         actions: contextualBanditChangeActions(existing, changes),
         project: existing.project,
         summary:
           plainWriteSummary(
             "put",
-            path,
+            "/contextual-bandits/:id",
             "Contextual Bandit",
             existing.name,
             body,

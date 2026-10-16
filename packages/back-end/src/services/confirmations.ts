@@ -604,7 +604,7 @@ async function armedRevisionActions(
 }
 
 // Publishing a draft: the publish, plus any archive or ramp plan it carries.
-const landingActions = (
+export const landingActions = (
   model: "feature" | "savedGroup" | "constant" | "config",
   archives: boolean,
   ramps: ConfirmAction[] = [],
@@ -625,8 +625,9 @@ const featureLanding = (revision: FeatureRevisionInterface) =>
 export async function armedFeatureDraftActions(
   context: ReqContext,
   featureId: string,
-  version: number | string,
+  version: number | string | undefined,
 ): Promise<ConfirmAction[]> {
+  if (version === undefined) return [];
   const state = await loadFeatureRevision(context, {
     id: featureId,
     version: String(version),
@@ -846,7 +847,7 @@ export async function queuedDraftsHold(
 
 // The stored values a change replaces, pinned so a confirmed change can't
 // overwrite a newer edit to the same fields.
-export const pinnedFields = <T extends object>(existing: T, changes: object) =>
+export const pinnedFields = (existing: object, changes: object) =>
   Object.keys(changes).map((field) => [
     field,
     (existing as Record<string, unknown>)[field],
