@@ -306,7 +306,7 @@ export async function getHistory(
       : type === "apiKey" &&
           !id &&
           !context.permissions.canManagePersonalAccessTokens()
-        ? await getPersonalAccessTokenIds(context)
+        ? [...(await getPersonalAccessTokenIds(context))]
         : [];
 
   const history = await getAuditHistory(
@@ -324,17 +324,14 @@ export async function getHistory(
   res.status(200).json({ status: 200, ...history });
 }
 
-// A deleted key is known only by its audits, which name a token's owner.
 async function canReadApiKeyHistory(
   context: ReqContext,
   id: string | undefined,
 ): Promise<boolean> {
-  if (!id) return context.permissions.canViewApiKeys();
+  if (!id || !(await getPersonalAccessTokenIds(context)).has(id)) {
+    return context.permissions.canViewApiKeys();
+  }
   const key = await context.models.apiKeys.dangerousGetById(id);
-  const isToken = key
-    ? !!key.userId
-    : (await getPersonalAccessTokenAuditIds(context.org.id)).includes(id);
-  if (!isToken) return context.permissions.canViewApiKeys();
   return (
     (!!key && key.userId === context.userId) ||
     context.permissions.canManagePersonalAccessTokens()
@@ -342,19 +339,20 @@ async function canReadApiKeyHistory(
 }
 
 // Every token the org has had, including deleted ones, which only their audits still name.
+// OAuth access tokens are never audited, so they need no excluding.
 async function getPersonalAccessTokenIds(
   context: ReqContext,
-): Promise<string[]> {
+): Promise<Set<string>> {
   const [keys, audited] = await Promise.all([
     context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
     getPersonalAccessTokenAuditIds(context.org.id),
   ]);
-  return [
-    ...new Set([
-      ...keys.filter((k) => k.userId && k.id).map((k) => k.id as string),
-      ...audited,
-    ]),
-  ];
+  return new Set([
+    ...keys
+      .filter((k) => k.userId && !k.oauthClientId && k.id)
+      .map((k) => k.id as string),
+    ...audited,
+  ]);
 }
 
 export async function putMemberRole(
