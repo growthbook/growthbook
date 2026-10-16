@@ -353,7 +353,7 @@ const BreakDownResults: FC<{
                 const isExpanded = !!expandedRows[parentRowId];
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
-                  : "Metric Slices";
+                  : "metric slices";
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
