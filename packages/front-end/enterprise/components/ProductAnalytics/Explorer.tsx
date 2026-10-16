@@ -108,7 +108,11 @@ function deriveConfigError(
 }
 
 export function ExplorerContent({
-  height = "calc(100vh - 72px)",
+  // PROTOTYPE (set in review): what's above and below the explorer is
+  // set by its page (--explorer-chrome: the header and the page's top and
+  // bottom padding), so it fills the window inside the app-wide page frame;
+  // 72px, as before, when a page doesn't say.
+  height = "calc(100vh - var(--explorer-chrome, 72px))",
   hideDataSourceSelector = false,
   hideSidebarHeaderActions = false,
   sidebarHeaderActions,
@@ -580,7 +584,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         trackingSource="manual-explorer"
       >
         {datasources.length === 0 ? (
-          <Flex direction="column" height="calc(100vh - 72px)">
+          <Flex
+            direction="column"
+            height="calc(100vh - var(--explorer-chrome, 72px))"
+          >
             <EmptyState />
           </Flex>
         ) : (

@@ -1,3 +1,5 @@
+import { CSSProperties, useId } from "react";
+
 // The GrowthBook logo in the side nav (set in review), from the brand's
 // own logo SVG (137×22): the mark's three bars, and the wordmark beside
 // them at the brand's spacing. One drawing, so the mark is the same
@@ -32,11 +34,18 @@ const MARK = [
   },
 ];
 
+// PROTOTYPE (set in review): the sweep's soft band of colour, in the
+// logo's units, and how far the band travels: across the mark alone, or
+// the whole logo with the wordmark.
+const SWEEP_BAND = 56;
+const MARK_WIDTH = 20.01;
+
 export default function GrowthBookLogo({
   showWordmark,
   className,
   markClassName,
   wordmarkClassName,
+  sweepClassName,
 }: {
   showWordmark: boolean;
   className?: string;
@@ -44,7 +53,18 @@ export default function GrowthBookLogo({
   markClassName?: string;
   // The wordmark's fill (navy; white in dark mode), from the page's CSS.
   wordmarkClassName?: string;
+  // PROTOTYPE (set in review), opt-in: a band of the brand's colours over
+  // the logo, clipped to its shapes, for a hover sweep. Its movement is
+  // the page's CSS, on this class (the band's rect); the distance to
+  // travel is --sweep-distance. Without it, nothing is added.
+  sweepClassName?: string;
 }) {
+  // Ids for the band's gradient and clip, unique on the page (useId's
+  // colons left out, for the url() references).
+  const id = useId().replace(/:/g, "");
+  const gradientId = `gb-logo-sweep-${id}`;
+  const clipId = `gb-logo-clip-${id}`;
+  const wordmarkTransform = `translate(${WORDMARK_SHIFT} 0)`;
   return (
     <svg
       width={WIDTH * LOGO_SCALE}
@@ -71,9 +91,52 @@ export default function GrowthBookLogo({
           fillRule="evenodd"
           clipRule="evenodd"
           d={WORDMARK}
-          transform={`translate(${WORDMARK_SHIFT} 0)`}
+          transform={wordmarkTransform}
           className={wordmarkClassName}
         />
+      ) : null}
+      {sweepClassName ? (
+        <>
+          <defs>
+            {/* Transparent at both ends, so the band fades in and out. */}
+            <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stopColor="#029DD1" stopOpacity="0" />
+              <stop offset="0.3" stopColor="#029DD1" />
+              <stop offset="0.5" stopColor="#0047BD" />
+              <stop offset="0.7" stopColor="#4817A1" />
+              <stop offset="1" stopColor="#4817A1" stopOpacity="0" />
+            </linearGradient>
+            <clipPath id={clipId}>
+              {MARK.map(({ d, fill }) => (
+                <path key={fill} clipRule="evenodd" d={d} />
+              ))}
+              {showWordmark ? (
+                <path
+                  clipRule="evenodd"
+                  d={WORDMARK}
+                  transform={wordmarkTransform}
+                />
+              ) : null}
+            </clipPath>
+          </defs>
+          <g clipPath={`url(#${clipId})`}>
+            <rect
+              x={-SWEEP_BAND}
+              y="0"
+              width={SWEEP_BAND}
+              height={HEIGHT}
+              fill={`url(#${gradientId})`}
+              className={sweepClassName}
+              style={
+                {
+                  "--sweep-distance": `${
+                    (showWordmark ? WIDTH : MARK_WIDTH) + SWEEP_BAND
+                  }px`,
+                } as CSSProperties
+              }
+            />
+          </g>
+        </>
       ) : null}
     </svg>
   );

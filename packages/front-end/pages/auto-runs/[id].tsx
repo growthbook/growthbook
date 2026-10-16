@@ -183,10 +183,12 @@ export default function AutoRunPage() {
       <Container
         size="3"
         // PROTOTYPE (set in review): a narrow column left-aligned at the
-        // app-wide page padding's 32px (was centred, 40px on wide screens).
+        // app-wide page frame (global.scss): 32px on the sides, 24px on top,
+        // 32px at the bottom (was centred, with its own spacing).
         align="left"
         px="6"
-        py={{ initial: "1", xs: "3", sm: "6" }}
+        pt="5"
+        pb="6"
       >
         <Callout status="error">
           Couldn&apos;t load this setup report: {error.message}
@@ -203,10 +205,12 @@ export default function AutoRunPage() {
       <Container
         size="3"
         // PROTOTYPE (set in review): a narrow column left-aligned at the
-        // app-wide page padding's 32px (was centred, 40px on wide screens).
+        // app-wide page frame (global.scss): 32px on the sides, 24px on top,
+        // 32px at the bottom (was centred, with its own spacing).
         align="left"
         px="6"
-        py={{ initial: "1", xs: "3", sm: "6" }}
+        pt="5"
+        pb="6"
       >
         <Callout status="warning">
           No setup run found with ID <code>{String(id)}</code>. It may belong to
@@ -225,10 +229,12 @@ export default function AutoRunPage() {
     <Container
       size="3"
       // PROTOTYPE (set in review): a narrow column left-aligned at the
-      // app-wide page padding's 32px (was centred, 40px on wide screens).
+      // app-wide page frame (global.scss): 32px on the sides, 24px on top,
+      // 32px at the bottom (was centred, with its own spacing).
       align="left"
       px="6"
-      py={{ initial: "1", xs: "3", sm: "6" }}
+      pt="5"
+      pb="6"
     >
       <PageHead
         breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}

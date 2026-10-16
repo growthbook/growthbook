@@ -306,6 +306,20 @@ function interimSettingsSection(
   };
 }
 
+// Pages reached from another page in a menu, that a menu item should show
+// as current too (set in review): the role pages, from Members' Roles tab.
+// Kept here, not in sidebarNav.ts, so ⌘K search and the old sidebar are
+// unchanged.
+const CURRENT_PAGE_ALIASES: Record<string, RegExp> = {
+  "/settings/team": /^settings\/role/,
+};
+
+function isCurrentPage(page: SidebarLinkProps, route: string): boolean {
+  return (
+    page.path.test(route) || !!CURRENT_PAGE_ALIASES[page.href]?.test(route)
+  );
+}
+
 function PageBadge({ page }: { page: SidebarLinkProps }) {
   return page.beta ? (
     <Badge color="indigo" label="Beta" variant="soft" size="xs" ml="1" />
@@ -467,7 +481,7 @@ function CollapsedSection({
   );
 
   const pageLink = (page: SidebarLinkProps) => {
-    const current = page.path.test(route);
+    const current = isCurrentPage(page, route);
     return (
       <Link
         key={page.href}
@@ -635,7 +649,7 @@ function ExpandedSection({
               </div>
             ) : null,
             ...group.pages.map((page) => {
-              const current = page.path.test(route);
+              const current = isCurrentPage(page, route);
               return (
                 <Link
                   key={page.href}
@@ -897,6 +911,13 @@ export default function AppRail() {
   const customLogo =
     settings?.customized && settings?.logoPath ? settings.logoPath : null;
 
+  // PROTOTYPE (set in review): hovering (or keyboard focus on) the logo
+  // plays one slow gradient sweep across it (AppRail.module.scss,
+  // .logoPlaying), so it reads as clickable. Once per hover (set in
+  // review; was repeating while hovered): the pass always finishes, and
+  // the next hover plays it again.
+  const [logoPlaying, setLogoPlaying] = useState(false);
+
   return (
     <>
       {upgradeModal && (
@@ -922,9 +943,15 @@ export default function AppRail() {
       >
         <Link
           href="/"
-          className={styles.logo}
+          className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
+          // Its name for screen readers; no browser tooltip (set in review;
+          // was title="GrowthBook home").
           aria-label="GrowthBook home"
-          title="GrowthBook home"
+          onMouseEnter={() => setLogoPlaying(true)}
+          onFocus={(e) => {
+            if (e.currentTarget.matches(":focus-visible")) setLogoPlaying(true);
+          }}
+          onAnimationEnd={() => setLogoPlaying(false)}
         >
           {/* The brand's logo, drawn in place (GrowthBookLogo.tsx; set in
             review; was the logomark image and a separate wordmark image):
@@ -940,6 +967,7 @@ export default function AppRail() {
               className={styles.brandLogo}
               markClassName={styles.brandMark}
               wordmarkClassName={styles.brandWordmark}
+              sweepClassName={styles.sweep}
             />
           )}
         </Link>

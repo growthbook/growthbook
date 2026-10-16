@@ -546,7 +546,13 @@ export default function SessionReplayPage() {
         display: "flex",
         flexDirection: "row",
         alignItems: "stretch",
-        height: "calc(100vh - 72px)",
+        // PROTOTYPE (set in review): in the app-wide page frame
+        // (global.scss): 24px on top, 32px on the sides and at the bottom,
+        // filling the window below the 44px header between them (was edge
+        // to edge, 100vh less 72px).
+        padding: "var(--space-5) var(--space-6) var(--space-6)",
+        boxSizing: "border-box",
+        height: "calc(100vh - 44px)",
         minHeight: 520,
         overflow: "hidden",
       }}

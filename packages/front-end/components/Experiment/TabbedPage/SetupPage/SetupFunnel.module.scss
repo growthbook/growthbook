@@ -366,6 +366,15 @@ button.annotationButton {
   top: 0;
   height: 1px;
   background-color: var(--slate-7);
+  // Its ends glide to a new column when a variation is added (set in
+  // review).
+  transition:
+    left 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    right 280ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 // One drop per variation: line, pill, line, arrowhead.
@@ -377,6 +386,32 @@ button.annotationButton {
   flex-direction: column;
   align-items: center;
   transform: translateX(-50%);
+  // Glides to its new place when a variation is added (set in review).
+  transition: left 280ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// A variation just added (set in review): its drop draws down from the
+// line, its pill and arrowhead revealed on the way, as the line reaches
+// its column and just ahead of its card (.cardEnter).
+@keyframes dropEnter {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.dropEnter {
+  animation: dropEnter 320ms cubic-bezier(0.16, 1, 0.3, 1) 140ms backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 .dropLine {
@@ -777,6 +812,181 @@ button.thumb,
   margin: -4px -4px calc(-1 * var(--space-2));
   padding: 4px 4px var(--space-2);
   overscroll-behavior-x: contain;
+  // The edges' fades (.fadeRight, .fadeLeft), eased in and out; the
+  // scrollbar strip below (the first layer) and the "Values" header's band
+  // (the second, measured; set in review) aren't faded.
+  mask-image:
+    linear-gradient(#000, #000), linear-gradient(#000, #000),
+    linear-gradient(
+      to right,
+      rgb(0 0 0 / var(--variation-fade-start)) 0,
+      #000 var(--space-7),
+      #000 calc(100% - var(--space-7)),
+      rgb(0 0 0 / var(--variation-fade-end)) 100%
+    );
+  mask-position:
+    bottom,
+    0 var(--fade-exempt-top, 0),
+    0 0;
+  mask-size:
+    100% var(--space-2),
+    100% var(--fade-exempt-height, 0px),
+    100% 100%;
+  mask-repeat: no-repeat;
+  transition:
+    --variation-fade-start 200ms ease,
+    --variation-fade-end 200ms ease;
+}
+
+// While there's more of the row to the right (set in review): its right
+// edge fades out over 40px, a hint that it continues, so a 4th variation
+// isn't missed. Off once it's scrolled to the end. And once it's scrolled
+// right, the left edge too (set in review), off back at the start.
+.variationScroller.fadeRight {
+  --variation-fade-end: 0;
+}
+.variationScroller.fadeLeft {
+  --variation-fade-start: 0;
+}
+
+// PROTOTYPE (set in review): the variation count and its indicator
+// (VariationsTable.tsx), top right, its centre on the "Split %" label's
+// (measured; top is set inline, 43px here as a fallback), so it's clear of
+// the split's lines.
+.variationIndicator {
+  position: absolute;
+  top: 43px;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+// The count: 12px, --slate-11 (as the GrowthBot notices' descriptions).
+.indicatorLabel {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--slate-11);
+  white-space: nowrap;
+}
+
+// A variation just added (VariationsTable.tsx; set in review): its card,
+// and its value below (set in review), fade in together, rising 8px and growing from 96%, over 420ms with a soft ease
+// out. A short delay first, so with the row scrolling it starts as the
+// row arrives at it. Without motion, it simply appears.
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cardEnter {
+  animation: cardEnter 420ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+  transform-origin: 50% 100%;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// The indicator's entrance, with a 4th variation (set in review): it fades
+// in, sliding 6px from the right, in step with the new card (.cardEnter's
+// delay and ease). And its exit, back to three: a quicker fade out,
+// sliding back, without clicks. Without motion, it simply appears and goes.
+@keyframes indicatorEnter {
+  from {
+    opacity: 0;
+    transform: translate(6px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+@keyframes indicatorLeave {
+  from {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(6px, -50%);
+  }
+}
+
+.indicatorEnter {
+  animation: indicatorEnter 420ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+.indicatorLeave {
+  pointer-events: none;
+  animation: indicatorLeave 200ms ease-in both;
+}
+
+// The track's click and drag area (set in review): 16px tall round the
+// 4px track, so it's easy to hit, with a pointer cursor (grabbing while
+// dragged) and the usual focus ring. The thumb a step darker on hover.
+.indicatorHit {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+
+  &:hover .indicatorThumb,
+  &.indicatorDragging .indicatorThumb {
+    background: var(--slate-11);
+  }
+}
+
+.indicatorDragging {
+  cursor: grabbing;
+}
+
+// The track: the whole row, 48px × 4px, --slate-5.
+.indicatorTrack {
+  position: relative;
+  width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slate-5);
+}
+
+// The thumb: the part in view, --slate-9, as wide as its share of the row
+// (--indicator-size) and moved along by how far it's scrolled
+// (--indicator-position, 0 to 1).
+.indicatorThumb {
+  position: absolute;
+  top: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slate-9);
+  width: calc(var(--indicator-size) * 100%);
+  left: calc(var(--indicator-position) * (100% - var(--indicator-size) * 100%));
+}
+
+// Registered, so the fades can ease in and out: 1 is no fade.
+@property --variation-fade-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@property --variation-fade-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
 }
 
 // Stays where it is while a wide row of variations scrolls sideways (set

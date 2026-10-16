@@ -160,6 +160,33 @@ $rail-dark-bg: #10172e;
   fill: #fff;
 }
 
+// PROTOTYPE (set in review): the logo's hover, a gradient sweep
+// (AppRail.tsx, GrowthBookLogo.tsx; was a colour cycle): a soft band of
+// the brand's cyan, blue and purple glides left to right across the mark
+// and, expanded, the wordmark. One 2.9s pass per hover (set in review; was
+// repeating, with a pause between passes). The band starts and ends off
+// the logo, so it ends seamlessly. Decorative: with reduced motion, it
+// doesn't play.
+.sweep {
+  visibility: hidden;
+}
+
+@keyframes logoSweep {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--sweep-distance));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logoPlaying .sweep {
+    visibility: visible;
+    animation: logoSweep 2.9s ease-in-out;
+  }
+}
+
 .customLogo {
   max-width: 100%;
   max-height: 28px;

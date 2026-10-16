@@ -7,13 +7,19 @@ export default function FactTableExplorePage() {
   return (
     <Box
       className="position-relative"
-      // PROTOTYPE (set in review): the explorer's content 32px from the
-      // side nav and the window's edge, as the app-wide page padding
-      // (global.scss), this page having its own wrapper: 20px on the left
-      // and 24px on the right, as the explorer adds 12px (its chart area)
-      // and 8px (its sidebar) inside (tried 32px either side: 44px and
-      // 40px in all). 8px above and below, as before.
-      style={{ padding: "8px 24px 8px 20px" }}
+      // PROTOTYPE (set in review): the explorer in the app-wide page frame
+      // (global.scss), this page having its own wrapper: its content 32px
+      // from the side nav and the window's edge, and 24px under the header.
+      // The explorer adds 12px inside (its chart area; 8px at its sidebar),
+      // so 20px left, 24px right, 12px on top (was 8px, 20px in all) and
+      // 20px below (32px in all; was 8px). The explorer fills the window
+      // between them: 100vh less the 44px header, 12px and 20px.
+      style={
+        {
+          padding: "12px 24px 20px 20px",
+          "--explorer-chrome": "76px",
+        } as React.CSSProperties
+      }
     >
       <PageHead
         breadcrumb={[

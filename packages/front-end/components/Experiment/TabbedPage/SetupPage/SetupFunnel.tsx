@@ -1,5 +1,5 @@
 import type { DraggableSyntheticListeners } from "@dnd-kit/core";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -398,6 +398,23 @@ export function SetupSplit({
 }) {
   const n = variations.length;
   const showPills = !isBandit && !!percentages;
+  // A variation just added (set in review): its drop draws down from the
+  // line (.dropEnter) as its card eases in (VariationsTable.tsx), and the
+  // line and the other drops glide to their new places. Not on the page's
+  // first render, only for ones added since.
+  const variationIds = variations.map((v) => v.id).join(",");
+  const seenIds = useRef<Set<string> | null>(null);
+  const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const ids = variationIds ? variationIds.split(",") : [];
+    const seen = seenIds.current;
+    seenIds.current = new Set(ids);
+    if (!seen) return;
+    const added = ids.filter((id) => !seen.has(id));
+    if (added.length) {
+      setEnteringIds((current) => new Set([...current, ...added]));
+    }
+  }, [variationIds]);
   return (
     // 8px clear of Population above and of the cards below (set in
     // review).
@@ -436,8 +453,19 @@ export function SetupSplit({
           return (
             <div
               key={v.id}
-              className={styles.drop}
+              className={clsx(
+                styles.drop,
+                enteringIds.has(v.id) && styles.dropEnter,
+              )}
               style={{ left: columnCenter(i, n) }}
+              onAnimationEnd={(e) => {
+                if (e.target !== e.currentTarget) return;
+                setEnteringIds((ids) => {
+                  const next = new Set(ids);
+                  next.delete(v.id);
+                  return next;
+                });
+              }}
             >
               <div className={styles.dropLine} aria-hidden />
               {showPills ? (

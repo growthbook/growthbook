@@ -6,7 +6,16 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import type { DraggableSyntheticListeners } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { FC, ReactNode, useState, useRef, useCallback, useEffect } from "react";
+import {
+  FC,
+  ReactNode,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useId,
+} from "react";
+import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
@@ -636,13 +645,282 @@ const VariationsTable: FC<Props> = ({
     ro.observe(el);
     return () => ro.disconnect();
   }, [scrolls]);
+  // Whether there's more of the row to either side, for the fades on its
+  // edges (set in review; .fadeRight, and .fadeLeft once it's scrolled):
+  // each on while the row can scroll further that way.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const [moreLeft, setMoreLeft] = useState(false);
+  // PROTOTYPE (set in review): how far along the row is scrolled, 0 to 1,
+  // for the variation count's indicator (.variationIndicator, below).
+  const [scrollFraction, setScrollFraction] = useState(0);
+  // The "Split %" label's vertical centre, for the indicator's.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [indicatorTop, setIndicatorTop] = useState<number | null>(null);
+  const checkMoreRight = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    // The "Values" header's band, left out of the fades (set in review;
+    // .variationScroller's mask): it stays put while the row scrolls, so
+    // it shouldn't fade as if it ran off the edge.
+    const exempt = el.querySelector("[data-fade-exempt]");
+    if (exempt) {
+      const box = exempt.getBoundingClientRect();
+      el.style.setProperty(
+        "--fade-exempt-top",
+        `${box.top - el.getBoundingClientRect().top}px`,
+      );
+      el.style.setProperty("--fade-exempt-height", `${box.height}px`);
+    } else {
+      el.style.removeProperty("--fade-exempt-top");
+      el.style.removeProperty("--fade-exempt-height");
+    }
+    const label = el.querySelector(`.${setupFunnelStyles.splitLabel}`);
+    const wrapper = wrapperRef.current;
+    if (label && wrapper) {
+      const box = label.getBoundingClientRect();
+      setIndicatorTop(
+        box.top + box.height / 2 - wrapper.getBoundingClientRect().top,
+      );
+    }
+    const max = el.scrollWidth - el.clientWidth;
+    setMoreRight(el.scrollLeft < max - 1);
+    setMoreLeft(el.scrollLeft > 1);
+    setScrollFraction(
+      max > 0 ? Math.min(1, Math.max(0, el.scrollLeft / max)) : 0,
+    );
+  }, []);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!scrolls || !el) {
+      setMoreRight(false);
+      setMoreLeft(false);
+      return;
+    }
+    checkMoreRight();
+    const ro = new ResizeObserver(checkMoreRight);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [scrolls, n, checkMoreRight]);
+  // PROTOTYPE (set in review): the indicator's track, clicked or dragged
+  // to scroll the row. Where the pointer is on the track sets where the
+  // thumb is, from where it was grabbed (its middle, after a click on the
+  // track itself), so a drag doesn't jump.
+  const scrollerId = useId();
+  const trackRef = useRef<HTMLSpanElement>(null);
+  const grabOffset = useRef(0);
+  const [trackDragging, setTrackDragging] = useState(false);
+  const scrollToPointer = (clientX: number) => {
+    const track = trackRef.current;
+    const el = scrollerRef.current;
+    if (!track || !el) return;
+    const box = track.getBoundingClientRect();
+    const thumb = (box.width * SETUP_VISIBLE_COLUMNS) / n;
+    const free = box.width - thumb;
+    if (free <= 0) return;
+    const fraction = Math.min(
+      1,
+      Math.max(0, (clientX - box.left - grabOffset.current) / free),
+    );
+    el.scrollLeft = fraction * (el.scrollWidth - el.clientWidth);
+  };
+  const onTrackPointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const track = trackRef.current;
+    if (!track || e.button !== 0) return;
+    e.preventDefault();
+    const box = track.getBoundingClientRect();
+    const thumb = (box.width * SETUP_VISIBLE_COLUMNS) / n;
+    const thumbLeft = scrollFraction * (box.width - thumb);
+    const x = e.clientX - box.left;
+    // On the thumb, held where it was grabbed; elsewhere, by its middle.
+    grabOffset.current =
+      x >= thumbLeft && x <= thumbLeft + thumb ? x - thumbLeft : thumb / 2;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setTrackDragging(true);
+    scrollToPointer(e.clientX);
+  };
+  const onTrackPointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+    if (trackDragging) scrollToPointer(e.clientX);
+  };
+  const onTrackPointerUp = (e: React.PointerEvent<HTMLSpanElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setTrackDragging(false);
+  };
+  // The arrow keys move one variation (a column and its gap); Home and End
+  // go to either end.
+  const onTrackKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    const el = scrollerRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content) return;
+    const step = (content.getBoundingClientRect().width + 16) / n;
+    const max = el.scrollWidth - el.clientWidth;
+    const target =
+      e.key === "ArrowRight"
+        ? el.scrollLeft + step
+        : e.key === "ArrowLeft"
+          ? el.scrollLeft - step
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? max
+              : null;
+    if (target === null) return;
+    e.preventDefault();
+    el.scrollTo({ left: target, behavior: "smooth" });
+  };
+  // A variation just added (set in review): its card eases in
+  // (.cardEnter), and, with the row scrolling, the row glides to it first,
+  // so it's seen arriving. Not on the page's first render, only for ones
+  // added since.
+  const variationIds = variations.map((v) => v.id).join(",");
+  const seenIds = useRef<Set<string> | null>(null);
+  const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!isSetup) return;
+    const ids = variationIds ? variationIds.split(",") : [];
+    const seen = seenIds.current;
+    seenIds.current = new Set(ids);
+    if (!seen) return;
+    const added = ids.filter((id) => !seen.has(id));
+    if (!added.length) return;
+    setEnteringIds((current) => new Set([...current, ...added]));
+    const el = scrollerRef.current;
+    if (scrolls && el) {
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const index = ids.indexOf(added[added.length - 1]);
+      const content = el.firstElementChild;
+      const step = content
+        ? (content.getBoundingClientRect().width + 16) / ids.length
+        : 0;
+      // Just far enough that the new card is the last one in view.
+      const left = Math.max(0, (index + 1) * step - 16 - el.clientWidth + 8);
+      if (left > el.scrollLeft) {
+        el.scrollTo({ left, behavior: reduced ? "auto" : "smooth" });
+      }
+    }
+  }, [variationIds, isSetup, scrolls]);
+  // The indicator's entrance and exit (set in review): it eases in when
+  // the row starts scrolling (a 4th variation added), with the new card,
+  // and out when it stops (back to three). Not on the page's first render.
+  // Leaving, it keeps showing what it last did, not the three that are
+  // left.
+  type IndicatorPhase = "hidden" | "entering" | "shown" | "leaving";
+  const [indicatorPhase, setIndicatorPhase] = useState<IndicatorPhase>(
+    scrolls ? "shown" : "hidden",
+  );
+  const lastIndicator = useRef({ count: n, fraction: scrollFraction });
+  if (scrolls) lastIndicator.current = { count: n, fraction: scrollFraction };
+  useEffect(() => {
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    setIndicatorPhase((phase) => {
+      if (scrolls) {
+        return phase === "shown" || reduced ? "shown" : "entering";
+      }
+      return phase === "hidden" || reduced ? "hidden" : "leaving";
+    });
+  }, [scrolls]);
+  const indicatorCount = scrolls ? n : lastIndicator.current.count;
+  const indicatorFraction = scrolls
+    ? scrollFraction
+    : lastIndicator.current.fraction;
+  // The first variation in view, for screen readers.
+  const firstShown = Math.round(
+    indicatorFraction * (indicatorCount - SETUP_VISIBLE_COLUMNS),
+  );
   const scrollContentWidth = `calc((100% - ${SETUP_VISIBLE_COLUMNS - 1} * var(--space-4)) / ${SETUP_VISIBLE_COLUMNS} * ${n} + ${n - 1} * var(--space-4))`;
 
   return (
     <Box
+      ref={wrapperRef}
       mx={noMargin ? "0" : "4"}
-      style={scrolls ? { position: "relative" } : undefined}
+      style={
+        scrolls || indicatorPhase !== "hidden"
+          ? { position: "relative" }
+          : undefined
+      }
     >
+      {indicatorPhase !== "hidden" ? (
+        // PROTOTYPE (set in review): with more than three variations, how
+        // many there are and which are in view, so one off to the right
+        // isn't missed. Top right, centred on the "Split %" label
+        // (measured), outside the scrolling row. A small scrollbar: a track
+        // for the whole row, and a darker thumb for the part in view, as
+        // wide as that share of it and moving as it scrolls (set in review;
+        // was one bar per variation), so it scales to any number. Clicking
+        // the track moves the thumb there and dragging moves it along (set
+        // in review; was informational only), as well as scrolling the row
+        // itself. For keyboards, focusable, with the arrow keys moving a
+        // variation at a time (Home and End to either end); screen readers
+        // hear which are in view.
+        <Flex
+          align="center"
+          gap="2"
+          className={clsx(
+            setupFunnelStyles.variationIndicator,
+            indicatorPhase === "entering" && setupFunnelStyles.indicatorEnter,
+            indicatorPhase === "leaving" && setupFunnelStyles.indicatorLeave,
+          )}
+          style={indicatorTop !== null ? { top: indicatorTop } : undefined}
+          // Leaving, out of reach: no focus, no clicks, not announced.
+          aria-hidden={indicatorPhase === "leaving" ? true : undefined}
+          onAnimationEnd={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setIndicatorPhase((phase) =>
+              phase === "entering"
+                ? "shown"
+                : phase === "leaving"
+                  ? "hidden"
+                  : phase,
+            );
+          }}
+        >
+          <span className={setupFunnelStyles.indicatorLabel}>
+            {indicatorCount} variations
+          </span>
+          <span
+            role="scrollbar"
+            tabIndex={indicatorPhase === "leaving" ? -1 : 0}
+            aria-controls={scrollerId}
+            aria-orientation="horizontal"
+            aria-label="Scroll variations"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(indicatorFraction * 100)}
+            aria-valuetext={`Showing ${firstShown + 1} to ${
+              firstShown + SETUP_VISIBLE_COLUMNS
+            } of ${indicatorCount}`}
+            className={clsx(
+              setupFunnelStyles.indicatorHit,
+              trackDragging && setupFunnelStyles.indicatorDragging,
+            )}
+            onPointerDown={onTrackPointerDown}
+            onPointerMove={onTrackPointerMove}
+            onPointerUp={onTrackPointerUp}
+            onPointerCancel={onTrackPointerUp}
+            onKeyDown={onTrackKeyDown}
+          >
+            <span
+              ref={trackRef}
+              className={setupFunnelStyles.indicatorTrack}
+              style={
+                {
+                  "--indicator-size": SETUP_VISIBLE_COLUMNS / indicatorCount,
+                  "--indicator-position": indicatorFraction,
+                } as React.CSSProperties
+              }
+            >
+              <span className={setupFunnelStyles.indicatorThumb} />
+            </span>
+          </span>
+        </Flex>
+      ) : null}
       {scrolls && onAddVariation && plusTop !== null ? (
         // While the row scrolls, the "+" stays in its usual place (set in
         // review): outside the scrolling row, in the gutter 12px to its
@@ -671,7 +949,18 @@ const VariationsTable: FC<Props> = ({
         </Box>
       ) : null}
       <Box
-        className={scrolls ? setupFunnelStyles.variationScroller : undefined}
+        ref={scrollerRef}
+        id={scrolls ? scrollerId : undefined}
+        onScroll={scrolls ? checkMoreRight : undefined}
+        className={
+          scrolls
+            ? clsx(
+                setupFunnelStyles.variationScroller,
+                moreRight && setupFunnelStyles.fadeRight,
+                moreLeft && setupFunnelStyles.fadeLeft,
+              )
+            : undefined
+        }
       >
         <Box
           style={
@@ -715,38 +1004,58 @@ const VariationsTable: FC<Props> = ({
                     return null;
                   if (isSetup) {
                     // dragListeners: the drag handle's listeners when reorderable.
+                    // In a wrapper of its own for the entrance (set in
+                    // review), so it doesn't move the cell's drag transform.
                     const card = (
                       dragListeners?: DraggableSyntheticListeners,
                     ) => (
-                      <SetupVariationCard
-                        v={v}
-                        experiment={experiment}
-                        canEdit={
-                          canEditExperiment &&
-                          (!!onEditVariation || !unsavedIds.has(v.id))
+                      <div
+                        className={
+                          enteringIds.has(v.id)
+                            ? setupFunnelStyles.cardEnter
+                            : undefined
                         }
-                        // Images only once saved: the uploader saves to the
-                        // experiment.
-                        canUpload={!unsavedIds.has(v.id)}
-                        onEdit={
-                          onEditVariation
-                            ? () => onEditVariation(v.id)
-                            : !unsavedIds.has(v.id) &&
-                                onEditMetadata &&
-                                onEditTraffic
-                              ? () =>
-                                  experiment.status === "running"
-                                    ? onEditMetadata(v.index)
-                                    : onEditTraffic(v.id)
-                              : undefined
-                        }
-                        mutate={mutate}
-                        openCarousel={(variationId, index) =>
-                          setOpenCarousel({ variationId, index })
-                        }
-                        imageCache={imageCache}
-                        dragListeners={dragListeners}
-                      />
+                        style={{ height: "100%" }}
+                        onAnimationEnd={(e) => {
+                          if (e.target === e.currentTarget) {
+                            setEnteringIds((ids) => {
+                              const next = new Set(ids);
+                              next.delete(v.id);
+                              return next;
+                            });
+                          }
+                        }}
+                      >
+                        <SetupVariationCard
+                          v={v}
+                          experiment={experiment}
+                          canEdit={
+                            canEditExperiment &&
+                            (!!onEditVariation || !unsavedIds.has(v.id))
+                          }
+                          // Images only once saved: the uploader saves to the
+                          // experiment.
+                          canUpload={!unsavedIds.has(v.id)}
+                          onEdit={
+                            onEditVariation
+                              ? () => onEditVariation(v.id)
+                              : !unsavedIds.has(v.id) &&
+                                  onEditMetadata &&
+                                  onEditTraffic
+                                ? () =>
+                                    experiment.status === "running"
+                                      ? onEditMetadata(v.index)
+                                      : onEditTraffic(v.id)
+                                : undefined
+                          }
+                          mutate={mutate}
+                          openCarousel={(variationId, index) =>
+                            setOpenCarousel({ variationId, index })
+                          }
+                          imageCache={imageCache}
+                          dragListeners={dragListeners}
+                        />
+                      </div>
                     );
                     if (canReorder) {
                       return (
@@ -861,7 +1170,11 @@ const VariationsTable: FC<Props> = ({
               {/* "Values" and Type stay put while the row scrolls (set in
                 review). */}
               {variationRow.header ? (
-                <Box mb="2" className={setupFunnelStyles.stickyVisible}>
+                <Box
+                  mb="2"
+                  className={setupFunnelStyles.stickyVisible}
+                  data-fade-exempt
+                >
                   {variationRow.header}
                 </Box>
               ) : null}
@@ -888,7 +1201,18 @@ const VariationsTable: FC<Props> = ({
                             : undefined
                         }
                       >
-                        {variationRow.renderCell(v.id)}
+                        {/* A variation just added: its value eases in with
+                          its card, as one (set in review). */}
+                        <div
+                          className={
+                            enteringIds.has(v.id)
+                              ? setupFunnelStyles.cardEnter
+                              : undefined
+                          }
+                          style={{ height: "100%" }}
+                        >
+                          {variationRow.renderCell(v.id)}
+                        </div>
                       </Box>
                     );
                   })}

@@ -4,7 +4,11 @@ export default function EmptyPowerCalculation({
   showModal: () => void;
 }) {
   return (
-    <div className="contents container pagecontents ml-1 pr-4">
+    // PROTOTYPE (set in review): no spacing or width of its own (was a
+    // second page wrapper inside the page's: 15px padding, a centred fixed
+    // width, ml-1 and pr-4), so the calculator sits in the app-wide page
+    // frame (global.scss).
+    <div>
       <div className="row mb-4">
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">

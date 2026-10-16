@@ -24,8 +24,9 @@ export default function SlackAccountPage() {
   } | null>(null);
   return (
     // PROTOTYPE (set in review): a narrow form column, left-aligned at the
-    // app-wide page padding's 32px (was centred): 800px of content.
-    <Box py="4" px="6" style={{ maxWidth: 864 }}>
+    // app-wide page frame (global.scss): 32px on the sides, 24px on top,
+    // 32px at the bottom (was 16px around, centred); 800px of content.
+    <Box pt="5" pb="6" px="6" style={{ maxWidth: 864 }}>
       <Flex direction="column" gap="4">
         <Heading as="h1" size="lg">
           My Slack Links

@@ -747,6 +747,9 @@ export default function TabbedPage({
           "container-fluid pagecontents",
           showDashboardView && "pt-0",
         )}
+        // PROTOTYPE (set in review): its spacing is its own (below), so the
+        // app-wide page frame (global.scss) leaves it alone.
+        data-page-frame={showRedesignedChrome ? "own" : undefined}
         // The redesigned Setup tab uses the design's page padding instead of
         // the shared 15px from `.main > .container-fluid` in global.scss:
         // 32px left, on the Radix scale. No top padding, so the rail meets the
@@ -1010,8 +1013,17 @@ export default function TabbedPage({
           useRedesignedSetup &&
           (tab === "overview" || tab === "results" || tab === "health")
         ) && (
-          <div className="mt-4 px-4 border-top pb-3">
-            <div className="pt-2 pt-4 pb-5 container pagecontents">
+          // PROTOTYPE (set in review): in line with the page frame's 32px
+          // sides (global.scss), full width (was 24px, then a centred
+          // container capped at 1340px with 15px of its own).
+          <div
+            className="mt-4 border-top pb-3"
+            style={{
+              paddingLeft: "var(--space-6)",
+              paddingRight: "var(--space-6)",
+            }}
+          >
+            <div className="pt-4 pb-5">
               <div className="h3 mb-4">Comments</div>
               <DiscussionThread
                 type="experiment"

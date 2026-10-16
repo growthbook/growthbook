@@ -1,14 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Box,
-  Card,
-  Container,
-  Flex,
-  Grid,
-  Separator,
-  Text,
-} from "@radix-ui/themes";
+import { Box, Card, Flex, Grid, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
@@ -240,12 +232,14 @@ const GetStartedAndHomePage = ({
         />
       )}
 
-      <Container
-        // PROTOTYPE (set in review): a narrow column left-aligned at the
-        // app-wide page padding's 32px (was centred, 40px on wide screens).
-        align="left"
+      <Box
+        // PROTOTYPE (set in review): the app-wide page frame (global.scss),
+        // full width: 32px on the sides, 24px on top, 32px at the bottom (was
+        // a Container, centred at a fixed width, with its own spacing; then
+        // that width, left-aligned).
         px="6"
-        py={{ initial: "1", xs: "3", sm: "6" }}
+        pt="5"
+        pb="6"
       >
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
@@ -452,7 +446,7 @@ const GetStartedAndHomePage = ({
             />
           </Box>
         </Grid>
-      </Container>
+      </Box>
     </>
   );
 };

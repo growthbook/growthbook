@@ -6,8 +6,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
 // page's own background, --color-background (set in review; was white,
 // --color-panel-solid), so it matches whatever page it's over, and always
 // solid (fix, set in review: it was see-through until a scroll was noticed,
-// then faded in, so a fast scroll showed the page's text through it). A
-// soft shadow once the page scrolls under it.
+// then faded in, so a fast scroll showed the page's text through it).
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -54,8 +53,10 @@ $sidebarwidth: var(--app-rail-width, 240px);
 }
 // (With "Interim colors" on, PrototypeControls.tsx, it had the page's
 // background in place of white; it now has that on every page.)
+// Scrolled: no line under it either (set in review; was a 1px --slate-a3
+// line), as on the experiments list, so it reads as part of the page.
 .topbar.scrolled {
-  box-shadow: 0 1px 0 var(--slate-a3);
+  box-shadow: none;
 }
 
 .topbarlite {

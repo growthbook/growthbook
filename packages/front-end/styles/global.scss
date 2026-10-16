@@ -90,22 +90,82 @@ body {
   }
 }
 
-// PROTOTYPE (set in review): every page's wrapper, whichever classes it
-// uses, gets the experiments list's 32px on the left and right (was 15px),
-// over pages' own p-3 / p-4 (Bootstrap's !important) too, and the full
-// width beside the side nav, as the experiments list: no 1340px cap
-// (.pagecontents) or Bootstrap .container's fixed, centred widths (set in
-// review; capped, wide screens centred the page, so its content started
-// well past 32px). To see one page width across the product; proposed as
-// its own change after the side nav and header ship. Top and bottom
-// unchanged for now.
-.main > .pagecontents,
-.main > .container-fluid,
-.main > .container,
-.main > .contents {
+// PROTOTYPE (set in review): one page frame across the product, as the
+// experiments list's: every page's wrapper, whichever classes it uses,
+// gets 32px on the left and right (was 15px), 24px on top (the gap under
+// the header to the title) and 32px at the bottom (were 15px), over pages'
+// own spacing (p-3 / p-4 / pt-4, Bootstrap's !important, and margins on
+// the wrapper), and the full width beside the side nav: no 1340px cap
+// (.pagecontents) or Bootstrap .container's fixed, centred widths. Its
+// first item's own top margin goes too, so the title always sits 24px
+// under the header. Proposed as its own change after the side nav and
+// header ship. A wrapper that sets its own frame on purpose (the
+// experiment page's Setup, its rail flush to the tabs and the page's
+// bottom) opts out with data-page-frame="own" (fix, set in review).
+.main > .pagecontents:not([data-page-frame="own"]),
+.main > .container-fluid:not([data-page-frame="own"]),
+.main > .container:not([data-page-frame="own"]),
+.main > .contents:not([data-page-frame="own"]) {
   max-width: none !important;
-  padding-left: var(--space-6) !important;
-  padding-right: var(--space-6) !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: var(--space-5) var(--space-6) var(--space-6) !important;
+
+  > :first-child,
+  > style:first-child + * {
+    margin-top: 0 !important;
+  }
+
+  // Likewise at the bottom (set in review): what ends the page (a panel's
+  // 1em, a card's mb-4…) doesn't add to the 32px. Its last item, and the
+  // last items inside that, up to six deep (tabs, then a tab, then a
+  // panel…; was three), lose their bottom margin, as a margin there passes
+  // straight through a box with no padding of its own to the page's bottom
+  // edge. Tabs keep every tab's content on the page, the closed ones
+  // hidden, so in a set of tabs the trail follows the open tab, not the
+  // last (fix, set in review: it went into a hidden tab). A Bootstrap row
+  // ending the page has columns side by side, the tallest not always the
+  // last, so every column's end, four deep.
+  $end: ':is(:last-child, .rt-TabsContent[data-state="active"])';
+  $chain: "> #{$end}";
+  @for $depth from 1 through 6 {
+    #{$chain} {
+      margin-bottom: 0 !important;
+    }
+    @if $depth <= 3 {
+      $col: "#{$chain} > [class*='col']";
+      @for $inner from 1 through 4 {
+        $col: $col + " > #{$end}";
+        #{$col} {
+          margin-bottom: 0 !important;
+        }
+      }
+    }
+    $chain: $chain + " > #{$end}";
+  }
+}
+
+// A page wrapper nested inside the page's (e.g. Members' tab, the role
+// form, a safe rollout's details; set in review): no width cap or side
+// padding of its own, so its content keeps to the page frame. Not
+// !important, so a nested wrapper's own inline spacing still wins.
+.main > .pagecontents:not([data-page-frame="own"]),
+.main > .container-fluid:not([data-page-frame="own"]),
+.main > .container:not([data-page-frame="own"]),
+.main > .contents:not([data-page-frame="own"]) {
+  .pagecontents,
+  .container.pagecontents,
+  .container-fluid.pagecontents {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+// The feature page's header, its tabs straight under it: no bottom
+// padding, as before (pb-0); the page's content below has its own frame.
+.main > .features-header {
+  padding-bottom: 0 !important;
 }
 .contents {
   padding: 15px;

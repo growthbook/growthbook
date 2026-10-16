@@ -553,7 +553,7 @@ const ApprovalRequests: FC = () => {
     return (
       // PROTOTYPE (set in review): full width at the app-wide page padding's
       // 32px (was 16px left, 40px right, capped at 1340px and centred).
-      <Box py="4" px="6" width="100%">
+      <Box pt="5" pb="6" px="6" width="100%">
         <Callout status="info">
           Approval flows require an Enterprise plan.
         </Callout>
@@ -566,9 +566,10 @@ const ApprovalRequests: FC = () => {
   }
 
   return (
-    // PROTOTYPE (set in review): full width at the app-wide page padding's
-    // 32px (was 16px left, 40px right, capped at 1340px and centred).
-    <Box py="4" px="6" width="100%">
+    // PROTOTYPE (set in review): the app-wide page frame (global.scss): full
+    // width, 32px on the sides, 24px on top, 32px at the bottom (was 16px
+    // around, 40px on the right, capped at 1340px and centred).
+    <Box pt="5" pb="6" px="6" width="100%">
       <Box mb="5">
         <Heading as="h1" size="lg" mb="2">
           Approval Requests
