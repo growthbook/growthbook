@@ -598,6 +598,11 @@ export default function CloudUsage() {
               used={totalEventForwarderEvents}
               limit={limits.eventForwarderEvents ?? 1_000_000}
               noun="events"
+              period={
+                monthsAgo === 0
+                  ? "this month"
+                  : `in ${monthOptions.find((o) => o.value === monthsAgo + "")?.label ?? "that month"}`
+              }
             />
           )}
           <DailyGraph
@@ -645,10 +650,13 @@ export function UsageMeter({
   used,
   limit,
   noun,
+  period = "this month",
 }: {
   used: number;
   limit: number;
   noun: string;
+  // "this month" or e.g. "in Sep 2026" for a past month
+  period?: string;
 }) {
   const pct = limit > 0 ? (used / limit) * 100 : 0;
   const color = pct >= 100 ? "red" : pct >= 80 ? "amber" : "violet";
@@ -656,7 +664,7 @@ export function UsageMeter({
     <Box mb="3">
       <Text size="sm" color="text-mid">
         {requestsFormatter.format(used)} of {requestsFormatter.format(limit)}{" "}
-        {noun} this month
+        {noun} {period}
       </Text>
       <ProgressBar
         segments={[

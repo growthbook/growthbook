@@ -4,6 +4,7 @@ import { date, daysLeft } from "shared/dates";
 import { useState } from "react";
 import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
+import UILink from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -36,7 +37,7 @@ export default function AccountPlanNotices() {
           track("Clicked Read About CDN Limits Link in Tooltip");
         }}
       >
-        Growthbook Docs &gt; FAQ
+        GrowthBook Docs &gt; FAQ
       </a>
     </Box>
   );
@@ -105,7 +106,7 @@ export default function AccountPlanNotices() {
           track("Clicked Read About Managed Warehouse Limits Link in Tooltip");
         }}
       >
-        Growthbook Docs &gt; FAQ
+        GrowthBook Docs &gt; FAQ
       </a>
     </Box>
   );
@@ -165,17 +166,15 @@ export default function AccountPlanNotices() {
   ) : (
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
-      <a
+      <UILink
         href="https://docs.growthbook.io/app/event-forwarder#usage-limits"
-        className="text-decoration-none"
-        target="_blank"
-        rel="noopener noreferrer"
+        external
         onClick={() => {
           track("Clicked Read About Event Forwarder Limits Link in Tooltip");
         }}
       >
-        Growthbook Docs &gt; Event Forwarder
-      </a>
+        GrowthBook Docs &gt; Event Forwarder
+      </UILink>
     </Box>
   );
 
@@ -227,10 +226,22 @@ export default function AccountPlanNotices() {
     );
   }
 
+  // An exceeded meter outranks an approaching one, whichever meter it is.
+  const usageNotices = [
+    { status: usage?.cdn.status, message: cdnUsageMessage },
+    {
+      status: usage?.managedClickhouse?.status,
+      message: managedWarehouseUsageMessage,
+    },
+    {
+      status: usage?.eventForwarder?.status,
+      message: eventForwarderUsageMessage,
+    },
+  ].filter((n) => n.message);
   const usageMessage =
-    cdnUsageMessage ||
-    managedWarehouseUsageMessage ||
-    eventForwarderUsageMessage;
+    usageNotices.find((n) => n.status === "over")?.message ??
+    usageNotices[0]?.message ??
+    null;
   if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
       <>

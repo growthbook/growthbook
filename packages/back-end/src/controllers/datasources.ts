@@ -54,6 +54,7 @@ import {
   testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  assertNoEventForwarderInOrg,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
@@ -250,6 +251,10 @@ export async function postDataSources(
   }
 
   try {
+    // Reject before anything is saved, so a refused forwarder doesn't leave
+    // an orphan Data Source behind.
+    if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
+
     // Set default event properties and queries
     settings.events = {
       experimentEvent: "$experiment_started",
