@@ -16,6 +16,7 @@ import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
 import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
+import noRawDocsLink from "./eslint-rules/no-raw-docs-link.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -264,6 +265,7 @@ export default defineConfig([
       local: {
         rules: {
           "no-alert-classname": noAlertClassname,
+          "no-raw-docs-link": noRawDocsLink,
         },
       },
     },
@@ -297,6 +299,20 @@ export default defineConfig([
         },
       ],
       "local/no-alert-classname": "error",
+      "local/no-raw-docs-link": "error",
+    },
+  },
+  {
+    // docSections.ts is the one place the docs origin is allowed to live: it
+    // owns the registry that DocLink and docUrl() resolve every docs link from.
+    // Front-end tests assert fully-resolved docs URLs, so they keep the literals.
+    files: [
+      "./packages/front-end/components/docSections.ts",
+      "./packages/front-end/test/**/*.{ts,tsx}",
+    ],
+
+    rules: {
+      "local/no-raw-docs-link": "off",
     },
   },
   {
@@ -510,6 +526,25 @@ export default defineConfig([
           ],
         },
       ],
+    },
+  },
+  {
+    files: ["./packages/shared/**/*.{ts,tsx,js,mjs,cjs}"],
+    // Codegen scripts are exempt: scripts/gen-sdk-resources.ts is input data
+    // for generated SDK resource links, not UI code that could use the
+    // front-end docSections registry.
+    ignores: ["./packages/shared/scripts/**"],
+
+    plugins: {
+      local: {
+        rules: {
+          "no-raw-docs-link": noRawDocsLink,
+        },
+      },
+    },
+
+    rules: {
+      "local/no-raw-docs-link": "error",
     },
   },
   {

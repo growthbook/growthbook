@@ -3,6 +3,8 @@ import { date, daysLeft } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
+import { docUrl } from "@/components/DocLink";
+import UiLink from "@/ui/Link";
 import { AppNotice } from "./notices";
 
 export default function useAccountPlanNotices(): AppNotice[] {
@@ -20,14 +22,14 @@ export default function useAccountPlanNotices(): AppNotice[] {
     ) : (
       <>
         Click to upgrade, or visit{" "}
-        <a
+        <UiLink
           href={docsHref}
-          target="_blank"
-          rel="noopener noreferrer"
+          external
+          underline="none"
           onClick={() => track(trackEvent)}
         >
           Growthbook Docs &gt; FAQ
-        </a>
+        </UiLink>
       </>
     );
 
@@ -43,7 +45,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
           ? "CDN usage limit exceeded"
           : "Approaching CDN usage limit",
       details: usageDetails(
-        "https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits",
+        docUrl("cloudCdnUsageLimits"),
         "Clicked Read About CDN Limits Link in Tooltip",
       ),
       upgrade: {
@@ -66,7 +68,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
           ? "Managed Warehouse event limit exceeded"
           : "Approaching Managed Warehouse event limit",
       details: usageDetails(
-        "https://docs.growthbook.io/app/managed-warehouse#limits",
+        docUrl("managedWarehouseLimits"),
         "Clicked Read About Managed Warehouse Limits Link in Tooltip",
       ),
       upgrade: {

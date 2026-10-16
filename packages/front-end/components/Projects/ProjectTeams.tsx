@@ -41,6 +41,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { docUrl } from "@/components/DocLink";
 
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
@@ -219,7 +220,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           title="Teams"
           description="Give a group of users a role on this Project in one step, and manage the group here."
           commercialFeature="teams"
-          learnMoreLink="https://docs.growthbook.io/account/user-permissions#project-scoped-teams"
+          learnMoreLink={docUrl("projectScopedTeams")}
         />
       </Box>
     );

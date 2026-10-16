@@ -14,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import LinkButton from "@/ui/LinkButton";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import { docUrl } from "@/components/DocLink";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
@@ -156,7 +157,7 @@ const TemplatePage: FC = () => {
               </Text>
               <div className="mt-3">
                 <LinkButton
-                  href="https://docs.growthbook.io/running-experiments/experiment-templates"
+                  href={docUrl("experimentTemplates")}
                   variant="outline"
                   mr="3"
                   external={true}

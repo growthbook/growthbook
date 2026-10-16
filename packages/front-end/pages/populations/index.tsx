@@ -29,10 +29,9 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { usePopulations } from "@/hooks/usePopulations";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
+import { docUrl } from "@/components/DocLink";
 
 const ALL_DATASOURCES = "__all__";
-const CREATE_POPULATION_DOCS =
-  "https://docs.growthbook.io/api/Populations/operation/createPopulation";
 
 export default function PopulationsPage() {
   const gb = useGrowthBook<AppFeatures>();
@@ -148,7 +147,7 @@ export default function PopulationsPage() {
           description="Populations are created with the REST API for now. Creating them here is coming soon."
           leftButton={
             <LinkButton
-              href={CREATE_POPULATION_DOCS}
+              href={docUrl("apiCreatePopulation")}
               variant="outline"
               external
             >

@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import useURLHash from "@/hooks/useURLHash";
+import { docUrl } from "@/components/DocLink";
 
 const BANDIT_LIST_TABS = [
   "all",
@@ -134,7 +135,7 @@ const ExperimentsPage = (): React.ReactElement => {
           title="Run Adaptive Experiments with Bandits"
           description="Bandits automatically guide more traffic to better variants."
           commercialFeature="multi-armed-bandits"
-          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+          learnMoreLink={docUrl("bandits")}
         />
       </Box>
     );
