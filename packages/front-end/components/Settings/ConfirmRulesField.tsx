@@ -158,9 +158,11 @@ function ActionsField({
         if (e.key === "ArrowRight" ? !open : open) setOpen(category, !open);
       }}
       onChange={(next, action) => {
-        // Removing a chip drops just that pick; a menu row toggles all it covers.
+        // Removing a chip drops just that pick, and a paste (no action) keeps
+        // all it pasted; a menu row toggles all it covers.
         if (
           !next.length ||
+          !action ||
           action === "remove-value" ||
           action === "pop-value"
         ) {

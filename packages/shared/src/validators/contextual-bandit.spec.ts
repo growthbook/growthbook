@@ -52,7 +52,13 @@ export const refreshContextualBanditEndpoint = {
 export const updateVariationsContextualBanditEndpoint = {
   pathFragment: "/:id/variations",
   verb: "post" as const,
-  confirmation: ["experiment.other"] as const,
+  confirmation: [
+    "experiment.draft",
+    "experiment.traffic",
+    "feature.draft",
+    "feature.publish",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateContextualBanditVariations",
   validator: apiContextualBanditUpdateVariationsValidator,
   zodReturnObject: apiContextualBanditVariationsReturn,

@@ -58,7 +58,8 @@ export const postExperimentStart = createApiRequestHandler(
       confirmationLink("experiment", existing.id, existing.name),
       ...queued.links,
     ],
-    pin: [existing.status, queued.pin],
+    // A changed schedule changes when, or whether, this start happens.
+    pin: [existing.status, existing.statusUpdateSchedule ?? null, queued.pin],
   });
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.

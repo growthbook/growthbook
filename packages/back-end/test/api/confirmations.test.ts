@@ -993,6 +993,14 @@ describe("confirmations", () => {
       (await update("cb_live", { coverage: 0.5 })).body.confirmation?.actions,
     ).toEqual([{ action: "experiment.traffic", environments: [] }]);
     expect((await update("cb_live", { name: "Renamed" })).status).toBe(200);
+    // Changing a live bandit's variations re-weights it.
+    expect(
+      (
+        await auth(
+          request(app).post("/api/v1/contextual-bandits/cb_live/variations"),
+        ).send({ addVariations: [{ name: "Third" }] })
+      ).body.confirmation?.actions,
+    ).toEqual([{ action: "experiment.traffic", environments: [] }]);
 
     setReqContext(asKey(recommended));
     expect((await update("cb_draft", { coverage: 0.5 })).status).toBe(200);
@@ -1123,6 +1131,31 @@ describe("confirmations", () => {
         body: { message: expect.stringContaining("changed after it was") },
       },
     });
+
+    // So does a changed schedule, which changes when the start happens.
+    const again = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/start`),
+    ).send({ skipChecklist: true });
+    expect(again.status).toBe(202);
+    await mongoose.connection.collection("experiments").updateOne(
+      { id: EXP },
+      {
+        $set: {
+          statusUpdateSchedule: {
+            startAt: new Date(Date.now() + 86_400_000),
+          },
+        },
+      },
+    );
+    expect(
+      (
+        await decideConfirmation(
+          asUser("u_admin"),
+          again.body.confirmation.id,
+          "confirm",
+        )
+      ).status,
+    ).toBe("expired");
   });
 
   it("holds a release as a publish of each item, and lands them all once confirmed", async () => {

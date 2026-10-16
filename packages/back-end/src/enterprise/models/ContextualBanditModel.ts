@@ -205,6 +205,18 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
+          // A live bandit's variation change re-weights it and publishes its
+          // linked flags; a draft's only stages them.
+          await requireConfirmation(req.context, {
+            actions:
+              cb.status === "running"
+                ? ["experiment.traffic", "feature.publish"]
+                : ["experiment.draft", "feature.draft"],
+            project: cb.project,
+            summary: `Change the variations of ${cb.name}`,
+            links: [],
+            pin: [cb.status, cb.variations],
+          });
           const { updated, featureDraftPublishFailures } =
             await executeContextualBanditVariationChange(req.context, cb, {
               addVariations: req.body.addVariations,
