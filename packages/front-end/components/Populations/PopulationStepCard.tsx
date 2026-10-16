@@ -118,6 +118,7 @@ export default function PopulationStepCard({
         <Box flexGrow="1" minWidth="200px">
           <SelectField
             size="small"
+            aria-label={`Step ${index + 1} fact table`}
             value={step.source.factTableId}
             onChange={(factTableId) =>
               update({
@@ -320,6 +321,7 @@ function AggregateFilterInput({
       <Box minWidth="160px">
         <SelectField
           size="small"
+          aria-label={`Step ${stepNumber} aggregate column`}
           value={column}
           onChange={(v) => onChange(v, filter)}
           options={columnOptions}
