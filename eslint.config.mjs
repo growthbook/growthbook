@@ -535,7 +535,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["./packages/remote-saved-groups/**/*"],
+    files: ["./packages/remote-saved-groups-csv-parser/**/*"],
 
     rules: {
       "no-restricted-imports": [
@@ -545,7 +545,7 @@ export default defineConfig([
             {
               group: ["*back-end*", "*front-end*", "**/shared*", "**/sdk-*"],
               message:
-                "remote-saved-groups has no dependencies: GrowthBook and its loaders both use it.",
+                "remote-saved-groups-csv-parser has no dependencies: GrowthBook and its loaders both use it.",
             },
           ],
         },
@@ -662,7 +662,7 @@ export default defineConfig([
       "./packages/sdk-js/src/**/*.{ts,tsx}",
       "./packages/sdk-react/src/**/*.{ts,tsx}",
       "./packages/stats-ts/src/**/*.{ts,tsx}",
-      "./packages/remote-saved-groups/src/**/*.{ts,tsx}",
+      "./packages/remote-saved-groups-csv-parser/src/**/*.{ts,tsx}",
     ],
 
     // Exclude test dirs everywhere: shared/test and back-end/test are outside

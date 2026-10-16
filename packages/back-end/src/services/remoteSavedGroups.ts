@@ -6,7 +6,7 @@ import {
   checkRemoteGroupCsvSample,
   parseRemoteGroupCsv,
   RemoteGroupCsvOptions,
-} from "@growthbook/remote-saved-groups";
+} from "@growthbook/remote-saved-groups-csv-parser";
 import { REMOTE_SAVED_GROUP_SAMPLE_BYTES } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
 import type {

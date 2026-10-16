@@ -111,11 +111,11 @@ COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
-COPY packages/remote-saved-groups/package.json ./packages/remote-saved-groups/package.json
+COPY packages/remote-saved-groups-csv-parser/package.json ./packages/remote-saved-groups-csv-parser/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
-# GB_SKIP_PREPARE: sdk-js and remote-saved-groups build themselves in
+# GB_SKIP_PREPARE: sdk-js and remote-saved-groups-csv-parser build themselves in
 # "prepare" for Git dependency installs; here their sources aren't copied yet,
 # and `pnpm build` builds them below.
 RUN GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline

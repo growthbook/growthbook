@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ago, datetime } from "shared/dates";
-import { checkRemoteGroupCsvSample } from "@growthbook/remote-saved-groups";
+import { checkRemoteGroupCsvSample } from "@growthbook/remote-saved-groups-csv-parser";
 import {
   formatByteSizeString,
   REMOTE_SAVED_GROUP_SAMPLE_BYTES,
@@ -40,7 +40,6 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
 import { ProgressBar } from "@/ui/ProgressBar";
@@ -70,16 +69,22 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
 function CsvFileInput({
   file,
   setFile,
+  disabled,
 }: {
   file: File | null;
   setFile: (file: File | null) => void;
+  disabled: boolean;
 }) {
   const { setError } = useModalContext();
   const fileInput = useRef<HTMLInputElement>(null);
   return (
     <>
       <Flex align="center" gap="3">
-        <Button variant="outline" onClick={() => fileInput.current?.click()}>
+        <Button
+          variant="outline"
+          disabled={disabled}
+          onClick={() => fileInput.current?.click()}
+        >
           Choose CSV
         </Button>
         <Text color={file ? undefined : "text-low"}>
@@ -106,6 +111,47 @@ function CsvFileInput({
 /** How often the upload modal checks whether a new upload is valid yet. */
 const CHECK_INTERVAL_MS = 2000;
 
+/** Where a submitted upload is, from sending the file to its check passing. */
+type UploadStage =
+  | { type: "uploading"; progress: number }
+  | { type: "saving" }
+  | { type: "validating" }
+  | { type: "valid"; version: number; idCount: number };
+
+/**
+ * The upload's progress. It keeps the same lines through every stage, so the
+ * modal doesn't change size as the upload moves along.
+ */
+function UploadProgress({ stage }: { stage: UploadStage }) {
+  const percent =
+    stage.type === "uploading" ? Math.round(stage.progress * 100) : 100;
+  const label =
+    stage.type === "uploading"
+      ? `Uploading... ${percent}%`
+      : stage.type === "saving"
+        ? "Saving the upload..."
+        : stage.type === "validating"
+          ? "Validating the file..."
+          : `File version ${stage.version} uploaded successfully with ${stage.idCount.toLocaleString()} IDs`;
+  return (
+    <Box mt="3">
+      <Text as="p" color="text-mid">
+        {label}
+      </Text>
+      <ProgressBar
+        segments={[
+          {
+            id: "upload",
+            weight: 100,
+            completion: percent,
+            color: stage.type === "valid" ? "green" : "violet",
+          },
+        ]}
+      />
+    </Box>
+  );
+}
+
 function UploadModal({
   savedGroup,
   canUseVersion,
@@ -123,41 +169,38 @@ function UploadModal({
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema(true);
   const [file, setFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [useWhenChecked, setUseWhenChecked] = useState(canUseVersion);
-  const [checking, setChecking] = useState(false);
+  const [stage, setStage] = useState<UploadStage | null>(null);
   // A file already in storage whose upload wasn't recorded yet. Retrying
   // submits the same key, so the file isn't sent again and the server can
   // finish an upload it recorded before failing.
   const staged = useRef<{ file: File; fileKey: string } | null>(null);
-  // Stops waiting for validation once the modal is closed or unmounted
+  // Stops waiting for validation once the modal is closed or unmounted. Set
+  // again on mount, since a dev hot reload runs the cleanup without closing.
   const closed = useRef(false);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    closed.current = false;
+    return () => {
       closed.current = true;
-    },
-    [],
-  );
+    };
+  }, []);
+  // Cancels the file transfer when the modal is closed during it
+  const transfer = useRef<AbortController | null>(null);
   const closeModal = () => {
     closed.current = true;
+    transfer.current?.abort();
     close();
   };
 
   // Waits for the background check of a new upload
   const waitForCheck = async (version: number) => {
-    setChecking(true);
-    try {
-      for (;;) {
-        await new Promise((resolve) => setTimeout(resolve, CHECK_INTERVAL_MS));
-        if (closed.current) return null;
-        const { upload } = await apiCall<SavedGroupUploadDetails>(
-          `/saved-groups/${savedGroup.id}/uploads/${version}`,
-        );
-        if (closed.current) return null;
-        if (upload.status.type !== "pending") return upload.status;
-      }
-    } finally {
-      setChecking(false);
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, CHECK_INTERVAL_MS));
+      if (closed.current) return null;
+      const { upload } = await apiCall<SavedGroupUploadDetails>(
+        `/saved-groups/${savedGroup.id}/uploads/${version}`,
+      );
+      if (closed.current) return null;
+      if (upload.status.type !== "pending") return upload.status;
     }
   };
 
@@ -190,26 +233,45 @@ function UploadModal({
         `The file is larger than ${formatByteSizeString(target.maxBytes)}.`,
       );
     }
-    setProgress(0);
+    if (closed.current) return null;
+    setStage({ type: "uploading", progress: 0 });
+    transfer.current = new AbortController();
     try {
       await uploadToSignedUrl({
         signedUrl: target.signedUrl,
         fields: target.fields,
         file,
         contentType: "text/csv",
-        onProgress: setProgress,
+        onProgress: (progress) => setStage({ type: "uploading", progress }),
+        signal: transfer.current.signal,
       });
     } finally {
-      setProgress(null);
+      transfer.current = null;
     }
     return target.fileKey;
   };
 
   const upload = async () => {
+    try {
+      await uploadAndCheck();
+    } catch (e) {
+      // Closing cancels the upload; that's not an error to show
+      if (closed.current) return;
+      setStage(null);
+      throw e;
+    }
+  };
+
+  const uploadAndCheck = async () => {
     if (!file) return;
     if (staged.current?.file !== file) {
-      staged.current = { file, fileKey: await sendToStorage(file) };
+      const fileKey = await sendToStorage(file);
+      if (fileKey === null) return;
+      staged.current = { file, fileKey };
     }
+    // Closed after the transfer finished: don't record the upload
+    if (closed.current) return;
+    setStage({ type: "saving" });
     const { upload } = await apiCall<{ upload: ApiSavedGroupUpload }>(
       `/saved-groups/${savedGroup.id}/uploads`,
       {
@@ -222,11 +284,8 @@ function UploadModal({
     );
     staged.current = null;
     await onUploaded();
-    if (!useWhenChecked) {
-      closeModal();
-      return;
-    }
 
+    setStage({ type: "validating" });
     const status =
       upload.status.type === "pending"
         ? await waitForCheck(upload.version)
@@ -236,11 +295,18 @@ function UploadModal({
     if (closed.current) return;
     if (status.type === "invalid") {
       throw new Error(
-        `Version ${upload.version} is invalid, so the group won't use it. See its details for the problems found.`,
+        "The file is invalid, so the group won't use it. See the upload's details for the problems found.",
       );
     }
-    closeModal();
-    onUseVersion(upload.version);
+    if (status.type === "valid") {
+      // Waits for "Add to revision" or Close, so the next dialog doesn't open
+      // on its own
+      setStage({
+        type: "valid",
+        version: upload.version,
+        idCount: status.idCount,
+      });
+    }
   };
 
   return (
@@ -261,51 +327,43 @@ function UploadModal({
             per line. A first line equal to the attribute name is skipped.
           </Text>
           <Text as="p" mb="3">
-            Each upload is a complete list of values, saved as a new version.
-            Older versions stay until you delete them.
+            Each upload is a complete list of values. Earlier uploads stay until
+            you delete them.
           </Text>
-          <CsvFileInput file={file} setFile={setFile} />
-          {canUseVersion && (
-            <Box mt="3">
-              <Checkbox
-                label="Use this version once it's validated"
-                value={useWhenChecked}
-                setValue={setUseWhenChecked}
-              />
-            </Box>
-          )}
-          {checking && (
-            <Text as="p" color="text-mid" mt="3">
-              Validating the file. This takes a few seconds for small files, and
-              longer for large ones. You can close this and choose the version
-              later.
-            </Text>
-          )}
-          {progress !== null && (
-            <Text as="p" color="text-mid" mt="3">
-              Uploading {Math.round(progress * 100)}%
-            </Text>
-          )}
-          {progress !== null && (
-            <ProgressBar
-              segments={[
-                {
-                  id: "upload",
-                  weight: 100,
-                  completion: Math.round(progress * 100),
-                  color: "violet",
-                },
-              ]}
-            />
-          )}
+          <CsvFileInput
+            file={file}
+            setFile={setFile}
+            disabled={stage !== null}
+          />
+          {stage && <UploadProgress stage={stage} />}
         </Modal.Body>
         <Modal.Footer justify="between">
           <Modal.Close>
-            <Button variant="ghost" onClick={closeModal}>
-              {checking ? "Close" : "Cancel"}
+            <Button
+              variant="ghost"
+              // Saving is brief; closing then would still record the upload
+              disabled={stage?.type === "saving"}
+              onClick={closeModal}
+            >
+              {stage?.type === "validating" || stage?.type === "valid"
+                ? "Close"
+                : "Cancel"}
             </Button>
           </Modal.Close>
-          <SubmitButton disabled={!file} />
+          {stage?.type !== "valid" ? (
+            <SubmitButton disabled={!file} />
+          ) : (
+            canUseVersion && (
+              <Button
+                onClick={() => {
+                  closeModal();
+                  onUseVersion(stage.version);
+                }}
+              >
+                Add to revision
+              </Button>
+            )
+          )}
         </Modal.Footer>
       </ModalForm>
     </Modal.Root>
@@ -577,19 +635,22 @@ export default function RemoteSavedGroupUploads({
               >
                 {/* Its own click target, so it doesn't open the details */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <VersionMark
-                    inUse={upload.version === viewedVersion}
-                    inUseLabel={
-                      viewing === "live"
-                        ? "The group uses this version."
-                        : viewing === "draft"
-                          ? "This draft uses this version."
-                          : "This revision uses this version."
-                    }
-                    canUse={upload.status.type === "valid"}
-                    useDisabledReason={useVersionDisabledReason}
-                    onUse={() => onUseVersion(upload.version)}
-                  />
+                  {/* Centers the check and the Use button on each other */}
+                  <Flex justify="center">
+                    <VersionMark
+                      inUse={upload.version === viewedVersion}
+                      inUseLabel={
+                        viewing === "live"
+                          ? "The group uses this version."
+                          : viewing === "draft"
+                            ? "This draft uses this version."
+                            : "This revision uses this version."
+                      }
+                      canUse={upload.status.type === "valid"}
+                      useDisabledReason={useVersionDisabledReason}
+                      onUse={() => onUseVersion(upload.version)}
+                    />
+                  </Flex>
                 </TableCell>
                 <TableCell>
                   <Flex align="center" gap="2">
