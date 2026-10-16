@@ -130,7 +130,7 @@ export default function PopulationStepCard({
             options={factTableOptions}
             placeholder="Choose a fact table..."
             noOptionsMessage={() =>
-              "No fact tables in this Data Source support the identifier type"
+              "No fact tables in this Data Source support every selected identifier type"
             }
           />
         </Box>

@@ -100,16 +100,25 @@ export default function PopulationEditor({
   const stepFactTableIds = getPopulationFactTableIds(draft.steps).filter((id) =>
     allFactTables.some((ft) => ft.id === id),
   );
-  const { getById: getFullFactTable, isLoadedFor: fullFactTablesLoadedFor } =
-    useFullFactTables(stepFactTableIds);
+  const {
+    getById: getFullFactTable,
+    isLoadedFor: fullFactTablesLoadedFor,
+    isLoading: fullFactTablesLoading,
+    error: fullFactTablesError,
+  } = useFullFactTables(stepFactTableIds);
   const ruleFactTables = allFactTables.map((ft) => ({
     ...ft,
     columns: getFullFactTable(ft.id)?.columns ?? ft.columns,
   }));
+  // Without full columns a JSON aggregate can't be checked, so Save stays
+  // disabled until every step's fact table loads. SWR retries a failed request
+  // with isLoading true, so `error` keeps the settled message during retries.
   const issue = !canSave
     ? "You don't have permission to save this Population."
     : !fullFactTablesLoadedFor(stepFactTableIds)
-      ? "Loading fact tables..."
+      ? fullFactTablesLoading && !fullFactTablesError
+        ? "Loading fact tables..."
+        : "A fact table on this Population could not be loaded."
       : getPopulationDraftIssue(draft, ruleFactTables);
 
   const userIdTypeOptions =
@@ -254,6 +263,7 @@ export default function PopulationEditor({
               options={userIdTypeOptions.map((t) => ({ label: t, value: t }))}
               placeholder="Choose identifier types..."
               showCopyButton={false}
+              sort={false}
             />
           </Grid>
 

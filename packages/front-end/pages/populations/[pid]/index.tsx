@@ -196,7 +196,7 @@ export default function PopulationPage() {
           }
         />
         <Metadata
-          label="Identifier type"
+          label="Identifier types"
           value={
             <Text weight="regular" color="text-mid" mono>
               {population.userIdTypes.join(", ")}
