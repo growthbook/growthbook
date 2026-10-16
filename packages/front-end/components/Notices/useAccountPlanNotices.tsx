@@ -4,6 +4,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
 import { docUrl } from "@/components/DocLink";
+import UiLink from "@/ui/Link";
 import { AppNotice } from "./notices";
 
 export default function useAccountPlanNotices(): AppNotice[] {
@@ -21,14 +22,14 @@ export default function useAccountPlanNotices(): AppNotice[] {
     ) : (
       <>
         Click to upgrade, or visit{" "}
-        <a
+        <UiLink
           href={docsHref}
-          target="_blank"
-          rel="noopener noreferrer"
+          external
+          underline="none"
           onClick={() => track(trackEvent)}
         >
           Growthbook Docs &gt; FAQ
-        </a>
+        </UiLink>
       </>
     );
 
