@@ -102,8 +102,7 @@ export async function createSqlExploration(
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
-  const queryRecord = await createCompletedQuery({
-    organization: ctx.org.id,
+  const queryRecord = await createCompletedQuery(ctx, {
     datasource: opts.datasourceId,
     language: "sql",
     query: opts.sql,

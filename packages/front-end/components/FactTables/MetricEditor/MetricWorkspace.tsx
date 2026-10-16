@@ -1,0 +1,465 @@
+import { quantileSettingsValidator } from "shared/validators";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/router";
+import { isEmptyInlineFilterPlaceholder } from "shared/experiments";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import omit from "lodash/omit";
+import { Flex } from "@radix-ui/themes";
+import {
+  CreateFactMetricProps,
+  FactMetricInterface,
+  FactTableDefinition,
+  FunnelSettings,
+  UpdateFactMetricProps,
+} from "shared/types/fact-table";
+import Text from "@/ui/Text";
+import {
+  CreateFactMetricFormProps,
+  fromFactMetricFormValues,
+  getDefaultFactMetricProps,
+  getFactMetricTrackProps,
+  toFactMetricFormValues,
+  validateFactMetricFormValues,
+} from "@/services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
+import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
+import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
+
+import styles from "./MetricWorkspace.module.scss";
+
+type DefaultsContext = Pick<
+  Parameters<typeof getDefaultFactMetricProps>[0],
+  | "datasources"
+  | "project"
+  | "metricDefaults"
+  | "settings"
+  | "initialFactTable"
+  | "initialDatasource"
+>;
+
+function buildFormDefaults(
+  existing: FactMetricSeed | null,
+  ctx: DefaultsContext,
+): CreateFactMetricFormProps {
+  return {
+    ...toFactMetricFormValues(
+      getDefaultFactMetricProps({
+        ...ctx,
+        // FactMetricSeed is deliberately a flat shape (see its own comment) -
+        // Partial<FactMetricInterface> distributes over the real discriminated
+        // union, which a still-unmapped template can't satisfy (its metricType
+        // is real, but its numerator/factTableId isn't yet). The cast is safe:
+        // getDefaultFactMetricProps only ever reads fields with `existing?.`,
+        // same as this flat shape guarantees.
+        existing: (existing ?? undefined) as
+          | Partial<FactMetricInterface>
+          | undefined,
+        // managedBy is a top-level param, not read from `existing` - unlike
+        // every other field, FactMetricModal always passes it explicitly
+        // (FactMetricModal.tsx: managedBy: existing?.managedBy). Omitting it
+        // defaults to "" regardless of the real value, so editing and saving
+        // an official metric would silently strip its official status.
+        managedBy: existing?.managedBy,
+      }),
+    ),
+    // getDefaultFactMetricProps always returns null here (shared with
+    // FactMetricModal, which tracks funnel steps in its own separate state
+    // and never reads this field) - overlay the real value for this stack,
+    // which puts funnelSettings on the form like every other field.
+    funnelSettings: existing?.funnelSettings ?? null,
+  };
+}
+
+// FunnelStepsInput has no equivalent to these - matches FactMetricModal's
+// own funnel submit checks, which have no reset-rule equivalent either.
+function validateFunnelSteps(funnelSettings: FunnelSettings | null): void {
+  if (!funnelSettings || funnelSettings.steps.length < 2) {
+    throw new Error("Funnel metrics require at least 2 steps");
+  }
+  for (const step of funnelSettings.steps) {
+    if (!step.name.trim()) throw new Error("Every funnel step needs a name");
+    if (!step.factTableId) {
+      throw new Error("Every funnel step needs a Fact Table");
+    }
+  }
+}
+
+export default function MetricWorkspace({
+  existing,
+  duplicateFrom,
+  initialFactTable,
+  initialDatasource,
+  isEditing,
+  setIsEditing = () => {},
+  mutate,
+  onSaved,
+  onCancel,
+  actionsContainer,
+  source,
+}: {
+  existing: FactMetricInterface | null;
+  // Seeds defaults for a brand-new metric (create payload, not update) -
+  // distinct from `existing`, which also decides POST vs PUT. Partial since
+  // a metric template has no id/owner/tags/etc. of its own yet. When its
+  // numerator has no factTableId, it's an incomplete template seed rather
+  // than a real duplicate - TemplateFieldMapping completes it before this
+  // form ever renders (see needsMapping below).
+  duplicateFrom?: FactMetricSeed | null;
+  // Pre-selects a fact table for a brand-new metric with no existing/
+  // duplicateFrom data of its own to seed from (e.g. "Add Metric" from a
+  // fact table's own page) - existing/duplicateFrom's own fact table always
+  // wins when either is set.
+  initialFactTable?: FactTableDefinition | null;
+  // Pre-selects a data source for a brand-new metric (e.g. "Add" from a data
+  // source's own page). initialFactTable's data source wins when both are set.
+  initialDatasource?: string;
+  isEditing: boolean;
+  setIsEditing?: (value: boolean) => void;
+  mutate: () => Promise<unknown>;
+  onSaved?: (metric: FactMetricInterface) => void;
+  onCancel?: () => void;
+  actionsContainer: HTMLDivElement | null;
+  // Tracking source, matching what FactMetricModal reports for the same
+  // entry point.
+  source: string;
+}) {
+  const { datasources, project, getFactTableById, getDatasourceById } =
+    useDefinitions();
+  const { apiCall } = useAuth();
+  const { metricDefaults } = useOrganizationMetricDefaults();
+  const settings = useOrgSettings();
+
+  const defaultsCtx = {
+    datasources,
+    project,
+    metricDefaults,
+    settings,
+    initialFactTable: initialFactTable ?? undefined,
+    initialDatasource,
+  };
+  const seedSource = existing ?? duplicateFrom ?? null;
+
+  const form = useForm<CreateFactMetricFormProps>({
+    defaultValues: buildFormDefaults(seedSource, defaultsCtx),
+  });
+  const metricType = form.watch("metricType");
+  const numeratorTable = form.watch("numerator.factTableId");
+  const denominatorTable = form.watch("denominator.factTableId");
+  const funnelSteps = form.watch("funnelSettings.steps");
+  const hasFactTables =
+    metricType === "funnel"
+      ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
+      : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [actionsRight, setActionsRight] = useState(16);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    if (!actionsContainer || !isEditing) {
+      setFloating(false);
+      return;
+    }
+    const updateFloating = () => {
+      // Keep the actions inline until the full header button area has passed
+      // behind the top navigation, rather than switching at its first edge.
+      // Below 1024px the form is one column, so a floating card would cover it.
+      setFloating(
+        window.matchMedia("(min-width: 1024px)").matches &&
+          window.scrollY > 0 &&
+          actionsContainer.getBoundingClientRect().bottom < 56,
+      );
+    };
+    updateFloating();
+    window.addEventListener("scroll", updateFloating, { passive: true });
+    window.addEventListener("resize", updateFloating);
+    return () => {
+      window.removeEventListener("scroll", updateFloating);
+      window.removeEventListener("resize", updateFloating);
+    };
+  }, [actionsContainer, isEditing]);
+  const [error, setError] = useState<string | null>(null);
+  // The error shows above the form, so bring it into view on a failed save.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
+  // Same event as the old modal, so both arms of the new-metric-creation-flow
+  // experiment report views identically.
+  useEffect(() => {
+    if (!existing)
+      track("Viewed Create Fact Metric Modal", { source, flow: "page" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Definition-can't-be-represented is a rare edge case (existing metrics
+  // with a legacy sketch aggregation, mostly) - true is the correct default
+  // for the overwhelmingly common case (a fresh create, or an ordinary
+  // existing metric) while MetricEditor's own effect reports the real value.
+  const [representable, setRepresentable] = useState(true);
+  // A duplicateFrom with a real (non-null - a funnel duplicate's is null,
+  // not this) numerator but no factTableId is an incomplete template seed:
+  // nothing else ever constructs one - existing is always a real stored
+  // metric, and a plain duplicate always copies a real fact table. Captured
+  // once at mount, not derived from the form's own live value: a brand-new
+  // metric with no seed at all *also* starts with an empty factTableId, so
+  // this only means "map first" when there was a seed to begin with.
+  const [needsMapping, setNeedsMapping] = useState(
+    () => !!duplicateFrom?.numerator && !duplicateFrom.numerator.factTableId,
+  );
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const observer = new ResizeObserver(() => {
+      setActionsRight(
+        document.documentElement.clientWidth -
+          workspace.getBoundingClientRect().right,
+      );
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, [needsMapping]);
+
+  // Unsaved-changes guard. Snapshots skip unfilled inline-filter prompts,
+  // which MetricEditor adds on its own when editing starts.
+  const router = useRouter();
+  const baseline = useRef("");
+  const leaving = useRef(false);
+  // Runs once the user confirms they want to drop unsaved changes.
+  const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
+  const snapshot = () =>
+    JSON.stringify(form.getValues(), (key, value) =>
+      key === "rowFilters" && Array.isArray(value)
+        ? value.filter((rf) => !isEmptyInlineFilterPlaceholder(rf))
+        : value,
+    );
+  const isDirty = () => !leaving.current && snapshot() !== baseline.current;
+  useEffect(() => {
+    if (!isEditing) return;
+    leaving.current = false;
+    baseline.current = snapshot();
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty()) e.preventDefault();
+    };
+    const onRouteChangeStart = (url: string) => {
+      if (!isDirty()) return;
+      setConfirmLeave(() => () => {
+        leaving.current = true;
+        router.push(url);
+      });
+      router.events.emit("routeChangeError");
+      // Next's pages router only cancels a route change when a handler throws.
+      throw new Error("Navigation cancelled to keep unsaved metric changes");
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    router.events.on("routeChangeStart", onRouteChangeStart);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      router.events.off("routeChangeStart", onRouteChangeStart);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, router.events]);
+
+  function resync(source: FactMetricSeed | null) {
+    form.reset(buildFormDefaults(source, defaultsCtx));
+    baseline.current = snapshot();
+  }
+
+  // useForm's defaultValues are only read once, at mount - view mode would
+  // otherwise keep showing whatever `existing` looked like when the page
+  // first loaded, even after an out-of-band update (e.g. "Convert to
+  // Official Metric" on [fmid].tsx, which PUTs and calls mutateDefinitions()
+  // without going through this form at all). Re-sync whenever the saved
+  // metric changes while not actively editing; skipped while editing so an
+  // unrelated mutateDefinitions() elsewhere doesn't clobber in-progress edits.
+  useEffect(() => {
+    if (isEditing) return;
+    resync(seedSource);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedSource, isEditing]);
+
+  async function handleSave() {
+    const values = fromFactMetricFormValues(form.getValues());
+    validateFactMetricFormValues(values);
+    // Save calls form.getValues() directly, not a native form submit, so the
+    // Name field's `required` attribute (HTML5 constraint validation) never
+    // runs - check it explicitly instead.
+    if (!values.name.trim()) throw new Error("Name is required");
+    if (
+      values.metricType === "quantile" &&
+      !quantileSettingsValidator.safeParse(values.quantileSettings).success
+    ) {
+      throw new Error("Enter a percentile greater than 0 and less than 1.");
+    }
+    const isFunnel = values.metricType === "funnel";
+    if (isFunnel) validateFunnelSteps(values.funnelSettings);
+
+    const payload = isFunnel
+      ? {
+          ...values,
+          numerator: null,
+          denominator: null,
+          quantileSettings: null,
+          metricAutoSlices: [],
+        }
+      : { ...values, funnelSettings: null };
+
+    if (existing) {
+      const updatePayload = omit(payload, [
+        "datasource",
+      ]) as UpdateFactMetricProps;
+      await apiCall(`/fact-metrics/${existing.id}`, {
+        method: "PUT",
+        body: JSON.stringify(updatePayload),
+      });
+      track(
+        "Edit Fact Metric",
+        getFactMetricTrackProps(payload, source, "page"),
+      );
+      // Await so view mode doesn't resync from the pre-edit metric.
+      await mutate();
+      setIsEditing(false);
+    } else {
+      // New metrics have no Projects field of their own yet (matches
+      // FactMetricModal's own create payload) - default to the numerator
+      // fact table's projects, falling back to the datasource's.
+      const primaryFactTable = isFunnel
+        ? getFactTableById(values.funnelSettings?.steps[0]?.factTableId ?? "")
+        : getFactTableById(values.numerator.factTableId);
+      const datasource = getDatasourceById(values.datasource);
+      const createPayload = {
+        ...payload,
+        projects: primaryFactTable?.projects || datasource?.projects || [],
+      } as CreateFactMetricProps;
+      const res = await apiCall<{ factMetric: FactMetricInterface }>(
+        "/fact-metrics",
+        {
+          method: "POST",
+          body: JSON.stringify(createPayload),
+        },
+      );
+      track(
+        "Create Fact Metric",
+        getFactMetricTrackProps(payload, source, "page"),
+      );
+      // Await so the metric page can find the new metric on arrival.
+      await mutate();
+      leaving.current = true;
+      onSaved?.(res.factMetric);
+    }
+  }
+
+  function handleDiscard() {
+    if (isDirty()) setConfirmLeave(() => discard);
+    else discard();
+  }
+
+  function discard() {
+    if (onCancel) {
+      leaving.current = true;
+      onCancel();
+      return;
+    }
+    resync(seedSource);
+    setError(null);
+    setIsEditing(false);
+  }
+
+  // A template with no fact table yet: complete the seed before showing the
+  // normal edit form at all. onMapped resyncs the form with the completed
+  // seed and drops into the ordinary edit view - no separate page-level
+  // "mapped" state needed. duplicateFrom.numerator is re-checked here (not
+  // just via needsMapping, a boolean) so TypeScript narrows it to a real,
+  // non-null ColumnRef before it's handed to TemplateFieldMapping.
+  if (needsMapping && duplicateFrom?.numerator) {
+    return (
+      <TemplateFieldMapping
+        template={{ ...duplicateFrom, numerator: duplicateFrom.numerator }}
+        onCancel={discard}
+        onMapped={(mapped) => {
+          resync(mapped);
+          setNeedsMapping(false);
+        }}
+      />
+    );
+  }
+
+  const leaveDialog = confirmLeave && (
+    <ConfirmDialog
+      title="Discard unsaved changes?"
+      content="Your changes to this metric will be lost."
+      yesText="Discard"
+      noText="Keep editing"
+      color="red"
+      onConfirm={() => {
+        setConfirmLeave(null);
+        confirmLeave();
+      }}
+      onCancel={() => setConfirmLeave(null)}
+    />
+  );
+
+  const actions = (
+    <Flex
+      direction="column"
+      gap="3"
+      className={floating ? styles.floatingActions : undefined}
+      style={floating ? { right: actionsRight } : undefined}
+    >
+      <Flex gap="3" justify="between" align="center">
+        {floating && (
+          <Flex direction="column" className={styles.title}>
+            <Text weight="semibold" truncate>
+              {form.watch("name") || "New Fact Metric"}
+            </Text>
+            <Text size="sm" color="text-mid">
+              {existing ? "Unsaved changes" : "Unsaved draft"}
+            </Text>
+          </Flex>
+        )}
+        <Flex gap="2" ml="auto" flexShrink="0">
+          <Button variant="soft" color="gray" onClick={handleDiscard}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            setError={setError}
+            disabled={!representable || !hasFactTables}
+          >
+            Save metric
+          </Button>
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+
+  return (
+    <Flex
+      direction="column"
+      gap="3"
+      ref={workspaceRef}
+      className={isEditing && floating ? styles.withFloatingActions : undefined}
+    >
+      {leaveDialog}
+      {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
+      {error && (
+        <Callout ref={errorRef} status="error">
+          {error}
+        </Callout>
+      )}
+      <MetricEditor
+        existingMetric={existing}
+        form={form}
+        canEdit={isEditing}
+        onRepresentableChange={setRepresentable}
+      />
+    </Flex>
+  );
+}
