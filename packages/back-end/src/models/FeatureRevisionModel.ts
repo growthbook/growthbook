@@ -1634,6 +1634,10 @@ export async function updateRevision(
     ...(contributorId != null ? { contributors: contributorId } : {}),
     ...(editorKey ? { editorKeys: editorKey } : {}),
   };
+  const unset = {
+    ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
+    ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
+  };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
   // caller's copy (an edit can demote an approval), so a status that moved
@@ -1668,16 +1672,7 @@ export async function updateRevision(
       // The reset starts a new review cycle, so it takes a new cycle number —
       // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
-      ...(clearRevertedFrom || disarm
-        ? {
-            $unset: {
-              ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
-              ...(disarm
-                ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 }
-                : {}),
-            },
-          }
-        : {}),
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
       ...(Object.keys(addToSet).length ? { $addToSet: addToSet } : {}),
     },
     { new: true },

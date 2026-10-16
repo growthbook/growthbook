@@ -570,9 +570,7 @@ async function loadFeatureRevision(
     feature: undefined,
     version: Number(version),
   });
-  return (
-    revision && { armed: isArmed(revision), lands: featureLanding(revision) }
-  );
+  return revision && featureDraftState(revision);
 }
 
 // Arming a draft to publish later holds as what landing it does. An edit to an
@@ -611,6 +609,10 @@ const featureLanding = (revision: FeatureRevisionInterface) =>
     revision.archived === true,
     rampPlanActions(revision),
   );
+const featureDraftState = (revision: FeatureRevisionInterface): DraftState => ({
+  armed: isArmed(revision),
+  lands: featureLanding(revision),
+});
 // With REST bypassing reviews org-wide, any key's publish or archive of something
 // reviewed may be skipping a review.
 const REVIEWED_WRITES = new Set(
@@ -621,28 +623,20 @@ const REVIEWED_WRITES = new Set(
 // unconfirmed edit by a key whose rules would hold that draft's landing disarms
 // it, so nothing it changed publishes without a person. Only a direct request
 // does; an armed publish firing never does.
-function editDisarms(context: ReqContext, lands: ConfirmAction[]): boolean {
-  if (!context.req || context.confirmationId) return false;
-  const held = lands.map((action) => ({ action, environments: [] }));
+function editDisarms(context: ReqContext, state: DraftState): boolean {
+  if (!state?.armed || !context.req || context.confirmationId) return false;
+  const held = state.lands.map((action) => ({ action, environments: [] }));
   return matchConfirmRules(rulesFor(context), held).length > 0;
 }
 export const editDisarmsFeatureDraft = (
   context: ReqContext,
   revision: FeatureRevisionInterface,
-) => isArmed(revision) && editDisarms(context, featureLanding(revision));
+) => editDisarms(context, featureDraftState(revision));
 export const editDisarmsDraft = (
   context: ReqContext,
   model: "savedGroup" | "constant" | "config",
   revision: ArmableRevision & { target: { proposedChanges: unknown } },
-) =>
-  isArmed(revision) &&
-  editDisarms(
-    context,
-    landingActions(
-      model,
-      proposedArchivedValue(revision.target.proposedChanges) === true,
-    ),
-  );
+) => editDisarms(context, patchDraftState(model, revision));
 export const DISARMED_BY_EDIT =
   "Canceled because an API key whose publishes need a person's confirmation edited the draft";
 

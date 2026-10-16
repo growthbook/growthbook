@@ -34,6 +34,14 @@
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 
+// Wraps anywhere, clear of the Hide button.
+.fullKey {
+  display: block;
+  padding-right: 38px;
+  overflow-wrap: anywhere;
+  color: var(--text-color-main);
+}
+
 // Nested to outrank the popover anchor's `all: unset`.
 .frame .key {
   position: absolute;

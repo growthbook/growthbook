@@ -49,9 +49,14 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           }
         }}
       >
-        <span className={value ? styles.sizer : styles.blurText}>
-          {valueWhenHidden}
-        </span>
+        {value && !copySupported ? (
+          // With no clipboard, the whole key shows so it can be copied by hand.
+          <code className={styles.fullKey}>{value}</code>
+        ) : (
+          <span className={value ? styles.sizer : styles.blurText}>
+            {valueWhenHidden}
+          </span>
+        )}
         {value ? (
           <>
             {copySupported ? (
@@ -92,11 +97,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
                   </button>
                 }
               />
-            ) : (
-              <span className={styles.key}>
-                <code className={styles.secret}>{value}</code>
-              </span>
-            )}
+            ) : null}
             <Box
               position="absolute"
               className={`${styles.solidBacking} ${styles.hide}`}

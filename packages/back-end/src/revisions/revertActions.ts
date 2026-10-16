@@ -392,12 +392,6 @@ async function applyRevertDirectly({
   return merged;
 }
 
-// The revert order, owned centrally so a handler cannot omit a step or run one in
-// the wrong place.
-//
-// The entity's own work goes in two slots: `validate` for cross-field and value
-// checks, `assertLandable` for guards that only bite once the change lands. The
-// webhook is looked up from the registry rather than passed in.
 // A revert holds as what it does: staging a draft, or landing as a publish that
 // may archive and may skip an approval.
 function holdRevert(
@@ -431,6 +425,12 @@ function holdRevert(
   });
 }
 
+// The revert order, owned centrally so a handler cannot omit a step or run one in
+// the wrong place.
+//
+// The entity's own work goes in two slots: `validate` for cross-field and value
+// checks, `assertLandable` for guards that only bite once the change lands. The
+// webhook is looked up from the registry rather than passed in.
 export async function revertRevision({
   context,
   entityType,
