@@ -221,6 +221,7 @@ export const postProjectValidator = {
     })
     .strict(),
   summary: "Create a single project",
+  confirmation: ["project.create"] as const,
   operationId: "postProject",
   tags: ["projects"],
   method: "post" as const,
@@ -257,6 +258,7 @@ export const putProjectValidator = {
     })
     .strict(),
   summary: "Edit a single project",
+  confirmation: ["project.edit"] as const,
   operationId: "putProject",
   tags: ["projects"],
   method: "put" as const,
@@ -280,6 +282,7 @@ export const deleteProjectValidator = {
     })
     .strict(),
   summary: "Deletes a single project",
+  confirmation: ["project.delete"] as const,
   operationId: "deleteProject",
   tags: ["projects"],
   method: "delete" as const,

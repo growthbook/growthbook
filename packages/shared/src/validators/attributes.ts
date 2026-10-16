@@ -158,6 +158,7 @@ export const postAttributeValidator = {
     })
     .strict(),
   summary: "Create a new attribute",
+  confirmation: ["attribute.create"] as const,
   operationId: "postAttribute",
   tags: ["attributes"],
   method: "post" as const,
@@ -181,6 +182,7 @@ export const putAttributeValidator = {
     })
     .strict(),
   summary: "Update an attribute",
+  confirmation: ["attribute.edit"] as const,
   operationId: "putAttribute",
   tags: ["attributes"],
   method: "put" as const,
@@ -201,6 +203,7 @@ export const deleteAttributeValidator = {
     })
     .strict(),
   summary: "Deletes a single attribute",
+  confirmation: ["attribute.delete"] as const,
   operationId: "deleteAttribute",
   tags: ["attributes"],
   method: "delete" as const,

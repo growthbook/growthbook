@@ -45,6 +45,10 @@ import {
   selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 // A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
@@ -263,6 +267,8 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/edit",
+  confirmation: ["experiment.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postVisualEditorAIEdit",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -797,13 +803,23 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
-  // Before the generation, so a doomed save doesn't burn AI quota first.
+  // Before the generation, so a doomed save doesn't burn AI quota first. Only a
+  // save is held; a preview changes nothing.
   const auditLiveEdit = persist
     ? owner.requireWrite(req, {
         allowRunning: false,
         visualChangesetId,
       })
     : async () => {};
+  if (persist) {
+    await requireConfirmation(context, {
+      actions: ["experiment.draft"],
+      project: owner.project,
+      summary: `Edit ${owner.name} with AI`,
+      links: [confirmationLink(owner.kind, owner.id, owner.name)],
+      pin: null,
+    });
+  }
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.

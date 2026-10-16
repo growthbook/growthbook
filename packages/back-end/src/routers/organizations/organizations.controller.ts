@@ -13,7 +13,11 @@ import {
 import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  AgreementType,
+  ConfirmRule,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -856,6 +860,7 @@ export async function getOrganization(
     watch,
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   ] = await Promise.all([
     resolveLicense(),
     getInstallationName(org),
@@ -864,6 +869,9 @@ export async function getOrganization(
     context.models.watch.getWatchedByUser(userId),
     getSdkPayloadSizeAlerts(context),
     context.models.apiKeys.getExpiringPersonalAccessTokens(userId),
+    context.permissions.canCreateApiKey()
+      ? context.models.apiKeys.getExpiringOrgApiKeys()
+      : [],
   ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
@@ -979,6 +987,7 @@ export async function getOrganization(
     usage: getUsageFromCache(org),
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   });
 }
 
@@ -1947,6 +1956,7 @@ export async function postApiKey(
     requesterHeader?: ApiKeyInterface["requesterHeader"];
     requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: string | null;
+    confirmRules?: ConfirmRule[] | null;
   }>,
   res: Response,
 ) {
@@ -1963,6 +1973,7 @@ export async function postApiKey(
     requesterHeader,
     requesterPermissions,
     expiresAt: expiresAtInput,
+    confirmRules,
   } = req.body;
 
   const expiresAt = parseExpiresAt(expiresAtInput);
@@ -1984,6 +1995,7 @@ export async function postApiKey(
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
   // Handle organization secret tokens
@@ -1998,6 +2010,7 @@ export async function postApiKey(
       requesterHeader,
       requesterPermissions,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -2030,6 +2043,7 @@ export async function putApiKey(
       requesterHeader?: ApiKeyInterface["requesterHeader"];
       requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       expiresAt?: string | null;
+      confirmRules?: ConfirmRule[] | null;
     },
     { id: string }
   >,
@@ -2048,6 +2062,7 @@ export async function putApiKey(
     requesterHeader,
     requesterPermissions,
     expiresAt,
+    confirmRules,
   } = req.body;
 
   // The model returns both the pre- and post-update docs from a single read so
@@ -2066,6 +2081,7 @@ export async function putApiKey(
       requesterPermissions,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
+      confirmRules,
     });
 
   await req.audit({
