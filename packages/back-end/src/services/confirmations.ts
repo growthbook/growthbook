@@ -654,12 +654,14 @@ const everyLanding = (
     ? [...FEATURE_LANDING_ACTIONS]
     : landingActions(model, true);
 
-// A write into a flag draft is draft work, plus all a landing can do when the
+// A write into a flag draft: publishing it now lands it as it is (live, with no
+// draft), and staging into it is draft work, plus all a landing can do when the
 // draft is armed to publish later.
 export async function featureDraftActions(
   context: ReqContext,
   featureId: string,
   version: number | string | undefined,
+  publishNow: boolean,
 ): Promise<ConfirmAction[]> {
   const state =
     version === undefined
@@ -668,6 +670,7 @@ export async function featureDraftActions(
           id: featureId,
           version: String(version),
         });
+  if (publishNow) return state?.lands ?? ["feature.publish"];
   return ["feature.draft", ...(state?.armed ? everyLanding("feature") : [])];
 }
 

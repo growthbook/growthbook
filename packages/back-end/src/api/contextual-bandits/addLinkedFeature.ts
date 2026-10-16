@@ -84,7 +84,13 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     withStagedSchema(feature, staged),
     rule,
   );
-  await holdLinkedFeatureWrite(req.context, feature, autoPublish, draftVersion);
+  // Publishing a new link branches from live, whatever draft was named.
+  await holdLinkedFeatureWrite(
+    req.context,
+    feature,
+    autoPublish,
+    autoPublish ? undefined : draftVersion,
+  );
   const result = await linkFeatureToContextualBandit({
     context: req.context,
     contextualBandit,

@@ -171,8 +171,8 @@ export function buildContextualBanditRefRule(
   };
 }
 
-// Publishing the rule change now branches from live and holds as a publish;
-// staging it is draft work, and all a landing can do when that draft is armed.
+// Publishing the rule change now holds as landing its draft; staging it is draft
+// work, and all a landing can do when that draft is armed.
 export async function holdLinkedFeatureWrite(
   context: ApiReqContext,
   feature: FeatureInterface,
@@ -180,9 +180,12 @@ export async function holdLinkedFeatureWrite(
   draftVersion: number | string | undefined,
 ) {
   await requireConfirmation(context, {
-    actions: autoPublish
-      ? ["feature.publish"]
-      : await featureDraftActions(context, feature.id, draftVersion),
+    actions: await featureDraftActions(
+      context,
+      feature.id,
+      draftVersion,
+      !!autoPublish,
+    ),
     project: feature.project,
     summary: autoPublish
       ? `Publish the contextual bandit rule on ${feature.id}`

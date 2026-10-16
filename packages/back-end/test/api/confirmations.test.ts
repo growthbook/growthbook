@@ -1056,13 +1056,16 @@ describe("confirmations", () => {
     await expect(
       holdLinkedFeatureWrite(publishOnly, feature, false, 2),
     ).rejects.toThrow("only a direct API request");
-    // Publishing now branches from live, so the armed draft's ramp isn't in it.
+    // Publishing a named draft now lands its ramp; a new link starts from live.
     const rampOnly = asKey({
       ...bot,
       confirmRules: [{ actions: ["rampSchedule.start"] }],
     });
     await expect(
       holdLinkedFeatureWrite(rampOnly, feature, true, 2),
+    ).rejects.toThrow("only a direct API request");
+    await expect(
+      holdLinkedFeatureWrite(rampOnly, feature, true, undefined),
     ).resolves.toBeUndefined();
     expect(
       (
