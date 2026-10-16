@@ -265,6 +265,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { sendJsonWithSlicedList } from "back-end/src/util/slicedJson";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -6344,20 +6345,30 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
+  // Every feature in the organization can take a while to load and encode,
+  // so stop as soon as the client gives up
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const features = await getAllFeatures(context, {
     projects: project ? [project] : undefined,
     includeArchived,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
     : await hasArchivedFeatures(context, project);
+  if (disconnected.signal.aborted) return;
 
-  res.status(200).json({
-    status: 200,
+  await sendJsonWithSlicedList(
+    res,
+    { status: 200, hasArchived },
+    "features",
     features,
-    hasArchived,
-  });
+    disconnected.signal,
+  );
 }
 
 // Code references are only shown on the flag's Stats tab, so they load there
