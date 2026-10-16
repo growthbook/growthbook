@@ -1,11 +1,8 @@
 import { useFormContext } from "react-hook-form";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { getMetricWindowHours } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
-import {
-  FactTableInterface,
-  MetricWindowSettings,
-} from "shared/types/fact-table";
+import { MetricWindowSettings } from "shared/types/fact-table";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
@@ -14,10 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
-import FactTableModal from "@/components/FactTables/FactTableModal";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 
 export function conversionWindowFromScheduleHours(scheduleHours: number): {
   value: number;
@@ -73,19 +67,11 @@ export default function ContextualBanditDecisionMetricSettings({
   autoApplyDefaults = true,
 }: ContextualBanditDecisionMetricSettingsProps) {
   const form = useFormContext();
-  const { getExperimentMetricById, factMetrics, factTables, projects } =
-    useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
-  const [showFactTableModal, setShowFactTableModal] = useState(false);
-  const [showFactMetricModal, setShowFactMetricModal] = useState(false);
-  const [createdFactTable, setCreatedFactTable] =
-    useState<FactTableInterface | null>(null);
-
-  const canCreateFactTable = permissionsUtil.canViewCreateFactTableModal(
-    project,
-    projects,
+  const { getExperimentMetricById, factMetrics, factTables } = useDefinitions();
+  const factMetricFlow = useFactMetricFlow(
+    "contextual-bandit-decision-metric",
+    { embedded: true },
   );
-
   const datasourceId = form.watch("datasource") ?? "";
   const exposureQueryId = form.watch("exposureQueryId");
 
@@ -109,14 +95,7 @@ export default function ContextualBanditDecisionMetricSettings({
         isProjectListValidForProject(t.projects, project),
     );
   }, [factTables, datasourceId, project]);
-  const factTableForMetric =
-    createdFactTable ?? factTablesForDatasource[0] ?? null;
-  const canCreateFactMetric = factTableForMetric
-    ? permissionsUtil.canCreateFactMetric({
-        projects: factTableForMetric.projects,
-      })
-    : false;
-
+  const factTableForMetric = factTablesForDatasource[0] ?? null;
   const decisionMetricId = form.watch("decisionMetric") || undefined;
   const decisionMetric = decisionMetricId
     ? getExperimentMetricById(decisionMetricId)
@@ -230,43 +209,17 @@ export default function ContextualBanditDecisionMetricSettings({
                 ? "Add a mean or proportion fact metric to use as the decision metric, then continue."
                 : "This data source has no fact metrics. Contextual bandits can only use a mean or proportion fact metric as the decision metric, so create one for this data source before continuing."}
             </Text>
-            {factTableForMetric
-              ? canCreateFactMetric && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFactMetricModal(true)}
-                  >
-                    Add fact metric
-                  </Button>
-                )
-              : canCreateFactTable && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFactTableModal(true)}
-                  >
-                    Add fact table
-                  </Button>
-                )}
+            {factMetricFlow.createButton(
+              {
+                factTable: factTableForMetric?.id,
+                datasource: datasourceId || undefined,
+                project,
+              },
+              { variant: "outline", children: "Add fact metric" },
+            )}
           </Flex>
         </Callout>
-        {showFactTableModal && (
-          <FactTableModal
-            close={() => setShowFactTableModal(false)}
-            onCreate={(factTable) => {
-              setShowFactTableModal(false);
-              setCreatedFactTable(factTable);
-            }}
-          />
-        )}
-        {showFactMetricModal && factTableForMetric && (
-          <FactMetricModal
-            close={() => setShowFactMetricModal(false)}
-            initialFactTable={factTableForMetric.id}
-            source="contextual-bandit-decision-metric"
-            datasource={datasourceId || undefined}
-            onSave={() => setShowFactMetricModal(false)}
-          />
-        )}
+        {factMetricFlow.modal}
       </>
     );
   }
