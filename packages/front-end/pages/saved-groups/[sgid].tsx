@@ -1464,9 +1464,9 @@ export default function EditSavedGroupPage() {
             {remoteLocked && (
               <Callout status="warning" mb="4">
                 Changing Remote Groups needs an Enterprise plan. Feature Flags
-                and experiments that use this group keep working, but you
-                can&apos;t upload IDs, change its version, publish drafts or
-                roll back.{" "}
+                and experiments that use this group keep working, and you can
+                still archive or unarchive it, but you can&apos;t upload IDs,
+                change its version, publish other drafts or roll back.{" "}
                 <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
               </Callout>
             )}
