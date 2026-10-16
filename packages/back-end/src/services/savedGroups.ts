@@ -23,7 +23,10 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import {
+  getAffectedSDKPayloadKeys,
+  getSDKPayloadKeys,
+} from "back-end/src/util/features";
 import {
   getSavedGroupIdsForFeatureDefinitions,
   getSavedGroupIdsInTargeting,
@@ -82,12 +85,12 @@ export function findSavedGroupDependents({
       reaching.has(id),
     );
 
-  const banditIds = new Set(
-    bandits
-      .filter((bandit) => names({ features: [], bandits: [bandit] }))
-      .map((bandit) => bandit.id),
+  const namedBandits = bandits.filter((bandit) =>
+    names({ features: [], bandits: [bandit] }),
   );
+  const banditIds = new Set(namedBandits.map((bandit) => bandit.id));
   return {
+    bandits: namedBandits,
     features: features.filter(
       (feature) =>
         names({ features: [feature] }) ||
@@ -132,13 +135,23 @@ export async function getSavedGroupPayloadKeys(
 
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
+  const environments = getEnvironmentIdsFromOrg(context.org);
   return [
     ...getAffectedSDKPayloadKeys(
       dependents.features,
-      getEnvironmentIdsFromOrg(context.org),
+      environments,
       undefined,
       allProjectIds,
     ),
+    // A bandit's visual changesets are served in its project without any rule.
+    ...dependents.bandits
+      .filter((bandit) => bandit.hasVisualChangesets)
+      .flatMap((bandit) =>
+        getSDKPayloadKeys(
+          new Set(environments),
+          new Set(["", bandit.project || ""]),
+        ),
+      ),
     ...dependents.experiments.flatMap((experiment) =>
       getPayloadKeys(
         context,
