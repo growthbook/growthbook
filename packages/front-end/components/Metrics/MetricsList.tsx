@@ -591,11 +591,9 @@ const MetricsList = (): React.ReactElement => {
               {},
               !canCreateFactMetric
                 ? "You don't have permission to add Fact Metrics in this Project."
-                : !factMetricFlow.canOpen
-                  ? "Create a Fact Table before adding a metric."
-                  : undefined,
+                : undefined,
             )}
-            {showLegacyOption && (
+            {showLegacyOption && !factMetricFlow.modal && (
               // Legacy creation stays possible for orgs that already use
               // it, tucked behind this menu and a confirmation.
               <DropdownMenu

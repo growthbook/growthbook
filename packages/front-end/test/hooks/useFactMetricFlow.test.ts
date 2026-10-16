@@ -7,6 +7,7 @@ import { getDefaultFactMetricProps } from "@/services/metrics";
 const state = vi.hoisted(() => ({
   ready: false,
   newFlow: false,
+  premium: false,
   project: "project-a",
   factTables: [] as { projects: string[] }[],
   router: { asPath: "/metrics", push: vi.fn() },
@@ -17,6 +18,10 @@ vi.mock("@growthbook/growthbook-react", async (importOriginal) => ({
   useFeatureIsOn: () => state.newFlow,
   useGrowthBook: () => ({ ready: state.ready }),
 }));
+vi.mock("@/services/UserContext", () => ({
+  useUser: () => ({ hasCommercialFeature: () => state.premium }),
+}));
+vi.mock("@/components/Settings/UpgradeModal", () => ({ default: () => null }));
 vi.mock("@/services/DefinitionsContext", () => ({
   useDefinitions: () => state,
 }));
@@ -44,6 +49,7 @@ const metric: FactMetricInterface = {
 beforeEach(() => {
   state.ready = true;
   state.newFlow = false;
+  state.premium = false;
   state.factTables = [];
   state.router.push.mockReset();
 });
@@ -63,6 +69,75 @@ describe("useFactMetricFlow", () => {
       expect(result.current.canOpen).toBe(false);
       expect(result.current.modal).toBeNull();
       expect(state.router.push).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not open the old modal without a project-visible Fact Table", () => {
+    state.factTables = [{ projects: ["project-b"] }];
+    const { result } = renderHook(() => useFactMetricFlow("test"));
+    act(() => result.current.open());
+    expect(result.current.modal).toBeNull();
+    expect(state.router.push).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "opens after flags become ready with newFlow=%s",
+    (newFlow) => {
+      state.ready = false;
+      state.newFlow = newFlow;
+      state.factTables = [{ projects: ["project-a"] }];
+      const { result, rerender } = renderHook(() => useFactMetricFlow("test"));
+      act(() => result.current.open());
+      expect(result.current.modal).toBeNull();
+      expect(state.router.push).not.toHaveBeenCalled();
+      state.ready = true;
+      rerender();
+      act(() => result.current.open());
+      if (newFlow) {
+        expect(state.router.push).toHaveBeenCalledOnce();
+      } else {
+        expect(result.current.modal).not.toBeNull();
+      }
+    },
+  );
+
+  it.each([false, true])(
+    "preserves a direct edit URL's tracking source with newFlow=%s",
+    (newFlow) => {
+      state.newFlow = newFlow;
+      const { result } = renderHook(() => useFactMetricFlow("fact-metric"));
+      act(() => result.current.edit(metric, "metrics-list"));
+      if (newFlow) {
+        expect(state.router.push).toHaveBeenCalledWith(
+          `/fact-metrics/${metric.id}?edit=true&source=metrics-list`,
+        );
+      } else {
+        expect(result.current.modal?.props.source).toBe("metrics-list");
+      }
+    },
+  );
+
+  it.each(["quantile", "retention", "funnel"] as const)(
+    "gates %s duplication in the old modal before allowing edits",
+    (metricType) => {
+      state.factTables = [{ projects: [] }];
+      const source: FactMetricInterface =
+        metricType === "funnel"
+          ? {
+              ...metric,
+              metricType,
+              numerator: null,
+              funnelSettings: { steps: [] },
+            }
+          : { ...metric, metricType };
+      const { result, rerender } = renderHook(() => useFactMetricFlow("test"));
+      act(() => result.current.open({ duplicate: source }));
+      expect(result.current.modal?.props.commercialFeature).toBe(
+        `${metricType}-metrics`,
+      );
+      state.premium = true;
+      rerender();
+      expect(result.current.modal?.props.existing.metricType).toBe(metricType);
     },
   );
 

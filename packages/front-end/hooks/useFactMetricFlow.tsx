@@ -3,6 +3,9 @@ import { useRouter } from "next/router";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { isProjectListValidForProject } from "shared/util";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { useUser } from "@/services/UserContext";
+import { getFactMetricCommercialFeature } from "@/services/factMetrics";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { buildFactMetricDuplicate } from "@/services/metrics";
@@ -17,7 +20,10 @@ export type FactMetricCreationTarget = {
   datasource?: string;
 };
 
-type ModalTarget = FactMetricCreationTarget & { edit?: FactMetricInterface };
+type ModalTarget = FactMetricCreationTarget & {
+  edit?: FactMetricInterface;
+  source?: string;
+};
 
 // Every fact metric "Add metric", "Duplicate", and "Edit" entry point goes
 // through here, so the new-metric-creation-flow experiment switches all of
@@ -37,6 +43,7 @@ export default function useFactMetricFlow(source: string) {
       ));
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
 
   const href = (target: FactMetricCreationTarget = {}) => {
@@ -51,19 +58,22 @@ export default function useFactMetricFlow(source: string) {
   };
 
   const open = (target: FactMetricCreationTarget = {}) => {
-    if (!ready) return;
+    if (!canOpen) return;
     if (newFlow) router.push(href(target));
     else setModalTarget(target);
   };
 
   const edit = useCallback(
-    (metric: FactMetricInterface) => {
+    (metric: FactMetricInterface, trackingSource: string | null = null) => {
       if (!ready) return;
       if (newFlow) {
-        const params = new URLSearchParams({ edit: "true", source });
+        const params = new URLSearchParams({
+          edit: "true",
+          source: trackingSource ?? source,
+        });
         router.push(`/fact-metrics/${metric.id}?${params.toString()}`);
       } else {
-        setModalTarget({ edit: metric });
+        setModalTarget({ edit: metric, source: trackingSource ?? source });
       }
     },
     [ready, newFlow, router, source],
@@ -84,7 +94,7 @@ export default function useFactMetricFlow(source: string) {
     if (reason) {
       return (
         <Tooltip content={reason}>
-          <span style={{ cursor: "not-allowed" }}>
+          <span tabIndex={0} style={{ cursor: "not-allowed" }}>
             <Button disabled style={{ pointerEvents: "none" }}>
               {label}
             </Button>
@@ -100,11 +110,20 @@ export default function useFactMetricFlow(source: string) {
   };
 
   const duplicate = modalTarget?.duplicate;
+  const commercialFeature = getFactMetricCommercialFeature(
+    duplicate?.metricType,
+  );
   const modal = !modalTarget ? null : modalTarget.edit ? (
     <FactMetricModal
       close={() => setModalTarget(null)}
       existing={modalTarget.edit}
-      source={source}
+      source={modalTarget.source ?? source}
+    />
+  ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
+    <UpgradeModal
+      close={() => setModalTarget(null)}
+      source={`${source}-duplicate-${commercialFeature}`}
+      commercialFeature={commercialFeature}
     />
   ) : (
     <FactMetricModal

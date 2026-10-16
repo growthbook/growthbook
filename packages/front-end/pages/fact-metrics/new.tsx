@@ -4,6 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
+import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { buildFactMetricDuplicate } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
@@ -127,20 +128,13 @@ export default function NewFactMetricPage() {
     managedBy: "",
   });
 
-  // MetricEditor's MetricTypeSelect only disables a commercial-gated option
-  // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
-  // template or duplicate from saving, so this stays a page-level gate.
+  // Seeded templates and duplicates can bypass the metric type picker.
   const seedMetricType = template?.metricType ?? duplicateSource?.metricType;
-  const missingCommercialFeature:
-    | "quantile-metrics"
-    | "retention-metrics"
-    | null =
-    seedMetricType === "quantile" && !hasCommercialFeature("quantile-metrics")
-      ? "quantile-metrics"
-      : seedMetricType === "retention" &&
-          !hasCommercialFeature("retention-metrics")
-        ? "retention-metrics"
-        : null;
+  const commercialFeature = getFactMetricCommercialFeature(seedMetricType);
+  const missingCommercialFeature =
+    commercialFeature && !hasCommercialFeature(commercialFeature)
+      ? commercialFeature
+      : null;
 
   const hasDatasource = datasources.some(
     (d) =>
@@ -201,11 +195,7 @@ export default function NewFactMetricPage() {
       ) : missingCommercialFeature ? (
         <UpgradeMessage
           commercialFeature={missingCommercialFeature}
-          upgradeMessage={
-            missingCommercialFeature === "quantile-metrics"
-              ? "create quantile metrics"
-              : "create retention metrics"
-          }
+          upgradeMessage={`create ${seedMetricType} metrics`}
           showUpgradeModal={() =>
             setUpgradeModal({
               source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,

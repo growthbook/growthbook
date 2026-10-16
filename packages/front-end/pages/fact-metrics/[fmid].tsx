@@ -124,7 +124,7 @@ export default function FactMetricPage() {
     (source: string | null = null) => {
       if (!flowReady) return;
       if (!newFlow && factMetric) {
-        editFactMetric(factMetric);
+        editFactMetric(factMetric, source);
         return;
       }
       setTab("overview");
