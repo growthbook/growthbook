@@ -31,7 +31,7 @@ type FeatureRevisionEvent = Extract<
 >;
 
 // Callers supply the event-specific fields; the dispatcher fills in the
-// revision reference.
+// revision's reference and content.
 type RevisionBaseKeys = keyof FeatureRevisionWebhookPayload;
 
 type ExtraPayload<T extends FeatureRevisionEvent> = Omit<

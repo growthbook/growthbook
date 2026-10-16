@@ -458,6 +458,7 @@ describe("attribution across callers", () => {
         id: "checkout-flow",
         valueType: "boolean",
         defaultValue: "false",
+        rules: [{ type: "force", value: "true", allEnvironments: true }],
         ...(EXPECT[actor].hasPerson ? {} : { owner: dana.id }),
       });
       expect(res.status).toBe(200);
@@ -565,9 +566,13 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         feature: { id },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
-        // The draft's content rides along.
         defaultValue: "false",
-        rules: expect.any(Object),
+        metadata: expect.objectContaining({ description: "Updated" }),
+        rules: {
+          production: [
+            expect.objectContaining({ type: "force", value: "true" }),
+          ],
+        },
       });
 
       const log = await as(actor).get(`${path}/log`);

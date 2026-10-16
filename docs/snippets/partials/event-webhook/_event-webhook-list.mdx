@@ -1387,9 +1387,9 @@ Triggered when a new draft revision is created for a feature
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -1525,9 +1525,9 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -1665,9 +1665,9 @@ Triggered when a draft revision is submitted for review
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -1804,9 +1804,9 @@ Triggered when a draft revision is approved by a reviewer
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -1964,9 +1964,9 @@ Triggered when a reviewer requests changes on a draft revision
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2124,9 +2124,9 @@ Triggered when a comment is added to a draft revision
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2284,9 +2284,9 @@ Triggered when a draft revision is discarded
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2422,9 +2422,9 @@ Triggered when a discarded draft revision is reopened as a draft
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2560,9 +2560,9 @@ Triggered when the author (or an editor) recalls a review request, returning the
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2698,9 +2698,9 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2836,9 +2836,9 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -2974,9 +2974,9 @@ Triggered when a draft revision is rebased onto the latest published version
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -3112,9 +3112,9 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -3251,9 +3251,9 @@ Triggered when a feature is reverted to a previous published revision
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {
@@ -3391,9 +3391,9 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
             date: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            /** The default value at the time this revision was created */
+            /** The draft's default value */
             defaultValue?: string | undefined;
-            rules: Record<string, any[]>;
+            rules: Record<string, unknown[]>;
             definitions?: Record<string, string> | undefined;
             environmentsEnabled?: Record<string, boolean> | undefined;
             envPrerequisites?: Record<string, {

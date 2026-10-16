@@ -25,12 +25,9 @@ export const featureRevisionWebhookPayload = revisionWebhookReference
       z.string().optional(),
       "the `user` on `feature.revision.published`",
     ),
-    defaultValue: z
-      .string()
-      .describe("The default value at the time this revision was created")
-      .optional(),
-    // Rules are typed loosely — consumers should use the REST API for full detail.
-    rules: z.record(z.string(), z.array(z.any())),
+    defaultValue: z.string().describe("The draft's default value").optional(),
+    // Loosely typed; the REST API documents each rule's full shape.
+    rules: z.record(z.string(), z.array(z.unknown())),
     definitions: z.record(z.string(), z.string()).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
     envPrerequisites: z

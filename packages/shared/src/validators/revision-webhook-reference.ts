@@ -27,7 +27,8 @@ export const revisionWebhookReference = z.object({
   ...revisionScheduleResponseFields,
 });
 
-// Loose so the docs generator can render it; operations keep their `value`.
+// Loose like main's: the docs generator can't render the strict JSON Patch
+// union, and `passthrough` keeps each operation's `value` and `from`.
 export const webhookProposedChanges = z
   .array(z.object({ op: z.string(), path: z.string() }).passthrough())
   .describe("The JSON Patch the draft applies, with each change's value");
