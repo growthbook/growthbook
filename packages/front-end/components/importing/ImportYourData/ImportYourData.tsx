@@ -1,4 +1,5 @@
 import React, { FC, useState } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import track from "@/services/track";
 import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 import { ImportRequestModal } from "@/components/importing/ImportRequestModal/ImportRequestModal";
@@ -21,6 +22,16 @@ const supportedServices = [
     text: "Import your projects, features, environments, and metrics from Statsig.",
   },
 ];
+
+// Behind a flag while it is being rolled out; the painted door stays otherwise
+export const EPPO_IMPORTER_FLAG = "eppo-importer";
+const eppoService = {
+  service: "Eppo (Datadog)",
+  icon: "eppo",
+  path: "eppo",
+  accentColor: "#000",
+  text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
+};
 
 // Services we don't have a self-serve importer for yet. Clicking these opens a
 // modal pointing at support so we can help with the migration (and gauge demand).
@@ -95,6 +106,13 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
     service: string;
     slug: string;
   }>(null);
+  const eppoImporter = useFeatureIsOn(EPPO_IMPORTER_FLAG);
+  const supported = eppoImporter
+    ? [...supportedServices, eppoService]
+    : supportedServices;
+  const upcoming = eppoImporter
+    ? upcomingServices.filter((s) => s.slug !== "eppo")
+    : upcomingServices;
 
   return (
     <div>
@@ -108,7 +126,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
 
       <h1>Import your data</h1>
 
-      {supportedServices.map(({ service, icon, path, accentColor, text }) => (
+      {supported.map(({ service, icon, path, accentColor, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
           <ImportFromServiceCard
             service={service}
@@ -121,7 +139,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         </div>
       ))}
 
-      {upcomingServices.map(({ service, slug, icon, accentColor, text }) => (
+      {upcoming.map(({ service, slug, icon, accentColor, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
           <ImportFromServiceCard
             service={service}

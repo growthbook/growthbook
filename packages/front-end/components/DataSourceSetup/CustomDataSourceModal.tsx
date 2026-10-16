@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { Flex } from "@radix-ui/themes";
 import { DataSourceType } from "shared/types/datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import { dataSourceConnections } from "@/services/eventSchema";
-import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioCards from "@/ui/RadioCards";
-import Text from "@/ui/Text";
-import { DATA_SOURCE_TYPE_AVATAR } from "./dataSourceTypeAvatar";
 
 // The connect page only handles warehouses with credentials to test, and
 // Mixpanel is deprecated for new connections.
@@ -37,6 +35,7 @@ export default function CustomDataSourceModal({
     <ModalStandard
       open={true}
       header="Connect Your Warehouse"
+      subheader="GrowthBook connects with read access and queries your data with SQL you define."
       cta="Continue to connect"
       ctaEnabled={!!type}
       submit={continueToConnect}
@@ -45,10 +44,6 @@ export default function CustomDataSourceModal({
       trackingEventModalType="custom-data-source-setup"
       trackingEventModalSource={source}
     >
-      <Text as="p" color="text-mid" mb="4">
-        GrowthBook connects with read access and queries your data with SQL you
-        define.
-      </Text>
       <Heading as="h3" size="sm" mb="3">
         Choose Your Warehouse
       </Heading>
@@ -64,14 +59,9 @@ export default function CustomDataSourceModal({
           value: connection.type,
           label: connection.display,
           avatar: (
-            <Avatar
-              size="sm"
-              variant="soft"
-              radius="small"
-              color={DATA_SOURCE_TYPE_AVATAR[connection.type].color}
-            >
-              {DATA_SOURCE_TYPE_AVATAR[connection.type].abbr}
-            </Avatar>
+            <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
+              {connection.icon}
+            </Flex>
           ),
         }))}
       />

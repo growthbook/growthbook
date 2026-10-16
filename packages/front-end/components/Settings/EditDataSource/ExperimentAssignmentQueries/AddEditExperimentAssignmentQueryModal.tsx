@@ -20,6 +20,9 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -41,6 +44,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   onSave,
   onCancel,
 }) => {
+  const { projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -90,6 +95,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             query: defaultQuery,
             userIdType: defaultUserId,
             userIdTypes: defaultUserIds,
+            projects: [],
           },
   });
 
@@ -99,7 +105,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
+  // Leaving the scope empty covers every Project the Data Source does.
+  const canCoverAllProjects = permissionsUtil.canUpdateExposureQuery(
+    { projects: [] },
+    dataSource,
+  );
+
   const handleSubmit = form.handleSubmit(async (value) => {
+    if (!canCoverAllProjects && !value.projects?.length) {
+      throw new Error(
+        "Choose at least one Project. You don't have permission to edit assignment queries in every Project this Data Source covers.",
+      );
+    }
     await onSave(value);
 
     form.reset({
@@ -111,6 +128,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       hasNameCol: false,
       userIdType: undefined,
       userIdTypes: [],
+      projects: [],
     });
   });
 
@@ -131,6 +149,25 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   );
 
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
+
+  const userEnteredProjects = form.watch("projects") ?? [];
+  // Only the Data Source's Projects, plus any already selected so they can be
+  // removed.
+  const filteredProjects = projects.filter(
+    (project) =>
+      !dataSource.projects?.length ||
+      dataSource.projects.includes(project.id) ||
+      userEnteredProjects.includes(project.id),
+  );
+  const projectOptions = useProjectOptions(
+    (project) =>
+      permissionsUtil.canUpdateExposureQuery(
+        { projects: [project] },
+        dataSource,
+      ),
+    userEnteredProjects,
+    filteredProjects,
+  );
 
   const savedUserIdTypes =
     mode === "edit" && exposureQuery
@@ -337,6 +374,27 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                       : ""
                   }`}
                 </Callout>
+              )}
+              {projects.length > 0 && (
+                <MultiSelectField
+                  legacyHeight
+                  label="Projects"
+                  helpText={
+                    !canCoverAllProjects
+                      ? "Choose at least one Project."
+                      : "Leave empty to use this Data Source's Projects."
+                  }
+                  placeholder={
+                    !canCoverAllProjects
+                      ? "Choose Projects"
+                      : "All Data Source Projects"
+                  }
+                  required={!canCoverAllProjects}
+                  value={userEnteredProjects}
+                  options={projectOptions}
+                  onChange={(value) => form.setValue("projects", value)}
+                  customClassName="label-overflow-ellipsis"
+                />
               )}
               <div className="form-group">
                 <label className="mr-5">Query</label>

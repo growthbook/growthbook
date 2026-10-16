@@ -10,7 +10,7 @@ import MixpanelForm from "./MixpanelForm";
 import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
-import SnowflakeForm from "./SnowflakeForm";
+import SnowflakeForm, { KeyPairGenerator } from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
 import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
@@ -29,6 +29,8 @@ export interface Props {
    * and inline Test Connection button.
    */
   connectionOnly?: boolean;
+  /** Snowflake only: offer to generate the key pair instead of uploading one. */
+  keyPairGenerator?: KeyPairGenerator;
 }
 
 export default function ConnectionSettings({
@@ -39,6 +41,7 @@ export default function ConnectionSettings({
   hasError,
   beforeAdvancedSettings,
   connectionOnly = false,
+  keyPairGenerator,
 }: Props) {
   const [advancedOpen, setAdvancedOpen] = useState(
     !!datasource.settings?.maxConcurrentQueries ||
@@ -189,6 +192,7 @@ export default function ConnectionSettings({
           onManualParamChange={onManualParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          keyPairGenerator={keyPairGenerator}
         />
       );
       break;

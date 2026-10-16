@@ -1,7 +1,7 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useContext, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import { isDefined } from "shared/util";
+import { getMalformedPrereqConditionError, isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,6 +20,7 @@ import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -535,7 +536,11 @@ export default function ConditionDisplay({
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
         const cond = jsonToConds(p.condition);
-        if (!cond || cond.length > 1) {
+        if (
+          !cond ||
+          cond.length > 1 ||
+          getMalformedPrereqConditionError(p.condition)
+        ) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -550,6 +555,7 @@ export default function ConditionDisplay({
               <Text>prerequisite</Text>
               <FeatureBadge featureId={p.id} />
               <ConditionJson code={jsonFormattedCondition} />
+              <InvalidPrereqConditionBadge condition={p.condition} />
             </Flex>,
           );
           prefixUsed = true;
