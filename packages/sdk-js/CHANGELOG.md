@@ -3,6 +3,7 @@
 ## **1.8.1** - Unreleased
 
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
 
 ## **1.8.0** - Sep 29, 2026
 
