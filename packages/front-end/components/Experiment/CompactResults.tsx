@@ -722,8 +722,8 @@ export function getRenderLabelColumn({
                         ? "Collapse funnel steps"
                         : "Expand funnel steps"
                       : isExpanded
-                        ? "Collapse metric slices"
-                        : "Expand metric slices"
+                        ? "Collapse Metric Slices"
+                        : "Expand Metric Slices"
                   }
                   side="top"
                 >
@@ -737,8 +737,8 @@ export function getRenderLabelColumn({
                           ? "Collapse funnel steps"
                           : "Expand funnel steps"
                         : isExpanded
-                          ? "Collapse metric slices"
-                          : "Expand metric slices"
+                          ? "Collapse Metric Slices"
+                          : "Expand Metric Slices"
                     }
                     onClick={
                       row?.labelOnly || sliceTagsFilter?.includes("overall")

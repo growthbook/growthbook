@@ -353,7 +353,11 @@ const BreakDownResults: FC<{
                 const isExpanded = !!expandedRows[parentRowId];
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
-                  : "metric slices";
+                  : "Metric Slices";
+                const rowName =
+                  typeof label === "string" && label
+                    ? formatDimensionValueForDisplay(label)
+                    : "unknown";
                 return (
                   <div
                     className="pl-3 font-weight-bold"
@@ -390,8 +394,8 @@ const BreakDownResults: FC<{
                             radius="full"
                             aria-label={
                               isExpanded
-                                ? `Collapse ${childLabel}`
-                                : `Expand ${childLabel}`
+                                ? `Collapse ${childLabel} for ${rowName}`
+                                : `Expand ${childLabel} for ${rowName}`
                             }
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >
