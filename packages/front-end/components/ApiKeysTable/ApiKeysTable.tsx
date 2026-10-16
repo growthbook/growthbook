@@ -210,7 +210,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     getValue={onReveal(key.id)}
                   />
                 ) : (
-                  <em>hidden</em>
+                  <Tooltip content="Revealing a key's value requires permission to create API keys.">
+                    <span>
+                      <Text color="text-low">Hidden</Text>
+                    </span>
+                  </Tooltip>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>

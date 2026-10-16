@@ -74,6 +74,13 @@ const ApiKeysModal: FC<{
   const { organization, settings } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
   const canCreateApiKey = usePermissionsUtil().canCreateApiKey();
+  const replaceBlocked = personalAccessToken
+    ? settings?.disablePersonalAccessTokens
+      ? "Personal access tokens are disabled for your organization. Contact an admin if you need API access."
+      : null
+    : canCreateApiKey
+      ? null
+      : "Replacing it requires permission to create a new one.";
 
   const maxLifetimeDays = personalAccessToken
     ? settings?.maxPatLifetimeDays
@@ -262,7 +269,7 @@ const ApiKeysModal: FC<{
         value={expiresAt}
         setValue={setExpiresAt}
         existing={existingKey}
-        canReplace={personalAccessToken || canCreateApiKey}
+        replaceBlocked={replaceBlocked}
       />
       {canDeleteSource && (
         <Box mt="3">
