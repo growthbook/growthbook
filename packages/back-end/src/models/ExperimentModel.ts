@@ -324,6 +324,7 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  autoUpdateFailures: Number,
   disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
@@ -1135,6 +1136,37 @@ export async function getExperimentsToUpdateLegacy(
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+type AutoUpdateFailureDoc = Pick<
+  ExperimentInterface,
+  "organization" | "id" | "autoUpdateFailures" | "nextSnapshotAttempt"
+>;
+
+/**
+ * Writes the raw collection so this bookkeeping doesn't bump dateUpdated or
+ * emit experiment.updated.
+ */
+export async function recordAutoUpdateFailure(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  failures: number,
+  retryAt: Date,
+): Promise<void> {
+  await getCollection<AutoUpdateFailureDoc>(COLLECTION).updateOne(
+    { organization: context.org.id, id: experimentId },
+    { $set: { autoUpdateFailures: failures, nextSnapshotAttempt: retryAt } },
+  );
+}
+
+export async function resetAutoUpdateFailures(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<void> {
+  await getCollection<AutoUpdateFailureDoc>(COLLECTION).updateOne(
+    { organization: context.org.id, id: experimentId },
+    { $set: { autoUpdateFailures: 0 } },
+  );
 }
 
 // Lifecycle reminders must include experiments without automatic result
