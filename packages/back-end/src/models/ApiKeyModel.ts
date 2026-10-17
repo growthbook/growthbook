@@ -498,7 +498,9 @@ export class ApiKeyModel extends BaseClass {
     const doc = await this._findOne(id ? { id } : { key }, {
       bypassSanitization: true,
     });
-    if (!doc) this.context.throwNotFoundError();
+    // Missing and not permitted get the same answer, so the lookup tells a
+    // caller without delete rights nothing.
+    if (!doc || !this.canDelete(doc)) this.context.throwNotFoundError();
 
     await this.delete(doc);
     return doc;
