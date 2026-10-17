@@ -200,6 +200,17 @@ export async function countAuditByEntity(
   );
 }
 
+// A personal access token's audits record its owner as `userId`; org keys have none.
+export async function getPersonalAccessTokenAuditIds(
+  organization: string,
+): Promise<string[]> {
+  return AuditModel.distinct("entity.id", {
+    organization,
+    "entity.object": "apiKey",
+    details: { $regex: '"userId":"' },
+  });
+}
+
 // A page of audits newest first, with the total that matches the filters on any page.
 export async function getAuditHistory(
   organization: string,

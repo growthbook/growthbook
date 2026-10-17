@@ -10,7 +10,7 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { getRoles } from "shared/permissions";
+import { canApplyExpirationPolicy, getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
@@ -146,7 +146,11 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getAuditHistory } from "back-end/src/models/AuditModel";
+import {
+  getAuditHistory,
+  getPersonalAccessTokenAuditIds,
+} from "back-end/src/models/AuditModel";
+import { ReqContext } from "back-end/types/request";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -279,10 +283,9 @@ export async function getHistory(
     });
   }
 
-  // API key history can expose roles/scope/descriptions, so gate it behind the
-  // same admin permission used to manage keys (matching the admin-gated UI).
-  // Other entity types keep their existing org-scoped access.
-  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+  // API key history can expose roles/scope/descriptions, so it needs the same
+  // permission as listing the key. Other entity types keep their org-scoped access.
+  if (type === "apiKey" && !(await canReadApiKeyHistory(context, id))) {
     context.permissions.throwPermissionError();
   }
   if (
@@ -294,12 +297,17 @@ export async function getHistory(
   }
 
   // Leave out Projects the user can't read; deleted ones stay visible.
+  // Members' tokens share the apiKey log, so leave them out unless the user manages them.
   const excludeIds =
     type === "project"
       ? (await context.getAllProjectIds()).filter(
           (p) => !context.permissions.canReadSingleProjectResource(p),
         )
-      : [];
+      : type === "apiKey" &&
+          !id &&
+          !context.permissions.canManagePersonalAccessTokens()
+        ? [...(await getPersonalAccessTokenIds(context))]
+        : [];
 
   const history = await getAuditHistory(
     context.org.id,
@@ -314,6 +322,40 @@ export async function getHistory(
   );
 
   res.status(200).json({ status: 200, ...history });
+}
+
+async function canReadApiKeyHistory(
+  context: ReqContext,
+  id: string | undefined,
+): Promise<boolean> {
+  if (!id) return context.permissions.canViewApiKeys();
+  const key = await context.models.apiKeys.dangerousGetById(id);
+  // A deleted key is known only by its audits, which name a token's owner.
+  const isToken = key
+    ? !!key.userId
+    : (await getPersonalAccessTokenAuditIds(context.org.id)).includes(id);
+  if (!isToken) return context.permissions.canViewApiKeys();
+  return (
+    (!!key && key.userId === context.userId) ||
+    context.permissions.canManagePersonalAccessTokens()
+  );
+}
+
+// Every token the org has had, including deleted ones, which only their audits still name.
+// OAuth access tokens are never audited, so they need no excluding.
+async function getPersonalAccessTokenIds(
+  context: ReqContext,
+): Promise<Set<string>> {
+  const [keys, audited] = await Promise.all([
+    context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
+    getPersonalAccessTokenAuditIds(context.org.id),
+  ]);
+  return new Set([
+    ...keys
+      .filter((k) => k.userId && !k.oauthClientId && k.id)
+      .map((k) => k.id as string),
+    ...audited,
+  ]);
 }
 
 export async function putMemberRole(
@@ -869,7 +911,9 @@ export async function getOrganization(
     context.models.watch.getWatchedByUser(userId),
     getSdkPayloadSizeAlerts(context),
     context.models.apiKeys.getExpiringPersonalAccessTokens(userId),
-    context.permissions.canCreateApiKey()
+    // Renewing a key means extending it (Edit) or replacing it (Create).
+    context.permissions.canCreateApiKey() ||
+    context.permissions.canUpdateApiKey()
       ? context.models.apiKeys.getExpiringOrgApiKeys()
       : [],
   ]);
@@ -1865,7 +1909,7 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteApiKey()) {
+  if (!context.permissions.canManagePersonalAccessTokens()) {
     context.permissions.throwPermissionError();
   }
 
@@ -1922,7 +1966,7 @@ export async function postApplyExpirationPolicy(
   if (kind !== "pat" && kind !== "secret") {
     context.throwBadRequestError("Invalid key kind");
   }
-  if (!context.permissions.canDeleteApiKey()) {
+  if (!canApplyExpirationPolicy(context.permissions, kind)) {
     context.permissions.throwPermissionError();
   }
 

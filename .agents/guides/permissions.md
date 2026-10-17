@@ -10,7 +10,11 @@ GrowthBook uses a three-tier permission system with Global, Project-scoped, and 
 
 Apply organization-wide, not restricted to projects or environments:
 
-- `manageTeam`, `manageBilling`, `manageApiKeys`
+- `manageTeam`, `manageBilling`
+- org API keys: `viewApiKeys`, `createApiKeys` (includes revealing key
+  values), `editApiKeys` (also re-enables), `deleteApiKeys` (also disables);
+  other members' PATs: `managePersonalAccessTokens` — see
+  `canSetApiKeyDisabled` in `apiKeyAuthority.ts`
 - `organizationSettings`, `viewAuditLog`
 - `createPresentations`, `createDimensions`, `manageNamespaces`
 - `manageCustomRoles`, `manageCustomFields`, `manageDecisionCriteria`
