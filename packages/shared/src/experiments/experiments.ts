@@ -1405,7 +1405,9 @@ export const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
   "count distinct",
 ] as const;
 
-function getNonRollupAggregation(metric: FactMetricInterface): string | null {
+export function getNonRollupAggregation(
+  metric: FactMetricInterface,
+): string | null {
   for (const ref of getFactMetricColumnRefs(metric)) {
     if (
       ref.aggregation &&

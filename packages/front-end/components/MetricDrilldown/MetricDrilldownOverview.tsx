@@ -10,7 +10,11 @@ import {
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { MetricTimeSeries } from "shared/validators";
-import { isRatioMetric } from "shared/experiments";
+import {
+  getNonRollupAggregation,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import {
   ExperimentTableRow,
@@ -19,6 +23,7 @@ import {
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
@@ -110,6 +115,21 @@ function MetricDrilldownOverview({
         ? "Secondary Metric"
         : "Guardrail Metric";
 
+  const settings = snapshot?.settings;
+  const clusterIdentifier = settings?.exposureQueryIdentifierType;
+  const subUnitIdentifier = settings?.clusterSubUnitIdentifier;
+  const isClusterLevelMetric =
+    !!settings?.isClusterExperiment &&
+    !!clusterIdentifier &&
+    !!subUnitIdentifier &&
+    !!settings.clusterLevelMetricIds?.includes(metric.id);
+  // Cluster-level metrics either can't join the sub-unit, or use an
+  // aggregation (e.g. max) that can't be summed across sub-units.
+  const nonRollupAggregation =
+    isClusterLevelMetric && isFactMetric(metric)
+      ? getNonRollupAggregation(metric)
+      : null;
+
   const statsTableRows = variations.map((variation, i) => ({
     variationIndex: i,
     variationName: variation.name,
@@ -119,6 +139,24 @@ function MetricDrilldownOverview({
 
   return (
     <Flex direction="column" gap="6">
+      {isClusterLevelMetric && (
+        <Callout status="info">
+          Analyzed per <code>{clusterIdentifier}</code>, not per{" "}
+          <code>{subUnitIdentifier}</code>:{" "}
+          {nonRollupAggregation ? (
+            <>
+              <code>{nonRollupAggregation}</code> values can&apos;t be added up
+              across <code>{subUnitIdentifier}</code>s
+            </>
+          ) : (
+            <>
+              this metric&apos;s fact table has no{" "}
+              <code>{subUnitIdentifier}</code>
+            </>
+          )}
+          , so each <code>{clusterIdentifier}</code> counts as one unit.
+        </Callout>
+      )}
       <ResultsTable
         experimentId={experimentId}
         significanceThresholds={significanceThresholds}
