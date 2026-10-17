@@ -13,6 +13,7 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import type { SqlDialect } from "shared/types/sql";
 import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
@@ -83,11 +84,44 @@ export default class ClickHouse extends SqlIntegration {
     }
   }
 
+  getSqlDialect(): SqlDialect {
+    return {
+      ...super.getSqlDialect(),
+      useMaterializedCTEs: this.params.useMaterializedCTEs === true,
+    };
+  }
+
   async testConnection(): Promise<boolean> {
     if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
       return true;
     }
-    return super.testConnection();
+    await super.testConnection();
+    if (this.params.useMaterializedCTEs === true) {
+      try {
+        const { rows } = await this.runQuery(
+          `WITH __growthbook_cte AS MATERIALIZED (SELECT 1 AS value)
+          SELECT sum(value) AS result,
+            getSetting('enable_materialized_cte') AS enabled
+          FROM (
+            SELECT value FROM __growthbook_cte
+            UNION ALL
+            SELECT value FROM __growthbook_cte
+          )`,
+          undefined,
+          { queryType: "connectionTest" },
+        );
+        if (Number(rows[0]?.enabled) !== 1 || Number(rows[0]?.result) !== 2) {
+          throw new Error("The enable_materialized_cte setting is disabled.");
+        }
+      } catch (e) {
+        throw new Error(
+          "Materialized CTEs require a compatible ClickHouse version and enable_materialized_cte = 1. " +
+            "Disable 'Use materialized CTEs (experimental)' or enable the feature for this connection. " +
+            (e instanceof Error ? e.message : String(e)),
+        );
+      }
+    }
+    return true;
   }
 
   async runQuery(

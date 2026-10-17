@@ -6,6 +6,23 @@ import {
 } from "shared/util";
 
 describe("redactSecretParams", () => {
+  it("preserves the ClickHouse materialized CTE opt-in when credentials are redacted", () => {
+    expect(
+      redactSecretParams("clickhouse", {
+        useMaterializedCTEs: true,
+        password: "stored password",
+      }),
+    ).toEqual({ useMaterializedCTEs: true, password: "" });
+
+    expect(
+      mergeDataSourceParams(
+        "clickhouse",
+        { useMaterializedCTEs: true, password: "stored password" },
+        { useMaterializedCTEs: false, password: "" },
+      ),
+    ).toEqual({ useMaterializedCTEs: false, password: "stored password" });
+  });
+
   it("couples params to the datasource type and drops unknown keys", () => {
     // @ts-expect-error defaultDataset is a BigQuery param, not a MySQL param.
     expect(

@@ -16,3 +16,20 @@ are using something like Clickhouse Cloud, you can find the connection string in
 If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
 
 <CloudEgressIP />
+
+## Materialized CTEs (experimental)
+
+The **Use materialized CTEs (experimental)** connection option is disabled by default.
+Enable it only if your ClickHouse deployment supports `AS MATERIALIZED` and the
+`enable_materialized_cte` setting is enabled for the GrowthBook connection.
+
+When enabled, GrowthBook materializes selected intermediate results reused by Bandit
+statistics and experiment health queries. Non-bandit metric result queries are unchanged.
+The configuration parameter is `useMaterializedCTEs`.
+
+The connection test checks feature support and the ClickHouse setting. GrowthBook
+does not enable the server setting automatically. Leave this option disabled on
+deployments that do not support materialized CTEs.
+
+See the [ClickHouse documentation](https://clickhouse.com/docs/reference/statements/select/with#materialized-common-table-expressions)
+for feature requirements.
