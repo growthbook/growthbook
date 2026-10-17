@@ -37,6 +37,7 @@ import {
   removeLinkedFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
+import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   claimFeatureRevisionAsPublished,
@@ -924,6 +925,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         raw.rules,
       ),
     );
+    await settleFeatureRemovalsAfterPublish(context, updated);
 
     if (
       desired.mergeResult.metadata?.tags !== undefined &&

@@ -339,6 +339,7 @@ const experimentSchema = new mongoose.Schema({
       revisionVersion: Number,
     },
   ],
+  pendingFeatureUnlinks: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -422,6 +423,7 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index({ organization: 1, pendingFeatureUnlinks: 1 });
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
@@ -1591,17 +1593,16 @@ export async function deleteExperimentByIdForOrganization(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
+  await ExperimentModel.deleteOne({
+    id: experiment.id,
+    organization: context.org.id,
+  });
+  await VisualChangesetModel.deleteMany({
+    experiment: experiment.id,
+    organization: context.org.id,
+  });
+  // Event fan-out is best-effort; the delete itself is not.
   try {
-    await ExperimentModel.deleteOne({
-      id: experiment.id,
-      organization: context.org.id,
-    });
-
-    await VisualChangesetModel.deleteMany({
-      experiment: experiment.id,
-      organization: context.org.id,
-    });
-
     await onExperimentDelete(context, experiment);
   } catch (e) {
     logger.error(e);
@@ -1890,29 +1891,67 @@ export async function unlinkFeatureFromExperiment(
 ) {
   const experiment = await findExperiment({ experimentId, context });
   if (!experiment) return;
+  await unlinkFeatureFromExperimentDoc(context, experiment, featureId);
+}
+
+async function unlinkFeatureFromExperimentDoc(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  featureId: string,
+) {
+  const newExperiment = {
+    ...experiment,
+    linkedFeatures: (experiment.linkedFeatures || []).filter(
+      (f) => f !== featureId,
+    ),
+    pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+      (d) => d.featureId !== featureId,
+    ),
+    pendingFeatureUnlinks: (experiment.pendingFeatureUnlinks || []).filter(
+      (id) => id !== featureId,
+    ),
+  };
 
   await ExperimentModel.updateOne(
-    { id: experimentId, organization: context.org.id },
+    { id: experiment.id, organization: context.org.id },
     {
-      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+        pendingFeatureUnlinks: featureId,
+      },
     },
   );
 
   onExperimentUpdate({
     context,
     oldExperiment: experiment,
-    newExperiment: {
-      ...experiment,
-      linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId,
-      ),
-      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
-        (d) => d.featureId !== featureId,
-      ),
-    },
+    newExperiment,
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK payload on experiment update");
   });
+}
+
+/**
+ * Unlinks the flag from the experiments waiting to drop it that nothing live
+ * or open references any more. Unfiltered: the waiting removal is the
+ * decision, whoever's write lands it.
+ */
+export async function unlinkLandedFeatureRemovals(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  referencedExperimentIds: string[],
+) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      pendingFeatureUnlinks: featureId,
+      id: { $nin: referencedExperimentIds },
+    })
+    .toArray();
+  for (const doc of docs) {
+    await unlinkFeatureFromExperimentDoc(context, toInterface(doc), featureId);
+  }
 }
 
 // Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).
@@ -1943,8 +1982,24 @@ export async function unlinkFeatureFromAllExperiments(
       $pull: {
         linkedFeatures: featureId,
         pendingFeatureDrafts: { featureId },
+        pendingFeatureUnlinks: featureId,
       },
     },
+  );
+}
+
+// Marks a Feature Flag to unlink once the experiment's rule is gone from it.
+export async function setPendingFeatureUnlink(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  pending: boolean,
+) {
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    pending
+      ? { $addToSet: { pendingFeatureUnlinks: featureId } }
+      : { $pull: { pendingFeatureUnlinks: featureId } },
   );
 }
 

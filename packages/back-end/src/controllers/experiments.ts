@@ -5,13 +5,11 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
-  getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
-  autoMerge,
-  reconcileMergeBaselines,
-  includeExperimentInPayload,
   parseAssignmentQuerySelection,
+  type ExperimentLinkageBlocker,
+  type LinkedChangesResolution,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -36,7 +34,6 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   ExperimentType,
-  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -45,7 +42,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
-import isEqual from "lodash/isEqual";
+import { experimentChangesBody } from "shared/validators";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -54,34 +51,30 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   assertCanRunExperimentInAffectedEnvironments,
+  assertCanRunLinkedChanges,
+  assertVisualChangesEditable,
   getExperimentAffectedEnvs,
   _getSnapshots,
-  applyVariationWeightsToLatestPhase,
-  assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
-  normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
   updateExperimentBanditSettings,
-  updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
-  fillEmptyVariationKeys,
 } from "back-end/src/services/experiments";
 import {
   assertRegisteredAttributesScoped,
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
-import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
+  getStartAcknowledgment,
   startExperiment,
   stopExperiment,
   unapproveScheduledExperimentStart,
@@ -89,7 +82,6 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
-  deleteExperimentByIdForOrganization,
   generateExperimentEmbeddings,
   getAllExperiments,
   getExperimentById,
@@ -99,7 +91,6 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
-  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -117,16 +108,17 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import {
-  getExperimentAssignmentQueryScope,
-  resolveAssignmentQueryIdentifier,
-} from "back-end/src/services/assignmentQuerySelection";
-import { addTagsDiff } from "back-end/src/models/TagModel";
-import {
   getAISettingsForOrg,
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
+import {
+  archiveExperimentWithCleanup,
+  deleteExperimentWithCleanup,
+  LinkedChangesBlockedError,
+  unarchiveExperimentWithCleanup,
+  assertCanChangeServing,
+} from "back-end/src/services/experimentRemoval";
 import {
   createPastExperiments,
   getPastExperimentsById,
@@ -154,15 +146,14 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
-import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
-  getFeature,
-  getFeaturesByIds,
-  publishRevision,
-} from "back-end/src/models/FeatureModel";
-import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
-import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+  BadRequestError,
+  ChecklistIncompleteError,
+  NotFoundError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
+import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -171,29 +162,26 @@ import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import {
-  shouldValidateCustomFieldsOnUpdate,
-  validateCustomFieldsForSection,
-} from "back-end/src/util/custom-fields";
-import {
-  getDraftRevision,
-  getLiveAndBaseRevisionsForFeature,
-} from "back-end/src/services/features";
-import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
+import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
-  ExperimentLinkedFeatureValueUpdate,
-  updateExperimentRefVariations,
-  validateExperimentFeatureUpdates,
-  validateExperimentFeatureVariations,
-} from "back-end/src/services/experiment-feature";
+  applyExperimentChanges,
+  ExperimentChangesResult,
+} from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import {
+  applyExperimentUpdatePlan,
+  ExperimentUpdateInput,
+  planExperimentUpdate,
+} from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
+import { unlinkFlagFromExperiment } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -819,7 +807,9 @@ export async function getExperiment(
     experiment.id,
   );
 
-  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment, {
+    includeOtherPendingDrafts: true,
+  });
 
   const envs = await getExperimentAffectedEnvs(context, experiment);
 
@@ -1462,6 +1452,17 @@ export async function postExperiments(
       phasePrerequisites(obj.phases),
     );
 
+    const originalVisualChangesets = req.query.originalId
+      ? await findVisualChangesetsByExperiment(req.query.originalId, org.id)
+      : [];
+    const originalUrlRedirects = req.query.originalId
+      ? await context.models.urlRedirects.findByExperiment(req.query.originalId)
+      : [];
+    // Copied redirects and changesets serve everywhere; checked before any write.
+    if (originalVisualChangesets.length || originalUrlRedirects.length) {
+      assertCanRunLinkedChanges(context, obj);
+    }
+
     const experiment = await createExperiment({
       data: obj,
       context,
@@ -1485,33 +1486,23 @@ export async function postExperiments(
       );
     }
 
-    if (req.query.originalId) {
-      const visualChangesets = await findVisualChangesetsByExperiment(
-        req.query.originalId,
-        org.id,
-      );
-      for (const visualChangeset of visualChangesets) {
-        await createVisualChangeset({
-          owner: new ExperimentChangesetOwner(context, experiment),
-          urlPatterns: visualChangeset.urlPatterns,
-          editorUrl: visualChangeset.editorUrl,
-          context,
-          visualChanges: visualChangeset.visualChanges,
-        });
-      }
-
-      const urlRedirects = await context.models.urlRedirects.findByExperiment(
-        req.query.originalId,
-      );
-      for (const urlRedirect of urlRedirects) {
-        const props: CreateURLRedirectProps = {
-          experiment: experiment.id,
-          destinationURLs: urlRedirect.destinationURLs,
-          persistQueryString: urlRedirect.persistQueryString,
-          urlPattern: urlRedirect.urlPattern,
-        };
-        await context.models.urlRedirects.create(props);
-      }
+    for (const visualChangeset of originalVisualChangesets) {
+      await createVisualChangeset({
+        owner: new ExperimentChangesetOwner(context, experiment),
+        urlPatterns: visualChangeset.urlPatterns,
+        editorUrl: visualChangeset.editorUrl,
+        context,
+        visualChanges: visualChangeset.visualChanges,
+      });
+    }
+    for (const urlRedirect of originalUrlRedirects) {
+      const props: CreateURLRedirectProps = {
+        experiment: experiment.id,
+        destinationURLs: urlRedirect.destinationURLs,
+        persistQueryString: urlRedirect.persistQueryString,
+        urlPattern: urlRedirect.urlPattern,
+      };
+      await context.models.urlRedirects.create(props);
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
@@ -1563,17 +1554,7 @@ export async function postExperiments(
  * @param res
  */
 export async function postExperiment(
-  req: AuthRequest<
-    ExperimentInterfaceStringDates & {
-      currentPhase?: number;
-      phaseStartDate?: string;
-      phaseEndDate?: string;
-      variationWeights?: number[];
-      coverage?: number;
-      isVariationKeyReconciliation?: boolean;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<ExperimentUpdateInput, { id: string }>,
   res: Response<
     | { status: number; experiment?: ExperimentInterface | null }
     | PrivateApiErrorResponse,
@@ -1581,18 +1562,10 @@ export async function postExperiment(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { org } = context;
   const { id } = req.params;
-  const {
-    phaseStartDate,
-    phaseEndDate,
-    currentPhase,
-    isVariationKeyReconciliation,
-    ...data
-  } = req.body;
 
   const experiment = await getExperimentById(context, id);
-  const aiSettings = await getAISettingsForOrg(context);
 
   if (!experiment) {
     res.status(403).json({
@@ -1610,631 +1583,12 @@ export async function postExperiment(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const attributeScope = lazyAttributeScope(() =>
-    getExperimentAttributeScopeProjects(context, {
-      project: "project" in data ? data.project : experiment.project,
-      linkedFeatures: experiment.linkedFeatures,
-    }),
-  );
-  await assertRegisteredAttributesScoped(
-    context,
-    {
-      hashAttribute: data.hashAttribute,
-      fallbackAttribute: data.fallbackAttribute,
-    },
-    "experiment",
-    {
-      hashAttribute: experiment.hashAttribute,
-      fallbackAttribute: experiment.fallbackAttribute,
-    },
-    attributeScope,
-  );
-  // Match persisted phases by condition value, not index — reordered or
-  // spliced phase lists must not re-validate grandfathered conditions.
-  const persistedConditions = new Set(
-    (experiment.phases ?? []).map((p) => p.condition),
-  );
-  await validateChangedPhaseReferences(
-    data.phases ?? [],
-    experiment.phases,
-    context,
-  );
-  for (const phase of data.phases ?? []) {
-    await assertRegisteredAttributesScoped(
-      context,
-      { condition: phase.condition },
-      "experiment phase",
-      {
-        condition: persistedConditions.has(phase.condition)
-          ? phase.condition
-          : undefined,
-      },
-      attributeScope,
-    );
-  }
-
-  // FIXME: We skip validation because project is updated in a different place than where
-  // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields every time, but we need to update our UI to support that.
-  if (
-    shouldValidateCustomFieldsOnUpdate({
-      existingCustomFieldValues: experiment.customFields,
-      updatedCustomFieldValues: data.customFields,
-    })
-  ) {
-    await validateCustomFieldsForSection({
-      customFieldValues: data.customFields,
-      existingCustomFieldValues: experiment.customFields,
-      customFieldsModel: context.models.customFields,
-      section: "experiment",
-      project: "project" in data ? data.project : experiment.project,
-    });
-  }
-
-  const { settings } = getScopedSettings({
-    organization: org,
-    experiment,
-  });
-
-  let datasourceId: string = experiment.datasource;
-
-  if (data.datasource) {
-    datasourceId = data.datasource;
-    const datasource = await getDataSourceById(context, data.datasource);
-    if (!datasource) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + data.datasource,
-      });
-      return;
-    }
-  }
-  // Validate that specified metrics exist and belong to the organization
-  const allMetricGroups = await context.models.metricGroups.getAll();
-  const oldMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    allMetricGroups,
-  );
-  const newMetricIds = getAllMetricIdsFromExperiment(
-    data,
-    false,
-    allMetricGroups,
-  ).filter((m) => !oldMetricIds.includes(m));
-
-  const metricMap = await getMetricMap(context);
-
-  const invalidMetricIds: string[] = [];
-
-  if (newMetricIds.length) {
-    for (let i = 0; i < newMetricIds.length; i++) {
-      const metric = metricMap.get(newMetricIds[i]);
-      if (metric) {
-        // Make sure it is tied to the same datasource as the experiment
-        if (datasourceId && metric.datasource !== datasourceId) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Metrics must be tied to the same datasource as the experiment: " +
-              newMetricIds[i],
-          });
-          return;
-        }
-      } else {
-        // check to see if this metric is actually a metric group
-        const metricGroup = await context.models.metricGroups.getById(
-          newMetricIds[i],
-        );
-        if (metricGroup) {
-          // Make sure it is tied to the same datasource as the experiment
-          if (metricGroup.datasource !== datasourceId) {
-            res.status(400).json({
-              status: 400,
-              message:
-                "Metric group must be tied to the same datasource as the experiment: " +
-                newMetricIds[i],
-            });
-            return;
-          }
-        } else {
-          // new metric that's not recognized...
-          invalidMetricIds.push(newMetricIds[i]);
-          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
-          // res.status(403).json({
-          //   status: 403,
-          //   message: "Unknown metric: " + newMetricIds[i],
-          // });
-          // return;
-        }
-      }
-    }
-
-    // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
-    // Filter out invalid metric ids from the data
-    if (invalidMetricIds.length) {
-      data.goalMetrics = data.goalMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      data.secondaryMetrics = data.secondaryMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      data.guardrailMetrics = data.guardrailMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      if (
-        data.activationMetric &&
-        invalidMetricIds.includes(data.activationMetric)
-      ) {
-        data.activationMetric = "";
-      }
-    }
-  }
-
-  if (data.variations) {
-    validateVariationIds(data.variations);
-  }
-
-  const { changesLivePayload, changedFields: changedPayloadFields } =
-    getLivePayloadChanges(experiment, {
-      variations: data.variations,
-      coverage: data.coverage,
-      variationWeights: data.variationWeights,
-      isVariationKeyReconciliation,
-    });
-  if (experiment.status === "running" && changesLivePayload) {
-    const linkedFeaturesForPayload = await getFeaturesByIds(
-      context,
-      experiment.linkedFeatures || [],
-    );
-    const inPayload = includeExperimentInPayload(
-      experiment,
-      linkedFeaturesForPayload,
-    );
-    if (inPayload) {
-      res.status(400).json({
-        status: 400,
-        message: `Cannot change: [${changedPayloadFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
-      });
-      return;
-    }
-  }
-
-  if (
-    data.trackingKey !== undefined &&
-    data.trackingKey !== experiment.trackingKey
-  ) {
-    await assertExperimentKeyFormat(
-      context,
-      data.trackingKey,
-      data.datasource ?? experiment.datasource,
-    );
-  }
-
-  // Check if tracking key is being changed and validate uniqueness if required
-  if (
-    data.trackingKey &&
-    data.trackingKey !== experiment.trackingKey &&
-    org.settings?.requireUniqueExperimentTrackingKeys
-  ) {
-    const existing = await getExperimentByTrackingKey(
-      context,
-      data.trackingKey,
-    );
-    if (existing) {
-      res.status(400).json({
-        status: 400,
-        message: `An experiment with tracking key "${data.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
-      });
-      return;
-    }
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: data.holdoutId,
-      project: data.project ?? experiment.project,
-    });
-  } else if (data.project !== undefined && experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: experiment.holdoutId,
-      project: data.project,
-    });
-  }
-
-  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
-  // in the live! feature revision
-  const experimentHasLinkedChanges =
-    experiment.hasURLRedirects ||
-    experiment.hasVisualChangesets ||
-    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
-  if (
-    // Holdout change
-    data.holdoutId &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot change holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  } else if (
-    // Holdout removal
-    data.holdoutId == "" &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await context.models.holdout.addExperimentToHoldout(
-      data.holdoutId,
-      experiment.id,
-    );
-  }
-
-  if (data.defaultDashboardId) {
-    const dashboard = await context.models.dashboards.getById(
-      data.defaultDashboardId,
-    );
-    if (!dashboard) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid dashboard: " + data.defaultDashboardId,
-      });
-      return;
-    }
-  }
-
-  const keys: (keyof ExperimentInterface)[] = [
-    "trackingKey",
-    "owner",
-    "datasource",
-    "exposureQueryId",
-    "exposureQueryIdentifierType",
-    "userIdType",
-    "hashAttribute",
-    "fallbackAttribute",
-    "disableStickyBucketing",
-    "hashVersion",
-    "name",
-    "tags",
-    "description",
-    "hypothesis",
-    "activationMetric",
-    "segment",
-    "queryFilter",
-    "skipPartialData",
-    "attributionModel",
-    "goalMetrics",
-    "secondaryMetrics",
-    "guardrailMetrics",
-    "metricOverrides",
-    "lookbackOverride",
-    "decisionFrameworkSettings",
-    "variations",
-    "status",
-    "statusUpdateSchedule",
-    "results",
-    "analysis",
-    "winner",
-    "implementation",
-    "autoAssign",
-    "previewURL",
-    "targetURLRegex",
-    "releasedVariationId",
-    "excludeFromPayload",
-    "autoSnapshots",
-    "disableAutoSnapshots",
-    "project",
-    "regressionAdjustmentEnabled",
-    "postStratificationEnabled",
-    "hasVisualChangesets",
-    "hasURLRedirects",
-    "sequentialTestingEnabled",
-    "sequentialTestingTuningParameter",
-    "statsEngine",
-    "type",
-    "banditStage",
-    "banditScheduleValue",
-    "banditScheduleUnit",
-    "banditBurnInValue",
-    "banditBurnInUnit",
-    "banditConversionWindowValue",
-    "banditConversionWindowUnit",
-    "customFields",
-    "shareLevel",
-    "uid",
-    "analysisSummary",
-    "dismissedWarnings",
-    "holdoutId",
-    "defaultDashboardId",
-    "customMetricSlices",
-    "precomputedUnitDimensionIds",
-  ];
-  let changes: Changeset = {};
-
-  keys.forEach((key) => {
-    if (!(key in data)) {
-      return;
-    }
-
-    // Do a deep comparison for arrays, shallow for everything else
-    let hasChanges = data[key] !== experiment[key];
-    if (
-      key === "goalMetrics" ||
-      key === "secondaryMetrics" ||
-      key === "guardrailMetrics" ||
-      key === "metricOverrides" ||
-      key === "lookbackOverride" ||
-      key === "variations" ||
-      key === "statusUpdateSchedule" ||
-      key === "customFields" ||
-      key === "customMetricSlices" ||
-      key === "precomputedUnitDimensionIds"
-    ) {
-      hasChanges =
-        JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
-    }
-
-    if (hasChanges) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (changes as any)[key] = data[key];
-    }
-  });
-
-  normalizeStatusUpdateScheduleChanges(experiment, changes, context.armer);
-
-  // Same validation as PUT /schedule, against the stored schedule and the
-  // post-update variations/metrics.
-  if (data.statusUpdateSchedule) {
-    validateScheduleUpdate({
-      context,
-      experimentType: data.type ?? experiment.type ?? "standard",
-      status: experiment.status,
-      archived: !!experiment.archived,
-      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
-      existingSchedule: experiment.statusUpdateSchedule,
-      variations: changes.variations ?? experiment.variations,
-      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-      incoming: data.statusUpdateSchedule,
-    });
-  }
-
-  // Coerce lookbackOverride date value when type is "date"
-  if (changes.lookbackOverride?.type === "date") {
-    changes.lookbackOverride = {
-      type: "date",
-      value: getValidDate(changes.lookbackOverride.value),
-    };
-  }
-
-  const resolvedSelection = await resolveAssignmentQueryIdentifier(context, {
-    previous: {
-      datasource: experiment.datasource ?? "",
-      exposureQueryId: experiment.exposureQueryId,
-      identifierType: experiment.exposureQueryIdentifierType,
-    },
-    next: {
-      datasource: changes.datasource ?? experiment.datasource ?? "",
-      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      // Read from the body, not `changes`: the diff drops an identifier equal
-      // to the stored one, but on a newly chosen query it's still an explicit
-      // selection.
-      identifierType: data.exposureQueryIdentifierType,
-    },
-    onOmitted: "defaultToFirst",
-    // A newly chosen query must fit the experiment's project after this edit.
-    scope: () =>
-      getExperimentAssignmentQueryScope(
-        context,
-        experiment,
-        changes.project ?? experiment.project ?? "",
-      ),
-  });
-  // Also overrides an echoed identifier on an unchanged selection, so an
-  // implicit experiment stays implicit.
-  if (resolvedSelection.changed || "exposureQueryIdentifierType" in changes) {
-    changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
-  }
-
-  const shouldValidatePrecomputedUnitDimensionIds =
-    changes.precomputedUnitDimensionIds !== undefined ||
-    changes.datasource !== undefined ||
-    changes.exposureQueryId !== undefined ||
-    changes.exposureQueryIdentifierType !== undefined;
-  if (shouldValidatePrecomputedUnitDimensionIds) {
-    const effectivePrecomputedUnitDimensionIds =
-      changes.precomputedUnitDimensionIds ??
-      experiment.precomputedUnitDimensionIds ??
-      [];
-    const effectiveDatasourceId =
-      changes.datasource ?? experiment.datasource ?? "";
-    const effectiveExposureQueryId =
-      changes.exposureQueryId ?? experiment.exposureQueryId;
-    const effectiveExposureQueryIdentifierType =
-      "exposureQueryIdentifierType" in changes
-        ? changes.exposureQueryIdentifierType
-        : experiment.exposureQueryIdentifierType;
-    if (effectivePrecomputedUnitDimensionIds.length > 0) {
-      const effectiveDatasource = effectiveDatasourceId
-        ? await getDataSourceById(context, effectiveDatasourceId)
-        : null;
-      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
-        context,
-        datasource: effectiveDatasource,
-        exposureQueryId: effectiveExposureQueryId,
-        exposureQueryIdentifierType: effectiveExposureQueryIdentifierType,
-        dimensionIds: effectivePrecomputedUnitDimensionIds,
-      });
-    }
-  }
-
-  // Validate attributionModel + lookbackOverride consistency
-  {
-    const effectiveAttrModel =
-      changes.attributionModel ?? experiment.attributionModel;
-    const effectiveLookback =
-      "lookbackOverride" in changes
-        ? changes.lookbackOverride
-        : experiment.lookbackOverride;
-    if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
-      res.status(400).json({
-        status: 400,
-        message:
-          "lookbackOverride is required when attributionModel is 'lookbackOverride'",
-      });
-      return;
-    }
-  }
-
-  // If changing phase start/end dates (from "Configure Analysis" modal)
-  if (
-    experiment.status !== "draft" &&
-    currentPhase !== undefined &&
-    experiment.phases?.[currentPhase] &&
-    (phaseStartDate || phaseEndDate)
-  ) {
-    const phases = [...experiment.phases];
-    const phaseClone = { ...phases[currentPhase] };
-    phases[Math.floor(currentPhase * 1)] = phaseClone;
-    const firstPhaseClone = { ...phases[0] };
-
-    if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(assumeUtc(phaseStartDate));
-    }
-    if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
-      // update both phases when stopped
-      if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
-        phases[0] = firstPhaseClone; // update the first phase to the same date ended
-      }
-    }
-    changes.phases = phases;
-  }
-
-  // Clean up some vars for bandits, but only if safe to do so...
-  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
-  if (
-    experiment.status === "draft" &&
-    experiment.banditStage === undefined &&
-    ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
-      data.type === "multi-armed-bandit")
-  ) {
-    changes = resetExperimentBanditSettings({
-      experiment,
-      metricMap,
-      changes,
-      settings,
-    });
-  }
-  // If it's already a bandit and..
-  if (experiment.type === "multi-armed-bandit") {
-    // ...the schedule has changed, recompute next run
-    if (
-      changes.banditScheduleUnit !== undefined ||
-      changes.banditScheduleValue !== undefined ||
-      changes.banditBurnInUnit !== undefined ||
-      changes.banditBurnInValue !== undefined
-    ) {
-      changes.nextSnapshotAttempt = determineNextBanditSchedule({
-        ...experiment,
-        ...changes,
-      } as ExperimentInterface);
-    }
-  }
-
-  if (experiment.type === "holdout") {
-    // Holdout targeting is handled by postExperimentTargeting, so coverage is
-    // the only payload-affecting field this path handles; apply it to every phase.
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      changes.phases = phases.map((phase) => ({ ...phase, coverage }));
-    }
-  } else {
-    if (data.variationWeights) {
-      changes.phases = applyVariationWeightsToLatestPhase(
-        experiment,
-        data.variationWeights,
-      );
-    }
-
-    // Re-order phase variations to match the order of the variations coming in via the request body
-    if (data.variations) {
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = {
-        ...phases[lastIndex],
-        variations: data.variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-      };
-      changes.phases = phases;
-    }
-
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = { ...phases[lastIndex], coverage };
-      changes.phases = phases;
-    }
-  }
-
-  await assertCanRunExperimentChanges(context, experiment, changes);
-
-  await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperimentAndSync({
+  const plan = await planExperimentUpdate(context, experiment, req.body);
+  const updated = await applyExperimentUpdatePlan({
     context,
     experiment,
-    changes,
-  });
-  if (
-    aiSettings.aiEnabled &&
-    (changes.name || changes.description || changes.hypothesis)
-  ) {
-    // If name, description or hypothesis changed, update the vectors:
-    await generateExperimentEmbeddings(context, [updated]);
-  }
-
-  await req.audit({
-    event: "experiment.update",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
-
-  // If there are new tags to add
-  await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
-
-  await context.models.watch.upsertWatch({
-    userId,
-    item: experiment.id,
-    type: "experiments",
+    plan,
+    audit: req.audit,
   });
 
   res.status(200).json({
@@ -2244,7 +1598,10 @@ export async function postExperiment(
 }
 
 export async function postExperimentArchive(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2275,50 +1632,37 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  changes.archived = true;
+  await assertCanChangeServing(context, experiment);
 
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
+    await archiveExperimentWithCleanup({
       context,
       experiment,
-      changes,
-    });
-
-    res.status(200).json({
-      status: 200,
-    });
-
-    await req.audit({
-      event: "experiment.archive",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
-    res.status(400).json({
-      status: 400,
-      message: e.message || "Failed to archive experiment",
-    });
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
+    }
+    throw e;
   }
+
+  await req.audit({
+    event: "experiment.archive",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postExperimentUnarchive(
@@ -2351,16 +1695,10 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
-
-  changes.archived = false;
+  await assertCanChangeServing(context, experiment);
 
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
+    await unarchiveExperimentWithCleanup({ context, experiment });
 
     res.status(200).json({
       status: 200,
@@ -2373,26 +1711,6 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
-
-    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
-    // linked feature's revisions to rebuild the queue. Fire-and-forget.
-    const linkedFeatureIds = experiment.linkedFeatures ?? [];
-    if (linkedFeatureIds.length > 0) {
-      Promise.all(
-        linkedFeatureIds.map(async (featureId) => {
-          const { openDrafts, liveRevision } =
-            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
-          return syncFeatureExperimentLinkages(
-            context,
-            featureId,
-            openDrafts,
-            liveRevision,
-          );
-        }),
-      ).catch((e) => {
-        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
-      });
-    }
   } catch (e) {
     if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
@@ -2409,6 +1727,7 @@ export async function postExperimentStatus(
       reason: string;
       dateEnded: string;
       bypassLockdown?: boolean;
+      skipChecklist?: boolean;
     },
     { id: string }
   >,
@@ -2418,6 +1737,7 @@ export async function postExperimentStatus(
   const { org } = context;
   const { id } = req.params;
   const { status, reason, dateEnded, bypassLockdown } = req.body;
+  const skipChecklist = req.body.skipChecklist === true;
 
   const changes: Changeset = {};
 
@@ -2465,11 +1785,17 @@ export async function postExperimentStatus(
     changes.phases = phases;
   }
   // Starting an experiment from draft
-  else if (
-    experiment.status === "draft" &&
-    status === "running" &&
-    phases?.length > 0
-  ) {
+  else if (experiment.status === "draft" && status === "running") {
+    // A plain status write would skip every start check and never publish linked drafts.
+    if (!phases.length) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Add a phase with targeting and traffic before starting this experiment.",
+      });
+      return;
+    }
+
     const adminBypass =
       !!bypassLockdown &&
       context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
@@ -2480,11 +1806,10 @@ export async function postExperimentStatus(
       changes: { status: "running" },
     });
 
-    const { updated } = await startExperiment({
+    const { updated, checklistItems } = await startExperiment({
       context,
       experimentId: id,
-      // Internal status endpoint preserves existing behavior by not enforcing checklist at the server boundary.
-      skipChecklist: true,
+      skipChecklist,
       bypassLockdown: adminBypass,
     });
 
@@ -2494,7 +1819,15 @@ export async function postExperimentStatus(
         object: "experiment",
         id: experiment.id,
       },
-      details: auditDetailsUpdate(experiment, updated),
+      details: auditDetailsUpdate(
+        experiment,
+        updated,
+        getStartAcknowledgment({
+          checklistItems,
+          skipChecklist,
+          bypassLockdown: adminBypass,
+        }),
+      ),
     });
 
     res.status(200).json({
@@ -2583,18 +1916,20 @@ export async function postExperimentStatus(
 }
 
 export async function postApproveScheduledExperimentStart(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ skipChecklist?: boolean } | null, { id: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
+  const skipChecklist = req.body?.skipChecklist === true;
 
   try {
-    const { experiment, updated } = await approveScheduledExperimentStart({
-      context,
-      experimentId: id,
-      skipChecklist: true,
-    });
+    const { experiment, updated, checklistItems } =
+      await approveScheduledExperimentStart({
+        context,
+        experimentId: id,
+        skipChecklist,
+      });
 
     await req.audit({
       event: "experiment.update",
@@ -2602,7 +1937,15 @@ export async function postApproveScheduledExperimentStart(
         object: "experiment",
         id: experiment.id,
       },
-      details: auditDetailsUpdate(experiment, updated),
+      details: auditDetailsUpdate(
+        experiment,
+        updated,
+        getStartAcknowledgment({
+          checklistItems,
+          skipChecklist,
+          bypassLockdown: false,
+        }),
+      ),
     });
 
     res.status(200).json({
@@ -2610,7 +1953,9 @@ export async function postApproveScheduledExperimentStart(
       experiment: updated,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
+    // Keeps the refused items' code and details for the page to show.
+    if (e instanceof SoftWarningError || e instanceof ChecklistIncompleteError)
+      throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve scheduled experiment start",
@@ -3158,6 +2503,16 @@ export async function postExperimentPhase(
     });
     return;
   }
+  // Only a holdout starts by adding its first phase; anything else would skip
+  // the start's checklist and never publish its linked drafts.
+  if (experiment.status === "draft" && experiment.type !== "holdout") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Draft experiments can't start by adding a phase. Set up targeting, then start the experiment.",
+    });
+    return;
+  }
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
@@ -3270,9 +2625,13 @@ export async function getWatchingUsers(
 }
 
 export async function deleteExperiment(
-  req: AuthRequest<ExperimentInterface, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response<
-    { status: 200 } | PrivateApiErrorResponse,
+    | { status: 200 }
+    | (PrivateApiErrorResponse & { blocker?: ExperimentLinkageBlocker }),
     EventUserForResponseLocals
   >,
 ) {
@@ -3304,25 +2663,22 @@ export async function deleteExperiment(
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  const promises = [
-    // note: we might want to change this to change the status to
-    // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(context, experiment),
-    removeExperimentFromPresentations(experiment.id),
-  ];
-
-  await Promise.all(promises);
-
-  if (experiment.holdoutId) {
-    try {
-      await context.models.holdout.removeExperimentFromHoldout(
-        experiment.holdoutId,
-        experiment.id,
-      );
-    } catch (e) {
-      // This is not a fatal error, so don't block the request from happening
-      logger.warn(e, "Error removing experiment from holdout");
+  try {
+    await deleteExperimentWithCleanup({
+      context,
+      experiment,
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
+    });
+  } catch (e) {
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
     }
+    throw e;
   }
 
   await req.audit({
@@ -3726,81 +3082,11 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   return;
 }
 
-export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, variation } = req.params;
-  const { url } = req.body;
-  const changes: Changeset = {};
-
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    res.status(403).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (!experiment.variations[variation]) {
-    res.status(404).json({
-      status: 404,
-      message: "Unknown variation " + variation,
-    });
-    return;
-  }
-
-  changes.variations = cloneDeep(experiment.variations);
-
-  // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
-  ].screenshots.filter((s) => s.path !== url);
-  await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
-
-  await req.audit({
-    event: "experiment.screenshot.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
-    ),
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 type AddScreenshotRequestBody = {
   url: string;
   description?: string;
 };
+
 export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response,
@@ -4071,7 +3357,8 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
-  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
     owner: new ExperimentChangesetOwner(context, experiment),
@@ -4112,20 +3399,8 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
+  assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment);
 
   const ret = await updateVisualChangeset({
     visualChangeset,
@@ -4160,21 +3435,8 @@ export async function deleteVisualChangeset(
     context,
     visualChangeset.experiment,
   );
-
-  const linkedFeatureIds = experiment?.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
-    context.permissions.throwPermissionError();
-  }
+  if (experiment) assertVisualChangesEditable(experiment);
+  assertCanRunLinkedChanges(context, experiment ?? {});
 
   await deleteVisualChangesetById({
     visualChangeset,
@@ -4271,234 +3533,29 @@ export async function getExperimentTimeSeries(
   });
 }
 
-export async function postExperimentFeatureValues(
-  req: AuthRequest<
-    {
-      variations: Variation[];
-      variationWeights: number[];
-      features: Record<string, ExperimentLinkedFeatureValueUpdate>;
-    },
-    { id: string }
+export async function postExperimentChanges(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<
+    { status: 200 } & ExperimentChangesResult,
+    EventUserForResponseLocals
   >,
-  res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-  const { variations, variationWeights, features } = req.body;
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
+  const parsed = experimentChangesBody.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsed));
   }
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) throw new NotFoundError("Experiment not found");
 
-  if (experiment.status !== "draft") {
-    res.status(400).json({
-      status: 400,
-      message:
-        "Editing feature values from an experiment is only allowed for experiments in draft. To edit feature values for a running experiment, edit the values from the feature flags directly.",
-    });
-    return;
-  }
-
-  if (!experiment.phases?.length) {
-    res.status(400).json({
-      status: 400,
-      message: "Experiment must have at least one phase",
-    });
-    return;
-  }
-
-  fillEmptyVariationKeys(
-    variations,
-    experiment.variations.map((v) => v.key),
-  );
-  validateVariationIds(variations);
-  validateExperimentFeatureVariations({
-    variations,
-    variationWeights,
-    experiment,
-    features,
-  });
-
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
-
-  const variationsChanged = !isEqual(variations, experiment.variations);
-  const variationWeightsChanged = !isEqual(
-    variationWeights,
-    latestPhase.variationWeights,
-  );
-
-  const changes: Changeset = {};
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  // Make sure features ids are valid for the experiment
-  Object.keys(features).forEach((featureId) => {
-    if (!linkedFeatureIds.includes(featureId)) {
-      throw new Error(`Feature ${featureId} is not linked to the experiment`);
-    }
-  });
-
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures: featureObjects,
-  });
-
-  if (variationsChanged) {
-    changes.variations = variations;
-    // Also update the phase's variations array to include new/removed variations
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      variations: variations.map((v) => ({
-        id: v.id,
-        status: "active" as const,
-      })),
-    };
-    changes.phases = phases;
-  }
-
-  if (variationWeightsChanged) {
-    // Use changes.phases if already updated (e.g. by variationsChanged above), otherwise start from experiment
-    const basePhases = changes.phases || [...experiment.phases];
-    const lastIndex = basePhases.length - 1;
-    const updatedPhases = [...basePhases];
-    updatedPhases[lastIndex] = {
-      ...updatedPhases[lastIndex],
-      variationWeights,
-    };
-    changes.phases = updatedPhases;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Authoring authority for each feature. Landing authority is checked by
-  // `validateExperimentFeatureUpdates` below, per feature that actually sets
-  // `autoPublish`, and scoped to the environments its matching rules serve.
-  // Requiring publish here as well — across every org environment, whether or
-  // not the caller is publishing — blocked an author from editing values into a
-  // draft.
-  for (const feature of featureObjects) {
-    if (!context.permissions.canEditFeatureDrafts(feature)) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  // Validate feature updates and get update plans for each feature before applying any changes
-  const featureUpdatePlans = await validateExperimentFeatureUpdates({
-    experiment,
-    features,
-    linkedFeatures: featureObjects,
+  const result = await applyExperimentChanges({
     context,
+    experiment,
+    body: parsed.data,
+    audit: req.audit,
+    eventAudit: res.locals.eventAudit,
   });
-
-  // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
-  let experimentForResponse = experiment;
-  if (changes.variations || changes.phases) {
-    if (!context.permissions.canRunExperiment(experiment, envs)) {
-      context.permissions.throwPermissionError();
-    }
-    await validateExperimentChange({ context, experiment, changes });
-    experimentForResponse = await updateExperimentAndSync({
-      context,
-      experiment,
-      changes,
-    });
-  }
-
-  // Apply draft updates for features that need them (same revision + rules as preflight)
-  for (const {
-    feature,
-    existingRevision,
-    matchingRules,
-  } of featureUpdatePlans) {
-    const { autoPublish } = features[feature.id].revisionOptions;
-    const orgEnvIds = context.environments;
-    const updatedVariationValues = features[feature.id].variations;
-
-    const revision = existingRevision
-      ? existingRevision
-      : await getDraftRevision(context, feature, feature.version);
-
-    const updatedRevision = await updateExperimentRefVariations({
-      context,
-      feature,
-      revision,
-      matchingRules,
-      updatedVariationValues,
-      sparse: features[feature.id].sparse,
-      user: res.locals.eventAudit,
-    });
-
-    if (autoPublish) {
-      const { live, base } = await getLiveAndBaseRevisionsForFeature({
-        context,
-        feature,
-        revision: updatedRevision,
-      });
-      // Auto publish permission check is in validateExperimentFeatureUpdates
-      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-        feature,
-        live,
-        base,
-      );
-      const mergeResult = autoMerge(
-        mergeLive,
-        mergeBase,
-        updatedRevision,
-        orgEnvIds,
-        {},
-      );
-
-      // This should never happen since we only allow auto-publishing new revisions, but guard against it just in case
-      if (!mergeResult.success) {
-        res.status(400).json({
-          status: 400,
-          message: `Unable to auto-publish feature values for feature ${feature.id}. Please resolve conflicts before publishing.`,
-        });
-        return;
-      }
-
-      const updatedFeature = await publishRevision({
-        context,
-        feature,
-        revision: updatedRevision,
-        result: mergeResult.result,
-        comment: "auto-publish experiment variation values change",
-        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-          feature,
-          "feature",
-        ),
-      });
-
-      await req.audit({
-        event: "feature.publish",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(feature, updatedFeature, {
-          revision: updatedRevision.version,
-          comment: "auto-publish experiment variation values change",
-        }),
-      });
-    }
-  }
-
-  res.status(200).json({
-    status: 200,
-    experiment: experimentForResponse,
-  });
+  res.status(200).json({ status: 200, ...result });
 }
 
 export async function deleteExperimentLinkedFeature(
@@ -4518,16 +3575,7 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
-  // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing. Edit-class, not publish:
-  // nothing reaches the payload. Same as the contextual-bandit twin, which
-  // performs the same $pull.
-  const feature = await getFeature(context, featureId);
-  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await unlinkFeatureFromExperiment(context, id, featureId);
+  await unlinkFlagFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
 }

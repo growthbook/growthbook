@@ -405,7 +405,7 @@ export function teamsForMember(
 ): { id: string; name: string }[] {
   const member = (org.members ?? []).find((m) => m.id === userId);
   if (!member?.teams?.length) return [];
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
   return member.teams
     .map((id) => byId.get(id))
     .filter((t): t is { id: string; name: string } => !!t)
@@ -441,7 +441,7 @@ export function assessRequiredApproverTeams({
     ),
   );
 
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
 
   // Drop rules implied by a stricter one: satisfying a subset rule satisfies
   // the superset, so listing both reads as two sign-offs. Deleted teams are

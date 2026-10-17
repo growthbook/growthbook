@@ -34,6 +34,9 @@ import {
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
+import { experimentAnalysisSettingsDraft, variation } from "./experiments";
+import { stagedUrlRedirect } from "./url-redirects";
+import { visualChangesetEdit } from "./visual-changesets";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -278,6 +281,23 @@ export const featureRule = z.union([
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
+
+// Only the keys the rule's type declares. The union members are `.strict()`,
+// which throws rather than strips, so unknown keys otherwise persist.
+export function stripUnknownRuleFields<T extends { type?: string }>(
+  rule: T,
+): T {
+  const schema = featureRule.options.find(
+    (o) => o.shape.type.safeParse(rule.type).success,
+  );
+  if (!schema) return rule;
+  const allowed = new Set(Object.keys(schema.shape));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rule)) {
+    if (allowed.has(k)) out[k] = v;
+  }
+  return out as T;
+}
 
 // Env-level settings only (kill switch + prerequisites). Rules live on
 // `featureInterface.rules`.
@@ -2164,3 +2184,109 @@ export type GetFeatureStaleResponse = z.infer<
 >;
 
 export type FeatureStaleEntry = GetFeatureStaleResponse["features"][string];
+
+const experimentRuleEnvironments = z
+  .object({
+    allEnvironments: z.boolean(),
+    environments: z.array(z.string()),
+  })
+  .strict();
+export type ExperimentRuleEnvironments = z.infer<
+  typeof experimentRuleEnvironments
+>;
+
+const experimentChangesFields = experimentAnalysisSettingsDraft
+  .extend({
+    name: z.string().min(1),
+    description: z.string(),
+    hypothesis: z.string(),
+    variations: z.array(variation),
+    variationWeights: z.array(z.number()),
+    coverage: z.number().min(0).max(1),
+    // "" leaves the current holdout.
+    holdoutId: z.string(),
+  })
+  .partial()
+  .strict();
+export type ExperimentChangesFields = z.infer<typeof experimentChangesFields>;
+
+export const experimentChangesBody = z
+  .object({
+    experiment: z
+      .object({
+        changes: experimentChangesFields,
+        // The value of each changed field as the client loaded it; a field that
+        // moved since then fails the save instead of being overwritten.
+        base: z.record(z.string(), z.unknown()),
+      })
+      .strict()
+      .optional(),
+    flagValues: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            variations: z.array(experimentRefVariation),
+            // JSON only. Omitted leaves the rule's sparse flag as it is.
+            sparse: z.boolean().optional(),
+            // The rule's environment scope. Omitted leaves it as it is.
+            environments: experimentRuleEnvironments.optional(),
+            // The revision the values were loaded from: the live version starts
+            // a new draft (dateUpdated unused), a draft version writes into it.
+            revision: z
+              .object({
+                version: z.number().int(),
+                dateUpdated: z.string().nullable(),
+              })
+              .strict(),
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to link again, each given the experiment's rule in a new draft.
+    linkFeatures: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            variations: z.array(experimentRefVariation),
+            sparse: z.boolean().optional(),
+            environments: experimentRuleEnvironments.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to take off the experiment, along with its rule on each: out of
+    // open drafts now, and out of live through a draft, unlinking on publish.
+    unlinkFeatures: z.array(z.string()).optional(),
+    // Flags whose pending removal to undo: the rule goes back into the drafts.
+    keepFeatures: z.array(z.string()).optional(),
+    addUrlRedirects: z.array(stagedUrlRedirect).optional(),
+    // Each with the dateUpdated it was loaded at; one changed since fails the save.
+    editUrlRedirects: z
+      .array(
+        stagedUrlRedirect
+          .extend({ id: z.string(), dateUpdated: z.string() })
+          .strict(),
+      )
+      .optional(),
+    removeUrlRedirects: z.array(z.string()).optional(),
+    // Like `experiment`: the edited keys, each beside its value as loaded.
+    // base.visualChanges holds the loaded visual changes the edit touches.
+    editVisualChangesets: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            changes: visualChangesetEdit,
+            base: z.record(z.string(), z.unknown()),
+          })
+          .strict(),
+      )
+      .optional(),
+    removeVisualChangesets: z.array(z.string()).optional(),
+    // Runs every check the save would and writes nothing.
+    dryRun: z.boolean().optional(),
+  })
+  .strict();
+export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;
