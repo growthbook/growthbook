@@ -13,14 +13,49 @@ import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import RichTextEditor from "@/ui/RichTextEditor";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import {
+  filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
+} from "@/services/customFields";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
+
+/**
+ * Which of the experiment's details the modal edits. One field makes a quick,
+ * narrow editor; custom fields are edited as a block.
+ */
+export type InfoSection =
+  | "all"
+  | "name"
+  | "trackingKey"
+  | "owner"
+  | "tags"
+  | "project"
+  | "description"
+  | "customFields";
+
+const SECTION_HEADERS: Record<InfoSection, string> = {
+  all: "Edit Info",
+  name: "Edit Name",
+  trackingKey: "Edit Experiment Key",
+  owner: "Edit Owner",
+  tags: "Edit Tags",
+  project: "Edit Project",
+  description: "Edit Description",
+  customFields: "Edit Additional Fields",
+};
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   focusSelector?: FocusSelector;
+  section?: InfoSection;
+  /** With the customFields section, just this one field. */
+  customFieldId?: string | null;
 }
 
 export default function EditExperimentInfoModal({
@@ -28,12 +63,34 @@ export default function EditExperimentInfoModal({
   setShowEditInfoModal,
   mutate,
   focusSelector = "name",
+  section = "all",
+  customFieldId,
 }: Props) {
+  const shows = (part: Exclude<InfoSection, "all">) =>
+    section === "all" || section === part;
+  const focus: InfoSection | FocusSelector =
+    section === "all" ? focusSelector : section;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
   const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
+
+  const customFields =
+    filterCustomFieldsForSectionAndProject(
+      useCustomFields(),
+      "experiment",
+      experiment.project,
+    ) ?? [];
+
+  const shownCustomFields = customFieldId
+    ? customFields.filter((f) => f.id === customFieldId)
+    : customFields;
+
+  const projectOptions = useProjectOptions(
+    (project) => canUpdateExperimentProject(project),
+    experiment.project ? [experiment.project] : [],
+  );
 
   const form = useForm({
     defaultValues: {
@@ -42,6 +99,12 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
+      description: experiment.description || "",
+      customFields: reconcileCustomFieldValues(
+        customFields,
+        experiment.customFields,
+        false,
+      ),
     },
   });
   const trackingKey = form.watch("trackingKey");
@@ -55,74 +118,119 @@ export default function EditExperimentInfoModal({
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
-      size="lg"
+      size={section === "all" || section === "description" ? "lg" : "md"}
       trackingEventModalSource="experiment-more-menu"
-      header="Edit Info"
+      header={
+        customFieldId && shownCustomFields.length
+          ? `Edit ${shownCustomFields[0].name}`
+          : SECTION_HEADERS[section]
+      }
       submit={form.handleSubmit(async (data) => {
+        // Only what this section shows: custom fields are rewritten whole, so
+        // an unrelated save would drop values outside the project's scope.
+        const shown = (Object.keys(data) as (keyof typeof data)[]).filter(
+          (part) => shows(part),
+        );
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify(
+            Object.fromEntries(shown.map((part) => [part, data[part]])),
+          ),
         });
         mutate();
       })}
     >
-      <Field
-        size="legacy"
-        autoFocus={focusSelector === "name"}
-        label="Experiment Name"
-        {...form.register("name")}
-        required
-      />
-      <Field
-        size="legacy"
-        disabled={experiment.status !== "draft"}
-        label="Experiment Key"
-        {...form.register("trackingKey")}
-        required
-        {...trackingKeyFormatProps}
-      />
-      <SelectOwner
-        value={form.watch("owner")}
-        onChange={(v) => form.setValue("owner", v)}
-      />
-      <div className="form-group">
-        <Box mb="2">
-          <Text weight="semibold">Tags</Text>
-        </Box>
-        <TagsInput
-          autoFocus={focusSelector === "tags"}
-          value={form.watch("tags") ?? []}
-          onChange={(tags) => form.setValue("tags", tags)}
+      {shows("name") ? (
+        <Field
+          size="legacy"
+          autoFocus={focus === "name"}
+          label="Experiment Name"
+          {...form.register("name")}
+          required
         />
-      </div>
-      <SelectField
-        size="legacy"
-        label={
-          <>
-            <Text weight="semibold">Project</Text>
-            <Tooltip
-              className="pl-1"
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-              }
-            />
-          </>
-        }
-        autoFocus={focusSelector === "project"}
-        value={form.watch("project")}
-        onChange={(v) => form.setValue("project", v)}
-        options={useProjectOptions(
-          (project) => canUpdateExperimentProject(project),
-          experiment.project ? [experiment.project] : [],
-        )}
-        initialOption={initialProjectOption}
-      />
-      {experiment.project !== form.watch("project") ? (
-        <Callout status="warning">
-          Moving to a different Project may prevent your linked Feature Flags,
-          Visual Changes, and URL Redirects from being sent to users, and could
-          restrict use of some Data Sources and Metrics.
-        </Callout>
+      ) : null}
+      {shows("trackingKey") ? (
+        <Field
+          size="legacy"
+          autoFocus={focus === "trackingKey"}
+          disabled={experiment.status !== "draft"}
+          label="Experiment Key"
+          {...form.register("trackingKey")}
+          required
+          {...trackingKeyFormatProps}
+        />
+      ) : null}
+      {shows("owner") ? (
+        <SelectOwner
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+        />
+      ) : null}
+      {shows("tags") ? (
+        <div className="form-group">
+          <Box mb="2">
+            <Text weight="semibold">Tags</Text>
+          </Box>
+          <TagsInput
+            autoFocus={focus === "tags"}
+            value={form.watch("tags") ?? []}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
+        </div>
+      ) : null}
+      {shows("project") ? (
+        <>
+          <SelectField
+            size="legacy"
+            label={
+              <>
+                <Text weight="semibold">Project</Text>
+                <Tooltip
+                  className="pl-1"
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                  }
+                />
+              </>
+            }
+            autoFocus={focus === "project"}
+            value={form.watch("project")}
+            onChange={(v) => form.setValue("project", v)}
+            options={projectOptions}
+            initialOption={initialProjectOption}
+          />
+          {(experiment.project || "") !== form.watch("project") ? (
+            <Callout status="warning">
+              Moving to a different Project may prevent your linked Feature
+              Flags, Visual Changes, and URL Redirects from being sent to users,
+              and could restrict use of some Data Sources and Metrics.
+            </Callout>
+          ) : null}
+        </>
+      ) : null}
+      {shows("description") ? (
+        <Box mt={section === "description" ? "0" : "4"}>
+          <Box mb="2">
+            <Text weight="semibold">Description</Text>
+          </Box>
+          <RichTextEditor
+            value={form.watch("description")}
+            onChange={(description) =>
+              form.setValue("description", description)
+            }
+            height="md"
+            autoGrow
+          />
+        </Box>
+      ) : null}
+      {shows("customFields") && shownCustomFields.length > 0 ? (
+        <Box mt={section === "customFields" ? "0" : "4"}>
+          <CustomFieldInput
+            fields={shownCustomFields}
+            value={form.watch("customFields")}
+            onChange={(value) => form.setValue("customFields", value)}
+          />
+        </Box>
       ) : null}
     </ModalStandard>
   );

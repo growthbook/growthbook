@@ -21,6 +21,10 @@ import {
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  experimentAnalysisSettingsDraft,
+  ExperimentAnalysisSettingsDraft,
+} from "shared/validators";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -86,6 +90,8 @@ const AnalysisForm: FC<{
    * A holdout's assignment query must cover every Project the holdout spans.
    */
   holdoutProjects?: string[];
+  /** Stages the analysis settings on the page's draft instead of writing them. */
+  stageChanges?: (changes: ExperimentAnalysisSettingsDraft) => void;
 }> = ({
   experiment,
   envs,
@@ -97,6 +103,7 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
+  stageChanges,
 }) => {
   const {
     segments,
@@ -540,13 +547,19 @@ const AnalysisForm: FC<{
           }
         }
 
+        if (stageChanges) {
+          // Strips anything outside the analysis settings.
+          stageChanges(experimentAnalysisSettingsDraft.parse(body));
+          return;
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(body),
         });
         mutate();
       })}
-      cta="Save"
+      cta={stageChanges ? "Confirm" : "Save"}
     >
       <Box>
         {isBandit && (
@@ -1289,11 +1302,17 @@ const AnalysisForm: FC<{
                           </PremiumTooltip>
                           <small className="form-text text-muted mb-2">
                             Override metric behaviors within this experiment.
-                            Leave any fields empty that you do not want to
-                            override.
+                            Anything you don&apos;t override follows the
+                            metric&apos;s own settings.
                           </small>
                           <MetricsOverridesSelector
                             experiment={experiment}
+                            // The source being edited here, not the stored one.
+                            datasource={form.watch("datasource")}
+                            statsEngine={
+                              form.watch("statsEngine") ||
+                              scopedSettings.statsEngine.value
+                            }
                             form={
                               form as unknown as UseFormReturn<EditMetricsFormInterface>
                             }

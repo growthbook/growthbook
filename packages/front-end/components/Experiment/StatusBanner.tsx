@@ -1,20 +1,16 @@
 import { FaPencilAlt } from "react-icons/fa";
 import { getAllVariations } from "shared/experiments";
-import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
-import track from "@/services/track";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
-  mutateExperiment: () => void;
   editResult?: () => void;
 }
 
-export default function StatusBanner({ mutateExperiment, editResult }: Props) {
+export default function StatusBanner({ editResult }: Props) {
   const { experiment } = useSnapshot();
-  const { apiCall } = useAuth();
 
   if (experiment?.status === "stopped") {
     const result = experiment.results;
@@ -124,42 +120,6 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
         }
       >
         <strong>This experiment is currently running.</strong>
-      </Callout>
-    );
-  }
-
-  if (experiment?.status === "draft") {
-    return (
-      <Callout
-        status="warning"
-        mb="0"
-        action={
-          editResult && (
-            <Button
-              variant="ghost"
-              color="inherit"
-              onClick={async () => {
-                // Already has a phase, just update the status
-                await apiCall(`/experiment/${experiment?.id}/status`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    status: "running",
-                  }),
-                });
-                track("Start experiment", {
-                  source: "experiment-start-banner-on-results",
-                  hasDatasource: !!experiment.datasource,
-                  hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
-                });
-                mutateExperiment();
-              }}
-            >
-              Start Experiment
-            </Button>
-          )
-        }
-      >
-        <strong>This is a draft experiment.</strong>
       </Callout>
     );
   }

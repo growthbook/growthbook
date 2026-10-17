@@ -5,11 +5,9 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -21,6 +19,7 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { RedirectFields } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -50,15 +49,19 @@ function validateUrl(urlString: string): {
   }
 }
 
+type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
+
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
-  urlRedirect?: URLRedirectInterface;
-  mutate: () => void;
+  // As the page shows them, staged edits included.
+  variations: ShownVariation[];
+  urlRedirect?: RedirectFields;
+  // Stages it with the page's other edits; rejects, with why, to stay open.
+  stage: (redirect: RedirectFields) => Promise<void>;
   close: () => void;
   source?: string;
-}> = ({ mode, experiment, urlRedirect, mutate, close, source }) => {
-  const { apiCall } = useAuth();
+}> = ({ mode, experiment, variations, urlRedirect, stage, close, source }) => {
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const hasSDKWithRedirects = getConnectionsSDKCapabilities({
@@ -69,10 +72,15 @@ const UrlRedirectModal: FC<{
   const form = useForm({
     defaultValues: {
       originUrl: urlRedirect?.urlPattern ?? "",
-      destinationUrls: urlRedirect?.destinationURLs?.map((r) => r.url) ?? [""],
+      // By variation, not position: the page's variations may be staged.
+      destinationUrls: variations.map(
+        (v) =>
+          urlRedirect?.destinationURLs.find((d) => d.variation === v.id)?.url ??
+          "",
+      ),
       persistQueryString:
         mode === "add" ? true : !!urlRedirect?.persistQueryString,
-      circularDependencyCheck: true,
+      circularDependencyCheck: urlRedirect?.checkCircularDependencies ?? true,
     },
   });
   const {
@@ -83,44 +91,28 @@ const UrlRedirectModal: FC<{
     form.watch("originUrl")
       ? form.watch("destinationUrls").map((u) => !!u)
       : () => {
-          const initialArray = Array(
-            getLatestPhaseVariations(experiment).length,
-          ).fill(true);
+          const initialArray = Array(variations.length).fill(true);
           initialArray[0] = false;
           return initialArray;
         },
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const payload = {
+    await stage({
       urlPattern: value.originUrl,
-      destinationURLs: getLatestPhaseVariations(experiment).map((v, i) => {
-        return {
+      destinationURLs: [
+        ...variations.map((v, i) => ({
           variation: v.id,
-          url: value.destinationUrls[i],
-        };
-      }),
+          url: value.destinationUrls[i] ?? "",
+        })),
+        // A variation staged away keeps its destination, in case it comes back.
+        ...(urlRedirect?.destinationURLs ?? []).filter(
+          (d) => !variations.some((v) => v.id === d.variation),
+        ),
+      ],
       persistQueryString: value.persistQueryString,
-    };
-    if (mode === "add") {
-      await apiCall<{ urlRedirect: URLRedirectInterface }>(
-        `/url-redirects/?circularDependencyCheck=${value.circularDependencyCheck}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ ...payload, experiment: experiment.id }),
-        },
-      );
-      mutate();
-    } else {
-      await apiCall(
-        `/url-redirects/${urlRedirect?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        },
-      );
-      mutate();
-    }
+      checkCircularDependencies: value.circularDependencyCheck,
+    });
   });
 
   const handleRedirectToggle = (i: number, enabled: boolean) => {
@@ -141,6 +133,7 @@ const UrlRedirectModal: FC<{
       size="lg"
       header={`${mode === "add" ? "Add" : "Edit"} URL Redirects`}
       submit={onSubmit}
+      cta="Apply"
       ctaEnabled={hasSDKWithRedirects}
     >
       <Box>
@@ -191,7 +184,7 @@ const UrlRedirectModal: FC<{
           <Heading color="text-high" size="sm" as="h4" mb="2">
             Destination URLs
           </Heading>
-          {getLatestPhaseVariations(experiment).map((v, i) => {
+          {variations.map((v, i) => {
             let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&

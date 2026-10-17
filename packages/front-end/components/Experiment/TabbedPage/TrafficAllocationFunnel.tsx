@@ -1,40 +1,145 @@
-import { ReactNode } from "react";
-import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import clsx from "clsx";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
+  LinkedFeatureInfo,
+  Variation,
+} from "shared/types/experiment";
+import {
+  getEqualWeights,
   getLatestPhaseVariations,
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
+import { generateVariationId } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
+import EditSplitModal from "@/components/Experiment/EditSplitModal";
 import VariationsTable, {
-  getVariationGridColumns,
+  VARIATION_GRID_GAP_PX,
+  variationGridColumnCount,
+  variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Tooltip from "@/ui/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import Link from "@/ui/Link";
+import {
+  EnvironmentStateChips,
+  environmentStateTense,
+  getEnvironmentStates,
+  stageEnvironmentInputs,
+  statesFromInputs,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  environmentStatesDiffer,
+  hasUnpublishedChanges,
+} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
+import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
+import FlagValueRows from "./FlagValueRows";
+import {
+  DraftPick,
+  FlagDraftPicks,
+  resolveDraftPick,
+  withPickedDraft,
+} from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
+import SetupFieldRow from "./SetupFieldRow";
+import useExperimentEditing from "./useExperimentEditing";
+import {
+  experimentFieldChanges,
+  FlagEnvironmentsDraft,
+  HoldoutDraft,
+  useRegisterExperimentEdit,
+} from "./ExperimentEdits";
+import { onlyTrafficChanged } from "./targetingDraft";
+import {
+  PercentField,
+  PercentSlider,
+} from "@/components/Forms/PercentSliderField";
 
 export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
-  editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
-  addVariation?: (() => void) | null;
+  /** Offers the + that appends a variation and evens out the split. */
+  canAddVariation?: boolean;
+  /** Stages a new set of variations for the page's Save. */
+  stageVariations?: (variations: Variation[]) => void;
+  /** Environment scopes staged per flag. */
+  flagEnvironments?: FlagEnvironmentsDraft;
+  /** The page's staged holdout. */
+  holdoutDraft?: HoldoutDraft;
+  /** Whether the experiment can leave its holdout here. */
+  canStageHoldout?: boolean;
+  /** Whether it can join or switch holdouts here, which needs the feature. */
+  canJoinHoldout?: boolean;
+  /** Why the holdout is fixed, shown on its disabled pencil. */
+  holdoutLockedReason?: string | null;
   setEditVariationIndex?: (index: number) => void;
+  setEditKeyIndex?: (index: number) => void;
+  /** The sole linked Feature Flag, whose environments and draft the header describes. */
+  servedValueFeature?: LinkedFeatureInfo | null;
+  /** Every linked Feature Flag, one value row each under the variations. */
+  linkedFeatures?: LinkedFeatureInfo[];
+  /** Whether the value rows can be edited in place. */
+  canEditFlagValues?: boolean;
+  /** Links another Feature Flag from under the value rows. */
+  addFeatureFlag?: (() => void) | null;
+  /** Why a Feature Flag can't be added right now. */
+  addFeatureFlagBlockedReason?: string | null;
+  /** The URL Redirect and Visual Editor sections, under the Feature Flags. */
+  otherImplementations?: ReactNode;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
+  /**
+   * The targeting the page has confirmed but not yet written, and the way to
+   * change it. Held by the page, since the modal that stages it lives there.
+   */
+  targetingDraft?: TargetingDraft;
+}
+
+export interface TargetingDraft {
+  value: ExperimentTargetingData | null;
+  /**
+   * Takes an updater as well as a value: rebalancing writes every weight in
+   * one tick, and each write has to see the one before it.
+   */
+  set: Dispatch<SetStateAction<ExperimentTargetingData | null>>;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -44,18 +149,22 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 function FunnelCard({
   title,
-  titleColor = "text-high",
   inlineSummary,
   onEdit,
   children,
   disabled = false,
+  editBlockedReason,
+  menu,
 }: {
   title: string;
-  titleColor?: "text-disabled" | "text-high";
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
   disabled?: boolean;
+  /** Why the pencil cannot open right now, which it wears rather than vanishing. */
+  editBlockedReason?: string | null;
+  /** Items for the menu right of the pencil; no menu without them. */
+  menu?: ReactNode;
 }) {
   return (
     <Box
@@ -63,12 +172,12 @@ function FunnelCard({
       maxWidth="692px"
       width="100%"
       mb="0"
-      py="4"
-      style={{ paddingLeft: 20, paddingRight: 20 }}
+      py="3"
+      style={{ paddingLeft: 16, paddingRight: 16 }}
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="lg" weight="medium" color={titleColor}>
+          <Text size="lg" weight="medium" color="text-high">
             {title}
           </Text>
           {inlineSummary ? (
@@ -77,28 +186,55 @@ function FunnelCard({
             </Text>
           ) : null}
         </Flex>
-        {onEdit && !disabled ? (
-          <IconButton
-            variant="ghost"
-            color="violet"
-            onClick={() => onEdit()}
-            size="1"
-            aria-label={`Edit ${title}`}
-          >
-            <PiPencilSimpleFill size="15" />
-          </IconButton>
-        ) : null}
+        <Flex align="center" gap="3">
+          {onEdit && !disabled ? (
+            <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
+              <IconButton
+                variant="ghost"
+                color="violet"
+                radius="medium"
+                disabled={!!editBlockedReason}
+                onClick={() => onEdit()}
+                size="1"
+                aria-label={`Edit ${title}`}
+              >
+                <PiPencilSimple size="14" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+          {menu ? (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                  aria-label={`${title} actions`}
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {menu}
+            </DropdownMenu>
+          ) : null}
+        </Flex>
       </Flex>
-      {children ? <Box mt="3">{children}</Box> : null}
+      {children ? <Box mt="1">{children}</Box> : null}
     </Box>
   );
 }
 
 function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
-    <Flex direction="column" align="center" justify="center" pb="2">
+    <Flex direction="column" align="center" justify="center">
       <Box className={styles.connectorLine} height="15px" />
-      <Box mt="-3" className={styles.caret}>
+      <Box mt="-3" mb="-1" className={styles.caret}>
         <PiCaretDownBold size="11" />
       </Box>
       {label ? (
@@ -110,60 +246,53 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
   );
 }
 
-function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
+function VariationFork({ count }: { count: number }) {
   const cols = Math.min(count, 3);
-
-  // Match the VariationsTable grid so the arrows align with the columns.
-  const columns = getVariationGridColumns(cols);
-
-  // Match the grid's per-breakpoint column count: cell 0 always, cell 1 from xs, cell 2 from sm.
-  const cellDisplay = (i: number) =>
-    i === 0
-      ? undefined
-      : i === 1
-        ? ({ initial: "none", xs: "flex" } as const)
-        : ({ initial: "none", sm: "flex" } as const);
-
-  // Draw the right bus segment only when the right neighbor is visible at this breakpoint.
-  const rightSegDisplay = (i: number) =>
-    i === 0
-      ? ({ initial: "none", xs: "block" } as const)
-      : ({ initial: "none", sm: "block" } as const);
+  // One arrow per column the cards below actually take once they wrap, or a
+  // wrapped arrow's bus points off the edge.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [shown, setShown] = useState(cols);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const measure = () =>
+      setShown(variationGridColumnCount(grid.clientWidth, cols));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [cols]);
 
   return (
-    <Box pb="2">
-      {label ? (
-        <Flex direction="column" align="center" justify="center" mb="1">
-          <Box className={styles.connectorLine} height="12px" />
-          <Text size="sm" color="text-low">
-            {label}
-          </Text>
-        </Flex>
-      ) : null}
+    <Box>
       {/* Stem down to the horizontal bus */}
       <Flex direction="column" align="center">
         <Box className={styles.connectorLine} height="12px" />
       </Flex>
-      <Grid columns={columns} gap="4" justify="center">
-        {Array.from({ length: cols }).map((_, i) => (
+      <Grid
+        ref={gridRef}
+        columns={`repeat(${shown}, 1fr)`}
+        gap="4"
+        justify="center"
+        style={{ maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }}
+      >
+        {Array.from({ length: shown }).map((_, i) => (
           <Flex
             key={i}
             direction="column"
             align="center"
-            display={cellDisplay(i)}
             className={styles.cell}
           >
             {i > 0 ? (
               <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
             ) : null}
-            {i < cols - 1 ? (
+            {i < shown - 1 ? (
               <Box
-                display={rightSegDisplay(i)}
                 className={clsx(styles.busSegment, styles.busSegmentRight)}
               />
             ) : null}
             <Box className={styles.connectorLine} height="22px" />
-            <Box mt="-3" className={styles.caret}>
+            <Box mt="-3" mb="-1" className={styles.caret}>
               <PiCaretDownBold size="11" />
             </Box>
           </Flex>
@@ -177,27 +306,272 @@ export default function TrafficAllocationFunnel({
   phaseIndex = null,
   experiment,
   editTargeting,
-  editTraffic,
   editNamespace,
-  addVariation,
+  canAddVariation = false,
+  stageVariations,
+  flagEnvironments,
+  holdoutDraft,
+  canStageHoldout = false,
+  canJoinHoldout = false,
+  holdoutLockedReason = null,
   setEditVariationIndex,
+  setEditKeyIndex,
+  servedValueFeature: storedServedValueFeature,
+  linkedFeatures = [],
+  canEditFlagValues = false,
+  addFeatureFlag,
+  addFeatureFlagBlockedReason = null,
+  otherImplementations,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
+  targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
+  const { apiCall } = useAuth();
+  const { editInline } = useExperimentEditing(experiment);
 
-  const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
+  const targetingDefaults = useTargetingDefaults(experiment);
+  const staged = targetingDraft?.value ?? null;
+
+  // Everything below reads the staged targeting where there is one, so a
+  // confirmed change shows on the page before it is written.
+  const stagePatch = (patch: Partial<ExperimentTargetingData>) =>
+    targetingDraft?.set((prev) => ({
+      ...(prev ?? targetingDefaults),
+      ...patch,
+    }));
+
+  const clearStaged = {
+    onSaved: () => targetingDraft?.set(null),
+    discard: () => targetingDraft?.set(null),
+  };
+  useRegisterExperimentEdit(
+    "targeting",
+    !!staged,
+    // With no phase yet there's nothing to patch; targeting creates the first.
+    staged &&
+      experiment.phases.length > 0 &&
+      onlyTrafficChanged(staged, targetingDefaults)
+      ? {
+          ...clearStaged,
+          changes: () =>
+            experimentFieldChanges(experiment, {
+              coverage: staged.coverage,
+              variationWeights: staged.variationWeights,
+            }),
+        }
+      : {
+          ...clearStaged,
+          save: async () => {
+            await apiCall(`/experiment/${experiment.id}/targeting`, {
+              method: "POST",
+              body: JSON.stringify(staged),
+            });
+          },
+        },
+  );
+
+  // The experiment-level half of the targeting, staged the same way.
+  const hashAttribute =
+    staged?.hashAttribute ?? experiment.hashAttribute ?? "id";
+  const fallbackAttribute =
+    staged?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
+
+  const [editingSplit, setEditingSplit] = useState<number | null>(null);
+
+  const stageVariationList = (
+    variations: Variation[],
+    weights = getEqualWeights(variations.length, 4),
+  ) => {
+    stageVariations?.(variations);
+    // Targeting writes the phase's variations too, so it must carry them.
+    stagePatch({
+      variations: variations.map(({ id }) => ({ id, status: "active" })),
+      variationWeights: weights,
+    });
+  };
+  const [reordering, setReordering] = useState(false);
+  const storedVariations = () =>
+    getLatestPhaseVariations(experiment).map(
+      ({ id, key, name, description, screenshots }): Variation => ({
+        id,
+        key,
+        name,
+        description,
+        screenshots,
+      }),
+    );
+  const removeVariation = (index: number) =>
+    stageVariationList(storedVariations().filter((_, i) => i !== index));
+  const addVariation = () => {
+    const current = storedVariations();
+    const variations = [
+      ...current,
+      {
+        id: generateVariationId(),
+        key: String(current.length),
+        name: `Variation ${current.length}`,
+        description: "",
+        screenshots: [],
+      },
+    ];
+    stageVariationList(variations);
+    track("Added Variations", {
+      source: "setup-tab",
+      numVariationsAdded: 1,
+      totalVariations: variations.length,
+    });
+  };
+
+  const storedPhase =
+    experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
+  const phase = staged
+    ? {
+        ...storedPhase,
+        coverage: staged.coverage,
+        condition: staged.condition,
+        savedGroups: staged.savedGroups,
+        prerequisites: staged.prerequisites,
+        variationWeights: staged.variationWeights,
+        namespace: staged.namespace,
+      }
+    : storedPhase;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
   const { coverage: namespaceCoverage, name: namespaceName } =
     getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const permissionsUtil = usePermissionsUtil();
+
+  // Each flag's row picks the draft it shows; the readouts here follow it.
+  const [draftPickValue, setDraftPicks] = useState<Record<string, DraftPick>>(
+    {},
+  );
+  const draftPicks: FlagDraftPicks = useMemo(
+    () => ({
+      value: draftPickValue,
+      set: (featureId, pick) =>
+        setDraftPicks((prev) => ({ ...prev, [featureId]: pick })),
+    }),
+    [draftPickValue],
+  );
+  const pickedFeatures = useMemo(
+    () =>
+      linkedFeatures.map((info) =>
+        withPickedDraft(info, draftPickValue[info.feature.id]),
+      ),
+    [linkedFeatures, draftPickValue],
+  );
+  const servedValueFeature = useMemo(
+    () =>
+      storedServedValueFeature
+        ? withPickedDraft(
+            storedServedValueFeature,
+            draftPickValue[storedServedValueFeature.feature.id],
+          )
+        : null,
+    [storedServedValueFeature, draftPickValue],
+  );
+
+  const liveRule = servedValueFeature?.liveHasMatchingRule
+    ? servedValueFeature
+    : undefined;
+  const environmentsDiffer = servedValueFeature
+    ? environmentStatesDiffer(servedValueFeature)
+    : false;
+
+  // A draft to show only when something it shows actually moved: any linked
+  // flag counts, since the value rows show every flag's draft.
+  const hasDraftChanges = useMemo(
+    () => pickedFeatures.some(hasUnpublishedChanges),
+    [pickedFeatures],
+  );
+  // Re-scoping environments stages a draft without re-bucketing.
+  const canEditEnvironments =
+    !!servedValueFeature &&
+    !servedValueFeature.pendingRemoval &&
+    canEditExperiment &&
+    permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
+  const [editEnvironments, setEditEnvironments] = useState(false);
+  const envStateSource = hasDraftChanges
+    ? servedValueFeature?.pendingDraft
+    : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
+  const environmentsAreDraft = hasDraftChanges && environmentsDiffer;
+
+  const stagedScope = servedValueFeature
+    ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
+    : null;
+  // What a staged scope lands on.
+  const scopeBaseInputs =
+    (hasDraftChanges
+      ? servedValueFeature?.pendingDraft?.environmentInputs
+      : servedValueFeature?.liveEnvironmentInputs) ??
+    servedValueFeature?.environmentInputs ??
+    {};
+  const environmentStates = getEnvironmentStates(
+    stagedScope && servedValueFeature
+      ? {
+          environmentStates: statesFromInputs(
+            stageEnvironmentInputs(scopeBaseInputs, stagedScope),
+          ),
+        }
+      : envStateSource || { environmentStates: {} },
+    {
+      future: environmentStateTense({
+        status: experiment.status,
+        unpublished: environmentsAreDraft || !!stagedScope,
+        // The row's pick, which may not be the draft that launches.
+        launches:
+          !storedServedValueFeature ||
+          resolveDraftPick(
+            storedServedValueFeature,
+            draftPickValue[storedServedValueFeature.feature.id],
+          ).launches,
+      }),
+    },
+  );
+
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
+  const variationsLocked = isRunning;
+  const canStageVariations =
+    canEditExperiment &&
+    !variationsLocked &&
+    !!stageVariations &&
+    !!targetingDraft;
+  // Bucketing follows the variation list, so its shape is fixed once it starts.
+  const canRestructure = canStageVariations && experiment.status === "draft";
+  const canAddNamespace =
+    !isHoldout &&
+    !!editNamespace &&
+    safeToEdit &&
+    !hasNamespace &&
+    !!namespaces?.length;
 
-  const hasConfiguredTargeting = hasTargetingConfigured(phase);
+  // Staged over what's stored: "" means leaving the stored holdout.
+  const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";
+  const { holdouts, holdoutsMap, experimentsMap } = useHoldouts(
+    undefined,
+    false,
+    { enabled: canStageHoldout || !!holdoutId },
+  );
+  const [choosingHoldout, setChoosingHoldout] = useState(false);
+  // Only when the picker would have something to offer.
+  const canAddHoldout =
+    canJoinHoldout &&
+    !isHoldout &&
+    !holdoutId &&
+    selectableHoldouts(holdouts, experimentsMap, experiment.project).length > 0;
+  // Leaving a holdout only just staged is undoing it.
+  const leaveHoldout = () =>
+    holdoutDraft?.set(experiment.holdoutId ? "" : null);
+  const stageHoldout = (id: string) =>
+    holdoutDraft?.set(id === (experiment.holdoutId ?? "") ? null : id);
+
+  // Environment scope has its own line above, so the audience is attributes alone.
+  const targetsEveryone = !hasTargetingConfigured(phase);
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
@@ -215,30 +589,92 @@ export default function TrafficAllocationFunnel({
   const includedLabel = namespaceCoverage
     ? `${percentFormatter.format(namespaceCoverage)} traffic included`
     : undefined;
-  const numVariations = getLatestPhaseVariations(experiment).length;
+  const phaseVariations = getLatestPhaseVariations(experiment);
+  const numVariations = phaseVariations.length;
+  const variationWeights = phase.variationWeights ?? [];
+  const coverage = phase.coverage ?? 1;
 
   return (
-    <Frame>
-      <Flex justify="between" align="center" mb="4">
-        <Heading color="text-high" as="h4" size="sm" mb="0">
-          Traffic Allocation
-        </Heading>
-        {!isHoldout &&
-          editNamespace &&
-          safeToEdit &&
-          !hasNamespace &&
-          !!namespaces?.length && (
-            <Link onClick={editNamespace}>
-              <Flex align="center" gap="1">
-                <PiPlus size="15" />
-                <Text weight="semibold">Add Namespace</Text>
-              </Flex>
-            </Link>
-          )}
-      </Flex>
-
+    <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
+      {choosingHoldout ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          holdoutId={holdoutId}
+          stage={stageHoldout}
+          close={() => setChoosingHoldout(false)}
+        />
+      ) : null}
+      {editEnvironments && servedValueFeature && flagEnvironments && (
+        <EditExperimentEnvironmentsModal
+          info={servedValueFeature}
+          stagedScope={stagedScope}
+          environmentStates={environmentStates}
+          environmentInputs={scopeBaseInputs}
+          showFlag
+          close={() => setEditEnvironments(false)}
+          apply={(scope) => {
+            flagEnvironments.set(servedValueFeature.feature.id, scope);
+            setEditEnvironments(false);
+          }}
+        />
+      )}
       <Flex direction="column">
         <Flex align="center" direction="column">
+          {/* An archived Feature Flag serves nothing; its row says why. */}
+          {environmentStates.length > 0 &&
+          servedValueFeature?.state !== "archived" ? (
+            <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
+              <Text color="text-high" weight="semibold">
+                Environments:
+              </Text>
+              <EnvironmentStateChips states={environmentStates} />
+              {canEditEnvironments && flagEnvironments ? (
+                <IconButton
+                  variant="ghost"
+                  color="violet"
+                  radius="medium"
+                  size="1"
+                  onClick={() => setEditEnvironments(true)}
+                  aria-label="Edit environments"
+                >
+                  <PiPencilSimple size="14" />
+                </IconButton>
+              ) : null}
+            </Flex>
+          ) : null}
+
+          {!isHoldout && holdoutId ? (
+            <>
+              <FunnelCard
+                title="Holdout"
+                onEdit={
+                  canJoinHoldout || holdoutLockedReason
+                    ? () => setChoosingHoldout(true)
+                    : null
+                }
+                editBlockedReason={holdoutLockedReason}
+                menu={
+                  canStageHoldout ? (
+                    <DropdownMenuItem color="red" onClick={leaveHoldout}>
+                      Remove from holdout
+                    </DropdownMenuItem>
+                  ) : null
+                }
+              >
+                <SetupFieldRow label="Name" content="text">
+                  {/* A new tab, so following it never costs the page's edits. */}
+                  <Link href={`/holdout/${holdoutId}`} external>
+                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
+                  </Link>
+                </SetupFieldRow>
+                <SetupFieldRow label="ID" content="text">
+                  <Text color="text-mid">{holdoutId}</Text>
+                </SetupFieldRow>
+              </FunnelCard>
+              <FunnelConnector />
+            </>
+          ) : null}
+
           {!isHoldout && hasNamespace && (
             <>
               <FunnelCard
@@ -257,83 +693,105 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            titleColor={!hasConfiguredTargeting ? "text-disabled" : undefined}
             onEdit={editTargeting}
-            inlineSummary={
-              hasConfiguredTargeting ? undefined : (
-                <Text size="lg">
-                  <em>Everyone</em>
-                </Text>
-              )
-            }
             disabled={!safeToEdit}
-          >
-            <Flex direction="column" gap="4">
-              <AssignmentAttribute experiment={experiment} />
-              {hasConfiguredTargeting ? (
+            menu={
+              canAddNamespace || canAddHoldout ? (
                 <>
-                  {hasCondition ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Attribute Targeting
-                      </Text>
-                      <ConditionDisplay condition={phase.condition} />
-                    </div>
+                  {canAddHoldout ? (
+                    <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
+                      Add to holdout
+                    </DropdownMenuItem>
                   ) : null}
-                  {hasSavedGroups ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Saved Group Targeting
-                      </Text>
-                      <SavedGroupTargetingDisplay
-                        savedGroups={phase.savedGroups}
-                      />
-                    </div>
-                  ) : null}
-                  {hasPrerequisites ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Prerequisite Targeting
-                      </Text>
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
-                    </div>
+                  {canAddNamespace ? (
+                    <DropdownMenuItem onClick={() => editNamespace?.()}>
+                      Add namespace
+                    </DropdownMenuItem>
                   ) : null}
                 </>
-              ) : null}
-            </Flex>
+              ) : null
+            }
+          >
+            <SetupFieldRow label="Audience" content="text">
+              {targetsEveryone ? (
+                <Text color="text-mid">
+                  <em>Everyone</em>
+                </Text>
+              ) : (
+                <Flex direction="column" gap="3">
+                  {hasCondition ? (
+                    <ConditionDisplay condition={phase.condition} />
+                  ) : null}
+                  {hasSavedGroups ? (
+                    <SavedGroupTargetingDisplay
+                      savedGroups={phase.savedGroups}
+                    />
+                  ) : null}
+                  {hasPrerequisites ? (
+                    <ConditionDisplay prerequisites={phase.prerequisites} />
+                  ) : null}
+                </Flex>
+              )}
+            </SetupFieldRow>
+            <AssignmentAttribute
+              experiment={experiment}
+              hashAttribute={hashAttribute}
+              fallbackAttribute={fallbackAttribute}
+              editInline={editInline}
+              stagePatch={stagePatch}
+            />
           </FunnelCard>
 
           <FunnelConnector />
 
-          <FunnelCard
-            title="Traffic"
-            onEdit={editTraffic}
-            disabled={!safeToEdit}
-          >
+          {/* No pencil: the percentage edits in place, the split has its own
+              editor, and each variation carries its own. */}
+          <FunnelCard title="Traffic">
             {!isHoldout ? (
               <Box mb="1">
-                <Text weight="semibold" color="text-high">
-                  Included in this experiment:{" "}
-                  <Text color="text-high" weight="regular">
-                    {Math.round(phase.coverage * 100)}%
-                  </Text>
-                </Text>
-                <Box
-                  mt="3"
-                  overflow="hidden"
-                  style={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: "var(--gray-a4)",
-                  }}
+                <SetupFieldRow
+                  label="Included %"
+                  content={editInline ? "control" : "text"}
+                  labelAlign="center"
+                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
                 >
-                  <Box
-                    style={{
-                      width: `${Math.min(100, Math.max(0, phase.coverage * 100))}%`,
-                      height: "100%",
-                      backgroundColor: "var(--violet-9)",
-                    }}
-                  />
+                  {editInline ? (
+                    <PercentField
+                      value={coverage}
+                      onChange={(next) => stagePatch({ coverage: next })}
+                      ariaLabel="Included %"
+                    />
+                  ) : (
+                    <Text color="text-mid">{Math.round(coverage * 100)}%</Text>
+                  )}
+                </SetupFieldRow>
+                {/* The bar keeps its place while a draft is edited: the
+                    slider is the same readout, made draggable. */}
+                <Box mt="1">
+                  {editInline ? (
+                    <PercentSlider
+                      value={coverage}
+                      onChange={(next) => stagePatch({ coverage: next })}
+                      ariaLabel="Included %"
+                    />
+                  ) : (
+                    <Box
+                      overflow="hidden"
+                      style={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: "var(--gray-a4)",
+                      }}
+                    >
+                      <Box
+                        style={{
+                          width: `${Math.min(100, Math.max(0, coverage * 100))}%`,
+                          height: "100%",
+                          backgroundColor: "var(--violet-9)",
+                        }}
+                      />
+                    </Box>
+                  )}
                 </Box>
               </Box>
             ) : (
@@ -355,10 +813,93 @@ export default function TrafficAllocationFunnel({
         </Flex>
         {!isHoldout && (
           <>
-            <VariationFork
-              count={numVariations}
-              label={`${isBandit ? "" : "% Split"}`}
-            />
+            {isBandit ? (
+              <VariationFork count={numVariations} />
+            ) : (
+              <Box pb="4">
+                <Flex direction="column" align="center">
+                  <Box className={styles.connectorLine} height="6px" />
+                  {/* The label stays centred on the stem, so the pencil hangs
+                      off its right rather than taking room in the row. */}
+                  <Box position="relative">
+                    <Text size="md" weight="medium" color="text-mid">
+                      Split
+                    </Text>
+                    {editInline ? (
+                      <Box
+                        position="absolute"
+                        left="100%"
+                        top="50%"
+                        ml="1"
+                        style={{ lineHeight: 0, transform: "translateY(-50%)" }}
+                      >
+                        <Tooltip content="Edit Split">
+                          <IconButton
+                            variant="ghost"
+                            color="violet"
+                            radius="medium"
+                            size="1"
+                            onClick={() => setEditingSplit(0)}
+                            aria-label="Edit Split"
+                          >
+                            <PiPencilSimple size="14" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    ) : null}
+                  </Box>
+                </Flex>
+                {/* Coverage is already shown above, so this bar is purely the
+                    split between variations. Held to the grid's width so the
+                    two line up. */}
+                <Box
+                  mx="auto"
+                  style={{
+                    maxWidth: variationGridMaxWidth(Math.min(numVariations, 3)),
+                  }}
+                >
+                  <ExperimentSplitVisual
+                    slim
+                    connector
+                    overhang={VARIATION_GRID_GAP_PX / 2}
+                    bleed={2}
+                    coverage={1}
+                    stackLeft
+                    type="string"
+                    onSegmentClick={
+                      editInline ? (i) => setEditingSplit(i) : undefined
+                    }
+                    values={phaseVariations.map((v, i) => ({
+                      value: v.key,
+                      weight: variationWeights[i] ?? 0,
+                      name: v.name,
+                    }))}
+                  />
+                </Box>
+              </Box>
+            )}
+
+            {editingSplit !== null ? (
+              <EditSplitModal
+                variations={phaseVariations}
+                weights={variationWeights}
+                focusIndex={editingSplit}
+                close={() => setEditingSplit(null)}
+                onConfirm={(weights) => {
+                  stagePatch({ variationWeights: weights });
+                  setEditingSplit(null);
+                }}
+              />
+            ) : null}
+
+            {reordering ? (
+              <ReorderVariationsModal
+                experiment={experiment}
+                weights={variationWeights}
+                close={() => setReordering(false)}
+                stage={stageVariationList}
+              />
+            ) : null}
 
             <VariationsTable
               experiment={experiment}
@@ -366,20 +907,39 @@ export default function TrafficAllocationFunnel({
               mutate={mutate}
               noMargin
               centered
+              showSplit={false}
+              // Names, descriptions and screenshots aren't served, so they
+              // stay editable while it runs.
               onEditMetadata={
                 canEditExperiment && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
-              onEditTraffic={
-                canEditExperiment && editTraffic ? editTraffic : undefined
-              }
-              onAddVariation={
-                canEditExperiment && !isRunning && addVariation
-                  ? addVariation
+              onEditKey={
+                canEditExperiment && !variationsLocked && setEditKeyIndex
+                  ? setEditKeyIndex
                   : undefined
               }
+              onRemoveVariation={
+                canRestructure && numVariations > 2
+                  ? removeVariation
+                  : undefined
+              }
+              onReorder={canRestructure ? () => setReordering(true) : undefined}
+              onAddVariation={
+                canStageVariations && canAddVariation ? addVariation : undefined
+              }
             />
+            <FlagValueRows
+              experiment={experiment}
+              flagEnvironments={flagEnvironments}
+              draftPicks={draftPicks}
+              linkedFeatures={linkedFeatures}
+              canEdit={canEditFlagValues}
+              onAddFlag={addFeatureFlag}
+              addFlagBlockedReason={addFeatureFlagBlockedReason}
+            />
+            {otherImplementations}
           </>
         )}
       </Flex>
@@ -389,32 +949,77 @@ export default function TrafficAllocationFunnel({
 
 function AssignmentAttribute({
   experiment,
+  hashAttribute,
+  fallbackAttribute,
+  editInline,
+  stagePatch,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  hashAttribute: string;
+  fallbackAttribute: string;
+  editInline: boolean;
+  stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
-  const isHoldout = experiment.type === "holdout";
-  const { useStickyBucketing } = useOrgSettings();
+  // The picker is too narrow for a popover above it.
+  const formatAttributeOption = useMemo(
+    () => attributeOptionLabelFormatter("right"),
+    [],
+  );
+  const attributeOptions = useHashAttributeOptions(
+    experiment.attributeScopeAllProjects || !experiment.project
+      ? null
+      : [experiment.project],
+    hashAttribute,
+  );
+
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+
   return (
-    <Box>
-      <Text weight="semibold" color="text-high" mr="2">
-        Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}:{" "}
-      </Text>
-      <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
-      {experiment.fallbackAttribute ? (
-        <>
-          , <AttributeBadge attributeId={experiment.fallbackAttribute} />
-        </>
+    <>
+      <SetupFieldRow
+        label="Assignment attribute"
+        content={editInline ? "control" : "text"}
+        labelAlign="center"
+        fieldMaxWidth="100px"
+        tooltip="Hashed with the tracking key to decide which variation each user gets."
+      >
+        {editInline ? (
+          <SelectField
+            size="md"
+            value={hashAttribute}
+            options={attributeOptions}
+            sort={false}
+            formatOptionLabel={formatAttributeOption}
+            onChange={(v) =>
+              // A fallback matching the attribute it backs up is no fallback.
+              stagePatch({
+                hashAttribute: v,
+                ...(v === fallbackAttribute && { fallbackAttribute: "" }),
+              })
+            }
+          />
+        ) : (
+          <Box>
+            <AttributeBadge attributeId={hashAttribute} />
+            {fallbackAttribute ? (
+              <>
+                , <AttributeBadge attributeId={fallbackAttribute} />
+              </>
+            ) : null}
+          </Box>
+        )}
+      </SetupFieldRow>
+      {editInline ? (
+        <LinkHashAttributeCallout
+          experimentId={experiment.id}
+          datasource={datasource}
+          hashAttribute={hashAttribute}
+          source="Experiment Setup"
+        />
       ) : null}
-      {!isHoldout && useStickyBucketing ? (
-        <Box mt="1">
-          <Text weight="semibold" color="text-high" mr="2">
-            Sticky bucketing:
-          </Text>
-          <Text color="text-mid">
-            {experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-          </Text>
-        </Box>
-      ) : null}
-    </Box>
+    </>
   );
 }

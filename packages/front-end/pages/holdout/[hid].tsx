@@ -1,15 +1,13 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { getHoldoutStage, includeHoldoutInPayload } from "shared/util";
+import { getHoldoutStage } from "shared/util";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
@@ -31,9 +29,7 @@ const HoldoutPage = (): ReactElement => {
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
@@ -103,13 +99,9 @@ const HoldoutPage = (): ReactElement => {
         }
       }
     : null;
-  const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
-    : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -121,10 +113,6 @@ const HoldoutPage = (): ReactElement => {
   const editHoldoutSchedule = canRunExperiment
     ? () => setEditHoldoutScheduleModalOpen(true)
     : null;
-
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeHoldoutInPayload(holdout, experiment);
 
   return (
     <>
@@ -150,15 +138,6 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
-          mutate={mutate}
-          source="hid"
-        />
-      )}
       {duplicateModalOpen && (
         <NewHoldoutForm
           onClose={() => setDuplicateModalOpen(false)}
@@ -166,20 +145,6 @@ const HoldoutPage = (): ReactElement => {
           initialExperiment={experiment}
           source="duplicate-hid"
           duplicate
-        />
-      )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="hid"
         />
       )}
       {phaseModalOpen && (
@@ -247,9 +212,7 @@ const HoldoutPage = (): ReactElement => {
           urlRedirects={[]}
           editMetrics={editMetrics}
           editResult={editResult}
-          editVariations={editVariations}
           duplicate={duplicate}
-          editTags={editTags}
           newPhase={newPhase}
           editPhases={editPhases}
           editPhase={editPhase}

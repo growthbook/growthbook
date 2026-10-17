@@ -1,4 +1,5 @@
 import { ExperimentReportVariation } from "shared/types/report";
+import { Box } from "@radix-ui/themes";
 import { pValueFormatter } from "@/services/experiments";
 import VariationLabel from "@/ui/VariationLabel";
 import Text from "@/ui/Text";
@@ -32,16 +33,13 @@ export default function VariationUsersTable({
     .reduce((sum, n) => sum + n, 0);
 
   return (
-    <>
-      <table
-        className="table mx-2 mt-0 mb-2"
-        style={{ tableLayout: "fixed", width: "100%" }}
-      >
+    <Box px="2" overflowX="auto">
+      <table className="table mt-0 mb-2">
         <thead>
           <tr>
             <th
               className="border-top-0"
-              style={{ whiteSpace: "nowrap", width: "30%" }}
+              style={{ whiteSpace: "nowrap", width: "30%", minWidth: 150 }}
             >
               Variation
             </th>
@@ -75,7 +73,8 @@ export default function VariationUsersTable({
           {variations.map((v, i) => {
             return (
               <tr key={v.id}>
-                <td className={"border-right"}>
+                {/* Held to its share of the width, so a long name truncates. */}
+                <td className="border-right" style={{ maxWidth: 0 }}>
                   {hideVariationIndex ? (
                     <Text color="text-mid" weight="medium">
                       {v.name}
@@ -84,22 +83,22 @@ export default function VariationUsersTable({
                     <VariationLabel number={v.index} name={v.name} />
                   )}
                 </td>
-                <td>
+                <td className="text-nowrap">
                   <b>{numberFormatter.format(users[i] || 0)}</b>
                 </td>
-                <td className="border-right">
+                <td className="border-right text-nowrap">
                   {numberFormatter.format(
                     totalUsers * (v.weight / totalWeight) || 0,
                   )}
                 </td>
-                <td>
+                <td className="text-nowrap">
                   <b>
                     {totalUsers > 0
                       ? percentFormatter.format(users[i] / totalUsers)
                       : "-"}
                   </b>
                 </td>
-                <td>
+                <td className="text-nowrap">
                   {totalWeight > 0
                     ? percentFormatter.format(v.weight / totalWeight)
                     : "-"}
@@ -117,6 +116,6 @@ export default function VariationUsersTable({
           )}
         </tbody>
       </table>
-    </>
+    </Box>
   );
 }

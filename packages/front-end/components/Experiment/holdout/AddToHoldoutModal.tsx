@@ -1,25 +1,24 @@
-import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
+/** Picks the experiment's holdout, staged for the page's Save. */
 const AddToHoldoutModal = ({
   experiment,
+  holdoutId,
+  stage,
   close,
-  mutate,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  /** The holdout shown now, staged or stored; empty for none. */
+  holdoutId: string;
+  stage: (holdoutId: string) => void;
   close: () => void;
-  mutate: () => void;
 }) => {
-  const form = useForm({
-    defaultValues: { holdoutId: experiment.holdoutId || undefined },
-  });
-
-  const { apiCall } = useAuth();
+  const [selected, setSelected] = useState(holdoutId);
 
   const experimentHasLinkedFeatures =
     (experiment.linkedFeatures?.length ?? 0) > 0;
@@ -32,22 +31,19 @@ const AddToHoldoutModal = ({
 
   return (
     <ModalStandard
-      header="Add to holdout"
+      header={holdoutId ? "Change holdout" : "Add to holdout"}
       close={close}
       open={true}
       trackingEventModalType="add-feature-to-holdout"
       size="lg"
+      cta="Apply"
+      // "None" clears a holdout that's set; there's nothing to clear otherwise.
+      ctaEnabled={showHoldoutSelect && selected !== holdoutId}
       submit={
         showHoldoutSelect
-          ? form.handleSubmit(async (value) => {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify(value),
-              });
-
-              mutate();
-              close();
-            })
+          ? async () => {
+              stage(selected);
+            }
           : undefined
       }
     >
@@ -73,10 +69,9 @@ const AddToHoldoutModal = ({
       {showHoldoutSelect && (
         <HoldoutSelect
           selectedProject={experiment.project}
-          setHoldout={(holdoutId) => {
-            form.setValue("holdoutId", holdoutId);
-          }}
-          selectedHoldoutId={form.watch("holdoutId")}
+          setHoldout={(id) => setSelected(id ?? "")}
+          selectedHoldoutId={selected}
+          keepSelection
           formType="experiment"
         />
       )}

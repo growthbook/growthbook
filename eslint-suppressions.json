@@ -212,11 +212,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/BanditDateGraph.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BanditDecisionMetricSettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -258,11 +253,6 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -280,7 +270,7 @@
   },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/ExperimentGraph.tsx": {
@@ -331,14 +321,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsOverridesSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
   "packages/front-end/components/Experiment/MetricsSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NamespaceModal.tsx": {
@@ -395,11 +380,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ResultsVariationsFilter.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/SRMWarning.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -408,11 +388,6 @@
   "packages/front-end/components/Experiment/SafeRolloutTimeSeriesGraph.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/SortableExperimentVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Experiment/StopExperimentForm.tsx": {

@@ -32,6 +32,12 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
   holdoutProjects?: string[];
+  /**
+   * The settings modal's open state, when something else on the page opens it
+   * too. Owned here otherwise.
+   */
+  settingsOpen?: boolean;
+  setSettingsOpen?: (open: boolean) => void;
 }
 
 export default function AnalysisSettings({
@@ -42,6 +48,8 @@ export default function AnalysisSettings({
   ssrPolyfills,
   isPublic,
   holdoutProjects,
+  settingsOpen,
+  setSettingsOpen,
 }: Props) {
   const {
     getDatasourceById,
@@ -54,7 +62,9 @@ export default function AnalysisSettings({
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const [analysisModal, setAnalysisModal] = useState(false);
+  const [ownAnalysisModal, setOwnAnalysisModal] = useState(false);
+  const analysisModal = settingsOpen ?? ownAnalysisModal;
+  const setAnalysisModal = setSettingsOpen ?? setOwnAnalysisModal;
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
