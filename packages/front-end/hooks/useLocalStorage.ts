@@ -16,9 +16,11 @@ const getValueFromLocalStorage = (key: string, defaultValue) => {
 export const useLocalStorage = <T>(
   key: string,
   defaultValue: T,
+  // Wins over the stored value on mount, e.g. one from the URL.
+  initialValue?: T | null,
 ): [T, Dispatch<SetStateAction<T>>] => {
   const [value, setValue] = useState(() => {
-    return getValueFromLocalStorage(key, defaultValue);
+    return initialValue ?? getValueFromLocalStorage(key, defaultValue);
   });
 
   useEffect(() => {

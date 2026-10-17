@@ -307,6 +307,47 @@ function refusalNotices(e: Error): ConfirmationNotice[] {
   return [{ severity: "error", messages: [e.message], via: null }];
 }
 
+/**
+ * The Express side of a route: runs the raw handler, keeps a refusal for a held
+ * retry, and sends the status, headers and body.
+ */
+export function expressApiHandler<
+  ParamsSchema extends ZodType,
+  BodySchema extends ZodType,
+  QuerySchema extends ZodType,
+  ResponseSchema extends ZodType,
+>(
+  schemas: { params?: ZodType; body?: ZodType; query?: ZodType },
+  handler: (req: never) => Promise<unknown>,
+): WrappedRequestHandler<
+  ParamsSchema,
+  BodySchema,
+  QuerySchema,
+  ResponseSchema
+> {
+  return async (req, res, next) => {
+    try {
+      const { status, body, headers, refusal } = await runApiHandler(
+        req,
+        schemas,
+        handler,
+      );
+      if (refusal) {
+        const { context } = req as unknown as ApiRequestLocals;
+        await recordRefusal(context, req, refusal).catch((e) =>
+          logger.error(e, "Failed to keep a refused request for confirmation"),
+        );
+      }
+      if (headers) res.set(headers);
+      return res
+        .status(status)
+        .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
 export type OpenApiRoute<
   ParamsSchema extends ZodType = ZodType<unknown>,
   BodySchema extends ZodType = ZodType<unknown>,
@@ -429,39 +470,12 @@ export function createApiRequestHandler<
       };
     }
 
-    const wrappedHandler: WrappedRequestHandler<
+    const wrappedHandler = expressApiHandler<
       ParamsSchema,
       BodySchema,
       QuerySchema,
       ResponseSchema
-    > = async (req, res, next) => {
-      try {
-        const { status, body, headers, refusal } = await runApiHandler(
-          req,
-          {
-            params: paramsSchema,
-            body: bodySchema,
-            query: querySchema,
-          },
-          handler,
-        );
-        if (refusal) {
-          const { context } = req as unknown as ApiRequestLocals;
-          await recordRefusal(context, req, refusal).catch((e) =>
-            logger.error(
-              e,
-              "Failed to keep a refused request for confirmation",
-            ),
-          );
-        }
-        if (headers) res.set(headers);
-        return res
-          .status(status)
-          .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
-      } catch (e) {
-        next(e);
-      }
-    };
+    >({ params: paramsSchema, body: bodySchema, query: querySchema }, handler);
 
     const route: OpenApiRoute<
       ParamsSchema,

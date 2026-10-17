@@ -76,6 +76,7 @@ import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBa
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -324,6 +325,10 @@ export async function linkFeatureToContextualBandit({
   ) {
     throw new Error("Invalid contextual bandit rule");
   }
+
+  // Here, not on the route: the route-level managed guard keys on :id, and
+  // these REST routes address the feature as :featureId.
+  assertLoadedFeatureNotManaged(feature);
 
   if (!environments.length) {
     throw new Error(

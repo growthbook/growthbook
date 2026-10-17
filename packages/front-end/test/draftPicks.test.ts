@@ -25,7 +25,7 @@ const on = (
   i: LinkedFeatureInfo,
   pick?: Parameters<typeof resolveDraftPick>[1],
 ) => {
-  const { draft, target } = resolveDraftPick(i, pick);
+  const { draft, target } = resolveDraftPick(i, pick, "exp_1");
   return target === "new" ? "new" : draft?.version;
 };
 
@@ -39,7 +39,7 @@ describe("resolveDraftPick", () => {
     const pick = { newestVersion: 7, target: 5 };
     expect(on(info(7, 5), pick)).toBe(5);
     expect(on(info(8, 7, 5), pick)).toBe(5);
-    expect(resolveDraftPick(info(8, 7, 5), pick).launches).toBe(false);
+    expect(resolveDraftPick(info(8, 7, 5), pick, "exp_1").launches).toBe(false);
     // Published or discarded elsewhere: back to the newest.
     expect(on(info(7), pick)).toBe(7);
   });
@@ -48,7 +48,7 @@ describe("resolveDraftPick", () => {
     const pick = { newestVersion: 7, target: "new" as const };
     expect(on(info(7, 5), pick)).toBe("new");
     // Still lists the drafts to switch back to.
-    expect(resolveDraftPick(info(7, 5), pick).draft?.version).toBe(7);
+    expect(resolveDraftPick(info(7, 5), pick, "exp_1").draft?.version).toBe(7);
     expect(on(info(8, 7, 5), pick)).toBe(8);
     const cleaned = {
       ...info(7),
@@ -61,13 +61,14 @@ describe("resolveDraftPick", () => {
 describe("withPickedDraft", () => {
   it("puts the picked draft in place of the newest, and none when starting one", () => {
     const flag = info(7, 5);
-    expect(withPickedDraft(flag, undefined)).toBe(flag);
+    expect(withPickedDraft(flag, undefined, "exp_1")).toBe(flag);
     expect(
-      withPickedDraft(flag, { newestVersion: 7, target: 5 }).pendingDraft
-        ?.version,
+      withPickedDraft(flag, { newestVersion: 7, target: 5 }, "exp_1")
+        .pendingDraft?.version,
     ).toBe(5);
     expect(
-      withPickedDraft(flag, { newestVersion: 7, target: "new" }).pendingDraft,
+      withPickedDraft(flag, { newestVersion: 7, target: "new" }, "exp_1")
+        .pendingDraft,
     ).toBeUndefined();
   });
 });

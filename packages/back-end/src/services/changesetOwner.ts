@@ -12,6 +12,7 @@ import type {
   PhaseVariation,
 } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { implementationTypeAfterUnlink } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -172,7 +173,15 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     this.experiment = await updateExperiment({
       context: this.context,
       experiment: this.experiment,
-      changes: { hasVisualChangesets: value },
+      changes: value
+        ? { hasVisualChangesets: true }
+        : {
+            hasVisualChangesets: false,
+            implementationType: implementationTypeAfterUnlink({
+              ...this.experiment,
+              hasVisualChangesets: false,
+            }),
+          },
       bypassWebhooks: true,
     });
   }

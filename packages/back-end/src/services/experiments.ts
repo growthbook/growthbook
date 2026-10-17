@@ -19,6 +19,7 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  getImplementationType,
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
@@ -31,6 +32,7 @@ import {
   getMatchingRules,
   getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
+  isManagedFeature,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
@@ -3593,6 +3595,7 @@ export async function toExperimentApiInterface(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    implementationType: getImplementationType(experiment) ?? null,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
@@ -4876,6 +4879,9 @@ export function postExperimentApiPayloadToInterface(
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",
+    ...(payload.implementationType
+      ? { implementationType: payload.implementationType }
+      : {}),
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
@@ -5192,6 +5198,7 @@ export function updateExperimentApiPayloadToInterface(
     minBucketVersion,
     name,
     type,
+    implementationType,
     tags,
     description,
     hypothesis,
@@ -5249,6 +5256,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(type ? { type } : {}),
+    ...(implementationType ? { implementationType } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
@@ -5526,12 +5534,18 @@ export async function getRefLinkedFeatureInfo({
         .filter(({ matches }) => matches.length > 0);
       const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
+      // A re-type is a change even when values read the same.
       const changesRefFrom = (
         revision: (typeof revisions)[0],
         rules: FeatureRule[],
-      ) => !isEqual(refRulesForEntity(revision.rules), rules);
+        valueType: FeatureInterface["valueType"],
+      ) =>
+        (isManagedFeature(feature) &&
+          revision.metadata?.valueType !== undefined &&
+          revision.metadata.valueType !== valueType) ||
+        !isEqual(refRulesForEntity(revision.rules), rules);
       const differsFromLive = draftsWithMatches.filter(({ revision }) =>
-        changesRefFrom(revision, liveRefRules),
+        changesRefFrom(revision, liveRefRules, feature.valueType),
       );
       // Drafts without the rule while live has it, for a removal in progress.
       const withoutRule =
@@ -5568,7 +5582,14 @@ export async function getRefLinkedFeatureInfo({
       );
       const differingDrafts = differsFromLive.filter(({ revision }) => {
         const base = basesByVersion.get(revision.baseVersion);
-        return !base || changesRefFrom(revision, refRulesForEntity(base.rules));
+        return (
+          !base ||
+          changesRefFrom(
+            revision,
+            refRulesForEntity(base.rules),
+            base.metadata?.valueType ?? feature.valueType,
+          )
+        );
       });
       const chosenDraft =
         differingDrafts[0] ??
@@ -5636,7 +5657,10 @@ export async function getRefLinkedFeatureInfo({
         hasChanges: boolean;
         hasMergeConflict: boolean;
         hasUnrelatedDraftChanges: boolean;
+        // Also on a managed flag, where it isn't "unrelated".
+        changesOutsideRef: boolean;
         rebaseRequired: boolean;
+        staleApproval: boolean;
         // Not `revision.status`: an approved draft can still be short of a
         // required team or an environment.
         approval?: RevisionApprovalState;
@@ -5649,6 +5673,7 @@ export async function getRefLinkedFeatureInfo({
         let draftHasMergeConflict = false;
         let draftChangesOutsideRef = false;
         let draftRebaseRequired = false;
+        let draftStaleApproval = false;
         let draftApproval: RevisionApprovalState | undefined;
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -5656,15 +5681,11 @@ export async function getRefLinkedFeatureInfo({
             feature,
             revision,
           });
-          const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
-            context,
-            feature,
-            revision,
-            live,
-            base,
-          );
+          const { mergeResult, rebaseRequired, staleApproval } =
+            mergeDraftForAutoPublish(context, feature, revision, live, base);
           draftHasChanges = mergeResultHasChanges(mergeResult);
           draftRebaseRequired = rebaseRequired;
+          draftStaleApproval = staleApproval;
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else {
@@ -5694,8 +5715,12 @@ export async function getRefLinkedFeatureInfo({
         return {
           hasChanges: draftHasChanges,
           hasMergeConflict: draftHasMergeConflict,
-          hasUnrelatedDraftChanges: draftChangesOutsideRef,
+          // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
+          hasUnrelatedDraftChanges:
+            !isManagedFeature(feature) && draftChangesOutsideRef,
+          changesOutsideRef: draftChangesOutsideRef,
           rebaseRequired: draftRebaseRequired,
+          staleApproval: draftStaleApproval,
           approval: draftApproval,
         };
       };
@@ -5795,7 +5820,7 @@ export async function getRefLinkedFeatureInfo({
       if (stagedDrafts.length > 0 && facts) {
         if (facts.hasMergeConflict) {
           stagedDrafts[0].hasMergeConflict = true;
-        } else if (facts.hasUnrelatedDraftChanges) {
+        } else if (facts.changesOutsideRef) {
           stagedDrafts[0].hasUnrelatedDraftChanges = true;
         }
       }
@@ -5845,14 +5870,23 @@ export async function getRefLinkedFeatureInfo({
         title: revision.title,
         otherDraftCount,
         pendingApproval: reviewRequired,
+        // A re-typed draft restates the default.
+        valueType: revision.metadata?.valueType ?? feature.valueType,
         defaultValue: revision.defaultValue,
         ...(draftFactsOf.approval && {
-          approval: { satisfied: draftFactsOf.approval.satisfied },
+          approval: {
+            satisfied: draftFactsOf.approval.satisfied,
+            footprint: draftFactsOf.approval.footprint,
+            unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
+            insufficientApprovers: draftFactsOf.approval.insufficientApprovers,
+            hasCoveringApproval: draftFactsOf.approval.hasCoveringApproval,
+          },
         }),
         hasChanges: draftFactsOf.hasChanges,
         hasMergeConflict: draftFactsOf.hasMergeConflict,
         hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
         rebaseRequired: draftFactsOf.rebaseRequired,
+        staleApproval: draftFactsOf.staleApproval,
         // From the draft's matches: where the unpublished edit would run.
         environmentStates: buildEnvironmentStates(revisionMatches, revision),
         environmentInputs: buildEnvironmentInputs(revisionMatches, revision),

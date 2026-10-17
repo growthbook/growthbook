@@ -312,7 +312,93 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Unwraps the `{ "value": X }` envelope `castFeatureValue` writes.
+function unwrapCastEnvelope(value: string): string {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (typeof parsed === "string") return parsed;
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      Object.keys(parsed).length !== 1 ||
+      !("value" in parsed)
+    ) {
+      return value;
+    }
+    const inner = parsed.value;
+    return typeof inner === "string" ? inner : JSON.stringify(inner);
+  } catch (e) {
+    return value;
+  }
+}
+
 const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
+
+// The text as a JSON document when it already reads as an object or array.
+function asJsonDocument(plain: string): string | null {
+  const trimmed = plain.trim();
+  if (!/^[[{]/.test(trimmed)) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed === null || typeof parsed !== "object") return null;
+    return JSON.stringify(parsed, null, 2);
+  } catch (e) {
+    return null;
+  }
+}
+
+// A JSON literal for `plain`, quoting whatever would not parse on its own.
+function asJsonLiteral(plain: string, from: FeatureValueType): string {
+  if (from === "string") return JSON.stringify(plain);
+  try {
+    JSON.parse(plain);
+    return plain;
+  } catch (e) {
+    return JSON.stringify(plain);
+  }
+}
+
+// Re-expresses a value under another type. `index` decides the result only when
+// nothing of the value survives (booleans: control off, the rest on).
+export function castFeatureValue({
+  value,
+  from,
+  to,
+  index = 0,
+}: {
+  value: string;
+  from: FeatureValueType;
+  to: FeatureValueType;
+  index?: number;
+}): string {
+  if (from === to) return value;
+
+  const plain = from === "json" ? unwrapCastEnvelope(value) : value;
+
+  switch (to) {
+    case "boolean": {
+      const t = plain.trim().toLowerCase();
+      if (["", "0", "false", "null", "undefined"].includes(t)) return "false";
+      if (["1", "true"].includes(t)) return "true";
+      return index === 0 ? "false" : "true";
+    }
+    case "number": {
+      const trimmed = plain.trim();
+      const candidate = String(Number(trimmed));
+      return trimmed !== "" && NUMBER_VALUE_PATTERN.test(candidate)
+        ? candidate
+        : String(index);
+    }
+    case "json":
+      return (
+        asJsonDocument(plain) ??
+        `{\n  "value": ${asJsonLiteral(plain, from)}\n}`
+      );
+    case "string":
+      return plain;
+  }
+}
 
 // Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
 // payload builder parses that string per the feature's value type. Anything

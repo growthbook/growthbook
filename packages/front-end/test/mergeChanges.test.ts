@@ -24,6 +24,9 @@ const part: Required<Omit<ExperimentChangesBody, "dryRun">> = {
   linkFeatures: [{ featureId: "flag", variations: [] }],
   unlinkFeatures: ["flag"],
   keepFeatures: ["flag"],
+  deleteManagedFlag: true,
+  managedFlag: { valueType: "boolean", variations: [] },
+  renameManagedFlag: { to: "renamed" },
   addUrlRedirects: [redirect],
   editUrlRedirects: [
     { ...redirect, id: "url_1", dateUpdated: "2026-01-01T00:00:00.000Z" },

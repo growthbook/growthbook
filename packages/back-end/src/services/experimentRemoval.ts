@@ -2,7 +2,7 @@ import {
   canMaterializeLinkedChanges,
   getAffectedEnvsForExperiment,
   getExperimentLinkageBlocker,
-  PermissionError,
+  isManagedByExperiment,
   type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
@@ -12,10 +12,7 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
-import {
-  getFeatureProjectsByIds,
-  getFeaturesByIds,
-} from "back-end/src/models/FeatureModel";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteExperimentByIdForOrganization,
   updateExperiment,
@@ -30,6 +27,10 @@ import {
   materializeExperimentRules,
   removeRulesForDeletedExperiment,
 } from "./experiment-feature";
+import {
+  assertLinkedFlagsReadable,
+  clearManagedMarkersForExperiment,
+} from "./managedFeatures";
 
 export class LinkedChangesBlockedError extends BadRequestError {
   blocker: ExperimentLinkageBlocker;
@@ -64,29 +65,6 @@ export async function assertCanChangeServing(
   ) {
     context.permissions.throwPermissionError();
   }
-}
-
-// Skipping an unreadable flag is how rules outlive their experiment.
-async function assertLinkedFlagsReadable(
-  context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-): Promise<void> {
-  const ids = experiment.linkedFeatures ?? [];
-  if (!ids.length) return;
-  const existing = await getFeatureProjectsByIds(context, ids);
-  const readable = new Set(
-    (await getFeaturesByIds(context, ids)).map((f) => f.id),
-  );
-  const unreadable = Array.from(existing.keys()).filter(
-    (id) => !readable.has(id),
-  );
-  if (!unreadable.length) return;
-  const list = unreadable.map((id) => `"${id}"`).join(", ");
-  throw new PermissionError(
-    unreadable.length === 1
-      ? `Feature Flag ${list} is linked to this experiment but you cannot access it, so this change cannot be made. Ask someone with access to that Feature Flag's project.`
-      : `Feature Flags ${list} are linked to this experiment but you cannot access them, so this change cannot be made. Ask someone with access to those Feature Flags' projects.`,
-  );
 }
 
 type Args = {
@@ -132,6 +110,11 @@ async function resolveLinkedChanges(
     audit,
     restApiBypassesReviews,
   });
+  // The managed flag now serves the value on its own; hand it back rather
+  // than archiving it.
+  await clearManagedMarkersForExperiment(context, experiment.id, {
+    archive: false,
+  });
   return true;
 }
 
@@ -140,18 +123,24 @@ export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
     args;
   const materialized = await resolveLinkedChanges(args, "delete");
   if (!materialized) {
-    // Linked flags lose the rule that would point at nothing.
+    const linkedFeatures = await getFeaturesByIds(
+      context,
+      experiment.linkedFeatures ?? [],
+    );
+    // Shared flags lose the rule that would point at nothing; the managed flag
+    // is archived whole.
     await removeRulesForDeletedExperiment({
       context,
       experiment,
-      features: await getFeaturesByIds(
-        context,
-        experiment.linkedFeatures ?? [],
+      features: linkedFeatures.filter(
+        (f) => !isManagedByExperiment(f, experiment.id),
       ),
       eventAudit,
       audit,
       restApiBypassesReviews,
     });
+    // Release first, or the flag survives pointing at a deleted experiment.
+    await clearManagedMarkersForExperiment(context, experiment.id);
   }
 
   await Promise.all([
@@ -180,11 +169,16 @@ export async function archiveExperimentWithCleanup(
     experiment,
     changes: { archived: true },
   });
-  await resolveLinkedChanges(args, "archive");
+  const materialized = await resolveLinkedChanges(args, "archive");
+  // The released flag is an ordinary linked flag now, as after an eject.
+  const released = materialized && experiment.implementationType === "values";
   return updateExperiment({
     context,
     experiment,
-    changes: { archived: true },
+    changes: {
+      archived: true,
+      ...(released && { implementationType: "feature" as const }),
+    },
   });
 }
 

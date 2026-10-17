@@ -24,6 +24,7 @@ import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import { guardManagedFeatureRoutes } from "back-end/src/services/managedFeatures";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
@@ -169,8 +170,8 @@ router.get("/", indexHandler);
 router.get("/v1/", indexHandler);
 
 export const allRoutes = [
-  ...featureRoutes,
-  ...featureV2Routes,
+  ...guardManagedFeatureRoutes(featureRoutes),
+  ...guardManagedFeatureRoutes(featureV2Routes),
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...contextualBanditsRoutes,

@@ -8,14 +8,26 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  getManagedValueProblems,
+  hasStartReadyManagedFlag,
+  hasVisualChanges,
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
+  type ManagedValueProblem,
+} from "shared/util";
 import {
   BuiltInChecklistItemKey,
   getHiddenBuiltInChecklistItems,
-  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/validators";
 import track from "@/services/track";
-import { MERGE_CONFLICT_ITEM_PREFIX } from "./checklistSummary";
+import VariationLabel from "@/ui/VariationLabel";
+import {
+  MERGE_CONFLICT_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
+} from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -33,14 +45,14 @@ export type CheckListItem = {
   /**
    * Blocks the start outright (merge conflicts, missing approvals, unrelated
    * draft edits), since auto-publish would fail. Only an admin's start bypass
-   * waives any: the approval rows (isBypassableStartItem).
+   * waives any: the approval and stale-values rows (isBypassableStartItem).
    */
   hardBlock?: boolean;
   warning?: string;
   description?: string | ReactElement;
   // What a manual task's status is stored under.
   manualKey?: string;
-  // The Feature Flag an approval row waits on.
+  // The Feature Flag an approval or stale-values row waits on.
   featureId?: string;
 };
 
@@ -69,6 +81,8 @@ export function getChecklistItems({
   // In-page fixes. Callers leave out the ones this viewer can't make.
   openAnalysisSettings,
   openImplementation,
+  editVariationValues,
+  openManagedApproval,
   editTargeting,
   editSchedule,
   createSdkConnection,
@@ -82,6 +96,8 @@ export function getChecklistItems({
   publishingFeatureId?: string;
   openAnalysisSettings?: (() => void) | null;
   openImplementation?: (() => void) | null;
+  editVariationValues?: (() => void) | null;
+  openManagedApproval?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
   createSdkConnection?: (() => void) | null;
@@ -181,167 +197,277 @@ export function getChecklistItems({
     }
   }
 
-  // Publishing this flag's draft is what takes it live.
-  const publishesLinkedFeature =
-    !!publishingFeatureId &&
-    linkedFeatures.some(
-      (f) => f.feature.id === publishingFeatureId && f.state === "draft",
-    );
-  const hasLiveLinkedChanges =
-    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
-    publishesLinkedFeature;
-  const hasLinkedChanges =
-    linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
-    experiment.hasVisualChangesets ||
-    experiment.hasURLRedirects;
-  const linkedChangesDone =
-    (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
-  pushBuiltIn("linkedChanges", {
-    key: "linkedChanges",
-    display: `Add a${isBandit ? " live" : ""} linked Feature Flag, AI Visual Editor change, or URL redirect`,
-    action: onClick(openImplementation),
-    required: true,
-    // The header won't start a Bandit without one. Only the experiment page
-    // blocks on it: elsewhere, publishing is how the change goes live.
-    hardBlock: isBandit && !publishingFeatureId,
-    status: linkedChangesDone ? "complete" : "incomplete",
-    type: "auto",
-  });
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
+  const valuesMode =
+    linkedFeatures.some(isManaged) || implementationType === "values";
 
-  if (isBandit) {
-    items.push({
-      key: "banditGoalMetric",
-      display: "Choose a decision metric and update cadence",
-      action: onClick(openAnalysisSettings),
-      status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
-      type: "auto",
+  if (implementationType !== "none") {
+    // Publishing this flag's draft is what takes it live.
+    const publishesLinkedFeature =
+      !!publishingFeatureId &&
+      linkedFeatures.some(
+        (f) => f.feature.id === publishingFeatureId && f.state === "draft",
+      );
+    const hasLiveLinkedChanges =
+      experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+      hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
+      publishesLinkedFeature;
+    const hasLinkedChanges =
+      linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
+      experiment.hasVisualChangesets ||
+      experiment.hasURLRedirects;
+    const linkedChangesDone =
+      (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
+    pushBuiltIn("linkedChanges", {
+      key: "linkedChanges",
+      display: valuesMode
+        ? "Add variation values"
+        : `Add a${isBandit ? " live" : ""} linked Feature Flag, AI Visual Editor change, or URL redirect`,
+      action: onClick(valuesMode ? editVariationValues : openImplementation),
       required: true,
+      // The header won't start a Bandit without one. Only the experiment page
+      // blocks on it: elsewhere, publishing is how the change goes live.
+      hardBlock: isBandit && !publishingFeatureId,
+      status: linkedChangesDone ? "complete" : "incomplete",
+      type: "auto",
     });
-  }
 
-  if (linkedFeatures.length > 0) {
-    // Merge conflicts, missing approvals, and unrelated draft changes are
-    // hard blockers — auto-publish would reject or silently push unreviewed
-    // edits. Surfaced as separate items so multiple issues on one draft
-    // aren't hidden behind a single row.
-    linkedFeatures
-      .filter((f) => f.state === "draft" && f.hasMergeConflict)
-      .forEach((f) => {
-        items.push({
-          key: `${MERGE_CONFLICT_ITEM_PREFIX}${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: `Resolve the merge conflict in ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-        });
+    if (isBandit) {
+      items.push({
+        key: "banditGoalMetric",
+        display: "Choose a decision metric and update cadence",
+        action: onClick(openAnalysisSettings),
+        status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
+        type: "auto",
+        required: true,
       });
+    }
 
-    linkedFeatures
-      .filter((f) => f.state === "draft" && f.cannotPublish)
-      .forEach((f) => {
-        items.push({
-          key: `publishPermission:${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: startApproved
-            ? `Whoever scheduled this start can no longer publish ${f.feature.id}`
-            : `You need permission to publish ${f.feature.id} before this experiment can start`,
-          description: startApproved
-            ? "Reschedule or unschedule the start, then approve it again from an account that can."
-            : undefined,
-          action: linkedFeatureAction(f),
-        });
-      });
-
-    // Publishing this feature's own draft (from its Review & Publish page) is
-    // what approves it, so skip the self-referential approval row. Drafts with
-    // unrelated changes are likewise covered by that publish flow.
-    linkedFeatures
-      .filter(
-        (f) =>
-          f.pendingApproval &&
-          !f.hasUnrelatedDraftChanges &&
-          f.feature.id !== publishingFeatureId,
-      )
-      .forEach((f) => {
-        items.push({
-          key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
-          featureId: f.feature.id,
-          status:
-            (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
-              ? "complete"
-              : "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: `Approve the Feature Flag draft for ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-        });
-      });
-
-    linkedFeatures
-      .filter(
-        (f) =>
-          f.state === "draft" &&
-          f.hasUnrelatedDraftChanges &&
-          !f.hasMergeConflict &&
-          f.feature.id !== publishingFeatureId,
-      )
-      .forEach((f) => {
-        items.push({
-          key: `unrelatedDraftChanges:${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: `The ${f.feature.id} draft has changes unrelated to this experiment`,
-          description:
-            "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
-          action: linkedFeatureAction(f),
-        });
-      });
-
-    const latestVariations = getLatestPhaseVariations(experiment);
-    linkedFeatures
-      .filter((f) => f.state !== "discarded" && f.state !== "archived")
-      .forEach((f) => {
-        const configuredVariationIds = new Set(
-          f.values.map((v) => v.variationId),
-        );
-        const hasMissingValues = latestVariations.some(
-          (v) => !configuredVariationIds.has(v.id),
-        );
-        if (hasMissingValues) {
+    if (linkedFeatures.length > 0) {
+      // Merge conflicts, missing approvals, and unrelated draft changes are
+      // hard blockers — auto-publish would reject or silently push unreviewed
+      // edits. Surfaced as separate items so multiple issues on one draft
+      // aren't hidden behind a single row.
+      linkedFeatures
+        .filter((f) => f.state === "draft" && f.hasMergeConflict)
+        .forEach((f) => {
           items.push({
-            key: `missingVariationValues:${f.feature.id}`,
+            key: `${MERGE_CONFLICT_ITEM_PREFIX}${f.feature.id}`,
             status: "incomplete",
             type: "auto",
             required: true,
-            display: `Fill in missing variation values for ${f.feature.id}`,
-            action: linkedFeatureAction(f, false),
+            hardBlock: true,
+            ...(isManaged(f)
+              ? {
+                  display:
+                    "Resolve the merge conflict in this experiment's variation values",
+                  // Resolved by discarding the draft, which only its review offers.
+                  action: onClick(openManagedApproval ?? editVariationValues),
+                }
+              : {
+                  display: `Resolve the merge conflict in ${f.feature.id}`,
+                  action: linkedFeatureAction(f),
+                }),
           });
-        }
-      });
-  }
+        });
 
-  // No empty visual changesets
-  if (visualChangesets.length > 0) {
-    const hasSomeVisualChanges = visualChangesets.some((vc) =>
-      hasVisualChanges(vc.visualChanges),
-    );
-    items.push({
-      key: "visualEditorChanges",
-      display: "Add changes in the AI Visual Editor",
-      action: onClick(openImplementation),
-      status: hasSomeVisualChanges ? "complete" : "incomplete",
-      type: "auto",
-      // An A/A test is a valid experiment that doesn't have changes, so don't make this required
-      required: false,
-    });
+      // Starting would fail on it; the review is where the values update.
+      linkedFeatures
+        .filter(
+          (f) =>
+            isManaged(f) &&
+            !!f.pendingDraft?.rebaseRequired &&
+            !f.pendingDraft.hasMergeConflict,
+        )
+        .forEach((f) => {
+          items.push({
+            key: `${STALE_VALUES_ITEM_PREFIX}${f.feature.id}`,
+            featureId: f.feature.id,
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            display: "Update the variation values from live",
+            action: onClick(openManagedApproval),
+          });
+        });
+
+      linkedFeatures
+        .filter((f) => f.state === "draft" && f.cannotPublish)
+        .forEach((f) => {
+          const subject = isManaged(f)
+            ? "this experiment's variation values"
+            : f.feature.id;
+          items.push({
+            key: `publishPermission:${f.feature.id}`,
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            display: startApproved
+              ? `Whoever scheduled this start can no longer publish ${subject}`
+              : `You need permission to publish ${subject} before this experiment can start`,
+            description: startApproved
+              ? "Reschedule or unschedule the start, then approve it again from an account that can."
+              : undefined,
+            action: isManaged(f) ? undefined : linkedFeatureAction(f),
+          });
+        });
+
+      // Publishing this feature's own draft (from its Review & Publish page) is
+      // what approves it, so skip the self-referential approval row. Drafts with
+      // unrelated changes are likewise covered by that publish flow.
+      linkedFeatures
+        .filter(
+          (f) =>
+            f.pendingApproval &&
+            !f.hasUnrelatedDraftChanges &&
+            f.feature.id !== publishingFeatureId,
+        )
+        .forEach((f) => {
+          items.push({
+            key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
+            featureId: f.feature.id,
+            status:
+              (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+                ? "complete"
+                : "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            ...(isManaged(f)
+              ? {
+                  // Nothing reaches reviewers until the author sends it.
+                  display:
+                    f.draftRevisionStatus === "draft"
+                      ? "Request a review of the variation values"
+                      : "Review and approve the variation values",
+                  action: onClick(openManagedApproval),
+                }
+              : {
+                  display: `Approve the Feature Flag draft for ${f.feature.id}`,
+                  action: linkedFeatureAction(f),
+                }),
+          });
+        });
+
+      linkedFeatures
+        .filter(
+          (f) =>
+            f.state === "draft" &&
+            f.hasUnrelatedDraftChanges &&
+            !f.hasMergeConflict &&
+            f.feature.id !== publishingFeatureId,
+        )
+        .forEach((f) => {
+          items.push({
+            key: `unrelatedDraftChanges:${f.feature.id}`,
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            display: `The ${f.feature.id} draft has changes unrelated to this experiment`,
+            description:
+              "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
+            action: linkedFeatureAction(f),
+          });
+        });
+
+      const latestVariations = getLatestPhaseVariations(experiment);
+      linkedFeatures
+        .filter((f) => f.state !== "discarded" && f.state !== "archived")
+        .forEach((f) => {
+          if (isManaged(f)) {
+            const variationList = (list: ManagedValueProblem[]) =>
+              list.map((p, i) => (
+                <span key={p.variationId}>
+                  {i > 0 ? ", " : ""}
+                  <VariationLabel
+                    number={latestVariations.findIndex(
+                      (v) => v.id === p.variationId,
+                    )}
+                    name={p.variationName}
+                    size="sm"
+                  />
+                </span>
+              ));
+            const problems = getManagedValueProblems({
+              variations: latestVariations,
+              values: f.pendingDraft?.values ?? f.values,
+              valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+            });
+            const missing = problems.filter((p) => p.problem === "missing");
+            const malformed = problems.filter((p) => p.problem === "malformed");
+            if (missing.length) {
+              items.push({
+                key: `missingVariationValues:${f.feature.id}`,
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                display: (
+                  <>Add a variation value for {variationList(missing)}</>
+                ),
+                action: onClick(editVariationValues),
+              });
+            }
+            if (malformed.length) {
+              items.push({
+                key: `malformedVariationValues:${f.feature.id}`,
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                hardBlock: true,
+                display: (
+                  <>Fix the variation value for {variationList(malformed)}</>
+                ),
+                description: malformed
+                  .map((p) =>
+                    p.detail
+                      ? `${p.variationName}: ${p.detail}`
+                      : p.variationName,
+                  )
+                  .join("; "),
+                action: onClick(editVariationValues),
+              });
+            }
+            return;
+          }
+          const configuredVariationIds = new Set(
+            f.values.map((v) => v.variationId),
+          );
+          const hasMissingValues = latestVariations.some(
+            (v) => !configuredVariationIds.has(v.id),
+          );
+          if (hasMissingValues) {
+            items.push({
+              key: `missingVariationValues:${f.feature.id}`,
+              status: "incomplete",
+              type: "auto",
+              required: true,
+              display: `Fill in missing variation values for ${f.feature.id}`,
+              action: linkedFeatureAction(f, false),
+            });
+          }
+        });
+    }
+
+    // No empty visual changesets
+    if (visualChangesets.length > 0) {
+      const hasSomeVisualChanges = visualChangesets.some((vc) =>
+        hasVisualChanges(vc.visualChanges),
+      );
+      items.push({
+        key: "visualEditorChanges",
+        display: "Add changes in the AI Visual Editor",
+        action: onClick(openImplementation),
+        status: hasSomeVisualChanges ? "complete" : "incomplete",
+        type: "auto",
+        // An A/A test is a valid experiment that doesn't have changes, so don't make this required
+        required: false,
+      });
+    }
   }
 
   // Experiment has phases

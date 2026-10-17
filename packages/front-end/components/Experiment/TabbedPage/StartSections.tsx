@@ -38,14 +38,18 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function StartFailures({
   failures,
+  managedFeatureId,
 }: {
   failures: PendingDraftFailure[];
+  managedFeatureId: string | null;
 }) {
   if (!failures.length) return null;
   return (
     <Callout status="error" size="sm">
       <Text size="sm" weight="semibold" color="text-high">
-        Linked Feature Flag drafts that could not be published
+        {managedFeatureId
+          ? "Variation values that could not be published"
+          : "Linked Feature Flag drafts that could not be published"}
       </Text>
       <Flex direction="column" gap="2" mt="2">
         {failures.map((failure) => (
@@ -55,13 +59,19 @@ export function StartFailures({
             align="baseline"
             wrap="wrap"
           >
-            <Link
-              href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
-              target="_blank"
-            >
-              <Text weight="semibold">{failure.featureId}</Text>
-              <PiArrowSquareOut className="ml-1" />
-            </Link>
+            {/* The flag page refuses writes on a managed flag; the To Do
+                links to where its values are resolved. */}
+            {managedFeatureId === failure.featureId ? (
+              <Text weight="semibold">Variation values</Text>
+            ) : (
+              <Link
+                href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+                target="_blank"
+              >
+                <Text weight="semibold">{failure.featureId}</Text>
+                <PiArrowSquareOut className="ml-1" />
+              </Link>
+            )}
             <Text size="sm" color="text-mid">
               {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
             </Text>

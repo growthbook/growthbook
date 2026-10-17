@@ -1,5 +1,8 @@
 import { keyBy } from "lodash";
-import { getLinkedChangeEnvs } from "shared/util";
+import {
+  getLinkedChangeEnvs,
+  implementationTypeAfterUnlink,
+} from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
@@ -213,7 +216,13 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         await updateExperiment({
           context: this.context,
           experiment,
-          changes: { hasURLRedirects: false },
+          changes: {
+            hasURLRedirects: false,
+            implementationType: implementationTypeAfterUnlink({
+              ...experiment,
+              hasURLRedirects: false,
+            }),
+          },
           bypassWebhooks: true,
         });
       }

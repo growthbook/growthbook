@@ -25,6 +25,7 @@ import {
   valueHasConfigExtends,
   mergeRevision,
   getHoldoutLinkBlocker,
+  isManagedFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
@@ -639,7 +640,9 @@ export default function FeatureFromExperimentModal({
         label="Create New or Use Existing?"
         options={validFeatures
           .map((f) => {
-            const why = holdoutBlockReason(f);
+            const why = isManagedFeature(f)
+              ? "Managed by another experiment. Convert it to an unmanaged Feature Flag first."
+              : holdoutBlockReason(f);
             return {
               label: f.id,
               value: f.id,

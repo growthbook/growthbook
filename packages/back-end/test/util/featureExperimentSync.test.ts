@@ -18,8 +18,8 @@ const force = {
   value: "x",
   allEnvironments: true,
 };
-const revision = (version: number, rules: unknown[]) =>
-  ({ version, rules }) as never;
+const revision = (version: number, rules: unknown[], valueType = "string") =>
+  ({ version, rules, metadata: { valueType } }) as never;
 
 describe("getLaunchDraftVersion", () => {
   it("picks the newest draft that changes the experiment's rule, never one that only carries it", () => {
@@ -65,8 +65,15 @@ describe("getLaunchDraftVersion", () => {
     ).toBeNull();
   });
 
-  it("ignores other experiments' rules", () => {
+  it("counts a type change on a draft carrying the rule, and ignores other experiments' rules", () => {
     const live = revision(1, [ref("b"), ref("x", "exp_2")]);
+    expect(
+      getLaunchDraftVersion(
+        "exp_1",
+        [revision(2, [ref("b"), ref("x-changed", "exp_2")], "json")],
+        live,
+      ),
+    ).toBe(2);
     expect(
       getLaunchDraftVersion(
         "exp_1",

@@ -1,5 +1,6 @@
 import { getValidDate } from "shared/dates";
 import {
+  canChangeImplementationType,
   experimentHasLinkedChanges,
   includeExperimentInPayload,
 } from "shared/util";
@@ -48,6 +49,13 @@ import { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
+  assertManagedFlagCanMove,
+  getManagedFeatureForExperiment,
+  moveManagedFlagWithExperiment,
+  assertManagedFlagKeyFormat,
+  releaseManagedFlagForImplementationChange,
+} from "back-end/src/services/managedFeatures";
+import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
@@ -66,6 +74,7 @@ export type ExperimentUpdateInput = Partial<ExperimentInterfaceStringDates> & {
 
 export type ExperimentUpdatePlan = {
   changes: Changeset;
+  releaseManagedFlagFor: ExperimentInterface["implementationType"];
   holdout: { remove: string | null; add: string | null };
   tags: string[];
 };
@@ -119,6 +128,7 @@ const UPDATABLE_KEYS: (keyof ExperimentInterface)[] = [
   "sequentialTestingTuningParameter",
   "statsEngine",
   "type",
+  "implementationType",
   "banditStage",
   "banditScheduleValue",
   "banditScheduleUnit",
@@ -150,6 +160,51 @@ const DEEP_COMPARED_KEYS = new Set<keyof ExperimentInterface>([
   "precomputedUnitDimensionIds",
 ]);
 
+// Judged against the flag actually managed, not the stored label. Returns the
+// type to release the managed flag for; the release waits until every check passes.
+async function planImplementationTypeChange(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  data: Pick<ExperimentUpdateInput, "implementationType" | "trackingKey">,
+): Promise<ExperimentInterface["implementationType"]> {
+  const next = data.implementationType;
+  if (next === undefined) return undefined;
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  const current = managed ? "values" : experiment.implementationType;
+  if (next === current) return undefined;
+
+  const afterRelease =
+    managed && next !== "feature"
+      ? {
+          ...experiment,
+          linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+            (id) => id !== managed.id,
+          ),
+        }
+      : experiment;
+  if (!canChangeImplementationType(afterRelease, next)) {
+    throw new BadRequestError(
+      "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+    );
+  }
+  if (managed) return next;
+
+  // The flag is created once the update lands, and only on a draft; otherwise
+  // the Values label would stand alone.
+  if (next === "values") {
+    if (experiment.status !== "draft" || experiment.archived) {
+      throw new BadRequestError(
+        "Only a draft experiment can switch to Values. Set the experiment's status back to Draft first.",
+      );
+    }
+    assertManagedFlagKeyFormat(context, {
+      trackingKey: data.trackingKey ?? experiment.trackingKey,
+      id: experiment.id,
+    });
+  }
+  return undefined;
+}
+
 // Every gate an experiment update must pass, with no writes; `applyExperimentUpdatePlan` performs them.
 export async function planExperimentUpdate(
   context: ReqContext,
@@ -168,6 +223,15 @@ export async function planExperimentUpdate(
   if (!context.permissions.canUpdateExperiment(experiment, input)) {
     context.permissions.throwPermissionError();
   }
+
+  if (data.implementationType === "multi") {
+    throw new BadRequestError("implementationType cannot be set to multi");
+  }
+  const releaseManagedFlagFor = await planImplementationTypeChange(
+    context,
+    experiment,
+    data,
+  );
 
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
@@ -642,9 +706,13 @@ export async function planExperimentUpdate(
   }
 
   await assertCanRunExperimentChanges(context, experiment, changes);
+
+  if ("project" in changes) {
+    await assertManagedFlagCanMove(context, experiment, changes.project ?? "");
+  }
   await validateExperimentChange({ context, experiment, changes });
 
-  return { changes, holdout, tags: data.tags || [] };
+  return { changes, releaseManagedFlagFor, holdout, tags: data.tags || [] };
 }
 
 export async function applyExperimentUpdatePlan(args: {
@@ -653,8 +721,8 @@ export async function applyExperimentUpdatePlan(args: {
   plan: ExperimentUpdatePlan;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
-  const updated = await writeExperimentUpdatePlan(args);
-  await finishExperimentUpdate({ ...args, updated });
+  const { experiment, updated } = await writeExperimentUpdatePlan(args);
+  await finishExperimentUpdate({ ...args, experiment, updated });
   return updated;
 }
 
@@ -663,14 +731,35 @@ export async function writeExperimentUpdatePlan({
   context,
   experiment,
   plan,
+  audit,
   guard,
+  acknowledgeFlagRemoval = context.ignoreWarnings,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   plan: ExperimentUpdatePlan;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
   guard?: Record<string, unknown>;
-}): Promise<ExperimentInterface> {
-  const { changes, holdout } = plan;
+  /** Consent to deleting the managed flag when leaving Values. */
+  acknowledgeFlagRemoval?: boolean;
+}): Promise<{ experiment: ExperimentInterface; updated: ExperimentInterface }> {
+  const { changes, releaseManagedFlagFor, holdout } = plan;
+
+  // First: it can still refuse (unacknowledged 422) before anything is written.
+  if (releaseManagedFlagFor) {
+    const released = await releaseManagedFlagForImplementationChange({
+      context,
+      experiment,
+      next: releaseManagedFlagFor,
+      audit,
+      acknowledged: acknowledgeFlagRemoval,
+    });
+    // The release wrote the experiment itself, so its read is the baseline now.
+    if (guard?.dateUpdated !== undefined && released !== experiment) {
+      guard = { ...guard, dateUpdated: released.dateUpdated };
+    }
+    experiment = released;
+  }
   const updated = await updateExperiment({
     context,
     experiment,
@@ -690,7 +779,7 @@ export async function writeExperimentUpdatePlan({
       experiment.id,
     );
   }
-  return updated;
+  return { experiment, updated };
 }
 
 export async function finishExperimentUpdate({
@@ -712,6 +801,9 @@ export async function finishExperimentUpdate({
       context,
       updated,
     });
+  }
+  if ("project" in changes) {
+    await moveManagedFlagWithExperiment(context, updated);
   }
   if (changes.name || changes.description || changes.hypothesis) {
     const aiSettings = await getAISettingsForOrg(context);

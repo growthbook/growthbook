@@ -188,8 +188,8 @@ export default defineConfig([
     // and console is the intended logging channel.
     files: [
       "./preview/idle-monitor.js",
-      "./scripts/*.js",
-      "./scripts/*.mjs",
+      "./scripts/**/*.js",
+      "./scripts/**/*.mjs",
       "./packages/sdk-js/scripts/*.js",
     ],
 

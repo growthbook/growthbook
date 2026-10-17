@@ -169,6 +169,12 @@ export async function planLinkedChanges(
         "URL Redirects can only change while the experiment is a draft with no scheduled start.",
       );
     }
+    // The first redirect re-derives the type from what's linked.
+    if (adds.length && changes.implementationType !== undefined) {
+      throw new BadRequestError(
+        "Change the implementation type or add a URL Redirect, not both in one save.",
+      );
+    }
   }
   assertCanRunLinkedChanges(
     context,

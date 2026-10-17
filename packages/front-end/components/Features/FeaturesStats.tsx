@@ -7,6 +7,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -27,11 +28,11 @@ const generatePlatformUrl = (
 };
 
 export default function FeaturesStats({
-  orgSettings,
   featureId,
+  orgSettings,
 }: {
-  orgSettings: OrganizationSettings;
   featureId: string;
+  orgSettings: OrganizationSettings;
 }) {
   const router = useRouter();
   const {
@@ -148,6 +149,14 @@ export default function FeaturesStats({
                 {codeRef.refs.length} reference(s) found in{" "}
                 <code>{codeRef.branch}</code> branch.
               </div>
+              {/* Found under a key the flag was renamed away from. */}
+              {codeRef.feature !== featureId ? (
+                <Badge
+                  ml="2"
+                  color="amber"
+                  label={`Uses the old key ${codeRef.feature}`}
+                />
+              ) : null}
             </div>
             <div className="d-flex flex-column">
               {codeRef.refs.map((ref, i) => (

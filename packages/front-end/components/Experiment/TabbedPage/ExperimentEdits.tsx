@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type {
+  ImplementationType,
   ExperimentChangesBody,
   ExperimentChangesFields,
   ExperimentRuleEnvironments,
@@ -59,6 +60,14 @@ type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
+interface LiveViewValue {
+  /** The page shows live values in place of unpublished ones; nothing edits. */
+  live: boolean;
+  setLive: (live: boolean) => void;
+}
+
+const LiveViewContext = createContext<LiveViewValue | null>(null);
+
 /**
  * An experiment-field edit, with the value each field held when loaded so a
  * save over someone else's change fails instead of overwriting it.
@@ -95,6 +104,16 @@ export function ExperimentEditsProvider({
   const [dirtyIds, setDirtyIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Held against the experiment it was picked on, so it doesn't follow the
+  // page to another one.
+  const [liveFor, setLiveFor] = useState<string | null>(null);
+  const liveView = useMemo(
+    () => ({
+      live: liveFor === experimentId,
+      setLive: (live: boolean) => setLiveFor(live ? experimentId : null),
+    }),
+    [liveFor, experimentId],
+  );
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
@@ -196,7 +215,9 @@ export function ExperimentEditsProvider({
 
   return (
     <ExperimentEditsContext.Provider value={value}>
-      {children}
+      <LiveViewContext.Provider value={liveView}>
+        {children}
+      </LiveViewContext.Provider>
       {navigationGuard.pendingHref ? (
         <ConfirmDialog
           title="Leave without saving?"
@@ -209,6 +230,11 @@ export function ExperimentEditsProvider({
       ) : null}
     </ExperimentEditsContext.Provider>
   );
+}
+
+/** Whether the page is showing live values, read-only, rather than unpublished ones. */
+export function useLiveView(): LiveViewValue {
+  return useContext(LiveViewContext) ?? { live: false, setLive: () => {} };
 }
 
 export function useExperimentEdits() {
@@ -265,6 +291,15 @@ export function useRegisterExperimentEdit(
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
   return ctx?.dirty ? "Save or discard your changes first." : null;
+}
+
+/**
+ * An implementation type staged for the page's Save. Leaving Values deletes the
+ * managed flag, which the save has to acknowledge.
+ */
+export interface ImplementationTypeDraft {
+  value: { type: ImplementationType; deletesManagedFlag: boolean } | null;
+  set: (value: ImplementationTypeDraft["value"]) => void;
 }
 
 /** A holdout staged for the page's Save: an id to join, "" to leave, null for none staged. */

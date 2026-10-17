@@ -1,13 +1,29 @@
 import { ReactNode } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import Text from "@/ui/Text";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  useImplementationTypeChooser,
+  useImplementationTypeUnavailableReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
+import Tooltip from "@/ui/Tooltip";
 
 /** Labels one kind of implementation on the Setup page: flags, redirects, visual changes. */
 export default function ImplementationHeading({
   children,
+  action,
+  menu,
 }: {
   children: ReactNode;
+  // Right-aligned on the heading's line.
+  action?: ReactNode;
+  // This heading's own menu items, above the page's "Change implementation type".
+  menu?: ReactNode;
 }) {
+  const chooseType = useImplementationTypeChooser();
+  const unavailableReason = useImplementationTypeUnavailableReason();
+  const hasMenu = !!menu || !!chooseType || !!unavailableReason;
   return (
     <Flex
       align="center"
@@ -20,6 +36,49 @@ export default function ImplementationHeading({
       <Text as="div" weight="medium" color="text-low" textTransform="uppercase">
         {children}
       </Text>
+      {action || hasMenu ? (
+        <Flex align="center" gap="4">
+          {action}
+          {hasMenu ? (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  // Only the sides: the ghost's vertical pull keeps the row's
+                  // height the same with or without the menu.
+                  style={{ marginLeft: 0, marginRight: 0 }}
+                  aria-label={
+                    typeof children === "string"
+                      ? `${children} actions`
+                      : "Actions"
+                  }
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {menu}
+              {chooseType ? (
+                <DropdownMenuItem onClick={() => chooseType()}>
+                  Change implementation type
+                </DropdownMenuItem>
+              ) : unavailableReason ? (
+                <DropdownMenuItem disabled>
+                  <Tooltip content={unavailableReason} side="left">
+                    <span>Change implementation type</span>
+                  </Tooltip>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenu>
+          ) : null}
+        </Flex>
+      ) : null}
     </Flex>
   );
 }

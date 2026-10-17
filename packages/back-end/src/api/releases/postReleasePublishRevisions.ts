@@ -14,6 +14,7 @@ import {
   findFeatureRevisionCoordinatesByRevisionId,
   isFeatureRevisionId,
   parseFeatureRevisionId,
+  getActiveDraft,
 } from "back-end/src/models/FeatureRevisionModel";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import {
@@ -25,6 +26,15 @@ import {
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  assertFeatureNotManaged,
+  getManagedFeatureForExperiment,
+} from "back-end/src/services/managedFeatures";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  featureIdExists,
+  getFeatureIdByPreviousId,
+} from "back-end/src/models/FeatureModel";
 import {
   commitBulkPublish,
   planBulkPublish,
@@ -62,7 +72,54 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   // caller's identifiers.
   const refs: BulkPublishItemRef[] = [];
   const callerIdByInternal = new Map<string, string>();
+  // Managed flags publish as ordinary feature revisions but are addressed, and
+  // answered, as their experiment.
+  const managedExperimentIdByInternal = new Map<string, string>();
   for (const item of req.body.revisions as RequestRevisionItem[]) {
+    if (item.entityType === "managed-feature") {
+      const experiment = await getExperimentById(
+        req.context,
+        item.experimentId,
+      );
+      if (!experiment) {
+        throw new BadRequestError(
+          `Experiment "${item.experimentId}" not found`,
+        );
+      }
+      if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
+        req.context.permissions.throwPermissionError();
+      }
+      const feature = await getManagedFeatureForExperiment(
+        req.context,
+        experiment,
+      );
+      if (!feature) {
+        throw new BadRequestError(
+          `Experiment "${experiment.id}" does not manage a Feature Flag`,
+        );
+      }
+      if (experiment.status === "draft") {
+        throw new BadRequestError(
+          `Experiment "${experiment.id}" has not started; its pending variation values publish when it starts`,
+        );
+      }
+      const draft = await getActiveDraft(req.context, feature);
+      if (!draft) {
+        throw new BadRequestError(
+          `Experiment "${experiment.id}" has no pending variation values`,
+        );
+      }
+      const version = item.version ?? draft.version;
+      callerIdByInternal.set(`feature:${feature.id}`, experiment.id);
+      managedExperimentIdByInternal.set(`feature:${feature.id}`, experiment.id);
+      refs.push({
+        entityType: "feature",
+        entityId: feature.id,
+        version,
+        displayId: experiment.id,
+      });
+      continue;
+    }
     const revisionId = itemField(item, "revisionId") as string | undefined;
     // Seed with whichever identifier the union arm carries — an unresolvable
     // revisionId flows into the plan's not-found gate rather than failing the
@@ -97,8 +154,16 @@ export const postReleasePublishRevisions = createApiRequestHandler(
             revisionId,
           ));
         if (coords) {
-          callerId = coords.featureId;
-          entityId = coords.featureId;
+          // A tuple id names the flag's id when it was minted; a renamed flag
+          // answers to it through its previous ids.
+          let featureId = coords.featureId;
+          if (!(await featureIdExists(req.context, featureId))) {
+            featureId =
+              (await getFeatureIdByPreviousId(req.context, featureId)) ??
+              featureId;
+          }
+          callerId = featureId;
+          entityId = featureId;
           version = coords.version;
         }
       } else {
@@ -130,6 +195,12 @@ export const postReleasePublishRevisions = createApiRequestHandler(
       if (constant) entityId = constant.id;
     }
 
+    // This endpoint addresses features by body, not by URL param, so the
+    // route-level managed guard cannot see it. Both id shapes land here.
+    if (item.entityType === "feature") {
+      await assertFeatureNotManaged(req.context, entityId, "rest");
+    }
+
     callerIdByInternal.set(`${item.entityType}:${entityId}`, callerId);
     refs.push({
       entityType: item.entityType,
@@ -141,6 +212,26 @@ export const postReleasePublishRevisions = createApiRequestHandler(
 
   const callerIdFor = (entityType: string, entityId: string) =>
     callerIdByInternal.get(`${entityType}:${entityId}`) ?? entityId;
+  const callerTypeFor = (
+    entityType: BulkPublishItemRef["entityType"],
+    entityId: string,
+  ): BulkPublishItemRef["entityType"] | "managed-feature" =>
+    managedExperimentIdByInternal.has(`${entityType}:${entityId}`)
+      ? "managed-feature"
+      : entityType;
+  // A managed flag's own routes refuse writes, so its gates must point at the
+  // experiment's routes instead. Actions without a counterpart there get none.
+  const managedResolution = (
+    experimentId: string,
+    resolution: BulkPublishGate["resolution"],
+  ): BulkPublishGate["resolution"] => {
+    if (!resolution) return null;
+    if (!["rebase", "request-review"].includes(resolution.action)) return null;
+    return {
+      ...resolution,
+      path: `/experiments/${experimentId}/variation-values/${resolution.action}`,
+    };
+  };
 
   // One flat result-item shape for every response surface (dry-run, success,
   // and the commit-error body) — `id` speaks the caller's identifier, never
@@ -150,7 +241,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     revisionId: string,
     status: S,
   ) => ({
-    entityType: ref.entityType,
+    entityType: callerTypeFor(ref.entityType, ref.entityId),
     id: callerIdFor(ref.entityType, ref.entityId),
     version: ref.version,
     revisionId,
@@ -159,15 +250,24 @@ export const postReleasePublishRevisions = createApiRequestHandler(
 
   // Spread the gate so a PublishGate field change flows through untouched;
   // only the internal entityId is swapped for the caller's identifier.
-  const serializeGate = ({ entityId, ...gate }: BulkPublishGate) => ({
-    ...gate,
-    id: callerIdFor(gate.entityType, entityId),
-  });
+  const serializeGate = ({ entityId, ...gate }: BulkPublishGate) => {
+    const managedExperimentId = managedExperimentIdByInternal.get(
+      `${gate.entityType}:${entityId}`,
+    );
+    return {
+      ...gate,
+      entityType: callerTypeFor(gate.entityType, entityId),
+      id: callerIdFor(gate.entityType, entityId),
+      resolution: managedExperimentId
+        ? managedResolution(managedExperimentId, gate.resolution)
+        : gate.resolution,
+    };
+  };
 
   const serializeBypassed = (plan: BulkPublishPlan) =>
     plan.items.flatMap((item) =>
       item.bypassedGates.map((gate) => ({
-        entityType: item.ref.entityType,
+        entityType: callerTypeFor(item.ref.entityType, item.ref.entityId),
         id: callerIdFor(item.ref.entityType, item.ref.entityId),
         version: item.ref.version,
         type: gate.type,

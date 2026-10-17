@@ -2110,6 +2110,11 @@ export function renderRevisionMetadata(
     }
   };
 
+  // A re-type changes how every value reads; show it first.
+  if (draft.valueType !== undefined) {
+    stringField("valueType", "Value type", current?.valueType, draft.valueType);
+  }
+
   if (draft.description !== undefined) {
     stringField(
       "description",

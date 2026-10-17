@@ -13,6 +13,7 @@ import {
   getExperimentIdsFromRules,
   getRulesForEnvironment,
   liveRevisionFromFeature,
+  managedByExperimentId,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   rampTargetMatchesRule,
@@ -139,9 +140,15 @@ import {
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
+  ConflictError,
+  FeatureKeyTakenError,
   getErrorMessage,
   NotFoundError,
 } from "back-end/src/util/errors";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
 import {
   applyFeatureContextualBanditLinkage,
@@ -252,11 +259,32 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
+  // Mixed: the discriminator key is named `type`, which Mongoose would read as
+  // a SchemaType declaration rather than a path.
+  managedBy: {},
+  // Declared so toJSON keeps them; both are written only by a managed-flag
+  // rename (services/featureRename).
+  previousIds: { type: [String], default: undefined },
+  renaming: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Resolves an old key after a rename; only renamed flags carry previousIds.
+featureSchema.index(
+  { organization: 1, previousIds: 1 },
+  { partialFilterExpression: { previousIds: { $exists: true } } },
+);
+// An id a rename is still moving away from stays reserved; see featureIdExists.
+featureSchema.index(
+  { organization: 1, "renaming.from": 1 },
+  { partialFilterExpression: { "renaming.from": { $exists: true } } },
+);
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
+featureSchema.index(
+  { organization: 1, "managedBy.experimentId": 1 },
+  { partialFilterExpression: { "managedBy.type": "experiment" } },
+);
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -933,12 +961,137 @@ export async function getFeature(
     : null;
 }
 
-// Not permission-filtered: tells a flag the caller can't read from one that's gone.
+// Not permission-filtered: the unique index is org-wide, so a key held by an
+// unreadable feature is still taken. So is one a rename is still moving
+// references away from: a flag created under it would have them moved too.
 export async function featureIdExists(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<boolean> {
-  return !!(await FeatureModel.exists({ organization: context.org.id, id }));
+  const count = await FeatureModel.countDocuments({
+    organization: context.org.id,
+    $or: [{ id }, { "renaming.from": id }],
+  });
+  return count > 0;
+}
+
+// A flag renamed away from `id` stops reading history and code references
+// under it once another flag holds it.
+async function releasePreviousId(organization: string, id: string) {
+  await getCollection<{
+    organization: string;
+    id: string;
+    previousIds?: string[];
+  }>("features").updateMany(
+    { organization, previousIds: id, id: { $ne: id } },
+    { $pull: { previousIds: id } },
+  );
+}
+
+/** The ids a renamed feature used to have; empty for one never renamed. */
+export async function getFeaturePreviousIds(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<string[]> {
+  const doc = await FeatureModel.findOne(
+    { organization: context.org.id, id },
+    { previousIds: 1 },
+  ).lean();
+  return doc?.previousIds ?? [];
+}
+
+/** The current id of the flag that was renamed away from `previousId`. */
+export async function getFeatureIdByPreviousId(
+  context: ReqContext | ApiReqContext,
+  previousId: string,
+): Promise<string | null> {
+  const doc = await FeatureModel.findOne(
+    { organization: context.org.id, previousIds: previousId },
+    { id: 1 },
+  ).lean();
+  return doc?.id ?? null;
+}
+
+/**
+ * The decisive write of a rename: moves the feature to its new id and marks
+ * the references still naming the old one. The unique index refuses an id
+ * taken since it was checked.
+ */
+export async function claimFeatureRename(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  to: string,
+): Promise<NonNullable<FeatureInterface["renaming"]>> {
+  const stamp = advancedGuardStamp(feature.dateUpdated);
+  try {
+    const result = await FeatureModel.collection.updateOne(
+      {
+        organization: context.org.id,
+        id: feature.id,
+        "managedBy.type": "experiment",
+        dateUpdated: feature.dateUpdated,
+      },
+      {
+        $set: {
+          id: to,
+          renaming: { from: feature.id, to, claimedAt: stamp },
+          dateUpdated: stamp,
+        },
+        $addToSet: { previousIds: feature.id },
+      },
+    );
+    if (!result.matchedCount) {
+      throw new ConflictError(
+        "This Feature Flag changed while you were editing it. Reload and try again.",
+      );
+    }
+  } catch (e) {
+    if (!isDuplicateKeyError(e)) throw e;
+    throw new FeatureKeyTakenError(`Feature Flag "${to}" already exists.`, {
+      featureKey: to,
+      suggestedTrackingKey: null,
+      suggestedFeatureKey: null,
+    });
+  }
+  await releasePreviousId(context.org.id, to);
+  return { from: feature.id, to, claimedAt: stamp };
+}
+
+function renamingFilter(
+  context: ReqContext | ApiReqContext,
+  { from, to }: { from: string; to: string },
+) {
+  return {
+    organization: context.org.id,
+    id: to,
+    "renaming.from": from,
+    "renaming.to": to,
+  };
+}
+
+/** Records that the new id's leftovers are gone, so a resume won't clear again. */
+export async function markFeatureRenameCleaned(
+  context: ReqContext | ApiReqContext,
+  rename: { from: string; to: string },
+): Promise<void> {
+  await FeatureModel.collection.updateOne(renamingFilter(context, rename), {
+    $set: { "renaming.cleaned": true },
+  });
+}
+
+/**
+ * Ends a rename once every reference names the new id. A flag renamed back to
+ * an old id no longer lists it as previous.
+ */
+export async function finishFeatureRename(
+  context: ReqContext | ApiReqContext,
+  rename: { from: string; to: string },
+): Promise<void> {
+  await FeatureModel.collection.updateOne(renamingFilter(context, rename), {
+    $unset: { renaming: "" },
+    $pull: { previousIds: rename.to },
+  });
+  await releasePreviousId(context.org.id, rename.to);
 }
 
 export async function migrateDraft(
@@ -1057,6 +1210,18 @@ export async function getFeaturesByIds(
   );
 }
 
+// Unfiltered, for a system write's follow-ups (events, payload refreshes) on
+// flags the caller may not read. Don't return these to the caller.
+export async function getFeaturesByIdsUnfiltered(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  return (
+    await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
+  ).map((m) => toInterface(m, context));
+}
+
 // Returns id -> project for every feature that exists in the org, regardless of
 // the caller's read permission. Intended for permission decisions where missing
 // (inaccessible) and non-existent features must be distinguished — do not use it
@@ -1071,6 +1236,23 @@ export async function getFeatureProjectsByIds(
     { id: 1, project: 1, _id: 0 },
   );
   return new Map(features.map((f) => [f.id, f.project || undefined]));
+}
+
+// Raw: a write gate must refuse an unreadable managed flag, not skip it.
+export async function getManagedByExperimentForFeatureIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      "managedBy.type": "experiment",
+    },
+    { id: 1, "managedBy.experimentId": 1, _id: 0 },
+  );
+  return new Map(features.map((f) => [f.id, f.managedBy?.experimentId ?? ""]));
 }
 
 /**
@@ -1140,9 +1322,13 @@ export async function createFeature(
 
   const linkedExperiments = getLinkedExperiments(data);
 
+  // Only a rename sets these; a new flag never inherits them from a copy.
   const featureToCreate = normalizeFeatureJSONValues(
     { valueType: data.valueType },
-    buildFeatureUpdate({ ...data, linkedExperiments }),
+    buildFeatureUpdate({
+      ...omit(data, ["previousIds", "renaming"]),
+      linkedExperiments,
+    }),
   );
 
   await assertFeatureSavedGroupScope(context, data);
@@ -1182,7 +1368,19 @@ export async function createFeature(
     original: null,
   });
 
+  if (
+    await FeatureModel.exists({
+      organization: org.id,
+      "renaming.from": data.id,
+    })
+  ) {
+    throw new BadRequestError(
+      `Feature Flag key "${data.id}" isn't available right now. Try again in a moment.`,
+    );
+  }
+
   const feature = await FeatureModel.create(featureToCreate);
+  await releasePreviousId(org.id, feature.id);
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one
@@ -1283,20 +1481,24 @@ export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">,
 >(eventData: {
   context: ReqContext;
+  // Reads what compiles the payload, where the writer may not see all of it;
+  // the event is still the writer's.
+  lookupContext?: ReqContext | ApiReqContext;
   event: Event;
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
+  const lookups = eventData.lookupContext ?? eventData.context;
   const event: CreateEventParams<"feature", Event> = await (async () => {
     // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
     const allProjectIds = await eventData.context.getAllProjectIds();
 
     const experimentMap = await getExperimentMapForFeature(
-      eventData.context,
+      lookups,
       eventData.data.object.id,
     );
     // The previous object is compiled from the same maps, so load for both.
     const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
-      eventData.context,
+      lookups,
       {
         features: hasPreviousObject<"feature", Event, FeatureInterface>(
           eventData.data,
@@ -1308,7 +1510,7 @@ export const createFeatureEvent = async <
     );
 
     const currentRevision = await getRevision({
-      context: eventData.context,
+      context: lookups,
       organization: eventData.data.object.organization,
       featureId: eventData.data.object.id,
       feature: eventData.data.object,
@@ -1341,9 +1543,10 @@ export const createFeatureEvent = async <
       } as CreateEventParams<"feature", Event>;
 
     const previousRevision = await getRevision({
-      context: eventData.context,
+      context: lookups,
       organization: eventData.data.previous_object.organization,
-      featureId: eventData.data.previous_object.id,
+      // A rename moves the flag's revisions to its new id.
+      featureId: eventData.data.object.id,
       feature: eventData.data.previous_object,
       version: eventData.data.previous_object.version,
     });
@@ -1414,9 +1617,11 @@ export const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface,
+  lookupContext?: ReqContext | ApiReqContext,
 ) =>
   createFeatureEvent({
     context,
+    lookupContext,
     event: "updated",
     data: {
       object: current,
@@ -1576,6 +1781,9 @@ export async function updateFeature(
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
+    // Needs $unset for the same reason as holdout: `managedBy: undefined` in a
+    // $set is dropped, not applied.
+    unsetManagedBy?: boolean;
     // The stamp this write PUTS on the document — fires only after Mongo
     // confirms the write ("this landed", never "this was attempted").
     // Compensation uses it as the ownership token; the returned doc is a
@@ -1622,6 +1830,7 @@ export async function updateFeature(
     ...allUpdates,
   };
   if (options?.unsetHoldout) delete projected.holdout;
+  if (options?.unsetManagedBy) delete projected.managedBy;
 
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(projected);
@@ -1717,7 +1926,14 @@ export async function updateFeature(
     },
     {
       $set: normalizedUpdates,
-      ...(options.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options.unsetHoldout || options.unsetManagedBy
+        ? {
+            $unset: {
+              ...(options.unsetHoldout ? { holdout: "" } : {}),
+              ...(options.unsetManagedBy ? { managedBy: "" } : {}),
+            },
+          }
+        : {}),
     },
   );
   if (writeResult.matchedCount === 0) {
@@ -2283,6 +2499,8 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
+    // Staged by a revert or a managed flag's type change.
+    if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
 
@@ -4973,6 +5191,7 @@ export async function getFeatureMetaInfoById(
     valueType: 1,
     version: 1,
     linkedExperiments: 1,
+    managedBy: 1,
     neverStale: 1,
     "jsonSchema.enabled": 1,
     revision: 1,
@@ -5007,6 +5226,7 @@ export async function getFeatureMetaInfoById(
 
     metaInfo.push({
       ...toFeatureMetaInfo(f, includeDefaultValue),
+      managedBy: f.managedBy,
       holdoutId: f.holdout?.id ?? null,
     });
   }
@@ -5035,6 +5255,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: 1,
       version: 1,
       linkedExperiments: 1,
+      managedBy: 1,
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
@@ -5058,10 +5279,59 @@ export async function getFeatureMetaInfoByIds(
       valueType: f.valueType,
       version: f.version,
       linkedExperiments: f.linkedExperiments,
+      managedBy: f.managedBy,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
       holdoutId: f.holdout?.id ?? null,
     }));
+}
+
+// Unfiltered: ownership must be answerable for an unreadable flag. Don't leak the ids.
+export async function getManagedFlagIdsUnfiltered(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<string[]> {
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": experimentId,
+    },
+    { id: 1 },
+  );
+  return features.map((f) => f.id);
+}
+
+/** Managed flags for the given experiments, via the partial index. */
+export async function getManagedFlagsByExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentIds: string[],
+): Promise<Record<string, string>> {
+  if (!experimentIds.length) return {};
+
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": { $in: experimentIds },
+    },
+    {
+      id: 1,
+      project: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
+      managedBy: 1,
+    },
+  );
+
+  const byExperiment: Record<string, string> = {};
+  features
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .forEach((f) => {
+      const experimentId = managedByExperimentId(f);
+      if (experimentId) byExperiment[experimentId] = f.id;
+    });
+  return byExperiment;
 }
 
 export async function getFeatureEnvStatus(

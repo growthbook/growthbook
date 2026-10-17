@@ -10,6 +10,7 @@ import { useRouter } from "next/router";
 import {
   resolveAnalysisIdentifierType,
   getHoldoutStage,
+  isManagedByExperiment,
   canMaterializeLinkedChanges,
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
@@ -85,6 +86,7 @@ import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import { hasStatusSchedule } from "./RunningScheduleLink";
+import { REVIEW_TAB_PATH } from "./useExperimentReviewRoute";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -103,6 +105,8 @@ export interface Props {
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   start: StartExperiment;
+  /** The review is part of Setup: its tab stays selected, and clicking it leaves. */
+  reviewing: boolean;
   /** Where an experiment starts; holdouts start from a modal. */
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
@@ -115,6 +119,11 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
+  // PROTOTYPE: which version the page shows, in the tab row.
+  revisionControl?: ReactNode;
+  // The Values flag's review status, for the start popover.
+  startValuesStatus?: ReactNode;
+  detailsWidth?: number;
 }
 
 const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
@@ -190,6 +199,7 @@ export default function ExperimentHeader({
   editResult,
   editTargeting,
   start,
+  reviewing,
   startOpen,
   setStartOpen,
   editPhases,
@@ -200,6 +210,9 @@ export default function ExperimentHeader({
   holdout,
   showDashboardView,
   editSchedule,
+  revisionControl,
+  detailsWidth,
+  startValuesStatus,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -269,12 +282,30 @@ export default function ExperimentHeader({
       setValue={(v) => setDeleteAcknowledged(!!v)}
     />
   );
-  // Deleting the experiment strips its rule from every linked flag.
-  const linkedFlagIds = linkedFeatures
-    .filter((f) => f.state === "live" || f.state === "draft")
+  // Deleting the experiment archives the flag that existed only for it and
+  // strips its rule from every other linked flag.
+  const managedFlagToArchive = linkedFeatures.find((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  )?.feature.id;
+  const sharedLinkedFlags = linkedFeatures
+    .filter(
+      (f) =>
+        !isManagedByExperiment(f.feature, experiment.id) &&
+        (f.state === "live" || f.state === "draft"),
+    )
     .map((f) => f.feature.id);
   const deleteConsequences = [
-    ...linkedFlagIds.map((id) => (
+    ...(managedFlagToArchive
+      ? [
+          <li key="managed">
+            Managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
+            {materializing
+              ? "becomes an unmanaged Feature Flag serving the released variation."
+              : "will be archived."}
+          </li>,
+        ]
+      : []),
+    ...sharedLinkedFlags.map((id) => (
       <li key={id}>
         {materializing
           ? "A permanent rule replaces the experiment rule on Feature Flag "
@@ -960,7 +991,9 @@ export default function ExperimentHeader({
                       {editSchedule && <PiPencilSimple className="ml-1" />}
                     </Button>
                   </UITooltip>
-                ) : experiment.status === "draft" && canRunExperiment ? (
+                ) : experiment.status === "draft" &&
+                  canRunExperiment &&
+                  !reviewing ? (
                   <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
                     {isHoldout ? (
                       startButton
@@ -972,6 +1005,7 @@ export default function ExperimentHeader({
                         start={start}
                         editSchedule={editSchedule ?? null}
                         mutate={mutate}
+                        valuesStatus={startValuesStatus}
                         open={startOpen}
                         setOpen={setStartOpen}
                         trigger={startButton}
@@ -1312,7 +1346,10 @@ export default function ExperimentHeader({
             <div className="position-relative container-fluid pagecontents px-4">
               <div className="d-flex align-items-center header-tabs has-tab-actions">
                 <Tabs
-                  value={tab}
+                  // The review is a tab of its own, so no trigger is active,
+                  // and focus reaching one mustn't leave the review.
+                  value={reviewing ? REVIEW_TAB_PATH : tab}
+                  activationMode={reviewing ? "manual" : "automatic"}
                   onValueChange={setTab}
                   style={{ flex: 1, minWidth: 0 }}
                 >
@@ -1366,6 +1403,24 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
+                {revisionControl ? (
+                  <Box
+                    flexShrink="0"
+                    style={
+                      // PROTOTYPE: ?revisionPicker=right sits it by the toggle;
+                      // otherwise it ends where the details column begins.
+                      router.query.revisionPicker !== "right" &&
+                      detailsOpen &&
+                      detailsWidth
+                        ? {
+                            marginRight: `calc(${detailsWidth}px - var(--space-5) - var(--space-3))`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {revisionControl}
+                  </Box>
+                ) : null}
                 {setDetailsOpen ? (
                   <UITooltip content={detailsToggleLabel}>
                     <IconButton

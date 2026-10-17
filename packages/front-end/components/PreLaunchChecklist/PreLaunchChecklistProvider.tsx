@@ -45,6 +45,16 @@ export function usePreLaunchChecklist(): PreLaunchChecklistContextValue {
   return ctx;
 }
 
+/** The checklist's summary, less the rows a surface shows its own way. */
+export function useChecklistSummary(
+  omit?: (item: CheckListItem) => boolean,
+): ChecklistSummary {
+  const { checklist, summary } = usePreLaunchChecklist();
+  return omit
+    ? summarizeChecklist(checklist.filter((item) => !omit(item)))
+    : summary;
+}
+
 export interface PreLaunchChecklistProviderProps {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -54,8 +64,10 @@ export interface PreLaunchChecklistProviderProps {
   canEdit: boolean;
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
+  editVariationValues?: () => void;
   openImplementation?: () => void;
   openAnalysisSettings?: () => void;
+  openManagedApproval?: () => void;
   children: ReactNode;
 }
 
@@ -68,8 +80,10 @@ export function PreLaunchChecklistProvider({
   canEdit,
   editTargeting,
   editSchedule,
+  editVariationValues,
   openImplementation,
   openAnalysisSettings,
+  openManagedApproval,
   children,
 }: PreLaunchChecklistProviderProps) {
   const permissionsUtil = usePermissionsUtil();
@@ -117,6 +131,8 @@ export function PreLaunchChecklistProvider({
       openAnalysisSettings:
         canEdit && (!isBandit || editTargeting) ? openAnalysisSettings : null,
       openImplementation: canEdit ? openImplementation : null,
+      editVariationValues: canEdit ? editVariationValues : null,
+      openManagedApproval,
       editTargeting,
       editSchedule: canEdit ? editSchedule : null,
       createSdkConnection: canCreateSdkConnection
@@ -136,6 +152,8 @@ export function PreLaunchChecklistProvider({
     editTargeting,
     openAnalysisSettings,
     openImplementation,
+    editVariationValues,
+    openManagedApproval,
     editSchedule,
     canCreateSdkConnection,
   ]);

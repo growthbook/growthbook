@@ -1,4 +1,5 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { isManagedByExperiment } from "shared/util";
 
 /** Which of a flag's drafts its row shows and saves to. */
 export type DraftPick = {
@@ -15,11 +16,16 @@ export interface FlagDraftPicks {
 /**
  * A second draft is only worth starting when the newest also holds changes
  * that can't publish with the experiment; otherwise start would stack both.
- * A new one needs the rule live.
+ * A managed flag keeps one draft, and a new one needs the rule live.
  */
-export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
+export function canStartSeparateDraft(
+  info: LinkedFeatureInfo,
+  experimentId: string,
+): boolean {
   return (
-    !!info.liveHasMatchingRule && !!info.pendingDraft?.hasUnrelatedDraftChanges
+    !isManagedByExperiment(info.feature, experimentId) &&
+    !!info.liveHasMatchingRule &&
+    !!info.pendingDraft?.hasUnrelatedDraftChanges
   );
 }
 
@@ -31,6 +37,7 @@ export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
 export function resolveDraftPick(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
+  experimentId: string,
 ) {
   const drafts = info.pendingDraft
     ? [info.pendingDraft, ...(info.otherPendingDrafts ?? [])]
@@ -39,7 +46,7 @@ export function resolveDraftPick(
   const startsNew =
     picked === "new" &&
     pick?.newestVersion === (drafts[0]?.version ?? null) &&
-    canStartSeparateDraft(info);
+    canStartSeparateDraft(info, experimentId);
   const draft =
     (typeof picked === "number"
       ? drafts.find((d) => d.version === picked)
@@ -58,8 +65,9 @@ export function resolveDraftPick(
 export function withPickedDraft(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
+  experimentId: string,
 ): LinkedFeatureInfo {
-  const { draft, target } = resolveDraftPick(info, pick);
+  const { draft, target } = resolveDraftPick(info, pick, experimentId);
   const pendingDraft = target === "draft" ? draft : undefined;
   return pendingDraft === info.pendingDraft ? info : { ...info, pendingDraft };
 }

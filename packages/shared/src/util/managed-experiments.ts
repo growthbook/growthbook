@@ -1,0 +1,238 @@
+import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
+import { validateFeatureValue } from "./features";
+
+// Managed mode: the experiment owns one Feature Flag holding one experiment-ref
+// rule, edited only from the experiment page while the marker is set.
+
+const FEATURE_KEY_ALLOWED = /[^a-zA-Z0-9_.:|-]+/g;
+
+/** Checklist key prefix for a flag's outstanding approval. */
+export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+
+export type ManagedFlagKeyPlan = {
+  /** The id the tracking key sanitizes to — what gets created if it is free. */
+  derivedId: string;
+  derivedIdAvailable: boolean;
+  /** True when sanitizing changed the key, so the two cannot match exactly. */
+  sanitized: boolean;
+  /** Offered only when `derivedId` is taken; adopting it renames the tracking key so the two match. */
+  suggestedPair: { trackingKey: string; featureId: string } | null;
+  /** Set when the org's feature key format rejects `derivedId`. */
+  regexError: string | null;
+};
+
+/** Why a managed flag can't be renamed to a key. */
+export type ManagedFlagRenameBlocker = {
+  reason: "taken" | "format" | "state";
+  message: string;
+};
+
+/** What the rename dialog shows before a key is saved. */
+export type ManagedFlagKeyCheck = {
+  /** The id the Experiment Key derives, which the flag would ideally carry. */
+  derivedId: string;
+  /** Why the flag can't carry `derivedId`; null when it can or already does. */
+  derivedIdBlocker: ManagedFlagRenameBlocker | null;
+  /** Why the flag can't take the key that was checked; null when it can. */
+  blocker: ManagedFlagRenameBlocker | null;
+  /** Why the flag can't be renamed to any key right now. */
+  stateBlocker: ManagedFlagRenameBlocker | null;
+};
+
+/** The experiment that manages this flag, or null when nothing does. */
+export function managedByExperimentId(
+  feature: Pick<FeatureInterface, "managedBy">,
+): string | null {
+  return feature.managedBy?.type === "experiment"
+    ? feature.managedBy.experimentId
+    : null;
+}
+
+export function isManagedFeature(
+  feature: Pick<FeatureInterface, "managedBy">,
+): boolean {
+  return managedByExperimentId(feature) !== null;
+}
+
+export function isManagedByExperiment(
+  feature: Pick<FeatureInterface, "managedBy">,
+  experimentId: string,
+): boolean {
+  return managedByExperimentId(feature) === experimentId;
+}
+
+// A managed draft publishes at start, so it counts as a live linked change.
+export function hasStartReadyManagedFlag(
+  experimentId: string,
+  linkedFeatures: Pick<LinkedFeatureInfo, "feature" | "state">[],
+): boolean {
+  return linkedFeatures.some(
+    (f) =>
+      isManagedByExperiment(f.feature, experimentId) &&
+      (f.state === "live" || f.state === "draft"),
+  );
+}
+
+export type ManagedValueProblem = {
+  variationId: string;
+  variationName: string;
+  problem: "missing" | "malformed";
+  detail?: string;
+};
+
+// Every arm must parse as the draft's type, or the publish at start fails.
+export function getManagedValueProblems({
+  variations,
+  values,
+  valueType,
+}: {
+  variations: { id: string; name: string }[];
+  values: { variationId: string; value: string }[];
+  valueType: FeatureValueType;
+}): ManagedValueProblem[] {
+  const byId = new Map(values.map((v) => [v.variationId, v.value]));
+  const problems: ManagedValueProblem[] = [];
+  variations.forEach((v, i) => {
+    const value = byId.get(v.id);
+    const variationName = v.name || `Variation ${i}`;
+    if (value === undefined) {
+      problems.push({ variationId: v.id, variationName, problem: "missing" });
+      return;
+    }
+    if (valueType === "boolean" && value !== "true" && value !== "false") {
+      problems.push({
+        variationId: v.id,
+        variationName,
+        problem: "malformed",
+        detail: "Must be true or false",
+      });
+      return;
+    }
+    // Strict: the SDK parses what is stored.
+    if (valueType === "json") {
+      try {
+        JSON.parse(value);
+      } catch {
+        problems.push({
+          variationId: v.id,
+          variationName,
+          problem: "malformed",
+          detail: "Must be valid JSON",
+        });
+      }
+      return;
+    }
+    try {
+      validateFeatureValue({ valueType }, value);
+    } catch (e) {
+      problems.push({
+        variationId: v.id,
+        variationName,
+        problem: "malformed",
+        detail: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+  return problems;
+}
+
+// A candidate, not a reservation.
+export function managedFeatureKeyCandidate({
+  trackingKey,
+  experimentId,
+  attempt = 0,
+}: {
+  trackingKey: string;
+  experimentId: string;
+  attempt?: number;
+}): string {
+  const sanitized = trackingKey
+    .trim()
+    .replace(FEATURE_KEY_ALLOWED, "-")
+    .replace(/^-+|-+$/g, "");
+  const base = sanitized || experimentId;
+  return attempt === 0 ? base : `${base}-${attempt + 1}`;
+}
+
+/** The characters every Feature Flag key is limited to. */
+export const FEATURE_KEY_PATTERN = /^[a-zA-Z0-9_.:|-]+$/;
+
+/** Why `featureId` isn't a valid Feature Flag key for the org, or null when it is. */
+export function featureKeyFormatError(
+  featureId: string,
+  regexValidator: string | null | undefined,
+): string | null {
+  if (!FEATURE_KEY_PATTERN.test(featureId)) {
+    return "Feature Flag keys can only include letters, numbers, and the characters _-.:|";
+  }
+  if (!regexValidator || new RegExp(regexValidator).test(featureId)) {
+    return null;
+  }
+  return `Your organization requires Feature Flag keys to match ${regexValidator}`;
+}
+
+/** Creation collects no values, so each variation starts with a type-appropriate seed. */
+export function seedManagedVariationValues(
+  variations: { id: string; key?: string }[],
+  valueType: FeatureValueType = "string",
+): { variationId: string; value: string }[] {
+  return variations.map((v, i) => ({
+    variationId: v.id,
+    value: seedValueForType(valueType, v.key, i),
+  }));
+}
+
+// Control off, the rest on.
+function seedValueForType(
+  valueType: FeatureValueType,
+  key: string | undefined,
+  index: number,
+): string {
+  switch (valueType) {
+    case "boolean":
+      return index === 0 ? "false" : "true";
+    case "number":
+      return String(index);
+    case "json":
+      return `{\n  "value": ${JSON.stringify(key || String(index))}\n}`;
+    case "string":
+      return key || String(index);
+  }
+}
+
+// By position: a duplicate gets fresh ids.
+export function copyManagedVariationValues({
+  sourceValues,
+  sourceVariations,
+  targetVariations,
+  valueType = "string",
+}: {
+  sourceValues: { variationId: string; value: string }[];
+  sourceVariations: { id: string }[];
+  targetVariations: { id: string; key?: string }[];
+  /** The type being copied, so an uncovered position seeds to match it. */
+  valueType?: FeatureValueType;
+}): { variationId: string; value: string }[] {
+  const byIndex = sourceVariations.map(
+    (sv) => sourceValues.find((v) => v.variationId === sv.id)?.value,
+  );
+  const seeded = seedManagedVariationValues(targetVariations, valueType);
+  return targetVariations.map((v, i) => ({
+    variationId: v.id,
+    value: byIndex[i] ?? seeded[i].value,
+  }));
+}
+
+// Lifecycle writes move a managed flag's live version, so approvals must stand against current live.
+export function requireFreshBaseForPublish({
+  feature,
+  reviewRequired,
+  orgSetting,
+}: {
+  feature: Pick<FeatureInterface, "managedBy">;
+  reviewRequired: boolean;
+  orgSetting: boolean;
+}): boolean {
+  return orgSetting || (reviewRequired && isManagedFeature(feature));
+}

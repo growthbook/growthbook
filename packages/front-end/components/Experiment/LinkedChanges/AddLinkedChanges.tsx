@@ -4,18 +4,17 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
-import { ReactElement } from "react";
-import { Flex, type AvatarProps } from "@radix-ui/themes";
-import { PiCaretDownFill, PiDesktop, PiFlag, PiLink } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDownFill } from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Avatar from "@/ui/Avatar";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
-import { ICON_PROPERTIES } from "./constants";
 
 // What adding each no-code kind needs: an SDK that applies it, and the plan
 // feature that lets the experiment start. A Feature Flag needs neither.
@@ -40,35 +39,6 @@ const ADD_GATES = {
 >;
 
 type AddableKind = "feature" | keyof typeof ADD_GATES;
-
-const ADD_OPTIONS: Record<
-  AddableKind,
-  {
-    header: string;
-    description: string;
-    icon: ReactElement;
-    color: AvatarProps["color"];
-  }
-> = {
-  feature: {
-    header: "Feature Flag",
-    description: "Make code changes in your app",
-    icon: <PiFlag />,
-    color: ICON_PROPERTIES["feature-flag"].radixColor,
-  },
-  visual: {
-    header: "AI Visual Editor",
-    description: "No-code browser extension",
-    icon: <PiDesktop />,
-    color: ICON_PROPERTIES["visual-editor"].radixColor,
-  },
-  urlredirect: {
-    header: "URL Redirect",
-    description: "A/B test URL redirects",
-    icon: <PiLink />,
-    color: ICON_PROPERTIES.redirects.radixColor,
-  },
-};
 
 /** Why this kind can't be added yet, and the plan feature starting it needs. */
 export function useLinkedChangeAddGate(
@@ -112,7 +82,7 @@ function AddImplementationItem({
     experiment,
   );
   const disabledReason = blockedReason ?? unsupportedReason;
-  const option = ADD_OPTIONS[type];
+  const option = IMPLEMENTATION_TYPE_OPTIONS[type];
   const color = disabledReason ? "text-disabled" : "text-high";
   const content = (
     <Flex align="center" gap="2" p="3">
@@ -152,7 +122,7 @@ function AddImplementationItem({
   );
 }
 
-/** Adds a kind the experiment doesn't have yet; each kind it has adds under its own section. */
+/** A legacy mix adds any kind from one menu, not a button per section. */
 export function AddImplementationMenu({
   experiment,
   onFeatureFlag,
@@ -161,10 +131,10 @@ export function AddImplementationMenu({
   blockedReasons = {},
 }: {
   experiment: ExperimentInterfaceStringDates;
-  // Absent for a kind the menu doesn't offer.
+  // Absent where the experiment can't take another Feature Flag.
   onFeatureFlag: (() => void) | null;
-  onVisualEditor: (() => void) | null;
-  onUrlRedirect: (() => void) | null;
+  onVisualEditor: () => void;
+  onUrlRedirect: () => void;
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
@@ -190,22 +160,47 @@ export function AddImplementationMenu({
           blockedReason={blockedReasons.feature}
         />
       ) : null}
-      {onVisualEditor ? (
-        <AddImplementationItem
-          type="visual"
-          experiment={experiment}
-          onClick={onVisualEditor}
-          blockedReason={blockedReasons.visual}
-        />
-      ) : null}
-      {onUrlRedirect ? (
-        <AddImplementationItem
-          type="urlredirect"
-          experiment={experiment}
-          onClick={onUrlRedirect}
-          blockedReason={blockedReasons.urlredirect}
-        />
-      ) : null}
+      <AddImplementationItem
+        type="visual"
+        experiment={experiment}
+        onClick={onVisualEditor}
+        blockedReason={blockedReasons.visual}
+      />
+      <AddImplementationItem
+        type="urlredirect"
+        experiment={experiment}
+        onClick={onUrlRedirect}
+        blockedReason={blockedReasons.urlredirect}
+      />
     </DropdownMenu>
+  );
+}
+
+/** Until a kind is chosen: what to do instead of adding one. */
+export function ImplementationTypePrompt({
+  analysisOnly,
+  onChooseType,
+}: {
+  analysisOnly: boolean;
+  /** Opens the type chooser; absent when it can't open. */
+  onChooseType?: () => void;
+}) {
+  return (
+    <Box className="appbox mb-0" p="4">
+      <Flex justify="between" align="center" gap="4">
+        <Text color="text-mid">
+          {analysisOnly
+            ? "This experiment is analysis only."
+            : "Choose how this experiment delivers its variations."}
+        </Text>
+        {onChooseType && (
+          <Button variant="outline" onClick={onChooseType}>
+            {analysisOnly
+              ? "Change implementation type"
+              : "Select implementation type"}
+          </Button>
+        )}
+      </Flex>
+    </Box>
   );
 }

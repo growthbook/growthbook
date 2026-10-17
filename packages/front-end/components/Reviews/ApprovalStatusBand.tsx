@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiSpinnerGap, PiUserCheckBold, PiWarningBold } from "react-icons/pi";
 import Link from "@/ui/Link";
@@ -44,16 +44,12 @@ function describeProjects(projects: UnmetProjects) {
 }
 
 // What a publish will take: what the draft reaches, and who must sign off.
-// Both halves are voiced whenever they apply.
-function RequirementLine({
-  footprint,
-  unmet,
-  unmetProjects = [],
-}: {
-  footprint?: ReviewFootprint;
-  unmet: UnmetTeams;
-  unmetProjects?: UnmetProjects;
-}) {
+// Both halves are voiced whenever they apply; null when neither does.
+function describeRequirement(
+  footprint: ReviewFootprint | undefined,
+  unmet: UnmetTeams,
+  unmetProjects: UnmetProjects = [],
+) {
   const envs =
     footprint?.scope === "environments" ? (footprint.environments ?? []) : null;
   const who = [
@@ -97,6 +93,7 @@ export default function ApprovalStatusBand({
   recallDisabled,
   onRecallReview,
   coverageMessage,
+  startsExperiment = false,
 }: {
   // draft: review will be required; waiting: review requested, viewer can't
   // review; gated: approved but a publish gate (teams/coverage) is unmet.
@@ -112,6 +109,8 @@ export default function ApprovalStatusBand({
   recallDisabled?: boolean;
   onRecallReview?: () => Promise<void> | void;
   coverageMessage?: string | null;
+  // The approval gates an experiment's start rather than a publish.
+  startsExperiment?: boolean;
 }) {
   const [recalling, setRecalling] = useState(false);
 
@@ -121,24 +120,23 @@ export default function ApprovalStatusBand({
   // A stale/uncovered approval can exist in any phase (e.g. changes were
   // requested after an approval that no longer counts) — always explain it.
   const coverageNote = coverageMessage && <div>{coverageMessage}</div>;
+  const requirement = describeRequirement(footprint, unmet, unmetProjects);
+  const body = (selfNote: ReactNode) =>
+    requirement || coverageNote || selfNote ? (
+      <>
+        {requirement}
+        {coverageNote}
+        {selfNote}
+      </>
+    ) : undefined;
 
   if (phase === "draft") {
     return (
       <NoticeBanner
         icon={<PiUserCheckBold />}
         iconColor="gray"
-        title="Review required to publish"
-        body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-            {selfApprovalNote}
-          </>
-        }
+        title={`Review required to ${startsExperiment ? "start" : "publish"}`}
+        body={body(selfApprovalNote)}
       />
     );
   }
@@ -148,17 +146,8 @@ export default function ApprovalStatusBand({
       <NoticeBanner
         icon={<PiWarningBold />}
         iconColor="amber"
-        title="Publishing is blocked"
-        body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-          </>
-        }
+        title={`${startsExperiment ? "Starting" : "Publishing"} is blocked`}
+        body={body(null)}
       />
     );
   }
@@ -170,17 +159,7 @@ export default function ApprovalStatusBand({
         icon={<PiSpinnerGap />}
         iconColor="amber"
         title="Waiting for a reviewer"
-        body={
-          <>
-            <RequirementLine
-              footprint={footprint}
-              unmet={unmet}
-              unmetProjects={unmetProjects}
-            />
-            {coverageNote}
-            {selfApprovalNote}
-          </>
-        }
+        body={body(selfApprovalNote)}
       />
       {canRecallReview && onRecallReview && (
         <Flex justify="center" mt="3">

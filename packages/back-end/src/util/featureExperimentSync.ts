@@ -16,7 +16,12 @@ import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevi
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
-type RevisionRules = Pick<FeatureRevisionInterface, "rules">;
+type RevisionRules = Pick<FeatureRevisionInterface, "rules"> & {
+  metadata?: Pick<
+    NonNullable<FeatureRevisionInterface["metadata"]>,
+    "valueType"
+  >;
+};
 
 type LaunchCandidate = RevisionRules &
   Pick<FeatureRevisionInterface, "version"> & {
@@ -40,8 +45,8 @@ function experimentRefRules(
 
 /**
  * The one draft an experiment launches for a flag: the newest open draft whose
- * rule for the experiment differs from live and from the revision it was cut
- * from. A draft that carries the rule unchanged, or an old
+ * rule for the experiment (or the flag's type) differs from live and from the
+ * revision it was cut from. A draft that carries the rule unchanged, or an old
  * copy of it, is someone else's work and never launches with it.
  */
 export function getLaunchDraftVersion(
@@ -51,9 +56,15 @@ export function getLaunchDraftVersion(
 ): number | null {
   const changesFrom = (draft: RevisionRules, from: RevisionRules | null) => {
     const draftRules = experimentRefRules(draft.rules, experimentId);
+    const draftType = draft.metadata?.valueType;
+    const fromType = from?.metadata?.valueType;
     return (
-      draftRules.length > 0 &&
-      !isEqual(draftRules, experimentRefRules(from?.rules, experimentId))
+      (draftRules.length > 0 &&
+        !isEqual(draftRules, experimentRefRules(from?.rules, experimentId))) ||
+      (!!draftType &&
+        !!fromType &&
+        draftType !== fromType &&
+        getExperimentIdsFromRules(draft.rules).includes(experimentId))
     );
   };
   let launch: number | null = null;

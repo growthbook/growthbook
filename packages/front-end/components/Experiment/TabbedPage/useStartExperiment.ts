@@ -7,7 +7,11 @@ import {
   ApiErrorDetails,
   HoldoutInterfaceStringDates,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  hasStartReadyManagedFlag,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -28,7 +32,7 @@ type StartRefusal = {
 
 export type StartExperiment = ReturnType<typeof useStartExperiment>;
 
-/** Starting an experiment or holdout. */
+/** Starting an experiment or holdout, shared by the header and the review. */
 export default function useStartExperiment({
   experiment,
   holdout,
@@ -92,9 +96,14 @@ export default function useStartExperiment({
     hasUpdatePermissions &&
     (envs.length === 0 || permissionsUtil.canRunExperiment(experiment, envs));
 
-  const banditBlockedReason =
-    !isBandit || experimentHasLiveLinkedChanges(experiment, linkedFeatures)
-      ? null
+  const banditImplementationReady =
+    !isBandit ||
+    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+    hasStartReadyManagedFlag(experiment.id, linkedFeatures);
+  const banditBlockedReason = banditImplementationReady
+    ? null
+    : getImplementationType(experiment) === "values"
+      ? "Add variation values before starting."
       : "Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting.";
 
   async function startExperiment(opts?: {

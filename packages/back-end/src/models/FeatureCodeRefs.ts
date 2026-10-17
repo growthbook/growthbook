@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { ApiCodeRef } from "shared/validators";
+import { ApiCodeRef, FeatureInterface } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   ToInterface,
@@ -135,16 +135,19 @@ export const getFeatureCodeRefsByFeatures = async ({
   return docs.map((d) => toInterface(d));
 };
 
+// A renamed flag's old keys still match: that code is what needs updating.
 export const getAllCodeRefsForFeature = async ({
   feature,
   organization,
 }: {
-  feature: string;
+  feature: Pick<FeatureInterface, "id" | "previousIds">;
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
   const docs = await getCollection(COLLECTION)
     .find({
-      feature,
+      feature: feature.previousIds?.length
+        ? { $in: [feature.id, ...feature.previousIds] }
+        : feature.id,
       organization: organization.id,
     })
     .toArray();

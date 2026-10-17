@@ -11,6 +11,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
+import { ManagedExperimentFlagsProvider } from "@/hooks/useManagedExperimentFlagStates";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
@@ -320,7 +321,9 @@ const LearningsPage = (): React.ReactElement => {
                       )}
                     </Callout>
                   </Box>
-                  <CompletedExperimentList experiments={stoppedExperiments} />
+                  <ManagedExperimentFlagsProvider>
+                    <CompletedExperimentList experiments={stoppedExperiments} />
+                  </ManagedExperimentFlagsProvider>
                 </TabsContent>
 
                 <TabsContent value="saved">

@@ -47,6 +47,3 @@ export function getHiddenBuiltInChecklistItems(
   }
   return hidden;
 }
-
-/** Checklist key prefix for a linked Feature Flag draft's outstanding approval. */
-export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";

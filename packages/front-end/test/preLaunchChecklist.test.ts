@@ -33,6 +33,7 @@ describe("summarizeChecklist", () => {
   const items = [
     row("conflict", { hardBlock: true }),
     row("pendingApproval:f1", { hardBlock: true }),
+    row("staleVariationValues:f1", { hardBlock: true }),
     row("goalMetric"),
     row("visualEditorChanges", { required: false }),
     row("targeting", { status: "complete" }),
@@ -45,20 +46,22 @@ describe("summarizeChecklist", () => {
     expect(keys(summary.incomplete.blocking)).toEqual([
       "conflict",
       "pendingApproval:f1",
+      "staleVariationValues:f1",
     ]);
     expect(keys(summary.incomplete.recommended)).toEqual(["goalMetric"]);
     expect(keys(summary.incomplete.optional)).toEqual(["visualEditorChanges"]);
     expect(keys(summary.flagged)).toEqual(["sdkConnection"]);
     expect(keys(summary.complete)).toEqual(["targeting"]);
     // Optional items count; a done row with a warning doesn't.
-    expect(summary.remaining).toBe(4);
-    expect(summary.blocking).toBe(2);
+    expect(summary.remaining).toBe(5);
+    expect(summary.blocking).toBe(3);
   });
 
   // A conflict is never the admin's to override.
-  it("lets an admin's start bypass waive only approval", () => {
+  it("lets an admin's start bypass waive only approval and stale values", () => {
     expect(keys(items.filter(isBypassableStartItem))).toEqual([
       "pendingApproval:f1",
+      "staleVariationValues:f1",
     ]);
   });
 });
@@ -302,6 +305,85 @@ describe("getChecklistItems", () => {
         ? getChecklistTier(linked)
         : null,
     ).toBe(tier);
+  });
+
+  // The experiment's own flag; its values are fixed in the review.
+  const managed = (over: Partial<LinkedFeatureInfo> = {}) =>
+    flag("f1", {
+      feature: {
+        id: "f1",
+        valueType: "boolean",
+        managedBy: { type: "experiment", experimentId: "exp_1" },
+      },
+      state: "draft",
+      ...over,
+    } as Partial<LinkedFeatureInfo>);
+  const draft = (over: Record<string, unknown>) =>
+    ({
+      values: [
+        { variationId: "v0", value: "false" },
+        { variationId: "v1", value: "true" },
+      ],
+      valueType: "boolean",
+      hasMergeConflict: false,
+      rebaseRequired: false,
+      ...over,
+    }) as unknown as LinkedFeatureInfo["pendingDraft"];
+  const openReview = () => undefined;
+  const editValues = () => undefined;
+  const itemsFor = (info: LinkedFeatureInfo) =>
+    getChecklistItems({
+      experiment: experiment({ linkedFeatures: ["f1"] }),
+      linkedFeatures: [info],
+      visualChangesets: [],
+      connections: [],
+      openManagedApproval: openReview,
+      editVariationValues: editValues,
+    });
+
+  it.each([
+    {
+      name: "a stale managed draft",
+      info: managed({ pendingDraft: draft({ rebaseRequired: true }) }),
+      stale: true,
+    },
+    {
+      name: "a managed draft that's current",
+      info: managed({ pendingDraft: draft({}) }),
+      stale: false,
+    },
+    {
+      name: "a stale managed draft that also conflicts",
+      info: managed({
+        pendingDraft: draft({ rebaseRequired: true, hasMergeConflict: true }),
+      }),
+      stale: false,
+    },
+    {
+      name: "a stale linked Feature Flag draft",
+      info: flag("f1", {
+        state: "draft",
+        pendingDraft: draft({ rebaseRequired: true }),
+      }),
+      stale: false,
+    },
+  ])("stale-values row for $name", ({ info, stale }) => {
+    const item = find(itemsFor(info), "staleVariationValues:f1");
+    expect(item ? getChecklistTier(item) : null).toBe(
+      stale ? "blocking" : null,
+    );
+    if (stale) {
+      expect(item?.action).toEqual({ onClick: openReview });
+      expect(item?.featureId).toBe("f1");
+    }
+  });
+
+  it("sends a managed merge conflict to the review", () => {
+    const conflict = find(
+      itemsFor(managed({ hasMergeConflict: true })),
+      "mergeConflict:f1",
+    );
+    expect(conflict?.action).toEqual({ onClick: openReview });
   });
 
   it("makes an empty Visual Editor changeset optional", () => {

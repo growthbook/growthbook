@@ -10,12 +10,17 @@ import {
 } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  type ImplementationType,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
+  getImplementationType,
   getLinkedChangeEnvs,
+  isManagedByExperiment,
 } from "shared/util";
 import {
   getActivePhaseIndex,
@@ -23,10 +28,14 @@ import {
 } from "shared/experiments";
 import { Flex, Separator } from "@radix-ui/themes";
 import UrlRedirectRows from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import { AddImplementationMenu } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import {
+  AddImplementationMenu,
+  ImplementationTypePrompt,
+} from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import VisualEditorRows from "@/components/Experiment/VisualChangesetTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import { ImplementationSection } from "@/components/Experiment/TabbedPage/ImplementationCard";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -50,14 +59,20 @@ import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import ChangeImplementationTypeModal, {
+  ImplementationTypeChooserContext,
+  implementationTypeLockedReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  ImplementationTypeDraft,
   useCheckExperimentChanges,
   useEditsBlockedReason,
+  useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import {
@@ -89,8 +104,26 @@ export const IMPLEMENTATION_ID = "experiment-implementation";
 const LINKED_CHANGES_LOCKED_REASON =
   "URL Redirects and AI Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.";
 
+type ImplementationKind = "feature" | "visual" | "urlredirect";
+
+// Every kind a legacy mix has linked, otherwise the one chosen.
+function isSetUpFor(
+  experiment: ExperimentInterfaceStringDates,
+  linkedFlagCount: number,
+  kind: ImplementationKind,
+): boolean {
+  const type = getImplementationType(experiment);
+  if (type !== "multi") return type === kind;
+  if (kind === "feature") return linkedFlagCount > 0;
+  return kind === "visual"
+    ? !!experiment.hasVisualChangesets
+    : !!experiment.hasURLRedirects;
+}
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  /** The page's staged implementation type; this section renders as if saved. */
+  implementationTypeDraft?: ImplementationTypeDraft;
   /** Viewing an old phase: nothing staged here can change. */
   disableEditing?: boolean;
   /** The page's staged holdout, which the traffic funnel edits. */
@@ -117,7 +150,8 @@ export interface Props {
 }
 
 export default function Implementation({
-  experiment,
+  experiment: storedExperiment,
+  implementationTypeDraft,
   disableEditing,
   holdoutDraft,
   holdout,
@@ -135,11 +169,45 @@ export default function Implementation({
   editNamespace,
   setFeatureModal,
   setVisualEditorModal,
-  linkedFeatures,
+  linkedFeatures: storedLinkedFeatures,
   envs,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  const stagedType = implementationTypeDraft?.value?.type;
+  const managedId =
+    storedLinkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, storedExperiment.id),
+    )?.feature.id ?? null;
+  // A staged type that deletes the managed flag hides it until the save.
+  const hidesManagedFlag =
+    !!managedId &&
+    !!stagedType &&
+    stagedType !== "values" &&
+    stagedType !== "feature";
+  // Linkages decide a derived type, so the flag leaves them too.
+  const experiment = useMemo(
+    () =>
+      stagedType
+        ? {
+            ...storedExperiment,
+            implementationType: stagedType,
+            ...(hidesManagedFlag && {
+              linkedFeatures: (storedExperiment.linkedFeatures ?? []).filter(
+                (id) => id !== managedId,
+              ),
+            }),
+          }
+        : storedExperiment,
+    [storedExperiment, stagedType, hidesManagedFlag, managedId],
+  );
+  const linkedFeatures = useMemo(
+    () =>
+      hidesManagedFlag
+        ? storedLinkedFeatures.filter((f) => f.feature.id !== managedId)
+        : storedLinkedFeatures,
+    [storedLinkedFeatures, hidesManagedFlag, managedId],
+  );
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
@@ -198,6 +266,13 @@ export default function Implementation({
 
   const permissionsUtil = usePermissionsUtil();
 
+  // Staged like the page's other edits; the modal says why when it's locked.
+  // "current" opens on the stored type; a type opens preselected on it.
+  const [changingType, setChangingType] = useState<
+    ImplementationType | "current" | null
+  >(null);
+  const { live: viewingLive, setLive } = useLiveView();
+
   // URL Redirect and Visual Editor edits, staged like the rest.
   const [linkedDraft, setLinkedDraft] =
     useState<LinkedChangesDraft>(EMPTY_LINKED_CHANGES);
@@ -222,15 +297,23 @@ export default function Implementation({
         )),
     { changes: () => linkedBody, onSaved: clearLinked, discard: clearLinked },
   );
+  // The change shows in the view it's staged in.
+  const updateLinked = useCallback(
+    (update: (draft: LinkedChangesDraft) => LinkedChangesDraft) => {
+      setLive(false);
+      setLinkedDraft(update);
+    },
+    [setLive],
+  );
   const onStageVisualTargeting = useCallback(
     (stored: VisualChangesetInterface, targeting: VisualTargeting) =>
-      setLinkedDraft((d) => stageVisualTargeting(d, stored, targeting)),
-    [],
+      updateLinked((d) => stageVisualTargeting(d, stored, targeting)),
+    [updateLinked],
   );
   const onStageVisualChange = useCallback(
     (stored: VisualChangesetInterface, change: VisualChange) =>
-      setLinkedDraft((d) => stageVisualChange(d, stored, change)),
-    [],
+      updateLinked((d) => stageVisualChange(d, stored, change)),
+    [updateLinked],
   );
   const checkChanges = useCheckExperimentChanges();
   const newRedirectKeys = useRef(0);
@@ -250,26 +333,34 @@ export default function Implementation({
       LINKED_CHANGES_EDIT_ID,
       linkedChangesBody(change(stagedLinked), shownVariationIds),
     );
-    setLinkedDraft(change);
+    updateLinked(change);
   };
-  const { canEdit } = useExperimentEditing(experiment, disableEditing);
+  const { canEdit: canEditType } = useExperimentEditing(
+    storedExperiment,
+    disableEditing,
+  );
+  const canChangeType =
+    !!implementationTypeDraft &&
+    canEditType &&
+    storedExperiment.type !== "holdout";
   const { hasCommercialFeature } = useUser();
-  // Mirrors the server: a holdout changes only on a draft with nothing linked.
+  // Mirrors the server: a holdout changes only on a draft with nothing linked,
+  // judged on what's stored rather than on a type change still staged.
   const holdoutEditable =
-    experiment.type !== "holdout" &&
-    experiment.status === "draft" &&
-    !experiment.nextScheduledStatusUpdate &&
-    !experimentHasLinkedChanges(experiment);
-  const holdoutInReach = !!holdoutDraft && canEdit;
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.status === "draft" &&
+    !storedExperiment.nextScheduledStatusUpdate &&
+    !experimentHasLinkedChanges(storedExperiment);
+  const holdoutInReach = !!holdoutDraft && !viewingLive && canEditType;
   // Leaving needs nothing more; joining or switching needs the feature.
   const canStageHoldout = holdoutInReach && holdoutEditable;
   const canJoinHoldout = canStageHoldout && hasCommercialFeature("holdouts");
-  // Said rather than hidden.
+  // Said rather than hidden: a Values experiment's own flag counts as linked.
   const holdoutLockedReason =
     holdoutInReach &&
-    experiment.type !== "holdout" &&
-    experiment.status === "draft" &&
-    experimentHasLinkedChanges(experiment)
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.status === "draft" &&
+    experimentHasLinkedChanges(storedExperiment)
       ? "A holdout can only change while nothing is linked to this experiment."
       : null;
   // A staged holdout the experiment has since outgrown (started, or gained a
@@ -281,16 +372,42 @@ export default function Implementation({
   }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
   // Draft-era targeting and variations can't land on an experiment that has
   // since started; they would rewrite its running phase in place.
-  const startedFrom = useRef(experiment.status);
+  const startedFrom = useRef(storedExperiment.status);
   const setTargetingDraft = targetingDraft?.set;
   useEffect(() => {
     const was = startedFrom.current;
-    startedFrom.current = experiment.status;
-    if (was !== "draft" || experiment.status === "draft") return;
+    startedFrom.current = storedExperiment.status;
+    if (was !== "draft" || storedExperiment.status === "draft") return;
     setVariationsDraft(null);
     setTargetingDraft?.(null);
     setLinkedDraft(EMPTY_LINKED_CHANGES);
-  }, [experiment.status, setTargetingDraft]);
+  }, [storedExperiment.status, setTargetingDraft]);
+  // Opened from the implementation headers' menus, which the Live view keeps;
+  // the change shows in the view it's staged in.
+  const chooseType = canChangeType
+    ? (initialType?: ImplementationType) => {
+        setLive(false);
+        setChangingType(initialType ?? "current");
+      }
+    : null;
+  const typeLockedReason = implementationTypeLockedReason(
+    // A staged redirect counts: the save can't add one and change the type.
+    stagedLinked.addedRedirects.length
+      ? { ...storedExperiment, hasURLRedirects: true }
+      : storedExperiment,
+    storedLinkedFeatures,
+  );
+  // Only where unarchiving would let it change; without permission the menu
+  // would hold nothing but a no.
+  const typeUnavailableReason =
+    !chooseType &&
+    !!implementationTypeDraft &&
+    !disableEditing &&
+    storedExperiment.type !== "holdout" &&
+    storedExperiment.archived
+      ? "Unarchive this experiment to change its implementation type."
+      : null;
+
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project);
@@ -303,7 +420,7 @@ export default function Implementation({
     !permissionsUtil.canRunExperiment(experiment, getLinkedChangeEnvs())
       ? LINKED_CHANGES_LOCKED_REASON
       : null;
-  const stagesLinkedChanges = !disableEditing;
+  const stagesLinkedChanges = !viewingLive && !disableEditing;
   const editsBlocked = useEditsBlockedReason();
 
   const canAddLinkedChanges =
@@ -316,6 +433,28 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
+  // Keyed on the flag existing, not the org default: an experiment without one
+  // chose manual, and suppressing the chooser would strand it.
+  const { isManaged } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  const implementationType = getImplementationType(experiment);
+
+  // Values experiments get their flag on create. One that lacks it still shows
+  // its values, and saving them creates the flag.
+  const pendingManagedFlag =
+    !isManaged &&
+    implementationType === "values" &&
+    linkedFeatures.length === 0 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    !experiment.nextScheduledStatusUpdate &&
+    permissionsUtil.canViewFeatureModal(experiment.project);
+
   // The funnel's environments describe exactly one implementation.
   const soleLinkedFeature =
     linkedFeatures.length === 1 &&
@@ -324,25 +463,41 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  const canAddAny = canAddLinkedChanges && !disableEditing;
+  // What shows follows the staged type, as the rows above do; adding follows
+  // the stored one, and a staged type locks it: the save can't do both.
+  const canAddAny =
+    canAddLinkedChanges && !stagedType && !viewingLive && !disableEditing;
+  // A legacy mix adds from one menu rather than under each section.
+  const legacyMix = getImplementationType(storedExperiment) === "multi";
+  const canAdd = (kind: ImplementationKind) =>
+    canAddAny &&
+    !legacyMix &&
+    isSetUpFor(storedExperiment, storedLinkedFeatures.length, kind);
   // Linking a Feature Flag writes at once, which would strand it: a holdout
   // changes only with nothing linked.
   const addBlockedReason =
     stagedHoldout !== null
       ? "Save or discard the holdout change first. A holdout can only change while nothing is linked."
       : null;
-  const shownRedirects = shownUrlRedirects(stagedLinked, urlRedirects);
-  const shownChangesets = shownVisualChangesets(stagedLinked, visualChangesets);
-  // Each kind on the experiment adds under its own section; the rest from one menu.
-  const hasFlags = linkedFeatures.length > 0;
-  const hasVisual = shownChangesets.length > 0;
-  const hasRedirects = shownRedirects.length > 0;
+  const settingUp =
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
+    !experiment.archived;
+  // An empty section is there to add to, or to change the type from.
+  const shownEmpty = (kind: ImplementationKind) =>
+    settingUp &&
+    isSetUpFor(experiment, linkedFeatures.length, kind) &&
+    (canAdd(kind) || !!chooseType);
+  // The Live view shows what's stored, and edits nothing.
+  const shownLinked = viewingLive ? EMPTY_LINKED_CHANGES : stagedLinked;
+  const shownRedirects = shownUrlRedirects(shownLinked, urlRedirects);
+  const shownChangesets = shownVisualChangesets(shownLinked, visualChangesets);
   // Creating changes and opening the Visual Editor write at once, and opening
   // it leaves the page.
   const visualAddBlockedReason = linkedChangesLockedReason ?? editsBlocked;
   const otherImplementations = (
     <>
-      {hasRedirects ? (
+      {shownRedirects.length > 0 || shownEmpty("urlredirect") ? (
         <UrlRedirectRows
           experiment={experiment}
           variations={shownVariations}
@@ -350,18 +505,18 @@ export default function Implementation({
           canEdit={canAddLinkedChanges && stagesLinkedChanges}
           lockedReason={linkedChangesLockedReason}
           environmentStates={urlRedirectEnvStates}
-          onAdd={canAddAny ? () => setRedirectModal({ target: null }) : null}
+          onAdd={
+            canAdd("urlredirect")
+              ? () => setRedirectModal({ target: null })
+              : null
+          }
           addBlockedReason={linkedChangesLockedReason}
           onEdit={(target) => setRedirectModal({ target })}
-          onRemove={(target) =>
-            setLinkedDraft((d) => removeRedirect(d, target))
-          }
-          onUndo={(target) =>
-            setLinkedDraft((d) => undoRedirect(d, target.key))
-          }
+          onRemove={(target) => updateLinked((d) => removeRedirect(d, target))}
+          onUndo={(target) => updateLinked((d) => undoRedirect(d, target.key))}
         />
       ) : null}
-      {hasVisual ? (
+      {shownChangesets.length > 0 || shownEmpty("visual") ? (
         <VisualEditorRows
           experiment={experiment}
           variations={shownVariations}
@@ -374,27 +529,23 @@ export default function Implementation({
           }
           launchBlockedReason={editsBlocked}
           environmentStates={visualChangesetEnvStates}
-          onAdd={canAddAny ? () => setVisualEditorModal(true) : null}
+          onAdd={canAdd("visual") ? () => setVisualEditorModal(true) : null}
           addBlockedReason={visualAddBlockedReason}
           onStageTargeting={onStageVisualTargeting}
           onStageChange={onStageVisualChange}
-          onRemove={(id) => setLinkedDraft((d) => removeVisual(d, id))}
-          onUndo={(id) => setLinkedDraft((d) => undoVisual(d, id))}
+          onRemove={(id) => updateLinked((d) => removeVisual(d, id))}
+          onUndo={(id) => updateLinked((d) => undoVisual(d, id))}
         />
       ) : null}
-      {canAddAny && !(hasFlags && hasVisual && hasRedirects) ? (
+      {legacyMix && canAddAny ? (
         <ImplementationSection
           cols={Math.min(shownVariations.length, 3)}
           add={
             <AddImplementationMenu
               experiment={experiment}
-              onFeatureFlag={hasFlags ? null : () => setFeatureModal(true)}
-              onVisualEditor={
-                hasVisual ? null : () => setVisualEditorModal(true)
-              }
-              onUrlRedirect={
-                hasRedirects ? null : () => setRedirectModal({ target: null })
-              }
+              onFeatureFlag={isManaged ? null : () => setFeatureModal(true)}
+              onVisualEditor={() => setVisualEditorModal(true)}
+              onUrlRedirect={() => setRedirectModal({ target: null })}
               blockedReasons={{
                 feature: addBlockedReason,
                 visual: visualAddBlockedReason,
@@ -403,6 +554,17 @@ export default function Implementation({
             />
           }
         />
+      ) : null}
+      {/* Until a kind is chosen, choosing one takes their place. */}
+      {settingUp &&
+      chooseType &&
+      (!implementationType || implementationType === "none") ? (
+        <ImplementationSection cols={Math.min(shownVariations.length, 3)}>
+          <ImplementationTypePrompt
+            analysisOnly={implementationType === "none"}
+            onChooseType={() => chooseType()}
+          />
+        </ImplementationSection>
       ) : null}
     </>
   );
@@ -442,7 +604,9 @@ export default function Implementation({
   }
 
   return (
-    <>
+    <ImplementationTypeChooserContext.Provider
+      value={{ choose: chooseType, unavailableReason: typeUnavailableReason }}
+    >
       {showEditEnvironmentsModal && holdout && (
         <EditEnvironmentsModal
           holdout={holdout}
@@ -478,6 +642,7 @@ export default function Implementation({
         <EditVariationKeyModal
           experiment={stagedExperiment}
           variationIndex={editKeyIndex}
+          analysisOnly={implementationType === "none"}
           close={() => setEditKeyIndex(null)}
           stage={setVariationsDraft}
         />
@@ -492,6 +657,19 @@ export default function Implementation({
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
         </Heading>
+        {changingType && implementationTypeDraft ? (
+          <ChangeImplementationTypeModal
+            initialType={changingType === "current" ? undefined : changingType}
+            experiment={storedExperiment}
+            managedFeature={
+              storedLinkedFeatures.find((f) => f.feature.id === managedId) ??
+              null
+            }
+            lockedReason={typeLockedReason}
+            draft={implementationTypeDraft}
+            close={() => setChangingType(null)}
+          />
+        ) : null}
         {showTrafficFunnel ? (
           <TrafficAllocationFunnel
             holdoutDraft={holdoutDraft}
@@ -505,6 +683,7 @@ export default function Implementation({
             targetingDraft={targetingDraft}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             canAddVariation={!pendingScheduledStart && !!canAddVariation}
+            pendingManagedFlag={pendingManagedFlag && !pendingScheduledStart}
             setEditVariationIndex={setEditMetadataIndex}
             setEditKeyIndex={setEditKeyIndex}
             canEditExperiment={canEditExperiment}
@@ -517,7 +696,9 @@ export default function Implementation({
             // goes through review.
             canEditFlagValues={canEditExperiment}
             addFeatureFlag={
-              canAddAny && hasFlags ? () => setFeatureModal(true) : null
+              !isManaged && canAdd("feature")
+                ? () => setFeatureModal(true)
+                : null
             }
             addFeatureFlagBlockedReason={addBlockedReason}
             otherImplementations={otherImplementations}
@@ -659,7 +840,7 @@ export default function Implementation({
           envs={envs}
         />
       </div>
-    </>
+    </ImplementationTypeChooserContext.Provider>
   );
 }
 

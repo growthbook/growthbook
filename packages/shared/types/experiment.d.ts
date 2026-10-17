@@ -10,7 +10,12 @@ import {
   HoldoutInterface,
   RevisionStatus,
 } from "shared/validators";
-import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import type { ReviewAuthorityFootprint } from "shared/util";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "./feature";
 
 export {
   AttributionModel,
@@ -314,14 +319,25 @@ export type LinkedFeaturePendingDraft = {
   sparse: boolean;
   allEnvironments?: boolean;
   pendingApproval: boolean;
+  /** The type the draft would leave the flag as — it may re-type it. */
+  valueType: FeatureValueType;
   /** The default value as of the draft, for expanding a sparse patch. */
   defaultValue: string;
   /** The publish gate's answer when review is required; "approved" can still be blocked. */
-  approval?: { satisfied: boolean };
+  approval?: {
+    satisfied: boolean;
+    footprint: ReviewAuthorityFootprint;
+    /** One entry per rule; any team in an entry satisfies that rule. */
+    unmetTeams: { id: string; name: string }[][];
+    /** Approvals that stand but cannot sanction the publish, and why. */
+    insufficientApprovers: { id: string; reason: string }[];
+    hasCoveringApproval: boolean;
+  };
   hasMergeConflict: boolean;
   hasUnrelatedDraftChanges: boolean;
   /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
   rebaseRequired: boolean;
+  staleApproval: boolean;
   /** Where the draft would run once published, keyed the same as the live map. */
   environmentStates: Record<string, LinkedFeatureEnvState>;
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;

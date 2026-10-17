@@ -20,7 +20,7 @@ import {
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
-import { generateVariationId } from "shared/util";
+import { generateVariationId, isManagedByExperiment } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -42,6 +42,7 @@ import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperim
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
@@ -81,11 +82,12 @@ import {
 } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
-import useExperimentEditing from "./useExperimentEditing";
+import useExperimentEditing, { valuesAreSetup } from "./useExperimentEditing";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  useLiveView,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import { onlyTrafficChanged } from "./targetingDraft";
@@ -97,6 +99,8 @@ export interface Props {
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation?: boolean;
+  /** A Values experiment without its flag: its values are edited here and create it on save. */
+  pendingManagedFlag?: boolean;
   /** Stages a new set of variations for the page's Save. */
   stageVariations?: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
@@ -147,6 +151,9 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+const REFERENCE_ONLY_NOTE =
+  "GrowthBook doesn't serve this experiment, so this records how your own system runs it. Changing it doesn't change who sees what.";
+
 function FunnelCard({
   title,
   inlineSummary,
@@ -154,6 +161,7 @@ function FunnelCard({
   children,
   disabled = false,
   editBlockedReason,
+  referenceOnly = false,
   menu,
 }: {
   title: string;
@@ -163,6 +171,8 @@ function FunnelCard({
   disabled?: boolean;
   /** Why the pencil cannot open right now, which it wears rather than vanishing. */
   editBlockedReason?: string | null;
+  /** Normally changes what the SDK serves, but this experiment is served elsewhere. */
+  referenceOnly?: boolean;
   /** Items for the menu right of the pencil; no menu without them. */
   menu?: ReactNode;
 }) {
@@ -184,6 +194,16 @@ function FunnelCard({
             <Text color="text-low" ml="1">
               {inlineSummary}
             </Text>
+          ) : null}
+          {referenceOnly ? (
+            <Tooltip content={REFERENCE_ONLY_NOTE}>
+              <Badge
+                label="Reference only"
+                color="gray"
+                variant="soft"
+                size="xs"
+              />
+            </Tooltip>
           ) : null}
         </Flex>
         <Flex align="center" gap="3">
@@ -308,6 +328,7 @@ export default function TrafficAllocationFunnel({
   editTargeting,
   editNamespace,
   canAddVariation = false,
+  pendingManagedFlag = false,
   stageVariations,
   flagEnvironments,
   holdoutDraft,
@@ -318,18 +339,19 @@ export default function TrafficAllocationFunnel({
   setEditKeyIndex,
   servedValueFeature: storedServedValueFeature,
   linkedFeatures = [],
-  canEditFlagValues = false,
+  canEditFlagValues: canEditFlagValuesHere = false,
   addFeatureFlag,
   addFeatureFlagBlockedReason = null,
   otherImplementations,
-  canEditExperiment = false,
+  canEditExperiment: canEditExperimentHere = false,
   safeToEdit = false,
   mutate,
   targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
   const { apiCall } = useAuth();
-  const { editInline } = useExperimentEditing(experiment);
+  const { editInline: editInlineHere, analysisOnly } =
+    useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
   const staged = targetingDraft?.value ?? null;
@@ -460,9 +482,9 @@ export default function TrafficAllocationFunnel({
   const pickedFeatures = useMemo(
     () =>
       linkedFeatures.map((info) =>
-        withPickedDraft(info, draftPickValue[info.feature.id]),
+        withPickedDraft(info, draftPickValue[info.feature.id], experiment.id),
       ),
-    [linkedFeatures, draftPickValue],
+    [linkedFeatures, draftPickValue, experiment.id],
   );
   const servedValueFeature = useMemo(
     () =>
@@ -470,9 +492,10 @@ export default function TrafficAllocationFunnel({
         ? withPickedDraft(
             storedServedValueFeature,
             draftPickValue[storedServedValueFeature.feature.id],
+            experiment.id,
           )
         : null,
-    [storedServedValueFeature, draftPickValue],
+    [storedServedValueFeature, draftPickValue, experiment.id],
   );
 
   const liveRule = servedValueFeature?.liveHasMatchingRule
@@ -488,6 +511,24 @@ export default function TrafficAllocationFunnel({
     () => pickedFeatures.some(hasUnpublishedChanges),
     [pickedFeatures],
   );
+  const setup = valuesAreSetup(experiment);
+  const { live, setLive } = useLiveView();
+  const preferDraft = hasDraftChanges && (setup || !live);
+  // Live values are what's published, so nothing edits them in place.
+  const viewingLive = hasDraftChanges && live && !setup;
+  const canEditExperiment = canEditExperimentHere && !viewingLive;
+  const canEditFlagValues = canEditFlagValuesHere && !viewingLive;
+  const editInline = editInlineHere && !viewingLive;
+  // With nothing unpublished there's no Live view, and the page edits again.
+  useEffect(() => {
+    if ((!hasDraftChanges || setup) && live) setLive(false);
+  }, [hasDraftChanges, setup, live, setLive]);
+
+  const managedFeature =
+    servedValueFeature &&
+    isManagedByExperiment(servedValueFeature.feature, experiment.id)
+      ? servedValueFeature.feature
+      : null;
   // Re-scoping environments stages a draft without re-bucketing.
   const canEditEnvironments =
     !!servedValueFeature &&
@@ -495,55 +536,62 @@ export default function TrafficAllocationFunnel({
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const [editEnvironments, setEditEnvironments] = useState(false);
-  const envStateSource = hasDraftChanges
+  const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
-  const environmentsAreDraft = hasDraftChanges && environmentsDiffer;
+  const environmentsAreDraft = preferDraft && environmentsDiffer && !setup;
 
   const stagedScope = servedValueFeature
     ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
     : null;
+  // Like the values, the Live view leaves the staged scope for Save.
+  const shownScope = viewingLive ? null : stagedScope;
   // What a staged scope lands on.
   const scopeBaseInputs =
-    (hasDraftChanges
+    (preferDraft
       ? servedValueFeature?.pendingDraft?.environmentInputs
       : servedValueFeature?.liveEnvironmentInputs) ??
     servedValueFeature?.environmentInputs ??
     {};
   const environmentStates = getEnvironmentStates(
-    stagedScope && servedValueFeature
+    shownScope && servedValueFeature
       ? {
           environmentStates: statesFromInputs(
-            stageEnvironmentInputs(scopeBaseInputs, stagedScope),
+            stageEnvironmentInputs(scopeBaseInputs, shownScope),
           ),
         }
       : envStateSource || { environmentStates: {} },
     {
       future: environmentStateTense({
         status: experiment.status,
-        unpublished: environmentsAreDraft || !!stagedScope,
+        unpublished: environmentsAreDraft || !!shownScope,
         // The row's pick, which may not be the draft that launches.
         launches:
           !storedServedValueFeature ||
           resolveDraftPick(
             storedServedValueFeature,
             draftPickValue[storedServedValueFeature.feature.id],
+            experiment.id,
           ).launches,
+        liveView: viewingLive,
       }),
     },
   );
 
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
-  const variationsLocked = isRunning;
+  // Analysis only serves nothing, so its variations stay editable throughout.
+  const variationsLocked = isRunning && !analysisOnly;
   const canStageVariations =
     canEditExperiment &&
     !variationsLocked &&
     !!stageVariations &&
     !!targetingDraft;
   // Bucketing follows the variation list, so its shape is fixed once it starts.
-  const canRestructure = canStageVariations && experiment.status === "draft";
+  const canRestructure =
+    canStageVariations && (experiment.status === "draft" || analysisOnly);
   const canAddNamespace =
+    !viewingLive &&
     !isHoldout &&
     !!editNamespace &&
     safeToEdit &&
@@ -610,7 +658,7 @@ export default function TrafficAllocationFunnel({
           stagedScope={stagedScope}
           environmentStates={environmentStates}
           environmentInputs={scopeBaseInputs}
-          showFlag
+          showFlag={!managedFeature}
           close={() => setEditEnvironments(false)}
           apply={(scope) => {
             flagEnvironments.set(servedValueFeature.feature.id, scope);
@@ -653,6 +701,7 @@ export default function TrafficAllocationFunnel({
                     : null
                 }
                 editBlockedReason={holdoutLockedReason}
+                referenceOnly={analysisOnly}
                 menu={
                   canStageHoldout ? (
                     <DropdownMenuItem color="red" onClick={leaveHoldout}>
@@ -679,13 +728,14 @@ export default function TrafficAllocationFunnel({
             <>
               <FunnelCard
                 title="Namespace"
-                onEdit={editNamespace}
+                onEdit={viewingLive ? null : editNamespace}
                 inlineSummary={
                   <Text size="lg" color="text-mid">
                     {namespaceName}
                   </Text>
                 }
                 disabled={!safeToEdit}
+                referenceOnly={analysisOnly}
               />
               <FunnelConnector label={includedLabel} />
             </>
@@ -693,8 +743,9 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            onEdit={editTargeting}
+            onEdit={viewingLive ? null : editTargeting}
             disabled={!safeToEdit}
+            referenceOnly={analysisOnly}
             menu={
               canAddNamespace || canAddHoldout ? (
                 <>
@@ -738,6 +789,7 @@ export default function TrafficAllocationFunnel({
               hashAttribute={hashAttribute}
               fallbackAttribute={fallbackAttribute}
               editInline={editInline}
+              analysisOnly={analysisOnly}
               stagePatch={stagePatch}
             />
           </FunnelCard>
@@ -746,14 +798,18 @@ export default function TrafficAllocationFunnel({
 
           {/* No pencil: the percentage edits in place, the split has its own
               editor, and each variation carries its own. */}
-          <FunnelCard title="Traffic">
+          <FunnelCard title="Traffic" referenceOnly={analysisOnly}>
             {!isHoldout ? (
               <Box mb="1">
                 <SetupFieldRow
                   label="Included %"
                   content={editInline ? "control" : "text"}
                   labelAlign="center"
-                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
+                  tooltip={
+                    analysisOnly
+                      ? "The share of the targeted audience your own system included, for reference."
+                      : "The share of everyone who matches the targeting above that this experiment runs on."
+                  }
                 >
                   {editInline ? (
                     <PercentField
@@ -935,9 +991,12 @@ export default function TrafficAllocationFunnel({
               flagEnvironments={flagEnvironments}
               draftPicks={draftPicks}
               linkedFeatures={linkedFeatures}
+              pendingManagedFlag={pendingManagedFlag}
               canEdit={canEditFlagValues}
-              onAddFlag={addFeatureFlag}
+              canEditLinks={canEditFlagValuesHere}
+              onAddFlag={viewingLive ? null : addFeatureFlag}
               addFlagBlockedReason={addFeatureFlagBlockedReason}
+              showLive={hasDraftChanges && !preferDraft}
             />
             {otherImplementations}
           </>
@@ -952,12 +1011,15 @@ function AssignmentAttribute({
   hashAttribute,
   fallbackAttribute,
   editInline,
+  analysisOnly,
   stagePatch,
 }: {
   experiment: ExperimentInterfaceStringDates;
   hashAttribute: string;
   fallbackAttribute: string;
   editInline: boolean;
+  // GrowthBook assigns no one here, so the copy and link callout don't apply.
+  analysisOnly: boolean;
   stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
   // The picker is too narrow for a popover above it.
@@ -984,7 +1046,11 @@ function AssignmentAttribute({
         content={editInline ? "control" : "text"}
         labelAlign="center"
         fieldMaxWidth="100px"
-        tooltip="Hashed with the tracking key to decide which variation each user gets."
+        tooltip={
+          analysisOnly
+            ? "The attribute your own system assigns variations by, for reference."
+            : "Hashed with the tracking key to decide which variation each user gets."
+        }
       >
         {editInline ? (
           <SelectField
@@ -1012,7 +1078,7 @@ function AssignmentAttribute({
           </Box>
         )}
       </SetupFieldRow>
-      {editInline ? (
+      {editInline && !analysisOnly ? (
         <LinkHashAttributeCallout
           experimentId={experiment.id}
           datasource={datasource}

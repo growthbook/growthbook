@@ -71,6 +71,7 @@ export default function PublicExperimentOverview({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
+            experiment={experiment}
           />
         </>
       ) : null}

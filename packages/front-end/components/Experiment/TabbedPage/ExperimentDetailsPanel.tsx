@@ -1,7 +1,14 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
+import { isManagedByExperiment } from "shared/util";
+import {
+  HoldoutInterfaceStringDates,
+  type ImplementationType,
+} from "shared/validators";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ProjectTagBar, {
@@ -34,6 +41,9 @@ export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
+  /** The page's staged implementation type, shown in place of the stored one. */
+  stagedImplementationType: ImplementationType | null;
   /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
   /** Opens the schedule editor. */
@@ -48,6 +58,8 @@ export interface Props {
 export default function ExperimentDetailsPanel({
   experiment,
   holdout,
+  linkedFeatures,
+  stagedImplementationType,
   stagedHoldoutId = null,
   editSchedule = null,
   mutate,
@@ -56,6 +68,10 @@ export default function ExperimentDetailsPanel({
   setTab,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const managedFeature =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
   // Another editing surface cannot open over the page's own unsaved edits, so
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
@@ -98,6 +114,8 @@ export default function ExperimentDetailsPanel({
       fieldAction={isHoldout ? undefined : fieldAction}
       experiment={experiment}
       holdout={holdout}
+      managedFlagId={managedFeature?.feature.id ?? null}
+      stagedImplementationType={stagedImplementationType}
       stagedHoldoutId={stagedHoldoutId}
       editSchedule={canEdit ? editSchedule : null}
     />

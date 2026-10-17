@@ -6,7 +6,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, isManagedFeature } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
@@ -53,6 +53,7 @@ export default function EditExperimentEnvironmentsModal({
   const switchedOn = (
     allEnvironments ? environments.map((e) => e.id) : selectedEnvironments
   ).filter((id) => environmentInputs?.[id]?.flagEnabled === false);
+  const managed = isManagedFeature(info.feature);
 
   return (
     <ModalStandard
@@ -89,7 +90,7 @@ export default function EditExperimentEnvironmentsModal({
             switchedOn.length === 1 ? "is" : "are"
           } off for this Feature Flag. Applying turns ${
             switchedOn.length === 1 ? "it on there" : "them on"
-          }, for all of its rules.`}
+          }${managed ? "" : ", for all of its rules"}.`}
         </HelperText>
       ) : null}
     </ModalStandard>

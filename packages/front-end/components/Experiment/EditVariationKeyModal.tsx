@@ -16,11 +16,14 @@ import Callout from "@/ui/Callout";
 export default function EditVariationKeyModal({
   experiment,
   variationIndex,
+  analysisOnly,
   close,
   stage,
 }: {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
+  // With nothing to implement, the key only has to match the data.
+  analysisOnly: boolean;
   close: () => void;
   stage: (variations: Variation[]) => void;
 }) {
@@ -55,12 +58,19 @@ export default function EditVariationKeyModal({
       )}
     >
       <Flex direction="column" gap="3">
-        <Callout status="warning">
-          The variation ID is how SDKs report this variation and how analysis
-          finds it. Change it only to match values already in your data:
-          anything tracked under the old ID stops counting toward this
-          variation.
-        </Callout>
+        {analysisOnly ? (
+          <Callout status="info">
+            Use the ID your data records for this variation, when it isn&apos;t
+            the default.
+          </Callout>
+        ) : (
+          <Callout status="warning">
+            The variation ID is how SDKs report this variation and how analysis
+            finds it. Change it only to match values already in your data:
+            anything tracked under the old ID stops counting toward this
+            variation.
+          </Callout>
+        )}
         <Field
           label="Variation ID"
           required

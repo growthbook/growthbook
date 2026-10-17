@@ -486,6 +486,29 @@ export function assessRequiredApproverTeams({
   };
 }
 
+// Approvals satisfying none of the enforced team rules. Rules are summative, so
+// only an approval contributing to no rule counts as non-contributing.
+export function nonContributingApproverIds({
+  approvedIds,
+  enforcedTeamIds,
+  requiredTeamsSatisfied,
+  org,
+  teams,
+}: {
+  approvedIds: string[];
+  enforcedTeamIds: string[][];
+  requiredTeamsSatisfied: boolean;
+  org: { members?: { id: string; teams?: string[] }[] };
+  teams: { id: string; name: string }[];
+}): string[] {
+  if (requiredTeamsSatisfied || !enforcedTeamIds.length) return [];
+  const ruleTeams = enforcedTeamIds.map((ids) => new Set(ids));
+  return approvedIds.filter((id) => {
+    const mine = teamsForMember(id, org, teams).map((t) => t.id);
+    return !ruleTeams.some((ids) => mine.some((teamId) => ids.has(teamId)));
+  });
+}
+
 export type ApprovalCoverageArgs = {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];

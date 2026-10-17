@@ -24,6 +24,7 @@ export default function FlagValuesModal({
   initialSparse,
   sparseEligible,
   baseDefault,
+  controlId,
   configBackingOptionKeys,
   focusVariationId,
   close,
@@ -35,6 +36,8 @@ export default function FlagValuesModal({
   initialSparse: boolean;
   sparseEligible: boolean;
   baseDefault: string;
+  // Set when the control value is the default the others patch onto.
+  controlId: string | null;
   configBackingOptionKeys?: string[];
   focusVariationId: string;
   close: () => void;
@@ -69,19 +72,24 @@ export default function FlagValuesModal({
     return () => clearTimeout(timer);
   }, [focusVariationId]);
 
-  const displayFeature = { ...feature, defaultValue: baseDefault };
+  const base = (controlId ? values[controlId] : undefined) ?? baseDefault;
+  const displayFeature = { ...feature, defaultValue: base };
   const configBacked = !!configBackingOptionKeys;
 
-  // Rewrites every value, like the rule editors.
+  // Rewrites every value, like the rule editors; control is the base itself.
   const toggleSparse = (checked: boolean) => {
     setValues((prev) =>
       Object.fromEntries(
-        Object.entries(prev).map(([id, v]) => [
-          id,
-          checked
-            ? stripDefaultsForSparse(v, baseDefault)
-            : expandSparseToFull(v, baseDefault),
-        ]),
+        Object.entries(prev).map(([id, v]) =>
+          id === controlId
+            ? [id, v]
+            : [
+                id,
+                checked
+                  ? stripDefaultsForSparse(v, base)
+                  : expandSparseToFull(v, base),
+              ],
+        ),
       ),
     );
     setSparse(checked);
@@ -150,7 +158,7 @@ export default function FlagValuesModal({
               useCodeInput
               showFullscreenButton
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-              sparse={sparse}
+              sparse={sparse && v.id !== controlId}
               allowConfigBacking={configBacked}
               configBackingOptionKeys={configBackingOptionKeys}
               configBackingShowPatch={configBacked}

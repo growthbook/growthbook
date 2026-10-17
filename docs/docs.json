@@ -708,6 +708,22 @@
                 ]
               },
               {
+                "group": "Experiment Values",
+                "pages": [
+                  "api/experiment-values/operation/getExperimentVariationValues",
+                  "api/experiment-values/operation/postExperimentVariationValues",
+                  "api/experiment-values/operation/putExperimentVariationValues",
+                  "api/experiment-values/operation/postExperimentVariationValuesRequestReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesSubmitReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesRecallReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesUndoReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesRebase",
+                  "api/experiment-values/operation/postExperimentVariationValuesPublish",
+                  "api/experiment-values/operation/postExperimentVariationValuesDiscard",
+                  "api/experiment-values/operation/postExperimentVariationValuesDetach"
+                ]
+              },
+              {
                 "group": "Namespaces",
                 "pages": [
                   "api/namespaces/operation/listNamespaces",
@@ -1192,11 +1208,16 @@
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
               "api/ExperimentDecisionFrameworkSettings_model",
+              "api/ExperimentManagedFlagAdoption_model",
               "api/ExperimentMetric_model",
               "api/ExperimentMetricOverrideEntry_model",
+              "api/ExperimentPendingVariationValues_model",
               "api/ExperimentResults_model",
               "api/ExperimentSnapshot_model",
               "api/ExperimentTemplate_model",
+              "api/ExperimentVariationValue_model",
+              "api/ExperimentVariationValues_model",
+              "api/ExperimentVariationValuesReview_model",
               "api/ExperimentWithEnhancedStatus_model",
               "api/FactMetric_model",
               "api/FactTable_model",
@@ -1227,6 +1248,7 @@
               "api/InformationSchemaTable_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
+              "api/ManagedFeatureRevisionRef_model",
               "api/Member_model",
               "api/Metric_model",
               "api/MetricAnalysis_model",

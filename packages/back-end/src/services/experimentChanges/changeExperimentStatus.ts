@@ -15,9 +15,15 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
   getHiddenBuiltInChecklistItems,
-  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  getManagedValueProblems,
+  hasStartReadyManagedFlag,
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -256,20 +262,31 @@ export async function getExperimentStartChecklistStatus(
     if (!hidden.has(item.key)) items.push(item);
   };
 
-  pushBuiltIn({
-    key: "linkedChanges",
-    required: true,
-    status:
-      (isBandit &&
-        experimentHasLiveLinkedChanges(experiment, linkedFeatures)) ||
-      (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
-        ? "complete"
-        : "incomplete",
-    manual: false,
-    reason: isBandit
-      ? "Add at least one live linked change before starting a bandit."
-      : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
-  });
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
+  const valuesMode =
+    linkedFeatures.some(isManaged) || implementationType === "values";
+
+  if (implementationType !== "none") {
+    pushBuiltIn({
+      key: "linkedChanges",
+      required: true,
+      status:
+        (isBandit &&
+          (hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
+            experimentHasLiveLinkedChanges(experiment, linkedFeatures))) ||
+        (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
+          ? "complete"
+          : "incomplete",
+      manual: false,
+      reason: valuesMode
+        ? "Add variation values before starting."
+        : isBandit
+          ? "Add at least one live linked change before starting a bandit."
+          : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
+    });
+  }
 
   if (isBandit) {
     items.push({
@@ -301,6 +318,36 @@ export async function getExperimentStartChecklistStatus(
   linkedFeatures
     .filter((f) => f.state !== "discarded" && f.state !== "archived")
     .forEach((f) => {
+      if (isManaged(f)) {
+        const problems = getManagedValueProblems({
+          variations: latestVariations,
+          values: f.pendingDraft?.values ?? f.values,
+          valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+        });
+        if (problems.some((p) => p.problem === "missing")) {
+          items.push({
+            key: `missingVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            reason: "Fill in the missing variation values before starting.",
+          });
+        }
+        const malformed = problems.filter((p) => p.problem === "malformed");
+        if (malformed.length) {
+          items.push({
+            key: `malformedVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            hardBlock: true,
+            reason: `Fix the variation values before starting: ${malformed
+              .map((p) => `${p.variationName}: ${p.detail}`)
+              .join("; ")}`,
+          });
+        }
+        return;
+      }
       const configuredVariationIds = new Set(
         f.values.map((v) => v.variationId),
       );
@@ -327,7 +374,9 @@ export async function getExperimentStartChecklistStatus(
         status: "incomplete",
         manual: false,
         hardBlock: true,
-        reason: `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
+        reason: isManaged(f)
+          ? "Resolve the merge conflict in this experiment's variation values before starting."
+          : `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
       });
     });
 
@@ -355,7 +404,9 @@ export async function getExperimentStartChecklistStatus(
             : "incomplete",
         manual: false,
         hardBlock: true,
-        reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
+        reason: isManaged(f)
+          ? "The variation values need approval before starting."
+          : `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
       });
     });
 

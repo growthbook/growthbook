@@ -8,7 +8,12 @@ import {
   PiWarning,
   PiWarningFill,
 } from "react-icons/pi";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  ImplementationType,
+} from "shared/validators";
+import { getImplementationType, isAnalysisOnly } from "shared/util";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
@@ -22,6 +27,7 @@ import RunningScheduleLink, {
   scheduledTime,
 } from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import Link from "@/ui/Link";
+import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
@@ -31,6 +37,10 @@ import ProjectBadges from "@/components/ProjectBadges";
 export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
 
 export interface Props {
+  /** The managed Feature Flag the experiment owns, if any. */
+  managedFlagId?: string | null;
+  /** An implementation type staged for the page's Save, shown in place of the stored one. */
+  stagedImplementationType?: ImplementationType | null;
   /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
   /** Opens the schedule editor, where the schedule can change. */
@@ -48,15 +58,17 @@ export interface Props {
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
-const empty = () => (
+const empty = (label = "None") => (
   <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-    None
+    {label}
   </Text>
 );
 
 export default function ProjectTagBar({
   experiment,
   holdout,
+  managedFlagId = null,
+  stagedImplementationType = null,
   stagedHoldoutId = null,
   editSchedule = null,
   panel,
@@ -87,11 +99,35 @@ export default function ProjectTagBar({
     ? null
     : statusIndicator.detailedStatus;
   const isHoldout = experiment.type === "holdout";
+  // Experiments adopted before the type was stored only carry the flag's marker.
+  const implementationType =
+    stagedImplementationType ||
+    (managedFlagId ? "values" : getImplementationType(experiment));
 
   if (panel === "details") {
     return (
       <Flex direction="column" gap="3">
-        {!isHoldout && useStickyBucketing ? (
+        {!isHoldout && (
+          <Metadata
+            size="sm"
+            stacked
+            label="Implementation"
+            value={
+              implementationType
+                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+                : empty("Not set")
+            }
+          />
+        )}
+        {!isHoldout && implementationType === "values" && managedFlagId ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Managed flag"
+            value={<ManagedFlagLink featureId={managedFlagId} />}
+          />
+        ) : null}
+        {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
           <Metadata
             size="sm"
             stacked

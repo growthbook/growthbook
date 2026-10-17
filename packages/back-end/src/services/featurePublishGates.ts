@@ -3,6 +3,7 @@ import {
   AutoMergeResult,
   getReviewSetting,
   reconcileMergeBaselines,
+  requireFreshBaseForPublish,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
@@ -14,6 +15,7 @@ import {
   MergeResultChanges,
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
+  type ReviewAuthorityFootprint,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -21,6 +23,7 @@ import {
   approvalRoleIds,
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
+  nonContributingApproverIds,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -110,7 +113,11 @@ export type RequiredProjectApprovers = {
 
 export type RevisionApprovalState = {
   requiresReview: boolean;
+  /** What the draft reaches — what an approval has to cover. */
+  footprint: ReviewAuthorityFootprint;
   uncoveredApprovers: string[];
+  /** Approvals that stand but cannot sanction the publish, and why. */
+  insufficientApprovers: { id: string; reason: string }[];
   hasCoveringApproval: boolean;
   requiredApproverTeams: {
     satisfied: boolean;
@@ -229,6 +236,30 @@ export async function assessRevisionApproval({
     teams: context.teams,
   });
 
+  const nonContributing = nonContributingApproverIds({
+    approvedIds: approvers.map((a) => a.id),
+    enforcedTeamIds: requiredTeams.enforcedTeamIds,
+    requiredTeamsSatisfied: requiredTeams.satisfied,
+    org: context.org,
+    teams: context.teams,
+  });
+  const insufficientApprovers = [
+    ...uncoveredApprovers.map((id) => ({
+      id,
+      reason: !approvers.find((a) => a.id === id)?.roleInfo
+        ? "the reviewer is no longer a member of this organization"
+        : reviewFootprint.scope !== "environments"
+          ? "the reviewer needs review access with no environment limit"
+          : "their approval does not cover every environment this draft changes",
+    })),
+    ...nonContributing
+      .filter((id) => !uncoveredApprovers.includes(id))
+      .map((id) => ({
+        id,
+        reason: "the reviewer is not in a required approver team",
+      })),
+  ];
+
   const satisfied =
     !requiresReview ||
     (revision.status === "approved" &&
@@ -238,7 +269,9 @@ export async function assessRevisionApproval({
 
   return {
     requiresReview,
+    footprint: reviewFootprint,
     uncoveredApprovers,
+    insufficientApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
     requiredProjectApprovers,
@@ -674,7 +707,11 @@ export function mergeDraftForAutoPublish(
   revision: FeatureRevisionInterface,
   live: FeatureRevisionInterface,
   base: FeatureRevisionInterface,
-): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+): {
+  mergeResult: AutoMergeResult;
+  rebaseRequired: boolean;
+  staleApproval: boolean;
+} {
   const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
     feature,
     live,
@@ -694,11 +731,15 @@ export function mergeDraftForAutoPublish(
     mergeSuccess: mergeResult.success,
     liveChanges: [],
     approvedBaseVersion: revision.approvedBaseVersion ?? null,
-    requireRebaseBeforePublish:
-      !!context.org.settings?.requireRebaseBeforePublish,
+    requireRebaseBeforePublish: requireFreshBaseForPublish({
+      feature,
+      reviewRequired: featureReviewRequired(context, feature),
+      orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
+    }),
   });
   return {
     mergeResult,
     rebaseRequired: mergeResult.success && governance.rebaseRequired,
+    staleApproval: governance.staleApproval,
   };
 }

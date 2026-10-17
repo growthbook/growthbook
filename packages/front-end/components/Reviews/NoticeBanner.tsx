@@ -24,7 +24,8 @@ export default function NoticeBanner({
   return (
     <Flex
       gap="3"
-      align="start"
+      // A title alone sits level with its icon.
+      align={!body && !footer ? "center" : "start"}
       wrap="wrap"
       p="3"
       mb="3"

@@ -31,6 +31,11 @@ export function mergeChanges(
     if (part.keepFeatures) {
       body.keepFeatures = [...(body.keepFeatures ?? []), ...part.keepFeatures];
     }
+    if (part.managedFlag) body.managedFlag = part.managedFlag;
+    if (part.renameManagedFlag) {
+      body.renameManagedFlag = part.renameManagedFlag;
+    }
+    if (part.deleteManagedFlag) body.deleteManagedFlag = true;
     if (part.addUrlRedirects) {
       body.addUrlRedirects = [
         ...(body.addUrlRedirects ?? []),

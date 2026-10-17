@@ -4,13 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
-  boolean: "Boolean",
-  string: "String",
-  number: "Number",
-  json: "JSON",
-};
+import { VALUE_TYPE_LABELS } from "./valueTypes";
 
 // Renders a feature's value type. A config-backed flag (one with a `baseConfig`)
 // shows "Config · <Config>" instead of its underlying "JSON" type.

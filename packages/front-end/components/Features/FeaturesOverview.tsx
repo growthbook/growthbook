@@ -28,6 +28,8 @@ import {
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
   getReviewSetting,
+  isManagedFeature,
+  managedByExperimentId,
 } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -58,12 +60,14 @@ import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
+  getEnabledEnvironments,
   getFeatureDefaultValue,
   useEnvironments,
   getPrerequisites,
   getRules,
   useFeatureRulesEnv,
 } from "@/services/features";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 // eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the new-draft modal; migrate to @/ui/Modal in a follow-up
@@ -229,6 +233,7 @@ export default function FeaturesOverview({
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
+  const [ejectConfirm, setEjectConfirm] = useState(false);
   const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
@@ -528,16 +533,37 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
+  // Managed flags refuse every direct write server-side. Folded in here rather
+  // than in `permissionsClass`, which the experiment-side components share and
+  // where a bare `{project}` caller would skip the check.
+  const isManagedFlag = isManagedFeature(baseFeature);
+  const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
+  // The eject endpoint's authority: publish on the flag, and edit on the
+  // experiment, whose project the managed flag shares.
+  const canEjectManaged =
+    isManagedFlag &&
+    permissionsUtil.canPublishFeature(
+      baseFeature,
+      getEnabledEnvironments(baseFeature, allEnvironments),
+    ) &&
+    permissionsUtil.canUpdateExperiment({ project: baseFeature.project }, {});
+  const ejectManaged = async () => {
+    await apiCall(`/feature/${feature.id}/eject-managed`, { method: "POST" });
+    setEjectConfirm(false);
+    await mutate();
+  };
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
-  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  const canEditDrafts =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
   const canChangeEnvironments =
-    canEditDrafts ||
-    envs.some((envId) =>
-      permissionsUtil.canPublishFeature(baseFeature, [envId]),
-    );
+    !isManagedFlag &&
+    (canEditDrafts ||
+      envs.some((envId) =>
+        permissionsUtil.canPublishFeature(baseFeature, [envId]),
+      ));
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -614,18 +640,20 @@ export default function FeaturesOverview({
   // between the revision card and sticky banner. Just a navigation affordance:
   // all lifecycle actions (review, publish, fix conflicts, discard) live on the
   // review tab, which evaluates the full policy matrix. Shown to everyone.
-  const draftCtaGroup = isDraft ? (
-    <Box>
-      <Button
-        icon={<FaArrowRight />}
-        iconPosition="right"
-        onClick={() => setTab("review")}
-        style={{ whiteSpace: "nowrap" as const }}
-      >
-        Review &amp; Publish
-      </Button>
-    </Box>
-  ) : null;
+  // Review & publish happens on the experiment.
+  const draftCtaGroup =
+    isDraft && !isManagedFlag ? (
+      <Box>
+        <Button
+          icon={<FaArrowRight />}
+          iconPosition="right"
+          onClick={() => setTab("review")}
+          style={{ whiteSpace: "nowrap" as const }}
+        >
+          Review &amp; Publish
+        </Button>
+      </Box>
+    ) : null;
 
   const renderRevisionInfo = () => {
     return (
@@ -697,6 +725,32 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
+        {isManagedFlag && (
+          <Callout status="info" mb="3">
+            This Feature Flag is managed by an{" "}
+            <Link href={`/experiment/${managedExperimentId}#overview`}>
+              experiment
+            </Link>
+            . Its values, review and publishing are handled there, so it is read
+            only here.{" "}
+            {canEjectManaged ? (
+              <Link onClick={() => setEjectConfirm(true)}>
+                Convert to unmanaged Feature Flag
+              </Link>
+            ) : (
+              "To edit it directly, someone who can edit the experiment and publish this Feature Flag can convert it to an unmanaged one."
+            )}
+          </Callout>
+        )}
+        {ejectConfirm && (
+          <ConfirmDialog
+            title="Convert to unmanaged Feature Flag?"
+            content="The experiment keeps using this Feature Flag, but you'll manage and review it directly from this page instead of from the experiment. This cannot be undone."
+            yesText="Convert"
+            onConfirm={ejectManaged}
+            onCancel={() => setEjectConfirm(false)}
+          />
+        )}
         {(() => {
           const bannerProps =
             isDraft || isPendingReview

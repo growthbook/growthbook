@@ -60,6 +60,7 @@ const draft = {
   organization: "org_1",
   type: "standard",
   status: "draft",
+  implementationType: "none",
   linkedFeatures: [],
   variations: [
     { id: "v0", screenshots: [] },

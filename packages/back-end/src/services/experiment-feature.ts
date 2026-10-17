@@ -7,6 +7,7 @@ import {
   AutoMergeResult,
   getEffectiveRevisionHoldout,
   getMatchingRules,
+  isManagedByExperiment,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
   MatchingRule,
@@ -23,6 +24,7 @@ import {
   ExperimentRefRule,
   ExperimentRefVariation,
   ExperimentRuleEnvironments,
+  FeatureValueType,
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
@@ -39,12 +41,14 @@ import {
   editFeatureRules,
   featureIdExists,
   getFeature,
+  getManagedFlagIdsUnfiltered,
   prevalidatePublishRevision,
   publishRevision,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
+  getActiveDraft,
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -54,6 +58,11 @@ import {
   draftTakesRuleOut,
   getLaunchDraftVersion,
 } from "back-end/src/util/featureExperimentSync";
+// Called, not read at load: managedFeatures imports this module too.
+import {
+  assertLoadedFeatureNotManaged,
+  discardDraftIfNoop,
+} from "back-end/src/services/managedFeatures";
 import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
@@ -118,10 +127,35 @@ export async function unlinkFlagFromExperiment(
   if (!feature && (await featureIdExists(context, featureId))) {
     context.permissions.throwPermissionError();
   }
+  await assertFlagUnlinkable(context, experimentId, featureId, feature);
+  await unlinkFeatureFromExperiment(context, experimentId, featureId);
+}
+
+async function assertFlagUnlinkable(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  feature: FeatureInterface | null,
+): Promise<void> {
   if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
-  await unlinkFeatureFromExperiment(context, experimentId, featureId);
+  // Unfiltered: an unreadable flag is still managed.
+  const managedIds = await getManagedFlagIdsUnfiltered(context, experimentId);
+  if (managedIds.includes(featureId)) {
+    throw new BadRequestError(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+}
+
+// Another experiment's managed flag serves only that experiment.
+export function assertNotManagedElsewhere(
+  feature: FeatureInterface,
+  experimentId: string,
+): void {
+  if (isManagedByExperiment(feature, experimentId)) return;
+  assertLoadedFeatureNotManaged(feature);
 }
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
@@ -146,6 +180,8 @@ export async function linkFeatureToExperiment({
   ) {
     throw new Error("Invalid experiment rule");
   }
+
+  assertNotManagedElsewhere(feature, experiment.id);
 
   if (!environments.length) {
     throw new Error(
@@ -400,6 +436,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // sparse flag (the variation values are partial objects merged onto the
   // feature default). Omitted = leave the rule's existing sparse flag untouched.
   sparse?: boolean;
+  /** Managed flags only. */
+  valueType?: FeatureValueType;
   /** Re-scopes the rule; omitted leaves its environments as they are. */
   environments?: ExperimentRuleEnvironments;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
@@ -630,7 +668,11 @@ export async function validateExperimentFeatureUpdates({
       );
     });
 
-    if (!featureNeedsUpdate) continue;
+    // A type change counts even when every value reads the same under both types.
+    const typeChanging =
+      !!entry.valueType &&
+      entry.valueType !== (revision.metadata?.valueType ?? feature.valueType);
+    if (!featureNeedsUpdate && !typeChanging) continue;
 
     if (autoPublish) {
       if (
@@ -1211,7 +1253,7 @@ export function planExperimentRuleEnvironments({
   );
   if (!hasRule) {
     throw new BadRequestError(
-      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed.`,
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
     );
   }
   return {
@@ -1227,6 +1269,73 @@ export function planExperimentRuleEnvironments({
       scopedEnvironments,
     ),
   };
+}
+
+export async function updateExperimentRuleEnvironments({
+  context,
+  experiment,
+  feature,
+  allEnvironments,
+  environments: selected,
+  targetVersion,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  feature: FeatureInterface;
+  allEnvironments: boolean;
+  environments: string[];
+  /** Draft to stage onto. Omit to use the open draft, or start a new one. */
+  targetVersion?: number;
+  eventAudit: EventUser;
+}): Promise<{ version: number }> {
+  const { environments } = context;
+
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision =
+    targetVersion !== undefined
+      ? await getDraftRevision(context, feature, targetVersion)
+      : ((await getActiveDraft(context, feature)) ??
+        (await getDraftRevision(context, feature, feature.version)));
+
+  const { scopedEnvironments, ruleUpdate, environmentsEnabled } =
+    planExperimentRuleEnvironments({
+      feature,
+      revision,
+      experimentId: experiment.id,
+      orgEnvironments: environments,
+      scope: { allEnvironments, environments: selected },
+    });
+  const nextRules = cloneDeep(revision.rules ?? []).map((rule) =>
+    rule.type === "experiment-ref" && rule.experimentId === experiment.id
+      ? { ...omit(rule, ["environments"]), ...ruleUpdate }
+      : rule,
+  );
+  const changes: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+    ...(environmentsEnabled && { environmentsEnabled }),
+  };
+
+  const updated = await updateRevision(context, feature, revision, changes, {
+    user: eventAudit,
+    action: "update experiment environments",
+    subject: allEnvironments
+      ? "to all environments"
+      : `to ${scopedEnvironments.join(", ") || "no environments"}`,
+    value: JSON.stringify({
+      allEnvironments,
+      environments: scopedEnvironments,
+    }),
+  });
+
+  if (!updated) {
+    throw new Error(`Could not stage environment changes on "${feature.id}"`);
+  }
+
+  return { version: updated.version };
 }
 
 const experimentRuleFor =
@@ -1356,18 +1465,16 @@ const removalTitle = (experiment: ExperimentInterface) =>
   `Remove from experiment "${experiment.name}"`;
 
 /**
- * Refuses taking a flag off the experiment: without draft rights, over a draft
- * locked for a scheduled publish, or while it runs and the flag serves the rule
- * or a draft would add it.
+ * Refuses taking a flag off the experiment: without draft rights, for the flag
+ * the experiment manages, over a draft locked for a scheduled publish, or while
+ * it runs and the flag serves the rule or a draft would add it.
  */
 export async function assertFlagRemovable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   feature: FeatureInterface,
 ): Promise<void> {
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
+  await assertFlagUnlinkable(context, experiment.id, feature.id, feature);
   const refersToExperiment = experimentRuleFor(experiment.id);
   await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
   if (experiment.status !== "running") return;
@@ -1469,35 +1576,6 @@ export async function removeFlagFromExperiment({
     );
   }
   await setPendingFeatureUnlink(context, experiment.id, featureId, true);
-}
-
-// An edit back to what serves must not leave an empty review behind.
-async function discardDraftIfNoop({
-  context,
-  feature,
-  revision,
-  eventAudit,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  eventAudit: EventUser;
-}): Promise<boolean> {
-  const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context,
-    feature,
-    revision,
-  });
-  const { mergeResult } = mergeDraftForAutoPublish(
-    context,
-    feature,
-    revision,
-    live,
-    base,
-  );
-  if (!mergeResult.success || mergeResultHasChanges(mergeResult)) return false;
-  await discardRevision(context, revision, eventAudit, feature.version);
-  return true;
 }
 
 /**

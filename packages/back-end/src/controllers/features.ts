@@ -109,6 +109,7 @@ import {
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
 import type { GroupMap } from "shared/types/saved-group";
+import { ejectManagedFeatureFromFlag } from "back-end/src/services/managedFeatures";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -223,6 +224,7 @@ import {
   getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
+import { submitFeatureRevisionReview } from "back-end/src/services/featureRevisionReview";
 import {
   deleteRevisionForFailedLanding,
   cleanUpPreviousRevisions,
@@ -290,6 +292,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
+import { resumeFeatureRename } from "back-end/src/services/featureRename/renameManagedFlag";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -899,8 +902,11 @@ export async function postFeatures(
     customFields,
     jsonSchema,
     duplicateOf,
-    ...otherProps
+    ...rest
   } = req.body;
+
+  // Never client-settable, or a flag could be locked to a nonexistent experiment.
+  const otherProps = omit(rest, ["managedBy"]);
 
   if (
     !context.permissions.canCreateFeature(
@@ -1468,154 +1474,19 @@ export async function postFeatureReviewOrComment(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, review = "Comment" } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  // A verdict is the review atom; a plain comment is participation, so the
-  // comment atom carries it — review implies it but must not gate it. Uses the
-  // shared predicate so all four entities answer identically, narrowed to the
-  // primary project to match `canReviewFeatureDrafts`.
-  //
-  // Known structural divergence: the other three engines judge this on
-  // `revision.target.snapshot`; feature revisions carry no origin snapshot
-  // (`metadata.project` is the DESTINATION a draft stages), so this engine can
-  // only ask about live.
-  const canCommentHere = canCommentOnRevisionEntity(
-    context.permissions,
-    "feature",
-    null,
-    { project: feature.project },
-  );
-  if (review === "Comment" && !canCommentHere) {
-    context.permissions.throwPermissionError();
-  }
-  // Coarse pre-fetch gate so callers without the review atom cannot probe
-  // which revision versions exist; the footprint check below still runs.
-  if (
-    review !== "Comment" &&
-    !context.permissions.canReviewFeatureDrafts(
-      feature,
-      ANY_REVIEW_FOOTPRINT,
-      featureReviewCandidateProjects(feature, context.org.settings),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const revision = await getRevision({
+  await submitFeatureRevisionReview({
     context,
-    organization: context.org.id,
-    featureId: feature.id,
     feature,
     version: parseInt(version),
+    review: req.body.review,
+    comment: req.body.comment,
+    eventAudit: res.locals.eventAudit,
   });
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
-  // A verdict is judged against what the draft changes, so it waits on the
-  // revision. Comments keep their pre-fetch refusal.
-  if (review !== "Comment") {
-    const footprint = await getFeatureReviewFootprint({
-      context,
-      feature,
-      revision,
-    });
-    if (
-      !context.permissions.canReviewFeatureDrafts(
-        feature,
-        footprint,
-        await getFeatureReviewApproverProjects({ context, feature, revision }),
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
-  // Verdicts may stand alone, but a plain comment must have a body.
-  if (review === "Comment" && !comment?.trim()) {
-    throw new Error("Comment cannot be empty");
-  }
-
-  if (
-    eventUserIdentity(revision.createdBy) === context.actorId &&
-    review !== "Comment"
-  ) {
-    throw Error("cannot submit a review for yourself");
-  }
-
-  // Block contributors from self-approving when the org setting is enabled.
-  // Note: contributors[] is only populated on drafts created after contributor tracking was
-  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
-  // retroactively determine co-authors without reading revision logs.
-  const requireReviews = context.org.settings?.requireReviews;
-  const blockSelfApproval = Array.isArray(requireReviews)
-    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
-    : false;
-  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
-  // writes, because this reads a copy the contributor list can outrun.
-  if (review === "Approved" && blockSelfApproval) {
-    const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === context.userId,
-    );
-    if (isSelfApproval) {
-      throw new Error("You cannot approve a draft you contributed to.");
-    }
-  }
-  // dont allow review unless you are adding a comment
-  if (
-    !(
-      revision.status === "changes-requested" ||
-      revision.status === "pending-review" ||
-      revision.status === "approved"
-    ) &&
-    review !== "Comment"
-  ) {
-    throw new Error("Can only review if review is requested");
-  }
-  const { applied } = await submitReviewAndComments(
-    context,
-    revision,
-    res.locals.eventAudit,
-    review,
-    comment,
-    // Capture the live version the approval is made against so a later publish
-    // can detect when the approval has gone stale.
-    feature.version,
-    blockSelfApproval,
-  );
-  if (!applied) {
-    // The verdict did not persist: a concurrent recall, discard or publish moved
-    // the revision out of the review cycle. Refuse rather than log, notify and
-    // report success for a review the document does not carry.
-    throw new Error(
-      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
-    );
-  }
-
-  const updatedRevision = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
-  const finalRevision = updatedRevision ?? revision;
-
-  await dispatchRevisionReviewEvent(
-    context,
-    feature,
-    revision,
-    finalRevision,
-    review,
-    comment,
-  );
-
-  if (review === "Approved") {
-    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
-  }
 
   res.status(200).json({
     status: 200,
@@ -6185,7 +6056,7 @@ export async function getFeatureCodeRefs(
     throw new Error("Could not find feature");
   }
   const codeRefs = await getAllCodeRefsForFeature({
-    feature: feature.id,
+    feature,
     organization: context.org,
   });
   res.status(200).json({ status: 200, codeRefs });
@@ -6295,6 +6166,15 @@ export async function getFeatureById(
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
+  }
+  // A rename that stopped partway leaves revisions under the old id.
+  if (feature.renaming) {
+    await resumeFeatureRename(context, feature).catch((e) =>
+      logger.error(
+        { err: e, featureId: feature.id },
+        "Could not finish renaming a Feature Flag",
+      ),
+    );
   }
 
   const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
@@ -8090,4 +7970,19 @@ export async function getFeatureWatchers(
     status: 200,
     userIds: watchers,
   });
+}
+
+export async function postFeatureEjectManaged(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; feature: FeatureInterface }>,
+) {
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context, req.params.id);
+  if (!feature) throw new Error("Could not find feature");
+  const updated = await ejectManagedFeatureFromFlag(
+    context,
+    feature,
+    req.audit,
+  );
+  res.status(200).json({ status: 200, feature: updated });
 }

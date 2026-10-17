@@ -1,7 +1,14 @@
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { getImplementationType, isManagedByExperiment } from "shared/util";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import Tooltip from "@/ui/Tooltip";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -17,11 +24,29 @@ export default function LinkedChanges({
   linkedFeatures,
   visualChangesets,
   urlRedirects,
+  experiment,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
+  experiment: ExperimentInterfaceStringDates;
 }) {
+  const hasManagedFlag = linkedFeatures.some((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  );
+  const effectiveType = hasManagedFlag
+    ? "values"
+    : getImplementationType(experiment);
+  const valuesMode = effectiveType === "values";
+  // Titled by kind; "Linked Changes" is reserved for legacy mixes.
+  const boxTitle = valuesMode
+    ? "Managed Feature Flag"
+    : effectiveType === "multi"
+      ? "Linked Changes"
+      : effectiveType && effectiveType !== "none"
+        ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
+        : "Implementation";
+
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
     { id: "visual-editor", count: visualChangesets.length },
@@ -32,8 +57,18 @@ export default function LinkedChanges({
     <Frame>
       <Flex align="center" gap="1" mb="4">
         <Heading color="text-high" as="h4" size="sm" mb="0">
-          Linked Changes
+          {boxTitle}
         </Heading>
+        {valuesMode && (
+          <Tooltip
+            content="This experiment owns this Feature Flag and serves its variation values through it."
+            side="top"
+          >
+            <Flex align="center" style={{ color: "var(--color-text-low)" }}>
+              <PiInfo />
+            </Flex>
+          </Tooltip>
+        )}
       </Flex>
 
       <Flex direction="column" gap="3" mx="1" mb="2" mt="4">

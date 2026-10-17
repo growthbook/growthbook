@@ -523,7 +523,7 @@ export async function countDocuments(
 
 type LinkageRevisionSummary = Pick<
   FeatureRevisionInterface,
-  "version" | "rules"
+  "version" | "rules" | "metadata"
 >;
 
 /** Returns only the revisions that syncFeatureExperimentLinkages/
@@ -544,14 +544,14 @@ export async function getLinkageSyncRevisionSummaries(
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version rules baseVersion"),
+    }).select("version rules metadata baseVersion"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
       status: "published",
     })
       .sort({ version: -1 })
-      .select("version rules"),
+      .select("version rules metadata"),
   ]);
   const staleBaseVersions = [
     ...new Set(
@@ -565,12 +565,13 @@ export async function getLinkageSyncRevisionSummaries(
         organization,
         featureId,
         version: { $in: staleBaseVersions },
-      }).select("version rules")
+      }).select("version rules metadata")
     : [];
   const basesByVersion = new Map(baseDocs.map((d) => [d.version, d]));
   const summarize = (d: LinkageRevisionSummary): LinkageRevisionSummary => ({
     version: d.version,
     rules: d.rules,
+    metadata: d.metadata,
   });
   return {
     openDrafts: openDraftDocs.map((d) => {

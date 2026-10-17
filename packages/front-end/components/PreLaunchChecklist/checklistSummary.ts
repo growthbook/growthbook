@@ -1,7 +1,5 @@
-import {
-  PENDING_APPROVAL_ITEM_PREFIX,
-  type ManualLaunchChecklistItem,
-} from "shared/validators";
+import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/util";
+import type { ManualLaunchChecklistItem } from "shared/validators";
 import type { CheckListItem } from "./PreLaunchChecklistItems";
 
 export type ChecklistTier = "blocking" | "recommended" | "optional";
@@ -58,11 +56,18 @@ export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
   };
 }
 
+export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";
 export const MERGE_CONFLICT_ITEM_PREFIX = "mergeConflict:";
 
-/** What an admin's start bypass waives: the server skips the check with it. */
-export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
+function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
+}
+
+/** What an admin's start bypass waives: the server skips both checks with it. */
+export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
+  return (
+    isPendingApprovalItem(item) || item.key.startsWith(STALE_VALUES_ITEM_PREFIX)
+  );
 }
 
 export function nextManualChecklist(
@@ -78,4 +83,16 @@ export function nextManualChecklist(
   return list.some((e) => e.key === key)
     ? list.map((e) => (e.key === key ? entry : e))
     : [...list, entry];
+}
+
+/** The rows about one Feature Flag's draft: its conflict, staleness and approval. */
+export function isFlagDraftItem(
+  item: Pick<CheckListItem, "key">,
+  featureId: string,
+): boolean {
+  return [
+    MERGE_CONFLICT_ITEM_PREFIX,
+    STALE_VALUES_ITEM_PREFIX,
+    PENDING_APPROVAL_ITEM_PREFIX,
+  ].some((prefix) => item.key === `${prefix}${featureId}`);
 }

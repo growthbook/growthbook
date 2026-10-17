@@ -50,12 +50,14 @@ export function environmentStateTense({
   status,
   unpublished,
   launches,
+  liveView,
 }: {
   status: ExperimentStatus;
   // A draft's states, or an unsaved scope over them.
   unpublished: boolean;
   // Shows the draft a draft experiment publishes when it starts.
   launches: boolean;
+  liveView: boolean;
 }): EnvironmentStateTense {
   if (unpublished) {
     if (status === "running") return "published";
@@ -63,7 +65,7 @@ export function environmentStateTense({
   }
   if (status === "running") return false;
   // Unless a draft changes them, starting keeps live's.
-  return status === "draft" ? "started" : "rule";
+  return status === "draft" && !liveView ? "started" : "rule";
 }
 
 function environmentStateTooltip(

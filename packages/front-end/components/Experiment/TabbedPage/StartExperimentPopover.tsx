@@ -20,8 +20,10 @@ import {
   ChecklistCountBadge,
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
-import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { useChecklistSummary } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { isFlagDraftItem } from "@/components/PreLaunchChecklist/checklistSummary";
 import { useAuth } from "@/services/auth";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -45,6 +47,8 @@ type ContentProps = {
   start: StartExperiment;
   editSchedule: (() => void) | null;
   mutate: () => void;
+  // The Values flag's review status and next step; its To Do rows give way.
+  valuesStatus?: ReactNode;
 };
 
 export type Props = ContentProps & {
@@ -211,6 +215,7 @@ function StartContent({
   start,
   editSchedule,
   mutate,
+  valuesStatus,
   close,
 }: ContentProps & { close: () => void }) {
   const gate = useStartGate({ experiment, linkedFeatures, start });
@@ -224,7 +229,16 @@ function StartContent({
     ? scheduledTime(gate.scheduledStartAt)
     : null;
   const pastSchedule = !startApproved && gate.schedule === "past" && dateLabel;
-  const { summary } = usePreLaunchChecklist();
+  const managedId =
+    useManagedExperimentFlags({ experiment, linkedFeatures }).managedFeature
+      ?.feature.id ?? null;
+  // The values' own row stands in for their To Do rows.
+  const omitted =
+    valuesStatus && managedId
+      ? (item: Parameters<typeof isFlagDraftItem>[0]) =>
+          isFlagDraftItem(item, managedId)
+      : undefined;
+  const shown = useChecklistSummary(omitted);
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
@@ -244,7 +258,10 @@ function StartContent({
         {getStartTitle(experiment, new Date())}
       </Heading>
 
-      <StartFailures failures={start.pendingDraftFailures} />
+      <StartFailures
+        failures={start.pendingDraftFailures}
+        managedFeatureId={managedId}
+      />
       <StartChecklistFailures items={start.checklistFailures} />
       {pastSchedule ? (
         <Callout status="warning" size="sm">
@@ -305,10 +322,11 @@ function StartContent({
             To Do
           </Text>
           <ChecklistCountBadge
-            remaining={gate.checklistLoading ? null : summary.remaining}
-            blocking={summary.blocking > 0}
+            remaining={gate.checklistLoading ? null : shown.remaining}
+            blocking={shown.blocking > 0}
           />
         </Flex>
+        {valuesStatus}
         <Flex
           direction="column"
           gap="3"
@@ -320,7 +338,7 @@ function StartContent({
             }
           }}
         >
-          <PreLaunchChecklistPanel size="md" foldCompleted />
+          <PreLaunchChecklistPanel size="md" foldCompleted omit={omitted} />
         </Flex>
       </Flex>
 
