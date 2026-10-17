@@ -39,6 +39,7 @@ interface VariationStatsTableProps {
   rows: VariationStatRow[];
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  unitsLabel?: string;
 }
 
 export default function VariationStatsTable({
@@ -46,6 +47,7 @@ export default function VariationStatsTable({
   rows,
   isBandit,
   ssrPolyfills,
+  unitsLabel,
 }: VariationStatsTableProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
@@ -82,7 +84,7 @@ export default function VariationStatsTable({
           <TableColumnHeader pl="0">Variation</TableColumnHeader>
           <TableColumnHeader justify="end">
             {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
-            {quantileMetric === "event" ? "Events" : "Units"}
+            {quantileMetric === "event" ? "Events" : (unitsLabel ?? "Units")}
           </TableColumnHeader>
           {!quantileMetric ? (
             <TableColumnHeader justify="end">
