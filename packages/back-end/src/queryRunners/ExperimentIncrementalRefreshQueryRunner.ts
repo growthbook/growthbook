@@ -16,6 +16,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
@@ -47,6 +48,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
+  analyzeExperimentClusterHealth,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -79,6 +81,8 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  CLUSTER_HEALTH_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -1244,6 +1248,47 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+
+    if (snapshotSettings.isClusterExperiment) {
+      const clusterTrafficQuery = await startQuery({
+        name: CLUSTER_TRAFFIC_QUERY_NAME,
+        query: integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+          clusterGrain: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterTrafficQuery);
+
+      const clusterHealthQuery = await startQuery({
+        name: CLUSTER_HEALTH_QUERY_NAME,
+        query: integration.getExperimentClusterHealthQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterHealthQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterHealthQuery);
+    }
   }
   return queries;
 };
@@ -1383,6 +1428,28 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       };
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
+
+      const clusterTrafficQuery = queryMap.get(CLUSTER_TRAFFIC_QUERY_NAME);
+      if (clusterTrafficQuery) {
+        result.health.clusterTraffic = analyzeExperimentTraffic({
+          rows: clusterTrafficQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+          error: clusterTrafficQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
+
+      const clusterHealthQuery = queryMap.get(CLUSTER_HEALTH_QUERY_NAME);
+      if (clusterHealthQuery) {
+        const clusterHealth = analyzeExperimentClusterHealth({
+          rows: clusterHealthQuery.result as ExperimentClusterHealthQueryResponseRows,
+          error: clusterHealthQuery.error,
+          variations: this.model.settings.variations,
+        });
+        result.health.clusterUnits = clusterHealth.clusterUnits;
+        result.health.clusterAssignment = clusterHealth.clusterAssignment;
+        result.health.clusterSubUnitMapping =
+          clusterHealth.clusterSubUnitMapping;
+      }
 
       // TODO(incremental-refresh): ensure power calculations work
       // const _relativeAnalysis = this.model.analyses.find(

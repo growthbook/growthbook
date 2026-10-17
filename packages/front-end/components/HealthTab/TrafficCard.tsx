@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
+import { SegmentedControl } from "@radix-ui/themes";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
@@ -19,6 +20,7 @@ import ExperimentDateGraph, {
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
+import Callout from "@/ui/Callout";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -41,6 +43,7 @@ export default function TrafficCard({
   disableDimensions,
   cardTitle = "Traffic",
   containerClassName = "box p-3 my-4",
+  cluster,
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
@@ -48,15 +51,24 @@ export default function TrafficCard({
   disableDimensions?: boolean;
   cardTitle?: string;
   containerClassName?: string;
+  cluster?: {
+    identifier: string;
+    subUnitIdentifier: string;
+    traffic?: ExperimentSnapshotTraffic;
+  };
 }) {
   const [cumulative, setCumulative] = useState(true);
+  const [showClusters, setShowClusters] = useState(false);
+  const clusterTrafficMissing = showClusters && !cluster?.traffic;
+  const unitTraffic =
+    showClusters && cluster?.traffic ? cluster.traffic : traffic;
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const trafficByDate = useMemo(
-    () => traffic.dimension?.dim_exposure_date || [],
-    [traffic],
+    () => unitTraffic.dimension?.dim_exposure_date || [],
+    [unitTraffic],
   );
 
   const availableDimensions = useMemo(
@@ -64,12 +76,12 @@ export default function TrafficCard({
       disableDimensions
         ? []
         : transformDimensionData(
-            traffic.dimension,
+            unitTraffic.dimension,
             variations,
             srmThreshold,
             isBandit,
           ),
-    [disableDimensions, traffic, variations, srmThreshold, isBandit],
+    [disableDimensions, unitTraffic, variations, srmThreshold, isBandit],
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -82,7 +94,7 @@ export default function TrafficCard({
     // Reset selected dimension if traffic changes and dimension is no longer available
     if (!availableDimensions.find((d) => d.value === selectedDimension))
       setSelectedDimension("");
-  }, [availableDimensions, selectedDimension, traffic]);
+  }, [availableDimensions, selectedDimension, unitTraffic]);
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -113,10 +125,10 @@ export default function TrafficCard({
   }, [trafficByDate, variations, cumulative]);
 
   const sortedDimensionSlices = useMemo(() => {
-    return traffic.dimension?.[selectedDimension]?.sort(
+    return unitTraffic.dimension?.[selectedDimension]?.sort(
       compareDimsByTotalUsers,
     );
-  }, [selectedDimension, traffic.dimension]);
+  }, [selectedDimension, unitTraffic.dimension]);
 
   return (
     <div className={containerClassName}>
@@ -125,6 +137,24 @@ export default function TrafficCard({
           <div className="d-flex flex-row mt-1">
             <h2 className="d-inline">{cardTitle}</h2>
             <div className="flex-1" />
+            {cluster && (
+              <div className="col-auto">
+                <div className="uppercase-title text-muted">Unit</div>
+                <SegmentedControl.Root
+                  size="1"
+                  value={showClusters ? "cluster" : "subunit"}
+                  onValueChange={(v) => setShowClusters(v === "cluster")}
+                  aria-label="Unit"
+                >
+                  <SegmentedControl.Item value="subunit">
+                    <code>{cluster.subUnitIdentifier}</code>
+                  </SegmentedControl.Item>
+                  <SegmentedControl.Item value="cluster">
+                    <code>{cluster.identifier}</code>
+                  </SegmentedControl.Item>
+                </SegmentedControl.Root>
+              </div>
+            )}
             <div className="col-auto">
               <div className="uppercase-title text-muted">Dimension</div>
               <SelectField
@@ -159,7 +189,12 @@ export default function TrafficCard({
           )}
         </div>
       </div>
-      {selectedDimension ? (
+      {clusterTrafficMissing ? (
+        <Callout status="info" mx="2" mb="2">
+          Traffic per <code>{cluster?.identifier}</code> isn&apos;t available
+          for this experiment yet.
+        </Callout>
+      ) : selectedDimension ? (
         <table className="table w-auto" style={{ minWidth: "70%" }}>
           <thead>
             <tr>

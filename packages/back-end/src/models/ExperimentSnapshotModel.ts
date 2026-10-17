@@ -176,6 +176,41 @@ const experimentSnapshotSchema = new mongoose.Schema({
       error: String,
       multipleExposures: Number,
     },
+    clusterTraffic: {
+      _id: false,
+      overall: experimentSnapshotTrafficObject,
+      dimension: {
+        type: Map,
+        of: [experimentSnapshotTrafficObject],
+      },
+      error: String,
+      multipleExposures: Number,
+    },
+    clusterUnits: {
+      _id: false,
+      clusters: [
+        {
+          _id: false,
+          id: String,
+          variation: Number,
+          units: Number,
+          pct: Number,
+        },
+      ],
+      error: String,
+    },
+    clusterAssignment: {
+      _id: false,
+      totalClusters: Number,
+      mixedClusters: Number,
+      error: String,
+    },
+    clusterSubUnitMapping: {
+      _id: false,
+      totalUnits: Number,
+      multiClusterUnits: Number,
+      error: String,
+    },
     power: {
       _id: false,
       type: { type: String },
