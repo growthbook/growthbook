@@ -33,6 +33,7 @@ import AutoRunCallout from "@/components/GetStarted/AutoRunCallout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
+import DashboardCard from "@/components/GetStarted/DashboardCard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
@@ -300,25 +301,25 @@ const GetStartedAndHomePage = ({
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
                   <NeedingAttention />
-                  <Box mt="6" mb="2">
-                    <Box mb="3">
-                      <Text
-                        size="1"
-                        weight="medium"
-                        style={{ color: "var(--color-text-mid)" }}
-                      >
-                        EXPLORE ADVANCED FEATURES
-                      </Text>
-                    </Box>
-                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                      {advancedFeatures.map((feature) => (
-                        <AdvancedFeaturesCard
-                          key={feature.title}
-                          {...feature}
-                        />
-                      ))}
-                    </Flex>
+                </Box>
+              )}
+              <DashboardCard />
+              {orgIsUsingFeatureOrExperiment && (
+                <Box mt="6" mb="2">
+                  <Box mb="3">
+                    <Text
+                      size="1"
+                      weight="medium"
+                      style={{ color: "var(--color-text-mid)" }}
+                    >
+                      EXPLORE ADVANCED FEATURES
+                    </Text>
                   </Box>
+                  <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                    {advancedFeatures.map((feature) => (
+                      <AdvancedFeaturesCard key={feature.title} {...feature} />
+                    ))}
+                  </Flex>
                 </Box>
               )}
 
