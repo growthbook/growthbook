@@ -1,12 +1,14 @@
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useRef, useState } from "react";
 import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
+import { isProjectListValidForProject } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -46,6 +48,8 @@ import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import { useDashboards } from "@/hooks/useDashboards";
+import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -88,7 +92,9 @@ const ProjectPage: FC = () => {
   const canDelete =
     permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
-  const form = useForm<ProjectSettings>({ mode: "onChange" });
+  const form = useForm<Omit<ProjectSettings, "defaultDashboardId">>({
+    mode: "onChange",
+  });
 
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -96,11 +102,39 @@ const ProjectPage: FC = () => {
 
   const checklist = data?.checklist;
 
+  const canViewDashboards = hasCommercialFeature("dashboards");
+  const { dashboards, loading: dashboardsLoading } = useDashboards(
+    false,
+    () => canViewDashboards,
+  );
+  const projectDashboards = useMemo(
+    () =>
+      dashboards.filter((d) => isProjectListValidForProject(d.projects, pid)),
+    [dashboards, pid],
+  );
+  // A stored default that was deleted or no longer fits this Project is
+  // ignored on the home page too, so show it as "No default".
+  const savedDefaultDashboardId = projectDashboards.some(
+    (d) => d.id === settings?.defaultDashboardId,
+  )
+    ? settings?.defaultDashboardId
+    : "";
+  const noProjectDashboards =
+    !dashboardsLoading && projectDashboards.length === 0;
+
+  const lastFormSettings = useRef<{
+    projectId: string;
+    settings: ProjectSettings;
+  } | null>(null);
   useEffect(() => {
     if (settings) {
+      const formSettings = omit(settings, "defaultDashboardId");
+      const nextSettings = { projectId: pid, settings: formSettings };
+      if (isEqual(lastFormSettings.current, nextSettings)) return;
+      lastFormSettings.current = nextSettings;
       const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
+      Object.keys(formSettings).forEach((k) => {
+        newVal[k] = formSettings[k] || newVal[k];
       });
       if (typeof newVal.confidenceLevel === "number") {
         newVal.confidenceLevel = newVal.confidenceLevel * 100;
@@ -108,7 +142,43 @@ const ProjectPage: FC = () => {
       form.reset(newVal);
       setOriginalValue(newVal);
     }
-  }, [form, settings]);
+  }, [form, settings, pid]);
+
+  const [savingDashboard, setSavingDashboard] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardSavedMsg, setDashboardSavedMsg] = useState<string | null>(
+    null,
+  );
+  // Shown while the save is in flight so the controlled select doesn't snap
+  // back to the old value until definitions refresh.
+  const [pendingDashboardId, setPendingDashboardId] = useState<string | null>(
+    null,
+  );
+  const setDefaultDashboard = async (dashboardId: string) => {
+    setSavingDashboard(true);
+    setPendingDashboardId(dashboardId);
+    setDashboardError(null);
+    setDashboardSavedMsg(null);
+    try {
+      await apiCall(`/projects/${pid}/default-dashboard`, {
+        method: "PUT",
+        body: JSON.stringify({ defaultDashboardId: dashboardId || null }),
+      });
+      await mutateDefinitions();
+      setDashboardSavedMsg(
+        dashboardId ? "Default dashboard saved" : "Default dashboard cleared",
+      );
+    } catch (error) {
+      setDashboardError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update the default dashboard.",
+      );
+    } finally {
+      setSavingDashboard(false);
+      setPendingDashboardId(null);
+    }
+  };
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
@@ -449,6 +519,63 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
+                {canViewDashboards && (
+                  <Frame>
+                    <Flex gap="4" mb="4">
+                      <Box width="220px" flexShrink="0">
+                        <Heading as="h4" size="md">
+                          Home Page Dashboard
+                        </Heading>
+                      </Box>
+                      <Flex align="start" direction="column" flexGrow="1">
+                        <Flex direction="column" gap="3" mb="3" width="100%">
+                          <Heading as="h5" size="sm">
+                            Default Dashboard
+                          </Heading>
+                          <Text as="p">
+                            Members of this Project see this dashboard on their
+                            home page by default. They can still pick a
+                            different one for themselves. Changes save
+                            immediately.
+                          </Text>
+                          {dashboardError && (
+                            <Callout status="error">{dashboardError}</Callout>
+                          )}
+                          {dashboardSavedMsg && (
+                            <TempMessage
+                              close={() => setDashboardSavedMsg(null)}
+                            >
+                              {dashboardSavedMsg}
+                            </TempMessage>
+                          )}
+                          {noProjectDashboards ? (
+                            <Callout status="info">
+                              No dashboards are available for this Project yet.{" "}
+                              <Link href="/product-analytics/dashboards/new">
+                                Create a dashboard
+                              </Link>{" "}
+                              scoped to this Project (or with no Project
+                              restriction) to set a default.
+                            </Callout>
+                          ) : (
+                            <DashboardSelector
+                              dashboards={projectDashboards}
+                              value={
+                                pendingDashboardId ??
+                                savedDefaultDashboardId ??
+                                ""
+                              }
+                              setValue={setDefaultDashboard}
+                              disabled={savingDashboard || dashboardsLoading}
+                              allowClear
+                              clearLabel="No default"
+                            />
+                          )}
+                        </Flex>
+                      </Flex>
+                    </Flex>
+                  </Frame>
+                )}
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
                   <div
                     className="container-fluid pagecontents d-flex"
