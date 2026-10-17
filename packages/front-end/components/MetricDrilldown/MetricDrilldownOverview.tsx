@@ -12,7 +12,10 @@ import { ExperimentReportVariation } from "shared/types/report";
 import { MetricTimeSeries } from "shared/validators";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getClusterUnitsLabel,
+} from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
@@ -189,7 +192,11 @@ function MetricDrilldownOverview({
 
         {statsExpanded && (
           <Box mt="3" maxWidth="500px">
-            <VariationStatsTable metric={metric} rows={statsTableRows} />
+            <VariationStatsTable
+              metric={metric}
+              rows={statsTableRows}
+              unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
+            />
           </Box>
         )}
       </Box>

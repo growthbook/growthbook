@@ -44,7 +44,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { startCase } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
@@ -72,6 +71,7 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
+  getUnitDisplayName,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
@@ -252,12 +252,6 @@ export default function AnalysisSettingsSummary({
     : undefined;
   const clusterIdentifier =
     snapshot?.settings?.exposureQueryIdentifierType ?? userIdType;
-
-  // Convert an identifier type to a display name (e.g. "user_id" -> "User Ids")
-  const getUnitDisplayName = (identifierType: string | undefined) =>
-    identifierType
-      ? startCase(identifierType.split("_").join(" ")) + "s"
-      : "Units";
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);

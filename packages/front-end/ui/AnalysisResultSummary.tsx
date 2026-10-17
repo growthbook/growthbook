@@ -53,6 +53,7 @@ export interface AnalysisResultSummaryProps {
   isBandit?: boolean;
   pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
+  unitsLabel?: string;
 }
 
 export default function AnalysisResultSummary({
@@ -61,6 +62,7 @@ export default function AnalysisResultSummary({
   isBandit,
   pValueThreshold,
   ssrPolyfills,
+  unitsLabel,
 }: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
@@ -250,6 +252,7 @@ export default function AnalysisResultSummary({
         rows={tableRows}
         isBandit={isBandit}
         ssrPolyfills={ssrPolyfills}
+        unitsLabel={unitsLabel}
       />
 
       <Flex direction="column" gap="2">

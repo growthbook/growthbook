@@ -18,6 +18,8 @@ import {
   formatPercent,
 } from "@/services/metrics";
 import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
+import { getClusterUnitsLabel } from "@/services/experiments";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
@@ -178,6 +180,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   oneSided = false,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
+  const { snapshot } = useSnapshot();
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
@@ -367,6 +370,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
       oneSided={oneSided}
+      unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
     />
   );
 }

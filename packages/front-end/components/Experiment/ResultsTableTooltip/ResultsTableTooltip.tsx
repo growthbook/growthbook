@@ -12,10 +12,11 @@ import {
 import { BsX } from "react-icons/bs";
 import clsx from "clsx";
 import { ExperimentMetricDefinition } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
+import { RowResults, getClusterUnitsLabel } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import Portal from "@/components/Modal/Portal";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -75,6 +76,7 @@ export default function ResultsTableTooltip({
   transitionClassName,
   ...otherProps
 }: Props) {
+  const { snapshot } = useSnapshot();
   useEffect(() => {
     if (!data || !tooltipOpen) return;
 
@@ -165,6 +167,7 @@ export default function ResultsTableTooltip({
           differenceType={differenceType}
           isBandit={isBandit}
           pValueThreshold={pValueThreshold}
+          unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
         />
       </div>
     </div>
