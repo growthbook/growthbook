@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { Box } from "@radix-ui/themes";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiWarningFill } from "react-icons/pi";
 import {
@@ -17,6 +21,9 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 type Selection = {
   exposureQueryId: string | undefined;
@@ -354,5 +361,103 @@ export default function AssignmentQueryFields({
         options={exposureQueryOptions}
       />
     </>
+  );
+}
+
+export function ClusterExperimentFields({
+  exposureQuery,
+  identifierType,
+  isClusterExperiment,
+  subUnitIdentifier,
+  setIsClusterExperiment,
+  setSubUnitIdentifier,
+  ineligibleMetricNames,
+  disabled,
+}: {
+  exposureQuery: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  isClusterExperiment: boolean;
+  subUnitIdentifier: string;
+  setIsClusterExperiment: (value: boolean) => void;
+  setSubUnitIdentifier: (value: string) => void;
+  ineligibleMetricNames: string[];
+  disabled?: boolean;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const subUnitOptions = exposureQuery
+    ? getExposureQueryIdentifierTypes(exposureQuery).filter(
+        (type) => type !== identifierType,
+      )
+    : [];
+  // Kept visible on a cluster experiment so it can still be turned off after
+  // its query stops declaring a second identifier.
+  if (!subUnitOptions.length && !isClusterExperiment) return null;
+
+  return (
+    <Box mb="4">
+      <Checkbox
+        label={
+          <PremiumTooltip commercialFeature="cluster-experiments">
+            Cluster experiment
+          </PremiumTooltip>
+        }
+        description={
+          <>
+            Every unit in a <code>{identifierType}</code> gets the same
+            variation, and metrics are analyzed on a smaller unit inside it.
+          </>
+        }
+        value={isClusterExperiment}
+        setValue={(value) => {
+          setIsClusterExperiment(value);
+          if (value && !subUnitOptions.includes(subUnitIdentifier)) {
+            setSubUnitIdentifier(subUnitOptions[0] ?? "");
+          }
+        }}
+        disabled={
+          disabled ||
+          (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
+        }
+      />
+      {isClusterExperiment && (
+        <Box ml="5" mt="3">
+          <SelectField
+            label={
+              <>
+                Subunit Identifier Type{" "}
+                <Tooltip body="The smaller unit inside each cluster that metrics are analyzed on." />
+              </>
+            }
+            labelClassName="font-weight-bold"
+            value={subUnitIdentifier}
+            onChange={setSubUnitIdentifier}
+            placeholder="Choose..."
+            required
+            disabled={disabled}
+            sort={false}
+            options={subUnitOptions.map((type) => ({
+              label: type,
+              value: type,
+            }))}
+            helpText={
+              subUnitOptions.length ? (
+                <>
+                  Lists the other identifier types in {exposureQuery?.name}.
+                  Metrics are analyzed per <code>{subUnitIdentifier}</code>{" "}
+                  wherever they can be.
+                </>
+              ) : (
+                `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`
+              )
+            }
+          />
+          {ineligibleMetricNames.length > 0 && (
+            <Callout status="warning" mt="3">
+              {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleMetricNames.join(", ")}.`}
+            </Callout>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 }

@@ -20,7 +20,11 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +37,7 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
+  ClusterExperimentFields,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -100,6 +105,8 @@ const AnalysisForm: FC<{
     getSegmentById,
     datasources,
     dimensions,
+    factTables,
+    metricGroups,
   } = useDefinitions();
 
   const { organization, hasCommercialFeature } = useUser();
@@ -179,6 +186,8 @@ const AnalysisForm: FC<{
       datasource: experiment.datasource || "",
       exposureQueryId: initialExposureQuery?.id || "",
       exposureQueryIdentifierType: initialIdentifierType,
+      isClusterExperiment: !!experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier ?? "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -358,6 +367,42 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
+  const isClusterExperiment = form.watch("isClusterExperiment");
+  const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
+  const goalMetrics = form.watch("goalMetrics");
+  const secondaryMetrics = form.watch("secondaryMetrics");
+  const guardrailMetrics = form.watch("guardrailMetrics");
+  const ineligibleClusterMetricNames = useMemo(() => {
+    if (!isClusterExperiment) return [];
+    return getAllMetricIdsFromExperiment(
+      { goalMetrics, secondaryMetrics, guardrailMetrics },
+      false,
+      metricGroups,
+    ).flatMap((id) => {
+      const metric = getExperimentMetricById(id);
+      if (!metric) return [];
+      const eligibility = getClusterExperimentMetricEligibility(metric, {
+        clusterIdentifier: exposureQueryIdentifierType,
+        clusterSubUnitIdentifier,
+        getFactTable: (factTableId) =>
+          factTables.find((ft) => ft.id === factTableId),
+        datasourceSettings: datasource?.settings,
+      });
+      return eligibility.allowed ? [] : [metric.name];
+    });
+  }, [
+    isClusterExperiment,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricGroups,
+    factTables,
+    datasource,
+    getExperimentMetricById,
+  ]);
+
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
@@ -471,6 +516,10 @@ const AnalysisForm: FC<{
         };
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
+
+        if (!body.isClusterExperiment) {
+          delete body.clusterSubUnitIdentifier;
+        }
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
@@ -597,6 +646,20 @@ const AnalysisForm: FC<{
                     </Text>{" "}
                     <Text size="sm" weight="medium">
                       {exposureQuery?.name || (
+                        <Text color="text-mid" fontStyle="italic">
+                          Choose...
+                        </Text>
+                      )}
+                    </Text>
+                  </Box>
+                )}
+                {isClusterExperiment && (
+                  <Box mb="1">
+                    <Text size="sm" color="text-mid">
+                      Cluster Subunit:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {clusterSubUnitIdentifier || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
@@ -731,6 +794,23 @@ const AnalysisForm: FC<{
                 disabled={isBandit && experiment.status !== "draft"}
               />
             )}
+            {datasource?.properties?.exposureQueries &&
+              !isBandit &&
+              !isHoldout && (
+                <ClusterExperimentFields
+                  exposureQuery={exposureQuery}
+                  identifierType={exposureQueryIdentifierType}
+                  isClusterExperiment={isClusterExperiment}
+                  subUnitIdentifier={clusterSubUnitIdentifier}
+                  setIsClusterExperiment={(value) =>
+                    form.setValue("isClusterExperiment", value)
+                  }
+                  setSubUnitIdentifier={(value) =>
+                    form.setValue("clusterSubUnitIdentifier", value)
+                  }
+                  ineligibleMetricNames={ineligibleClusterMetricNames}
+                />
+              )}
             {datasource && !isHoldout && (
               <Field
                 label="Tracking Key"
@@ -1025,8 +1105,8 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
               experimentType={experiment.type}
-              isClusterExperiment={experiment.isClusterExperiment}
-              clusterSubUnitIdentifier={experiment.clusterSubUnitIdentifier}
+              isClusterExperiment={isClusterExperiment}
+              clusterSubUnitIdentifier={clusterSubUnitIdentifier}
             />
 
             {!!datasource && !isBandit && !isHoldout && (

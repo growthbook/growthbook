@@ -68,6 +68,7 @@ export interface ExperimentTimeSeriesGraphProps {
   // anchored at 0 + padding around the finite bound/point estimates instead of
   // expanding off the fake bound, and the ribbon fills out to the plot edge.
   oneSided?: boolean;
+  unitsLabel?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -140,6 +141,7 @@ const getTooltipContents = (
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
   hasStats: boolean = true,
+  unitsLabel: string = "Users",
 ) => {
   const { d, yaxis } = data;
 
@@ -175,7 +177,7 @@ const getTooltipContents = (
         <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
-            <TableColumnHeader justify="center">Users</TableColumnHeader>
+            <TableColumnHeader justify="center">{unitsLabel}</TableColumnHeader>
             <TableColumnHeader justify="center">Value</TableColumnHeader>
             <TableColumnHeader justify="center">Change</TableColumnHeader>
             {hasStats && (
@@ -391,6 +393,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   maxGapHours = 36,
   cumulative = false,
   oneSided = false,
+  unitsLabel,
 }) => {
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {
@@ -727,6 +730,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       formatter,
                       formatterOptions,
                       hasStats,
+                      unitsLabel,
                     )}
                   </div>
                 </RadixTheme>

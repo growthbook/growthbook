@@ -95,6 +95,8 @@ export const updateExperiment = createApiRequestHandler(
     decisionFrameworkSettings: payload.decisionFrameworkSettings,
     metricOverrides: payload.metricOverrides,
     defaultDashboardId: payload.defaultDashboardId,
+    isClusterExperiment:
+      payload.isClusterExperiment && !experiment.isClusterExperiment,
   });
 
   // validate datasource only if updating

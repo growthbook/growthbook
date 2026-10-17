@@ -5,6 +5,7 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricDefinition,
+  getClusterMetricAnalysisLevel,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
@@ -42,6 +43,7 @@ type MetricOption = {
   managedBy?: string;
   disabled?: boolean;
   disabledReason?: string;
+  clusterLevel?: boolean;
 };
 
 type MetricsSelectorTooltipProps = {
@@ -275,6 +277,15 @@ const MetricsSelector: FC<{
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
+                clusterLevel:
+                  !!clusterIdType &&
+                  !!clusterSubUnitIdentifier &&
+                  getClusterMetricAnalysisLevel(m, {
+                    clusterIdentifier: clusterIdType,
+                    clusterSubUnitIdentifier,
+                    getFactTable: getFactTableById,
+                    datasourceSettings,
+                  }) === "cluster",
               };
             })
         : []),
@@ -318,6 +329,7 @@ const MetricsSelector: FC<{
     datasourceSettings,
     userIdType,
     clusterIdType,
+    clusterSubUnitIdentifier,
     project,
     noLegacyMetrics,
     noManual,
@@ -427,6 +439,27 @@ const MetricsSelector: FC<{
   ]);
 
   const multiSelectOptions = useMemo(() => {
+    if (groupOptions && clusterIdType && userIdType) {
+      const toSingleValue = (option: MetricOption): SingleValue => ({
+        value: option.id,
+        label: option.name,
+        tooltip:
+          option.disabled && option.disabledReason
+            ? option.disabledReason
+            : option.description,
+      });
+      // Official metrics first within each analysis level.
+      const byLevel = (clusterLevel: boolean) =>
+        filteredOptions
+          .filter((option) => !!option.clusterLevel === clusterLevel)
+          .sort((a, b) => Number(!a.managedBy) - Number(!b.managedBy))
+          .map(toSingleValue);
+      // Labels are the identifiers; formatClusterGroupLabel renders the heading.
+      return [
+        { label: userIdType, options: byLevel(false) },
+        { label: clusterIdType, options: byLevel(true) },
+      ].filter((group) => group.options.length > 0);
+    }
     if (groupOptions) {
       const groupedOptions: GroupedValue[] = [];
       const managedMetrics: SingleValue[] = [];
@@ -485,7 +518,16 @@ const MetricsSelector: FC<{
         tooltip: tooltipText,
       };
     });
-  }, [filteredOptions, groupOptions]);
+  }, [filteredOptions, groupOptions, clusterIdType, userIdType]);
+
+  const formatClusterGroupLabel = useCallback(
+    ({ label }: GroupedValue) => (
+      <>
+        Analyzed per <code style={{ textTransform: "none" }}>{label}</code>
+      </>
+    ),
+    [],
+  );
 
   const multiFormatOptionLabel = useCallback(
     ({ value, label }: SingleValue, { context }: { context: string }) => {
@@ -554,6 +596,11 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      formatGroupLabel={
+        groupOptions && clusterIdType && userIdType
+          ? formatClusterGroupLabel
+          : undefined
+      }
       disabled={selectorDisabled}
       helpText={
         <>
