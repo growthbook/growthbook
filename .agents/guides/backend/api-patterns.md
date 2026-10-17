@@ -298,6 +298,8 @@ Some external API endpoints are not backed by a `BaseModel` — for example, ad-
 - Use `createApiRequestHandler()` with those validators in each handler
 - Register the router in `src/api/api.router.ts`
 
+If the front-end calls the endpoint, both sides must use its complete shared definition. See [How to migrate REST endpoints to shared](how-to-migrate-endpoints-to-shared.md) for reusing an existing shared endpoint, migrating a legacy handler, or exporting BaseModel endpoints. The guide covers full paths and router prefixes, request/response type inference, and registration checks.
+
 **Example structure:**
 
 ```

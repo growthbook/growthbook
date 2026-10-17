@@ -711,6 +711,7 @@ export const getLDProjects = async (
   apiCall?: ApiCallType<any>,
 ): Promise<LDListProjectsResponse> =>
   getFromLD(
+    // eslint-disable-next-line local/no-rest-api-path -- false positive, this is not our internal API
     "/api/v2/projects?limit=300",
     apiToken,
     useBackendProxy,
@@ -729,6 +730,7 @@ export const getLDEnvironments = async (
   apiCall?: ApiCallType<any>,
 ): Promise<LDListEnvironmentsResponse> =>
   getFromLD(
+    // eslint-disable-next-line local/no-rest-api-path -- false positive, this is not our internal API
     `/api/v2/projects/${project}/environments?limit=300`,
     apiToken,
     useBackendProxy,
@@ -747,6 +749,7 @@ export const getLDFeatureFlags = async (
   apiCall?: ApiCallType<any>,
 ): Promise<LDListFeatureFlagsResponse> =>
   getFromLD(
+    // eslint-disable-next-line local/no-rest-api-path -- false positive, this is not our internal API
     `/api/v2/flags/${project}`,
     apiToken,
     useBackendProxy,
@@ -766,6 +769,7 @@ export const getLDFeatureFlag = async (
   apiCall?: ApiCallType<any>,
 ): Promise<LDListFeatureFlagsResponse["items"][0]> =>
   getFromLD(
+    // eslint-disable-next-line local/no-rest-api-path -- false positive, this is not our internal API
     `/api/v2/flags/${project}/${key}`,
     apiToken,
     useBackendProxy,

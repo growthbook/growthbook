@@ -66,11 +66,6 @@ export const apiDeleteTeamValidator = {
       .describe("When 'true', enables deleting a team that contains members"),
   }),
   paramsSchema: z.strictObject({ id: z.string() }),
-  responseSchema: apiDeleteTeamReturn,
-  path: "/:id/",
-  method: "delete" as const,
-  operationId: "deleteTeam",
-  summary: "Delete a single team",
 };
 
 export const apiAddTeamMembersValidator = {
