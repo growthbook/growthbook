@@ -6,6 +6,18 @@
   }
 }
 
+// Radix stops at 24px. It sizes the fallback's type, not the root's, so scale
+// that too or the initials spill out of the circle.
+.xs {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+
+  :global(.rt-AvatarFallback) {
+    font-size: 9px;
+  }
+}
+
 // An outlined avatar: same footprint as the filled one, but the color reads as
 // a border rather than a fill. Uses the accent scale so it tracks `color`.
 .ring {

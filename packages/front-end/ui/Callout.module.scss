@@ -12,6 +12,13 @@
   flex-shrink: 0;
 }
 
+// Level with wrapped body copy rather than its first line.
+.centeredSlot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .body {
   flex: 1 1 0%;
 }

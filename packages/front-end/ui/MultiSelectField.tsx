@@ -81,7 +81,8 @@ const SortableMultiValueLabel = (
   const { title: showTitle, ...style } = useContext(
     MultiValueLabelStyleContext,
   );
-  const tooltip = props.data?.tooltip;
+  // With valueTitles off, the label's own content (e.g. a hover card) owns hover.
+  const tooltip = showTitle ? props.data?.tooltip : undefined;
   const innerProps =
     showTitle && !tooltip
       ? { ...props.innerProps, title: props.data?.label || "" }
@@ -209,27 +210,28 @@ function CopyButton({ value }: { value: string[] }) {
   );
 }
 
-function IndicatorsContainerWithCopyButton(
+function IndicatorsContainerWithExtras(
   props: React.ComponentProps<typeof components.IndicatorsContainer>,
 ) {
   const selectProps = props.selectProps as unknown as {
     showCopyButton?: boolean;
+    extraIndicator?: ReactNode;
     value?: Array<{ value: string; label: string }>;
   };
 
-  const showCopy = selectProps?.showCopyButton === true;
   const options = selectProps?.value;
+  const values = options?.map((opt) => opt.value) ?? [];
+  const showCopy = selectProps?.showCopyButton === true && values.length > 0;
+  const extra = selectProps?.extraIndicator;
 
-  if (!showCopy || !options || options.length === 0) {
+  if (!showCopy && !extra) {
     return <components.IndicatorsContainer {...props} />;
   }
 
-  // Extract just the value strings from the option objects
-  const values = options.map((opt) => opt.value);
-
   return (
     <components.IndicatorsContainer {...props}>
-      <CopyButton value={values} />
+      {extra}
+      {showCopy ? <CopyButton value={values} /> : null}
       {props.children}
     </components.IndicatorsContainer>
   );
@@ -246,6 +248,8 @@ function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
 function CustomMultiValueRemove(
   props: React.ComponentProps<typeof components.MultiValueRemove>,
 ) {
+  // Nothing to remove from a field that can't change.
+  if (props.selectProps.isDisabled) return null;
   return (
     <span style={{ display: "flex", alignSelf: "stretch" }}>
       <components.MultiValueRemove
@@ -319,6 +323,8 @@ export type MultiSelectFieldProps = Omit<
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   noMenu?: boolean;
   showCopyButton?: boolean;
+  /** Rendered before the copy button and dropdown caret. */
+  extraIndicator?: ReactNode;
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
@@ -326,6 +332,7 @@ export type MultiSelectFieldProps = Omit<
   maxMenuHeight?: number;
   /** Names the control when its visible label isn't the `label` prop. */
   "aria-label"?: string;
+  /** Hover text on each chosen value: its tooltip, or else its name. */
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -358,6 +365,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
+  extraIndicator,
   size,
   legacyHeight,
   maxMenuHeight,
@@ -490,6 +498,22 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
           minHeight: usesLegacyHeight ? 36 : sizeMinHeight[resolvedSize],
         }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        multiValueLabel: (base: any, state: any) => {
+          const styled = customStyles?.multiValueLabel
+            ? customStyles.multiValueLabel(
+                ReactSelectProps.styles.multiValueLabel(base),
+                state,
+              )
+            : ReactSelectProps.styles.multiValueLabel(base);
+          // With no remove button, the label closes the tag as it opens it.
+          return state.selectProps.isDisabled
+            ? {
+                ...styled,
+                paddingRight: styled.paddingLeft ?? base.paddingLeft,
+              }
+            : styled;
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         valueContainer: (base: any) => ({
           ...base,
           paddingTop: usesLegacyHeight ? 2 : sizeVPadding[resolvedSize],
@@ -541,6 +565,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     })}
                     onPaste={handlePaste}
                     showCopyButton={showCopyButton}
+                    extraIndicator={extraIndicator}
                     classNamePrefix="gb-multi-select"
                     helperClass={`multi-select-container gb-multi-select--${styleSize}`}
                     axis="xy"
@@ -589,11 +614,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                       Input,
                       ClearIndicator: CustomClearIndicator,
                       GroupHeading,
-                      ...(showCopyButton
-                        ? {
-                            IndicatorsContainer:
-                              IndicatorsContainerWithCopyButton,
-                          }
+                      ...(showCopyButton || extraIndicator
+                        ? { IndicatorsContainer: IndicatorsContainerWithExtras }
                         : {}),
                       ...(creatable && noMenu
                         ? {
