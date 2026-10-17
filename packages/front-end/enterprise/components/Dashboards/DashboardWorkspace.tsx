@@ -41,15 +41,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
-import DashboardEditor, {
-  DASHBOARD_TOPBAR_HEIGHT,
-  getGridKeyForBlock,
-} from "./DashboardEditor";
+import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
 import {
   AddBlockOptions,
+  getGridKeyForBlock,
   insertBlockAtIndex,
 } from "./DashboardEditor/dashboardLayout";
 import DashboardModal from "./DashboardModal";
