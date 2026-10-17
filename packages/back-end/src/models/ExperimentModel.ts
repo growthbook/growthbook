@@ -2,6 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
+import escapeRegExp from "lodash/escapeRegExp";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import {
   generateTrackingKey,
@@ -1693,15 +1694,26 @@ export async function removeMetricFromExperiments(
   > = {};
 
   const orgId = context.org.id;
+  // Slice IDs append "?" and slice parameters to the base metric ID.
+  const metricOrSliceRegex = new RegExp(`^${escapeRegExp(metricId)}(\\?|$)`);
 
-  const oldMetricQuery = { organization: orgId, metrics: metricId };
-  const oldGuardRailsQuery = { organization: orgId, guardrails: metricId };
-  const goalQuery = { organization: orgId, goalMetrics: metricId };
-  const secondaryQuery = { organization: orgId, secondaryMetrics: metricId };
-  const guardrailQuery = { organization: orgId, guardrailMetrics: metricId };
+  const oldMetricQuery = { organization: orgId, metrics: metricOrSliceRegex };
+  const oldGuardRailsQuery = {
+    organization: orgId,
+    guardrails: metricOrSliceRegex,
+  };
+  const goalQuery = { organization: orgId, goalMetrics: metricOrSliceRegex };
+  const secondaryQuery = {
+    organization: orgId,
+    secondaryMetrics: metricOrSliceRegex,
+  };
+  const guardrailQuery = {
+    organization: orgId,
+    guardrailMetrics: metricOrSliceRegex,
+  };
   const activationMetricQuery = {
     organization: orgId,
-    activationMetric: metricId,
+    activationMetric: metricOrSliceRegex,
   };
   const docsToTrackChanges = await findExperiments(context, {
     $or: [
@@ -1725,27 +1737,27 @@ export async function removeMetricFromExperiments(
 
   // Remove from metrics
   await ExperimentModel.updateMany(oldMetricQuery, {
-    $pull: { metrics: metricId },
+    $pull: { metrics: metricOrSliceRegex },
   });
 
   // Remove from guardrails
   await ExperimentModel.updateMany(oldGuardRailsQuery, {
-    $pull: { guardrails: metricId },
+    $pull: { guardrails: metricOrSliceRegex },
   });
 
   // Remove from goalMetrics
   await ExperimentModel.updateMany(goalQuery, {
-    $pull: { goalMetrics: metricId },
+    $pull: { goalMetrics: metricOrSliceRegex },
   });
 
   // Remove from secondaryMetrics
   await ExperimentModel.updateMany(secondaryQuery, {
-    $pull: { secondaryMetrics: metricId },
+    $pull: { secondaryMetrics: metricOrSliceRegex },
   });
 
   // Remove from guardrailMetrics
   await ExperimentModel.updateMany(guardrailQuery, {
-    $pull: { guardrailMetrics: metricId },
+    $pull: { guardrailMetrics: metricOrSliceRegex },
   });
 
   // Remove from activationMetric

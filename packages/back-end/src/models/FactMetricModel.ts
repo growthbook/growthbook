@@ -43,6 +43,7 @@ import { healPriorSettings } from "back-end/src/util/priors";
 import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
+import { removeMetricFromExperiments } from "./ExperimentModel";
 
 const BaseClass = MakeModelClass({
   schema: factMetricValidator,
@@ -479,6 +480,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: FactMetricInterface) {
+    await removeMetricFromExperiments(this.context, doc.id);
     await this.context.models.metricGroups.removeMetricFromAllGroups(doc.id);
   }
 
