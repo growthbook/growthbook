@@ -20,6 +20,9 @@ import {
   getAvailableSliceTags,
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import CollapsiblePanelLayout, {
+  PANEL_WIDTH_PX,
+} from "@/components/CollapsiblePanelLayout";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import {
@@ -43,6 +46,11 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import {
+  NARROW_LAYOUT_BREAKPOINT_PX,
+  TABS_BAR_HEIGHT_PX,
+  TABS_HEADER_HEIGHT_PX,
+} from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
@@ -63,14 +71,6 @@ import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
-import CollapsiblePanelLayout, {
-  PANEL_WIDTH_PX,
-} from "@/components/CollapsiblePanelLayout";
 
 const experimentTabs = [
   "overview",

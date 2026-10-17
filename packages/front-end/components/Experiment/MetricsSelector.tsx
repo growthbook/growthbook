@@ -30,6 +30,10 @@ import {
   MetricOverrideTooltipContent,
   MetricSettingsScope,
 } from "@/components/Experiment/MetricOverrideTooltip";
+import {
+  getOverriddenMetricIds,
+  METRIC_OVERRIDE_COLOR,
+} from "@/services/metricOverrides";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
@@ -41,10 +45,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
-import {
-  getOverriddenMetricIds,
-  METRIC_OVERRIDE_COLOR,
-} from "@/services/metricOverrides";
 
 type MetricOption = {
   id: string;

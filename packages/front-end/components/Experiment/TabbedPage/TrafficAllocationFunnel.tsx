@@ -61,6 +61,10 @@ import {
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import {
+  PercentField,
+  PercentSlider,
+} from "@/components/Forms/PercentSliderField";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
@@ -85,10 +89,6 @@ import {
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import { onlyTrafficChanged } from "./targetingDraft";
-import {
-  PercentField,
-  PercentSlider,
-} from "@/components/Forms/PercentSliderField";
 
 export interface Props {
   phaseIndex?: number | null;

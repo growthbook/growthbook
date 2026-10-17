@@ -12,7 +12,7 @@ import React, {
   useState,
 } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
@@ -29,6 +29,7 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -80,11 +81,13 @@ export default function ValueDisplay({
   showCopyButton = true,
   copyButtonClassName,
   isFullscreen = false,
+  actionsOverlay,
   sparse = false,
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
   fontSize,
+  lineHeight,
 }: {
   value: string;
   type: FeatureValueType;
@@ -98,6 +101,7 @@ export default function ValueDisplay({
   // row hover) without affecting other ValueDisplay usages.
   copyButtonClassName?: string;
   isFullscreen?: boolean;
+  actionsOverlay?: ActionsOverlay;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
@@ -111,6 +115,8 @@ export default function ValueDisplay({
   linkify?: LinkifyConfig;
   // Override the rendered code font size (passed through to InlineCode).
   fontSize?: string;
+  // Override the rendered code line height (passed through to InlineCode).
+  lineHeight?: number;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -231,7 +237,55 @@ export default function ValueDisplay({
 
   return (
     <>
-      <Box position="relative">
+      <CornerActions
+        overlay={actionsOverlay}
+        position={{ bottom: -4, right: 16 }}
+        gap="3"
+        actions={
+          isFullscreen ? null : (
+            <>
+              {showCopyButton && (type === "json" || type === "string") ? (
+                <Tooltip
+                  body={copySuccess ? "Copied" : "Copy to clipboard"}
+                  usePortal={true}
+                >
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    className={copyButtonClassName}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!copySuccess) {
+                        performCopy(sparseMerge ? formatted : value);
+                      }
+                    }}
+                  >
+                    {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+              {showFullscreenButton && type === "json" && (
+                <Tooltip body="View in full screen" usePortal={true}>
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setModalOpen(true);
+                    }}
+                  >
+                    <PiCornersOut size={12} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </>
+          )
+        }
+      >
         <Box ref={scrollBoxRef} style={boxStyle} className={fullClassName}>
           {virtualize ? (
             <VirtualizedCode
@@ -241,6 +295,7 @@ export default function ValueDisplay({
               boldLines={sparseMerge ? boldLines : undefined}
               linkify={resolvedLinkify}
               fontSize={fontSize}
+              lineHeight={lineHeight}
             />
           ) : (
             <InlineCode
@@ -249,60 +304,11 @@ export default function ValueDisplay({
               boldLines={sparseMerge ? boldLines : undefined}
               linkify={resolvedLinkify}
               fontSize={fontSize}
+              lineHeight={lineHeight}
             />
           )}
         </Box>
-        {!isFullscreen && (
-          <Flex
-            align="center"
-            gap="3"
-            style={{
-              position: "absolute",
-              bottom: -4,
-              right: 16,
-            }}
-          >
-            {showCopyButton && (type === "json" || type === "string") ? (
-              <Tooltip
-                body={copySuccess ? "Copied" : "Copy to clipboard"}
-                usePortal={true}
-              >
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  className={copyButtonClassName}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!copySuccess) {
-                      performCopy(sparseMerge ? formatted : value);
-                    }
-                  }}
-                >
-                  {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-                </IconButton>
-              </Tooltip>
-            ) : null}
-            {showFullscreenButton && type === "json" && (
-              <Tooltip body="View in full screen" usePortal={true}>
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setModalOpen(true);
-                  }}
-                >
-                  <PiCornersOut size={12} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Flex>
-        )}
-      </Box>
+      </CornerActions>
       {modalOpen && (
         <Modal
           header={fullscreenHeader}
@@ -341,6 +347,7 @@ export default function ValueDisplay({
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
             fontSize={fontSize}
+            lineHeight={lineHeight}
           />
         </Modal>
       )}

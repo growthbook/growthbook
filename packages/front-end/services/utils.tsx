@@ -69,9 +69,16 @@ export function trafficSplitPercentages(weights: number[]): number[] {
   return weights.map((w) => +((w / sum) * 100));
 }
 
-export function formatTrafficSplit(weights: number[], decimals = 0): string {
+/** `trim` drops trailing zeros, so up to `decimals` rather than always that many. */
+export function formatTrafficSplit(
+  weights: number[],
+  decimals = 0,
+  { trim = false }: { trim?: boolean } = {},
+): string {
   return trafficSplitPercentages(weights)
-    .map((w) => w.toFixed(decimals))
+    .map((w) =>
+      trim ? String(Number(w.toFixed(decimals))) : w.toFixed(decimals),
+    )
     .join(" / ");
 }
 
@@ -253,6 +260,13 @@ export function appendQueryParamsToURL(
     },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
+}
+
+/** "a", "a and b", "a, b and c". */
+export function joinAnd(parts: string[]): string {
+  return parts.length <= 1
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 export function capitalizeFirstLetter(string): string {

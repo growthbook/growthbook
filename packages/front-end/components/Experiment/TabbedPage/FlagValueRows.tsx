@@ -44,6 +44,7 @@ import RevisionStatusBadge, {
   revisionStatusLabel,
   type RevisionLike,
 } from "@/components/Reviews/RevisionStatusBadge";
+import ReviewFeedbackPopover from "@/components/Reviews/ReviewFeedbackPopover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -54,7 +55,9 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { ActionsOverlay } from "@/components/Features/CornerActions";
 import { getDefaultVariationValue } from "@/services/features";
+import cornerStyles from "@/components/Features/CornerActions.module.scss";
 import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 import {
   FlagEnvironmentsDraft,
@@ -73,9 +76,6 @@ import {
   variationLabel,
 } from "./variationValues";
 import styles from "./FlagValueRows.module.scss";
-import cornerStyles from "@/components/Features/CornerActions.module.scss";
-import { ActionsOverlay } from "@/components/Features/CornerActions";
-import ReviewFeedbackPopover from "@/components/Reviews/ReviewFeedbackPopover";
 
 const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,

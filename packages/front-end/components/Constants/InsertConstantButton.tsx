@@ -1,4 +1,5 @@
 import React, {
+  ComponentProps,
   ReactElement,
   cloneElement,
   useMemo,
@@ -226,6 +227,8 @@ export default function InsertConstantButton({
   disabled,
   excludeKeys,
   iconOnly = false,
+  iconMt = "2",
+  iconSize = "2",
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -236,6 +239,9 @@ export default function InsertConstantButton({
   excludeKeys?: string[];
   // Compact icon-only trigger for inline (beside-the-field) layouts.
   iconOnly?: boolean;
+  /** The default lines it up under a field's label; "0" beside an unlabeled field. */
+  iconMt?: ComponentProps<typeof IconButton>["mt"];
+  iconSize?: "1" | "2";
 }) {
   const { constants } = useDefinitions();
 
@@ -266,8 +272,16 @@ export default function InsertConstantButton({
   // Hide only when the org has no constants; otherwise show an empty-state menu.
   if (!hasConstants) return null;
 
+  // The small one matches a copy button beside it: same size, round.
+  const small = iconOnly && iconSize === "1";
   const glyph = (
-    <span style={{ fontFamily: "monospace", fontWeight: 500 }}>
+    <span
+      style={{
+        fontFamily: "monospace",
+        fontWeight: 500,
+        ...(small && { fontSize: "10px", letterSpacing: "-0.05em" }),
+      }}
+    >
       {"{"}
       <span style={{ color: "var(--ruby-11)" }}>@</span>
       {"}"}
@@ -278,12 +292,24 @@ export default function InsertConstantButton({
   const trigger = iconOnly ? (
     <IconButton
       type="button"
-      size="2"
+      size={iconSize}
+      radius={small ? "full" : undefined}
+      style={
+        small
+          ? {
+              width: 24,
+              height: 24,
+              margin: -6,
+              padding: 0,
+              boxSizing: "border-box",
+            }
+          : undefined
+      }
       variant="ghost"
       color="gray"
       disabled={disabled}
-      ml="1"
-      mt="2"
+      ml={small ? undefined : "1"}
+      mt={small ? undefined : iconMt}
     >
       <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">

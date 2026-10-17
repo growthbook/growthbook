@@ -154,7 +154,7 @@ const ApiKeyExpirationField: FC<{
               </Text>
               <SelectField
                 aria-label="Expires"
-                size="small"
+                size="md"
                 maxMenuHeight={360}
                 sort={false}
                 isSearchable={false}

@@ -986,6 +986,31 @@ export function getInitialSettings(
   };
 }
 
+/**
+ * Splits assignment queries by whether their identifier type is linked to
+ * `hashAttribute`. A data source with no attribute links leaves every query in
+ * `other`.
+ */
+export function getExposureQueriesForAttribute(
+  settings: DataSourceSettings | undefined,
+  hashAttribute: string,
+): { matching: ExposureQuery[]; other: ExposureQuery[]; linked: boolean } {
+  const queries = settings?.queries?.exposure || [];
+  const userIdTypes = settings?.userIdTypes || [];
+  const linked = userIdTypes.some((t) => (t.attributes?.length ?? 0) > 0);
+  if (!linked || !hashAttribute) {
+    return { matching: [], other: queries, linked: false };
+  }
+  const types = userIdTypes
+    .filter((t) => t.attributes?.includes(hashAttribute))
+    .map((t) => t.userIdType);
+  return {
+    matching: queries.filter((q) => types.includes(q.userIdType)),
+    other: queries.filter((q) => !types.includes(q.userIdType)),
+    linked: true,
+  };
+}
+
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,

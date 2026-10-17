@@ -3,8 +3,6 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import React, {
   forwardRef,
   ReactElement,
@@ -119,6 +117,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
+import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 
@@ -1993,8 +1992,9 @@ const EAGER_RULES = 10;
 const ESTIMATED_RULE_HEIGHT = 180;
 
 export function SortableRule(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.rule.id });
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.rule.id,
+  );
   const [rendered, setRendered] = useState(props.i < EAGER_RULES);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
@@ -2010,12 +2010,7 @@ export function SortableRule(props: SortableProps) {
     return () => observer.disconnect();
   }, [rendered]);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: active?.id === props.rule.id ? 0.3 : 1,
-    margin: -1,
-  };
+  const ruleStyle = { ...style, opacity: isDragging ? 0.3 : 1, margin: -1 };
 
   if (!rendered) {
     return (
@@ -2024,19 +2019,12 @@ export function SortableRule(props: SortableProps) {
           setNodeRef(el);
           placeholderRef.current = el;
         }}
-        style={{ ...style, minHeight: ESTIMATED_RULE_HEIGHT }}
+        style={{ ...ruleStyle, minHeight: ESTIMATED_RULE_HEIGHT }}
       />
     );
   }
 
-  return (
-    <Rule
-      {...props}
-      ref={setNodeRef}
-      style={style}
-      handle={{ ...attributes, ...listeners }}
-    />
-  );
+  return <Rule {...props} ref={setNodeRef} style={ruleStyle} handle={handle} />;
 }
 
 function SkippedPill() {

@@ -15,6 +15,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
@@ -23,7 +24,6 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Results } from "./ResultsIndicator";
-import AIRichTextField from "@/components/Markdown/AIRichTextField";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;

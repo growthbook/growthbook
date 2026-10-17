@@ -27,6 +27,10 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  /** Slim chrome for a narrow column: see `CommentCard`. */
+  compact?: boolean;
+  /** Fill the given height: the thread scrolls above a pinned composer. */
+  fillHeight?: boolean;
 }> = ({
   type,
   id,
@@ -34,6 +38,8 @@ const DiscussionThread: FC<{
   showTitle = false,
   title = "Add comment",
   projects,
+  compact = false,
+  fillHeight = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -59,39 +65,35 @@ const DiscussionThread: FC<{
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
   return (
-    <Box>
-      {comments.length > 0 ? (
-        <Flex direction="column" gap="4">
-          {comments.map((comment, i) => {
-            const user = users.get(comment.userId);
-            const email = user ? user.email : comment.userEmail;
-            const name = user ? user.name : comment.userName;
-            const eventUser = {
-              type: "dashboard" as const,
-              id: comment.userId,
-              email: email ?? "",
-              name: name ?? "",
-            };
+    <Flex
+      direction="column"
+      flexGrow={fillHeight ? "1" : undefined}
+      minHeight={fillHeight ? "0" : undefined}
+    >
+      {/* The thread scrolls in whatever height the composer leaves. */}
+      <Box
+        flexGrow={fillHeight ? "1" : undefined}
+        minHeight={fillHeight ? "0" : undefined}
+        overflowY={fillHeight ? "auto" : undefined}
+      >
+        {comments.length > 0 ? (
+          <Flex direction="column" gap="4">
+            {comments.map((comment, i) => {
+              const user = users.get(comment.userId);
+              const email = user ? user.email : comment.userEmail;
+              const name = user ? user.name : comment.userName;
+              const eventUser = {
+                type: "dashboard" as const,
+                id: comment.userId,
+                email: email ?? "",
+                name: name ?? "",
+              };
 
-            return (
-              <Flex key={i} align="start">
-                <Box flexGrow="1">
-                  {edit === i ? (
-                    <CommentForm
-                      cta="Save"
-                      onSave={() => {
-                        mutate();
-                        setEdit(null);
-                      }}
-                      index={i}
-                      id={id}
-                      type={type}
-                      initialValue={comment.content}
-                      autofocus={true}
-                      onCancel={() => setEdit(null)}
-                    />
-                  ) : (
+              return (
+                <Flex key={i} align="start">
+                  <Box flexGrow="1">
                     <CommentCard
+                      compact={compact}
                       user={eventUser}
                       metadata={`commented on ${datetime(comment.date)}`}
                       metadataExtra={
@@ -102,65 +104,93 @@ const DiscussionThread: FC<{
                         )
                       }
                       actions={
-                        comment.userId === userId && (
-                          <DropdownMenu
-                            trigger={
-                              <IconButton
-                                variant="ghost"
-                                color="gray"
-                                radius="full"
-                                size="2"
-                                highContrast
+                        edit === i
+                          ? null
+                          : comment.userId === userId && (
+                              <DropdownMenu
+                                trigger={
+                                  <IconButton
+                                    variant="ghost"
+                                    color="gray"
+                                    radius="full"
+                                    size="1"
+                                    highContrast
+                                    // Undo the ghost variant's negative margin.
+                                    style={{ margin: 0 }}
+                                  >
+                                    <BsThreeDotsVertical size={14} />
+                                  </IconButton>
+                                }
+                                variant="soft"
+                                menuPlacement="end"
                               >
-                                <BsThreeDotsVertical size={14} />
-                              </IconButton>
-                            }
-                            variant="soft"
-                            menuPlacement="end"
-                          >
-                            <DropdownMenuItem onClick={() => setEdit(i)}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              color="red"
-                              confirmation={{
-                                confirmationTitle: "Delete Comment",
-                                cta: "Delete",
-                                submit: async () => {
-                                  await apiCall(
-                                    `/discussion/${type}/${id}/${i}`,
-                                    { method: "DELETE" },
-                                  );
-                                  mutate();
-                                },
-                              }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenu>
-                        )
+                                <DropdownMenuItem onClick={() => setEdit(i)}>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  color="red"
+                                  confirmation={{
+                                    confirmationTitle: "Delete Comment",
+                                    cta: "Delete",
+                                    submit: async () => {
+                                      await apiCall(
+                                        `/discussion/${type}/${id}/${i}`,
+                                        { method: "DELETE" },
+                                      );
+                                      mutate();
+                                    },
+                                  }}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                            )
                       }
                       body={
-                        <Markdown className="speech-bubble">
-                          {comment.content || ""}
-                        </Markdown>
+                        edit === i ? (
+                          <CommentForm
+                            cta="Save"
+                            onSave={() => {
+                              mutate();
+                              setEdit(null);
+                            }}
+                            index={i}
+                            id={id}
+                            type={type}
+                            initialValue={comment.content}
+                            autofocus={true}
+                            onCancel={() => setEdit(null)}
+                          />
+                        ) : (
+                          <Markdown className="speech-bubble">
+                            {comment.content || ""}
+                          </Markdown>
+                        )
                       }
                     />
-                  )}
-                </Box>
-              </Flex>
-            );
-          })}
-        </Flex>
-      ) : (
-        <Text color="text-low" fontStyle="italic">
-          {allowNewComments
-            ? "No comments yet. Add the first one!"
-            : "No comments."}
-        </Text>
-      )}
+                  </Box>
+                </Flex>
+              );
+            })}
+          </Flex>
+        ) : (
+          <Text
+            color="text-low"
+            fontStyle="italic"
+            size={compact ? "sm" : "md"}
+          >
+            {allowNewComments
+              ? "No comments yet. Add the first one!"
+              : "No comments."}
+          </Text>
+        )}
+      </Box>
       {allowNewComments && (
-        <Box mt="4">
+        <Box
+          mt="4"
+          pb={fillHeight ? "5" : undefined}
+          flexShrink={fillHeight ? "0" : undefined}
+        >
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
@@ -177,7 +207,7 @@ const DiscussionThread: FC<{
           />
         </Box>
       )}
-    </Box>
+    </Flex>
   );
 };
 

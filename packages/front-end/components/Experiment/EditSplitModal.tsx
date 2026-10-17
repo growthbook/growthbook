@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { getEqualWeights } from "shared/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { PercentField } from "@/components/Forms/PercentSliderField";
 import { decimalToPercent, floatRound, rebalance } from "@/services/utils";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import HelperText from "@/ui/HelperText";
-import { PercentField } from "@/components/Forms/PercentSliderField";
 
 export interface Props {
   variations: { id: string; name?: string; key?: string }[];

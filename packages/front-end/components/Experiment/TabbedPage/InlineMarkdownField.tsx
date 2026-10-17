@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { AISuggestionType } from "shared/ai";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import Text from "@/ui/Text";
 import {
@@ -15,7 +16,6 @@ import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
-import AIRichTextField from "@/components/Markdown/AIRichTextField";
 
 export interface Props {
   label: string;

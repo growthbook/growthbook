@@ -1,8 +1,9 @@
 import { ReactNode, ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -27,6 +28,9 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import VariationLabel from "@/ui/VariationLabel";
+import VisuallyHidden from "@/ui/VisuallyHidden";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -61,6 +65,22 @@ function ExperimentLink({
   );
 }
 
+// Number chip plus the linked experiment's name, falling back to the index.
+function VariationValueLabel({
+  experimentId,
+  index,
+}: {
+  experimentId?: string;
+  index: number;
+}) {
+  const { experimentsMap } = useExperiments();
+  const name = experimentId
+    ? experimentsMap.get(experimentId)?.variations?.[index]?.name
+    : undefined;
+  if (!name) return <>{`Variation ${index} value`}</>;
+  return <VariationLabel number={index} name={name} size="sm" />;
+}
+
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
 // and an inline diff viewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
@@ -70,7 +90,7 @@ function ValueChangedField({
   pre,
   post,
 }: {
-  label?: string;
+  label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
 }) {
@@ -759,7 +779,12 @@ function RuleFieldDiffs({
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          label={
+            <VariationValueLabel
+              experimentId={(post as { experimentId?: string }).experimentId}
+              index={i}
+            />
+          }
           pre={pv !== null && pv !== undefined ? formatValue(pv.value) : null}
           post={nv !== null && nv !== undefined ? formatValue(nv.value) : null}
         />,
@@ -948,7 +973,9 @@ function NewRuleDetails({
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          label={
+            <VariationValueLabel experimentId={rule.experimentId} index={i} />
+          }
           pre={null}
           post={formatValue(v.value)}
         />,
@@ -1889,49 +1916,61 @@ export function renderPrerequisites(
   return renderPrerequisiteList(current, draft);
 }
 
-// Text "On"/"Off" indicator for an environment toggle.
-function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
+// On/off icon for an environment toggle. "muted" is the before half of a diff.
+export function EnvEnabledIndicator({
+  enabled,
+  tone = "state",
+}: {
+  enabled: boolean;
+  tone?: "state" | "muted";
+}) {
+  // Teal, not green: a check beside approval verdicts reads as one.
+  const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
+  const label = enabled ? "On" : "Off";
+  const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
     <span
-      style={{
-        fontSize: "var(--font-size-2)",
-        fontWeight: 500,
-      }}
+      style={{ display: "inline-flex", alignItems: "center" }}
+      title={label}
     >
-      {enabled ? "On" : "Off"}
+      <Icon
+        size={20}
+        style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
+      />
+      {/* Real text, so a selection copies name and state. */}
+      <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
 
-export function renderEnvironmentsEnabled(
-  current: boolean | undefined,
-  draft: boolean | undefined,
+export function renderEnvironmentToggles(
+  toggles: { envId: string; from: boolean; to: boolean }[],
 ): ReactNode {
-  if (current === undefined && draft === undefined) return null;
-  if (current === draft) return null;
+  if (!toggles.length) return null;
   return (
-    <div className="d-flex align-items-center mb-2">
-      <div className="text-danger d-flex align-items-center">
-        <div className="text-center mr-2" style={{ width: 16 }}>
-          Δ
-        </div>
-        {current === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={current} />
-        )}
-      </div>
-      <div className="text-success d-flex align-items-center ml-4">
-        <div className="text-center mx-2" style={{ width: 16 }}>
-          →
-        </div>
-        {draft === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={draft} />
-        )}
-      </div>
-    </div>
+    <Grid
+      gapX="4"
+      gapY="3"
+      mb="2"
+      style={{
+        gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
+      }}
+    >
+      {toggles.map(({ envId, from, to }) => (
+        <Box key={envId} minWidth="0">
+          <Box minWidth="0" mb="1">
+            <Text weight="medium" truncate title={envId}>
+              {envId}
+            </Text>
+          </Box>
+          <Flex align="center" gap="2">
+            <EnvEnabledIndicator enabled={from} tone="muted" />
+            <span className="font-weight-bold text-success">→</span>
+            <EnvEnabledIndicator enabled={to} />
+          </Flex>
+        </Box>
+      ))}
+    </Grid>
   );
 }
 

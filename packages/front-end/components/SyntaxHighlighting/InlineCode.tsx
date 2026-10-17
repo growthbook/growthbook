@@ -98,6 +98,8 @@ export interface Props {
   linkify?: LinkifyConfig;
   // Override the rendered code font size (defaults to 0.85rem).
   fontSize?: string;
+  // Tighter leading lets a dense surface (a variation card) fit more rows.
+  lineHeight?: number;
   // Line number of the first line of `code`, so `boldLines` still matches when
   // `code` is one slice of a longer value (see VirtualizedCode).
   firstLineNumber?: number;
@@ -111,6 +113,7 @@ export default function InlineCode({
   boldLines,
   linkify,
   fontSize = "0.85rem",
+  lineHeight = 1.5,
   firstLineNumber = 1,
 }: Props) {
   const { theme } = useAppearanceUITheme();
@@ -119,7 +122,7 @@ export default function InlineCode({
     theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark,
   );
   style['code[class*="language-"]'].fontSize = fontSize;
-  style['code[class*="language-"]'].lineHeight = 1.5;
+  style['code[class*="language-"]'].lineHeight = lineHeight;
   style['code[class*="language-"]'].fontWeight = 600;
   // this next line actually doesn't do anything- its overridden somewhere in Prism.
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";

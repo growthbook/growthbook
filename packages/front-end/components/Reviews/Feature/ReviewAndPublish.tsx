@@ -58,6 +58,7 @@ import {
   PiClockFill,
   PiGitMergeBold,
   PiCaretDownBold,
+  PiFlaskBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -126,7 +127,9 @@ import {
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
   buildAnchoredCommentMap,
+  parseDiffRefHashSegment,
   REVIEW_SUBTAB_EVENT,
+  scrollToDiffRef,
   scrollToLatestRevisionLogEntry,
 } from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
@@ -658,6 +661,17 @@ export default function ReviewAndPublish({
     window.addEventListener(REVIEW_SUBTAB_EVENT, handler);
     return () => window.removeEventListener(REVIEW_SUBTAB_EVENT, handler);
   }, [setSubTab]);
+
+  // Arriving from a comment elsewhere (`#review,changes,<ref>`): open at its
+  // line once the diff renders, then drop the ref so it doesn't jump again.
+  const diffRefHash = urlHash?.split(",")[2];
+  const revisionVersion = revision?.version;
+  useEffect(() => {
+    if (!diffRefHash || revisionVersion === undefined) return;
+    const ref = parseDiffRefHashSegment(diffRefHash);
+    if (ref) scrollToDiffRef(ref, { arriving: true });
+    setUrlHash("review,changes");
+  }, [diffRefHash, revisionVersion, setUrlHash]);
 
   // ── Diff comment anchors ──
   // Comments whose markdown carries a visible ref token (`diff:rules:R12`)
@@ -2195,9 +2209,10 @@ export default function ReviewAndPublish({
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Heading as="h4" size="sm" mb="2">
-              Start running experiments upon publishing:
-            </Heading>
+            <Flex align="center" gap="1" mb="2">
+              <PiFlaskBold />
+              <Text>Start running experiments upon publishing:</Text>
+            </Flex>
             {immediateStartExperiments.map((experiment) => (
               <Box key={experiment.id}>
                 <Checkbox
@@ -2209,6 +2224,7 @@ export default function ReviewAndPublish({
                     setSelectedExperiments(newValue);
                   }}
                   label={experiment.name}
+                  weight="regular"
                 />
               </Box>
             ))}
@@ -2216,9 +2232,10 @@ export default function ReviewAndPublish({
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Heading as="h4" size="sm" mb="2">
-              Approve scheduled start for experiments:
-            </Heading>
+            <Flex align="center" gap="1" mb="2">
+              <PiFlaskBold />
+              <Text>Approve scheduled start for experiments:</Text>
+            </Flex>
             {scheduledExperiments.map((experiment) => (
               <Box key={experiment.id}>
                 <Checkbox
@@ -2230,6 +2247,7 @@ export default function ReviewAndPublish({
                     setSelectedExperiments(newValue);
                   }}
                   label={experiment.name}
+                  weight="regular"
                 />
               </Box>
             ))}
@@ -2455,13 +2473,18 @@ export default function ReviewAndPublish({
     (!requiredTeams.satisfied ||
       !requiredProjects.satisfied ||
       hasUncoveredApproval);
+  // "Continue to Publish" is the same publish path with a checklist step in
+  // front, so selecting an experiment must not change which bands show.
+  const onPublishPath =
+    state.submitAction === "publish" ||
+    state.submitAction === "next-experiments";
   // An approved draft warrants the band only while a gate is unmet — otherwise
   // the publish section already carries the state, and "Publishing is blocked"
   // would contradict an enabled CTA.
   const showApprovalBand =
     requireReviews &&
     !!revision &&
-    state.submitAction !== "publish" &&
+    !onPublishPath &&
     (revision.status === "approved"
       ? approvalGateUnmet
       : revision.status === "draft" || isInReviewCycle(revision.status));
@@ -3126,7 +3149,7 @@ export default function ReviewAndPublish({
                         reads as a contradiction. */}
                       {requireReviews &&
                         !adminPublish &&
-                        state.submitAction === "publish" &&
+                        onPublishPath &&
                         (!requiredTeams.satisfied ||
                           !requiredProjects.satisfied ||
                           hasUncoveredApproval) && (

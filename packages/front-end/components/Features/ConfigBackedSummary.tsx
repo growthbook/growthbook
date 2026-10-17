@@ -30,14 +30,16 @@ function ServeConfigHeader({
   configKey,
   name,
   suffix,
+  label = "SERVE",
 }: {
   configKey: string;
   name: string;
   suffix?: string;
+  label?: string | null;
 }) {
   return (
     <Flex direction="row" gap="4" align="center">
-      <Text weight="medium">SERVE</Text>
+      {label !== null && <Text weight="medium">{label}</Text>}
       <Flex as="span" align="center" gap="1">
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
@@ -87,9 +89,12 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
+  label = "SERVE",
+  showCopyButton = true,
 }: {
   value: string;
   configKey: string;
+  label?: string | null;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
@@ -99,6 +104,7 @@ export default function ConfigBackedSummary({
   // The environment this value is being previewed for, so the config resolves
   // with its matching env flavor (scopedOverrides). Absent = the base value.
   environment?: string;
+  showCopyButton?: boolean;
 }) {
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -284,6 +290,7 @@ export default function ConfigBackedSummary({
   return (
     <>
       <ServeConfigHeader
+        label={label}
         configKey={configKey}
         name={config?.name ?? configKey}
         suffix={
@@ -313,6 +320,7 @@ export default function ConfigBackedSummary({
               sparse
               defaultValue={JSON.stringify(resolved.merged)}
               showFullscreenButton={true}
+              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
             />
           ) : (
@@ -320,6 +328,7 @@ export default function ConfigBackedSummary({
               value={JSON.stringify(resolved.merged, null, 2)}
               type="json"
               showFullscreenButton={true}
+              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
             />
           )}

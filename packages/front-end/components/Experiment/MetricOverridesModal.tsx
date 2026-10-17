@@ -13,13 +13,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { toPercentField } from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
-import { toPercentField } from "@/services/metricOverrides";
 
 /** Confirming stages the overrides on the page's draft rather than saving them. */
 export default function MetricOverridesModal({

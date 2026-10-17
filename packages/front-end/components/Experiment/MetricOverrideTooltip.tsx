@@ -23,6 +23,12 @@ import {
 } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/services/metrics";
+import {
+  describeMetricOverride,
+  describeMetricSettings,
+  METRIC_OVERRIDE_COLOR,
+  OverrideRow,
+} from "@/services/metricOverrides";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -34,12 +40,6 @@ import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import {
-  describeMetricOverride,
-  describeMetricSettings,
-  METRIC_OVERRIDE_COLOR,
-  OverrideRow,
-} from "@/services/metricOverrides";
 
 /** What a metric's settings are resolved against in its hover card. */
 export interface MetricSettingsScope {

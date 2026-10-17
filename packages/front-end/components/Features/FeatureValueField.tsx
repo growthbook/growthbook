@@ -1,3 +1,4 @@
+import { CONSTANT_REF_PATTERN } from "shared/validators";
 import {
   FeatureInterface,
   FeatureValueType,
@@ -5,6 +6,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import {
+  ComponentProps,
   ReactElement,
   ReactNode,
   useEffect,
@@ -65,6 +67,7 @@ import {
   addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -89,10 +92,19 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // String only: copy overlaid on the field instead of under it.
+  actionsOverlay?: ActionsOverlay;
+  // Boolean, string and number: the field's border state, with no message.
+  outlineStyle?: "default" | "error" | "warning";
+  /** Number fields fill their container rather than sitting at a fixed width. */
+  fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
-  // the field (top-aligned) instead of on a label row above it, and hides the
-  // copy button. Used by the inline config field editor.
+  // the field instead of on a label row above it, and hides the copy button
+  // unless `actionsOverlay` places it.
   inlineConstantButton?: boolean;
+  inlineConstantButtonSize?: "1" | "2";
+  /** Size for the inner text fields; defaults to `Field`'s. */
+  size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -119,6 +131,9 @@ export interface Props {
   setEmptyStringConfirmed?: (confirmed: boolean) => void;
 }
 
+// One size for both JSON editors so toggling sparse doesn't resize.
+const CODE_FONT_SIZE = "0.75rem";
+
 export default function FeatureValueField({
   valueType,
   label,
@@ -137,7 +152,12 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  actionsOverlay,
+  outlineStyle,
+  fullWidth = false,
   inlineConstantButton = false,
+  inlineConstantButtonSize,
+  size,
   sparse,
   setSparse,
   condensed = false,
@@ -149,8 +169,9 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
-  // Inline mode also suppresses the copy button.
-  const copyHidden = hideCopyButton || inlineConstantButton;
+  // Inline mode has no room under the field, unless copy is overlaid on it.
+  const copyHidden =
+    hideCopyButton || (inlineConstantButton && !actionsOverlay);
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -165,13 +186,15 @@ export default function FeatureValueField({
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
   // experiment values. `pickerProject` scopes which constants are offered.
-  const showConstantPicker = !!feature || !!constantContext;
+  const showConstantPicker = (!!feature || !!constantContext) && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
-  // Tags for the valid constants referenced in the current value, shown below
-  // the editor's CTA row.
+  // Tags for the constants the value references, below the editor's CTA row;
+  // none at all without a reference, so no empty help text.
   const usedConstantTags =
-    showConstantPicker && (valueType === "string" || valueType === "json") ? (
+    showConstantPicker &&
+    (valueType === "string" || valueType === "json") &&
+    new RegExp(CONSTANT_REF_PATTERN).test(value) ? (
       <UsedConstantTags
         value={value}
         valueType={valueType}
@@ -312,6 +335,8 @@ export default function FeatureValueField({
           { label: "TRUE", value: "true" },
           { label: "FALSE", value: "false" },
         ]}
+        isSearchable={false}
+        outlineStyle={outlineStyle}
         value={value}
         onChange={(v) => {
           setValue(v);
@@ -587,7 +612,7 @@ export default function FeatureValueField({
     // Edit/Preview tabs. Offered whenever the caller wires `setSparse` — when the
     // default isn't a plain object (array/null/primitive) there's nothing to
     // merge onto, so the patch simply replaces the value (see the toggle tooltip).
-    const showSparseToggle = !!setSparse;
+    const showSparseToggle = !!setSparse && !disabled;
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
@@ -649,6 +674,15 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
+            fontSize={CODE_FONT_SIZE}
+            headerLeft={
+              !sparseHeader && label !== undefined ? (
+                <Text as="label" weight="semibold" mb="0">
+                  {label}
+                </Text>
+              ) : undefined
+            }
+            headerRight={!sparseHeader ? insertConstantButton : undefined}
             value={value}
             setValue={setValue}
             valueType={valueType}
@@ -657,7 +691,6 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            showInlineLabel={!showSparseToggle}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}
@@ -697,22 +730,23 @@ export default function FeatureValueField({
 
     const formatted = formatJSON(value);
 
-    const codeEditorToggleButton = useCodeInput ? (
-      <a
-        href="#"
-        className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
-          setCodeEditorToggledOn(!codeEditorToggledOn);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <PiBracketsCurly />{" "}
-        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </a>
-    ) : null;
+    const codeEditorToggleButton =
+      useCodeInput && !disabled ? (
+        <a
+          href="#"
+          className="text-purple"
+          onClick={(e) => {
+            e.preventDefault();
+            setCodeEditorToggledOn(!codeEditorToggledOn);
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          <PiBracketsCurly />{" "}
+          {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+        </a>
+      ) : null;
 
-    const formatJSONButton = (
+    const formatJSONButton = disabled ? null : (
       <a
         href="#"
         className={clsx("text-purple", {
@@ -788,7 +822,7 @@ export default function FeatureValueField({
             defaultHeight={codeInputDefaultHeight}
             showCopyButton={!copyHidden}
             showFullscreenButton={showFullscreenButton}
-            fontSize="0.75rem"
+            fontSize={CODE_FONT_SIZE}
             slimGutter
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
@@ -883,14 +917,16 @@ export default function FeatureValueField({
     </Tooltip>
   );
 
+  const copyUnderField = !copyHidden && !actionsOverlay;
   const combinedHelpTextForString =
-    valueType === "string" ? (
+    valueType === "string" &&
+    (helpText || usedConstantTags || copyUnderField) ? (
       <Flex align="start" gap="3" width="100%">
         <Box flexGrow="1" style={{ minWidth: 0 }}>
           {helpText}
           {usedConstantTags}
         </Box>
-        {!copyHidden && <Box flexShrink="0">{copyButton}</Box>}
+        {copyUnderField && <Box flexShrink="0">{copyButton}</Box>}
       </Flex>
     ) : (
       helpText
@@ -900,6 +936,9 @@ export default function FeatureValueField({
   // the field (only in a feature context) — rendered beside the label text, not
   // nested inside the field's <label> element.
   const showStringPicker = valueType === "string" && showConstantPicker;
+  const constantInActions =
+    !!actionsOverlay?.withConstantButton && showStringPicker;
+  const compactConstant = inlineConstantButton || constantInActions;
   const stringInsertButton = showStringPicker ? (
     <InsertConstantButton
       valueType="string"
@@ -907,11 +946,14 @@ export default function FeatureValueField({
       excludeKeys={pickerExcludeKeys}
       onInsert={insertStringConstant}
       disabled={disabled}
-      iconOnly={inlineConstantButton}
+      iconOnly={compactConstant}
+      iconSize={inlineConstantButtonSize}
+      // Inline has no label above to offset from.
+      iconMt={compactConstant ? "0" : undefined}
     />
   ) : null;
   const stringLabelRow =
-    showStringPicker && !inlineConstantButton ? (
+    showStringPicker && !compactConstant ? (
       <Flex align="center" justify="between" gap="3" width="100%" mb="1">
         {label !== undefined ? (
           <Text as="label" weight="semibold" mb="0">
@@ -926,7 +968,9 @@ export default function FeatureValueField({
 
   const field = (
     <Field
+      size={size}
       ref={stringInputRef}
+      outlineStyle={outlineStyle}
       label={stringLabelRow ? undefined : label}
       value={value}
       placeholder={placeholder}
@@ -950,7 +994,7 @@ export default function FeatureValueField({
       style={
         valueType === undefined
           ? { width: 80 }
-          : valueType === "number"
+          : valueType === "number" && !fullWidth
             ? { width: 120 }
             : undefined
       }
@@ -958,12 +1002,36 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, top-aligned.
+  const overlayActions = !!actionsOverlay && (!copyHidden || constantInActions);
+  const overlaidField =
+    valueType === "string" && overlayActions ? (
+      <CornerActions
+        overlay={actionsOverlay}
+        position={{ bottom: 0, right: 0 }}
+        gap="2"
+        actions={
+          <>
+            {/* In a span like the copy button's tooltip, so both sit on one line. */}
+            {constantInActions ? <span>{stringInsertButton}</span> : null}
+            {copyHidden ? null : copyButton}
+          </>
+        }
+      >
+        {field}
+      </CornerActions>
+    ) : (
+      field
+    );
+
   if (inlineConstantButton && stringInsertButton) {
     return (
       <>
-        <Flex align="start" gap="2" width="100%">
-          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
+        <Flex
+          align="center"
+          gap={inlineConstantButtonSize === "1" ? "1" : "2"}
+          width="100%"
+        >
+          <Box style={{ flex: 1, minWidth: 0 }}>{overlaidField}</Box>
           <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
         </Flex>
         {emptyStringConfirmField}
@@ -974,7 +1042,7 @@ export default function FeatureValueField({
   return (
     <>
       {stringLabelRow}
-      {field}
+      {overlaidField}
       {emptyStringConfirmField}
     </>
   );

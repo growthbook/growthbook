@@ -11,7 +11,6 @@ import CodeTextArea, {
   TEN_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
-import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 
@@ -27,8 +26,10 @@ export default function SparseTabbedEditor({
   placeholder,
   disabled = false,
   defaultHeight,
-  showInlineLabel = true,
   condensed = false,
+  fontSize,
+  headerLeft,
+  headerRight,
   onEditorLoad,
   usedConstantTags,
 }: {
@@ -41,12 +42,14 @@ export default function SparseTabbedEditor({
   placeholder?: string;
   disabled?: boolean;
   defaultHeight?: number;
-  // Render the label above the tabs. Set false when a parent already shows it
-  // (e.g. the force/rollout toggle header row).
-  showInlineLabel?: boolean;
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
+  // Code font size for both tabs.
+  fontSize?: string;
+  // Rendered on the tab row, either side of the tabs.
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
   // the cursor (the Edit tab is force-mounted so this stays valid on Preview).
   onEditorLoad?: (editor: Ace.Editor) => void;
@@ -119,11 +122,17 @@ export default function SparseTabbedEditor({
           : undefined
       }
     >
-      <Flex align="center" justify="between">
-        <TabsList size={tabsSize}>
-          <TabsTrigger value="edit">Edit</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-        </TabsList>
+      <Flex align="center" justify="between" gap="3">
+        <Flex align="center" gap="4" minWidth="0">
+          {!fullscreen && headerLeft}
+          <TabsList size={tabsSize}>
+            <TabsTrigger value="edit">Edit</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+        </Flex>
+        {!fullscreen && headerRight ? (
+          <Box flexShrink="0">{headerRight}</Box>
+        ) : null}
         {fullscreen ? (
           <Button
             type="button"
@@ -163,6 +172,8 @@ export default function SparseTabbedEditor({
             resizable={!fullscreen}
             fullHeight={fullscreen}
             defaultHeight={sparseDefaultHeight}
+            fontSize={fontSize}
+            slimGutter
             showCopyButton={true}
             showFullscreenButton={!fullscreen}
             onRequestFullscreen={() => setFullscreen(true)}
@@ -176,6 +187,7 @@ export default function SparseTabbedEditor({
             sparse={true}
             defaultValue={defaultValue}
             full={true}
+            fontSize={fontSize}
             fullStyle={
               fullscreen
                 ? { minHeight: 300, maxWidth: "100%" }
@@ -208,12 +220,6 @@ export default function SparseTabbedEditor({
           {label ? <Box className="font-weight-bold">{label}</Box> : null}
           <SparsePatchIndicator />
         </Flex>
-      ) : showInlineLabel && label ? (
-        <Box mb="1">
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        </Box>
       ) : null}
       {tabs}
     </div>

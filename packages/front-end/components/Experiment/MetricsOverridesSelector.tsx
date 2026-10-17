@@ -37,10 +37,10 @@ import Table, {
 import TextField, { TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import { toPercentField } from "@/services/metricOverrides";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import styles from "./MetricsOverridesSelector.module.scss";
-import { toPercentField } from "@/services/metricOverrides";
 
 const defaultFieldMap = {
   goalMetrics: "goalMetrics",

@@ -75,6 +75,7 @@ import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunch
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
@@ -85,7 +86,6 @@ import { StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import { hasStatusSchedule } from "./RunningScheduleLink";
 import { ExperimentTab } from ".";
-import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 export interface Props {
   tab: ExperimentTab;

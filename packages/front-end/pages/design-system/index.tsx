@@ -33,6 +33,7 @@ import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
+import SegmentedControlStories from "@/ui/SegmentedControl.stories";
 import SelectStories from "@/ui/Select.stories";
 import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
@@ -41,6 +42,7 @@ import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import RichTextEditorStories from "@/ui/RichTextEditor.stories";
 import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
@@ -116,6 +118,7 @@ export default function DesignSystemPage() {
     { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
+    { name: "SegmentedControl", Stories: SegmentedControlStories },
     { name: "Select", Stories: SelectStories },
     {
       name: "Field (legacy text input)",
@@ -131,6 +134,7 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    { name: "RichTextEditor", Stories: RichTextEditorStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
