@@ -7,6 +7,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
+import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 
 export default function BanditSettings({
@@ -21,6 +22,7 @@ export default function BanditSettings({
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
+  const hasContextualBandits = hasCommercialFeature("contextual-bandits");
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -198,6 +200,21 @@ export default function BanditSettings({
               ) : null}
             </Box>
           </Grid>
+
+          {page === "org-settings" && (
+            <Box mt="4">
+              <Switch
+                id="banditPeriodWeighting"
+                label="Weight results across update periods"
+                description="Correct Contextual Bandit decision-metric estimates for traffic allocation that changes as weights update over time."
+                value={form.watch("banditPeriodWeighting") ?? true}
+                onChange={(checked) => {
+                  form.setValue("banditPeriodWeighting", checked);
+                }}
+                disabled={!hasBandits && !hasContextualBandits}
+              />
+            </Box>
+          )}
         </Box>
       </Flex>
     </Box>

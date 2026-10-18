@@ -47,6 +47,8 @@ Like multi-armed bandits, contextual bandits use **Thompson sampling**, a Bayesi
 
 As with standard bandits, GrowthBook ensures every variation keeps at least a small share of traffic within each context, so the bandit can keep adapting if user behavior changes over time.
 
+Like multi-armed bandits, contextual bandits also [weight results across update periods](/bandits/overview#weighting-results-across-update-periods) so that shifting traffic doesn't make identical variations look different. For contextual bandits, each period is a weight-update generation identified by the `bandit_version` column from your [assignment query](/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query), and users are grouped by their first-exposure version within each context. This is controlled by a single organization-level toggle under **Settings → General → Bandit Settings** ("Weight results across update periods"), enabled by default. It takes effect only when your assignment query selects `bandit_version`.
+
 The statistical details are covered in the [Contextual Bandit technical reference](/statistics/contextual-bandit-technical).
 
 ### Next steps

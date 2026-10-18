@@ -262,6 +262,70 @@ describe("buildContextualBanditSnapshotSettings", () => {
     );
   });
 
+  it("defaults periodWeighting to enabled and honors an explicit false", () => {
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+      ).periodWeighting,
+    ).toBe(true);
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        makeCb(),
+        makeExposureQuery(),
+        schema("country", "device"),
+        false,
+      ).periodWeighting,
+    ).toBe(false);
+  });
+
+  it("enables SQL period weighting only when on and the query emits bandit_version", () => {
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+    const withoutVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp FROM cb_assignments",
+    });
+
+    // On + column present => enabled
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+      ).banditSettings?.periodWeighting,
+    ).toBe(true);
+
+    // On + column absent => disabled (nothing to group on)
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withoutVersion,
+          schema("country", "device"),
+          true,
+        ),
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+
+    // Off + column present => disabled
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          makeCb(),
+          withVersion,
+          schema("country", "device"),
+          false,
+        ),
+      ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
   it("intersects CB, query, and global attributes and preserves query order", () => {
     const cb = makeCb({ contextualAttributes: ["device", "country"] });
     const eaq = makeExposureQuery({

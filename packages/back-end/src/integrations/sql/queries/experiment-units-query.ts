@@ -22,6 +22,7 @@ import {
   getContextualBanditUnitsBaseSelectCols,
   getContextualBanditUnitsCTEs,
   getContextualBanditUnitsSqlConfig,
+  CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN,
 } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
 type ExperimentUnitsQueryContextualBanditStrings = {
@@ -107,11 +108,13 @@ export function getExperimentUnitsQuery(
     ? {
         contextualExposureSelectCols: getContextualBanditExposureSelectCols(
           contextualBanditCfg.aliases,
+          contextualBanditCfg.periodWeighting,
         ),
         contextualUnitsBaseSelectCols: getContextualBanditUnitsBaseSelectCols(
           dialect,
           contextualBanditCfg.aliases,
           timestampColumn,
+          contextualBanditCfg.periodWeighting,
         ),
         unitsCteName: "__experimentUnitsBase",
         unitsBaseColumnRefs: [
@@ -121,6 +124,9 @@ export function getExperimentUnitsQuery(
           ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
           ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
           ...(activationMetric ? ["u.first_activation_timestamp"] : []),
+          ...(contextualBanditCfg.periodWeighting
+            ? [`u.${CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN}`]
+            : []),
         ].join("\n,"),
       }
     : {

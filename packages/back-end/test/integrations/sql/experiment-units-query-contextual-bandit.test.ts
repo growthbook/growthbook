@@ -117,4 +117,54 @@ describe("getExperimentUnitsQuery contextual bandit first-exposure attribution",
     expect(c).not.toContain("'__multiple__'");
     expect(c).not.toContain("count(distincte.variation)>1");
   });
+
+  it("captures the first-exposure bandit_version per unit when period weighting is on", () => {
+    const sql = getExperimentUnitsQuery(
+      postgresDialect,
+      datasource,
+      makeParams(
+        makeUnitsSettings({
+          exposureQuery: {
+            query:
+              "SELECT user_id, timestamp, experiment_id, variation_id, country, bandit_version FROM cb_assignments",
+            userIdType: "user_id",
+          },
+          banditSettings: {
+            contextualBandit: true,
+            targetingAttributeColumns: ["country"],
+            periodWeighting: true,
+          },
+        } as unknown as Partial<ExperimentUnitsQuerySettings>),
+      ),
+    );
+    const c = compact(sql);
+
+    // The per-unit bandit_version column is selected and carried to the unit grain.
+    expect(c).toContain("e.bandit_version");
+    expect(c).toContain("__cb_bandit_version");
+    expect(c).toContain("u.__cb_bandit_version");
+  });
+
+  it("does not capture bandit_version when period weighting is off", () => {
+    const sql = getExperimentUnitsQuery(
+      postgresDialect,
+      datasource,
+      makeParams(
+        makeUnitsSettings({
+          exposureQuery: {
+            query:
+              "SELECT user_id, timestamp, experiment_id, variation_id, country, bandit_version FROM cb_assignments",
+            userIdType: "user_id",
+          },
+          banditSettings: {
+            contextualBandit: true,
+            targetingAttributeColumns: ["country"],
+          },
+        } as unknown as Partial<ExperimentUnitsQuerySettings>),
+      ),
+    );
+    const c = compact(sql);
+
+    expect(c).not.toContain("__cb_bandit_version");
+  });
 });

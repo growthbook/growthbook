@@ -95,6 +95,7 @@ interface BaseSettings {
   banditScheduleUnit: "hours" | "days";
   banditBurnInValue: number;
   banditBurnInUnit: "hours" | "days";
+  banditPeriodWeighting: boolean;
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
   maxMetricSliceLevels: number;
