@@ -37,7 +37,8 @@ const CREATE_POPULATION_DOCS =
 export default function PopulationsPage() {
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
-  const { project, getDatasourceById, getProjectById } = useDefinitions();
+  const { project, projects, getDatasourceById, getProjectById } =
+    useDefinitions();
   const { getOwnerDisplay } = useUser();
   const { populations, loading, error, mutate } = usePopulations(project, {
     enabled: populationsEnabled,
@@ -83,7 +84,12 @@ export default function PopulationsPage() {
       id: (item) => item.id,
       owner: (item) => [item.owner, item.ownerName],
       datasource: (item) => [item.datasource, item.datasourceName],
-      project: (item) => [...item.projectNames, ...item.projects],
+      project: (item) => {
+        const ids = item.projects.length
+          ? item.projects
+          : projects.map((p) => p.id);
+        return [...ids, ...ids.map((id) => getProjectById(id)?.name || id)];
+      },
       identifier: (item) => item.userIdTypes,
     },
   });
