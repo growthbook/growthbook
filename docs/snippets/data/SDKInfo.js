@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.2.1",
+    version: "3.2.2",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
