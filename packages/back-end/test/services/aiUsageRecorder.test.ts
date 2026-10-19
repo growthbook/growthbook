@@ -37,7 +37,6 @@ const recorder = (ownKey: boolean) =>
     ownKey,
     type: "chat-autocomplete",
     isDefaultPrompt: true,
-    label: "test",
   });
 
 // The mock factory's object is what the service reads; its flag can be

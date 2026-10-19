@@ -491,7 +491,6 @@ export const simpleCompletion = async ({
     type,
     isDefaultPrompt,
     temperature: effectiveTemperature,
-    label: "simpleCompletion",
   });
 
   let numTokensUsed: number | undefined;
@@ -552,7 +551,6 @@ export function usageRecorder({
   type,
   isDefaultPrompt,
   temperature,
-  label,
 }: {
   context: ReqContext | ApiReqContext;
   model: AIModel;
@@ -560,7 +558,6 @@ export function usageRecorder({
   type: AIPromptType;
   isDefaultPrompt: boolean;
   temperature?: number;
-  label: string;
 }) {
   return async ({
     usage,
@@ -597,7 +594,7 @@ export function usageRecorder({
       try {
         await updateTokenUsage({ numTokensUsed, organization: context.org });
       } catch (e) {
-        logger.error(e, `${label}: could not meter token usage`);
+        logger.error(e, "could not meter AI token usage");
       }
     }
 
@@ -661,7 +658,6 @@ export const streamingChatCompletion = async ({
     type,
     isDefaultPrompt,
     temperature: effectiveTemperature,
-    label: "streamingChatCompletion",
   });
 
   type TerminalUsage = {
