@@ -34,6 +34,7 @@ export interface Props {
   close: () => void;
   attribute?: string;
   defaultHashAttribute?: boolean;
+  defaultProjects?: string[];
 }
 
 const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
@@ -50,6 +51,7 @@ export default function AttributeModal({
   close,
   attribute,
   defaultHashAttribute = false,
+  defaultProjects,
 }: Props) {
   const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -67,10 +69,11 @@ export default function AttributeModal({
       datatype: current?.datatype || "string",
       projects: attribute
         ? current?.projects || []
-        : getDefaultProjectsForNewResource({
+        : (defaultProjects ??
+          getDefaultProjectsForNewResource({
             project,
             organizationId: orgId || undefined,
-          }),
+          })),
       format: ((current?.format as unknown) !== "none"
         ? current?.format || ""
         : "") as SDKAttributeFormat,

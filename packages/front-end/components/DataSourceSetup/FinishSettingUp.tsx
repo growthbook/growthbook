@@ -23,6 +23,7 @@ import AttributeModal from "@/components/Features/AttributeModal";
 import Link from "@/ui/Link";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
+import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -159,6 +160,9 @@ export default function FinishSettingUp({
   const canCreateAttribute = permissionsUtil.canCreateAttribute({
     projects: dataSource.projects ?? [],
   });
+  const canCreateFactTable = permissionsUtil.canCreateFactTable({
+    projects: dataSource.projects ?? [],
+  });
 
   const [expandedStep, setExpandedStep] = useState<StepId | null>(() =>
     currentStep && EXPANDABLE_STEPS.includes(currentStep) ? currentStep : null,
@@ -194,12 +198,14 @@ export default function FinishSettingUp({
         ),
     );
 
+  const attributeTypes = new Set<UserIdType>();
   const identifierRows: IdentifierRow[] = [
     ...hashAttributes.map(({ property, description }) => {
       const key = attributeKey(property);
       const saved =
         identifierTypes.find((type) => type.attributes?.includes(property)) ??
         null;
+      if (saved) attributeTypes.add(saved);
       const name = saved?.userIdType ?? attributeToUserIdTypeName(property);
       return {
         key,
@@ -214,11 +220,10 @@ export default function FinishSettingUp({
         isNew: !saved && !initialAttributes.includes(property),
       };
     }),
-    // Saved types with no linked attribute (legacy or Event Forwarder managed).
+    // Saved types no attribute row represents: legacy, Event Forwarder managed,
+    // or a second type linked to an attribute another type already shows.
     ...identifierTypes
-      .filter(
-        (type) => !type.attributes?.some((a) => hashAttributeNames.includes(a)),
-      )
+      .filter((type) => !attributeTypes.has(type))
       .map((type) => {
         const key = savedTypeKey(type.userIdType);
         return {
@@ -351,13 +356,14 @@ export default function FinishSettingUp({
     label: string,
     onClick: () => void,
     requiresIdentifiers: boolean,
+    allowed: boolean = canEdit,
   ) => {
     const blocked = requiresIdentifiers && !hasIdentifiers;
     return (
       <Flex direction="column" align="end" gap="1">
         <Button
           variant={step === currentStep ? "solid" : "outline"}
-          disabled={!canEdit || blocked}
+          disabled={!allowed || blocked}
           onClick={onClick}
         >
           {label}
@@ -667,6 +673,9 @@ export default function FinishSettingUp({
                 >
                   <Flex align="center" gap="2" wrap="wrap" minWidth="0">
                     <Text weight="medium">{query.name}</Text>
+                    {isEventForwarderManaged(query) && (
+                      <EventForwarderManagedBadge type="assignment query" />
+                    )}
                     {getExposureQueryIdentifierTypes(query).map(
                       (userIdType) => (
                         <Badge
@@ -677,7 +686,7 @@ export default function FinishSettingUp({
                       ),
                     )}
                   </Flex>
-                  {canEdit && (
+                  {canEdit && !isEventForwarderManaged(query) && (
                     <Button
                       variant="outline"
                       onClick={() => setQueryModal({ index })}
@@ -755,6 +764,7 @@ export default function FinishSettingUp({
                 "Add fact table",
                 () => setFactTableOpen(true),
                 true,
+                canCreateFactTable,
               )
         }
       />
@@ -784,6 +794,7 @@ export default function FinishSettingUp({
         <AttributeModal
           attribute={attributeModal.attribute ?? undefined}
           defaultHashAttribute
+          defaultProjects={dataSource.projects ?? []}
           close={() => setAttributeModal(null)}
         />
       )}
