@@ -16,6 +16,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
@@ -381,15 +382,18 @@ export const ExperimentAssignmentQueryModal = ({
         `Column "${duplicate}" is mapped to more than one role. Each role must map to a distinct column.`,
       );
     }
-    const unquotable = getUnquotableExposureQueryColumn({
-      experimentIdColumn: experimentId,
-      variationIdColumn: variationId,
-      timestampColumn: timestamp,
-      userIdColumns,
-    });
+    const unquotable = getUnquotableExposureQueryColumn(
+      {
+        experimentIdColumn: experimentId,
+        variationIdColumn: variationId,
+        timestampColumn: timestamp,
+        userIdColumns,
+      },
+      getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
+    );
     if (unquotable) {
       throw new Error(
-        `Column "${unquotable}" can't be mapped because its name needs quoting. In SQL mode, alias it to a name with only letters, numbers and underscores.`,
+        `Column "${unquotable}" can't be mapped because its name needs quoting. In SQL mode, alias it to an unquoted name.`,
       );
     }
 

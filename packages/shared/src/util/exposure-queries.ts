@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { DataSourceSettings, ExposureQuery } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
+import type { UnquotedIdentifierFold } from "shared/types/sql";
 import type {
   ApiAssignmentQueryRef,
   ApiAssignmentQueryRefInput,
@@ -65,9 +66,12 @@ export function getExposureQueryIdentifierColumn(
 const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 // Mapped columns are interpolated into analysis SQL unquoted, like the
-// canonical names they replace, so only plain identifiers can be mapped.
+// canonical names they replace. A name only survives that if it's a plain
+// identifier the warehouse wouldn't re-case, e.g. Postgres reads UserId as
+// userid.
 export function getUnquotableExposureQueryColumn(
   query: ExposureQueryColumnMapping,
+  fold: UnquotedIdentifierFold | undefined,
 ): string | null {
   const mapped = [
     query.experimentIdColumn,
@@ -75,7 +79,16 @@ export function getUnquotableExposureQueryColumn(
     query.timestampColumn,
     ...Object.values(query.userIdColumns ?? {}),
   ];
-  return mapped.find((c) => c && !PLAIN_COLUMN_NAME.test(c)) ?? null;
+  const keepsCase = (c: string) =>
+    fold === "lower"
+      ? c === c.toLowerCase()
+      : fold === "upper"
+        ? c === c.toUpperCase()
+        : true;
+  return (
+    mapped.find((c) => c && !(PLAIN_COLUMN_NAME.test(c) && keepsCase(c))) ??
+    null
+  );
 }
 
 /**
