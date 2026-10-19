@@ -19,7 +19,6 @@ import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualitySc
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
-import ProcessCard from "@/components/Experiment/Quality/ProcessCard";
 import {
   SECTION_COLORS,
   getScoreTier,
@@ -79,7 +78,13 @@ const CheckResultCell: FC<{
       case "decision":
       case "learnings":
       case "health-no-issues":
-      case "min-runtime":
+      case "goal-metrics-locked":
+      case "hypothesis-locked":
+      case "stable-assignment":
+      case "stable-analysis":
+      case "no-early-stop":
+      case "clean-restarts":
+      case "planned-end":
       case "ai-learnings-quality":
         return null;
     }
@@ -109,7 +114,7 @@ const CheckResultCell: FC<{
   if (check.score === null) {
     return (
       <Text size="md" color="text-low">
-        —
+        {check.type === "process" ? "calculating" : "—"}
       </Text>
     );
   }
@@ -132,6 +137,8 @@ const CheckResultCell: FC<{
     >
       {isAmber ? (check.reason ?? "Underpowered") : "✕"}
       {!isAmber && check.reason ? ` ${check.reason}` : ""}
+      {check.evidence?.user ? ` by ${check.evidence.user}` : ""}
+      {check.evidence?.date ? ` on ${date(check.evidence.date)}` : ""}
       {fixLink ? <> · {fixLink}</> : null}
     </span>
   );
@@ -141,8 +148,9 @@ const SectionCard: FC<{
   section: ExperimentQualitySectionResult;
   editMetrics?: (() => void) | null;
   setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
-  statusLabel: string;
-}> = ({ section, editMetrics, setTabAndScroll, statusLabel }) => {
+  // Shown when nothing in the section applies
+  notApplicableLabel: string;
+}> = ({ section, editMetrics, setTabAndScroll, notApplicableLabel }) => {
   const color = SECTION_COLORS[section.key];
   return (
     <Box
@@ -171,7 +179,7 @@ const SectionCard: FC<{
           </span>
         ) : (
           <Text size="sm" color="text-mid">
-            Not applicable while {statusLabel}
+            {notApplicableLabel}
           </Text>
         )}
       </Flex>
@@ -187,8 +195,8 @@ const SectionCard: FC<{
                 {check.key === "goal-metrics" && check.params?.maxGoalMetrics
                   ? ` · fewer than ${check.params.maxGoalMetrics}`
                   : ""}
-                {check.key === "min-runtime" && check.params?.minRuntimeDays
-                  ? ` · at least ${check.params.minRuntimeDays} days`
+                {check.key === "no-early-stop" && check.params?.minRuntimeDays
+                  ? ` · or before ${check.params.minRuntimeDays} days without a scheduled end`
                   : ""}
               </Text>
               <CheckResultCell
@@ -246,7 +254,7 @@ const QualityTab: FC<{
   const statusLabel = experiment.status === "draft" ? "in draft" : "running";
   const resultsJoinNote =
     result.appliedCheckCount < result.totalEnabledCheckCount && running
-      ? " Decision and learnings checks join the score when it stops."
+      ? " Decision, learnings and process checks join the score when it stops."
       : "";
 
   const displayScore = result.score;
@@ -436,12 +444,14 @@ const QualityTab: FC<{
               section={section}
               editMetrics={editMetrics}
               setTabAndScroll={setTabAndScroll}
-              statusLabel={statusLabel}
+              notApplicableLabel={
+                experiment.status === "stopped"
+                  ? "Not applicable"
+                  : `Not applicable while ${statusLabel}`
+              }
             />
           ))}
       </Flex>
-
-      <ProcessCard experiment={experiment} />
     </Box>
   );
 };

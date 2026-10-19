@@ -84,9 +84,17 @@ export default function ExperimentationHealthPage() {
     getExperimentQualityConfigById,
     mutateDefinitions,
   } = useDefinitions();
-  const canManageConfigs = permissionsUtil.canManageOrgSettings();
+  // Org admins edit every scope; Project admins edit their own Projects
+  const canManageOrg = permissionsUtil.canManageOrgSettings();
+  const editableProjects = projects.filter((p) =>
+    permissionsUtil.canUpdateProject(p.id),
+  );
 
-  const [scope, setScope] = useState(ORG_DEFAULT_SCOPE);
+  const [scope, setScope] = useState(
+    canManageOrg
+      ? ORG_DEFAULT_SCOPE
+      : (editableProjects[0]?.id ?? ORG_DEFAULT_SCOPE),
+  );
   const [resetOpen, setResetOpen] = useState(false);
   const [nameOnSaveOpen, setNameOnSaveOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
@@ -138,6 +146,18 @@ export default function ExperimentationHealthPage() {
     (effective.configId &&
       getExperimentQualityConfigById(effective.configId)) ||
     null;
+  // A Project admin can change a configuration only when nothing outside
+  // their Projects uses it (the server enforces the same rule)
+  const canEditConfig =
+    canManageOrg ||
+    (!!effectiveConfig &&
+      experimentationHealthSettings
+        .filter((r) => r.quality?.configId === effectiveConfig.id)
+        .every(
+          (r) =>
+            r.project !== ORG_DEFAULT_SCOPE &&
+            permissionsUtil.canUpdateProject(r.project),
+        ));
   const configSeed = useMemo(
     () => configToDraft(effectiveConfig),
     [effectiveConfig],
@@ -338,11 +358,13 @@ export default function ExperimentationHealthPage() {
             }
             disabled={anyDirty}
           >
-            <SelectItem value={ORG_SCOPE_OPTION}>
-              Organization default
-            </SelectItem>
-            {projects.length > 0 && <SelectSeparator />}
-            {projects.map((p) => (
+            {canManageOrg && (
+              <SelectItem value={ORG_SCOPE_OPTION}>
+                Organization default
+              </SelectItem>
+            )}
+            {canManageOrg && editableProjects.length > 0 && <SelectSeparator />}
+            {editableProjects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 <Flex align="center" gap="2">
                   {p.name}
@@ -445,7 +467,8 @@ export default function ExperimentationHealthPage() {
             }
             configDirty={configDirty}
             anyDirty={anyDirty}
-            canManageConfigs={canManageConfigs}
+            canEditConfig={canEditConfig}
+            canRecalculate={canManageOrg}
             aiAvailable={aiEnabled}
             hypothesisDefinition={hypothesisDefinition}
             stoppedExperiments={statusData?.stoppedExperiments}

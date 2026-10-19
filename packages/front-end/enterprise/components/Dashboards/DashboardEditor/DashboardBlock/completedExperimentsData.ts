@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getExperimentResultDate } from "shared/enterprise";
 import { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
 // Result buckets used by the velocity (stacked-bar) chart. Matches the four
@@ -49,30 +50,6 @@ export type WinRateProjectRow = WinRateSummary & {
   id: string;
   name: string;
 };
-
-/**
- * The date an experiment "completed", using the same rule as the Executive
- * Report: the most recent "Main" phase end, falling back to the most recent
- * phase end. Returns null when no phase has ended.
- */
-export function getExperimentResultDate(
-  experiment: ExperimentInterfaceStringDates,
-): Date | null {
-  const sortByEndedDesc = (
-    a: { dateEnded?: string },
-    b: { dateEnded?: string },
-  ) =>
-    new Date(b.dateEnded || 0).getTime() - new Date(a.dateEnded || 0).getTime();
-
-  const mainPhase = experiment.phases
-    .filter((p) => p.name === "Main")
-    .sort(sortByEndedDesc)[0];
-  const usedPhase =
-    mainPhase ?? [...experiment.phases].sort(sortByEndedDesc)[0];
-
-  if (!usedPhase?.dateEnded) return null;
-  return new Date(usedPhase.dateEnded);
-}
 
 // A stopped experiment's result bucket. Anything that isn't an explicit
 // won/lost/dnf is treated as inconclusive (matches ExecExperimentsGraph).

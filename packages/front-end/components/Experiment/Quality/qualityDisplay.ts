@@ -13,6 +13,7 @@ export const SECTION_COLORS: Record<
   documentation: scaleColors("indigo"),
   results: scaleColors("teal"),
   health: scaleColors("orange"),
+  process: scaleColors("cyan"),
   ai: scaleColors("violet"),
 };
 

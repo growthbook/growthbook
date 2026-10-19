@@ -1,10 +1,8 @@
 import Agenda, { Job } from "agenda";
+import { hasCurrentProcessResults } from "shared/enterprise";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import {
-  computeAndStoreProcessResults,
-  hasCurrentProcessResults,
-} from "back-end/src/enterprise/services/experimentProcess";
+import { computeAndStoreProcessResults } from "back-end/src/enterprise/services/experimentProcess";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 
 const UPDATE_PROCESS_SCORES = "updateExperimentProcessScores";

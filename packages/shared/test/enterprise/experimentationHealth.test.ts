@@ -6,6 +6,7 @@ import {
   countHealthOverrides,
   getAverage,
   getCompletedExperimentsInWindow,
+  getExperimentResultDate,
   getExperimentsStartedPerMonth,
   getGradeLetter,
   getHealthTargetError,
@@ -69,15 +70,13 @@ describe("resolveHealthTargets", () => {
 
 describe("resolveGradeWeights", () => {
   it("inherits the weights as one group", () => {
-    const org = { gradeWeights: { velocity: 20, quality: 50, process: 30 } };
+    const org = { gradeWeights: { velocity: 20, quality: 80 } };
     expect(resolveGradeWeights(org, null).weights).toEqual(org.gradeWeights);
     expect(resolveGradeWeights(null, null).weights).toEqual(
       DEFAULT_GRADE_WEIGHTS,
     );
 
-    const project = {
-      gradeWeights: { velocity: 30, quality: 40, process: 30 },
-    };
+    const project = { gradeWeights: { velocity: 60, quality: 40 } };
     const resolved = resolveGradeWeights(org, project);
     expect(resolved.weights).toEqual(project.gradeWeights);
     expect(resolved.orgWeights).toEqual(org.gradeWeights);
@@ -86,21 +85,14 @@ describe("resolveGradeWeights", () => {
 });
 
 describe("reflowGradeWeights", () => {
-  it("re-flows the other areas in proportion to keep a total of 100", () => {
-    const next = reflowGradeWeights(DEFAULT_GRADE_WEIGHTS, "quality", 40);
-    expect(next.quality).toBe(40);
-    expect(next.velocity + next.quality + next.process).toBe(100);
-    expect(next).toEqual({ velocity: 30, quality: 40, process: 30 });
-  });
-
-  it("splits evenly when the others are all zero", () => {
+  it("gives the other area the rest so the total stays 100", () => {
+    expect(reflowGradeWeights(DEFAULT_GRADE_WEIGHTS, "quality", 40)).toEqual({
+      velocity: 60,
+      quality: 40,
+    });
     expect(
-      reflowGradeWeights(
-        { velocity: 0, quality: 100, process: 0 },
-        "quality",
-        60,
-      ),
-    ).toEqual({ velocity: 20, quality: 60, process: 20 });
+      reflowGradeWeights({ velocity: 0, quality: 100 }, "quality", 70),
+    ).toEqual({ velocity: 30, quality: 70 });
   });
 });
 
@@ -111,7 +103,7 @@ describe("countHealthOverrides", () => {
       countHealthOverrides({
         quality: { enabled: false },
         targets: { winRate: { min: 10, max: 40 } },
-        gradeWeights: { velocity: 30, quality: 40, process: 30 },
+        gradeWeights: { velocity: 60, quality: 40 },
       }),
     ).toBe(3);
   });
@@ -178,22 +170,20 @@ describe("computeHealthGrade", () => {
   const targets = {
     experimentsStartedPerMonth: { min: 4, max: null },
     averageQualityScore: { min: 80, max: null },
-    processScore: { min: 80, max: null },
     winRate: { min: 20, max: 30 },
     ideasPerMonth: { min: 20, max: null },
   };
   const values = {
     experimentsStartedPerMonth: 2,
     averageQualityScore: 80,
-    processScore: 80,
     winRate: 50,
     ideasPerMonth: 0,
   };
 
-  const gradeWeights = { velocity: 50, quality: 25, process: 25 };
+  const gradeWeights = { velocity: 50, quality: 50 };
 
   it("weights only the graded areas", () => {
-    // velocity 50, quality 100, process 100; win rate and ideas never count
+    // velocity 50, quality 100; win rate and ideas never count
     const grade = computeHealthGrade({
       values,
       completedCount: 10,
@@ -202,7 +192,6 @@ describe("computeHealthGrade", () => {
     expect(grade.areaScores).toEqual({
       velocity: 50,
       quality: 100,
-      process: 100,
     });
     expect(grade.score).toBe(75);
     expect(grade.letter).toBe("B−");
@@ -263,19 +252,50 @@ describe("window metrics", () => {
     );
   });
 
-  it("selects non-archived experiments completed in the window", () => {
+  it("selects stopped experiments completed in the window", () => {
     const completed = getCompletedExperimentsInWindow(
       [
         exp(),
-        exp({ archived: true }),
         exp({ status: "running" }),
         exp({
           phases: [{ dateStarted: daysAgo(300), dateEnded: daysAgo(200) }],
+        }),
+        // Completed when its Main phase ended, not a later follow-up phase
+        exp({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: daysAgo(300),
+              dateEnded: daysAgo(200),
+            },
+            {
+              name: "Follow-up",
+              dateStarted: daysAgo(60),
+              dateEnded: daysAgo(10),
+            },
+          ],
         }),
       ],
       window,
     );
     expect(completed).toHaveLength(1);
+  });
+
+  it("dates completion by the latest Main phase, else the latest phase", () => {
+    expect(
+      getExperimentResultDate({
+        phases: [
+          { name: "First", dateEnded: "2026-01-10T00:00:00Z" },
+          { name: "Main", dateEnded: "2026-02-20T00:00:00Z" },
+        ],
+      }),
+    ).toEqual(new Date("2026-02-20T00:00:00Z"));
+    expect(
+      getExperimentResultDate({
+        phases: [{ name: "First", dateEnded: "2026-01-10T00:00:00Z" }],
+      }),
+    ).toEqual(new Date("2026-01-10T00:00:00Z"));
+    expect(getExperimentResultDate({ phases: [{ name: "Main" }] })).toBeNull();
   });
 
   it("computes win rate, averages and ideas per month", () => {

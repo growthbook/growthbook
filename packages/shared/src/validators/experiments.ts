@@ -398,6 +398,20 @@ export const aiExperimentQualityCheckKeys = [
 export type AIExperimentQualityCheckKey =
   (typeof aiExperimentQualityCheckKeys)[number];
 
+// Process checks: judged from the experiment's change history once it stops,
+// and cached on `processResults`
+export const processExperimentQualityCheckKeys = [
+  "goal-metrics-locked",
+  "hypothesis-locked",
+  "stable-assignment",
+  "stable-analysis",
+  "no-early-stop",
+  "clean-restarts",
+  "planned-end",
+] as const;
+export type ProcessExperimentQualityCheckKey =
+  (typeof processExperimentQualityCheckKeys)[number];
+
 // Cached AI verdicts for experiment quality scoring. Invalidated by
 // inputsHash — a hash of the fields the AI judged (hypothesis, goal metric
 // names, analysis text, org AI context, prompt version). Stale results are

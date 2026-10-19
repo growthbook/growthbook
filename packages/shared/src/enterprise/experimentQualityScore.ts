@@ -9,7 +9,9 @@ import {
 import {
   AIExperimentQualityCheckKey,
   ExperimentAIQualityResults,
+  ExperimentProcessResults,
   ExperimentQualityScoreOverride,
+  ProcessExperimentQualityCheckKey,
   aiExperimentQualityCheckKeys,
 } from "../validators/experiments";
 import {
@@ -28,8 +30,10 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
 } from "../constants";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../health";
+import { canJudgeProcess, hasCurrentProcessResults } from "./experimentProcess";
 
-export type ExperimentQualityCheckType = "deterministic" | "ai";
+// Process checks are judged from cached change-history results
+export type ExperimentQualityCheckType = "deterministic" | "process" | "ai";
 
 // Result key for a user-defined AI rule
 export type CustomQualityCheckKey = `custom:${string}`;
@@ -65,16 +69,21 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   ExperimentQualitySectionKey,
   ExperimentQualitySectionDefinition
 > = {
-  documentation: { label: "Documentation", defaultWeight: 35 },
+  documentation: { label: "Documentation", defaultWeight: 30 },
   results: {
     label: "Results",
     note: "stopped experiments only",
-    defaultWeight: 25,
+    defaultWeight: 20,
   },
   health: {
     label: "Health",
     note: "when traffic data exists",
-    defaultWeight: 20,
+    defaultWeight: 15,
+  },
+  process: {
+    label: "Process",
+    note: "stopped experiments only, from change history",
+    defaultWeight: 15,
   },
   ai: {
     label: "AI checks",
@@ -171,14 +180,58 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     defaultWeight: 1,
     defaultEnabled: true,
   },
-  "min-runtime": {
-    section: "health",
-    type: "deterministic",
-    label: "Minimum runtime met",
-    note: "stopped only",
+  // Weights reflect severity: 3 for changes that can invalidate the
+  // results, 2 for ones that weaken them
+  "goal-metrics-locked": {
+    section: "process",
+    type: "process",
+    label: "Goal metrics set before the start and unchanged",
+    defaultWeight: 3,
+    defaultEnabled: true,
+  },
+  "hypothesis-locked": {
+    section: "process",
+    type: "process",
+    label: "Hypothesis written before the start and unchanged",
+    defaultWeight: 2,
+    defaultEnabled: true,
+  },
+  "stable-assignment": {
+    section: "process",
+    type: "process",
+    label: "Traffic split and targeting unchanged within a phase",
+    defaultWeight: 3,
+    defaultEnabled: true,
+  },
+  "stable-analysis": {
+    section: "process",
+    type: "process",
+    label: "Analysis settings unchanged while running",
+    defaultWeight: 2,
+    defaultEnabled: true,
+  },
+  "no-early-stop": {
+    section: "process",
+    type: "process",
+    label: "Not stopped early",
+    defaultWeight: 3,
+    defaultEnabled: true,
+    defaultParams: { minRuntimeDays: 14 },
+  },
+  "clean-restarts": {
+    section: "process",
+    type: "process",
+    label: "New phases re-randomized users",
+    defaultWeight: 2,
+    defaultEnabled: true,
+  },
+  "planned-end": {
+    section: "process",
+    type: "process",
+    label: "End date scheduled before the start",
+    note: "any end action, including notify only",
     defaultWeight: 1,
     defaultEnabled: false,
-    defaultParams: { minRuntimeDays: 14 },
   },
   "ai-hypothesis-quality": {
     section: "ai",
@@ -577,6 +630,13 @@ export type ExperimentForQualityScore = Pick<
   | "analysisSummary"
   | "dismissedWarnings"
 > & {
+  processResults?: Pick<ExperimentProcessResults, "version"> & {
+    rules: Array<
+      Omit<ExperimentProcessResults["rules"][number], "date"> & {
+        date?: Date | string;
+      }
+    >;
+  };
   aiQualityResults?: Pick<
     ExperimentAIQualityResults,
     "inputsHash" | "checks" | "error"
@@ -600,6 +660,8 @@ export interface ExperimentQualityCheckResult {
   // fresh cached verdict yet (pending)
   score: number | null;
   reason?: string;
+  // Who made the change a process check failed on, and when
+  evidence?: { user?: string; date?: Date | string };
   params?: ExperimentQualityCheckParams;
 }
 
@@ -639,8 +701,7 @@ function evaluateDeterministicCheck(
   experiment: ExperimentForQualityScore,
   healthSettings: ExperimentHealthSettings,
   params: ExperimentQualityCheckParams | undefined,
-  now: Date,
-): { applicable: boolean; score?: number; reason?: string } {
+): CheckEvaluation {
   const stopped = experiment.status === "stopped";
   const health = experiment.analysisSummary?.health;
 
@@ -749,30 +810,66 @@ function evaluateDeterministicCheck(
           : undefined,
       };
     }
-    case "min-runtime": {
-      if (experiment.status === "draft" || !experiment.phases.length) {
-        return { applicable: false };
-      }
-      const firstPhase = experiment.phases[0];
-      const lastPhase = experiment.phases[experiment.phases.length - 1];
-      if (!firstPhase.dateStarted) return { applicable: false };
-      const start = new Date(firstPhase.dateStarted).getTime();
-      if (!Number.isFinite(start)) return { applicable: false };
-      const end = lastPhase.dateEnded
-        ? new Date(lastPhase.dateEnded).getTime()
-        : now.getTime();
-      const runtimeDays = Math.max(0, Math.floor((end - start) / MS_PER_DAY));
-      const minDays = params?.minRuntimeDays ?? 14;
-      const pass = runtimeDays >= minDays;
-      return {
-        applicable: true,
-        score: pass ? 1 : 0,
-        reason: pass
-          ? undefined
-          : `Ran ${runtimeDays} of ${minDays} minimum days`,
-      };
-    }
   }
+}
+
+// Days from the first start to the end of the last phase (or now)
+function getRuntimeDays(
+  experiment: ExperimentForQualityScore,
+  now: Date,
+): number | null {
+  const firstStart = experiment.phases[0]?.dateStarted;
+  if (!firstStart) return null;
+  const start = new Date(firstStart).getTime();
+  if (!Number.isFinite(start)) return null;
+  const lastEnd = experiment.phases[experiment.phases.length - 1]?.dateEnded;
+  const end = lastEnd ? new Date(lastEnd).getTime() : now.getTime();
+  return Math.max(0, Math.floor((end - start) / MS_PER_DAY));
+}
+
+type CheckEvaluation = {
+  applicable: boolean;
+  score?: number;
+  reason?: string;
+  evidence?: ExperimentQualityCheckResult["evidence"];
+};
+
+function evaluateProcessCheck(
+  key: ProcessExperimentQualityCheckKey,
+  experiment: ExperimentForQualityScore,
+  params: ExperimentQualityCheckParams | undefined,
+  now: Date,
+): CheckEvaluation & { calculating?: boolean } {
+  if (!canJudgeProcess(experiment)) return { applicable: false };
+  if (!experiment.processResults || !hasCurrentProcessResults(experiment)) {
+    return { applicable: true, calculating: true };
+  }
+  const cached = experiment.processResults.rules.find((r) => r.key === key);
+
+  // Without a scheduled end, an early stop is judged against the minimum
+  // runtime instead
+  if (key === "no-early-stop" && (!cached || cached.result === "na")) {
+    const runtimeDays = getRuntimeDays(experiment, now);
+    if (runtimeDays === null) return { applicable: false };
+    const minDays = params?.minRuntimeDays ?? 14;
+    const pass = runtimeDays >= minDays;
+    return {
+      applicable: true,
+      score: pass ? 1 : 0,
+      reason: pass
+        ? undefined
+        : `Stopped after ${runtimeDays} of the ${minDays} minimum days`,
+    };
+  }
+
+  if (!cached || cached.result === "na") return { applicable: false };
+  if (cached.result === "pass") return { applicable: true, score: 1 };
+  return {
+    applicable: true,
+    score: 0,
+    reason: cached.detail,
+    evidence: { user: cached.user, date: cached.date },
+  };
 }
 
 export function isAICheckApplicable(
@@ -842,14 +939,27 @@ export function getExperimentQualityScore({
     let applicable: boolean;
     let score: number | null = null;
     let reason: string | undefined;
+    let evidence: ExperimentQualityCheckResult["evidence"];
 
-    if (check.type === "deterministic") {
+    if (check.type === "process") {
+      const res = evaluateProcessCheck(
+        key as ProcessExperimentQualityCheckKey,
+        experiment,
+        check.params,
+        now,
+      );
+      applicable = res.applicable;
+      // Results still being calculated leave the denominator, like a
+      // pending AI verdict
+      score = res.applicable && !res.calculating ? (res.score ?? 0) : null;
+      reason = res.calculating ? "Still being calculated" : res.reason;
+      evidence = res.evidence;
+    } else if (check.type === "deterministic") {
       const res = evaluateDeterministicCheck(
         key as DeterministicExperimentQualityCheckKey,
         experiment,
         healthSettings,
         check.params,
-        now,
       );
       applicable = res.applicable;
       score = res.applicable ? (res.score ?? 0) : null;
@@ -874,6 +984,7 @@ export function getExperimentQualityScore({
         applicable,
         score,
         reason,
+        evidence,
         params: check.params,
       },
     });

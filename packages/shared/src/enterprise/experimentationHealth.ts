@@ -31,7 +31,6 @@ export const EXPERIMENTATION_HEALTH_AREAS: Record<
 > = {
   velocity: { label: "Velocity", gradeDetail: "Experiments started" },
   quality: { label: "Quality", gradeDetail: "Average Quality Score" },
-  process: { label: "Process", gradeDetail: "Process score" },
   winRate: {
     label: "Win rate",
     note: "Typically 20%–30%. Higher often means tests are too safe",
@@ -66,16 +65,9 @@ export const EXPERIMENTATION_HEALTH_METRICS: Record<
   averageQualityScore: {
     area: "quality",
     label: "Average Quality Score",
-    hint: "Mean score of completed experiments. Power, restarts and SRM are scored inside it. Configure checks on the Quality Score tab.",
+    hint: "Mean score of completed experiments, including how they were run. Configure checks on the Quality Score tab.",
     unit: "percent",
     defaultTarget: { min: 75, max: null },
-  },
-  processScore: {
-    area: "process",
-    label: "Process score",
-    hint: "How cleanly completed experiments were set up and run",
-    unit: "percent",
-    defaultTarget: { min: 85, max: null },
   },
   winRate: {
     area: "winRate",
@@ -94,9 +86,8 @@ export const EXPERIMENTATION_HEALTH_METRICS: Record<
 };
 
 export const DEFAULT_GRADE_WEIGHTS: ExperimentationHealthGradeWeights = {
-  velocity: 34,
-  quality: 33,
-  process: 33,
+  velocity: 50,
+  quality: 50,
 };
 
 // Drag one area's weight; the others re-flow so the weights keep totalling 100
@@ -110,11 +101,9 @@ export function reflowGradeWeights(
     experimentationHealthGradedAreas.indexOf(area),
     newWeight,
   );
-  return {
-    velocity: next[0],
-    quality: next[1],
-    process: next[2],
-  };
+  return Object.fromEntries(
+    experimentationHealthGradedAreas.map((a, i) => [a, next[i]]),
+  ) as ExperimentationHealthGradeWeights;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,7 +330,7 @@ export interface ExperimentationHealthSummary {
   values: ExperimentationHealthValues;
   // Ideas show only when the scope has ideas in the window
   ideasInUse: boolean;
-  // Completed experiments whose process results are still being computed
+  // Completed experiments whose process checks are still being calculated
   processPending: number;
 }
 
@@ -437,8 +426,7 @@ function perMonth(count: number, window: HealthWindow): number {
 
 export interface HealthExperiment {
   status: "draft" | "running" | "stopped";
-  archived?: boolean;
-  phases: { dateStarted?: DateLike; dateEnded?: DateLike }[];
+  phases: { name?: string; dateStarted?: DateLike; dateEnded?: DateLike }[];
   results?: string | null;
 }
 
@@ -454,19 +442,39 @@ export function getExperimentsStartedPerMonth(
   return perMonth(started, window);
 }
 
-// Non-archived experiments whose last phase ended in the window
+/**
+ * When an experiment completed, as the Executive Report and dashboards
+ * count it: the latest end of a "Main" phase, or else of any phase. Null
+ * when no phase has ended.
+ */
+export function getExperimentResultDate(experiment: {
+  phases: { name?: string; dateEnded?: DateLike }[];
+}): Date | null {
+  const latestEnded = (phases: { dateEnded?: DateLike }[]) =>
+    [...phases].sort(
+      (a, b) =>
+        new Date(b.dateEnded || 0).getTime() -
+        new Date(a.dateEnded || 0).getTime(),
+    )[0];
+  const phase =
+    latestEnded(experiment.phases.filter((p) => p.name === "Main")) ??
+    latestEnded(experiment.phases);
+  return phase?.dateEnded ? new Date(phase.dateEnded) : null;
+}
+
+// Stopped experiments (archived ones too) that completed in the window,
+// matching the Executive Report and dashboards
 export function getCompletedExperimentsInWindow<T extends HealthExperiment>(
   experiments: T[],
   window: HealthWindow,
 ): T[] {
   return experiments.filter(
     (e) =>
-      e.status === "stopped" &&
-      !e.archived &&
-      inWindow(e.phases[e.phases.length - 1]?.dateEnded, window),
+      e.status === "stopped" && inWindow(getExperimentResultDate(e), window),
   );
 }
 
+// Share of completed experiments that won, as the dashboards define it
 export function getWinRate(completed: HealthExperiment[]): number | null {
   if (!completed.length) return null;
   const wins = completed.filter((e) => e.results === "won").length;

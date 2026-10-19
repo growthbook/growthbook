@@ -1,6 +1,7 @@
 import {
   EXPERIMENT_PROCESS_RULES_VERSION,
   ProcessChange,
+  canJudgeProcess,
   evaluateProcessRules,
   toProcessSnapshot,
 } from "shared/enterprise";
@@ -44,23 +45,6 @@ function toProcessChange(audit: AuditInterface): ProcessChange | null {
     pre,
     post,
   };
-}
-
-// Stopped standard experiments are judged; bandits change their traffic
-// split by design and holdouts aren't run like experiments
-export function canJudgeProcess(experiment: ExperimentInterface): boolean {
-  return (
-    experiment.status === "stopped" &&
-    (experiment.type ?? "standard") === "standard"
-  );
-}
-
-export function hasCurrentProcessResults(
-  experiment: ExperimentInterface,
-): boolean {
-  return (
-    experiment.processResults?.version === EXPERIMENT_PROCESS_RULES_VERSION
-  );
 }
 
 // Judges each experiment's change history and caches the results on it

@@ -14,7 +14,6 @@ export const AREA_COLORS: Record<
 > = {
   velocity: scaleColors("indigo"),
   quality: scaleColors("teal"),
-  process: scaleColors("orange"),
   winRate: scaleColors("green"),
   ideas: { bar: "var(--slate-9)", text: "var(--color-text-high)" },
 };

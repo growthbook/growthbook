@@ -61,7 +61,8 @@ export default function QualityScoreTab({
   setConfigDraft,
   configDirty,
   anyDirty,
-  canManageConfigs,
+  canEditConfig,
+  canRecalculate,
   aiAvailable,
   hypothesisDefinition,
   stoppedExperiments,
@@ -78,7 +79,10 @@ export default function QualityScoreTab({
   setConfigDraft: (d: QualityConfigDraft) => void;
   configDirty: boolean;
   anyDirty: boolean;
-  canManageConfigs: boolean;
+  // Configurations can be created by anyone on this page; changing one
+  // needs every scope using it to be editable
+  canEditConfig: boolean;
+  canRecalculate: boolean;
   aiAvailable: boolean;
   hypothesisDefinition: string;
   stoppedExperiments?: number;
@@ -121,20 +125,27 @@ export default function QualityScoreTab({
   if (effectiveConfig && !isOrgScope && !effective.overridden.configId) {
     sharedNote = (
       <>
-        This Project uses {configName} from the organization default, so changes
-        here also change it for the organization and every Project using it.{" "}
-        {canManageConfigs && (
-          <Link onClick={() => setCreateOpen(true)}>
-            Make a copy for just this Project
-          </Link>
-        )}
+        {canEditConfig
+          ? `This Project uses ${configName} from the organization default, so changes here also change it for the organization and every Project using it.`
+          : `This Project uses ${configName} from the organization default, which only organization admins can change.`}{" "}
+        <Link onClick={() => setCreateOpen(true)}>
+          Make a copy for just this Project
+        </Link>
       </>
     );
   } else if (effectiveConfig && otherScopes.length) {
-    sharedNote = `${configName} is also used by ${describeOtherScopes(
-      otherScopes,
-      !isOrgScope,
-    )}, so changes here apply there too.`;
+    const others = describeOtherScopes(otherScopes, !isOrgScope);
+    sharedNote = canEditConfig ? (
+      `${configName} is also used by ${others}, so changes here apply there too.`
+    ) : (
+      <>
+        {configName} is also used by {others}, so only organization admins can
+        change it.{" "}
+        <Link onClick={() => setCreateOpen(true)}>
+          Make a copy for just this Project
+        </Link>
+      </>
+    );
   }
 
   return (
@@ -232,16 +243,12 @@ export default function QualityScoreTab({
                     {c.name}
                   </SelectItem>
                 ))}
-                {canManageConfigs && (
-                  <>
-                    <SelectSeparator />
-                    <SelectItem value={CREATE_CONFIG_VALUE}>
-                      Create new configuration…
-                    </SelectItem>
-                  </>
-                )}
+                <SelectSeparator />
+                <SelectItem value={CREATE_CONFIG_VALUE}>
+                  Create new configuration…
+                </SelectItem>
               </Select>
-              {effectiveConfig && canManageConfigs && (
+              {effectiveConfig && canEditConfig && (
                 <DropdownMenu
                   trigger={
                     <Button
@@ -330,54 +337,57 @@ export default function QualityScoreTab({
           draft={configDraft}
           setDraft={setConfigDraft}
           aiAvailable={aiAvailable}
-          readOnly={!canManageConfigs}
+          // Edits to the built-in default are saved as a new configuration
+          readOnly={!!effectiveConfig && !canEditConfig}
           hypothesisDefinition={hypothesisDefinition}
           aiSectionFooter={
-            <Box
-              pt="3"
-              mt="1"
-              mb="1"
-              style={{ borderTop: "1px solid var(--border-color-100)" }}
-            >
-              <Flex align="center" justify="between" gap="3">
-                <Text size="sm" color="text-mid">
-                  AI changes apply to new verdicts only. Re-score existing
-                  experiments —{" "}
-                  <Text weight="semibold" color="text-high">
-                    {stoppedExperiments ?? "…"} stopped
-                  </Text>{" "}
-                  · uses AI tokens.
-                </Text>
-                <Button
-                  variant="outline"
-                  disabled={anyDirty || !effective.enabled}
-                  title={
-                    anyDirty
-                      ? "Save your changes first — recalculation uses the saved settings"
-                      : !effective.enabled
-                        ? "Turn on quality scoring to recalculate AI verdicts"
-                        : undefined
-                  }
-                  onClick={async () => {
-                    setRecalculateStatus("");
-                    const res = await apiCall<{ queued: number }>(
-                      "/experiment-quality-score/recalculate",
-                      { method: "POST" },
-                    );
-                    setRecalculateStatus(
-                      `Queued ${res.queued} experiment${res.queued === 1 ? "" : "s"} for AI re-scoring. Verdicts update in the background.`,
-                    );
-                  }}
-                >
-                  Recalculate AI verdicts
-                </Button>
-              </Flex>
-              {recalculateStatus && (
-                <HelperText status="success" size="sm" mt="2">
-                  {recalculateStatus}
-                </HelperText>
-              )}
-            </Box>
+            canRecalculate && (
+              <Box
+                pt="3"
+                mt="1"
+                mb="1"
+                style={{ borderTop: "1px solid var(--border-color-100)" }}
+              >
+                <Flex align="center" justify="between" gap="3">
+                  <Text size="sm" color="text-mid">
+                    AI changes apply to new verdicts only. Re-score existing
+                    experiments —{" "}
+                    <Text weight="semibold" color="text-high">
+                      {stoppedExperiments ?? "…"} stopped
+                    </Text>{" "}
+                    · uses AI tokens.
+                  </Text>
+                  <Button
+                    variant="outline"
+                    disabled={anyDirty || !effective.enabled}
+                    title={
+                      anyDirty
+                        ? "Save your changes first — recalculation uses the saved settings"
+                        : !effective.enabled
+                          ? "Turn on quality scoring to recalculate AI verdicts"
+                          : undefined
+                    }
+                    onClick={async () => {
+                      setRecalculateStatus("");
+                      const res = await apiCall<{ queued: number }>(
+                        "/experiment-quality-score/recalculate",
+                        { method: "POST" },
+                      );
+                      setRecalculateStatus(
+                        `Queued ${res.queued} experiment${res.queued === 1 ? "" : "s"} for AI re-scoring. Verdicts update in the background.`,
+                      );
+                    }}
+                  >
+                    Recalculate AI verdicts
+                  </Button>
+                </Flex>
+                {recalculateStatus && (
+                  <HelperText status="success" size="sm" mt="2">
+                    {recalculateStatus}
+                  </HelperText>
+                )}
+              </Box>
+            )
           }
         />
       </Box>

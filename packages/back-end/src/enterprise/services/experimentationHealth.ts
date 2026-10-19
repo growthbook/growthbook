@@ -1,14 +1,15 @@
 import {
   ExperimentationHealthSummary,
+  canJudgeProcess,
   getAverage,
   getCompletedExperimentsInWindow,
   getExperimentQualityScore,
   getExperimentsStartedPerMonth,
   getGoalMetricNames,
   getHealthSettings,
+  hasCurrentProcessResults,
   getHealthWindow,
   getIdeasPerMonth,
-  getProcessScore,
   getWinRate,
   resolveExperimentQualitySettings,
 } from "shared/enterprise";
@@ -18,41 +19,16 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getIdeasByOrganization } from "back-end/src/services/ideas";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
-import {
-  canJudgeProcess,
-  hasCurrentProcessResults,
-} from "back-end/src/enterprise/services/experimentProcess";
 import { queueExperimentProcessScoreBackfill } from "back-end/src/jobs/updateExperimentProcessScores";
 import { logger } from "back-end/src/util/logger";
 
-// Average process score of completed experiments with current cached
-// results. Missing or outdated results are filled in by a background job,
-// so this never reads audit history.
-function getAverageProcessScore(
-  context: ReqContext,
-  completed: ExperimentInterface[],
-): { average: number | null; pending: number } {
-  const judgeable = completed.filter(canJudgeProcess);
-  const pending = judgeable.filter((e) => !hasCurrentProcessResults(e));
-  if (pending.length) {
-    queueExperimentProcessScoreBackfill(
-      context.org.id,
-      pending.map((e) => e.id),
-    ).catch((e) =>
-      logger.error(e, "Failed to queue the process score backfill"),
-    );
-  }
-  const scores = judgeable
-    .filter(hasCurrentProcessResults)
-    .map((e) => getProcessScore(e.processResults?.rules ?? []))
-    .filter((score): score is number => score !== null);
-  return { average: getAverage(scores), pending: pending.length };
-}
-
+// Mean quality score of the completed experiments, each scored with its own
+// Project's settings. Process checks need results cached by a background
+// job; missing ones are queued, so this never reads audit history.
 async function getAverageQualityScore(
   context: ReqContext,
   experiments: ExperimentInterface[],
-): Promise<number | null> {
+): Promise<{ average: number | null; processPending: number }> {
   const metricIds = [...new Set(experiments.flatMap((e) => e.goalMetrics))];
   const [records, configs, { aiEnabled }, metrics] = await Promise.all([
     context.models.experimentationHealthSettings.getAll(),
@@ -69,6 +45,7 @@ async function getAverageQualityScore(
   );
 
   const scores: number[] = [];
+  const processPending: string[] = [];
   for (const experiment of experiments) {
     // Each experiment is scored with its own Project's quality settings
     const resolved = resolveExperimentQualitySettings({
@@ -80,6 +57,13 @@ async function getAverageQualityScore(
       aiEnabled,
     });
     if (!resolved) continue;
+    if (
+      resolved.settings.sections.process.enabled &&
+      canJudgeProcess(experiment) &&
+      !hasCurrentProcessResults(experiment)
+    ) {
+      processPending.push(experiment.id);
+    }
     const { score } = getExperimentQualityScore({
       experiment,
       settings: resolved.settings,
@@ -90,7 +74,13 @@ async function getAverageQualityScore(
     });
     if (score !== null) scores.push(score);
   }
-  return getAverage(scores);
+
+  if (processPending.length) {
+    queueExperimentProcessScoreBackfill(context.org.id, processPending).catch(
+      (e) => logger.error(e, "Failed to queue the process score backfill"),
+    );
+  }
+  return { average: getAverage(scores), processPending: processPending.length };
 }
 
 /**
@@ -109,11 +99,10 @@ export async function getExperimentationHealthSummary(
   });
   const completed = getCompletedExperimentsInWindow(experiments, window);
 
-  const [averageQualityScore, ideas] = await Promise.all([
+  const [quality, ideas] = await Promise.all([
     getAverageQualityScore(context, completed),
     getIdeasByOrganization(context.org.id, project || undefined),
   ]);
-  const process = getAverageProcessScore(context, completed);
 
   const ideaDates = ideas
     .filter(
@@ -132,12 +121,11 @@ export async function getExperimentationHealthSummary(
         experiments,
         window,
       ),
-      averageQualityScore,
-      processScore: process.average,
+      averageQualityScore: quality.average,
       winRate: getWinRate(completed),
       ideasPerMonth,
     },
     ideasInUse: ideasPerMonth > 0,
-    processPending: process.pending,
+    processPending: quality.processPending,
   };
 }

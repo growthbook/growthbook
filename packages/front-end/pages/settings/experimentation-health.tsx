@@ -25,7 +25,10 @@ const ExperimentationHealthSettingsPage: React.FC = () => {
     );
   }
 
-  if (!permissionsUtil.canManageOrgSettings()) {
+  if (
+    !permissionsUtil.canManageOrgSettings() &&
+    !permissionsUtil.canManageSomeProjects()
+  ) {
     return (
       <div className="container pagecontents">
         <Callout status="error" mt="4">

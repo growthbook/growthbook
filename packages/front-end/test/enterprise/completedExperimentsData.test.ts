@@ -6,7 +6,6 @@ import {
   computeWinRateSummary,
   filterCompletedExperiments,
   floorToGranularity,
-  getExperimentResultDate,
   getPreviousWindow,
 } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
 
@@ -152,27 +151,6 @@ describe("classifyVelocityResult", () => {
       "inconclusive",
     );
     expect(classifyVelocityResult(exp({}))).toBe("inconclusive");
-  });
-});
-
-describe("getExperimentResultDate", () => {
-  it("prefers the most recent Main phase over other phases", () => {
-    const e = exp({
-      endedISO: "2026-01-10T00:00:00Z",
-      mainEndedISO: "2026-02-20T00:00:00Z",
-    });
-    expect(getExperimentResultDate(e)).toEqual(
-      new Date("2026-02-20T00:00:00Z"),
-    );
-  });
-  it("falls back to the latest phase when there is no Main phase", () => {
-    const e = exp({ endedISO: "2026-01-10T00:00:00Z" });
-    expect(getExperimentResultDate(e)).toEqual(
-      new Date("2026-01-10T00:00:00Z"),
-    );
-  });
-  it("returns null when no phase has ended", () => {
-    expect(getExperimentResultDate(exp({}))).toBeNull();
   });
 });
 

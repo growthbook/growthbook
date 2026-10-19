@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { aiExperimentQualityCheckKeys } from "./experiments";
+import {
+  aiExperimentQualityCheckKeys,
+  processExperimentQualityCheckKeys,
+} from "./experiments";
 import { baseSchema } from "./base-model";
 
 export const experimentQualitySectionKeys = [
   "documentation",
   "results",
   "health",
+  "process",
   "ai",
 ] as const;
 export type ExperimentQualitySectionKey =
@@ -22,13 +26,13 @@ export const deterministicExperimentQualityCheckKeys = [
   "learnings",
   "health-no-issues",
   "health-powered",
-  "min-runtime",
 ] as const;
 export type DeterministicExperimentQualityCheckKey =
   (typeof deterministicExperimentQualityCheckKeys)[number];
 
 export const experimentQualityCheckKeys = [
   ...deterministicExperimentQualityCheckKeys,
+  ...processExperimentQualityCheckKeys,
   ...aiExperimentQualityCheckKeys,
 ] as const;
 export type ExperimentQualityCheckKey =
@@ -40,7 +44,8 @@ export const experimentQualityCheckParamsValidator = z
   .object({
     // goal-metrics: pass when 1 <= count < maxGoalMetrics
     maxGoalMetrics: z.number().int().min(2).optional(),
-    // min-runtime: pass when the experiment ran at least this many days
+    // no-early-stop: without a scheduled end, pass when the experiment ran
+    // at least this many days
     minRuntimeDays: z.number().int().min(1).optional(),
   })
   .strict();

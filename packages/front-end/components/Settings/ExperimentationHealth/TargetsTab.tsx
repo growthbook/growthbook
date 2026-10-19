@@ -169,7 +169,7 @@ export default function TargetsTab({
   ) => void;
   values?: ExperimentationHealthValues;
   ideasInUse: boolean;
-  // Completed experiments whose process score is still being calculated
+  // Completed experiments whose process checks are still being calculated
   processPending: number;
   loading: boolean;
 }) {
@@ -221,7 +221,7 @@ export default function TargetsTab({
                 onChange={(target) => setTarget(key, target)}
                 onReset={() => setTarget(key, undefined)}
                 note={
-                  key === "processScore" && processPending
+                  key === "averageQualityScore" && processPending
                     ? `${processPending} still being scored`
                     : undefined
                 }

@@ -175,20 +175,20 @@ function CheckLabel({
           />
         </Flex>
       )}
-      {checkKey === "min-runtime" && (
+      {checkKey === "no-early-stop" && (
         <Flex align="center" gap="1">
           <Text size="sm" color="text-mid">
-            · at least
+            · before the scheduled end, or before
           </Text>
           <ParamInput
             value={check.params?.minRuntimeDays ?? 14}
             min={1}
             disabled={inputDisabled}
-            ariaLabel="Minimum runtime in days"
+            ariaLabel="Minimum runtime in days when there's no scheduled end"
             onChange={(v) => setParam({ minRuntimeDays: v })}
           />
           <Text size="sm" color="text-mid">
-            days
+            days without one
           </Text>
         </Flex>
       )}

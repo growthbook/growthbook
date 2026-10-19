@@ -22,18 +22,16 @@ export type ExperimentationHealthQualitySettings = z.infer<
 export const experimentationHealthMetricKeys = [
   "experimentsStartedPerMonth",
   "averageQualityScore",
-  "processScore",
   "winRate",
   "ideasPerMonth",
 ] as const;
 export type ExperimentationHealthMetricKey =
   (typeof experimentationHealthMetricKeys)[number];
 
-// Areas that count toward the letter grade
+// Areas that count toward the grade
 export const experimentationHealthGradedAreas = [
   "velocity",
   "quality",
-  "process",
 ] as const;
 export type ExperimentationHealthGradedArea =
   (typeof experimentationHealthGradedAreas)[number];
@@ -63,10 +61,9 @@ export const experimentationHealthGradeWeightsValidator = z
   .object({
     velocity: z.number().int().min(0).max(100),
     quality: z.number().int().min(0).max(100),
-    process: z.number().int().min(0).max(100),
   })
   .strict()
-  .refine((w) => w.velocity + w.quality + w.process === 100, {
+  .refine((w) => w.velocity + w.quality === 100, {
     message: "Grade weights must total 100",
   });
 export type ExperimentationHealthGradeWeights = z.infer<

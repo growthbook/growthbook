@@ -10,6 +10,7 @@ import {
   roundToTotal,
 } from "../../src/enterprise/experimentQualityScore";
 import { resolveQualityScope } from "../../src/enterprise/experimentationHealth";
+import { EXPERIMENT_PROCESS_RULES_VERSION } from "../../src/enterprise/experimentProcess";
 
 const healthSettings: ExperimentHealthSettings = {
   decisionFrameworkEnabled: true,
@@ -139,18 +140,19 @@ function checkByKey(result: ReturnType<typeof score>, key: string) {
 }
 
 describe("resolveExperimentQualityScoreSettings", () => {
-  it("uses design default shares 35/25/20/20", () => {
+  it("uses default shares 30/20/15/15/20", () => {
     const resolved = resolveExperimentQualityScoreSettings();
-    expect(resolved.sections.documentation.share).toBeCloseTo(0.35, 9);
-    expect(resolved.sections.results.share).toBeCloseTo(0.25, 9);
-    expect(resolved.sections.health.share).toBeCloseTo(0.2, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(0.3, 9);
+    expect(resolved.sections.results.share).toBeCloseTo(0.2, 9);
+    expect(resolved.sections.health.share).toBeCloseTo(0.15, 9);
+    expect(resolved.sections.process.share).toBeCloseTo(0.15, 9);
     expect(resolved.sections.ai.share).toBeCloseTo(0.2, 9);
   });
 
-  it("defaults screenshots and min-runtime to disabled", () => {
+  it("defaults screenshots and planned-end to disabled", () => {
     const resolved = resolveExperimentQualityScoreSettings();
     expect(resolved.checks["screenshots"].enabled).toBe(false);
-    expect(resolved.checks["min-runtime"].enabled).toBe(false);
+    expect(resolved.checks["planned-end"].enabled).toBe(false);
     expect(resolved.checks["screenshots"].split).toBe(0);
     const docSplits = (
       [
@@ -172,21 +174,23 @@ describe("resolveExperimentQualityScoreSettings", () => {
     });
     expect(resolved.sections.ai.enabled).toBe(false);
     expect(resolved.sections.ai.share).toBe(0);
-    expect(resolved.sections.documentation.share).toBeCloseTo(35 / 80, 9);
-    expect(resolved.sections.results.share).toBeCloseTo(25 / 80, 9);
-    expect(resolved.sections.health.share).toBeCloseTo(20 / 80, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(30 / 80, 9);
+    expect(resolved.sections.results.share).toBeCloseTo(20 / 80, 9);
+    expect(resolved.sections.health.share).toBeCloseTo(15 / 80, 9);
+    expect(resolved.sections.process.share).toBeCloseTo(15 / 80, 9);
   });
 
   it("treats scaled raw weights as identical shares", () => {
     const scaled = resolveExperimentQualityScoreSettings({
       sections: {
-        documentation: { weight: 7 },
-        results: { weight: 5 },
-        health: { weight: 4 },
+        documentation: { weight: 6 },
+        results: { weight: 4 },
+        health: { weight: 3 },
+        process: { weight: 3 },
         ai: { weight: 4 },
       },
     });
-    expect(scaled.sections.documentation.share).toBeCloseTo(0.35, 9);
+    expect(scaled.sections.documentation.share).toBeCloseTo(0.3, 9);
     expect(scaled.sections.ai.share).toBeCloseTo(0.2, 9);
   });
 
@@ -197,9 +201,10 @@ describe("resolveExperimentQualityScoreSettings", () => {
         documentation: { weight: 0 },
         results: { weight: 0 },
         health: { weight: 0 },
+        process: { weight: 0 },
       },
     });
-    expect(resolved.sections.documentation.share).toBeCloseTo(1 / 3, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(1 / 4, 9);
   });
 
   it("treats a section with every check disabled as disabled", () => {
@@ -211,15 +216,15 @@ describe("resolveExperimentQualityScoreSettings", () => {
     });
     expect(resolved.sections.results.enabled).toBe(false);
     expect(resolved.sections.results.share).toBe(0);
-    expect(resolved.sections.documentation.share).toBeCloseTo(35 / 75, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(30 / 80, 9);
   });
 
   it("resolving without a config (or with a dangling config id) yields catalog defaults", () => {
     // A deleted/missing referenced config resolves as undefined → defaults
     const fromUndefined = resolveExperimentQualityScoreSettings(undefined);
     const fromNull = resolveExperimentQualityScoreSettings(null);
-    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.35, 9);
-    expect(fromNull.sections.documentation.share).toBeCloseTo(0.35, 9);
+    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.3, 9);
+    expect(fromNull.sections.documentation.share).toBeCloseTo(0.3, 9);
   });
 
   describe("resolveQualityScope", () => {
@@ -279,13 +284,13 @@ describe("resolveExperimentQualityScoreSettings", () => {
     const resolved = resolveExperimentQualityScoreSettings({
       checks: {
         "goal-metrics": { enabled: true, params: { maxGoalMetrics: 5 } },
-        "min-runtime": { enabled: true },
+        "no-early-stop": { enabled: true },
       },
     });
     expect(resolved.checks["goal-metrics"].params).toEqual({
       maxGoalMetrics: 5,
     });
-    expect(resolved.checks["min-runtime"].params).toEqual({
+    expect(resolved.checks["no-early-stop"].params).toEqual({
       minRuntimeDays: 14,
     });
   });
@@ -473,9 +478,10 @@ describe("getExperimentQualityScore", () => {
     });
     const result = score(experiment);
     // Enabled by default: 5 documentation (screenshots off) + 2 results +
-    // 2 health (min-runtime off) + 3 ai = 12
-    expect(result.totalEnabledCheckCount).toBe(12);
-    // N/A while running: decision, learnings, ai-learnings-quality
+    // 2 health + 6 process (planned-end off) + 3 ai = 18
+    expect(result.totalEnabledCheckCount).toBe(18);
+    // N/A while running: decision, learnings, ai-learnings-quality and the
+    // 6 process checks
     expect(result.appliedCheckCount).toBe(9);
   });
 
@@ -523,19 +529,77 @@ describe("getExperimentQualityScore", () => {
         )?.score,
       ).toBe(1);
     });
+  });
 
-    it("min-runtime measures phases against the threshold", () => {
-      const settings = resolveExperimentQualityScoreSettings({
-        checks: { "min-runtime": { enabled: true } },
-      });
+  describe("process checks", () => {
+    const processResults = (
+      rules: NonNullable<ExperimentForQualityScore["processResults"]>["rules"],
+      version = EXPERIMENT_PROCESS_RULES_VERSION,
+    ) => ({ version, rules });
 
-      // 30 days stopped → passes 14-day default
+    it("only judges stopped experiments", () => {
+      const running = baseExperiment({ status: "running" });
       expect(
-        checkByKey(score(baseExperiment(), settings), "min-runtime")?.score,
+        checkByKey(score(running), "goal-metrics-locked")?.applicable,
+      ).toBe(false);
+    });
+
+    it("waits for current cached results", () => {
+      for (const experiment of [
+        baseExperiment(),
+        baseExperiment({ processResults: processResults([], 0) }),
+      ]) {
+        const check = checkByKey(score(experiment), "goal-metrics-locked");
+        expect(check?.applicable).toBe(true);
+        expect(check?.score).toBeNull();
+        expect(check?.reason).toBe("Still being calculated");
+      }
+    });
+
+    it("scores cached results, with the failure's evidence", () => {
+      const result = score(
+        baseExperiment({
+          processResults: processResults([
+            { key: "goal-metrics-locked", result: "pass" },
+            {
+              key: "hypothesis-locked",
+              result: "fail",
+              detail: "Hypothesis changed while running",
+              user: "Sam",
+              date: "2026-06-10T00:00:00Z",
+            },
+            { key: "stable-analysis", result: "na" },
+          ]),
+        }),
+      );
+      expect(checkByKey(result, "goal-metrics-locked")?.score).toBe(1);
+      expect(checkByKey(result, "hypothesis-locked")).toMatchObject({
+        score: 0,
+        reason: "Hypothesis changed while running",
+        evidence: { user: "Sam", date: "2026-06-10T00:00:00Z" },
+      });
+      expect(checkByKey(result, "stable-analysis")?.applicable).toBe(false);
+    });
+
+    it("judges an early stop by the minimum runtime without a scheduled end", () => {
+      const settings = resolveExperimentQualityScoreSettings({
+        checks: { "no-early-stop": { params: { minRuntimeDays: 14 } } },
+      });
+      const unscheduled = processResults([
+        { key: "no-early-stop", result: "na" },
+      ]);
+
+      // 30 days
+      expect(
+        checkByKey(
+          score(baseExperiment({ processResults: unscheduled }), settings),
+          "no-early-stop",
+        )?.score,
       ).toBe(1);
 
-      // 5 days → fails with reason
+      // 5 days
       const shortRun = baseExperiment({
+        processResults: unscheduled,
         phases: [
           makePhase(
             new Date("2026-06-01T00:00:00Z"),
@@ -543,27 +607,23 @@ describe("getExperimentQualityScore", () => {
           ),
         ],
       });
-      const failed = checkByKey(score(shortRun, settings), "min-runtime");
-      expect(failed?.score).toBe(0);
-      expect(failed?.reason).toBe("Ran 5 of 14 minimum days");
-
-      // Running experiment measured against `now` (3 days before NOW)
-      const running = baseExperiment({
-        status: "running",
-        results: undefined,
-        analysis: undefined,
-        releasedVariationId: "",
-        phases: [makePhase(new Date("2026-07-20T00:00:00Z"))],
-      });
-      expect(checkByKey(score(running, settings), "min-runtime")?.score).toBe(
-        0,
-      );
-
-      // Draft → N/A
-      const draft = baseExperiment({ status: "draft", phases: [] });
       expect(
-        checkByKey(score(draft, settings), "min-runtime")?.applicable,
-      ).toBe(false);
+        checkByKey(score(shortRun, settings), "no-early-stop"),
+      ).toMatchObject({
+        score: 0,
+        reason: "Stopped after 5 of the 14 minimum days",
+      });
+
+      // A scheduled end decides it instead
+      const scheduled = baseExperiment({
+        processResults: processResults([
+          { key: "no-early-stop", result: "pass" },
+        ]),
+        phases: shortRun.phases,
+      });
+      expect(
+        checkByKey(score(scheduled, settings), "no-early-stop")?.score,
+      ).toBe(1);
     });
   });
 

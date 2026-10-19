@@ -1,7 +1,9 @@
 import {
+  EXPERIMENT_PROCESS_RULES_VERSION,
   ProcessChange,
+  canJudgeProcess,
   evaluateProcessRules,
-  getProcessScore,
+  hasCurrentProcessResults,
   toProcessSnapshot,
 } from "../../src/enterprise/experimentProcess";
 
@@ -211,39 +213,22 @@ describe("process rules", () => {
   });
 });
 
-describe("getProcessScore", () => {
-  it("weights rules by severity and caps critical failures", () => {
+describe("canJudgeProcess and hasCurrentProcessResults", () => {
+  it("judges stopped standard experiments with current results", () => {
+    expect(canJudgeProcess({ status: "stopped" })).toBe(true);
+    expect(canJudgeProcess({ status: "running" })).toBe(false);
     expect(
-      getProcessScore(
-        evaluateProcessRules({
-          history: cleanRun,
-          orgSequentialTestingEnabled: false,
-        }),
-      ),
-    ).toBe(100);
-
-    // One significant rule failed: 15 of 17 points
-    const unplanned = evaluateProcessRules({
-      history: cleanRun,
-      orgSequentialTestingEnabled: false,
-    }).map((r) =>
-      r.key === "hypothesis-locked" ? { ...r, result: "fail" as const } : r,
+      canJudgeProcess({ status: "stopped", type: "multi-armed-bandit" }),
+    ).toBe(false);
+    expect(
+      hasCurrentProcessResults({
+        processResults: { version: EXPERIMENT_PROCESS_RULES_VERSION },
+      }),
+    ).toBe(true);
+    expect(hasCurrentProcessResults({ processResults: { version: 0 } })).toBe(
+      false,
     );
-    expect(getProcessScore(unplanned)).toBe(88);
-
-    // A critical failure caps the score at 50
-    const resplit = evaluateProcessRules({
-      history: cleanRun,
-      orgSequentialTestingEnabled: false,
-    }).map((r) =>
-      r.key === "stable-assignment" ? { ...r, result: "fail" as const } : r,
-    );
-    expect(getProcessScore(resplit)).toBe(50);
-  });
-
-  it("is null when nothing could be judged", () => {
-    expect(getProcessScore([])).toBeNull();
-    expect(getProcessScore([{ key: "planned-end", result: "na" }])).toBeNull();
+    expect(hasCurrentProcessResults({})).toBe(false);
   });
 });
 
