@@ -20,25 +20,35 @@ export default function ContextualBanditHealthTab({
   const { results, latest, loading, error } = useContextualBanditResults(cb.id);
   const healthIssues = useContextualBanditHealthIssues(cb);
 
+  // Build the labels and per-variation values from `results.overall.variations` rather than
+  // matching positions against `cb.variations` — otherwise a removed or pending
+  // arm shifts every slot and mislabels (or drops) the counts.
+  const frozenVariations = useMemo(
+    () => results?.overall.variations ?? [],
+    [results],
+  );
+
   const variations: ExperimentReportVariation[] = useMemo(
     () =>
-      cb.variations.map((v, i) => ({
-        id: v.id,
+      frozenVariations.map((v, i) => ({
+        id: v.variationId,
         index: i,
-        name: v.name,
+        name: v.variationName ?? v.variationId,
         weight:
-          results?.overall.variations[i]?.weight ??
-          (cb.variations.length ? 1 / cb.variations.length : 0),
+          v.weight ??
+          (frozenVariations.length ? 1 / frozenVariations.length : 0),
       })),
-    [cb.variations, results],
+    [frozenVariations],
   );
 
   const traffic = latest?.traffic ?? null;
   const srm = latest?.srm?.pValue ?? null;
   const overallUsers = useMemo(
     () =>
-      cb.variations.map((_, i) => traffic?.overall?.variationUnits?.[i] ?? 0),
-    [cb.variations, traffic],
+      frozenVariations.map(
+        (_, i) => traffic?.overall?.variationUnits?.[i] ?? 0,
+      ),
+    [frozenVariations, traffic],
   );
 
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);

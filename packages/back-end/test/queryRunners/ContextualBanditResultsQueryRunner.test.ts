@@ -376,6 +376,80 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(result.traffic?.overall.variationUnits).toEqual([60, 40]);
     });
 
+    it("maps traffic by frozen variation id, not position, when a pending arm shifts the live list", async () => {
+      // Frozen active arms at snapshot time: v0, v2 (a pending arm v1 was later
+      // added between them in the live doc). Resolving the warehouse key by
+      // position would read v1's key ("1") for the second frozen arm, so v2's
+      // traffic (tagged with key "2") would not match and silently drop.
+      const cb = makeCb({
+        variations: [
+          { id: "v0", key: "0", name: "Control", screenshots: [] },
+          {
+            id: "v1",
+            key: "1",
+            name: "Pending",
+            status: "pending",
+            screenshots: [],
+          },
+          { id: "v2", key: "2", name: "Treatment", screenshots: [] },
+        ],
+      } as Partial<ContextualBanditInterface>);
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      const snapshotSettings = makeSnapshotSettings({
+        variations: [
+          { id: "v0", weight: 0.5 },
+          { id: "v2", weight: 0.5 },
+        ],
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).snapshotSettings = snapshotSettings;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).variationNames = ["Control", "Treatment"];
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "2", users: 100, count: 100, main_sum: 6 },
+      ];
+      // Traffic rows are tagged with the variation key, not the id.
+      const trafficRows = [
+        {
+          variation: "0",
+          units: 60,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+        {
+          variation: "2",
+          units: 40,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+          { result: trafficRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      // Both frozen arms keep their traffic; v2 is not mislabeled as the pending arm.
+      expect(result.traffic?.overall.variationUnits).toEqual([60, 40]);
+    });
+
     it("extracts the SRM summary plus the latest-period per-leaf breakdown", async () => {
       const cb = makeCb();
       const context = makeContext(cb);

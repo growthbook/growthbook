@@ -297,11 +297,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     // Traffic rows are tagged with the variation key (emitted by the assignment query),
     // not the internal variation id, so analyzeExperimentTraffic must be
-    // keyed by key.
+    // keyed by key. Resolve each frozen variation's key by id (via `keyById`),
+    // not by position.
     const traffic = this.extractTraffic(
       queryMap,
-      this.snapshotSettings.variations.map((v, i) => ({
-        id: cb.variations?.[i]?.key || String(i),
+      this.snapshotSettings.variations.map((v) => ({
+        id: keyById.get(v.id) ?? v.id,
         weight: v.weight,
       })),
     );
