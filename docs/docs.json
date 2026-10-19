@@ -293,7 +293,8 @@
                     "pages": [
                       "integrations/ai-agents/wizard",
                       "integrations/mcp",
-                      "integrations/ai-agents/agent-skills"
+                      "integrations/ai-agents/agent-skills",
+                      "integrations/ai-agents/api-keys"
                     ]
                   },
                   "integrations/vercel",
@@ -979,7 +980,10 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",
@@ -1037,6 +1041,17 @@
                   "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
                   "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
                   "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving"
                 ]
               },
               {
@@ -1174,6 +1189,8 @@
               "api/ConfigSchemaSource_model",
               "api/ConfigSchemaVerify_model",
               "api/ConfigSchemaWarning_model",
+              "api/Confirmation_model",
+              "api/ConfirmationHeld_model",
               "api/Constant_model",
               "api/ConstantReferences_model",
               "api/ConstantRevision_model",
@@ -1226,6 +1243,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
               "api/InterleavingExposureQuery_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
@@ -1265,7 +1283,8 @@
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]

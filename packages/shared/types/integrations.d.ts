@@ -12,6 +12,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -19,6 +20,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
+  RowFilter,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
@@ -641,6 +643,12 @@ export type PastExperimentParams = {
   forceRefresh?: boolean;
 };
 
+export type PastExperimentQueryParams = {
+  exposureQuery: ExposureQuery;
+  identifierTypes: string[];
+  from: Date;
+};
+
 export type MetricValueParams = {
   from: Date;
   to: Date;
@@ -686,9 +694,15 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  /** Unset on results stored before imports ran one query per assignment query. */
+  exposureQueryId?: string;
+  identifierTypes?: string[];
+  from?: Date;
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
+    /** Unset on results stored before every identifier was counted. */
+    identifierType?: string;
     experiment_id: string;
     experiment_name?: string;
     variation_id: string;
@@ -791,6 +805,7 @@ export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
+  identifier_type: string;
   experiment_id: string;
   experiment_name?: string;
   variation_id: string;
@@ -932,6 +947,29 @@ export type FeatureEvalDiagnosticsQueryResponse =
     truncated?: boolean;
   };
 
+export type ExperimentExposuresQueryParams = {
+  experimentId: string;
+  experimentTrackingKey: string;
+  exposureQuery: ResolvedExposureQuery;
+  startDate: Date;
+  endDate: Date;
+  dimensions: string[];
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
+  rowFilters?: RowFilter[];
+  limit: number;
+};
+
+// The query selects every column the exposure query returns, so the shape is
+// only known at runtime. shapeExposureRows() in
+// back-end/src/services/experiment-exposures.ts splits it into typed fields
+// and the `extra` bag behind the expandable row.
+export type ExperimentExposuresQueryResponseRows = Record<string, unknown>[];
+
+export type ExperimentExposuresQueryResponse =
+  QueryResponse<ExperimentExposuresQueryResponseRows>;
+
 export interface TestQueryRow {
   [key: string]: unknown;
 }
@@ -953,6 +991,7 @@ export interface Column {
   columnName: string;
   path?: string;
   dataType: string;
+  isPartition?: boolean;
 }
 
 export interface Table {

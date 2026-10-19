@@ -3,8 +3,9 @@ import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { MetricOverride } from "shared/types/experiment";
+import { CustomMetricSlice, MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
@@ -17,6 +18,7 @@ import {
   funnelStepMetricId,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
+  SliceDataForMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -30,6 +32,8 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   filterMetricsByTags,
+  getSliceDataForMetric,
+  getSliceRowLabel,
   sortMetricsByCustomOrder,
   sortMetricsByTags,
 } from "./useExperimentTableRows";
@@ -55,6 +59,7 @@ export interface UseExperimentDimensionRowsParams {
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
   pValueThreshold: number;
+  customMetricSlices?: CustomMetricSlice[];
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -84,8 +89,16 @@ export function useExperimentDimensionRows({
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
   pValueThreshold,
+  customMetricSlices,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
+  const getFactTableById: (id: string) => FactTableDefinition | null =
+    ssrPolyfills?.getFactTableById || _getFactTableById;
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
@@ -379,6 +392,12 @@ export function useExperimentDimensionRows({
             metricSnapshotSettings,
             newMetric,
             replacedByMetricName,
+            sliceData: getSliceDataForMetric({
+              metric,
+              metricName: newMetric?.name || "",
+              customMetricSlices,
+              getFactTableById,
+            }),
           }),
         };
       };
@@ -419,11 +438,12 @@ export function useExperimentDimensionRows({
         sortDirection: sortDirection || "desc",
       };
 
-      // A funnel table's rows are dimension-value parents with per-step child
-      // rows beneath each. Sort the parents but keep each parent's steps
-      // attached in step order; a flat sort would tear that grouping apart.
+      // A funnel (or sliced metric) table's rows are dimension-value parents
+      // with child rows (funnel steps or metric slices) beneath each. Sort the
+      // parents but keep each parent's children attached in their original
+      // order; a flat sort would tear that grouping apart.
       return tables.map((table) =>
-        isFactFunnelMetric(table.metric)
+        table.rows.some((row) => row.isChildRow)
           ? {
               ...table,
               rows: sortFunnelDimensionRows(table.rows, sortOptions),
@@ -453,6 +473,8 @@ export function useExperimentDimensionRows({
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     getExperimentMetricById,
+    getFactTableById,
+    customMetricSlices,
     ready,
     metricDefaults,
     pValueThreshold,
@@ -501,6 +523,7 @@ export function generateDimensionRowsForMetric({
   metricSnapshotSettings,
   newMetric,
   replacedByMetricName,
+  sliceData = [],
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -510,6 +533,7 @@ export function generateDimensionRowsForMetric({
   metricSnapshotSettings: MetricSnapshotSettings | undefined;
   newMetric: ExperimentMetricDefinition;
   replacedByMetricName?: string;
+  sliceData?: SliceDataForMetric[];
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 
@@ -528,7 +552,9 @@ export function generateDimensionRowsForMetric({
 
   // One row per dimension result. For a funnel metric the dimension value is
   // the parent (whole-funnel completion) and each step follows as a child row,
-  // mirroring the overall table's nesting one level deeper.
+  // mirroring the overall table's nesting one level deeper. Metric slices nest
+  // the same way: each slice of the metric becomes a child row of the
+  // dimension value, read from that dimension value's results.
   filteredResults.forEach((dimensionResult) => {
     const parentRow: ExperimentTableRow = {
       label: dimensionResult.name,
@@ -544,12 +570,56 @@ export function generateDimensionRowsForMetric({
       replacedByMetricName,
     };
 
+    const parentRowId = `${metricId}:${dimensionResult.name}`;
+
     if (!funnelSteps.length) {
-      rows.push(parentRow);
+      const sliceRows: ExperimentTableRow[] = [];
+      sliceData.forEach((slice) => {
+        const variations = dimensionResult.variations.map(
+          (v) => v.metrics?.[slice.id] || noData(),
+        );
+        // Skip "other" slice rows with no data (matches the overall table)
+        if (
+          slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+          variations.every((v) => v.value === 0)
+        ) {
+          return;
+        }
+        sliceRows.push({
+          label: getSliceRowLabel(slice),
+          dimensionValue: dimensionResult.name,
+          metric: {
+            ...newMetric,
+            name: slice.name,
+          },
+          metricOverrideFields: overrideFields,
+          rowClass: newMetric?.inverse ? "inverse" : "",
+          sliceId: slice.id,
+          variations,
+          metricSnapshotSettings,
+          resultGroup,
+          replacedByMetricName,
+          numChildren: 0,
+          isSliceRow: true,
+          isChildRow: true,
+          childRowType: "slice",
+          parentRowId,
+          sliceLevels: slice.sliceLevels.map((dl) => ({
+            column: dl.column,
+            datatype: dl.datatype,
+            levels: dl.levels,
+          })),
+          allSliceLevels: slice.allSliceLevels,
+          isHiddenByFilter: false,
+        });
+      });
+      if (sliceRows.length) {
+        parentRow.numChildren = sliceRows.length;
+      }
+      rows.push(parentRow, ...sliceRows);
       return;
     }
 
-    const parentRowId = `${metricId}:${dimensionResult.name}`;
     parentRow.numChildren = funnelSteps.length;
     rows.push(parentRow);
 

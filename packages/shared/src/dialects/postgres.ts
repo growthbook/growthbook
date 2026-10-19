@@ -11,6 +11,7 @@ export const postgresDialect: SqlDialect = {
       `CROSS JOIN LATERAL jsonb_array_elements((${jsonColumn})::jsonb) AS ${itemAlias}`,
     fieldText: (itemAlias, field) => `${itemAlias} ->> '${field}'`,
   },
+  unquotedIdentifierFold: "lower",
   ...createLikeMatchFns({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     emitEscapeClause: false,

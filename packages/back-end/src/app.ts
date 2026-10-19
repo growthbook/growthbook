@@ -127,6 +127,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { learningsRouter } from "./routers/learnings/learnings.router";
+import { confirmationsRouter } from "./routers/confirmations/confirmations.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -171,6 +172,7 @@ import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
+import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -686,6 +688,7 @@ app.use("/saved-groups", savedGroupRouter);
 app.use("/archetype", ArchetypeRouter);
 
 app.use("/learnings", learningsRouter);
+app.use("/confirmations", confirmationsRouter);
 
 app.use("/attribute", AttributeRouter);
 
@@ -744,6 +747,7 @@ app.use(metricGroupRouter);
 app.use(populationDataRouter);
 
 // Experiments
+app.use(experimentExposuresRouter);
 app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(

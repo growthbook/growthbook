@@ -39,6 +39,9 @@ import {
   validateFeatureValue,
   contextualBanditTargetingServes,
   monitoringConfigToApi,
+  getInterleavingFeatureDefId,
+  interleavingInSDKPayload,
+  parseInterleavingRankerConfig,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -78,6 +81,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -94,6 +98,7 @@ import {
   eventUserLegacyLabel,
   eventUserToApiEventUser,
   HoldoutInterface,
+  InterleavingInterface,
   resolveSavedGroupsInput,
   eventUserIdentity,
   RevisionRampAction,
@@ -170,6 +175,7 @@ import {
   getHoldoutFeatureDefId,
   mergeConditionAndSavedGroups,
   pairedWeightsToPositional,
+  prerequisiteParentConditions,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
   experimentMapForFeatures,
@@ -435,6 +441,86 @@ export function generateHoldoutsPayload({
     };
   });
   return holdoutDefs;
+}
+
+export function generateInterleavingsPayload({
+  interleavings,
+  environment,
+  projects,
+  savedGroupStrategy,
+}: {
+  interleavings: InterleavingInterface[];
+  environment: string;
+  projects: string[];
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): {
+  features: Record<string, FeatureDefinition>;
+  interleavings?: InterleavingDefinitions;
+} {
+  const features: Record<string, FeatureDefinition> = {};
+  const defs: InterleavingDefinitions = {};
+  interleavings.forEach((il) => {
+    if (!interleavingInSDKPayload(il)) return;
+    if (!il.environmentSettings[environment]?.enabled) return;
+    if (
+      projects.length > 0 &&
+      !projects.some((p) => entityTargetsProject(il, p))
+    ) {
+      return;
+    }
+
+    let variations: InterleavingDefinitions[string]["variations"];
+    try {
+      variations = il.variations.map((v) => ({
+        key: v.key,
+        config: parseInterleavingRankerConfig(v.config),
+      }));
+    } catch (e) {
+      logger.error(
+        { err: e, interleavingId: il.id },
+        "Skipping interleaving with an invalid ranker config",
+      );
+      return;
+    }
+    defs[il.key] = { trackingKey: il.trackingKey, variations };
+
+    const id = getInterleavingFeatureDefId(il.key);
+    const rule: FeatureDefinitionRule = {
+      id,
+      force: { interleave: true },
+      coverage: il.coverage,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      hashVersion: 2,
+    };
+
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: il.condition,
+      savedGroups: il.savedGroups,
+    });
+    if (condition) {
+      savedGroupStrategy.finalizeCondition(condition);
+      rule.condition = condition;
+    }
+    if (il.prerequisites?.length) {
+      rule.parentConditions = prerequisiteParentConditions(
+        il.prerequisites,
+        savedGroupStrategy,
+      );
+      savedGroupStrategy.finalizeCondition(rule.parentConditions);
+    }
+
+    features[id] = {
+      defaultValue: il.variations[0].key,
+      rules: [rule],
+    };
+  });
+
+  return {
+    features,
+    interleavings: Object.keys(defs).length > 0 ? defs : undefined,
+  };
 }
 
 export type VisualExperiment = {
@@ -1244,8 +1330,10 @@ export async function refreshSDKPayloadCache({
       await context.models.holdout.getAllPayloadHoldouts(environment);
   }
   const cbMap = await getPayloadContextualBandits(context, allFeatures);
-  // Holdouts and contextual bandits carry targeting the features and
-  // experiments do not.
+  const interleavings =
+    await context.models.interleavings.getAllPayloadInterleavings();
+  // Holdouts, contextual bandits and interleavings carry targeting the
+  // features and experiments do not.
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -1253,6 +1341,7 @@ export async function refreshSDKPayloadCache({
       ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
     ],
     bandits: cbMap.values(),
+    interleavings,
   });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
@@ -1277,6 +1366,7 @@ export async function refreshSDKPayloadCache({
     rampMonitoredRuleMap,
     constants,
     cbMap,
+    interleavings,
   };
 
   // Build the constant value map once per environment (parsing each JSON
@@ -1403,6 +1493,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroupFormat?: SavedGroupFormat;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   contextualBandits?: ContextualBanditDefinitions;
+  interleavings?: InterleavingDefinitions;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1417,6 +1508,7 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   contextualBandits,
+  interleavings,
   savedGroupFormat,
   savedGroupStrategy: providedSavedGroupStrategy,
   organization,
@@ -1430,6 +1522,8 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1514,6 +1608,9 @@ export async function getFeatureDefinitionsResponse({
   const contextualBanditsForPayload = capabilities.includes("contextualBandits")
     ? contextualBandits
     : undefined;
+  const interleavingsForPayload = capabilities.includes("interleaving")
+    ? interleavings
+    : undefined;
 
   if (
     contextualBanditsForPayload &&
@@ -1560,6 +1657,9 @@ export async function getFeatureDefinitionsResponse({
       ...(contextualBanditsForPayload !== undefined && {
         contextualBandits: contextualBanditsForPayload,
       }),
+      ...(interleavingsForPayload !== undefined && {
+        interleavings: interleavingsForPayload,
+      }),
     };
   }
 
@@ -1580,6 +1680,10 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(contextualBanditsForPayload), encryptionKey)
     : undefined;
 
+  const encryptedInterleavings = interleavingsForPayload
+    ? await encrypt(JSON.stringify(interleavingsForPayload), encryptionKey)
+    : undefined;
+
   return {
     features: {},
     ...(experiments !== undefined && { experiments: [] }),
@@ -1589,6 +1693,9 @@ export async function getFeatureDefinitionsResponse({
     encryptedSavedGroups: encryptedSavedGroups,
     ...(encryptedContextualBandits !== undefined && {
       encryptedContextualBandits,
+    }),
+    ...(encryptedInterleavings !== undefined && {
+      encryptedInterleavings,
     }),
   };
 }
@@ -1634,6 +1741,7 @@ export type SDKPayloadRawData = {
   // Bandits behind the features' contextual-bandit-ref rules, loaded once for
   // every connection a refresh builds.
   cbMap?: Map<string, ContextualBanditInterface>;
+  interleavings?: InterleavingInterface[];
   constants?: ConstantInterface[];
   // Pre-built per-environment constant value map. Hoisted out of
   // generateFeaturesPayload so the bulk refresh builds it once per env (next to
@@ -1865,9 +1973,19 @@ export async function buildSDKPayloadForConnection(
     featureDefinitions,
   );
 
+  const interleavingsPayload = capabilities.includes("interleaving")
+    ? generateInterleavingsPayload({
+        interleavings: data.interleavings ?? [],
+        environment,
+        projects: projectList,
+        savedGroupStrategy,
+      })
+    : undefined;
+
   const featuresWithHoldouts = {
     ...featureDefinitions,
     ...holdoutsInUse,
+    ...interleavingsPayload?.features,
   };
 
   const usedSavedGroupIds = getUsedSavedGroupIds(
@@ -1907,6 +2025,7 @@ export async function buildSDKPayloadForConnection(
     usedSavedGroups,
     savedGroupStrategy,
     contextualBandits: contextualBanditsInUse,
+    interleavings: interleavingsPayload?.interleavings,
     organization: context.org,
   });
 }
@@ -1921,6 +2040,8 @@ export type FeatureDefinitionSDKPayload = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 };
 
 // Bounds a pathological chain issuing a query per hop.
@@ -2005,6 +2126,8 @@ export async function getFeatureDefinitions(
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
   const cbMap = await getPayloadContextualBandits(context, allFeatures);
+  const interleavings =
+    await context.models.interleavings.getAllPayloadInterleavings();
 
   const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
@@ -2013,6 +2136,7 @@ export async function getFeatureDefinitions(
       ...getPayloadHoldoutExperiments([holdoutsMap]),
     ],
     bandits: cbMap.values(),
+    interleavings,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
@@ -2049,6 +2173,7 @@ export async function getFeatureDefinitions(
       rampMonitoredRuleMap,
       constants: await getResolvableValues(context),
       cbMap,
+      interleavings,
     },
   });
 }
@@ -3876,6 +4001,28 @@ function prerequisiteListsDiffer(
   return false;
 }
 
+type PrerequisiteGatedItem = { organization: string; gatedBy: string };
+
+const logMalformedPrerequisiteCondition =
+  (
+    prereq: FeaturePrerequisite,
+    { organization, gatedBy }: PrerequisiteGatedItem,
+    environment: string,
+  ) =>
+  (err: unknown) => {
+    logger.warn(
+      {
+        err,
+        organization,
+        gatedBy,
+        prerequisite: prereq.id,
+        condition: prereq.condition,
+        environment,
+      },
+      "Malformed prerequisite condition during SDK payload generation; the gated feature or rule is omitted",
+    );
+  };
+
 const logCyclicPrerequisite = (
   prereqFeature: FeatureInterface,
   environment: string,
@@ -3941,6 +4088,11 @@ export const reduceFeaturesWithPrerequisites = (
           const evaled = evalDeterministicPrereqValue(
             state.value ?? null,
             prereq.condition,
+            logMalformedPrerequisiteCondition(
+              prereq,
+              { organization: feature.organization, gatedBy: feature.id },
+              environment,
+            ),
           );
           if (evaled === "fail") {
             removeFeature = true;
@@ -3971,6 +4123,7 @@ export const reduceFeaturesWithPrerequisites = (
           rule.prerequisites || [],
           featuresMap,
           environment,
+          { organization: feature.organization, gatedBy: feature.id },
           prereqStateCache,
         );
       if (removeRule) {
@@ -4030,6 +4183,10 @@ export const reduceExperimentsWithPrerequisites = <
         phase.prerequisites || [],
         featuresMap,
         environment,
+        {
+          organization: data.experiment.organization,
+          gatedBy: data.experiment.id,
+        },
         prereqStateCache,
       );
     if (!removeRule) {
@@ -4044,6 +4201,7 @@ const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],
   featuresMap: Map<string, FeatureInterface>,
   environment: string,
+  gatedItem: PrerequisiteGatedItem,
   prereqStateCache: Record<string, PrerequisiteStateResult> = {},
 ): {
   removeRule: boolean;
@@ -4088,6 +4246,7 @@ const getInlinePrerequisitesReductionInfo = (
         const evaled = evalDeterministicPrereqValue(
           state.value ?? null,
           pc.condition,
+          logMalformedPrerequisiteCondition(pc, gatedItem, environment),
         );
         if (evaled === "fail") {
           // remove the rule

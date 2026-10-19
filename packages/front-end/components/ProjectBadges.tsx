@@ -21,7 +21,9 @@ export interface Props {
     | "dashboard"
     | "custom field"
     | "experiment"
+    | "experiment assignment query"
     | "contextual bandit"
+    | "interleaving"
     | "constant"
     | "population";
   projectIds?: string[];
@@ -36,6 +38,7 @@ const singularProjectTypes = [
   "feature",
   "experiment",
   "contextual bandit",
+  "interleaving",
   "constant",
 ];
 

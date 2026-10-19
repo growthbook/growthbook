@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  confirmRulesValidator,
   requesterHeaderValidator,
   requesterPermissionsValidator,
 } from "shared/validators";
@@ -55,6 +56,8 @@ export const postApiKeyValidator = z.strictObject({
   requesterPermissions: requesterPermissionsValidator.optional(),
   // ISO string; null or absent means no expiration, subject to the org policy.
   expiresAt: z.string().nullable().optional(),
+  // Null or omitted means no confirmations.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -72,6 +75,8 @@ export const putApiKeyValidator = z.strictObject({
   requesterPermissions: requesterPermissionsValidator.optional(),
   // Omitted leaves the expiry unchanged; null removes it where the policy allows.
   expiresAt: z.string().nullable().optional(),
+  // Null turns confirmations off for this key; omitted leaves them unchanged.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

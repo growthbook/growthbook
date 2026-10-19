@@ -10,6 +10,7 @@ import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { InterleavingExposureQueryModel } from "back-end/src/enterprise/models/InterleavingExposureQueryModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -59,6 +60,7 @@ import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
 import { metaRoutes } from "./meta/meta.router";
+import { confirmationsRoutes } from "./confirmations/confirmations.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
@@ -70,6 +72,7 @@ const API_MODELS: ModelClass[] = [
   ContextualBanditModel,
   ContextualBanditQueryModel,
   InterleavingExposureQueryModel,
+  InterleavingModel,
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
@@ -201,6 +204,7 @@ export const allRoutes = [
   ...queriesRoutes,
   ...settingsRoutes,
   ...metaRoutes,
+  ...confirmationsRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,

@@ -1,8 +1,8 @@
-import { PiCaretLeft, PiCaretRight, PiTimer } from "react-icons/pi";
+import { PiCaretLeft, PiCaretRight, PiTimer, PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -60,6 +60,12 @@ export type TestQueryResultsTableProps = {
   showNoRowsWarning?: boolean;
   emptyResultsContent?: ReactNode;
   onViewSql?: () => void;
+  /** Extra style applied to the SQL code block's own container. */
+  sqlStyle?: CSSProperties;
+  /** Passed through to the SQL code block's own `maxHeight`. */
+  sqlMaxHeight?: string;
+  compact?: boolean;
+  onClose?: () => void;
 };
 
 export type Props = Omit<TestQueryResultsTableProps, "onViewSql"> & {
@@ -86,6 +92,10 @@ export function TestQueryResultsTable({
   showNoRowsWarning = true,
   emptyResultsContent,
   onViewSql,
+  sqlStyle,
+  sqlMaxHeight,
+  compact,
+  onClose,
 }: TestQueryResultsTableProps) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
@@ -95,6 +105,19 @@ export function TestQueryResultsTable({
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
+
+  const closeButton = onClose ? (
+    <IconButton
+      type="button"
+      variant="ghost"
+      color="gray"
+      size="1"
+      aria-label="Close results"
+      onClick={onClose}
+    >
+      <PiX />
+    </IconButton>
+  ) : null;
 
   const showRenderedSqlContent =
     Boolean(error) ||
@@ -187,20 +210,25 @@ export function TestQueryResultsTable({
       }}
       className="mt-3"
     >
+      {closeButton ? (
+        <Flex justify="end" mb="2">
+          {closeButton}
+        </Flex>
+      ) : null}
       {error ? (
         isManagedWarehousePendingQueryError(error) ? (
           <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
-            <ManagedWarehouseNoEventsCallout />
+            <ManagedWarehouseNoEventsCallout size={compact ? "sm" : "md"} />
           </div>
         ) : (
-          <Callout status="error" mr="auto">
+          <Callout status="error" size={compact ? "sm" : "md"} mr="auto">
             {error}
           </Callout>
         )
       ) : (
         showNoRowsWarning &&
         !results.length && (
-          <Callout status="warning" mr="auto">
+          <Callout status="warning" size={compact ? "sm" : "md"} mr="auto">
             No rows returned, could not verify result
           </Callout>
         )
@@ -210,6 +238,8 @@ export function TestQueryResultsTable({
         language="sql"
         errorLine={errorLine}
         expandable={expandable}
+        style={sqlStyle}
+        maxHeight={sqlMaxHeight}
       />
     </div>
   );
@@ -220,8 +250,8 @@ export function TestQueryResultsTable({
       style={{
         flex: 1,
         minHeight: 0,
-        marginTop: 8,
-        marginBottom: 16,
+        marginTop: compact ? 0 : 8,
+        marginBottom: compact ? 0 : 16,
         border: "1px solid var(--gray-a3)",
         borderRadius: "var(--radius-4)",
         backgroundColor: "var(--color-panel-translucent)",
@@ -237,7 +267,9 @@ export function TestQueryResultsTable({
           <div className="rounded p-2 bg-light">
             {downloadError ? (
               <div className="mb-2">
-                <Callout status="error">{downloadError}</Callout>
+                <Callout status="error" size={compact ? "sm" : "md"}>
+                  {downloadError}
+                </Callout>
               </div>
             ) : null}
             <Flex align="center" gap="4">
@@ -353,14 +385,17 @@ export function TestQueryResultsTable({
                   ) : null}
                 </DropdownMenu>
               ) : null}
+              {closeButton}
             </Flex>
           </div>
           <div
             style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-            className="mb-3"
+            className={compact ? undefined : "mb-3"}
             ref={tableBodyScrollRef}
           >
-            <table className="table table-bordered appbox gbtable table-hover mb-0">
+            <table
+              className={`table table-bordered appbox gbtable table-hover mb-0${compact ? " table-sm" : ""}`}
+            >
               <thead
                 style={{
                   position: "sticky",
