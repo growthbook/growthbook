@@ -22,14 +22,17 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { Flex, Separator } from "@radix-ui/themes";
-import UrlRedirectRows from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import {
   ADDABLE_KINDS,
   AddImplementationMenu,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import VisualEditorRows from "@/components/Experiment/VisualChangesetTable";
+import VisualChangesetColumn from "@/components/Experiment/VisualChangesetTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import { ImplementationSection } from "@/components/Experiment/TabbedPage/ImplementationCard";
+import {
+  ColumnLayout,
+  ImplementationColumn,
+} from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -326,30 +329,32 @@ export default function Implementation({
         kind
       ],
   );
-  const otherImplementations = (
-    <>
-      {hasRedirects ? (
-        <UrlRedirectRows
-          experiment={experiment}
-          variations={shownVariations}
-          urlRedirects={shownRedirects}
+  const implementationColumns: ImplementationColumn[] = [
+    ...shownRedirects.map((r) => ({
+      key: `redirect:${r.key}`,
+      staged: !!r.staged,
+      render: (layout: ColumnLayout) => (
+        <UrlRedirectColumn
+          layout={layout}
+          redirect={r}
+          project={experiment.project ?? ""}
           canEdit={canAddLinkedChanges && stagesLinkedChanges}
           lockedReason={linkedChangesLockedReason}
           environmentStates={urlRedirectEnvStates}
-          onEdit={(target) => setRedirectModal({ target })}
-          onRemove={(target) =>
-            setLinkedDraft((d) => removeRedirect(d, target))
-          }
-          onUndo={(target) =>
-            setLinkedDraft((d) => undoRedirect(d, target.key))
-          }
+          onEdit={() => setRedirectModal({ target: r })}
+          onRemove={() => setLinkedDraft((d) => removeRedirect(d, r))}
+          onUndo={() => setLinkedDraft((d) => undoRedirect(d, r.key))}
         />
-      ) : null}
-      {hasVisual ? (
-        <VisualEditorRows
+      ),
+    })),
+    ...shownChangesets.map((shown) => ({
+      key: `visual:${shown.stored.id}`,
+      staged: !!shown.staged,
+      render: (layout: ColumnLayout) => (
+        <VisualChangesetColumn
+          layout={layout}
+          shown={shown}
           experiment={experiment}
-          variations={shownVariations}
-          visualChangesets={shownChangesets}
           canEdit={hasVisualEditorPermission && stagesLinkedChanges}
           lockedReason={linkedChangesLockedReason}
           canLaunch={
@@ -362,30 +367,25 @@ export default function Implementation({
           onRemove={(id) => setLinkedDraft((d) => removeVisual(d, id))}
           onUndo={(id) => setLinkedDraft((d) => undoVisual(d, id))}
         />
-      ) : null}
-      {canAddAny ? (
-        <ImplementationSection
-          cols={Math.min(shownVariations.length, 3)}
-          add={
-            <AddImplementationMenu
-              experiment={experiment}
-              onAdd={{
-                feature: () => setFeatureModal(true),
-                visual: () => setVisualEditorModal(true),
-                urlredirect: () => setRedirectModal({ target: null }),
-              }}
-              primary={shownKinds.length === 1 ? shownKinds[0] : null}
-              blockedReasons={{
-                feature: addBlockedReason,
-                visual: linkedChangesLockedReason,
-                urlredirect: linkedChangesLockedReason,
-              }}
-            />
-          }
-        />
-      ) : null}
-    </>
-  );
+      ),
+    })),
+  ];
+  const addImplementation = canAddAny ? (
+    <AddImplementationMenu
+      experiment={experiment}
+      onAdd={{
+        feature: () => setFeatureModal(true),
+        visual: () => setVisualEditorModal(true),
+        urlredirect: () => setRedirectModal({ target: null }),
+      }}
+      primary={shownKinds.length === 1 ? shownKinds[0] : null}
+      blockedReasons={{
+        feature: addBlockedReason,
+        visual: linkedChangesLockedReason,
+        urlredirect: linkedChangesLockedReason,
+      }}
+    />
+  ) : null;
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -493,7 +493,8 @@ export default function Implementation({
             // Values land in drafts in every status; publishing them is what
             // goes through review.
             canEditFlagValues={canEditExperiment}
-            otherImplementations={otherImplementations}
+            implementationColumns={implementationColumns}
+            addImplementation={addImplementation}
           />
         ) : (
           <TrafficAndTargeting

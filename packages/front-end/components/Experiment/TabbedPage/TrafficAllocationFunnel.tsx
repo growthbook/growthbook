@@ -38,6 +38,7 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import FunnelConnector from "./FunnelConnector";
+import { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable, {
   FlagView,
   FUNNEL_WIDTH,
@@ -81,7 +82,8 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
   canEditFlagValues?: boolean;
-  otherImplementations?: ReactNode;
+  implementationColumns?: ImplementationColumn[];
+  addImplementation?: ReactNode;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   /**
@@ -210,7 +212,8 @@ export default function TrafficAllocationFunnel({
   editVariationKeys,
   linkedFeatures = [],
   canEditFlagValues = false,
-  otherImplementations,
+  implementationColumns = [],
+  addImplementation = null,
   canEditExperiment = false,
   safeToEdit = false,
   targetingDraft,
@@ -362,7 +365,12 @@ export default function TrafficAllocationFunnel({
   );
   const flagView: FlagView = !canViewLive
     ? "draft"
-    : (chosenFlagView ?? (draftsDiffer || flagNeedsAction ? "draft" : "live"));
+    : (chosenFlagView ??
+      (draftsDiffer ||
+      flagNeedsAction ||
+      implementationColumns.some((c) => c.staged)
+        ? "draft"
+        : "live"));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
   const variationsLocked = isRunning;
@@ -640,8 +648,9 @@ export default function TrafficAllocationFunnel({
                     ? addVariation
                     : undefined
                 }
+                implementationColumns={implementationColumns}
+                addImplementation={addImplementation}
               />
-              {otherImplementations}
             </>
           )}
         </Flex>

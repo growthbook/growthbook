@@ -24,7 +24,6 @@ import {
   PiCaretDownFill,
   PiFlag,
   PiPlus,
-  PiWarningFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -69,7 +68,15 @@ import {
 } from "@/services/utils";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
-import { CardHeaderDivider } from "./ImplementationCard";
+import {
+  ColumnCell,
+  ColumnFooter,
+  ColumnHeader,
+  ColumnLayout,
+  HeaderText,
+  ImplementationColumn,
+  StagedNote,
+} from "./ImplementationColumn";
 import {
   FlagEnvironmentsDraft,
   useRegisterExperimentEdit,
@@ -143,6 +150,8 @@ export interface Props {
   onRemoveVariation?: (variationIndex: number) => void;
   onReorder?: () => void;
   onAddVariation?: () => void;
+  implementationColumns?: ImplementationColumn[];
+  addImplementation?: ReactNode;
 }
 
 export default function VariationValuesTable({
@@ -160,21 +169,32 @@ export default function VariationValuesTable({
   onRemoveVariation,
   onReorder,
   onAddVariation,
+  implementationColumns = [],
+  addImplementation = null,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
+  const columnCount = linkedFeatures.length + implementationColumns.length;
   const columns = [
     `minmax(${VARIATION_NARROWEST_WIDTH}px, 1fr)`,
     `${SPLIT_WIDTH}px`,
-    ...linkedFeatures.map(() => `${FLAG_WIDTH}px`),
+    ...Array(columnCount).fill(`${FLAG_WIDTH}px`),
   ].join(" ");
   const tableWidth = Math.max(
     FUNNEL_WIDTH - BORDERS,
-    VARIATION_MIN_WIDTH + SPLIT_WIDTH + linkedFeatures.length * FLAG_WIDTH,
+    VARIATION_MIN_WIDTH + SPLIT_WIDTH + columnCount * FLAG_WIDTH,
   );
   const firstValueRow = 2;
   const detailsRow = firstValueRow + variations.length;
-  const firstFlagColumn = 3;
+  const firstImplementationColumn = 3;
+  const layoutFor = (i: number): ColumnLayout => ({
+    column: firstImplementationColumn + i,
+    last: i === columnCount - 1,
+    firstValueRow,
+    detailsRow,
+    variations,
+    showingLive: flagView === "live",
+  });
   const [scrolled, setScrolled] = useState(false);
 
   if (!variations.length) return null;
@@ -305,7 +325,7 @@ export default function VariationValuesTable({
 
             <SplitColumn
               column={2}
-              last={!linkedFeatures.length}
+              last={!columnCount}
               firstValueRow={firstValueRow}
               detailsRow={detailsRow}
               variations={variations}
@@ -315,23 +335,33 @@ export default function VariationValuesTable({
             />
 
             {linkedFeatures.map((info, i) => (
-              <FlagColumn
+              <div
                 key={info.feature.id}
-                column={firstFlagColumn + i}
-                last={i === linkedFeatures.length - 1}
-                firstValueRow={firstValueRow}
-                detailsRow={detailsRow}
-                experiment={experiment}
-                info={info}
-                canEdit={canEditFlagValues}
-                flagEnvironments={flagEnvironments}
-                draftPicks={draftPicks}
-                showingLive={flagView === "live"}
-              />
+                className={styles.implementationColumn}
+              >
+                <FlagColumn
+                  layout={layoutFor(i)}
+                  experiment={experiment}
+                  info={info}
+                  canEdit={canEditFlagValues}
+                  flagEnvironments={flagEnvironments}
+                  draftPicks={draftPicks}
+                />
+              </div>
+            ))}
+            {implementationColumns.map((c, i) => (
+              <div key={c.key} className={styles.implementationColumn}>
+                {c.render(layoutFor(linkedFeatures.length + i))}
+              </div>
             ))}
           </div>
         </Box>
       </Box>
+      {addImplementation ? (
+        <Flex justify="end" mt="4">
+          {addImplementation}
+        </Flex>
+      ) : null}
     </Box>
   );
 }
@@ -410,32 +440,24 @@ function SplitColumn({
 }
 
 function FlagColumn({
-  column,
-  last,
-  firstValueRow,
-  detailsRow,
+  layout,
   experiment,
   info,
   canEdit,
   flagEnvironments,
   draftPicks,
-  showingLive,
 }: {
-  column: number;
-  last: boolean;
-  firstValueRow: number;
-  detailsRow: number;
+  layout: ColumnLayout;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   canEdit: boolean;
   flagEnvironments?: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
-  showingLive: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
-  const variations = getLatestPhaseVariations(experiment);
+  const { variations, showingLive } = layout;
   const { feature } = info;
   const pick = draftPicks.value[feature.id];
   const {
@@ -1019,16 +1041,7 @@ function FlagColumn({
     ) : null,
   ].filter(Boolean);
   const stagedLinkAction = (
-    <Flex direction="column" gap="2">
-      <HelperText status="info" size="sm">
-        {linkActionNote}
-      </HelperText>
-      <Flex justify="end">
-        <Button variant="outline" size="sm" onClick={clearLinkAction}>
-          Undo
-        </Button>
-      </Flex>
-    </Flex>
+    <StagedNote onUndo={clearLinkAction}>{linkActionNote}</StagedNote>
   );
   const orphanNote = (
     <Flex direction="column" gap="2">
@@ -1102,73 +1115,26 @@ function FlagColumn({
         />
       ) : null}
 
-      <div
-        className={clsx(
-          styles.headerCell,
-          styles.flagHeader,
-          last && styles.lastColumn,
-        )}
-        style={{ gridRow: 1, gridColumn: column }}
-      >
-        <Flex align="center" gap="2" width="100%" minWidth="0">
-          <PiFlag style={{ color: "var(--color-text-low)", flexShrink: 0 }} />
-          <Text weight="medium" truncate>
+      <ColumnHeader
+        layout={layout}
+        icon={<PiFlag />}
+        title={
+          <HeaderText truncate>
             <Link href={`/features/${feature.id}`} external>
               {feature.id}
             </Link>
-          </Text>
-          {problem ? (
-            <Tooltip content={problem}>
-              <Flex flexShrink="0" style={{ color: "var(--amber-11)" }}>
-                <PiWarningFill />
-              </Flex>
-            </Tooltip>
-          ) : null}
-          <Flex
-            align="center"
-            gap="2"
-            className={clsx(styles.revealOnHover, styles.headerActions)}
-          >
-            <span className={styles.headerType}>
-              <Text size="sm" color="text-high" whiteSpace="nowrap">
-                {VALUE_TYPE_LABELS[valueType]}
-              </Text>
-            </span>
-            {menuItems.length ? (
-              <>
-                <CardHeaderDivider />
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="1"
-                      highContrast
-                      aria-label={`${feature.id} actions`}
-                    >
-                      <BsThreeDotsVertical size={14} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  {menuItems}
-                </DropdownMenu>
-              </>
-            ) : null}
-          </Flex>
-        </Flex>
-      </div>
+          </HeaderText>
+        }
+        problem={problem}
+        kind={VALUE_TYPE_LABELS[valueType]}
+        menu={menuItems}
+        menuLabel={`${feature.id} actions`}
+      />
 
       {noValues
         ? // Nothing to show; the column's note below says why.
           variations.map((v, i) => (
-            <div
-              key={v.id}
-              className={clsx(styles.cell, last && styles.lastColumn)}
-              style={{ gridRow: firstValueRow + i, gridColumn: column }}
-            />
+            <ColumnCell key={v.id} layout={layout} row={i} />
           ))
         : variations.map((v, i) => {
             const value = showingLive
@@ -1176,11 +1142,7 @@ function FlagColumn({
               : valueFor(v.id);
             const duplicate = !showingLive && duplicateIds.has(v.id);
             return (
-              <div
-                key={v.id}
-                className={clsx(styles.cell, last && styles.lastColumn)}
-                style={{ gridRow: firstValueRow + i, gridColumn: column }}
-              >
+              <ColumnCell key={v.id} layout={layout} row={i}>
                 <FeatureValueCell
                   id={`flag-${feature.id}-${v.id}`}
                   value={value}
@@ -1192,67 +1154,61 @@ function FlagColumn({
                   onOpenEditor={() => setEditingValues(v.id)}
                   label={variationLabel(v)}
                 />
-              </div>
+              </ColumnCell>
             );
           })}
 
-      <div
-        className={clsx(styles.detailsCell, last && styles.lastColumn)}
-        style={{ gridRow: detailsRow, gridColumn: column }}
+      <ColumnFooter
+        layout={layout}
+        start={
+          showEnvironments ? (
+            <EnvironmentInputsPopover
+              environmentStates={environmentStates}
+              environmentInputs={environmentInputs}
+              note={environmentsTiming}
+              onEdit={
+                canEditEnvironments && !showingLive
+                  ? () => setEditEnvironments(true)
+                  : null
+              }
+            />
+          ) : null
+        }
+        end={noValues ? null : revisionControl}
       >
-        {showEnvironments || !noValues ? (
-          <Flex align="center" gap="3" width="100%" minWidth="0">
-            {showEnvironments ? (
-              <EnvironmentInputsPopover
-                environmentStates={environmentStates}
-                environmentInputs={environmentInputs}
-                note={environmentsTiming}
-                onEdit={
-                  canEditEnvironments && !showingLive
-                    ? () => setEditEnvironments(true)
-                    : null
-                }
-              />
-            ) : null}
-            <Box flexGrow="1" />
-            {noValues ? null : revisionControl}
-          </Flex>
-        ) : null}
-        <Flex direction="column" gap="1" className={styles.footerMessages}>
-          {noValues ? (
-            !orphaned ? (
-              <Text size="sm" color="text-low">
-                Not in the live revision yet.
-              </Text>
-            ) : linkAction && !showingLive ? (
-              stagedLinkAction
-            ) : (
-              orphanNote
-            )
+        {noValues ? (
+          !orphaned ? (
+            <Text size="sm" color="text-low">
+              Not in the live revision yet.
+            </Text>
           ) : linkAction && !showingLive ? (
             stagedLinkAction
-          ) : null}
-          {details.map((n, i) => (
-            <Flex key={i} align="baseline" gap="2" wrap="wrap">
-              <HelperText status={n.status} size="sm">
-                {n.text}
-              </HelperText>
-              {n.action ? <Text size="sm">{n.action}</Text> : null}
-            </Flex>
-          ))}
-          {pendingRemoval && !linkAction && canEditFlagLinks && !showingLive ? (
-            <Flex justify="end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stageLinkAction("keep")}
-              >
-                Keep in experiment
-              </Button>
-            </Flex>
-          ) : null}
-        </Flex>
-      </div>
+          ) : (
+            orphanNote
+          )
+        ) : linkAction && !showingLive ? (
+          stagedLinkAction
+        ) : null}
+        {details.map((n, i) => (
+          <Flex key={i} align="baseline" gap="2" wrap="wrap">
+            <HelperText status={n.status} size="sm">
+              {n.text}
+            </HelperText>
+            {n.action ? <Text size="sm">{n.action}</Text> : null}
+          </Flex>
+        ))}
+        {pendingRemoval && !linkAction && canEditFlagLinks && !showingLive ? (
+          <Flex justify="end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => stageLinkAction("keep")}
+            >
+              Keep in experiment
+            </Button>
+          </Flex>
+        ) : null}
+      </ColumnFooter>
     </>
   );
 }

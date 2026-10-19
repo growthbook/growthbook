@@ -5,7 +5,7 @@ import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
-import RadixButton from "@/ui/Button";
+import RadixButton, { Size as ButtonSize } from "@/ui/Button";
 import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -194,6 +194,7 @@ const OpenVisualEditorLink: FC<{
   openSettings?: () => void;
   useRadix?: boolean;
   useLink?: boolean;
+  size?: ButtonSize;
   button?: string | JSX.Element;
   beforeLeave?: () => void;
 }> = ({
@@ -201,6 +202,7 @@ const OpenVisualEditorLink: FC<{
   openSettings,
   useRadix = true,
   useLink,
+  size = "md",
   beforeLeave,
   button = (
     <>
@@ -261,7 +263,7 @@ const OpenVisualEditorLink: FC<{
           {button}
         </Link>
       ) : useRadix ? (
-        <RadixButton variant="ghost" onClick={onOpen}>
+        <RadixButton variant="ghost" size={size} onClick={onOpen}>
           {button}
         </RadixButton>
       ) : (

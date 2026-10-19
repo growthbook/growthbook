@@ -1,4 +1,7 @@
-import { redirectDestinationParts } from "@/components/Experiment/LinkedChanges/redirectDestination";
+import {
+  redirectDestinationParts,
+  withoutProtocol,
+} from "@/components/Experiment/LinkedChanges/redirectDestination";
 
 const shown = (from: string, to: string) => {
   const parts = redirectDestinationParts(from, to);
@@ -38,5 +41,18 @@ describe("redirectDestinationParts", () => {
   it("leaves another host or an unparseable URL to show in full", () => {
     expect(shown("https://a.com/x", "https://b.com/x")).toBeNull();
     expect(shown("not a url", "https://b.com/x")).toBeNull();
+  });
+});
+
+describe("withoutProtocol", () => {
+  it("drops a leading http or https scheme and nothing else", () => {
+    expect(withoutProtocol("https://www.example.com/a")).toBe(
+      "www.example.com/a",
+    );
+    expect(withoutProtocol("HTTP://localhost:3001")).toBe("localhost:3001");
+    expect(withoutProtocol("example.com/https://x")).toBe(
+      "example.com/https://x",
+    );
+    expect(withoutProtocol("ftp://example.com")).toBe("ftp://example.com");
   });
 });

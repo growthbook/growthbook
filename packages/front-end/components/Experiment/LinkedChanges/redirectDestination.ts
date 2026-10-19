@@ -1,5 +1,9 @@
 const URL_BREAKS = "/?&=#-_.";
 
+export function withoutProtocol(url: string): string {
+  return url.replace(/^https?:\/\//i, "");
+}
+
 function pathAfterHost(url: URL): string {
   return url.pathname + url.search + url.hash;
 }

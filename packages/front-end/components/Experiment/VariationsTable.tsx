@@ -37,10 +37,10 @@ const MIN_VARIATION_WIDTH = 220;
 const VARIATION_GRID_GAP_PX = 16;
 
 /** Wraps on the grid's own width, not the viewport's, so a docked details panel narrows it. */
-export const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
+const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
 
 /** How wide the grid can get, so anything aligned to it can match. */
-export const variationGridMaxWidth = (cols: number) =>
+const variationGridMaxWidth = (cols: number) =>
   `${cols * MAX_VARIATION_WIDTH + (cols - 1) * VARIATION_GRID_GAP_PX}px`;
 
 const imageCache = {};

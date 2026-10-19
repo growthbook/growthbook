@@ -86,11 +86,15 @@
   padding-right: var(--space-3);
 }
 
+.implementationColumn {
+  display: contents;
+}
+
 .revealOnHover {
   opacity: 0;
   transition: opacity 0.1s ease-in-out;
 
-  .headerCell:hover &,
+  .implementationColumn:has(:hover) &,
   .grid:has(.pinnedStart:hover) .pinnedStart &,
   &:focus-visible,
   &:focus-within,
@@ -104,7 +108,7 @@
   display: none;
 }
 
-.flagHeader {
+.columnHeader {
   position: relative;
 }
 

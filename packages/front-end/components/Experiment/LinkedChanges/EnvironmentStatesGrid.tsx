@@ -444,8 +444,8 @@ export function SdkConnectionEnvironmentsPopover({
   return (
     <Popover
       openOnHover
-      side="top"
-      align="end"
+      side="bottom"
+      align="start"
       avoidCollisions={false}
       trigger={<EnvironmentsCount active={active} total={entries.length} />}
       content={

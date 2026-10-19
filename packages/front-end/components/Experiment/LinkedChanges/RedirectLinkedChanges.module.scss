@@ -1,5 +1,0 @@
-// Reads as text that underlines on hover, not a link that changes colour.
-// Outranks the dark link's own hover colour.
-.redirectUrl:global(.rt-Link):hover {
-  color: var(--color-text-high);
-}

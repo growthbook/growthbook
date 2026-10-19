@@ -6,7 +6,13 @@ import {
 } from "shared/sdk-versioning";
 import { ReactElement } from "react";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
-import { PiCaretDownFill, PiDesktop, PiFlag, PiLink } from "react-icons/pi";
+import {
+  PiCaretDownFill,
+  PiDesktop,
+  PiFlag,
+  PiLink,
+  PiPlus,
+} from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -16,7 +22,6 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
-import { AddImplementationButton } from "@/components/Experiment/TabbedPage/ImplementationCard";
 import { ICON_PROPERTIES } from "./constants";
 
 // What adding each no-code kind needs: an SDK that applies it, and the plan
@@ -258,4 +263,47 @@ export function AddImplementationMenu({
       />
     </SplitButton>
   );
+}
+
+/**
+ * Says why when it can't be added now; a premium kind can still be added to a
+ * draft, which then can't start.
+ */
+function AddImplementationButton({
+  label,
+  onClick,
+  disabledReason = null,
+  commercialFeature = null,
+}: {
+  label: string;
+  onClick: () => void;
+  disabledReason?: string | null;
+  commercialFeature?: CommercialFeature | null;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const button = (
+    <Button
+      variant="outline"
+      icon={<PiPlus />}
+      onClick={onClick}
+      disabled={!!disabledReason}
+    >
+      {label}
+    </Button>
+  );
+  if (disabledReason) {
+    return <Tooltip content={disabledReason}>{button}</Tooltip>;
+  }
+  if (commercialFeature && !hasCommercialFeature(commercialFeature)) {
+    return (
+      <PremiumTooltip
+        commercialFeature={commercialFeature}
+        body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+        usePortal
+      >
+        {button}
+      </PremiumTooltip>
+    );
+  }
+  return button;
 }
