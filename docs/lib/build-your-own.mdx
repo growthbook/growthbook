@@ -1272,5 +1272,5 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
 - **v0.9.1** 2026-10-19
-  - New `run` test case for a user whose hash lands exactly on a bucket range end. Compute each range end as `start + coverage * weight` by rounding the product to a double first, then the sum. An SDK that fuses the two into one multiply-add (for example, Go on arm64) rounds once, gets a slightly different end, and fails this case
-  - New `hash` test case that pins this user's hash at `0.22`
+  - New `run` test cases for users whose hash lands exactly on a bucket range end, across equal and uneven weights and hash versions 1 and 2. Compute each range end as `start + coverage * weight` by rounding the product to a double first, then the sum. An SDK that fuses the two into one multiply-add (for example, Go on arm64) rounds once, gets a slightly different end, and fails these cases
+  - New `hash` test cases that pin these users' hashes to the range ends
