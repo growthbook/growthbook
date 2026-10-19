@@ -10,6 +10,9 @@ import type {
 } from "shared/types/integrations";
 import {
   formatQueryExecutionErrorForApi,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
   parseOptionalInt,
   resolveExposureQueryForAnalysis,
 } from "shared/util";
@@ -188,12 +191,21 @@ export async function postExposures(
     return;
   }
 
+  const columnMapping = {
+    identifierColumn: getExposureQueryIdentifierColumn(
+      resolvedExposureQuery,
+      resolvedExposureQuery.identifierType,
+    ),
+    timestampColumn: getExposureQueryTimestampColumn(resolvedExposureQuery),
+    variationIdColumn: getExposureQueryVariationIdColumn(resolvedExposureQuery),
+  };
   const cacheKey = getExposuresCacheKey({
     experimentId: experiment.id,
     experimentTrackingKey: experiment.trackingKey,
     exposureQueryId: exposureQuery.id,
     exposureQuerySql: resolvedExposureQuery.query,
     identifierType: resolvedExposureQuery.identifierType,
+    columnMapping,
     dimensions,
     window,
     rowFilters,
@@ -285,7 +297,7 @@ export async function postExposures(
 
   const { records, extraColumns, valuesTruncated } = shapeExposureRows({
     rows: bufferRows,
-    identifierType: resolvedExposureQuery.identifierType,
+    ...columnMapping,
     dimensions,
     caseSensitive: integration.columnNamesAreCaseSensitive,
   });

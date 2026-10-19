@@ -62,6 +62,22 @@ export function getExposureQueryIdentifierColumn(
   return query.userIdColumns?.[identifierType] || identifierType;
 }
 
+const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// Mapped columns are interpolated into analysis SQL unquoted, like the
+// canonical names they replace, so only plain identifiers can be mapped.
+export function getUnquotableExposureQueryColumn(
+  query: ExposureQueryColumnMapping,
+): string | null {
+  const mapped = [
+    query.experimentIdColumn,
+    query.variationIdColumn,
+    query.timestampColumn,
+    ...Object.values(query.userIdColumns ?? {}),
+  ];
+  return mapped.find((c) => c && !PLAIN_COLUMN_NAME.test(c)) ?? null;
+}
+
 /**
  * The identifier a saved record analyzes on: the stored one, even if its query
  * no longer declares it (analysis then refuses to run), else the query's frozen

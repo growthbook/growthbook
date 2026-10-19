@@ -12,6 +12,7 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  getUnquotableExposureQueryColumn,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
@@ -645,6 +646,14 @@ export async function validateExposureQueriesAndAddMissingIds(
             `Experiment assignment query "${
               exposure.name || exposure.id
             }" must declare at least one identifier type`,
+          );
+        }
+        const unquotableColumn = getUnquotableExposureQueryColumn(exposure);
+        if (unquotableColumn) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" maps column "${unquotableColumn}", which needs quoting. Alias it in the SQL to a name with only letters, numbers and underscores.`,
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore

@@ -9,6 +9,7 @@ import {
   getExposureQueryIdentifierTypes,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
+  getUnquotableExposureQueryColumn,
 } from "shared/util";
 import {
   DataSourceInterfaceWithParams,
@@ -378,6 +379,17 @@ export const ExperimentAssignmentQueryModal = ({
     if (duplicate) {
       throw new Error(
         `Column "${duplicate}" is mapped to more than one role. Each role must map to a distinct column.`,
+      );
+    }
+    const unquotable = getUnquotableExposureQueryColumn({
+      experimentIdColumn: experimentId,
+      variationIdColumn: variationId,
+      timestampColumn: timestamp,
+      userIdColumns,
+    });
+    if (unquotable) {
+      throw new Error(
+        `Column "${unquotable}" can't be mapped because its name needs quoting. In SQL mode, alias it to a name with only letters, numbers and underscores.`,
       );
     }
 
