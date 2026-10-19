@@ -200,23 +200,25 @@ export default function ContextualBanditDecisionMetricSettings({
   );
 
   if (showNoFactMetricsMessage) {
+    const creationTarget = {
+      factTable: factTableForMetric?.id,
+      datasource: datasourceId || undefined,
+      project,
+    };
     return (
       <>
         <Callout status="info" my="2">
           <Flex direction="column" align="start" gap="2">
             <Text>
-              {factTableForMetric
-                ? "Add a mean or proportion Fact Metric to use as the decision metric, then continue."
-                : "This Data Source has no Fact Tables. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric. Create a Fact Table for this Data Source, then add a Fact Metric to it."}
+              {factMetricFlow.creation(creationTarget).disabledReason ??
+                (factTableForMetric
+                  ? "Add a mean or proportion Fact Metric to use as the decision metric, then continue."
+                  : "This Data Source has no Fact Tables. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric. Create a Fact Table for this Data Source, then add a Fact Metric to it.")}
             </Text>
-            {factMetricFlow.createButton(
-              {
-                factTable: factTableForMetric?.id,
-                datasource: datasourceId || undefined,
-                project,
-              },
-              { variant: "outline" },
-            )}
+            {factMetricFlow.createButton(creationTarget, {
+              variant: "outline",
+              hideTooltip: true,
+            })}
           </Flex>
         </Callout>
         {factMetricFlow.modal}

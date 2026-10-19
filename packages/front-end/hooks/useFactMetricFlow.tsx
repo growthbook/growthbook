@@ -72,7 +72,11 @@ export default function useFactMetricFlow(
   );
   const [actionsContainer, setActionsContainer] =
     useState<HTMLDivElement | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Titled by the step that failed, matching the button label.
+  const [error, setError] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   const creation = (target: FactMetricCreationTarget = {}) => {
     const targetProject = target.project ?? project;
@@ -135,7 +139,7 @@ export default function useFactMetricFlow(
     const action = creation(target);
     if (action.mode === "pending") return false;
     if (action.disabledReason) {
-      setError(action.disabledReason);
+      setError({ title: action.label, message: action.disabledReason });
       return true;
     }
     if (action.href) {
@@ -155,7 +159,7 @@ export default function useFactMetricFlow(
             throw new Error("Your plan does not support this metric type.");
           }
         } catch (error) {
-          setError(error.message);
+          setError({ title: "Add Fact Metric", message: error.message });
           return true;
         }
       }
@@ -201,45 +205,49 @@ export default function useFactMetricFlow(
     props: Omit<ButtonProps, "onClick" | "disabled" | "children"> & {
       children?: ButtonProps["children"];
       showPermissionError?: boolean;
+      // The caller shows disabledReason itself, so skip the tooltip.
+      hideTooltip?: boolean;
     } = {},
     beforeOpen?: () => void,
   ) => {
     const action = creation(target);
-    const { children, showPermissionError, ...buttonProps } = props;
+    const { children, showPermissionError, hideTooltip, ...buttonProps } =
+      props;
     const label = children ?? action.label;
     const permissionCallout = showPermissionError && action.permissionError;
     // The callout already explains a permission block, so skip the tooltip.
-    const button = permissionCallout ? (
-      <Button {...buttonProps} disabled>
-        {label}
-      </Button>
-    ) : action.disabledReason ? (
-      <Tooltip content={action.disabledReason}>
-        <span style={{ cursor: "not-allowed" }}>
-          <Button
-            {...buttonProps}
-            disabled
-            style={{ ...buttonProps.style, pointerEvents: "none" }}
-          >
-            {label}
-          </Button>
-        </span>
-      </Tooltip>
-    ) : action.href && !beforeOpen ? (
-      <LinkButton {...buttonProps} href={action.href}>
-        {label}
-      </LinkButton>
-    ) : (
-      <Button
-        {...buttonProps}
-        onClick={() => {
-          beforeOpen?.();
-          open(target);
-        }}
-      >
-        {label}
-      </Button>
-    );
+    const button =
+      action.disabledReason && (hideTooltip || permissionCallout) ? (
+        <Button {...buttonProps} disabled>
+          {label}
+        </Button>
+      ) : action.disabledReason ? (
+        <Tooltip content={action.disabledReason}>
+          <span style={{ cursor: "not-allowed" }}>
+            <Button
+              {...buttonProps}
+              disabled
+              style={{ ...buttonProps.style, pointerEvents: "none" }}
+            >
+              {label}
+            </Button>
+          </span>
+        </Tooltip>
+      ) : action.href && !beforeOpen ? (
+        <LinkButton {...buttonProps} href={action.href}>
+          {label}
+        </LinkButton>
+      ) : (
+        <Button
+          {...buttonProps}
+          onClick={() => {
+            beforeOpen?.();
+            open(target);
+          }}
+        >
+          {label}
+        </Button>
+      );
     return (
       <>
         {permissionCallout && (
@@ -273,9 +281,11 @@ export default function useFactMetricFlow(
             projects: factTable.projects,
           })
         ) {
-          setError(
-            "You don't have permission to add Fact Metrics to this Fact Table.",
-          );
+          setError({
+            title: "Add Fact Metric",
+            message:
+              "You don't have permission to add Fact Metrics to this Fact Table.",
+          });
           return;
         }
         setModalTarget({ ...tableTarget, factTable: factTable.id });
@@ -297,15 +307,13 @@ export default function useFactMetricFlow(
     >
       <Modal.Header>
         <Modal.Title>
-          {error
-            ? "Create Fact Metric"
-            : "Map Template Fields to Your Fact Table"}
+          {error?.title ?? "Map Template Fields to Your Fact Table"}
         </Modal.Title>
       </Modal.Header>
       {error ? (
         <>
           <Modal.Body>
-            <Callout status="error">{error}</Callout>
+            <Callout status="error">{error.message}</Callout>
           </Modal.Body>
           <Modal.Footer>
             <Modal.Close>
@@ -395,7 +403,7 @@ export default function useFactMetricFlow(
     createButton,
     open,
     edit,
-    editDisabledReason: ready ? null : "Loading metric creation…",
+    editDisabledReason: ready ? null : "Loading metric editor…",
     modal,
   };
 }
