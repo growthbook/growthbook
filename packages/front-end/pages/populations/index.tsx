@@ -1,7 +1,6 @@
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
-import { getPopulationStepsLabel } from "shared/populations";
 import { truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -38,8 +37,7 @@ const CREATE_POPULATION_DOCS =
 export default function PopulationsPage() {
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
-  const { project, getFactTableById, getDatasourceById, getProjectById } =
-    useDefinitions();
+  const { project, getDatasourceById, getProjectById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const { populations, loading, error, mutate } = usePopulations(project, {
     enabled: populationsEnabled,
@@ -48,16 +46,12 @@ export default function PopulationsPage() {
     populations,
     (p) => ({
       ...p,
-      stepsLabel: getPopulationStepsLabel(
-        p.steps,
-        (id) => getFactTableById(id)?.name,
-      ),
       identifierLabel: p.userIdTypes.join(", "),
       datasourceName: getDatasourceById(p.datasource)?.name || p.datasource,
       ownerName: getOwnerDisplay(p.owner),
       projectNames: p.projects.map((id) => getProjectById(id)?.name || id),
     }),
-    [getFactTableById, getDatasourceById, getOwnerDisplay, getProjectById],
+    [getDatasourceById, getOwnerDisplay, getProjectById],
   );
 
   const {
@@ -76,7 +70,6 @@ export default function PopulationsPage() {
       "name^3",
       "description",
       "identifierLabel",
-      "stepsLabel",
       "ownerName",
       "datasourceName",
     ],
@@ -183,9 +176,6 @@ export default function PopulationsPage() {
                 <SortableTableColumnHeader field="identifierLabel">
                   Identifier Types
                 </SortableTableColumnHeader>
-                <SortableTableColumnHeader field="stepsLabel">
-                  Steps
-                </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
                   Last Updated
                 </SortableTableColumnHeader>
@@ -224,7 +214,6 @@ export default function PopulationsPage() {
                       ))}
                     </Flex>
                   </TableCell>
-                  <TableCell>{p.stepsLabel}</TableCell>
                   <TableCell title={datetime(p.dateUpdated)}>
                     {date(p.dateUpdated)}
                   </TableCell>
@@ -242,7 +231,7 @@ export default function PopulationsPage() {
               ))}
               {!items.length && isFiltered && (
                 <TableRow>
-                  <TableCell colSpan={8} style={{ textAlign: "center" }}>
+                  <TableCell colSpan={7} style={{ textAlign: "center" }}>
                     No matching Populations.{" "}
                     <Link onClick={() => clear()}>Clear search field</Link>
                   </TableCell>
