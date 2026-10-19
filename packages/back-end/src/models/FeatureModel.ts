@@ -212,7 +212,7 @@ import {
 
 const featureSchema = new mongoose.Schema({
   id: String,
-  label: String,
+  name: String,
   archived: Boolean,
   description: String,
   organization: String,
@@ -823,7 +823,7 @@ function featureListQuery(
   // $and so the search $or can't overwrite an $or in the project scope clause.
   const pattern = new RegExp(escapeRegExp(search), "i");
   return {
-    $and: [query, { $or: [{ id: pattern }, { label: pattern }] }],
+    $and: [query, { $or: [{ id: pattern }, { name: pattern }] }],
   };
 }
 
@@ -2287,7 +2287,7 @@ export function computeRevisionMergeChanges(
 
   if (result.metadata) {
     const m = result.metadata;
-    if (m.label !== undefined) changes.label = m.label;
+    if (m.name !== undefined) changes.name = m.name;
     if (m.description !== undefined) changes.description = m.description;
     if (m.owner !== undefined) changes.owner = m.owner;
     if (m.project !== undefined) changes.project = m.project;
@@ -4976,7 +4976,7 @@ export async function getFeatureMetaInfoById(
 
   const projection: Record<string, number> = {
     id: 1,
-    label: 1,
+    name: 1,
     project: 1,
     targetingAllProjects: 1,
     targetingProjects: 1,

@@ -1,4 +1,4 @@
-import { MAX_FEATURE_LABEL_LENGTH } from "shared/constants";
+import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
 import {
   canEnableEnvironmentOnCreate,
   targetingRefusal,
@@ -21,6 +21,7 @@ import {
   stripConfigExtends,
   orderConfigsByLineage,
   isScopedConfig,
+  featureKeyFromName,
 } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
@@ -111,7 +112,7 @@ const genFormDefaultValues = ({
   FeatureInterface,
   | "valueType"
   | "defaultValue"
-  | "label"
+  | "name"
   | "description"
   | "tags"
   | "project"
@@ -136,8 +137,8 @@ const genFormDefaultValues = ({
     ? {
         valueType: featureToDuplicate.valueType,
         defaultValue: featureToDuplicate.defaultValue,
-        label: featureToDuplicate.label
-          ? `${featureToDuplicate.label} (copy)`
+        name: featureToDuplicate.name
+          ? `${featureToDuplicate.name} (copy)`
           : "",
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
@@ -160,7 +161,7 @@ const genFormDefaultValues = ({
     : {
         valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
-        label: "",
+        name: "",
         description: "",
         id: "",
         project,
@@ -209,6 +210,8 @@ export default function FeatureModal({
   const [showConfigDefaultValue, setShowConfigDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
+  // The key follows the name until someone edits it (a duplicate starts edited).
+  const [keyEdited, setKeyEdited] = useState(!!featureToDuplicate);
 
   const projectOptions = useProjectOptions(
     (project) =>
@@ -440,20 +443,24 @@ export default function FeatureModal({
         )}
 
         <TextField
-          label="Label"
+          label="Name"
           mb="3"
-          maxLength={MAX_FEATURE_LABEL_LENGTH}
+          maxLength={MAX_FEATURE_NAME_LENGTH}
           placeholder="Express checkout button"
           helpText="The name people see in GrowthBook. It's never sent to SDKs."
-          {...form.register("label")}
+          {...form.register("name", {
+            onChange: (e) => {
+              if (!keyEdited) {
+                form.setValue("id", featureKeyFromName(e.target.value));
+              }
+            },
+          })}
         />
 
         <FeatureKeyField
-          keyField={form.register("id")}
-          hasLabel={!!form.watch("label")?.trim()}
-          onGenerateKey={(key) =>
-            form.setValue("id", key, { shouldDirty: true })
-          }
+          keyField={form.register("id", {
+            onChange: () => setKeyEdited(true),
+          })}
         />
 
         {projectOptions.length > 0 && (

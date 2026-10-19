@@ -828,13 +828,13 @@ describe("assertValidRuleExperimentIds", () => {
   });
 });
 
-describe("extractRevisionMetadata label", () => {
-  it("moves label into revision metadata", () => {
+describe("extractRevisionMetadata name", () => {
+  it("moves name into revision metadata", () => {
     const { metadata, remaining } = extractRevisionMetadata({
-      label: "Express checkout",
+      name: "Express checkout",
       defaultValue: "true",
     });
-    expect(metadata).toEqual({ label: "Express checkout" });
+    expect(metadata).toEqual({ name: "Express checkout" });
     expect(remaining).toEqual({ defaultValue: "true" });
   });
 });

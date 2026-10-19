@@ -410,8 +410,8 @@ export default function FeaturesPage() {
                             : undefined,
                         }}
                       >
-                        {feature.label || feature.id}
-                        {feature.label ? (
+                        {feature.name || feature.id}
+                        {feature.name ? (
                           <Text as="div" color="text-low">
                             <code>{feature.id}</code>
                           </Text>

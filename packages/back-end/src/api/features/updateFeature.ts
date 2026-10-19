@@ -91,7 +91,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const {
       owner: ownerInput,
       archived,
-      label,
+      name,
       description,
       project,
       targetingAllProjects,
@@ -258,7 +258,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
-      ...(label != null ? { label } : {}),
+      ...(name != null ? { name } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
       ...(targetingAllProjects != null ? { targetingAllProjects } : {}),

@@ -13,7 +13,7 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
-import { MAX_FEATURE_LABEL_LENGTH } from "shared/constants";
+import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
 import Field from "@/components/Forms/Field";
 import { TextField } from "@/ui/TextField";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -81,7 +81,7 @@ const EditFeatureInfoModal: FC<{
       project: feature.project || "",
       targetingAllProjects: feature.targetingAllProjects || false,
       targetingProjects: feature.targetingProjects || [],
-      label: feature.label || "",
+      name: feature.name || "",
       description: feature.description || "",
     },
   });
@@ -170,7 +170,7 @@ const EditFeatureInfoModal: FC<{
       project: feature.project || "",
       targetingAllProjects: feature.targetingAllProjects || false,
       targetingProjects: feature.targetingProjects || [],
-      label: feature.label || "",
+      name: feature.name || "",
       description: feature.description || "",
     },
     labels: {
@@ -179,7 +179,7 @@ const EditFeatureInfoModal: FC<{
       project: "Project",
       targetingAllProjects: "Targeting Projects",
       targetingProjects: "Targeting Projects",
-      label: "Label",
+      name: "Name",
       description: "Description",
     },
     formatters: {
@@ -253,12 +253,12 @@ const EditFeatureInfoModal: FC<{
           />
           {conflict.callouts}
           <TextField
-            label="Label"
+            label="Name"
             mb="3"
-            maxLength={MAX_FEATURE_LABEL_LENGTH}
+            maxLength={MAX_FEATURE_NAME_LENGTH}
             placeholder={feature.id}
             helpText="The name people see in GrowthBook. It's never sent to SDKs."
-            {...form.register("label")}
+            {...form.register("name")}
           />
           <Field
             size="legacy"

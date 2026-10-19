@@ -1034,7 +1034,7 @@ paths:
                     include letters, numbers, hyphens, and underscores.
                   type: string
                   minLength: 1
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -2603,7 +2603,7 @@ paths:
             schema:
               type: object
               properties:
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -4761,7 +4761,7 @@ paths:
                   type: string
                 title:
                   type: string
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -8502,7 +8502,7 @@ paths:
                     include letters, numbers, hyphens, and underscores.
                   type: string
                   minLength: 1
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -9399,7 +9399,7 @@ paths:
             schema:
               type: object
               properties:
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -11102,7 +11102,7 @@ paths:
                   type: string
                 title:
                   type: string
-                label:
+                name:
                   description: >-
                     Human-readable name shown in the GrowthBook UI and search
                     instead of the key. It is never sent to SDKs, so the key can
@@ -63345,11 +63345,11 @@ components:
       in: query
       description: >-
         Case-insensitive text to match against each Feature Flag's key (`id`)
-        and `label`.
+        and `name`.
       schema:
         description: >-
           Case-insensitive text to match against each Feature Flag's key (`id`)
-          and `label`.
+          and `name`.
         type: string
         maxLength: 200
     skipPagination:
@@ -64152,7 +64152,7 @@ components:
         dateUpdated:
           format: date-time
           type: string
-        label:
+        name:
           description: >-
             Human-readable name shown in the GrowthBook UI and search instead of
             the key. It is never sent to SDKs, so the key can stay short or
@@ -65266,7 +65266,7 @@ components:
             metadata gating is enabled)
           type: object
           properties:
-            label:
+            name:
               description: >-
                 Human-readable name shown in the GrowthBook UI and search
                 instead of the key. It is never sent to SDKs, so the key can
@@ -66344,7 +66344,7 @@ components:
         dateUpdated:
           format: date-time
           type: string
-        label:
+        name:
           description: >-
             Human-readable name shown in the GrowthBook UI and search instead of
             the key. It is never sent to SDKs, so the key can stay short or
@@ -66890,7 +66890,7 @@ components:
             metadata gating is enabled)
           type: object
           properties:
-            label:
+            name:
               description: >-
                 Human-readable name shown in the GrowthBook UI and search
                 instead of the key. It is never sent to SDKs, so the key can

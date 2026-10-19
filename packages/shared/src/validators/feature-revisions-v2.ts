@@ -24,8 +24,8 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import {
   apiJSONSchemaDefInput,
   revisionStatusFilterSchema,
-  featureLabelField,
-  FEATURE_LABEL_DESCRIPTION,
+  featureNameField,
+  FEATURE_NAME_DESCRIPTION,
 } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
@@ -1012,7 +1012,7 @@ export const putFeatureRevisionMetadataV2Validator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
-      label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),

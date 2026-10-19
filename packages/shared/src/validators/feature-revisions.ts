@@ -19,8 +19,8 @@ import {
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
-  featureLabelField,
-  FEATURE_LABEL_DESCRIPTION,
+  featureNameField,
+  FEATURE_NAME_DESCRIPTION,
 } from "./features";
 import { ownerInputField } from "./owner-field";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
@@ -732,7 +732,7 @@ export const putFeatureRevisionMetadataValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
-      label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),

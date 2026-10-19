@@ -3727,10 +3727,10 @@ export async function postFeatureSync(
   }
 
   const metadata: Partial<
-    Pick<FeatureInterface, "label" | "description" | "owner" | "tags">
+    Pick<FeatureInterface, "name" | "description" | "owner" | "tags">
   > = {};
-  if ((data.label ?? null) !== null && data.label !== (feature.label ?? "")) {
-    metadata.label = data.label;
+  if ((data.name ?? null) !== null && data.name !== (feature.name ?? "")) {
+    metadata.name = data.name;
   }
   if (
     (data.description ?? null) !== null &&
@@ -5651,7 +5651,7 @@ export async function putFeature(
 
   const allowedKeys: (keyof FeatureInterface)[] = [
     "tags",
-    "label",
+    "name",
     "description",
     "project",
     "targetingAllProjects",
@@ -5746,7 +5746,7 @@ export async function putFeature(
 
   const metadataKeys: (keyof FeatureInterface)[] = [
     "tags",
-    "label",
+    "name",
     "description",
     "project",
     "targetingAllProjects",
@@ -5800,8 +5800,8 @@ export async function putFeature(
 
     if (Object.keys(metadataUpdates).length > 0) {
       envelopeChanges.metadata = {
-        ...(metadataUpdates.label !== undefined && {
-          label: metadataUpdates.label,
+        ...(metadataUpdates.name !== undefined && {
+          name: metadataUpdates.name,
         }),
         ...(metadataUpdates.description !== undefined && {
           description: metadataUpdates.description,

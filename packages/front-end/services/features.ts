@@ -281,7 +281,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["label^3", "id^3", "description"],
+    searchFields: ["name^3", "id^3", "description"],
     filterResults,
     syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,

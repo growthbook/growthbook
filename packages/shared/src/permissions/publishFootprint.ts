@@ -224,7 +224,7 @@ export function revisionPublishFootprint({
 
 // Named explicitly so unknown metadata fails safe as payload-affecting.
 const PAYLOAD_INERT_METADATA = new Set([
-  "label",
+  "name",
   "description",
   "owner",
   "tags",

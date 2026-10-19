@@ -175,7 +175,7 @@ export default function FeaturePage() {
         <PageHead
           breadcrumb={[
             { display: "Feature Flags", href: "/features" },
-            { display: feature.id },
+            { display: feature.name || feature.id },
           ]}
         />
         <FeaturesHeader

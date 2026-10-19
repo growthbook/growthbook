@@ -1401,7 +1401,7 @@ export function featureMetadataEnvelope(
   feature: FeatureInterface,
 ): CompleteMetadata {
   return {
-    label: feature.label ?? "",
+    name: feature.name ?? "",
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
@@ -1843,7 +1843,7 @@ export function normalizeMetadataValue(
   if (k === "tags" || k === "targetingProjects")
     return (v as string[] | null | undefined) ?? [];
   if (k === "targetingAllProjects") return !!v;
-  if (k === "label" || k === "description" || k === "owner" || k === "project")
+  if (k === "name" || k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
   // Normalize unset/undefined to null so a non-config snapshot doesn't diff
   // against an explicit null.
@@ -5180,16 +5180,27 @@ export function getReviewAuthorityFootprint({
   return { scope: "environments", environments: [...environments] };
 }
 
-// Case-insensitive substring match on the key and label, the fields people
+// Case-insensitive substring match on the key and name, the fields people
 // recognize a Feature Flag by. Mirrors the Mongo clause in featureListQuery.
 export function featureMatchesSearch(
-  feature: { id: string; label?: string },
+  feature: { id: string; name?: string },
   search: string,
 ): boolean {
   const needle = search.trim().toLowerCase();
   if (!needle) return true;
   return (
     feature.id.toLowerCase().includes(needle) ||
-    (feature.label ?? "").toLowerCase().includes(needle)
+    (feature.name ?? "").toLowerCase().includes(needle)
   );
+}
+
+// Suggested key for a new Feature Flag, derived from its display name:
+// "Express checkout button" -> "express-checkout-button".
+export function featureKeyFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+    .replace(/-+$/, "");
 }

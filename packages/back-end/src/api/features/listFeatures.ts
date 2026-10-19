@@ -74,7 +74,7 @@ export async function loadFeaturesPage(
 > {
   const projectId = query.projectId;
   const search = query.search?.trim() || undefined;
-  const matchesSearch = (f: { id: string; label?: string }) =>
+  const matchesSearch = (f: { id: string; name?: string }) =>
     !search || featureMatchesSearch(f, search);
   // Mirrors the internal `includeArchived` option: false (default) excludes
   // archived features; true includes them alongside non-archived ones.
