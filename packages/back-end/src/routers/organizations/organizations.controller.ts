@@ -333,7 +333,7 @@ async function canReadApiKeyHistory(
   // A deleted key is known only by its audits, which name a token's owner.
   const isToken = key
     ? !!key.userId
-    : (await getPersonalAccessTokenAuditIds(context.org.id)).includes(id);
+    : (await getPersonalAccessTokenAuditIds(context.org)).includes(id);
   if (!isToken) return context.permissions.canViewApiKeys();
   return (
     (!!key && key.userId === context.userId) ||
@@ -348,7 +348,7 @@ async function getPersonalAccessTokenIds(
 ): Promise<Set<string>> {
   const [keys, audited] = await Promise.all([
     context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
-    getPersonalAccessTokenAuditIds(context.org.id),
+    getPersonalAccessTokenAuditIds(context.org),
   ]);
   return new Set([
     ...keys

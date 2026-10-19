@@ -1,5 +1,7 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { AuditInterface, EntityType } from "shared/types/audit";
+import { OrganizationInterface } from "shared/types/organization";
+import { auditDescribesPersonalAccessToken } from "shared/permissions";
 import {
   removeMongooseFields,
   ToInterface,
@@ -200,16 +202,28 @@ export async function countAuditByEntity(
   );
 }
 
-// A personal access token's audits record its owner as `userId`. Older ones
-// don't, but record role `user` or `scoped`, which org keys never have.
+// Personal access tokens share the apiKey audit entity with org keys.
 export async function getPersonalAccessTokenAuditIds(
-  organization: string,
+  org: Pick<OrganizationInterface, "id" | "customRoles">,
 ): Promise<string[]> {
-  return AuditModel.distinct("entity.id", {
-    organization,
-    "entity.object": "apiKey",
-    details: { $regex: '"userId":"|"role":"user"|"scoped":true' },
-  });
+  const userIsCustomRole = (org.customRoles ?? []).some((r) => r.id === "user");
+  const audits = await AuditModel.find(
+    {
+      organization: org.id,
+      "entity.object": "apiKey",
+      details: { $regex: '"userId":"|"role":"user"|"scoped":true' },
+    },
+    { "entity.id": 1, details: 1 },
+  ).lean();
+  return [
+    ...new Set(
+      audits
+        .filter((a) =>
+          auditDescribesPersonalAccessToken(a.details ?? "", userIsCustomRole),
+        )
+        .map((a) => a.entity.id),
+    ),
+  ];
 }
 
 // A page of audits newest first, with the total that matches the filters on any page.

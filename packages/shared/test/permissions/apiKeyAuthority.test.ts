@@ -1,6 +1,7 @@
 import {
   apiKeyToggleRequiresAdmin,
   canApplyExpirationPolicy,
+  auditDescribesPersonalAccessToken,
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
@@ -241,6 +242,53 @@ describe("changesApiKeyAuthority", () => {
       changesApiKeyAuthority(
         { ...stored, confirmRules: [{ actions: ["*"] }] },
         { ...stored, confirmRules: null },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("auditDescribesPersonalAccessToken", () => {
+  const created = (key: object) => JSON.stringify({ post: key, context: {} });
+  const deleted = (key: object) => JSON.stringify({ pre: key, context: {} });
+
+  it.each([
+    { name: "an owner", details: created({ id: "k", userId: "u_1" }) },
+    { name: "a scoped token", details: deleted({ id: "k", scoped: true }) },
+    { name: "the token role", details: deleted({ id: "k", role: "user" }) },
+  ])("recognizes a token by $name", ({ details }) => {
+    expect(auditDescribesPersonalAccessToken(details, false)).toBe(true);
+  });
+
+  it.each([
+    { name: "an org key", details: deleted({ id: "k", role: "admin" }) },
+    {
+      name: "an org key with a nested user project role",
+      details: deleted({
+        id: "k",
+        role: "readonly",
+        projectRoles: [{ project: "p", role: "user" }],
+      }),
+    },
+    {
+      name: "an org key with a nested user additional role",
+      details: deleted({
+        id: "k",
+        role: "readonly",
+        additionalRoles: [{ role: "user" }],
+      }),
+    },
+    { name: "unreadable details", details: '{"pre":' },
+  ])("does not treat $name as a token", ({ details }) => {
+    expect(auditDescribesPersonalAccessToken(details, false)).toBe(false);
+  });
+
+  it("does not trust the user role once the org has a custom role by that name", () => {
+    const details = deleted({ id: "k", role: "user" });
+    expect(auditDescribesPersonalAccessToken(details, true)).toBe(false);
+    expect(
+      auditDescribesPersonalAccessToken(
+        deleted({ id: "k", role: "user", userId: "u_1" }),
+        true,
       ),
     ).toBe(true);
   });

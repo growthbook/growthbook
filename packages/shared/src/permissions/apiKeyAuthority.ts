@@ -97,3 +97,27 @@ export function changesApiKeyAuthority(
 ): boolean {
   return !isEqual(authorityOf(before), authorityOf(after));
 }
+
+type AuditedKey = { userId?: unknown; scoped?: unknown; role?: unknown };
+
+// Whether an apiKey audit is about a personal access token. Newer audits record
+// the owner as `userId`; older ones `scoped`, or role `user`, which only a token
+// has unless the org made a custom role by that name. Only the key's own fields
+// count, never roles nested in its project or additional roles.
+export function auditDescribesPersonalAccessToken(
+  details: string,
+  userIsCustomRole: boolean,
+): boolean {
+  let parsed: { pre?: AuditedKey; post?: AuditedKey };
+  try {
+    parsed = JSON.parse(details);
+  } catch {
+    return false;
+  }
+  const isToken = (key: AuditedKey | undefined) =>
+    !!key &&
+    (!!key.userId ||
+      key.scoped === true ||
+      (!userIsCustomRole && key.role === "user"));
+  return isToken(parsed?.pre) || isToken(parsed?.post);
+}
