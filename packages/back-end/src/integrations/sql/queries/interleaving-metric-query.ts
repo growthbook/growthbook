@@ -15,7 +15,6 @@ import {
   INTERLEAVING_ITEMS_COLUMN,
   INTERLEAVING_TIMESTAMP_COLUMN,
   InterleavingAnalysis,
-  isSignalAnalysis,
 } from "shared/validators";
 import type {
   InterleavingMetricQueryMetric,
@@ -52,11 +51,9 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
  *   delta-method t-test. n counts treatment-drafted competitive exposures;
  *   both x and y are normalized by it, which a fair team draft balances in
  *   expectation.
- * - "ownership": per user x item treatment share -> fractional win totals
- *   over ALL engagement events -> user preference counts for the sign test.
- *   The share is over all competitive exposures (exposureCount), or only the
- *   exposures whose impression received a signal event (engagementSignal;
- *   one __signalShare CTE per distinct signal metric).
+ * - "ownership": per user x item treatment share over all competitive
+ *   exposures (exposureCount) -> fractional win totals over ALL engagement
+ *   events -> user preference counts for the sign test.
  * Each CTE branch is only emitted when at least one analysis requests it.
  *
  * v1 limitations (documented): metric capping and conversion windows are
@@ -75,24 +72,14 @@ type PlanEntry = {
   value: string;
   // Re-aggregates per-impression values to user x item (__eventsAll)
   rollup: (column: string) => string;
-} & (
-  | { kind: "paired" }
-  // Treatment share at user x item grain, as referenced from __user
-  | { kind: "ownership"; share: string }
-);
-
-type OwnershipEntry = Extract<PlanEntry, { kind: "ownership" }>;
-
-type SignalPlan = { factTable: FactTableInterface; filters: string[] };
+};
 
 type Plan = {
   entries: PlanEntry[];
   paired: PlanEntry[];
-  ownership: OwnershipEntry[];
+  ownership: PlanEntry[];
   // Metric row filters, OR'd into the __events WHERE clause
   filterGroups: string[][];
-  // Indexed by the j in __signalShare_{j}
-  signals: SignalPlan[];
 };
 
 function numeratorOf(metric: FactMetricInterface): ColumnRef {
@@ -123,11 +110,7 @@ function buildPlan(
   dialect: SqlDialect,
   factTable: FactTableInterface,
   metrics: InterleavingMetricQueryMetric[],
-  signals: InterleavingMetricQueryParams["signals"],
 ): Plan {
-  const signalById = new Map(signals.map((s) => [s.metric.id, s]));
-  const signalIndex = new Map<string, number>();
-  const signalPlans: SignalPlan[] = [];
   const filterGroups: string[][] = [];
 
   const entries = metrics.map(({ analysis, metric }, i): PlanEntry => {
@@ -145,7 +128,7 @@ function buildPlan(
       metric,
       useDenominator: false,
     });
-    const base = {
+    return {
       i,
       analysis,
       value: agg.fullAggregationFunction(
@@ -155,40 +138,13 @@ function buildPlan(
       ),
       rollup: agg.reAggregationFunction,
     };
-
-    if (analysis.type === "paired") return { ...base, kind: "paired" };
-    if (!isSignalAnalysis(analysis)) {
-      return { ...base, kind: "ownership", share: "ui.share_t" };
-    }
-    const id = analysis.signalMetricId;
-    const signal = signalById.get(id);
-    if (!signal) {
-      throw new Error(`Missing fact table for signal metric ${id}`);
-    }
-    let j = signalIndex.get(id);
-    if (j === undefined) {
-      j =
-        signalPlans.push({
-          factTable: signal.factTable,
-          filters: rowFilters(
-            dialect,
-            numeratorOf(signal.metric),
-            signal.factTable,
-          ),
-        }) - 1;
-      signalIndex.set(id, j);
-    }
-    return { ...base, kind: "ownership", share: `ss_${j}.share_t` };
   });
 
   return {
     entries,
-    paired: entries.filter((e) => e.kind === "paired"),
-    ownership: entries.filter(
-      (e): e is OwnershipEntry => e.kind === "ownership",
-    ),
+    paired: entries.filter((e) => e.analysis.type === "paired"),
+    ownership: entries.filter((e) => e.analysis.type === "ownership"),
     filterGroups,
-    signals: signalPlans,
   };
 }
 
@@ -208,16 +164,9 @@ export function getInterleavingMetricQuery(
     );
   }
 
-  const plan = buildPlan(
-    dialect,
-    params.factTable,
-    params.metrics,
-    params.signals,
-  );
+  const plan = buildPlan(dialect, params.factTable, params.metrics);
   const includePaired = plan.paired.length > 0;
   const includeOwnership = plan.ownership.length > 0;
-  // Paired credit and signal shares both join per impression
-  const includeInterleaveId = includePaired || plan.signals.length > 0;
 
   const compiled = {
     startDate,
@@ -246,7 +195,7 @@ export function getInterleavingMetricQuery(
       SELECT
         ${cols([
           `e.${userIdType} AS user_id`,
-          ...(includeInterleaveId
+          ...(includePaired
             ? [`e.${INTERLEAVING_INTERLEAVE_ID_COLUMN} AS interleave_id`]
             : []),
           `${item(INTERLEAVING_ITEM_FIELD_ITEM_ID)} AS item_id`,
@@ -333,27 +282,6 @@ export function getInterleavingMetricQuery(
         AND ${ev}.first_event_timestamp >= e.exposure_timestamp
       )`;
 
-  // Treatment share over the exposures whose impression received the signal
-  const signalCTEs = plan.signals.flatMap((signal, j) => [
-    eventsCTE(
-      `__signalEvents_${j}`,
-      signal.factTable,
-      true,
-      [],
-      [signal.filters],
-    ),
-    `
-    __signalShare_${j} AS (
-      SELECT
-        e.user_id,
-        e.item_id,
-        AVG(e.team * 1.0) AS share_t
-      FROM __exposures e
-      JOIN __signalEvents_${j} s ${impressionJoin("s")}
-      GROUP BY e.user_id, e.item_id
-    )`,
-  ]);
-
   // Ownership input: engagement per user x item across ALL events. When
   // __events is at impression grain (paired present) roll it up.
   const rollupEvents = includePaired && includeOwnership;
@@ -436,7 +364,7 @@ export function getInterleavingMetricQuery(
       GROUP BY e.user_id, e.item_id
     )`;
 
-  // A user x item with no share (no signaled exposure) owns nothing: both 0
+  // A user x item with no engagement owns nothing: both 0
   const userCTE = `
     __user AS (
       SELECT
@@ -448,8 +376,8 @@ export function getInterleavingMetricQuery(
             `SUM(ui.n_${e.i}) AS n_${e.i}`,
           ]),
           ...plan.ownership.flatMap((e) => [
-            `SUM(COALESCE(ea.value_${e.i} * ${e.share}, 0)) AS wins_t_${e.i}`,
-            `SUM(COALESCE(ea.value_${e.i} * (1 - ${e.share}), 0)) AS wins_c_${e.i}`,
+            `SUM(COALESCE(ea.value_${e.i} * ui.share_t, 0)) AS wins_t_${e.i}`,
+            `SUM(COALESCE(ea.value_${e.i} * (1 - ui.share_t), 0)) AS wins_c_${e.i}`,
           ]),
         ])}
       FROM __userItem ui
@@ -460,21 +388,14 @@ export function getInterleavingMetricQuery(
       )`
           : ""
       }
-      ${plan.signals
-        .map(
-          (_, j) => `LEFT JOIN __signalShare_${j} ss_${j} ON (
-        ss_${j}.user_id = ui.user_id AND ss_${j}.item_id = ui.item_id
-      )`,
-        )
-        .join("\n      ")}
       GROUP BY ui.user_id
     )`;
 
   const gate = (i: number, expr: string) =>
     `SUM(${dialect.ifElse(`u.n_${i} > 0`, expr, "0")})`;
   const finalCols = plan.entries.flatMap((e) => {
-    const { i } = e;
-    switch (e.kind) {
+    const { i, analysis } = e;
+    switch (analysis.type) {
       case "paired":
         return [
           `${gate(i, "1")} AS m${i}_users`,
@@ -494,7 +415,7 @@ export function getInterleavingMetricQuery(
           `SUM(${dialect.ifElse(`u.wins_c_${i} > u.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
         ];
       default: {
-        const unknown: never = e;
+        const unknown: never = analysis;
         throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
       }
     }
@@ -509,7 +430,6 @@ export function getInterleavingMetricQuery(
       plan.entries,
       plan.filterGroups,
     ),
-    ...signalCTEs,
     eventsAllCTE,
     creditedCTE,
     userItemCTE,

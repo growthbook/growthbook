@@ -3,13 +3,11 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   InterleavingAnalysis,
   InterleavingMetricResult,
-  interleavingSignalMetricIds,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
 import type {
   InterleavingMetricQueryMetric,
-  InterleavingMetricQueryParams,
   InterleavingMetricQueryResponseRows,
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
@@ -33,7 +31,6 @@ type FactTableGroup = {
   factTable: FactTableInterface;
   entries: AnalysisEntry[];
   queryMetrics: InterleavingMetricQueryMetric[];
-  signals: InterleavingMetricQueryParams["signals"];
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -52,29 +49,19 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
   private async groupByFactTable(
     settings: InterleavingSnapshotSettings,
   ): Promise<Map<string, FactTableGroup>> {
-    const { metrics, signals } = await resolveInterleavingMetrics(
-      this.context,
-      settings,
-    );
+    const metrics = await resolveInterleavingMetrics(this.context, settings);
     const groups = new Map<string, FactTableGroup>();
     for (const { config, metric, factTable } of metrics) {
       const group = groups.get(factTable.id) ?? {
         factTable,
         entries: [],
         queryMetrics: [],
-        signals: [],
       };
       groups.set(factTable.id, group);
       for (const analysis of config.analyses) {
         group.entries.push({ metricId: config.id, analysis });
         group.queryMetrics.push({ analysis, metric });
       }
-    }
-    for (const group of groups.values()) {
-      const signalIds = new Set(
-        interleavingSignalMetricIds(group.entries.map((e) => e.analysis)),
-      );
-      group.signals = signals.filter((s) => signalIds.has(s.metric.id));
     }
     return groups;
   }
@@ -106,7 +93,6 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         endDate: settings.endDate,
         factTable: group.factTable,
         metrics: group.queryMetrics,
-        signals: group.signals,
       });
 
       queries.push(

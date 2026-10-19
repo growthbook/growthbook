@@ -13,8 +13,8 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 //   control, N = shared competitive-exposure denominator.
 //
 // ownershipSignTest: Airbnb-style (arXiv:2508.00751). Engagement is
-//   attributed by per-user item-ownership shares (from exposure counts or an
-//   engagement signal); each user reduces to the sign of (treatment wins -
+//   attributed by per-user item-ownership shares (from exposure counts);
+//   each user reduces to the sign of (treatment wins -
 //   control wins); the test is a binomial sign test over non-tied users.
 // ---------------------------------------------------------------------------
 

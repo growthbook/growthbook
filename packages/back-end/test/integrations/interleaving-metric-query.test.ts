@@ -33,11 +33,6 @@ const cartTable = factTableFactory.build({
     },
   ],
 });
-const clickTable = factTableFactory.build({
-  id: "ft_click",
-  sql: "SELECT 1 AS click",
-});
-
 const metricOn = (
   factTableId: string,
   overrides: Partial<FactMetricInterface["numerator"]> & {
@@ -59,7 +54,6 @@ const baseParams = {
   startDate: new Date("2020-01-01"),
   endDate: null,
   factTable: cartTable,
-  signals: [],
 };
 const PAIRED: InterleavingAnalysis = { type: "paired" };
 const OWNERSHIP: InterleavingAnalysis = {
@@ -152,56 +146,12 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
   });
 
-  it("generates one signal share CTE per distinct engagement signal", () => {
-    const click = metricOn("ft_click", {
-      rowFilters: [{ column: "event_name", operator: "=", values: ["click"] }],
-    });
-    const cart = metricOn("ft_cart");
-    const byClick: InterleavingAnalysis = {
-      type: "ownership",
-      attribution: "engagementSignal",
-      signalMetricId: click.id,
-    };
-    const byCart: InterleavingAnalysis = {
-      type: "ownership",
-      attribution: "engagementSignal",
-      signalMetricId: cart.id,
-    };
-    const sql = getInterleavingMetricQuery(postgresDialect, {
+  it("only selects interleave_id on exposures when paired needs it", () => {
+    const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      // Same signal twice (shared CTE) plus a second signal
-      metrics: [
-        { analysis: byClick, metric: proportion },
-        { analysis: byClick, metric: proportion },
-        { analysis: byCart, metric: proportion },
-        { analysis: OWNERSHIP, metric: proportion },
-      ],
-      signals: [
-        { metric: click, factTable: clickTable },
-        { metric: cart, factTable: cartTable },
-      ],
+      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
     });
-    expect(sql).toContain("__signalShare_0");
-    expect(sql).toContain("__signalShare_1");
-    expect(sql).not.toContain("__signalShare_2");
-    expect(sql).toMatch(/SELECT\s+1 AS click/);
-    // The signal metric's row filters restrict its events
-    expect(sql).toMatch(
-      /__signalEvents_0 AS \([\s\S]*?WHERE[\s\S]*?\(event_name = 'click'\)[\s\S]*?GROUP BY/,
-    );
-    // Signal joins need interleave_id on exposures even without paired
-    expect(sql).toContain("e.interleave_id AS interleave_id");
-    expect(sql).not.toContain("__credited");
-    expect(sql).toContain("ea.value_1 * ss_0.share_t, 0)) AS wins_t_1");
-    expect(sql).toContain("ea.value_2 * ss_1.share_t, 0)) AS wins_t_2");
-    expect(sql).toContain("ea.value_3 * ui.share_t, 0)) AS wins_t_3");
-    expect(sql).toContain("m3_users_pref_treatment");
-
-    expect(() =>
-      getInterleavingMetricQuery(postgresDialect, {
-        ...baseParams,
-        metrics: [{ analysis: byClick, metric: proportion }],
-      }),
-    ).toThrow(`Missing fact table for signal metric ${click.id}`);
+    expect(ownership).not.toContain("e.interleave_id AS interleave_id");
+    expect(ownership).toContain("ea.value_0 * ui.share_t, 0)) AS wins_t_0");
   });
 });

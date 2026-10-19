@@ -179,42 +179,8 @@ describe("interleavingMetricConfigValidator", () => {
       [{ type: "ownership", attribution: "exposureCount" }],
     ],
     [
-      "both ownership attributions",
-      [
-        { type: "ownership", attribution: "exposureCount" },
-        {
-          type: "ownership",
-          attribution: "engagementSignal",
-          signalMetricId: "fact__click",
-        },
-      ],
-    ],
-    [
-      "two different engagement signals",
-      [
-        {
-          type: "ownership",
-          attribution: "engagementSignal",
-          signalMetricId: "fact__click",
-        },
-        {
-          type: "ownership",
-          attribution: "engagementSignal",
-          signalMetricId: "fact__add_to_cart",
-        },
-      ],
-    ],
-    [
       "every analysis at once",
-      [
-        { type: "paired" },
-        { type: "ownership", attribution: "exposureCount" },
-        {
-          type: "ownership",
-          attribution: "engagementSignal",
-          signalMetricId: "fact__click",
-        },
-      ],
+      [{ type: "paired" }, { type: "ownership", attribution: "exposureCount" }],
     ],
   ])("accepts %s", (_label, analyses) => {
     expect(parse(analyses)).toBe(true);
@@ -237,26 +203,12 @@ describe("interleavingMetricConfigValidator", () => {
     ).toBe(false);
   });
 
-  it("rejects the same engagement signal twice", () => {
-    const signal = {
-      type: "ownership",
-      attribution: "engagementSignal",
-      signalMetricId: "fact__click",
-    };
-    expect(parse([signal, signal])).toBe(false);
-  });
-
-  it("rejects an engagement signal with no signal metric", () => {
-    expect(
-      parse([{ type: "ownership", attribution: "engagementSignal" }]),
-    ).toBe(false);
-  });
-
-  it("rejects an unknown ownership attribution", () => {
-    expect(parse([{ type: "ownership", attribution: "lastClick" }])).toBe(
-      false,
-    );
-  });
+  it.each(["lastClick", "engagementSignal"])(
+    "rejects the unsupported ownership attribution %j",
+    (attribution) => {
+      expect(parse([{ type: "ownership", attribution }])).toBe(false);
+    },
+  );
 
   it("rejects an unknown analysis type", () => {
     expect(parse([{ type: "sequential" }])).toBe(false);

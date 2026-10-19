@@ -15,62 +15,28 @@ export type InterleavingStatus = (typeof interleavingStatus)[number];
 
 // How ownership analysis decides which ranker owns a conversion. Paired
 // analysis needs no equivalent — it counts engagement per competitive exposure.
-export const interleavingOwnershipAttribution = [
-  "exposureCount",
-  "engagementSignal",
-] as const;
+// Only exposure-count attribution for now; engagement-signal attribution
+// (ownership decided by a separate signal metric's events) comes later.
+export const interleavingOwnershipAttribution = ["exposureCount"] as const;
 export type InterleavingOwnershipAttribution =
   (typeof interleavingOwnershipAttribution)[number];
 
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
-  z.discriminatedUnion("attribution", [
-    z
-      .object({
-        type: z.literal("ownership"),
-        attribution: z.literal("exposureCount"),
-      })
-      .strict(),
-    z
-      .object({
-        type: z.literal("ownership"),
-        attribution: z.literal("engagementSignal"),
-        // Fact metric whose events (e.g. clicks) decide which ranker owns an
-        // item for a user. A metric can use several different signals.
-        signalMetricId: z.string().min(1),
-      })
-      .strict(),
-  ]),
+  z
+    .object({
+      type: z.literal("ownership"),
+      attribution: z.enum(interleavingOwnershipAttribution),
+    })
+    .strict(),
 ]);
 export type InterleavingAnalysis = z.infer<
   typeof interleavingAnalysisValidator
 >;
-export type InterleavingSignalAnalysis = Extract<
-  InterleavingAnalysis,
-  { attribution: "engagementSignal" }
->;
-
-export function isSignalAnalysis(
-  a: InterleavingAnalysis,
-): a is InterleavingSignalAnalysis {
-  return a.type === "ownership" && a.attribution === "engagementSignal";
-}
 
 // Identity of an analysis within a metric; used to reject duplicates.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
-  if (isSignalAnalysis(a)) {
-    return `ownership:engagementSignal:${a.signalMetricId}`;
-  }
   return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
-}
-
-// Distinct engagement-signal metric ids used by a list of analyses.
-export function interleavingSignalMetricIds(
-  analyses: InterleavingAnalysis[],
-): string[] {
-  return [
-    ...new Set(analyses.filter(isSignalAnalysis).map((a) => a.signalMetricId)),
-  ];
 }
 
 export const interleavingMetricConfigValidator = z

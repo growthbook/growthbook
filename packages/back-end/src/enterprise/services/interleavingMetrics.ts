@@ -5,7 +5,6 @@ import type {
 } from "shared/types/fact-table";
 import {
   InterleavingMetricConfig,
-  interleavingSignalMetricIds,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
   INTERLEAVING_ITEM_ID_COLUMN,
 } from "shared/validators";
@@ -28,11 +27,6 @@ export type ResolvedInterleavingMetric = {
   factTable: FactTableInterface;
 };
 
-export type ResolvedInterleavingSignal = {
-  metric: FactMetricInterface;
-  factTable: FactTableInterface;
-};
-
 // Per-item values are summed/maxed again across impressions, which sketch
 // and distinct-count aggregations don't support
 const UNSUPPORTED_AGGREGATIONS = new Set([
@@ -50,20 +44,15 @@ const UNSUPPORTED_AGGREGATIONS = new Set([
 export async function resolveInterleavingMetrics(
   context: Context,
   { datasourceId, userIdType, metrics }: InterleavingAnalysisInputs,
-): Promise<{
-  metrics: ResolvedInterleavingMetric[];
-  signals: ResolvedInterleavingSignal[];
-}> {
+): Promise<ResolvedInterleavingMetric[]> {
   const [metricMap, factTableMap] = await Promise.all([
     getMetricMap(context),
     getFactTableMap(context),
   ]);
 
-  const resolve = (
-    metricId: string,
-    label: string,
-    needsInterleaveId: boolean,
-  ) => {
+  return metrics.map((config) => {
+    const metricId = config.id;
+    const label = "Interleaving metric";
     const metric = metricMap.get(metricId);
     if (!metric || !isFactMetric(metric)) {
       throw new Error(`${label} must be an existing fact metric: ${metricId}`);
@@ -93,40 +82,29 @@ export async function resolveInterleavingMetrics(
         `${label} ${metricId} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
       );
     }
-    if (needsInterleaveId && !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)) {
+    // Paired analysis joins engagement per impression
+    if (
+      config.analyses.some((a) => a.type === "paired") &&
+      !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
+    ) {
       throw new Error(
         `${label} ${metricId} needs an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on its fact table to be joined per impression`,
       );
     }
-    return { metric, factTable };
-  };
-
-  return {
-    metrics: metrics.map((config) => {
-      const { metric, factTable } = resolve(
-        config.id,
-        "Interleaving metric",
-        config.analyses.some((a) => a.type === "paired"),
+    const { metricType, numerator } = metric;
+    if (metricType !== "mean" && metricType !== "proportion") {
+      throw new Error(
+        `Interleaving metrics must be mean or proportion metrics: ${metricId} is a ${metricType} metric`,
       );
-      const { metricType, numerator } = metric;
-      if (metricType !== "mean" && metricType !== "proportion") {
-        throw new Error(
-          `Interleaving metrics must be mean or proportion metrics: ${config.id} is a ${metricType} metric`,
-        );
-      }
-      if (
-        numerator.column === "$$distinctDates" ||
-        UNSUPPORTED_AGGREGATIONS.has(numerator.aggregation ?? "")
-      ) {
-        throw new Error(
-          `Interleaving metrics must use sum, max, or count aggregations: ${config.id}`,
-        );
-      }
-      return { config, metric, factTable };
-    }),
-    // Signal tables are joined per impression, so they always need interleave_id
-    signals: interleavingSignalMetricIds(
-      metrics.flatMap((m) => m.analyses),
-    ).map((id) => resolve(id, "Engagement signal metric", true)),
-  };
+    }
+    if (
+      numerator.column === "$$distinctDates" ||
+      UNSUPPORTED_AGGREGATIONS.has(numerator.aggregation ?? "")
+    ) {
+      throw new Error(
+        `Interleaving metrics must use sum, max, or count aggregations: ${metricId}`,
+      );
+    }
+    return { config, metric, factTable };
+  });
 }
