@@ -80,6 +80,17 @@ describe("useFactMetricFlow", () => {
     expect(state.router.push).not.toHaveBeenCalled();
   });
 
+  it.each([{ factTable: "ftb_other" }, { duplicate: metric }])(
+    "opens the old modal for a target outside the selected Project: %o",
+    (target) => {
+      state.factTables = [{ projects: ["project-b"] }];
+      const { result } = renderHook(() => useFactMetricFlow("test"));
+      expect(result.current.canOpen).toBe(false);
+      act(() => result.current.open(target));
+      expect(result.current.modal).not.toBeNull();
+    },
+  );
+
   it.each([false, true])(
     "opens after flags become ready with newFlow=%s",
     (newFlow) => {

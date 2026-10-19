@@ -50,13 +50,18 @@ export default function useFactMetricFlow(source: string) {
   }, [gbReady, flagWaitOver]);
   const ready = gbReady || flagWaitOver;
   const { factTables, project } = useDefinitions();
-  // The new page explains a missing Fact Table; the old modal can't.
-  const canOpen =
+  // The new page explains a missing Fact Table; the old modal can't. A target
+  // that names its Fact Table (directly or via a duplicate) already has one,
+  // even when it belongs to a Project other than the selected one.
+  const canOpenTarget = (target: FactMetricCreationTarget = {}) =>
     ready &&
     (newFlow ||
+      !!target.factTable ||
+      !!target.duplicate ||
       factTables.some((table) =>
         isProjectListValidForProject(table.projects, project),
       ));
+  const canOpen = canOpenTarget();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -74,7 +79,7 @@ export default function useFactMetricFlow(source: string) {
   };
 
   const open = (target: FactMetricCreationTarget = {}) => {
-    if (!canOpen) return;
+    if (!canOpenTarget(target)) return;
     if (newFlow) router.push(href(target));
     else setModalTarget(target);
   };
@@ -104,7 +109,7 @@ export default function useFactMetricFlow(source: string) {
       disabledReason ||
       (!ready
         ? "Loading metric options…"
-        : !canOpen
+        : !canOpenTarget(target)
           ? "Create a fact table before adding a metric."
           : null);
     if (reason) {
