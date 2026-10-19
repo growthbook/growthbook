@@ -103,9 +103,9 @@ export default function useFactMetricFlow(source: string) {
     const reason =
       disabledReason ||
       (!ready
-        ? "Loading metric creation options."
+        ? "Loading metric options…"
         : !canOpen
-          ? "Create a Fact Table before adding a metric."
+          ? "Create a fact table before adding a metric."
           : null);
     if (reason) {
       return (

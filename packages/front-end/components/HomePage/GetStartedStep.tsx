@@ -89,7 +89,8 @@ export default function GetStartedStep({
               }
             }}
           >
-            {finished ? finishedCTA : cta} <FiArrowRight />
+            {finished ? finishedCTA : cta}{" "}
+            {!disabled && !permissionsError && <FiArrowRight />}
           </Button>
         </div>
         {!imageLeft && imgEl}

@@ -218,7 +218,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         ? "Loading metric options…"
                         : factMetricFlow.canOpen
                           ? "Add metric"
-                          : "Create Fact Table"
+                          : "Create fact table"
                     }
                     finishedCTA="View metrics"
                     permissionsError={

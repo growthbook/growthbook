@@ -56,7 +56,7 @@ const MetricsPage = (): React.ReactElement => {
                   Start by creating a <strong>Fact Table</strong>, which serves
                   as the foundation for your metrics.
                 </p>
-                <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+                <LinkButton href="/fact-tables">Create fact table</LinkButton>
               </>
             ) : (
               factMetricFlow.button(

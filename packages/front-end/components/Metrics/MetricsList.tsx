@@ -644,7 +644,7 @@ const MetricsList = (): React.ReactElement => {
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>
-            <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+            <LinkButton href="/fact-tables">Create fact table</LinkButton>
           </Box>
         ) : null}
       </Flex>
