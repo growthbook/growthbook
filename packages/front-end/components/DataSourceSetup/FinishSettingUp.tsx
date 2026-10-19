@@ -14,8 +14,6 @@ import {
   attributeToUserIdTypeName,
   getExposureQueryIdentifierTypes,
   isEventForwarderManaged,
-  isValidUserIdTypeName,
-  USER_ID_TYPE_NAME_RULE,
 } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -281,11 +279,6 @@ export default function FinishSettingUp({
     // type with every attribute linked.
     const byName = new Map<string, UserIdType>();
     for (const row of includedRows) {
-      if (!isValidUserIdTypeName(row.name)) {
-        throw new Error(
-          `"${row.name}" is not a valid identifier type name. ${USER_ID_TYPE_NAME_RULE}`,
-        );
-      }
       const existing = byName.get(row.name);
       if (row.attribute === null) {
         if (!existing && row.saved) byName.set(row.name, { ...row.saved });
