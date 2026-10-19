@@ -51,9 +51,15 @@ const KIND_BADGES = {
   },
 };
 
-export function ColumnKindBadge({ kind }: { kind: keyof typeof KIND_BADGES }) {
+export function ColumnKindBadge({
+  kind,
+  tooltip,
+}: {
+  kind: keyof typeof KIND_BADGES;
+  tooltip?: string;
+}) {
   return (
-    <Tooltip content={KIND_BADGES[kind].tooltip} side="left">
+    <Tooltip content={tooltip ?? KIND_BADGES[kind].tooltip} side="left">
       {/* Avatar forwards trigger props to its hidden image, so the wrapper
           takes the tooltip's hover handlers instead. */}
       <Flex as="span" flexShrink="0">
@@ -68,6 +74,7 @@ export function ColumnKindBadge({ kind }: { kind: keyof typeof KIND_BADGES }) {
 export default function ColumnMappingRow({
   label,
   kind,
+  tooltip,
   value,
   options,
   setValue,
@@ -76,6 +83,8 @@ export default function ColumnMappingRow({
 }: {
   label: string;
   kind?: keyof typeof KIND_BADGES;
+  // Replaces the kind's tooltip where the role means something more specific
+  tooltip?: string;
   value: string;
   options: DetectedColumn[];
   setValue: (column: string) => void;
@@ -91,7 +100,7 @@ export default function ColumnMappingRow({
       <TableCell style={{ width: "40%" }}>
         <Flex align="center" gap="2">
           {kind ? (
-            <ColumnKindBadge kind={kind} />
+            <ColumnKindBadge kind={kind} tooltip={tooltip} />
           ) : (
             // Keeps labels aligned with the badged rows.
             <Box width="var(--space-5)" flexShrink="0" />

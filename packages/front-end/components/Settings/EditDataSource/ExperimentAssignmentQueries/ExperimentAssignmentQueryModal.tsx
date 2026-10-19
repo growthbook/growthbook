@@ -668,6 +668,7 @@ export const ExperimentAssignmentQueryModal = ({
                   <ColumnMappingRow
                     label="Timestamp"
                     kind="timestamp"
+                    tooltip="When the unit was exposed to the experiment"
                     value={timestampColumn}
                     options={timestampOptions}
                     setValue={setTimestampColumn}
