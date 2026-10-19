@@ -6,7 +6,6 @@ import {
   PiArrowLeft,
   PiCaretDown,
   PiCaretUp,
-  PiColumnsBold,
   PiMagnifyingGlass,
   PiPlus,
   PiX,
@@ -29,6 +28,7 @@ import {
   useSourceTable,
 } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
+  ColumnKindBadge,
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import SelectField from "@/components/Forms/SelectField";
@@ -128,7 +128,7 @@ function AdditionalColumnsRow({
     <TableRow align="start">
       <TableCell>
         <Flex align="center" gap="2" height="24px">
-          <PiColumnsBold />
+          <ColumnKindBadge kind="columns" />
           <Text size="sm" weight="medium">
             Additional columns
           </Text>
