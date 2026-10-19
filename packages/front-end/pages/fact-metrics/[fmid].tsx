@@ -119,10 +119,9 @@ export default function FactMetricPage() {
 
   // Edit in place on this page, or in the old FactMetricModal when the
   // new-metric-creation-flow experiment has this user on the old flow.
-  const { newFlow, ready: flowReady, edit: editFactMetric } = factMetricFlow;
+  const { newFlow, edit: editFactMetric } = factMetricFlow;
   const startEditing = useCallback(
     (source: string | null = null) => {
-      if (!flowReady) return;
       if (!newFlow && factMetric) {
         editFactMetric(factMetric, source);
         return;
@@ -131,13 +130,11 @@ export default function FactMetricPage() {
       setEditSource(source);
       setIsEditing(true);
     },
-    [flowReady, newFlow, factMetric, editFactMetric, setTab],
+    [newFlow, factMetric, editFactMetric, setTab],
   );
 
   useEffect(() => {
     if (!router.isReady || !ready || router.query.edit !== "true") return;
-    // Wait for the flag so the link opens the editor this user is assigned.
-    if (!flowReady) return;
     if (canEdit && !editViaApiOnly) {
       startEditing(
         typeof router.query.source === "string" ? router.query.source : null,
@@ -149,7 +146,7 @@ export default function FactMetricPage() {
     void router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
     });
-  }, [router, ready, canEdit, editViaApiOnly, flowReady, startEditing]);
+  }, [router, ready, canEdit, editViaApiOnly, startEditing]);
 
   if (!ready) return <LoadingOverlay />;
 

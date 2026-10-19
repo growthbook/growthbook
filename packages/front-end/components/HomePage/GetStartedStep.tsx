@@ -12,7 +12,6 @@ export type Props = {
   title: string;
   text: string | ReactElement;
   hideCTA?: boolean;
-  disabled?: boolean;
   onClick: (finished: boolean) => void | Promise<void>;
   cta: string;
   finishedCTA: string;
@@ -29,7 +28,6 @@ export default function GetStartedStep({
   title,
   text,
   hideCTA = false,
-  disabled = false,
   onClick,
   cta,
   finishedCTA,
@@ -79,9 +77,9 @@ export default function GetStartedStep({
             className={clsx("action-link mr-3", {
               "d-none": !finished && hideCTA,
             })}
-            disabled={disabled || permissionsError}
+            disabled={permissionsError}
             onClick={async () => {
-              if (disabled || permissionsError) return;
+              if (permissionsError) return;
               if (finished) {
                 await onClick(true);
               } else if (!hideCTA) {
@@ -89,8 +87,7 @@ export default function GetStartedStep({
               }
             }}
           >
-            {finished ? finishedCTA : cta}{" "}
-            {!disabled && !permissionsError && <FiArrowRight />}
+            {finished ? finishedCTA : cta} <FiArrowRight />
           </Button>
         </div>
         {!imageLeft && imgEl}

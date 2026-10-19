@@ -5,7 +5,6 @@ import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 
 const state = vi.hoisted(() => ({
-  ready: false,
   newFlow: false,
   premium: false,
   project: "project-a",
@@ -16,7 +15,6 @@ vi.mock("next/router", () => ({ useRouter: () => state.router }));
 vi.mock("@growthbook/growthbook-react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@growthbook/growthbook-react")>()),
   useFeatureIsOn: () => state.newFlow,
-  useGrowthBook: () => ({ ready: state.ready }),
 }));
 vi.mock("@/services/UserContext", () => ({
   useUser: () => ({ hasCommercialFeature: () => state.premium }),
@@ -47,7 +45,6 @@ const metric: FactMetricInterface = {
 };
 
 beforeEach(() => {
-  state.ready = true;
   state.newFlow = false;
   state.premium = false;
   state.factTables = [];
@@ -56,22 +53,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("useFactMetricFlow", () => {
-  it.each([false, true])(
-    "waits for flag readiness with newFlow=%s",
-    (newFlow) => {
-      state.newFlow = newFlow;
-      state.ready = false;
-      const { result } = renderHook(() => useFactMetricFlow("test"));
-      act(() => {
-        result.current.open();
-        result.current.edit(metric);
-      });
-      expect(result.current.canOpen).toBe(false);
-      expect(result.current.modal).toBeNull();
-      expect(state.router.push).not.toHaveBeenCalled();
-    },
-  );
-
   it("does not open the old modal without a project-visible Fact Table", () => {
     state.factTables = [{ projects: ["project-b"] }];
     const { result } = renderHook(() => useFactMetricFlow("test"));
@@ -88,27 +69,6 @@ describe("useFactMetricFlow", () => {
       expect(result.current.canOpen).toBe(false);
       act(() => result.current.open(target));
       expect(result.current.modal).not.toBeNull();
-    },
-  );
-
-  it.each([false, true])(
-    "opens after flags become ready with newFlow=%s",
-    (newFlow) => {
-      state.ready = false;
-      state.newFlow = newFlow;
-      state.factTables = [{ projects: ["project-a"] }];
-      const { result, rerender } = renderHook(() => useFactMetricFlow("test"));
-      act(() => result.current.open());
-      expect(result.current.modal).toBeNull();
-      expect(state.router.push).not.toHaveBeenCalled();
-      state.ready = true;
-      rerender();
-      act(() => result.current.open());
-      if (newFlow) {
-        expect(state.router.push).toHaveBeenCalledOnce();
-      } else {
-        expect(result.current.modal).not.toBeNull();
-      }
     },
   );
 

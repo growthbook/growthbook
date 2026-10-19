@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { isProjectListValidForProject } from "shared/util";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useUser } from "@/services/UserContext";
@@ -20,10 +20,6 @@ export type FactMetricCreationTarget = {
   datasource?: string;
 };
 
-const FLAG_WAIT_MS = 3000;
-// Shared across mounts so a blocked flag request costs one wait per page load.
-let flagWaitExpired = false;
-
 type ModalTarget = FactMetricCreationTarget & {
   edit?: FactMetricInterface;
   source?: string;
@@ -35,32 +31,17 @@ type ModalTarget = FactMetricCreationTarget & {
 // in place with the same props and tracking `source` it had before.
 export default function useFactMetricFlow(source: string) {
   const newFlow = useFeatureIsOn("new-metric-creation-flow");
-  // False until flag values load; newFlow reads as off until then. The SDK
-  // never sets ready if the flag request fails or stalls (blocked CDN,
-  // air-gapped installs), so stop waiting after a bound and use the old flow.
-  const gbReady = !!useGrowthBook()?.ready;
-  const [flagWaitOver, setFlagWaitOver] = useState(flagWaitExpired);
-  useEffect(() => {
-    if (gbReady || flagWaitOver) return;
-    const timer = setTimeout(() => {
-      flagWaitExpired = true;
-      setFlagWaitOver(true);
-    }, FLAG_WAIT_MS);
-    return () => clearTimeout(timer);
-  }, [gbReady, flagWaitOver]);
-  const ready = gbReady || flagWaitOver;
   const { factTables, project } = useDefinitions();
   // The new page explains a missing Fact Table; the old modal can't. A target
   // that names its Fact Table (directly or via a duplicate) already has one,
   // even when it belongs to a Project other than the selected one.
   const canOpenTarget = (target: FactMetricCreationTarget = {}) =>
-    ready &&
-    (newFlow ||
-      !!target.factTable ||
-      !!target.duplicate ||
-      factTables.some((table) =>
-        isProjectListValidForProject(table.projects, project),
-      ));
+    newFlow ||
+    !!target.factTable ||
+    !!target.duplicate ||
+    factTables.some((table) =>
+      isProjectListValidForProject(table.projects, project),
+    );
   const canOpen = canOpenTarget();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -86,7 +67,6 @@ export default function useFactMetricFlow(source: string) {
 
   const edit = useCallback(
     (metric: FactMetricInterface, trackingSource: string | null = null) => {
-      if (!ready) return;
       if (newFlow) {
         const params = new URLSearchParams({
           edit: "true",
@@ -97,7 +77,7 @@ export default function useFactMetricFlow(source: string) {
         setModalTarget({ edit: metric, source: trackingSource ?? source });
       }
     },
-    [ready, newFlow, router, source],
+    [newFlow, router, source],
   );
 
   const button = (
@@ -107,11 +87,9 @@ export default function useFactMetricFlow(source: string) {
   ) => {
     const reason =
       disabledReason ||
-      (!ready
-        ? "Loading metric options…"
-        : !canOpenTarget(target)
-          ? "Create a fact table before adding a metric."
-          : null);
+      (!canOpenTarget(target)
+        ? "Create a fact table before adding a metric."
+        : null);
     if (reason) {
       return (
         <Tooltip content={reason}>
@@ -164,5 +142,5 @@ export default function useFactMetricFlow(source: string) {
     />
   );
 
-  return { newFlow, ready, canOpen, href, button, open, edit, modal };
+  return { newFlow, canOpen, href, button, open, edit, modal };
 }

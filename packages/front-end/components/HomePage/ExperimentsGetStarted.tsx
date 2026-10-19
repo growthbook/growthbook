@@ -212,19 +212,15 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    disabled={!hasMetrics && !factMetricFlow.ready}
                     cta={
-                      !factMetricFlow.ready
-                        ? "Loading metric options…"
-                        : factMetricFlow.canOpen
-                          ? "Add metric"
-                          : "Create fact table"
+                      factMetricFlow.canOpen
+                        ? "Add metric"
+                        : "Create fact table"
                     }
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
                       !hasMetrics &&
-                      factMetricFlow.ready &&
                       // Check the permission for the step the button names.
                       (factMetricFlow.canOpen
                         ? !permissionsUtil.canCreateFactMetric({
@@ -238,7 +234,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     imageLeft={false}
                     onClick={(finished) => {
                       if (finished) router.push("/metrics");
-                      else if (!factMetricFlow.ready) return;
                       else if (factMetricFlow.canOpen) factMetricFlow.open();
                       else router.push("/fact-tables");
                     }}
