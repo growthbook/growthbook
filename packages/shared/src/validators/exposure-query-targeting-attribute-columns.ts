@@ -1,6 +1,6 @@
 import {
   DEFAULT_IDENTIFIER_QUOTE,
-  sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
 } from "shared/experiments";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import type { SqlIdentifierQuote } from "shared/types/sql";
@@ -34,7 +34,8 @@ export const CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS = [
 ] as const;
 
 /**
- * Detects whether a bare column identifier appears in the assignment query.
+ * Detects whether a column identifier (bare or table-qualified, e.g.
+ * `e.bandit_version`) appears in the assignment query.
  */
 export function queryHasContextualBanditSrmColumns(
   query: string | undefined,
@@ -44,7 +45,7 @@ export function queryHasContextualBanditSrmColumns(
     return false;
   }
   return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
-    sqlReferencesColumn(query, col, identifierQuote),
+    sqlReferencesColumnAllowingQualified(query, col, identifierQuote),
   );
 }
 
@@ -56,7 +57,7 @@ export function queryHasContextualBanditVersionColumn(
   if (!query) {
     return false;
   }
-  return sqlReferencesColumn(
+  return sqlReferencesColumnAllowingQualified(
     query,
     CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
     identifierQuote,
