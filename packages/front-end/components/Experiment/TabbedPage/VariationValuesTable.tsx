@@ -90,16 +90,11 @@ import styles from "./VariationValuesTable.module.scss";
 
 export type FlagView = "draft" | "live";
 
-/** The targeting and traffic cards' width, which a table never goes under. */
 export const FUNNEL_WIDTH = 692;
-// Two flags fit beside the details panel at its default width on the widest
-// page, with room to spare: 1340 page - 360 panel - 48 page padding - 32
-// funnel padding = 900.
 const VARIATION_MIN_WIDTH = 180;
-// The percent field's own minimum, with half a gutter either side.
+const VARIATION_NARROWEST_WIDTH = 130;
 const SPLIT_WIDTH = 124;
 const FLAG_WIDTH = 280;
-// The card's own border sits outside the grid.
 const BORDERS = 2;
 
 const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
@@ -109,9 +104,6 @@ const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
   json: "JSON",
 };
 
-// A slim, underlined menu trigger: the current choice, cut short where there's
-// no room, and a caret. A menu or tooltip hands its trigger handlers and a ref,
-// so they land on the span.
 const CaretTrigger = forwardRef<
   HTMLSpanElement,
   HTMLAttributes<HTMLSpanElement>
@@ -138,20 +130,13 @@ type Staged = {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
-  /** Whether the linked Feature Flags' values can be edited in place. */
   canEditFlagValues: boolean;
-  /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
-  /** Whether the flags show what they serve, or what their drafts propose. */
   flagView: FlagView;
-  /** Switches the view; absent where only drafts matter. */
   onChangeFlagView?: ((view: FlagView) => void) | null;
-  /** Each variation's share of the traffic, as decimals in variation order. */
   split: number[];
-  /** Stages a new split; absent where it can't be edited here. */
   onChangeSplit?: ((split: number[]) => void) | null;
-  /** Shown under the split, such as who sets it. */
   splitNote?: string | null;
   onEditKeys?: () => void;
   onRemoveVariation?: (variationIndex: number) => void;
@@ -159,11 +144,6 @@ export interface Props {
   onAddVariation?: () => void;
 }
 
-/**
- * One row per variation: its share of the traffic, then a column per linked
- * Feature Flag holding the value it serves. Each flag's state sits under its values, so the
- * values read straight down from the flag.
- */
 export default function VariationValuesTable({
   experiment,
   linkedFeatures,
@@ -182,9 +162,8 @@ export default function VariationValuesTable({
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
-  // Fixed columns; the variations take what's left of the cards' width.
   const columns = [
-    `minmax(${VARIATION_MIN_WIDTH}px, 1fr)`,
+    `minmax(${VARIATION_NARROWEST_WIDTH}px, 1fr)`,
     `${SPLIT_WIDTH}px`,
     ...linkedFeatures.map(() => `${FLAG_WIDTH}px`),
   ].join(" ");
@@ -192,20 +171,15 @@ export default function VariationValuesTable({
     FUNNEL_WIDTH - BORDERS,
     VARIATION_MIN_WIDTH + SPLIT_WIDTH + linkedFeatures.length * FLAG_WIDTH,
   );
-  // Rows: the header, one per variation, then each column's state beside
-  // adding a variation (empty cells take no room).
   const firstValueRow = 2;
   const detailsRow = firstValueRow + variations.length;
   const firstFlagColumn = 3;
+  const [scrolled, setScrolled] = useState(false);
 
   if (!variations.length) return null;
 
   return (
-    <Box
-      mx="auto"
-      // As wide as its columns, up to all the room there is; then it scrolls.
-      style={{ width: "fit-content", maxWidth: "100%" }}
-    >
+    <Box mx="auto" style={{ width: tableWidth + BORDERS, maxWidth: "100%" }}>
       {onChangeFlagView ? (
         <Flex justify="end" mb="2">
           <SegmentedControl
@@ -221,10 +195,17 @@ export default function VariationValuesTable({
         </Flex>
       ) : null}
       <Box className="appbox mb-0" style={{ overflow: "hidden" }}>
-        <Box style={{ overflowX: "auto" }}>
+        <Box
+          style={{ overflowX: "auto", overflowY: "hidden" }}
+          onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
+        >
           <div
-            className={styles.grid}
-            style={{ gridTemplateColumns: columns, width: tableWidth }}
+            className={clsx(styles.grid, scrolled && styles.scrolled)}
+            style={{
+              gridTemplateColumns: columns,
+              width: "100%",
+              minWidth: "min-content",
+            }}
           >
             <div
               className={clsx(styles.headerCell, styles.pinnedStart)}
@@ -290,7 +271,6 @@ export default function VariationValuesTable({
                 </div>
               </div>
             ))}
-            {/* Under the variations, beside each column's state. */}
             <div
               className={clsx(styles.detailsCell, styles.pinnedStart)}
               style={{ gridRow: detailsRow, gridColumn: 1 }}
@@ -298,7 +278,11 @@ export default function VariationValuesTable({
               {onAddVariation ? (
                 <Flex>
                   <Link onClick={onAddVariation}>
-                    <Flex align="center" gap="1">
+                    <Flex
+                      align="center"
+                      gap="1"
+                      style={{ whiteSpace: "nowrap" }}
+                    >
                       <PiPlus />
                       Add variation
                     </Flex>
@@ -340,7 +324,6 @@ export default function VariationValuesTable({
   );
 }
 
-/** Each variation's share of the traffic, rebalanced as one changes. */
 function SplitColumn({
   column,
   last,
@@ -352,7 +335,6 @@ function SplitColumn({
   note,
 }: {
   column: number;
-  // The table's right edge, which gets the same inset as its left.
   last: boolean;
   firstValueRow: number;
   detailsRow: number;
@@ -368,7 +350,9 @@ function SplitColumn({
         className={clsx(styles.headerCell, last && styles.lastColumn)}
         style={{ gridRow: 1, gridColumn: column }}
       >
-        <Text weight="medium">Split</Text>
+        <Text weight="medium" color="text-high">
+          Split
+        </Text>
       </div>
       {variations.map((v, i) => (
         <div
@@ -380,7 +364,6 @@ function SplitColumn({
             {onChange ? (
               <PercentField
                 value={split[i] ?? 0}
-                // Otherwise the rest of the split rebalances mid-keystroke.
                 commitOn="blur"
                 step="any"
                 decimals={VARIATION_WEIGHT_DECIMALS}
@@ -435,7 +418,6 @@ function FlagColumn({
   canEdit: boolean;
   flagEnvironments?: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
-  // What the flag serves, read-only. Edits stay staged for the draft.
   showingLive: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
@@ -451,24 +433,18 @@ function FlagColumn({
     launches: isLaunchDraft,
   } = useMemo(() => resolveDraftPick(info, pick), [info, pick]);
 
-  // Where Save writes, and what the row shows.
   const fromDraft = !!pendingDraft && target === "draft";
-  // What's on screen; Live changes only this, never where edits go.
   const showsDraft = fromDraft && !showingLive;
   const workingOn = fromDraft ? pendingDraft.version : "new";
-  // Its rule is gone, so nothing edits here until it's linked again.
   const orphaned = info.state === "discarded";
-  // Staged for the page's Save: link the flag again, or take it off.
   const [linkAction, setLinkAction] = useStagedState<
     "relink" | "remove" | "keep" | null
   >(`link:${feature.id}`, null);
   const relinking = linkAction === "relink";
   const removing = linkAction === "remove";
-  // A draft is taking the live rule out; the flag leaves when it publishes.
   const pendingRemoval = info.pendingRemoval;
   const liveValues = info.liveValues ?? info.values;
   const liveSparse = info.liveSparse ?? info.sparse ?? false;
-  // Linking again starts from the rule the discarded draft left, when it can.
   const values = relinking
     ? (info.relinkFrom?.values ??
       variations.map((v, i) => ({
@@ -490,7 +466,6 @@ function FlagColumn({
     ? pendingDraft.defaultValue
     : feature.defaultValue;
 
-  // Edits belong to the draft they were made in; if it goes, so do they.
   const [stagedFor, setStaged] = useStagedState<
     (Staged & { for: number | "new" }) | null
   >(`flag:${feature.id}`, null);
@@ -504,13 +479,11 @@ function FlagColumn({
     pinTarget(next);
     setStaged(null);
   };
-  // Environments are staged above the row: the funnel's header edits them too.
   const stagedScope = flagEnvironments?.value[feature.id] ?? null;
   const clearStaged = () => {
     setStaged(null);
     flagEnvironments?.set(feature.id, null);
   };
-  // The variation to focus when the values editor opens.
   const [editingValues, setEditingValues] = useState<string | null>(null);
   const storedValue = (variationId: string) =>
     values.find((v) => v.variationId === variationId)?.value;
@@ -528,7 +501,6 @@ function FlagColumn({
     valueType === "json" &&
     parsePlainJSONObject(sparseBase) !== null;
 
-  // Against the type and default the values will land under.
   const displayFeature = useMemo(
     () => ({ ...feature, valueType, defaultValue: sparseBase }),
     [feature, valueType, sparseBase],
@@ -544,7 +516,6 @@ function FlagColumn({
     !removing;
 
   const stage = (patch: Partial<Staged>) => {
-    // Holds the row on this draft even if a newer one appears meanwhile.
     if (typeof workingOn === "number" && pick?.target !== workingOn) {
       pinTarget(workingOn);
     }
@@ -558,7 +529,6 @@ function FlagColumn({
     });
   };
 
-  // Two variations serving the same thing is almost always a mistake.
   const duplicateIds = getDuplicateVariationIds(
     variations.map((v) => ({ variationId: v.id, value: valueFor(v.id) })),
     valueType,
@@ -574,9 +544,6 @@ function FlagColumn({
           ([id, value]) => value !== storedValue(id),
         )));
 
-  // Like the values modal: repair loose values in place, then ask for a
-  // second save, so nothing lands that the user hasn't seen. A dry run checks
-  // the repaired values and leaves the asking to the save.
   const checkedValues = ({ dryRun }: { dryRun: boolean }) => {
     const { checked, repaired } = repairVariationValues(
       { valueType, jsonSchema: feature.jsonSchema },
@@ -601,7 +568,6 @@ function FlagColumn({
           variations: checkedValues(options),
           ...(sparse !== storedSparse && { sparse }),
           ...(stagedScope && { environments: stagedScope }),
-          // Writes into the draft the values came from; off live, starts one.
           revision: fromDraft
             ? {
                 version: pendingDraft.version,
@@ -644,7 +610,6 @@ function FlagColumn({
     discard: clearLinkAction,
   });
 
-  // In a sentence a draft goes by its number; a title reads as more prose.
   const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
   const labelFor = (d: (typeof drafts)[number]) => (
     <RevisionLabel
@@ -657,15 +622,12 @@ function FlagColumn({
     />
   );
   const canStartNew = canStartSeparateDraft(info) && canEdit;
-  // Several drafts change this rule: pick which one the column shows and
-  // saves to.
   const canChooseTarget = !!pendingDraft && (drafts.length > 1 || canStartNew);
   const canEditFlag =
     canEdit && !pendingRemoval && permissionsUtil.canEditFeatureDrafts(feature);
   const canEditFlagLinks =
     canEdit && permissionsUtil.canEditFeatureDrafts(feature);
   const launches = experiment.status === "draft";
-  // A running experiment keeps its flags until it's back in Draft.
   const removeBlocked = experiment.status === "running";
   const launchDraft = drafts[0];
   const draftLaunches = launches && isLaunchDraft;
@@ -674,7 +636,6 @@ function FlagColumn({
     setLinkAction(action);
   };
 
-  // Flagged by the column's title, so it's seen without reading its notices.
   const shownDraft = showsDraft ? pendingDraft : null;
   const problem = shownDraft?.hasMergeConflict
     ? "Merge conflict"
@@ -696,8 +657,6 @@ function FlagColumn({
   const draftHref = shownDraft
     ? reviewHref(shownDraft.version)
     : `/features/${feature.id}`;
-  // A new tab, so following it never costs the page's unsaved edits.
-  // Underlined in running text; a popover's links underline on hover.
   const draftLink = (
     label: string,
     href = draftHref,
@@ -714,7 +673,6 @@ function FlagColumn({
     text: ReactNode;
     action?: ReactNode;
   }[] = [];
-  // What's next for the draft shown, told by its status dot.
   const draftNotes: string[] = [];
   if (info.state === "archived") {
     notices.push(
@@ -731,7 +689,6 @@ function FlagColumn({
           : { status: "info", text: "This Feature Flag is archived." },
     );
   }
-  // No live rule and no draft adding one: discarded, or published away.
   const orphanText = "This Feature Flag has no rule for this experiment.";
   if (shownDraft?.hasMergeConflict) {
     notices.push({
@@ -748,7 +705,6 @@ function FlagColumn({
       action: draftLink("Review draft"),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
-    // Only the start publishes a draft from here, so only it is blocked.
     notices.push({
       status: "error",
       text: "This draft also changes things outside this experiment, so the experiment can't start. Remove those edits, or publish the draft from the Feature Flag.",
@@ -782,7 +738,6 @@ function FlagColumn({
   if (lockedBySchedule) {
     draftNotes.push("Locked until its scheduled publish.");
   }
-  // These describe the revision the server read: the newest draft, or live.
   const describesShown = showsDraft
     ? info.state === "draft" && pendingDraft.version === drafts[0]?.version
     : info.state === "live";
@@ -792,7 +747,6 @@ function FlagColumn({
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
-  // Says why values are outlined, which a tall value can hide.
   if (!showingLive && duplicateIds.size) {
     const repeated = new Intl.ListFormat("en", { type: "conjunction" }).format(
       variations.filter((v) => duplicateIds.has(v.id)).map(variationLabel),
@@ -838,8 +792,6 @@ function FlagColumn({
       }),
     },
   );
-  // What the draft moves, against live; before live has the rule, against the
-  // flag's own toggles with no rule.
   const liveInput = (env: string) =>
     info.liveEnvironmentInputs?.[env] ?? {
       flagEnabled: !!feature.environmentSettings?.[env]?.enabled,
@@ -860,7 +812,6 @@ function FlagColumn({
     const changed = changedInputs(env);
     return changed.flag || changed.rule;
   });
-  // Only a change the draft makes needs saying when it lands.
   const environmentsTiming = !environmentsChanged
     ? null
     : `${showsDraft ? `From ${draftMention}. ` : ""}${
@@ -882,10 +833,7 @@ function FlagColumn({
           ? "Saving starts a draft that removes the rule. Publish it to unlink the flag."
           : "Saving unlinks the flag.";
 
-  // Nothing to show while there's no rule to hold the values.
-  // Live has no rule for it yet: it serves nothing here.
   const notLive = showingLive && !info.liveHasMatchingRule;
-  // No rule to hold values: the column says why instead, and how to resolve it.
   const noValues = (orphaned && !relinking) || notLive;
   const details = [
     ...notices,
@@ -905,8 +853,6 @@ function FlagColumn({
   const showEnvironments =
     environmentStates.length > 0 && !orphaned && !removing;
   const canEditEnvironments = canEditFlag && showEnvironments;
-  // The revision the values come from: live in the Live view; otherwise the
-  // draft Save writes to, or the one it starts.
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
   const revisionName = showsDraft
@@ -920,8 +866,6 @@ function FlagColumn({
       : notLive
         ? "Not live"
         : "Live";
-  // What the revision is, by the feature list's colors, and what's next for
-  // it on hover.
   const revisionStatus = showsDraft
     ? pendingDraft.status
     : startsDraft
@@ -936,7 +880,6 @@ function FlagColumn({
             "This experiment isn't in the live revision of this Feature Flag yet.",
           ]
         : ["What this Feature Flag serves now."];
-  // A draft going through approval is approved and published on its review.
   const inReview =
     !!shownDraft &&
     (needsApproval ||
@@ -976,7 +919,6 @@ function FlagColumn({
         ) : null}
       </DropdownMenu>
     ) : null;
-  // Opens on hover like the environments beside it, with the way to review.
   const revisionDetails = (trigger: ReactElement) => (
     <Popover
       openOnHover
@@ -992,7 +934,6 @@ function FlagColumn({
               {showsDraft ? revisionStatusLabel(revisionStatus) : revisionName}
             </Text>
           </Flex>
-          {/* A titled draft's full name; the notes name an untitled one. */}
           {showsDraft && pendingDraft.title ? (
             <Text size="sm" color="text-low">
               {revisionName}
@@ -1012,7 +953,6 @@ function FlagColumn({
       }
     />
   );
-  // A menu's trigger can't also open a popover, so a picker's is on its dot.
   const revisionControl = revisionPicker ? (
     <Flex align="center" gap="2" minWidth="0">
       {revisionDetails(<Flex align="center">{revisionDot}</Flex>)}
@@ -1031,7 +971,6 @@ function FlagColumn({
 
   const reviewItem =
     shownDraft && !inReview ? (
-      // A new tab, so following it never costs the page's unsaved edits.
       <DropdownMenuItem
         key="review"
         onClick={() => {
@@ -1050,7 +989,6 @@ function FlagColumn({
         Edit environments
       </DropdownMenuItem>
     ) : null,
-    // One without a rule offers its choices in the column itself.
     canEditFlagLinks && !linkAction && !pendingRemoval && !orphaned ? (
       <DropdownMenuItem
         key="remove"
@@ -1068,8 +1006,6 @@ function FlagColumn({
       </DropdownMenuItem>
     ) : null,
   ].filter(Boolean);
-  // Live is read-only: its changes are made in the draft.
-  // Staged for Save, with the way to take it back.
   const stagedLinkAction = (
     <Flex direction="column" gap="2">
       <HelperText status="info" size="sm">
@@ -1082,8 +1018,6 @@ function FlagColumn({
       </Flex>
     </Flex>
   );
-  // No rule anywhere: link it again, or let it go. Live only shows what
-  // serves, so its choices are made in the draft view.
   const orphanNote = (
     <Flex direction="column" gap="2">
       <HelperText status="warning" size="sm">
@@ -1157,13 +1091,16 @@ function FlagColumn({
       ) : null}
 
       <div
-        className={clsx(styles.headerCell, last && styles.lastColumn)}
+        className={clsx(
+          styles.headerCell,
+          styles.flagHeader,
+          last && styles.lastColumn,
+        )}
         style={{ gridRow: 1, gridColumn: column }}
       >
         <Flex align="center" gap="2" width="100%" minWidth="0">
           <PiFlag style={{ color: "var(--color-text-low)", flexShrink: 0 }} />
           <Text weight="medium" truncate>
-            {/* A new tab, so following it never costs the page's edits. */}
             <Link href={`/features/${feature.id}`} external>
               {feature.id}
             </Link>
@@ -1175,16 +1112,16 @@ function FlagColumn({
               </Flex>
             </Tooltip>
           ) : null}
-          <Box flexGrow="1" />
           <Flex
             align="center"
             gap="2"
-            flexShrink="0"
-            className={styles.revealOnHover}
+            className={clsx(styles.revealOnHover, styles.headerActions)}
           >
-            <Text size="sm" color="text-low" whiteSpace="nowrap">
-              {VALUE_TYPE_LABELS[valueType]}
-            </Text>
+            <span className={styles.headerType}>
+              <Text size="sm" color="text-high" whiteSpace="nowrap">
+                {VALUE_TYPE_LABELS[valueType]}
+              </Text>
+            </span>
             {menuItems.length ? (
               <>
                 <CardHeaderDivider />
@@ -1269,7 +1206,6 @@ function FlagColumn({
             {noValues ? null : revisionControl}
           </Flex>
         ) : null}
-        {/* Set apart from the row above; collapses when there's nothing. */}
         <Flex direction="column" gap="1" className={styles.footerMessages}>
           {noValues ? (
             !orphaned ? (

@@ -15,10 +15,6 @@ const imageCache = {};
 const THUMBNAIL_WIDTH = 118;
 const THUMBNAIL_HEIGHT = 74;
 
-/**
- * What each variation is, apart from what it serves: its description and
- * screenshots, edited in the variation's own modal.
- */
 export default function VariationDetails({
   experiment,
   onEdit,

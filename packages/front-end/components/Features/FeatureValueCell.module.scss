@@ -1,12 +1,8 @@
-// The value spans its cell, whatever its type.
 .root {
-  // An inline textarea leaves baseline space under it, which pushes the
-  // constant button off the field's centre.
   textarea {
     display: block;
   }
 
-  // A number field shrinks to its content inside an inline-block wrapper.
   > :global(.rt-r-display-inline-block) {
     display: block !important;
   }
@@ -16,8 +12,6 @@
   }
 }
 
-// A value shown as text, the size of the field it would be edited in. A
-// fainter border says it can't be edited here.
 .frame {
   position: relative;
   box-sizing: border-box;
@@ -27,12 +21,10 @@
   background: var(--color-surface);
 }
 
-// Matches the fields' own error border.
 .error {
   border-color: var(--red-8);
 }
 
-// The same height as a one-line field, so empty and scalar cells match.
 .oneLine {
   display: flex;
   align-items: center;
@@ -40,7 +32,6 @@
   padding-top: 0;
   padding-bottom: 0;
 
-  // The value spans the frame, so its actions reach the far end.
   > * {
     flex: 1 1 auto;
     min-width: 0;

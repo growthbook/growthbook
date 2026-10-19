@@ -1,4 +1,3 @@
-// Each layer gives way, so the choice is cut short rather than overflowing.
 .caretTriggerRoot,
 .caretTrigger {
   display: inline-flex;
@@ -13,16 +12,12 @@
   }
 }
 
-// One row per variation, one column per linked implementation. Cells are
-// placed by row and column, so each column's component owns its own cells.
 .grid {
-  // Half the gutter between columns; SPLIT_WIDTH counts it.
   --cell-inset: var(--space-3);
   display: grid;
   min-width: 100%;
 }
 
-// Half a gutter each side, so every pair of columns is the same distance apart.
 .headerCell,
 .cell {
   display: flex;
@@ -33,19 +28,16 @@
   background: var(--color-panel-solid);
 }
 
-// Rows align to the top, so a tall value doesn't pull its neighbours down.
 .cell {
   align-items: flex-start;
 }
 
-// One field's height: what sits beside a field lines up with its first line.
 .fieldLine {
   display: flex;
   align-items: center;
   min-height: 32px;
 }
 
-// Also the card's title bar: "Variations" leads it.
 .headerCell {
   min-height: 44px;
   padding-top: var(--space-3);
@@ -53,15 +45,12 @@
   border-bottom-color: var(--gray-a5);
 }
 
-// The variation names stay put while the values scroll sideways.
 .pinnedStart {
   position: sticky;
   left: 0;
   z-index: 1;
 }
 
-// Each column's state, under its values: where it serves, which revision,
-// and anything that needs doing. A column with nothing to say takes no room.
 .detailsCell {
   display: flex;
   flex-direction: column;
@@ -75,14 +64,12 @@
   }
 }
 
-// The first column keeps the card's own inset.
 .headerCell.pinnedStart,
 .cell.pinnedStart,
 .detailsCell.pinnedStart:not(:empty) {
   padding-left: var(--space-3);
 }
 
-// The percent field grows with what's typed; here it stops at the column.
 .splitField {
   width: 100%;
   min-width: 0;
@@ -93,19 +80,18 @@
   }
 }
 
-// The table's right edge gets the same inset as its left.
 .headerCell.lastColumn,
 .cell.lastColumn,
 .detailsCell.lastColumn {
   padding-right: var(--space-3);
 }
 
-// Out of the way until the header is pointed at, or the menu is in use.
 .revealOnHover {
   opacity: 0;
   transition: opacity 0.1s ease-in-out;
 
   .headerCell:hover &,
+  .grid:has(.pinnedStart:hover) .pinnedStart &,
   &:focus-visible,
   &:focus-within,
   &[data-state="open"],
@@ -114,7 +100,39 @@
   }
 }
 
-// A column's messages under its status row; none, no room.
 .footerMessages:empty {
   display: none;
+}
+
+.flagHeader {
+  position: relative;
+}
+
+.headerActions {
+  position: absolute;
+  top: var(--space-3);
+  bottom: var(--space-2);
+  right: var(--cell-inset);
+  padding-left: calc(var(--space-3) + var(--space-4));
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-panel-solid) var(--space-3)
+  );
+}
+
+.headerType {
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+.scrolled .pinnedStart::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  right: -6px;
+  width: 6px;
+  pointer-events: none;
+  background: linear-gradient(to right, var(--gray-a2), transparent);
 }

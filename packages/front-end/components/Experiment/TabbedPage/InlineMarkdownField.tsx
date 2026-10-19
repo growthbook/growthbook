@@ -65,7 +65,6 @@ export default function InlineMarkdownField({
 }: Props) {
   const savedValue = experiment[field] || "";
   const [value, setValue] = useStagedState(`inline:${field}`, savedValue);
-  // A value kept from before a reload opens its editor again.
   const [editingOnDemand, setEditingOnDemand] = useState(
     () => value.trim() !== savedValue.trim(),
   );

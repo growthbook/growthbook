@@ -328,7 +328,6 @@ export default function Implementation({
   const hasFlags = linkedFeatures.length > 0;
   const hasVisual = shownChangesets.length > 0;
   const hasRedirects = shownRedirects.length > 0;
-  // With just one kind on the experiment, adding more of it comes first.
   const shownKinds = ADDABLE_KINDS.filter(
     (kind) =>
       ({ feature: hasFlags, visual: hasVisual, urlredirect: hasRedirects })[

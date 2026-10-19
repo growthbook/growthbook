@@ -25,10 +25,6 @@ export interface Props {
   commitOn?: "change" | "blur";
   /** Whole percentages by default; "any" takes fractions. */
   step?: number | "any";
-  /**
-   * Decimals the percentage keeps, cut as it's typed, as a variation weight's
-   * are. Without it, it's a coverage and keeps what's typed.
-   */
   decimals?: number;
 }
 

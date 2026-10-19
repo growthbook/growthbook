@@ -10,11 +10,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import VariationLabel from "@/ui/VariationLabel";
 
-/**
- * The variations' IDs (their `key`s): what tracking records and analysis
- * matches on. Rarely changed, and only to match values already in the
- * warehouse.
- */
 export default function EditVariationKeysModal({
   experiment,
   close,

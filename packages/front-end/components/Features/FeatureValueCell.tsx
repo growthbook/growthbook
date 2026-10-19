@@ -14,7 +14,6 @@ const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: -9, right: 2, gap: "var(--space-2)" },
 };
-// A one-liner has no corner to spare, so copy sits at its end.
 const ONE_LINE_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: {
@@ -24,11 +23,6 @@ const ONE_LINE_ACTIONS: ActionsOverlay = {
     transform: "translateY(-50%)",
   },
 };
-/**
- * A Feature Flag value that fills a table cell: a field when it can be edited,
- * and framed like one when it can't, so read-only and editable cells line up.
- * JSON is too big to edit in a cell, so it offers a larger editor instead.
- */
 export default function FeatureValueCell({
   id,
   value,
@@ -42,16 +36,12 @@ export default function FeatureValueCell({
 }: {
   id: string;
   value: string | undefined;
-  // Its type and default are what the value is read against.
   feature: FeatureInterface;
   sparse?: boolean;
   editable: boolean;
-  // Outlined as an error, e.g. a value repeated where it shouldn't be.
   error?: boolean;
   onChange: (next: string) => void;
-  // Where a JSON value is edited.
   onOpenEditor?: () => void;
-  // Names the value for the editor button.
   label: string;
 }) {
   const isJson = feature.valueType === "json";
@@ -67,9 +57,7 @@ export default function FeatureValueCell({
           feature={feature}
           useDropdown
           multilineTextField
-          // The same height whatever the type, and as a value shown read-only.
           size="md"
-          // Only a string has room for copy, inside its field.
           hideCopyButton={feature.valueType !== "string"}
           outlineStyle={error ? "error" : undefined}
           fullWidth

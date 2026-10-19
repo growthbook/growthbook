@@ -105,10 +105,6 @@ export interface Props {
   // unless `actionsOverlay` places it.
   inlineConstantButton?: boolean;
   inlineConstantButtonSize?: "1" | "2";
-  /**
-   * Strings edit in the design-system TextField, growing from one line, with
-   * the constant picker and copy inside it. Off by default.
-   */
   multilineTextField?: boolean;
   /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
@@ -976,7 +972,6 @@ export default function FeatureValueField({
       </Flex>
     ) : null;
 
-  // In the TextField's right slot, styled like a select's indicator buttons.
   const copyIndicator = (
     <UITooltip content={copySuccess ? "Copied" : "Copy to clipboard"}>
       <button
@@ -1010,7 +1005,6 @@ export default function FeatureValueField({
       }
       append={
         stringInsertButton || !copyHidden ? (
-          // As tight to the edge and each other as a select's indicators.
           <Flex align="center" style={{ margin: "0 -6px 0 -4px" }}>
             {stringInsertButton}
             {copyHidden ? null : copyIndicator}

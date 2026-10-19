@@ -341,14 +341,12 @@ export function EnvironmentInputsPopover({
   environmentStates: FeatureEnvironmentState[];
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   note?: string | null;
-  // Offered at the foot, where the changes are made.
   onEdit?: (() => void) | null;
 }) {
   const active = environmentStates.filter((e) => e.isActive).length;
   return (
     <Popover
       openOnHover
-      // Below, so it doesn't cover the values it sits under.
       side="bottom"
       align="start"
       avoidCollisions={false}
@@ -357,7 +355,6 @@ export function EnvironmentInputsPopover({
       }
       content={
         <Flex direction="column" gap="2" width="fit-content">
-          {/* The two settings get fixed columns so their marks line up. */}
           <Grid
             columns="max-content 40px 40px max-content"
             gapX="4"
@@ -384,7 +381,6 @@ export function EnvironmentInputsPopover({
                   <EnvironmentSetting
                     value={input ? input.flagEnabled : null}
                   />
-                  {/* A rule that doesn't target the environment is off there too. */}
                   <EnvironmentSetting
                     value={input ? input.rule === "on" : null}
                   />
@@ -398,11 +394,8 @@ export function EnvironmentInputsPopover({
               );
             })}
           </Grid>
-          {/* Wraps to the table's width rather than stretching its columns. */}
-          {/* Set like the revision popover beside it: a note, then its link. */}
           {note ? (
             <Box width="0" minWidth="100%">
-              {/* A block, so its lines take its own height, not the box's. */}
               <Text as="div" size="sm">
                 {note}
               </Text>

@@ -88,7 +88,6 @@ export async function openVisualEditor({
   browser: string;
   deviceType: string;
   bypassChecks?: boolean;
-  // Runs just before the page is left for the editor.
   beforeLeave?: () => void;
 }): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();

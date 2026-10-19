@@ -58,7 +58,6 @@ export const EMPTY_LINKED_CHANGES: LinkedChangesDraft = {
   removedVisual: [],
 };
 
-/** A key for a redirect added on the page that no staged one holds. */
 export function newRedirectKey(draft: LinkedChangesDraft): string {
   const taken = new Set(draft.addedRedirects.map((r) => r.key));
   let n = draft.addedRedirects.length + 1;

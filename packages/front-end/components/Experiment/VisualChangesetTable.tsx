@@ -584,7 +584,6 @@ function VisualChangesetCard({
                 <OpenVisualEditorLink
                   visualChangeset={vc}
                   useLink
-                  // Staged edits are kept for the return.
                   beforeLeave={edits?.allowUnload}
                   button={
                     <Flex align="center" gap="1">

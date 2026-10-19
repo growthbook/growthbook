@@ -58,7 +58,6 @@ const ExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
-  // Staged targeting edits, saved by the setup tab's save bar.
   const [targetingDraft, setTargetingDraft] =
     useStagedState<ExperimentTargetingData | null>(
       "targeting",

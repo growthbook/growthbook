@@ -64,7 +64,6 @@ export default function useUnsavedChangesGuard(
     };
   }, [hasUnsavedChanges]);
 
-  // Lets the next unload through unwarned, for a leave that loses nothing.
   const allowUnload = useCallback(() => {
     navigationConfirmed.current = true;
   }, []);

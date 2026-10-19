@@ -44,10 +44,6 @@ export type TextFieldProps = {
   containerClassName?: string;
   inputClassName?: string;
   type?: TextFieldType;
-  /**
-   * A textarea that starts at one line (`minRows`) and grows with its text up
-   * to `maxRows`, in the same frame as the single-line field.
-   */
   multiline?: boolean;
   minRows?: number;
   maxRows?: number;
@@ -130,8 +126,6 @@ export const TextField = forwardRef<
         label
       ) : null}
       {multiline ? (
-        // Radix's root and slots around an autosizing textarea, so the frame,
-        // focus ring and states match the single-line field.
         <div
           className={clsx(
             "rt-TextFieldRoot",

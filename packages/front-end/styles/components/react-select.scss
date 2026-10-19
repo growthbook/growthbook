@@ -349,7 +349,6 @@
   }
 }
 
-// `gb-field-indicator` gives a text field's corner buttons the same look.
 .gb-multi-select__clear-indicator,
 .gb-select__clear-indicator,
 .gb-select__raw-text-mode-indicator,
@@ -403,7 +402,6 @@
   }
 }
 
-// An indicator's accent (the constant picker's "@") shows while it's in use.
 .gb-field-indicator:hover .gb-field-indicator__accent,
 .gb-field-indicator[data-state="open"] .gb-field-indicator__accent {
   color: var(--ruby-11);

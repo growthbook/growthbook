@@ -54,7 +54,6 @@ export function resolveDraftPick(
   };
 }
 
-/** The flag as live has it, with no draft over it. */
 export function withoutDraft(info: LinkedFeatureInfo): LinkedFeatureInfo {
   return info.pendingDraft ? { ...info, pendingDraft: undefined } : info;
 }

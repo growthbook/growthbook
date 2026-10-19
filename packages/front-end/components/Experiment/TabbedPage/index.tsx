@@ -575,7 +575,6 @@ function TabbedPageContents({
               apiCall,
               browser,
               deviceType,
-              // Staged edits are kept for the return.
               beforeLeave: edits?.allowUnload,
             });
           }}

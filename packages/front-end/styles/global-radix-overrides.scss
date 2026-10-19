@@ -422,7 +422,6 @@
 }
 
 // SegmentedControl
-// Framed, with a raised chip for the choice, so it holds up on tinted panels.
 .rt-SegmentedControlRoot.gb-segmented-control {
   --gb-segmented-control-track: var(--gray-a2);
   --segmented-control-border-radius: var(--radius-2);
@@ -458,7 +457,6 @@
     border-radius: var(--radius-1);
     box-shadow: var(--shadow-1);
   }
-  // Radix's own padding, plus room for the chip's inset.
   &.rt-r-size-1 .rt-SegmentedControlItemLabel {
     padding-inline: calc(var(--space-3) + 4px);
   }
@@ -466,7 +464,6 @@
   &.rt-r-size-3 .rt-SegmentedControlItemLabel {
     padding-inline: calc(var(--space-4) + 4px);
   }
-  // Taller by the chip's inset on both sides, so the chip keeps Radix's height.
   &:not(.gb-segmented-control--wrap) {
     &.rt-r-size-1 {
       height: calc(var(--space-5) + 6px);

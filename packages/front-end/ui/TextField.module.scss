@@ -1,18 +1,13 @@
-// Grows with its text from the single-line height.
 .multiline {
-  // The size classes fix a single-line height.
   height: auto !important;
   min-height: var(--text-field-height);
 
   textarea {
     display: block;
     resize: none;
-    // The input's text-indent only moves the first line, so wrapped lines
-    // need real padding.
     text-indent: 0;
     padding-left: var(--text-field-padding);
     padding-right: var(--text-field-padding);
-    // One row lands on the single-line height.
     padding-top: calc(
       (var(--text-field-height) - 2 * var(--text-field-border-width) - 1lh) / 2
     );
@@ -20,19 +15,16 @@
       (var(--text-field-height) - 2 * var(--text-field-border-width) - 1lh) / 2
     );
 
-    // A right slot brings its own padding.
     &:not(:last-child) {
       padding-right: 0;
     }
   }
 
-  // Shown while the field is pointed at or in use, like a select's copy button.
   :global(.gb-field-indicator--reveal) {
     opacity: 0;
     transition: opacity 0.1s ease-in-out;
   }
 
-  // An open menu takes focus out of the field, so its trigger stays shown.
   &:hover :global(.gb-field-indicator--reveal),
   &:focus-within :global(.gb-field-indicator--reveal),
   :global(.gb-field-indicator--reveal[data-state="open"]) {

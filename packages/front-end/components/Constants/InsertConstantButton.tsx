@@ -168,7 +168,6 @@ export function UsedConstantTags({
   value: string;
   valueType: "string" | "json";
   project?: string;
-  // Tighter, for a field in a table cell.
   compact?: boolean;
 }) {
   const { constants } = useDefinitions();
@@ -258,7 +257,6 @@ export default function InsertConstantButton({
   /** The default lines it up under a field's label; "0" beside an unlabeled field. */
   iconMt?: ComponentProps<typeof IconButton>["mt"];
   iconSize?: "1" | "2";
-  // Styled like a select's indicator buttons, for a field's own corner.
   indicator?: boolean;
 }) {
   const { constants } = useDefinitions();
@@ -301,7 +299,6 @@ export default function InsertConstantButton({
       }}
     >
       {"{"}
-      {/* As an indicator it's muted like copy, and takes its accent on hover. */}
       <span
         className={indicator ? "gb-field-indicator__accent" : undefined}
         style={indicator ? undefined : { color: "var(--ruby-11)" }}

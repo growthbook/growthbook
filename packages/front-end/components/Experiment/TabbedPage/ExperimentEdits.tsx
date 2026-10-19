@@ -43,7 +43,6 @@ type PendingEdit = {
 );
 
 interface ExperimentEditsValue {
-  /** Where the page's staged edits are kept. */
   scope: string;
   /** Anything on the page edited but not yet written. */
   dirty: boolean;
@@ -53,7 +52,6 @@ interface ExperimentEditsValue {
   discardAll: () => void;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
-  /** Leaves the page unwarned: staged edits are kept for the return. */
   allowUnload: () => void;
 }
 
@@ -85,10 +83,6 @@ export function experimentFieldChanges(
 
 const STAGED_EDITS_PREFIX = "gb-experiment-edits";
 
-/**
- * Where an experiment's staged edits are kept: per status too, so edits staged
- * in Draft never come back once it's running.
- */
 export function stagedEditsScope(
   experiment: Pick<ExperimentInterfaceStringDates, "id" | "status">,
 ): string {
@@ -115,15 +109,10 @@ function clearStagedEdits(scope: string) {
       if (key?.startsWith(prefix)) sessionStorage.removeItem(key);
     });
   } catch {
-    // Storage is blocked; there's nothing kept to clear.
+    return;
   }
 }
 
-/**
- * State for an edit staged on the experiment page, kept in this tab's session
- * storage so a reload, or a trip to the Visual Editor, doesn't lose it. Back
- * at `initial`, nothing is kept. Outside the page's provider, pass `scope`.
- */
 export function useStagedState<T>(
   slot: string,
   initial: T,
@@ -138,7 +127,6 @@ export function useStagedState<T>(
     key,
     value: readStaged(key, initial),
   }));
-  // Another experiment, or the same one in a new status, has its own edits.
   let current = state;
   if (state.key !== key) {
     current = { key, value: readStaged(key, initial) };
@@ -153,7 +141,7 @@ export function useStagedState<T>(
       if (json === initialJson) sessionStorage.removeItem(current.key);
       else sessionStorage.setItem(current.key, json);
     } catch {
-      // Storage is full or blocked; the edit still lives on the page.
+      return;
     }
   }, [current.key, current.value, initialJson]);
 
@@ -189,8 +177,6 @@ export function ExperimentEditsProvider({
   const { apiCall } = useAuth();
   const edits = useRef(new Map<string, PendingEdit>());
 
-  // Edits staged under a status the experiment has left stay behind, so they
-  // can't come back if it returns to it.
   const previousScope = useRef(scope);
   useEffect(() => {
     const left = previousScope.current;

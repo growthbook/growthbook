@@ -190,10 +190,6 @@ function AddAnotherButton({
   );
 }
 
-/**
- * Adds any kind of implementation. An experiment with just one kind adds more
- * of it first, with the other kinds behind the caret.
- */
 export function AddImplementationMenu({
   experiment,
   onAdd,

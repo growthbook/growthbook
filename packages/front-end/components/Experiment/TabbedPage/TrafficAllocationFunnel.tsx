@@ -107,7 +107,6 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
   canEditFlagValues?: boolean;
-  /** The URL Redirect and Visual Editor sections, and adding more. */
   otherImplementations?: ReactNode;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
@@ -388,19 +387,13 @@ export default function TrafficAllocationFunnel({
       ),
     [linkedFeatures, draftPickValue],
   );
-  // A draft to show only when something it shows actually moved: any linked
-  // flag counts, since the value rows show every flag's draft.
   const draftsDiffer = useMemo(
     () => pickedFeatures.some(hasUnpublishedChanges),
     [pickedFeatures],
   );
-  // Once the experiment runs, what its flags serve and what their drafts
-  // propose can differ, so the table shows one or the other. In Draft, live
-  // serves nothing yet.
   const canViewLive =
     experiment.status !== "draft" && linkedFeatures.length > 0;
   const [chosenFlagView, setFlagView] = useState<FlagView | null>(null);
-  // A flag with no rule, or one a draft is taking out, is resolved in Draft.
   const flagNeedsAction = linkedFeatures.some(
     (info) => info.state === "discarded" || !!info.pendingRemoval,
   );
@@ -566,7 +559,6 @@ export default function TrafficAllocationFunnel({
         )}
         <Flex direction="column">
           <Flex align="center" direction="column">
-            {/* An archived Feature Flag serves nothing; its row says why. */}
             {environmentStates.length > 0 &&
             servedValueFeature?.state !== "archived" ? (
               <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
@@ -608,7 +600,6 @@ export default function TrafficAllocationFunnel({
                   }
                 >
                   <SetupFieldRow label="Name" content="text">
-                    {/* A new tab, so following it never costs the page's edits. */}
                     <Link href={`/holdout/${holdoutId}`} external>
                       {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
                     </Link>
@@ -692,8 +683,6 @@ export default function TrafficAllocationFunnel({
 
             <FunnelConnector />
 
-            {/* No pencil: the percentage edits in place, the split has its own
-              editor, and each variation carries its own. */}
             <FunnelCard title="Traffic">
               {!isHoldout ? (
                 <Box mb="1">
@@ -715,8 +704,6 @@ export default function TrafficAllocationFunnel({
                       </Text>
                     )}
                   </SetupFieldRow>
-                  {/* The bar keeps its place while a draft is edited: the
-                    slider is the same readout, made draggable. */}
                   <Box mt="1">
                     {editInline ? (
                       <PercentSlider
