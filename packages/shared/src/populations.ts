@@ -3,6 +3,7 @@ import type { FactTableInterface } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
 import {
   AggregateFilterCondition,
+  PARTIAL_AGGREGATE_CONDITION_REGEX,
   parseAggregateFilter,
 } from "./aggregate-filters";
 
@@ -17,7 +18,9 @@ export type PopulationRuleFactTable = Pick<
 
 // Unlike fact metrics, a filter with no comparisons (such as ",") is invalid:
 // it would silently drop the step's threshold.
-function isValidAggregateFilter(aggregateFilter: string): boolean {
+export function isValidPopulationAggregateFilter(
+  aggregateFilter: string,
+): boolean {
   const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
   return conditions.length > 0 && !invalid.length;
 }
@@ -26,6 +29,8 @@ export type PopulationRuleInput = {
   datasource: string;
   userIdTypes: string[];
   steps: PopulationStep[];
+  // Needs each column's jsonFields to type JSON sub-fields, which the slim
+  // definitions payload strips.
   factTables: PopulationRuleFactTable[];
 };
 
@@ -155,6 +160,20 @@ export function parseSingleAggregateFilter(
   return { operator: normalizeOperator(operator), value };
 }
 
+// Splits an aggregate filter into the editor's operator dropdown and number
+// box. Unlike parseSingleAggregateFilter, the value may be empty or a partial
+// number while the user types. An empty filter starts at "at least". Returns
+// null when the filter can only be edited as raw text, such as ">=3,<10".
+export function parseAggregateFilterForEditor(
+  aggregateFilter: string,
+): AggregateFilterCondition | null {
+  const compact = aggregateFilter.replace(/\s*/g, "");
+  if (!compact) return { operator: ">=", value: "" };
+  const match = compact.match(PARTIAL_AGGREGATE_CONDITION_REGEX);
+  if (!match) return null;
+  return { operator: normalizeOperator(match[1]), value: match[2] };
+}
+
 // POPULATION_AGGREGATE_OPERATORS offers "!=" but not its "<>" synonym.
 function normalizeOperator(operator: string): string {
   return operator === "<>" ? "!=" : operator;
@@ -221,7 +240,7 @@ export function getPopulationRuleViolations({
     const { aggregateFilter, aggregateFilterColumn } = step;
     if (!aggregateFilter || !aggregateFilterColumn) return;
 
-    if (!isValidAggregateFilter(aggregateFilter)) {
+    if (!isValidPopulationAggregateFilter(aggregateFilter)) {
       violations.push(
         `Invalid aggregate filter "${aggregateFilter}" (step ${i + 1}). Use comparisons such as ">=3" or ">=3,<10".`,
       );

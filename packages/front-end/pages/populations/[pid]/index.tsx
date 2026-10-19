@@ -59,6 +59,7 @@ export default function PopulationPage() {
   }
 
   const canEdit = permissionsUtil.canUpdatePopulation(population, population);
+  const editHref = canEdit ? `/populations/${population.id}/edit` : null;
   const update = async (
     body: Partial<{ owner: string; projects: string[]; description: string }>,
   ) => {
@@ -235,7 +236,7 @@ export default function PopulationPage() {
           </Text>
         </Box>
         <Box className="appbox" p="5" mb="0" style={{ flex: "1 1 280px" }}>
-          <PopulationDefinition population={population} />
+          <PopulationDefinition population={population} editHref={editHref} />
         </Box>
       </Flex>
     </Box>

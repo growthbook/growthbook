@@ -9,8 +9,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function PopulationDefinition({
   population,
+  editHref,
 }: {
   population: ApiPopulation;
+  editHref: string | null;
 }) {
   const { getFactTableById } = useDefinitions();
   const unit = population.userIdTypes.join(", ");
@@ -21,6 +23,7 @@ export default function PopulationDefinition({
         <Heading as="h2" size="md">
           Definition
         </Heading>
+        {editHref && <Link href={editHref}>Edit</Link>}
       </Flex>
 
       <Box asChild mb="4" pl="4">

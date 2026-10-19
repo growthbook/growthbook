@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
@@ -24,12 +25,14 @@ export default function PopulationMoreMenu({
   onAuditLog?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
 
+  const canEdit = permissionsUtil.canUpdatePopulation(population, population);
   const canDuplicate = permissionsUtil.canCreatePopulation(population);
   const canDelete = permissionsUtil.canDeletePopulation(population);
-  if (!canDuplicate && !canDelete && !onAuditLog) return null;
+  if (!canEdit && !canDuplicate && !canDelete && !onAuditLog) return null;
 
   return (
     <DropdownMenu
@@ -50,6 +53,15 @@ export default function PopulationMoreMenu({
       menuPlacement="end"
       variant="soft"
     >
+      {canEdit && (
+        <DropdownMenuItem
+          onClick={async () => {
+            await router.push(`/populations/${population.id}/edit`);
+          }}
+        >
+          Edit
+        </DropdownMenuItem>
+      )}
       {onAuditLog && (
         <DropdownMenuItem
           onClick={() => {
@@ -60,7 +72,9 @@ export default function PopulationMoreMenu({
           Audit log
         </DropdownMenuItem>
       )}
-      {onAuditLog && (canDuplicate || canDelete) && <DropdownMenuSeparator />}
+      {(canEdit || onAuditLog) && (canDuplicate || canDelete) && (
+        <DropdownMenuSeparator />
+      )}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
