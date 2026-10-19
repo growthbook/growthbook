@@ -196,6 +196,10 @@ export async function revertFeatureRevision(
     const m = targetRevision.metadata;
     const metadataChanges: typeof changes.metadata = {};
     let hasMetaChange = false;
+    if (m.label !== undefined && m.label !== (feature.label ?? "")) {
+      metadataChanges.label = m.label;
+      hasMetaChange = true;
+    }
     if (
       m.description !== undefined &&
       m.description !== (feature.description ?? "")

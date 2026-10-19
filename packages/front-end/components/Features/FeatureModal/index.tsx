@@ -1,3 +1,4 @@
+import { MAX_FEATURE_LABEL_LENGTH } from "shared/constants";
 import {
   canEnableEnvironmentOnCreate,
   targetingRefusal,
@@ -49,6 +50,7 @@ import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { TextField } from "@/ui/TextField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -109,6 +111,7 @@ const genFormDefaultValues = ({
   FeatureInterface,
   | "valueType"
   | "defaultValue"
+  | "label"
   | "description"
   | "tags"
   | "project"
@@ -133,6 +136,9 @@ const genFormDefaultValues = ({
     ? {
         valueType: featureToDuplicate.valueType,
         defaultValue: featureToDuplicate.defaultValue,
+        label: featureToDuplicate.label
+          ? `${featureToDuplicate.label} (copy)`
+          : "",
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
         project: featureToDuplicate.project ?? project,
@@ -154,6 +160,7 @@ const genFormDefaultValues = ({
     : {
         valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
+        label: "",
         description: "",
         id: "",
         project,
@@ -432,7 +439,22 @@ export default function FeatureModal({
           </Callout>
         )}
 
-        <FeatureKeyField keyField={form.register("id")} />
+        <TextField
+          label="Label"
+          mb="3"
+          maxLength={MAX_FEATURE_LABEL_LENGTH}
+          placeholder="Express checkout button"
+          helpText="The name people see in GrowthBook. It's never sent to SDKs."
+          {...form.register("label")}
+        />
+
+        <FeatureKeyField
+          keyField={form.register("id")}
+          hasLabel={!!form.watch("label")?.trim()}
+          onGenerateKey={(key) =>
+            form.setValue("id", key, { shouldDirty: true })
+          }
+        />
 
         {projectOptions.length > 0 && (
           <SelectField

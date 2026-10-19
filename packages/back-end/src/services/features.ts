@@ -2997,6 +2997,7 @@ export function getApiFeatureObjV2({
 
   return {
     id: feature.id,
+    ...(feature.label ? { label: feature.label } : {}),
     description: feature.description || "",
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),
@@ -3232,6 +3233,7 @@ export function getApiFeatureObj({
 
   const featureRecord: ApiFeatureWithRevisions = {
     id: feature.id,
+    ...(feature.label ? { label: feature.label } : {}),
     description: feature.description || "",
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),

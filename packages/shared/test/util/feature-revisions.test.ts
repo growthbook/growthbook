@@ -1004,6 +1004,7 @@ describe("reconcileMergeBaselines", () => {
 describe("featureMetadataEnvelope", () => {
   it("covers every key the revision metadata schema defines", () => {
     const schemaKeys = [
+      "label",
       "description",
       "owner",
       "project",

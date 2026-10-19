@@ -1401,6 +1401,7 @@ export function featureMetadataEnvelope(
   feature: FeatureInterface,
 ): CompleteMetadata {
   return {
+    label: feature.label ?? "",
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
@@ -5177,4 +5178,18 @@ export function getReviewAuthorityFootprint({
   }
 
   return { scope: "environments", environments: [...environments] };
+}
+
+// Case-insensitive substring match on the key and label, the fields people
+// recognize a Feature Flag by. Mirrors the Mongo clause in featureListQuery.
+export function featureMatchesSearch(
+  feature: { id: string; label?: string },
+  search: string,
+): boolean {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    feature.id.toLowerCase().includes(needle) ||
+    (feature.label ?? "").toLowerCase().includes(needle)
+  );
 }

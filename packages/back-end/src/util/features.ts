@@ -1913,6 +1913,7 @@ export function toFeatureMetaInfo(
     | undefined;
   return {
     id: f.id,
+    label: f.label,
     project: f.project,
     targetingProjects: f.targetingProjects ?? [],
     targetingAllProjects: f.targetingAllProjects,

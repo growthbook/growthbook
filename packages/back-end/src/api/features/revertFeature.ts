@@ -176,6 +176,10 @@ export async function revertFeatureCore(
     const metadataChanges: typeof changes.metadata = {};
     let hasMetaChange = false;
     const m = revision.metadata;
+    if (m.label !== undefined && m.label !== (feature.label ?? "")) {
+      metadataChanges.label = m.label;
+      hasMetaChange = true;
+    }
     if (m.description !== undefined && m.description !== feature.description) {
       metadataChanges.description = m.description;
       hasMetaChange = true;
@@ -264,7 +268,7 @@ export async function revertFeatureCore(
     if (hasMetaChange) {
       // PAYLOAD-AFFECTING metadata only, matching the publish footprint, the
       // dashboard revert and the Revert control — all four now read one rule.
-      // Inert metadata (description, owner, tags, neverStale, customFields) reaches
+      // Inert metadata (label, description, owner, tags, neverStale, customFields) reaches
       // no SDK, so demanding revert authority over every serving environment for a
       // description-only restore refused changes with no live effect.
       if (

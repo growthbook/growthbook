@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  statsEngines,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_FEATURE_LABEL_LENGTH,
+} from "shared/constants";
 import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
@@ -472,7 +476,21 @@ export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
 
+export const FEATURE_LABEL_DESCRIPTION =
+  "Human-readable name shown in the GrowthBook UI and search instead of the key. It is never sent to SDKs, so the key can stay short or opaque (e.g. `f_8k2j9`) without exposing what the Feature Flag is for. Omit it to show the key.";
+
+export const featureLabelField = z.string().max(MAX_FEATURE_LABEL_LENGTH);
+
+export const featureSearchQueryField = z
+  .string()
+  .max(200)
+  .describe(
+    "Case-insensitive text to match against each Feature Flag's key (`id`) and `label`.",
+  )
+  .optional();
+
 const revisionMetadataSchema = z.object({
+  label: featureLabelField.optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
@@ -775,6 +793,7 @@ export type RevisionChanges = z.infer<typeof revisionChangesSchema>;
 export const featureInterface = z
   .object({
     id: z.string(),
+    label: featureLabelField.optional(),
     archived: z.boolean().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     organization: z.string(),
@@ -1228,6 +1247,7 @@ export type ApiRevisionPrerequisiteV2 = z.infer<
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({
+    label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerField.optional(),
     project: z.string().optional(),
@@ -1320,6 +1340,7 @@ export const apiFeatureValidator = namedSchema(
       id: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
+      label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
       archived: z.boolean(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
@@ -1636,6 +1657,7 @@ const postFeatureBody = z
       .describe(
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
+    label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
     archived: z.boolean().optional(),
     description: z
       .string()
@@ -1702,6 +1724,7 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
+    label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -1798,6 +1821,7 @@ export const listFeaturesValidator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
+      search: featureSearchQueryField,
       ...skipPaginationQueryField,
     })
     .strict(),

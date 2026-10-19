@@ -1,5 +1,5 @@
 import { listFeaturesValidator } from "shared/validators";
-import { isDefined, stringToBoolean } from "shared/util";
+import { featureMatchesSearch, isDefined, stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -49,6 +49,7 @@ export async function loadFeaturesPage(
     projectId?: string;
     clientKey?: string;
     archived?: string | boolean;
+    search?: string;
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
@@ -72,6 +73,9 @@ export async function loadFeaturesPage(
     }
 > {
   const projectId = query.projectId;
+  const search = query.search?.trim() || undefined;
+  const matchesSearch = (f: { id: string; label?: string }) =>
+    !search || featureMatchesSearch(f, search);
   // Mirrors the internal `includeArchived` option: false (default) excludes
   // archived features; true includes them alongside non-archived ones.
   const includeArchived = stringToBoolean(query.archived?.toString()) ?? false;
@@ -135,7 +139,7 @@ export async function loadFeaturesPage(
       },
     });
     const filteredFeatures = features
-      .filter((f) => f.id in payload.features)
+      .filter((f) => f.id in payload.features && matchesSearch(f))
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
     if (skipPagination) {
       filtered = filteredFeatures;
@@ -151,21 +155,23 @@ export async function loadFeaturesPage(
         projects: [projectId],
         includeArchived,
       });
-      const sorted = features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-      );
+      const sorted = features
+        .filter(matchesSearch)
+        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
       filtered = sorted;
       total = sorted.length;
     } else {
       filtered = await getFeaturesPage(context, {
         project: projectId,
         includeArchived,
+        search,
         limit,
         offset,
       });
       total = await countFeatures(context, {
         project: projectId,
         includeArchived,
+        search,
       });
     }
   } else {
@@ -176,21 +182,23 @@ export async function loadFeaturesPage(
         projectsAreReadAllowlist: true,
         includeArchived,
       });
-      const sorted = features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-      );
+      const sorted = features
+        .filter(matchesSearch)
+        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
       filtered = sorted;
       total = sorted.length;
     } else {
       filtered = await getFeaturesPage(context, {
         projectIds: projectsFilter,
         includeArchived,
+        search,
         limit,
         offset,
       });
       total = await countFeatures(context, {
         projectIds: projectsFilter,
         includeArchived,
+        search,
       });
     }
   }

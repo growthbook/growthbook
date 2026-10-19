@@ -13,7 +13,9 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
+import { MAX_FEATURE_LABEL_LENGTH } from "shared/constants";
 import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -79,6 +81,7 @@ const EditFeatureInfoModal: FC<{
       project: feature.project || "",
       targetingAllProjects: feature.targetingAllProjects || false,
       targetingProjects: feature.targetingProjects || [],
+      label: feature.label || "",
       description: feature.description || "",
     },
   });
@@ -167,6 +170,7 @@ const EditFeatureInfoModal: FC<{
       project: feature.project || "",
       targetingAllProjects: feature.targetingAllProjects || false,
       targetingProjects: feature.targetingProjects || [],
+      label: feature.label || "",
       description: feature.description || "",
     },
     labels: {
@@ -175,6 +179,7 @@ const EditFeatureInfoModal: FC<{
       project: "Project",
       targetingAllProjects: "Targeting Projects",
       targetingProjects: "Targeting Projects",
+      label: "Label",
       description: "Description",
     },
     formatters: {
@@ -247,6 +252,14 @@ const EditFeatureInfoModal: FC<{
             alertActive={conflict.alertActive}
           />
           {conflict.callouts}
+          <TextField
+            label="Label"
+            mb="3"
+            maxLength={MAX_FEATURE_LABEL_LENGTH}
+            placeholder={feature.id}
+            helpText="The name people see in GrowthBook. It's never sent to SDKs."
+            {...form.register("label")}
+          />
           <Field
             size="legacy"
             label="Feature Key"

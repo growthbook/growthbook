@@ -148,6 +148,7 @@ export type AttributeMap = Map<string, string>;
 export type FeatureMetaInfo = Pick<
   FeatureInterface,
   | "id"
+  | "label"
   | "project"
   | "targetingProjects"
   | "targetingAllProjects"

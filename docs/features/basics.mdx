@@ -21,6 +21,14 @@ Feature keys must only include letters, numbers, hyphens (-), and underscores (\
 
 </Warning>
 
+## Labels
+
+A Feature Flag can also have a **label**: the name people see in GrowthBook, such as `Express checkout button`. When a Feature Flag has a label, GrowthBook shows the label in lists, page headers, pickers and search, with the key underneath. You can change a label at any time; edits go through drafts and reviews like the description.
+
+The label is never sent to SDKs. Only the key is. That lets you keep keys short and stable, or make them opaque (for example `f_8k2j9x4p`) so your SDK payloads and client code don't reveal what you're building. When you create a Feature Flag with a label, select **Generate an opaque key** under the key field to fill in a random one.
+
+Labels and keys are both searchable in the Feature Flag list, in the [command palette](/command-palette), and through the REST API's `search` parameter on `GET /api/v2/features`.
+
 ## Feature State
 
 Feature flags can be enabled or disabled. When a flag is disabled, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules. In your app, the SDK will render the feature with the fallback value.

@@ -27,6 +27,9 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  featureLabelField,
+  featureSearchQueryField,
+  FEATURE_LABEL_DESCRIPTION,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
@@ -390,6 +393,7 @@ export const apiFeatureV2Validator = namedSchema(
       id: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
+      label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
       archived: z.boolean(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
@@ -679,6 +683,7 @@ export const postFeatureBodyV2 = z
       .describe(
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
+    label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
     archived: z.boolean().optional(),
     description: z
       .string()
@@ -746,6 +751,7 @@ export const postFeatureBodyV2 = z
 // ---- V2 UpdateFeaturePayload ----
 export const updateFeatureBodyV2 = z
   .object({
+    label: featureLabelField.describe(FEATURE_LABEL_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -837,6 +843,7 @@ export const listFeaturesV2Validator = {
       archived: booleanQueryField.describe(
         "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
       ),
+      search: featureSearchQueryField,
       ...skipPaginationQueryField,
     })
     .strict(),

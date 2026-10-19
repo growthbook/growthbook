@@ -31,6 +31,7 @@ import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 export type RevisionMetadataBody = {
   comment?: string;
   title?: string;
+  label?: string;
   description?: string;
   owner?: unknown;
   project?: string;

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import escapeRegExp from "lodash/escapeRegExp";
 import {
   MergeResultChanges,
   PermissionError,
@@ -211,6 +212,7 @@ import {
 
 const featureSchema = new mongoose.Schema({
   id: String,
+  label: String,
   archived: Boolean,
   description: String,
   organization: String,
@@ -796,7 +798,12 @@ function readAllowlistClause(projects: string[]): FilterQuery<FeatureDocument> {
 
 function featureListQuery(
   orgId: string,
-  opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+  opts: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+    search?: string;
+  },
 ): FilterQuery<FeatureDocument> {
   const { project, projectIds, includeArchived = false } = opts;
   const scopeClause =
@@ -806,10 +813,17 @@ function featureListQuery(
         ? // projectIds is always a read allowlist, never a user filter
           readAllowlistClause(projectIds)
         : {};
-  return {
+  const query: FilterQuery<FeatureDocument> = {
     organization: orgId,
     ...scopeClause,
     ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+  const search = opts.search?.trim();
+  if (!search) return query;
+  // $and so the search $or can't overwrite an $or in the project scope clause.
+  const pattern = new RegExp(escapeRegExp(search), "i");
+  return {
+    $and: [query, { $or: [{ id: pattern }, { label: pattern }] }],
   };
 }
 
@@ -819,12 +833,14 @@ export async function getFeaturesPage(
     project,
     projectIds,
     includeArchived = false,
+    search,
     limit = 10,
     offset = 0,
   }: {
     project?: string;
     projectIds?: string[];
     includeArchived?: boolean;
+    search?: string;
     limit?: number;
     offset?: number;
   },
@@ -834,6 +850,7 @@ export async function getFeaturesPage(
     project,
     projectIds,
     includeArchived,
+    search,
   });
   const docs = await FeatureModel.find(q)
     .sort({ _id: 1 })
@@ -893,11 +910,22 @@ export async function countFeatures(
     project,
     projectIds,
     includeArchived = false,
-  }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+    search,
+  }: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+    search?: string;
+  },
 ): Promise<number> {
   if (projectIds?.length === 0) return 0;
   return FeatureModel.countDocuments(
-    featureListQuery(context.org.id, { project, projectIds, includeArchived }),
+    featureListQuery(context.org.id, {
+      project,
+      projectIds,
+      includeArchived,
+      search,
+    }),
   );
 }
 
@@ -2259,6 +2287,7 @@ export function computeRevisionMergeChanges(
 
   if (result.metadata) {
     const m = result.metadata;
+    if (m.label !== undefined) changes.label = m.label;
     if (m.description !== undefined) changes.description = m.description;
     if (m.owner !== undefined) changes.owner = m.owner;
     if (m.project !== undefined) changes.project = m.project;
@@ -4947,6 +4976,7 @@ export async function getFeatureMetaInfoById(
 
   const projection: Record<string, number> = {
     id: 1,
+    label: 1,
     project: 1,
     targetingAllProjects: 1,
     targetingProjects: 1,

@@ -239,7 +239,7 @@ export default function PrerequisiteModal({
       const projectId = f.project || "";
       const projectName = projectId ? projectMap.get(projectId) : null;
       return {
-        label: f.id,
+        label: f.label ? `${f.label} (${f.id})` : f.id,
         value: f.id,
         meta: {
           conditional,

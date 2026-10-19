@@ -221,8 +221,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `feature::${f.id}`,
         type: "feature",
-        name: f.id,
-        description: "",
+        name: f.label || f.id,
+        // Indexed, not shown: the key stays searchable when a label replaces it.
+        description: [f.label ? f.id : "", f.description || ""]
+          .filter(Boolean)
+          .join(" "),
         url: `/features/${f.id}`,
         tags: (f.tags || []).join(" "),
       });

@@ -107,6 +107,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       valueType: req.body.valueType,
       baseConfig: req.body.baseConfig ?? undefined,
       owner: await resolveOwnerForCreate(req.body.owner, req.context),
+      ...(req.body.label ? { label: req.body.label } : {}),
       description: req.body.description || "",
       project: req.body.project || "",
       ...normalizeTargetingProjects({
