@@ -25,11 +25,11 @@ export const validColumn = (options: DetectedColumn[], column: string) =>
 // Identifier and timestamp match the badges on the Fact Table column list.
 const KIND_BADGES = {
   experiment: {
-    tooltip: "Experiment ID",
+    tooltip: "The experiment's tracking key",
     icon: <PiFlaskBold size={14} />,
   },
   variation: {
-    tooltip: "Variation ID",
+    tooltip: "Which variation the unit saw",
     icon: <PiArrowsSplitBold size={14} />,
   },
   identifier: {
