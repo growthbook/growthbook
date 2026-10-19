@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "incremental": false,
+    "types": ["jest", "node"]
+  },
+  "include": ["**/*.ts", "../typings.d.ts", "../types/**/*.d.ts"]
+}

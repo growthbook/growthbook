@@ -5,21 +5,39 @@
       "name": "Debug Back-end",
       "type": "node-terminal",
       "request": "launch",
-      "command": ". $(cd ../../packages/stats && poetry env info --path)/bin/activate && yarn nodemon -e ts --exec node -r ts-node/register src/server.ts",
-      "cwd": "${workspaceFolder}/packages/back-end",
+      "command": "pnpm dev:back-end",
+      "cwd": "${workspaceFolder}",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "sourceMaps": true,
-      "presentation": {
-        "hidden": true
-      }
+      "outFiles": [
+        "${workspaceFolder}/packages/back-end/dist/**/*.js",
+        "${workspaceFolder}/packages/shared/dist/**/*.js"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Attach to Back-end (port 9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/back-end/dist/**/*.js",
+        "${workspaceFolder}/packages/shared/dist/**/*.js"
+      ]
     },
     {
       "name": "Debug Next.js: server-side",
       "type": "node-terminal",
       "request": "launch",
       "cwd": "${workspaceFolder}/packages/front-end",
-      "command": "yarn dev",
+      "command": "pnpm dev",
       "presentation": {
         "hidden": true
       }
@@ -37,6 +55,42 @@
       "presentation": {
         "hidden": true
       }
+    },
+    {
+      "name": "vscode-jest-tests.v2.shared",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/shared",
+      "program": "${workspaceFolder}/packages/shared/node_modules/jest/bin/jest.js",
+      "args": [
+        "--runInBand",
+        "--watchAll=false",
+        "--testNamePattern",
+        "${jest.testNamePattern}",
+        "--runTestsByPath",
+        "${jest.testFile}"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "vscode-jest-tests.v2.back-end",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/back-end",
+      "program": "${workspaceFolder}/packages/back-end/node_modules/jest/bin/jest.js",
+      "args": [
+        "--runInBand",
+        "--watchAll=false",
+        "--testNamePattern",
+        "${jest.testNamePattern}",
+        "--runTestsByPath",
+        "${jest.testFile}"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
     }
   ],
   "compounds": [

@@ -158,7 +158,7 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Populations",
         href: "/populations",
         path: /^populations/,
-        filter: ({ gb }) => !!gb?.isOn("populations"),
+        // filter: ({ gb }) => !!gb?.isOn("populations"),
       },
       {
         name: "Segments",
