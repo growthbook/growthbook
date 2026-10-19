@@ -1,13 +1,13 @@
 ---
 title: In-app AI assistant
-description: "Ask GrowthBook's in-app AI assistant to create Feature Flags, design and analyze experiments, build dashboards, and query your data from any page, with your permissions and your approval on every change."
+description: "Ask GrowthBook's in-app AI assistant to create feature flags, design and analyze experiments, build dashboards, and query your data from any page, with your permissions and your approval on every change."
 keywords: [AI assistant, AI, agent, skills, Ask Data]
 sidebarTitle: In-app AI assistant
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
-The in-app AI assistant is a chat panel built into GrowthBook. Ask it a question or describe a task in plain language, and it does the work with the GrowthBook REST API: creating Feature Flags, designing and launching experiments, interpreting results, building dashboards, and querying your data.
+The in-app AI assistant is a chat panel built into GrowthBook. Ask it a question or describe a task in plain language, and it does the work with the GrowthBook REST API: creating feature flags, designing and launching experiments, interpreting results, building dashboards, and querying your data.
 
 It knows which page you're on, so "summarize this experiment" or "add a rule to this flag" works without naming the experiment or flag. It acts with your permissions, and it asks you to confirm every change before it happens.
 
@@ -29,7 +29,7 @@ The assistant, the MCP Server, and the Agent Skills plugin all follow the same o
 The in-app AI assistant is available on all GrowthBook Cloud plans. Self-hosted GrowthBook requires an Enterprise license.
 </Note>
 
-- **AI turned on for your organization.** AI features are off until an admin turns them on. Until then, AI is turned off everywhere in GrowthBook, and none of it is required to use the core product.
+- **AI turned on for your organization.** AI is off everywhere in GrowthBook until an admin turns it on. None of it is required to use the core product.
 - **Self-hosted only:** an API key for at least one AI provider. The assistant first shipped in GrowthBook 5.0. Managing skills, custom skills, and autocomplete need a release newer than 5.1.
 
 ## Turn on the assistant
@@ -70,7 +70,7 @@ Restart GrowthBook, then turn on AI as described above. Enterprise installs can 
 
 Click the sparkle button (**Ask GrowthBook AI**) in the top navigation, next to your organization name. The panel opens on the right and stays open as you move between pages. Click the button again or **Close** to hide it, and use **Maximize panel** for more room.
 
-Type a request in the composer and press **Enter** to send it. Press **Shift + Enter** for a new line. While the assistant works, it shows each step it takes, such as loading a skill or calling the GrowthBook API. Expand **Completed N steps** to see the requests it made and what came back.
+Type a request in the composer and press **Enter** to send it. Press **Shift + Enter** for a new line. While the assistant works, it shows each step it takes, such as loading a skill or calling the GrowthBook API. Expand **N steps completed** to see the requests it made and what came back.
 
 A new conversation offers four starting points:
 
@@ -83,7 +83,7 @@ Clicking one fills in the composer so you can edit it before sending.
 
 ### Page context
 
-Each message tells the assistant which page you're viewing. On a Feature Flag, experiment, metric, fact metric, or dashboard page, you can refer to it as "this flag" or "this experiment." When the assistant creates or finds something, its reply links to it.
+Each message tells the assistant which page you're viewing. On a feature flag, experiment, metric, fact metric, or dashboard page, you can refer to it as "this flag" or "this experiment." When the assistant creates or finds something, its reply links to it.
 
 ### Mention metrics and pick a skill
 
@@ -117,19 +117,11 @@ The assistant uses **skills**: step-by-step playbooks for GrowthBook tasks. It r
 | **Analytics**       | Explore Product Analytics charts, create and edit dashboards, find and create metrics, and run SQL against your data.                                                    |
 | **GrowthBook docs** | Answer how-to and SDK questions about GrowthBook and link to the relevant docs.                                                                                          |
 
-Some things to try:
-
-- "What experiments are running on the checkout page?"
-- "Create a Feature Flag called `new-onboarding` that's off in production and on for internal users in staging."
-- "Summarize the results of this experiment and tell me whether it's ready to stop."
-- "Build a dashboard of signups and activation by week."
-- "Which flags haven't changed in 90 days?"
-
 The assistant works through the [GrowthBook REST API](/app/api), so it can do what the API supports. It can't run scripts or shell commands. For multi-armed bandits, it points you to the GrowthBook UI.
 
 ## Approving changes
 
-The assistant reads freely, but it can't change your GrowthBook configuration without your approval. Before it creates, updates, or deletes anything, such as a flag, experiment, metric, or dashboard, it shows an **Apply this change?** card with the request it wants to make and a summary of what it will do. Expand **Request details** to see the exact request.
+The assistant reads freely, but it can't change your GrowthBook configuration without your approval. Before it creates, updates, or deletes anything, such as a flag, experiment, metric, or dashboard, it shows a confirmation card, **Apply this change?**, with the request it wants to make and a summary of what it will do. Expand **Request details** to see the exact request.
 
 - **Confirm** runs that exact request.
 - **Cancel** stops it. Sending a new message instead also cancels the pending change.
@@ -138,7 +130,7 @@ The assistant reads freely, but it can't change your GrowthBook configuration wi
 
 All AI in GrowthBook inherits the permissions of the user who starts the action. The assistant has no separate API key. If you can't do something in the GrowthBook UI, the assistant can't do it either. Changes it makes are recorded under your name, the same as changes you make yourself.
 
-A few actions run without a card because they only read or analyze data: refreshing experiment results, running Product Analytics explorations, and Ask Data queries that don't need confirmation (see [Ask Data](#ask-data)). These can run queries against your data warehouse.
+A few actions run without a confirmation card because they only read or analyze data: refreshing experiment results, running Product Analytics explorations, and Ask Data queries that don't need confirmation (see [Ask Data](#ask-data)). These can run queries against your data warehouse.
 
 Dashboards have one more safeguard: the assistant can only edit or delete the dashboard you're currently viewing. It can create a new dashboard from any page.
 
@@ -156,7 +148,7 @@ Ask Data needs to be turned on in two places:
 
 {/* TODO(alyssa): Screenshot of the Ask Data Settings modal on a data source page. */}
 
-Cost estimates are only available for BigQuery. For other data sources, every Ask Data query needs your confirmation before it runs. When a query needs confirmation, the assistant shows a **Run SQL query** card with the estimated cost.
+Cost estimates are only available for BigQuery. For other data sources, every Ask Data query needs your confirmation before it runs. When a query needs confirmation, the assistant shows an **Apply this change?** confirmation card that includes the estimated cost when one is available.
 
 Ask Data queries must be read-only, return at most 500 rows, and need permission to run SQL Explorer queries on that data source.
 
@@ -219,15 +211,15 @@ On GrowthBook Cloud, requests go to GrowthBook's AI subprocessors, except for pr
 ### Writing requests
 
 - **Start from the right page.** Open the flag, experiment, metric, or dashboard first, so "this flag" or "this experiment" points to the right thing.
-- **Be specific.** Give exact flag keys, experiment names, environments, and values. "Turn on `new-onboarding` for 10% of users in production" works better than "roll out onboarding."
+- **Be specific.** Give exact flag keys, experiment names, environments, and values instead of describing them, for example the flag key rather than "the onboarding flag."
 - **@-mention metrics.** The assistant gets the exact metric instead of searching for one with a similar name.
 - **Use `/` for a task you know.** Picking a skill such as experiment design starts the right workflow straight away.
 - **Start a new conversation for each new topic.** The whole conversation goes to the AI provider with every message, so a long, unrelated history slows replies and uses more tokens.
 
 ### Reviewing changes
 
-- **Read the request before you confirm.** Expand **Request details** on the **Apply this change?** card and check the environment, targeting, and values, especially for production.
-- **Check what it did.** Expand **Completed N steps** to see each API call and its response, and follow the links in the reply to see the result in GrowthBook.
+- **Read the request before you confirm.** Expand **Request details** on the **Apply this change?** confirmation card and check the environment, targeting, and values, especially for production.
+- **Check what it did.** Expand **N steps completed** to see each API call and its response, and follow the links in the reply to see the result in GrowthBook.
 - **Cancel and correct.** If a proposed change isn't right, click **Cancel**, or send a message saying what to change. Sending a message also cancels the pending change.
 - **Rate responses.** A thumbs up or down tells GrowthBook which answers work. Add a comment to a thumbs down to say what went wrong.
 
