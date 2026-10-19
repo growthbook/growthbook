@@ -148,7 +148,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   getAuditHistory,
-  getPersonalAccessTokenAuditIds,
+  getAuditedApiKeyKinds,
 } from "back-end/src/models/AuditModel";
 import { ReqContext } from "back-end/types/request";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
@@ -306,7 +306,7 @@ export async function getHistory(
       : type === "apiKey" &&
           !id &&
           !context.permissions.canManagePersonalAccessTokens()
-        ? [...(await getPersonalAccessTokenIds(context))]
+        ? await getApiKeyIdsHiddenFromKeyViewers(context)
         : [];
 
   const history = await getAuditHistory(
@@ -328,34 +328,39 @@ async function canReadApiKeyHistory(
   context: ReqContext,
   id: string | undefined,
 ): Promise<boolean> {
-  if (!id) return context.permissions.canViewApiKeys();
+  const { permissions } = context;
+  if (!id) return permissions.canViewApiKeys();
   const key = await context.models.apiKeys.dangerousGetById(id);
-  // A deleted key is known only by its audits, which name a token's owner.
-  const isToken = key
-    ? !!key.userId
-    : (await getPersonalAccessTokenAuditIds(context.org)).includes(id);
-  if (!isToken) return context.permissions.canViewApiKeys();
+  if (key) {
+    return key.userId
+      ? key.userId === context.userId ||
+          permissions.canManagePersonalAccessTokens()
+      : permissions.canViewApiKeys();
+  }
+  // A deleted key is known only by its audits. One they can't place needs both.
+  const kinds = await getAuditedApiKeyKinds(context.org.id);
+  if (kinds.tokens.has(id)) return permissions.canManagePersonalAccessTokens();
+  if (kinds.orgKeys.has(id)) return permissions.canViewApiKeys();
   return (
-    (!!key && key.userId === context.userId) ||
-    context.permissions.canManagePersonalAccessTokens()
+    permissions.canViewApiKeys() && permissions.canManagePersonalAccessTokens()
   );
 }
 
-// Every token the org has had, including deleted ones, which only their audits still name.
-// OAuth access tokens are never audited, so they need no excluding.
-async function getPersonalAccessTokenIds(
+// Members' tokens, and deleted keys their audits can't place as org keys.
+async function getApiKeyIdsHiddenFromKeyViewers(
   context: ReqContext,
-): Promise<Set<string>> {
-  const [keys, audited] = await Promise.all([
+): Promise<string[]> {
+  const [keys, kinds] = await Promise.all([
     context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
-    getPersonalAccessTokenAuditIds(context.org),
+    getAuditedApiKeyKinds(context.org.id),
   ]);
-  return new Set([
-    ...keys
-      .filter((k) => k.userId && !k.oauthClientId && k.id)
-      .map((k) => k.id as string),
-    ...audited,
-  ]);
+  const live = new Map(keys.map((k) => [k.id, k]));
+  return kinds.all.filter((id) => {
+    // Org-wide entries, like applying the expiration policy, name no key.
+    if (!id) return false;
+    const key = live.get(id);
+    return key ? !!key.userId : !kinds.orgKeys.has(id);
+  });
 }
 
 export async function putMemberRole(

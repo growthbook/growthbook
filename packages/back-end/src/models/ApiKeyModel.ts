@@ -151,8 +151,8 @@ export class ApiKeyModel extends BaseClass {
     return {
       id: doc.id,
       description: doc.description,
-      // Records whose PAT an admin revoked; absent for org keys.
-      userId: doc.userId,
+      // A token's owner, null for an org key: history access tells them apart.
+      userId: doc.userId ?? null,
       role: doc.role,
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
