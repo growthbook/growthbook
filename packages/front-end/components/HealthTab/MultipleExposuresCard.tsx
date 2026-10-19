@@ -13,6 +13,7 @@ interface Props {
   totalUsers: number;
   multipleExposures: number;
   onNotify?: (issue: IssueValue) => void;
+  snapshotId?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -25,6 +26,7 @@ export default function MultipleExposuresCard({
   totalUsers,
   multipleExposures,
   onNotify,
+  snapshotId,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -47,7 +49,9 @@ export default function MultipleExposuresCard({
     if (health.status === "unhealthy" && onNotify) {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
-  }, [health, onNotify]);
+    // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
+    // the parent even when `health` and `onNotify` are unchanged.
+  }, [health, onNotify, snapshotId]);
 
   if (health.status === "not-enough-traffic") {
     return null;

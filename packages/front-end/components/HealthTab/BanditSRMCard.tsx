@@ -48,6 +48,7 @@ export default function BanditSRMCard({
     totalUsersCount: totalUsers,
     minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
     onNotify,
+    snapshotId: snapshot.id,
   });
 
   if (srm === undefined) {

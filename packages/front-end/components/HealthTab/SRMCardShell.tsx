@@ -20,12 +20,14 @@ export function useSrmHealth({
   totalUsersCount,
   minUsersPerVariation,
   onNotify,
+  snapshotId,
 }: {
   srm: number;
   numOfVariations: number;
   totalUsersCount: number;
   minUsersPerVariation: number;
   onNotify?: (issue: IssueValue) => void;
+  snapshotId?: string;
 }): SRMHealthStatus {
   const { settings } = useUser();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -46,7 +48,9 @@ export function useSrmHealth({
     if (srmHealth === "unhealthy" && onNotify) {
       onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
-  }, [srmHealth, onNotify]);
+    // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
+    // the parent even when `srmHealth` and `onNotify` are unchanged.
+  }, [srmHealth, onNotify, snapshotId]);
 
   return srmHealth;
 }

@@ -20,6 +20,7 @@ interface Props {
   variations: ExperimentReportVariation[];
   totalUsers: number;
   onNotify?: (issue: IssueValue) => void;
+  snapshotId?: string;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   healthTabConfigParams?: HealthTabConfigParams;
@@ -36,6 +37,7 @@ export default function SRMCard({
   variations,
   totalUsers,
   onNotify,
+  snapshotId,
   dataSource,
   exposureQuery,
   healthTabConfigParams,
@@ -49,6 +51,7 @@ export default function SRMCard({
     totalUsersCount: totalUsers,
     minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
     onNotify,
+    snapshotId,
   });
 
   function onResize() {
