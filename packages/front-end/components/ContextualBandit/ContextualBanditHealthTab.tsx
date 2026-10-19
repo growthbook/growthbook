@@ -4,6 +4,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags } from "@/components/HealthTab/IssueTags";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import {
   useContextualBanditHealthIssues,
@@ -16,7 +17,7 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest } = useContextualBanditResults(cb.id);
+  const { results, latest, loading, error } = useContextualBanditResults(cb.id);
   const healthIssues = useContextualBanditHealthIssues(cb);
 
   const variations: ExperimentReportVariation[] = useMemo(
@@ -42,10 +43,27 @@ export default function ContextualBanditHealthTab({
 
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);
 
+  if (loading) {
+    return (
+      <Callout status="info" mt="3" icon={<LoadingSpinner />}>
+        Snapshot refreshing, health data loading...
+      </Callout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Callout status="error" mt="3">
+        {error.message}
+      </Callout>
+    );
+  }
+
   if (!latest) {
     return (
-      <Callout status="info">
-        Start the Contextual Bandit to see health data.
+      <Callout status="info" mt="3">
+        No updates yet. Traffic and health results will appear after a
+        successful refresh of the results.
       </Callout>
     );
   }
