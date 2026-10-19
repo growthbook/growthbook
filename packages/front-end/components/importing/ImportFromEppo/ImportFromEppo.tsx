@@ -36,7 +36,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { TextField } from "@/ui/TextField";
-import { Select, SelectItem } from "@/ui/Select";
+import DatePicker from "@/components/DatePicker";
 import Table, {
   TableBody,
   TableCell,
@@ -49,12 +49,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
-
-const monthsAgo = (months: number) => {
-  const date = new Date();
-  date.setMonth(date.getMonth() - months);
-  return date;
-};
 
 const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   audiences: (id) => `/saved-groups/${id}`,
@@ -120,10 +114,10 @@ export default function ImportFromEppo() {
   }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
-  // Months of experiments to fetch; "all" is every experiment
-  const [experimentMonths, setExperimentMonths] = useSessionStorage(
-    "eppoExperimentMonths",
-    "all",
+  // Only experiments created on or after this date; blank is every experiment
+  const [experimentsSince, setExperimentsSince] = useSessionStorage(
+    "eppoExperimentsSince",
+    "",
   );
   // Existing Project by name, or a new one created when the import starts
   const [projectName, setProjectName] = useLocalStorage(
@@ -305,10 +299,9 @@ export default function ImportFromEppo() {
     try {
       const [data] = await Promise.all([
         fetchEppoData(apiKey, apiCall, {
-          experimentsSince:
-            experimentMonths === "all"
-              ? null
-              : monthsAgo(Number(experimentMonths)),
+          experimentsSince: experimentsSince
+            ? new Date(experimentsSince)
+            : null,
         }),
         mutateDefinitions(),
         mutateFeatures(),
@@ -435,17 +428,15 @@ export default function ImportFromEppo() {
             onChange={setDatasourceId}
             helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
-          <Select
-            label="Experiments created"
-            value={experimentMonths}
-            setValue={setExperimentMonths}
-          >
-            <SelectItem value="all">Any time</SelectItem>
-            <SelectItem value="3">In the last 3 months</SelectItem>
-            <SelectItem value="6">In the last 6 months</SelectItem>
-            <SelectItem value="12">In the last 12 months</SelectItem>
-            <SelectItem value="24">In the last 2 years</SelectItem>
-          </Select>
+          <DatePicker
+            label="Experiments created after"
+            date={experimentsSince || undefined}
+            setDate={(d) => setExperimentsSince(d ? d.toISOString() : "")}
+            precision="date"
+            timeZone="local"
+            disableAfter={new Date()}
+            helpText="Leave blank to fetch every experiment"
+          />
         </Grid>
         <Flex gap="3" mt="4">
           <Button
