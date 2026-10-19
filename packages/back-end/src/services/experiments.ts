@@ -2400,8 +2400,9 @@ export function assertValidExperimentPhases(
   existing: ExperimentPhase[] = [],
 ): void {
   phases.forEach((phase, i) => {
+    const existingPhase = existing[i];
     if (
-      !isEqual(phase.coverage, existing[i]?.coverage) &&
+      (!existingPhase || !isEqual(phase.coverage, existingPhase.coverage)) &&
       !inUnitInterval(phase.coverage)
     ) {
       throw new BadRequestError(
@@ -2410,8 +2411,10 @@ export function assertValidExperimentPhases(
     }
     const weights = phase.variationWeights;
     if (
-      !isEqual(weights, existing[i]?.variationWeights) &&
-      (!weights.every(inUnitInterval) || !isVariationWeightsSumValid(weights))
+      (!existingPhase || !isEqual(weights, existingPhase.variationWeights)) &&
+      (!Array.isArray(weights) ||
+        !weights.every(inUnitInterval) ||
+        !isVariationWeightsSumValid(weights))
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,

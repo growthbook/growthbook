@@ -32,6 +32,30 @@ describe("assertValidExperimentPhases", () => {
     );
   });
 
+  it.each([
+    ["coverage", /invalid_coverage/],
+    ["variationWeights", /invalid_variation_weights/],
+  ] as const)("rejects new phases missing %s", (field, error) => {
+    const incomplete = phase();
+    Reflect.deleteProperty(incomplete, field);
+    expect(() => assertValidExperimentPhases([incomplete])).toThrow(error);
+    expect(() =>
+      assertValidExperimentPhases([phase(), incomplete], [phase()]),
+    ).toThrow(error);
+  });
+
+  it.each([
+    ["coverage", /invalid_coverage/],
+    ["variationWeights", /invalid_variation_weights/],
+  ] as const)("rejects removing stored %s", (field, error) => {
+    const stored = phase();
+    const incomplete = { ...stored };
+    Reflect.deleteProperty(incomplete, field);
+    expect(() => assertValidExperimentPhases([incomplete], [stored])).toThrow(
+      error,
+    );
+  });
+
   it.each([[[2, -1]], [[1.5, 0]], [[50, 50]], [[0.2, 0.2]], [[0, 0]], [[]]])(
     "rejects variation weights %p",
     (variationWeights) => {
