@@ -1867,20 +1867,18 @@ export async function persistContextualBanditEvent(
     throw new Error(`No CB doc for ${cbs.contextualBandit}`);
   }
 
-  // Idempotency guard: this snapshot's run may be retried (e.g. if a later write
-  // in the same success path throws before the snapshot is linked).
+  // Idempotency: this snapshot's run may be retried if a later write below (the
+  // serving-weight update or the payload refresh) throws before the snapshot is marked
+  // finished. We create the event at most once per snapshot.
   const existingEvent =
     await context.models.contextualBanditEvents.getBySnapshotId(cbs.id);
-  if (existingEvent) {
-    return existingEvent;
-  }
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];
   const inExploreStage = cb.stage === "explore";
 
   const staleWeightEpoch =
     cbs.banditVersion !== undefined && cbs.banditVersion !== cb.banditVersion;
-  if (staleWeightEpoch) {
+  if (staleWeightEpoch && !existingEvent) {
     context.logger.warn(
       `Contextual bandit ${cb.id} snapshot ${cbs.id} ran against banditVersion ` +
         `${cbs.banditVersion} but the CB is now at ${cb.banditVersion}; ` +
@@ -1893,34 +1891,42 @@ export async function persistContextualBanditEvent(
   // today's cb.variations (which may have gained pending arms/tombstones).
   const engineVariations =
     cbs.frozenSettings?.variations ?? getActiveVariations(cb.variations);
-  const weightsWereUpdated = discardWeights
-    ? false
-    : contextualBanditWeightsWereUpdated(
-        result,
-        currentLeafWeights,
-        engineVariations,
-      );
+  const weightsWereUpdated = existingEvent
+    ? existingEvent.weightsWereUpdated
+    : discardWeights
+      ? false
+      : contextualBanditWeightsWereUpdated(
+          result,
+          currentLeafWeights,
+          engineVariations,
+        );
   const leafWeights = discardWeights
     ? []
     : leafWeightsFromContextualBanditResult(result, engineVariations);
 
-  // Generate a new random seed when weights are updated to re-bucket users each period
-  const newSeed = weightsWereUpdated ? uuidv4() : undefined;
+  // Generate a new random seed when weights are updated to re-bucket users each period;
+  // on a resume, reuse the seed the event already recorded so the replay is consistent.
+  const newSeed = weightsWereUpdated
+    ? (existingEvent?.seed ?? uuidv4())
+    : undefined;
 
-  const cbe = await context.models.contextualBanditEvents.create({
-    contextualBandit: cb.id,
-    snapshotId: cbs.id,
-    attributes: result.attributes,
-    responses: result.responses,
-    leaf_map: result.leaf_map,
-    leaf_stats: result.leaf_stats,
-    sse_trajectory: result.sse_trajectory,
-    bic_trajectory: result.bic_trajectory,
-    weightsWereUpdated,
-    ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
-    // Store the seed for historical tracking
-    ...(newSeed ? { seed: newSeed } : {}),
-  });
+  // Create the event only on the first attempt; a resume reuses the persisted one.
+  const cbe =
+    existingEvent ??
+    (await context.models.contextualBanditEvents.create({
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      leaf_map: result.leaf_map,
+      leaf_stats: result.leaf_stats,
+      sse_trajectory: result.sse_trajectory,
+      bic_trajectory: result.bic_trajectory,
+      weightsWereUpdated,
+      ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
+      // Store the seed for historical tracking
+      ...(newSeed ? { seed: newSeed } : {}),
+    }));
 
   let updatedCb = cb;
   if (leafWeights.length > 0) {
