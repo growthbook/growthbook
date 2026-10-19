@@ -56,6 +56,13 @@ type ScopeDraft = Pick<
   "quality" | "targets" | "gradeWeights"
 >;
 
+// "a", "a and b", "a, b and c"
+function joinList(items: string[]): string {
+  return items.length < 2
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 function toScopeDraft(
   record: ExperimentationHealthSettingsInterface | null,
 ): ScopeDraft {
@@ -173,7 +180,29 @@ export default function ExperimentationHealthPage() {
       .filter((r) => r.project !== ORG_DEFAULT_SCOPE && countHealthOverrides(r))
       .map((r) => r.project),
   );
-  const draftOverrideCount = countHealthOverrides(scopeDraft);
+  // What the Project customizes, by tab
+  const customized = {
+    targets: isOrgScope ? 0 : Object.keys(scopeDraft.targets ?? {}).length,
+    grade: !isOrgScope && !!scopeDraft.gradeWeights,
+    quality:
+      !isOrgScope &&
+      Object.values(scopeDraft.quality ?? {}).some((v) => v !== undefined),
+  };
+  const customizedParts = [
+    ...(customized.targets
+      ? [
+          `${customized.targets} ${customized.targets === 1 ? "target" : "targets"}`,
+        ]
+      : []),
+    ...(customized.grade ? ["the grade weights"] : []),
+    ...(customized.quality ? ["quality scoring"] : []),
+  ];
+  const tabLabel = (label: string, isCustomized: boolean) => (
+    <Flex align="center" gap="2">
+      {label}
+      {isCustomized && <OverrideDot />}
+    </Flex>
+  );
 
   async function saveScope(draft: ScopeDraft) {
     await apiCall("/experimentation-health/settings", {
@@ -337,10 +366,10 @@ export default function ExperimentationHealthPage() {
           )
         ) : (
           <Flex align="center" gap="2">
-            {draftOverrideCount > 0 && <OverrideDot />}
+            {customizedParts.length > 0 && <OverrideDot />}
             <Text size="sm" color="text-mid">
-              {draftOverrideCount > 0
-                ? `${draftOverrideCount} ${draftOverrideCount === 1 ? "setting" : "settings"} customized · everything else follows the organization default`
+              {customizedParts.length > 0
+                ? `${joinList(customizedParts)} customized · everything else follows the organization default`
                 : "Follows the organization default"}
             </Text>
           </Flex>
@@ -356,9 +385,15 @@ export default function ExperimentationHealthPage() {
 
       <Tabs defaultValue="targets" persistInURL mt="4">
         <TabsList>
-          <TabsTrigger value="targets">Targets</TabsTrigger>
-          <TabsTrigger value="grade">Grade</TabsTrigger>
-          <TabsTrigger value="quality">Quality Score</TabsTrigger>
+          <TabsTrigger value="targets">
+            {tabLabel("Targets", customized.targets > 0)}
+          </TabsTrigger>
+          <TabsTrigger value="grade">
+            {tabLabel("Grade", customized.grade)}
+          </TabsTrigger>
+          <TabsTrigger value="quality">
+            {tabLabel("Quality Score", customized.quality)}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="targets">
           <TargetsTab
@@ -393,7 +428,7 @@ export default function ExperimentationHealthPage() {
         </TabsContent>
         <TabsContent value="quality">
           <QualityScoreTab
-            isOrgScope={isOrgScope}
+            scope={scope}
             orgQuality={
               (isOrgScope ? scopeDraft.quality : orgRecord?.quality) ?? {}
             }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiDotsThreeVerticalBold } from "react-icons/pi";
 import { ResolvedQualityScope } from "shared/enterprise";
@@ -31,20 +31,27 @@ export const GROWTHBOOK_DEFAULT_CONFIG_LABEL = "GrowthBook default";
 const DEFAULT_CONFIG_VALUE = "__growthbook-default__";
 const CREATE_CONFIG_VALUE = "__create__";
 
-function describeScopes(scopes: string[]): string {
+// e.g. "the organization default and 2 other Projects"
+function describeOtherScopes(
+  scopes: string[],
+  viewingProject: boolean,
+): string {
   const hasOrg = scopes.includes(ORG_DEFAULT_SCOPE);
   const projectCount = scopes.filter((s) => s !== ORG_DEFAULT_SCOPE).length;
+  const other = viewingProject ? "other " : "";
   const parts = [
     ...(hasOrg ? ["the organization default"] : []),
     ...(projectCount
-      ? [`${projectCount} ${projectCount === 1 ? "Project" : "Projects"}`]
+      ? [
+          `${projectCount} ${other}${projectCount === 1 ? "Project" : "Projects"}`,
+        ]
       : []),
   ];
   return parts.join(" and ");
 }
 
 export default function QualityScoreTab({
-  isOrgScope,
+  scope,
   orgQuality,
   qualityDraft,
   setQualityDraft,
@@ -60,7 +67,8 @@ export default function QualityScoreTab({
   stoppedExperiments,
   createConfig,
 }: {
-  isOrgScope: boolean;
+  // ORG_DEFAULT_SCOPE or a Project id
+  scope: string;
   orgQuality: ExperimentationHealthQualitySettings;
   qualityDraft: ExperimentationHealthQualitySettings;
   setQualityDraft: (q: ExperimentationHealthQualitySettings) => void;
@@ -89,6 +97,8 @@ export default function QualityScoreTab({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [recalculateStatus, setRecalculateStatus] = useState("");
+
+  const isOrgScope = scope === ORG_DEFAULT_SCOPE;
   const orgConfigName = orgQuality.configId
     ? (getExperimentQualityConfigById(orgQuality.configId)?.name ??
       GROWTHBOOK_DEFAULT_CONFIG_LABEL)
@@ -104,12 +114,27 @@ export default function QualityScoreTab({
         .filter((r) => r.quality?.configId === effectiveConfig.id)
         .map((r) => r.project)
     : [];
-  let sharedNote: string | null = null;
+  // Shown when edits to these checks and weights also change them elsewhere
+  const configName = effectiveConfig ? `“${effectiveConfig.name}”` : "";
+  const otherScopes = usedByScopes.filter((s) => s !== scope);
+  let sharedNote: ReactNode = null;
   if (effectiveConfig && !isOrgScope && !effective.overridden.configId) {
-    sharedNote =
-      "This is the organization default's configuration. Edits apply everywhere it's used.";
-  } else if (effectiveConfig && usedByScopes.length > 1) {
-    sharedNote = `This configuration is used by ${describeScopes(usedByScopes)}. Edits apply to all of them.`;
+    sharedNote = (
+      <>
+        This Project uses {configName} from the organization default, so changes
+        here also change it for the organization and every Project using it.{" "}
+        {canManageConfigs && (
+          <Link onClick={() => setCreateOpen(true)}>
+            Make a copy for just this Project
+          </Link>
+        )}
+      </>
+    );
+  } else if (effectiveConfig && otherScopes.length) {
+    sharedNote = `${configName} is also used by ${describeOtherScopes(
+      otherScopes,
+      !isOrgScope,
+    )}, so changes here apply there too.`;
   }
 
   return (
