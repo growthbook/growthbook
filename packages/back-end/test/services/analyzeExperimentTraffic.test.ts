@@ -25,10 +25,10 @@ function dateRow(
 }
 
 describe("analyzeExperimentTraffic variation index resolution", () => {
-  it("maps numeric variation keys onto id-based variations (does not drop rows)", () => {
+  it("counts rows whose variation exactly matches a variation id", () => {
     const rows: ExperimentAggregateUnitsQueryResponseRows = [
-      dateRow("0", 60),
-      dateRow("1", 40),
+      dateRow("var_a", 60),
+      dateRow("var_b", 40),
     ];
 
     const traffic = analyzeExperimentTraffic({ rows, variations });
@@ -40,21 +40,24 @@ describe("analyzeExperimentTraffic variation index resolution", () => {
     ).toEqual([60, 40]);
   });
 
-  it("prefers an exact id match over the numeric fallback", () => {
+  it("skips unexpected warehouse values instead of bucketing them (avoids false inflation/SRM)", () => {
+    // A stray numeric value must NOT be coerced to a variation index; it is an
+    // unknown assignment and is dropped so health totals match results.
     const rows: ExperimentAggregateUnitsQueryResponseRows = [
-      dateRow("var_a", 5),
-      dateRow("var_b", 7),
+      dateRow("var_a", 50),
+      dateRow("var_b", 50),
+      dateRow("1", 999),
     ];
 
     const traffic = analyzeExperimentTraffic({ rows, variations });
 
-    expect(traffic.overall.variationUnits).toEqual([5, 7]);
+    expect(traffic.overall.variationUnits).toEqual([50, 50]);
   });
 
   it("skips __multiple__ and the empty-variation bandit SRM row", () => {
     const rows: ExperimentAggregateUnitsQueryResponseRows = [
-      dateRow("0", 60),
-      dateRow("1", 40),
+      dateRow("var_a", 60),
+      dateRow("var_b", 40),
       dateRow("__multiple__", 3),
       {
         dimension_name: BANDIT_SRM_DIMENSION_NAME,
@@ -66,21 +69,12 @@ describe("analyzeExperimentTraffic variation index resolution", () => {
 
     const traffic = analyzeExperimentTraffic({ rows, variations });
 
-    // Neither "__multiple__" nor the empty-variation SRM row (Number("") === 0)
-    // should be counted against variation 0.
+    // Neither "__multiple__" nor the empty-variation SRM row should be counted
+    // against a variation.
     expect(traffic.overall.variationUnits).toEqual([60, 40]);
+    // The __multiple__ exposure-date row feeds the multipleExposures counter.
+    expect(traffic.multipleExposures).toBe(3);
     // SRM p-value comes from the bandit SRM summary row, not a recomputation.
     expect(traffic.overall.srm).toBeCloseTo(chi2pvalue(1.234, 1));
-  });
-
-  it("drops rows whose numeric key is out of range", () => {
-    const rows: ExperimentAggregateUnitsQueryResponseRows = [
-      dateRow("0", 60),
-      dateRow("5", 999),
-    ];
-
-    const traffic = analyzeExperimentTraffic({ rows, variations });
-
-    expect(traffic.overall.variationUnits).toEqual([60, 0]);
   });
 });
