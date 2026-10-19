@@ -277,7 +277,7 @@ export const postSavedGroupUploadValidator = {
     .strict(),
   summary: "Upload a new version of a remote saved group's IDs",
   description:
-    "Records the next version of the group's IDs. The start and end of the file are checked for one ID per line, then the whole file in the background; loaders trim and deduplicate the IDs. Once it's valid, set the group's `currentUploadVersion` to use it. Loaders pick up the group's version from `currentUpload` and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
+    "Records the next version of the group's IDs. The start and end of the file are checked for one ID per line, then the whole file in the background; loaders trim and deduplicate the IDs. Poll `GET /saved-groups/{id}/uploads/{version}` until it's valid, then set the group's `currentUploadVersion` with `PUT /saved-groups-revisions/{id}/{version}/upload-version` to use it. Loaders pick up the group's version from `currentUpload` and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
   operationId: "postSavedGroupUpload",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -286,6 +286,51 @@ export const postSavedGroupUploadValidator = {
     params: { id: "abc123" },
     body: { fileKey: "org_abc/remote-saved-groups/grp_123/staging/1234.csv" },
   },
+};
+
+const uploadVersionParams = z
+  .object({
+    id: z.string().describe("The id of the remote saved group"),
+    version: z.coerce.number().int().positive(),
+  })
+  .strict();
+
+export const getSavedGroupUploadValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: uploadVersionParams,
+  responseSchema: z
+    .object({
+      upload: apiSavedGroupUploadValidator,
+    })
+    .strict(),
+  summary: "Get one upload of a remote saved group",
+  description:
+    "Returns an upload of any status. After creating an upload, poll this until `status.type` is `valid` or `invalid`.",
+  operationId: "getSavedGroupUpload",
+  tags: ["saved-groups"],
+  method: "get" as const,
+  path: "/saved-groups/:id/uploads/:version",
+  exampleRequest: { params: { id: "abc123", version: 3 } },
+};
+
+export const deleteSavedGroupUploadValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: uploadVersionParams,
+  responseSchema: z
+    .object({
+      deletedVersion: z.number().int(),
+    })
+    .strict(),
+  summary: "Delete an upload of a remote saved group",
+  description:
+    "Deletes the upload and its file. The version the group uses, or one an open draft uses, can't be deleted. Version numbers aren't reused. Needs permission to publish the saved group.",
+  operationId: "deleteSavedGroupUpload",
+  tags: ["saved-groups"],
+  method: "delete" as const,
+  path: "/saved-groups/:id/uploads/:version",
+  exampleRequest: { params: { id: "abc123", version: 3 } },
 };
 
 export const postSavedGroupUploadLoadBodyValidator = z

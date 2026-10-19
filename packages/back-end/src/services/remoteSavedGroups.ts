@@ -542,7 +542,7 @@ export async function assertUsableUploadVersion(
 }
 
 /** An upload of any status. */
-async function findRemoteSavedGroupUpload(
+export async function findRemoteSavedGroupUpload(
   context: Context,
   id: string,
   version: number,

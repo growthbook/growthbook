@@ -22456,11 +22456,13 @@ paths:
       description: >-
         Records the next version of the group's IDs. The start and end of the
         file are checked for one ID per line, then the whole file in the
-        background; loaders trim and deduplicate the IDs. Once it's valid, set
-        the group's `currentUploadVersion` to use it. Loaders pick up the
-        group's version from `currentUpload` and download it from `GET
-        /saved-groups/{id}/uploads/{version}/file`, which redirects to a
-        short-lived signed storage URL.
+        background; loaders trim and deduplicate the IDs. Poll `GET
+        /saved-groups/{id}/uploads/{version}` until it's valid, then set the
+        group's `currentUploadVersion` with `PUT
+        /saved-groups-revisions/{id}/{version}/upload-version` to use it.
+        Loaders pick up the group's version from `currentUpload` and download it
+        from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to
+        a short-lived signed storage URL.
       tags:
         - saved-groups
       parameters:
@@ -22687,6 +22689,92 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"storeId":"redis-us-east","status":{"type":"loaded","rowCount":120000}}'
+  /v1/saved-groups/{id}/uploads/{version}:
+    get:
+      operationId: getSavedGroupUpload
+      summary: Get one upload of a remote saved group
+      description: >-
+        Returns an upload of any status. After creating an upload, poll this
+        until `status.type` is `valid` or `invalid`.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteSavedGroupUpload
+      summary: Delete an upload of a remote saved group
+      description: >-
+        Deletes the upload and its file. The version the group uses, or one an
+        open draft uses, can't be deleted. Version numbers aren't reused. Needs
+        permission to publish the saved group.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedVersion:
+                    type: integer
+                required:
+                  - deletedVersion
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}:
     get:
       operationId: getSavedGroupRevisions
@@ -23125,6 +23213,70 @@ paths:
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/upload-version:
+    put:
+      operationId: putSavedGroupRevisionUploadVersion
+      summary: Set the upload a remote saved group draft revision uses
+      description: >-
+        Stages which upload the group uses. Only valid for `remote` saved
+        groups, and the upload must be valid. Pass `version: "new"` to
+        auto-create a draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                currentUploadVersion:
+                  description: The version of the upload the group uses
+                  type: integer
+                  exclusiveMinimum: 0
+              required:
+                - currentUploadVersion
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/upload-version'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:

@@ -178,7 +178,28 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/uploads' 
   -d '{"fileKey": "FILE_KEY_FROM_THE_FIRST_STEP", "fileName": "vip-accounts.csv"}'
 ```
 
-To make the group use the new version, set `currentUploadVersion` with [`POST /saved-groups/{id}`](/api/#operation/updateSavedGroup) or through a [revision](/features/saved-group-revisions-api).
+GrowthBook then checks the whole file in the background. Poll the upload until `status.type` is `valid` or `invalid`:
+
+```bash
+curl 'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/uploads/3' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+To make the group use the new version, set `currentUploadVersion` in a [revision](/features/saved-group-revisions-api), then publish it. Pass `new` as the revision version to open a draft:
+
+```bash
+curl -X PUT 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/new/upload-version' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"currentUploadVersion": 3}'
+
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/REVISION_VERSION/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+If your organization requires approvals, request a review instead of publishing. Without required approvals, you can also set `currentUploadVersion` directly with [`POST /saved-groups/{id}`](/api/#operation/updateSavedGroup).
+
+To delete an old upload, use `DELETE /api/v1/saved-groups/{id}/uploads/{version}`. The version the group uses, or one an open draft uses, can't be deleted.
 
 ### Writing Your Own Loader
 

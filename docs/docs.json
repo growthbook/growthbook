@@ -786,7 +786,9 @@
                   "api/saved-groups/operation/listSavedGroupUploads",
                   "api/saved-groups/operation/postSavedGroupUpload",
                   "api/saved-groups/operation/postSavedGroupUploadUrl",
-                  "api/saved-groups/operation/postSavedGroupUploadLoad"
+                  "api/saved-groups/operation/postSavedGroupUploadLoad",
+                  "api/saved-groups/operation/getSavedGroupUpload",
+                  "api/saved-groups/operation/deleteSavedGroupUpload"
                 ]
               },
               {
@@ -800,6 +802,7 @@
                   "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionUploadVersion",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
