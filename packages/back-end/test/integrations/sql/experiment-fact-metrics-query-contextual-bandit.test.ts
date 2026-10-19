@@ -1,6 +1,6 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { postgresDialect } from "shared/dialects";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { factMetricFactory } from "../../factories/FactMetric.factory";
 import { factTableFactory } from "../../factories/FactTable.factory";
@@ -74,7 +74,7 @@ function buildSql({
     unitsSource: "exposureQuery",
     unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings as never, {
       query,
-      userIdType: "user_id",
+      identifierType: "user_id",
     }),
     activationMetric: null,
     dimensions: [],

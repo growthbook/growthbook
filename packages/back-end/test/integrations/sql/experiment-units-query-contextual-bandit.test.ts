@@ -3,7 +3,7 @@ import type {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQuerySettings,
 } from "shared/types/integrations";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { postgresDialect } from "shared/dialects";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 
 const datasource = {
