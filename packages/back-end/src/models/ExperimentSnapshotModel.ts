@@ -144,6 +144,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 mean: Number,
                 count: Number,
                 stddev: Number,
+                // Cluster experiments only: distinct sub-units behind the clusters
+                sub_count: Number,
               },
               expected: Number,
               risk: [Number],
