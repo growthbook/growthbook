@@ -1,9 +1,11 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import { generateSliceString } from "shared/experiments";
 import {
   ExperimentModel,
   getPayloadKeys,
   hasActualChanges,
+  removeMetricFromExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
@@ -155,6 +157,54 @@ describe("ExperimentModel", () => {
       },
     });
     expect(cast.nextScheduledStatusUpdate?.scheduledBy).toBe("u_1");
+  });
+
+  describe("removeMetricFromExperiments", () => {
+    const sliceId = `fact__123?${generateSliceString({ country: "US" })}`;
+
+    beforeAll(connectTestMongo);
+    afterAll(disconnectTestMongo);
+    beforeEach(async () => {
+      await ExperimentModel.collection.deleteMany({});
+    });
+
+    it.each([
+      { metricId: "met_123", references: ["met_123"] },
+      {
+        metricId: "fact__123",
+        references: ["fact__123", sliceId],
+      },
+      { metricId: "fact__123", references: [sliceId] },
+    ])(
+      "removes $references when deleting $metricId",
+      async ({ metricId, references }) => {
+        const otherMetricId = `${metricId}_other`;
+        await ExperimentModel.collection.insertOne({
+          ...experiment,
+          type: "holdout",
+          goalMetrics: [...references, otherMetricId],
+          secondaryMetrics: [...references, otherMetricId],
+          guardrailMetrics: [...references, otherMetricId],
+          activationMetric: references[references.length - 1],
+        });
+        const context = {
+          org: { id: experiment.organization },
+          permissions: { canReadSingleProjectResource: () => true },
+        } as unknown as ReqContext;
+
+        await removeMetricFromExperiments(context, metricId);
+
+        const stored = await ExperimentModel.collection.findOne({
+          id: experiment.id,
+        });
+        expect(stored).toMatchObject({
+          goalMetrics: [otherMetricId],
+          secondaryMetrics: [otherMetricId],
+          guardrailMetrics: [otherMetricId],
+          activationMetric: "",
+        });
+      },
+    );
   });
 
   describe("updateExperiment", () => {
