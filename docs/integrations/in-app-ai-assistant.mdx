@@ -203,6 +203,30 @@ To answer a request, the assistant sends your AI provider:
 
 On GrowthBook Cloud, requests go to GrowthBook's AI subprocessors unless your organization uses its own provider key. On self-hosted GrowthBook, requests go to the providers whose keys you configure.
 
+## Best practices
+
+### Writing requests
+
+- **Start from the right page.** Open the flag, experiment, metric, or dashboard first, so "this flag" or "this experiment" points to the right thing.
+- **Be specific.** Give exact flag keys, experiment names, environments, and values. "Turn on `new-onboarding` for 10% of users in production" works better than "roll out onboarding."
+- **@-mention metrics.** The assistant gets the exact metric instead of searching for one with a similar name.
+- **Use `/` for a task you know.** Picking a skill such as experiment design starts the right workflow straight away.
+- **Start a new conversation for each new topic.** The whole conversation goes to the AI provider with every message, so a long, unrelated history slows replies and uses more tokens.
+
+### Reviewing changes
+
+- **Read the request before you confirm.** Expand **Request details** on the **Apply this change?** card and check the environment, targeting, and values, especially for production.
+- **Check what it did.** Expand **Completed N steps** to see each API call and its response, and follow the links in the reply to see the result in GrowthBook.
+- **Cancel and correct.** If a proposed change isn't right, click **Cancel**, or send a message saying what to change. Sending a message also cancels the pending change.
+- **Rate responses.** A thumbs up or down, with a comment, tells GrowthBook which answers work and which don't.
+
+### Setting up your organization
+
+- **Give people the access they need, and no more.** The assistant has exactly the permissions of the person using it, so your roles and project permissions limit what it can do.
+- **Turn off skills you don't want used.** For example, turn off **Analytics** if you don't want people running SQL or editing dashboards through the assistant.
+- **Control Ask Data costs.** On data sources that are expensive to query, use **Always confirm before executing**, or set a low **Cost threshold**. Only turn on Ask Data for the data sources people need.
+- **Keep secrets out of chat.** Everything you type is sent to your AI provider, so don't paste API keys, passwords, or personal data.
+
 ## Troubleshooting
 
 | Message                                                                                            | What to do                                                                                                                                         |
