@@ -35,6 +35,10 @@ import {
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  experimentChangeActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
@@ -190,6 +194,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
              * on the template, not in this body.
              */
             field: template ? "exposureQuery" : "assignmentQuery",
+            scope: {
+              project: fields.project ?? "",
+              datasourceProjects: datasource.projects,
+            },
           },
         )
       : null;
@@ -395,6 +403,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context,
       phasePrerequisites(newExperiment.phases),
     );
+
+    // Created running, stopped or with a scheduled start: judged as a change
+    // from a draft of itself.
+    await requireConfirmation(req.context, {
+      actions: [
+        "experiment.create",
+        ...experimentChangeActions(
+          {
+            ...newExperiment,
+            status: "draft",
+            statusUpdateSchedule: undefined,
+          },
+          newExperiment,
+        ),
+      ],
+      project: newExperiment.project,
+      summary: `Create ${newExperiment.name}`,
+      links: [],
+      pin: null,
+    });
 
     const experiment = await createExperiment({
       data: newExperiment,

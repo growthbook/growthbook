@@ -93,6 +93,10 @@ export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
+export const MAX_SAVED_GROUP_DESCRIPTION_LENGTH = 100;
+export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:\\|\\-]+$";
+export const FEATURE_KEY_PATTERN_ERROR =
+  "Feature keys can only include letters, numbers, and the characters _, -, ., :, and |.";
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -295,7 +299,15 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
-  apiKey: ["create", "update", "delete", "disable", "enable"],
+  apiKey: [
+    "create",
+    "update",
+    "delete",
+    "disable",
+    "enable",
+    "confirm",
+    "reject",
+  ],
   oauthAuthCode: ["create", "update", "delete"],
   oauthGrant: ["create", "update", "delete"],
   oauthRefreshToken: ["create", "update", "delete"],
@@ -341,6 +353,8 @@ export const entityEvents = {
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+// Default for MAX_WEBHOOK_TIMEOUT_SECONDS; Cloud uses it as is
+export const DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS = 120;
 
 // SDK Connection settings that add optional data to the SDK payload
 export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [

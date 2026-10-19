@@ -17,7 +17,7 @@ export default function BuildInformationSchemaCard({
         status="info"
         action={
           <Tooltip
-            body="You do not have permission to generate an information schema for this datasource."
+            body="You don't have permission to load tables for this Data Source."
             shouldDisplay={!canRunQueries}
           >
             <Button
@@ -25,13 +25,12 @@ export default function BuildInformationSchemaCard({
               disabled={!canRunQueries}
               onClick={() => refreshOrCreateInfoSchema("POST")}
             >
-              Generate Information Schema
+              Load tables
             </Button>
           </Tooltip>
         }
       >
-        Need help building your query? Click the button to get insight into what
-        tables and columns are available in the datasource.
+        No tables loaded yet.
       </Callout>
       {error && <Callout status="error">{error}</Callout>}
     </div>

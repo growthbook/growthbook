@@ -8,6 +8,7 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateSigningKey } from "back-end/src/util/api-key.util";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "webhooks";
@@ -44,6 +45,17 @@ export class SdkWebhookModel extends BaseClass {
 
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteEventWebhook();
+  }
+
+  protected async customValidation(
+    doc: WebhookInterface,
+    previousDoc?: WebhookInterface,
+  ) {
+    // Only on change: status writes merge the stored value, which must keep
+    // working if the cap is lowered later (the request-time clamp covers it)
+    if (doc.timeoutSeconds !== previousDoc?.timeoutSeconds) {
+      validateWebhookTimeoutSeconds(doc.timeoutSeconds);
+    }
   }
 
   protected static migrate(doc: unknown): WebhookInterface {

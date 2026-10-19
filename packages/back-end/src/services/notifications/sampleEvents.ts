@@ -210,6 +210,8 @@ const sampleRevision = (): FeatureRevisionWebhookPayload => ({
   featureId: "checkout-banner",
   date: "2026-01-01T00:00:00.000Z",
   createdBy: "Notification Test User",
+  defaultValue: "true",
+  rules: { production: [] },
 });
 
 const sampleRamp = (): RampScheduleStartedPayload => ({

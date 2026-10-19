@@ -3876,6 +3876,28 @@ function prerequisiteListsDiffer(
   return false;
 }
 
+type PrerequisiteGatedItem = { organization: string; gatedBy: string };
+
+const logMalformedPrerequisiteCondition =
+  (
+    prereq: FeaturePrerequisite,
+    { organization, gatedBy }: PrerequisiteGatedItem,
+    environment: string,
+  ) =>
+  (err: unknown) => {
+    logger.warn(
+      {
+        err,
+        organization,
+        gatedBy,
+        prerequisite: prereq.id,
+        condition: prereq.condition,
+        environment,
+      },
+      "Malformed prerequisite condition during SDK payload generation; the gated feature or rule is omitted",
+    );
+  };
+
 const logCyclicPrerequisite = (
   prereqFeature: FeatureInterface,
   environment: string,
@@ -3941,6 +3963,11 @@ export const reduceFeaturesWithPrerequisites = (
           const evaled = evalDeterministicPrereqValue(
             state.value ?? null,
             prereq.condition,
+            logMalformedPrerequisiteCondition(
+              prereq,
+              { organization: feature.organization, gatedBy: feature.id },
+              environment,
+            ),
           );
           if (evaled === "fail") {
             removeFeature = true;
@@ -3971,6 +3998,7 @@ export const reduceFeaturesWithPrerequisites = (
           rule.prerequisites || [],
           featuresMap,
           environment,
+          { organization: feature.organization, gatedBy: feature.id },
           prereqStateCache,
         );
       if (removeRule) {
@@ -4030,6 +4058,10 @@ export const reduceExperimentsWithPrerequisites = <
         phase.prerequisites || [],
         featuresMap,
         environment,
+        {
+          organization: data.experiment.organization,
+          gatedBy: data.experiment.id,
+        },
         prereqStateCache,
       );
     if (!removeRule) {
@@ -4044,6 +4076,7 @@ const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],
   featuresMap: Map<string, FeatureInterface>,
   environment: string,
+  gatedItem: PrerequisiteGatedItem,
   prereqStateCache: Record<string, PrerequisiteStateResult> = {},
 ): {
   removeRule: boolean;
@@ -4088,6 +4121,7 @@ const getInlinePrerequisitesReductionInfo = (
         const evaled = evalDeterministicPrereqValue(
           state.value ?? null,
           pc.condition,
+          logMalformedPrerequisiteCondition(pc, gatedItem, environment),
         );
         if (evaled === "fail") {
           // remove the rule
