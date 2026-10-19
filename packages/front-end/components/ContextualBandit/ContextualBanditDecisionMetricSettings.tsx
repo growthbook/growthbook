@@ -56,7 +56,7 @@ export type ContextualBanditDecisionMetricSettingsProps = {
 /**
  * Contextual-bandit-only decision metric picker + conversion window.
  * Bound to the single `decisionMetric` form field (CBs optimize toward exactly
- * one fact metric); converts to/from the shared selector's `goalMetrics` array
+ * one Fact Metric); converts to/from the shared selector's `goalMetrics` array
  * only at the `ExperimentMetricsSelector` prop boundary.
  */
 export default function ContextualBanditDecisionMetricSettings({
@@ -206,8 +206,8 @@ export default function ContextualBanditDecisionMetricSettings({
           <Flex direction="column" align="start" gap="2">
             <Text>
               {factTableForMetric
-                ? "Add a mean or proportion fact metric to use as the decision metric, then continue."
-                : "This data source has no fact metrics. Contextual bandits can only use a mean or proportion fact metric as the decision metric, so create one for this data source before continuing."}
+                ? "Add a mean or proportion Fact Metric to use as the decision metric, then continue."
+                : "This Data Source has no Fact Metrics. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric, so create one for this Data Source before continuing."}
             </Text>
             {factMetricFlow.createButton(
               {
@@ -215,7 +215,7 @@ export default function ContextualBanditDecisionMetricSettings({
                 datasource: datasourceId || undefined,
                 project,
               },
-              { variant: "outline", children: "Add fact metric" },
+              { variant: "outline", children: "Add Fact Metric" },
             )}
           </Flex>
         </Callout>

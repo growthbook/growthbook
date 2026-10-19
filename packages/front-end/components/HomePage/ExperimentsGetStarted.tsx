@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
+import { PiArrowRight } from "react-icons/pi";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -214,7 +215,12 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     hideCTA={!envAllowsCreatingMetrics()}
                     action={factMetricFlow.createButton(
                       {},
-                      { variant: currentStep === 2 ? "solid" : "ghost" },
+                      {
+                        variant: currentStep === 2 ? "solid" : "ghost",
+                        icon: <PiArrowRight />,
+                        iconPosition: "right",
+                        showPermissionError: true,
+                      },
                     )}
                     finishedCTA="View metrics"
                     imageLeft={false}

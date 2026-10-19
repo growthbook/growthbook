@@ -83,7 +83,7 @@ export default function FactMetricPage() {
   );
   const {
     edit: editMetric,
-    editDisabled,
+    editDisabledReason,
     modal: metricModal,
   } = useFactMetricFlow("fact-metric", { onInlineEdit: enterInlineEdit });
   const activeTab =
@@ -305,12 +305,14 @@ export default function FactMetricPage() {
         </Flex>
         <Flex align="center" gap="2" pr="2" wrap="wrap">
           {!isEditing &&
-            (editViaApiOnly || !canEdit ? (
+            (editViaApiOnly || !canEdit || editDisabledReason ? (
               <Tooltip
                 content={
                   editViaApiOnly
                     ? REST_API_ONLY_EDIT_MESSAGE
-                    : "You don't have permission to edit this Fact Metric."
+                    : !canEdit
+                      ? "You don't have permission to edit this Fact Metric."
+                      : editDisabledReason
                 }
               >
                 <span style={{ cursor: "not-allowed" }}>
@@ -324,11 +326,7 @@ export default function FactMetricPage() {
                 </span>
               </Tooltip>
             ) : (
-              <Button
-                variant="soft"
-                onClick={startEditing}
-                disabled={editDisabled}
-              >
+              <Button variant="soft" onClick={startEditing}>
                 Edit metric
               </Button>
             ))}
@@ -379,11 +377,17 @@ export default function FactMetricPage() {
                 setOpenDropdown(false);
                 startEditing();
               }}
-              disabled={!canEdit || editViaApiOnly || editDisabled}
+              disabled={!canEdit || editViaApiOnly || !!editDisabledReason}
             >
               <Tooltip
-                content={REST_API_ONLY_EDIT_MESSAGE}
-                enabled={editViaApiOnly}
+                content={
+                  editViaApiOnly
+                    ? REST_API_ONLY_EDIT_MESSAGE
+                    : !canEdit
+                      ? "You don't have permission to edit this Fact Metric."
+                      : editDisabledReason
+                }
+                enabled={editViaApiOnly || !canEdit || !!editDisabledReason}
               >
                 <span>Edit metric</span>
               </Tooltip>

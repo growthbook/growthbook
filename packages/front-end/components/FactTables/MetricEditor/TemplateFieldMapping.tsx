@@ -27,7 +27,9 @@ export default function TemplateFieldMapping({
   template,
   onMapped,
   onCancel,
+  hideHeading = false,
 }: {
+  hideHeading?: boolean;
   template: IncompleteFactMetricSeed;
   onMapped: (mapped: FactMetricSeed) => void;
   onCancel: () => void;
@@ -169,9 +171,11 @@ export default function TemplateFieldMapping({
 
   return (
     <Frame>
-      <Heading as="h2" size="sm">
-        Map Template Fields to Your Fact Table
-      </Heading>
+      {!hideHeading && (
+        <Heading as="h2" size="sm">
+          Map Template Fields to Your Fact Table
+        </Heading>
+      )}
       <Text color="text-mid" as="div" mb="3">
         <strong>{template.name || "New metric"}</strong>
         {template.description ? ` — ${template.description}` : ""}

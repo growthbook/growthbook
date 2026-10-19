@@ -614,16 +614,17 @@ const MetricsList = (): React.ReactElement => {
                           queries.
                         </Text>
                         <Text as="p" mb="0">
-                          {factMetricFlow.createButton(
-                            {},
-                            {
-                              variant: "ghost",
-                              children: "Create a Fact Metric instead",
-                            },
-                            // Unmount the focus trap before opening the legacy portal.
-                            () => flushSync(close),
-                          )}
+                          If needed, create a fact table first.
                         </Text>
+                        {factMetricFlow.createButton(
+                          {},
+                          {
+                            variant: "ghost",
+                            children: "Create a Fact Metric instead",
+                          },
+                          // Unmount the focus trap before opening the legacy portal.
+                          () => flushSync(close),
+                        )}
                       </Flex>
                     ),
                   }}

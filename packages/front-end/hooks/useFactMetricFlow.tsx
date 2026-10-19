@@ -119,7 +119,8 @@ export default function useFactMetricFlow(
     return {
       mode,
       disabledReason,
-      label: mode === "fact-table" ? "Create Fact Table" : "Add metric",
+      permissionError: ready && !canCreate ? disabledReason : null,
+      label: mode === "fact-table" ? "Create Fact Table" : "Add Fact Metric",
       href:
         mode === "page"
           ? `/fact-metrics/new?${params}`
@@ -199,14 +200,14 @@ export default function useFactMetricFlow(
     target: FactMetricCreationTarget = {},
     props: Omit<ButtonProps, "onClick" | "disabled" | "children"> & {
       children?: ButtonProps["children"];
+      showPermissionError?: boolean;
     } = {},
     beforeOpen?: () => void,
   ) => {
     const action = creation(target);
-    const { children, ...buttonProps } = props;
-    const label =
-      action.mode === "fact-table" ? action.label : (children ?? action.label);
-    return action.disabledReason ? (
+    const { children, showPermissionError, ...buttonProps } = props;
+    const label = children ?? action.label;
+    const button = action.disabledReason ? (
       <Tooltip content={action.disabledReason}>
         <span style={{ cursor: "not-allowed" }}>
           <Button
@@ -233,6 +234,16 @@ export default function useFactMetricFlow(
         {label}
       </Button>
     );
+    return (
+      <>
+        {showPermissionError && action.permissionError && (
+          <Callout status="info" mb="3">
+            {action.permissionError}
+          </Callout>
+        )}
+        {button}
+      </>
+    );
   };
 
   const close = () => {
@@ -245,48 +256,32 @@ export default function useFactMetricFlow(
     ? modalTarget?.templateMetric
     : null;
   const modal = tableTarget ? (
-    <Modal.Root
-      open
-      onOpenChange={close}
-      size="xl"
-      hasDescription={false}
-      trackingEventModalType=""
-    >
-      <Modal.Header>
-        <Modal.Title>Create Fact Table</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <FactTableModal
-          inline
-          close={() => setTableTarget(null)}
-          initialDatasource={tableTarget.datasource}
-          onCreate={(factTable) => {
-            setCreatedTable(factTable);
-            setTableTarget(null);
-            if (
-              !permissionsUtil.canCreateFactMetric({
-                projects: factTable.projects,
-              })
-            ) {
-              setError(
-                "You don't have permission to add Fact Metrics to this Fact Table.",
-              );
-              return;
-            }
-            setModalTarget({ ...tableTarget, factTable: factTable.id });
-            if (tableTarget.template) {
-              const query = { ...router.query };
-              delete query.addMetric;
-              void router.replace(
-                { pathname: router.pathname, query },
-                undefined,
-                { shallow: true },
-              );
-            }
-          }}
-        />
-      </Modal.Body>
-    </Modal.Root>
+    <FactTableModal
+      close={() => setTableTarget(null)}
+      initialDatasource={tableTarget.datasource}
+      onCreate={(factTable) => {
+        setCreatedTable(factTable);
+        setTableTarget(null);
+        if (
+          !permissionsUtil.canCreateFactMetric({
+            projects: factTable.projects,
+          })
+        ) {
+          setError(
+            "You don't have permission to add Fact Metrics to this Fact Table.",
+          );
+          return;
+        }
+        setModalTarget({ ...tableTarget, factTable: factTable.id });
+        if (tableTarget.template) {
+          const query = { ...router.query };
+          delete query.addMetric;
+          void router.replace({ pathname: router.pathname, query }, undefined, {
+            shallow: true,
+          });
+        }
+      }}
+    />
   ) : error || template ? (
     <Modal.Root
       open
@@ -296,7 +291,9 @@ export default function useFactMetricFlow(
     >
       <Modal.Header>
         <Modal.Title>
-          {error ? "Create Fact Metric" : "Map Metric Fields"}
+          {error
+            ? "Create Fact Metric"
+            : "Map Template Fields to Your Fact Table"}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -306,6 +303,7 @@ export default function useFactMetricFlow(
           template && (
             <TemplateFieldMapping
               template={template}
+              hideHeading
               onCancel={close}
               onMapped={(mapped) => {
                 if (mapped.metricType === "funnel" || !mapped.numerator) return;
@@ -331,7 +329,7 @@ export default function useFactMetricFlow(
         </Modal.Footer>
       )}
     </Modal.Root>
-  ) : !modalTarget ? null : embedded ? (
+  ) : !modalTarget ? null : embedded && newFlow ? (
     <Modal.Root
       open
       onOpenChange={() => {}}
@@ -344,30 +342,21 @@ export default function useFactMetricFlow(
         <div ref={setActionsContainer} />
       </Modal.Header>
       <Modal.Body>
-        {newFlow ? (
-          <MetricWorkspace
-            existing={null}
-            initialFactTable={
-              factTables.find((table) => table.id === modalTarget.factTable) ??
-              createdTable
-            }
-            initialDatasource={modalTarget.datasource}
-            isEditing
-            actionsContainer={actionsContainer}
-            mutate={mutateDefinitions}
-            onSaved={close}
-            onCancel={close}
-            source={modalTarget.source}
-          />
-        ) : (
-          <FactMetricModal
-            inline
-            close={close}
-            initialFactTable={modalTarget.factTable}
-            datasource={modalTarget.datasource}
-            source={modalTarget.source}
-          />
-        )}
+        <MetricWorkspace
+          embedded
+          existing={null}
+          initialFactTable={
+            factTables.find((table) => table.id === modalTarget.factTable) ??
+            createdTable
+          }
+          initialDatasource={modalTarget.datasource}
+          isEditing
+          actionsContainer={actionsContainer}
+          mutate={mutateDefinitions}
+          onSaved={close}
+          onCancel={close}
+          source={modalTarget.source}
+        />
       </Modal.Body>
     </Modal.Root>
   ) : (
@@ -393,5 +382,11 @@ export default function useFactMetricFlow(
     />
   );
 
-  return { createButton, open, edit, editDisabled: !ready, modal };
+  return {
+    createButton,
+    open,
+    edit,
+    editDisabledReason: ready ? null : "Loading metric creation…",
+    modal,
+  };
 }

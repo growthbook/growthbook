@@ -95,6 +95,7 @@ function validateFunnelSteps(funnelSettings: FunnelSettings | null): void {
 }
 
 export default function MetricWorkspace({
+  embedded = false,
   existing,
   duplicateFrom,
   initialFactTable,
@@ -107,6 +108,7 @@ export default function MetricWorkspace({
   actionsContainer,
   source,
 }: {
+  embedded?: boolean;
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
   // distinct from `existing`, which also decides POST vs PUT. Partial since
@@ -465,6 +467,7 @@ export default function MetricWorkspace({
         existingMetric={existing}
         form={form}
         canEdit={isEditing}
+        embedded={embedded}
         onRepresentableChange={setRepresentable}
       />
     </Flex>

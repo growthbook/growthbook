@@ -72,11 +72,13 @@ const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
 };
 
 export default function MetricEditor({
+  embedded = false,
   form,
   canEdit,
   onRepresentableChange,
   existingMetric,
 }: {
+  embedded?: boolean;
   existingMetric?: FactMetricInterface | null;
   form: UseFormReturn<CreateFactMetricFormProps>;
   canEdit: boolean;
@@ -645,7 +647,12 @@ export default function MetricEditor({
           </Flex>
         </Frame>
         {!isFunnel && factTable && hasCommercialFeature("metric-slices") && (
-          <MetricSlices form={form} factTable={factTable} canEdit={canEdit} />
+          <MetricSlices
+            form={form}
+            factTable={factTable}
+            canEdit={canEdit}
+            embedded={embedded}
+          />
         )}
         <AdvancedSettings form={form} formType={formType} canEdit={canEdit} />
       </Flex>

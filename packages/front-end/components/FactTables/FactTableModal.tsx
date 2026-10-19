@@ -46,7 +46,6 @@ export interface Props {
   close: () => void;
   duplicate?: boolean;
   onCreate?: (factTable: FactTableInterface) => void;
-  inline?: boolean;
   initialDatasource?: string;
 }
 
@@ -55,7 +54,6 @@ export default function FactTableModal({
   close,
   duplicate = false,
   onCreate,
-  inline = false,
   initialDatasource,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
@@ -157,15 +155,10 @@ export default function FactTableModal({
       <Modal
         trackingEventModalType=""
         open={true}
-        inline={inline}
         close={close}
         cta={"Save"}
         header={
-          inline
-            ? ""
-            : existing && !duplicate
-              ? "Edit Fact Table"
-              : "Create Fact Table"
+          existing && !duplicate ? "Edit Fact Table" : "Create Fact Table"
         }
         submit={form.handleSubmit(async (value) => {
           if (!value.userIdTypes.length) {

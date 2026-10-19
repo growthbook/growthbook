@@ -34,7 +34,8 @@ const MetricsPage = (): React.ReactElement => {
           <h2>Define What Success Looks Like</h2>
           <p>
             Metrics are defined with SQL on top of your data warehouse. Use them
-            as goals and guardrails in experiments to measure success.
+            as goals and guardrails in experiments to measure success. A fact
+            table provides the shared SQL query for your Fact Metrics.
           </p>
           <Box mt="3">
             {!hasDatasource ? (
