@@ -10,10 +10,10 @@ import {
   getPopulationStepsLabel,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
-  parseSingleAggregateFilter,
   type PopulationRuleFactTable,
+  type PopulationStepFactTable,
 } from "shared/populations";
-import type { ColumnInterface } from "shared/types/fact-table";
+import type { ColumnInterface, RowFilter } from "shared/types/fact-table";
 
 function column(
   name: string,
@@ -119,164 +119,170 @@ describe("getPopulationStepsLabel", () => {
 });
 
 describe("describePopulationStep", () => {
-  const describe1 = (
-    steps: PopulationStep[],
-    index: number,
-    factTableName: string,
-    aggregateColumnName?: string,
+  const eventsTable: PopulationStepFactTable = {
+    name: "Events",
+    columns: events.columns,
+  };
+  const country: RowFilter = {
+    column: "country",
+    operator: "=",
+    values: ["US"],
+  };
+  const amount: RowFilter = {
+    column: "amount",
+    operator: ">",
+    values: ["100"],
+  };
+  const lastWeek: PopulationStep["windowSettings"] = {
+    ...step("ftb_events").windowSettings,
+    type: "lookback",
+    windowValue: 1,
+    windowUnit: "weeks",
+  };
+
+  const getStepDescription = (
+    overrides: Partial<PopulationStep>,
+    factTable: PopulationStepFactTable | null = eventsTable,
   ) => {
-    const { before, after } = describePopulationStep({
-      steps,
-      index,
-      factTableName,
-      aggregateColumnName,
-      unit: "user_id",
-    });
-    return `${before}${factTableName}${after}`;
+    const { beforeFactTableName, factTableName, afterFactTableName } =
+      describePopulationStep({
+        step: { ...step("ftb_events"), ...overrides },
+        identifierTypes: ["user_id"],
+        factTable,
+      });
+    return `${beforeFactTableName}${factTableName}${afterFactTableName}`;
   };
 
   it("splits the sentence around the fact table name", () => {
     expect(
       describePopulationStep({
-        steps: [step("ftb_has")],
-        index: 0,
-        factTableName: "Has",
-        unit: "user_id",
+        step: { ...step("ftb_has"), rowFilters: [country] },
+        identifierTypes: ["user_id"],
+        factTable: { ...eventsTable, name: "Has" },
       }),
     ).toEqual({
-      before: "Has a ",
+      beforeFactTableName: "Has ",
       factTableName: "Has",
-      after: " row",
+      afterFactTableName: " matching the row filter: country = US",
     });
   });
 
-  it("describes a plain step", () => {
-    expect(describe1([step("ftb_events")], 0, "Sessions")).toBe(
-      "Has a Sessions row",
+  it("describes a step with no filters or windows", () => {
+    expect(getStepDescription({})).toBe("Has Events");
+  });
+
+  it("describes a step with one row filter", () => {
+    expect(getStepDescription({ rowFilters: [country] })).toBe(
+      "Has Events matching the row filter: country = US",
     );
   });
 
-  it("uses an before a vowel", () => {
-    expect(describe1([step("ftb_orders")], 0, "Orders")).toBe(
-      "Has an Orders row",
+  it("describes a step with multiple row filters", () => {
+    expect(getStepDescription({ rowFilters: [country, amount] })).toBe(
+      "Has Events matching the row filters: country = US, amount > 100",
     );
   });
 
-  it("counts row filters", () => {
-    const filter = {
-      column: "country",
-      operator: "=" as const,
-      values: ["US"],
-    };
+  it("describes a step with row filters and an aggregate filter", () => {
     expect(
-      describe1([{ ...step("ftb_events"), rowFilters: [filter] }], 0, "Events"),
-    ).toBe("Has an Events row matching 1 filter");
-    expect(
-      describe1(
-        [{ ...step("ftb_events"), rowFilters: [filter, filter] }],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row matching 2 filters");
-  });
-
-  it("describes count and column aggregate filters", () => {
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_events"),
-            aggregateFilterColumn: "$$count",
-            aggregateFilter: ">=3",
-          },
-        ],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row with at least 3 rows per user_id");
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_orders"),
-            aggregateFilterColumn: "amount",
-            aggregateFilter: ">500",
-          },
-        ],
-        0,
-        "Orders",
-        "Amount",
-      ),
-    ).toBe("Has an Orders row with total Amount more than 500 per user_id");
-  });
-
-  it("shows ranges as the raw filter", () => {
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_events"),
-            aggregateFilterColumn: "$$count",
-            aggregateFilter: ">=3,<10",
-          },
-        ],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row with rows >=3,<10 per user_id");
-  });
-
-  it("describes lookback and conversion windows", () => {
-    const lookback: PopulationStep = {
-      ...step("ftb_events", "lookback"),
-      windowSettings: {
-        ...step("ftb_events").windowSettings,
-        type: "lookback",
-        windowValue: 1,
-        windowUnit: "weeks",
-      },
-    };
-    expect(describe1([lookback], 0, "Events")).toBe(
-      "Has an Events row in the last 1 week",
+      getStepDescription({
+        rowFilters: [country],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">=3",
+      }),
+    ).toBe(
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3 per user_id",
     );
+  });
 
-    const conversion: PopulationStep = {
-      ...step("ftb_orders"),
-      windowSettings: {
-        ...step("ftb_orders").windowSettings,
-        type: "conversion",
-        windowValue: 7,
-      },
-    };
+  it("describes a step with row filters and an aggregate filter with multiple conditions", () => {
     expect(
-      describe1(
-        [step("ftb_events"), step("ftb_events"), conversion],
-        2,
-        "Orders",
+      getStepDescription({
+        rowFilters: [country],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">=3,<=10",
+      }),
+    ).toBe(
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3,<=10 per user_id",
+    );
+  });
+
+  it("describes a step with an aggregate filter and no row filters", () => {
+    expect(
+      getStepDescription({
+        aggregateFilterColumn: "amount",
+        aggregateFilter: ">100",
+      }),
+    ).toBe(
+      "Has Events matching the aggregate filter: total amount >100 per user_id",
+    );
+  });
+
+  it("describes a step with a lookback window", () => {
+    expect(getStepDescription({ windowSettings: lastWeek })).toBe(
+      "Has Events in the last 1 week",
+    );
+  });
+
+  it("describes a step with row filters, an aggregate filter, and a lookback window", () => {
+    expect(
+      getStepDescription({
+        rowFilters: [country],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">=3",
+        windowSettings: lastWeek,
+      }),
+    ).toBe(
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3 per user_id in the last 1 week",
+    );
+  });
+
+  it("prints other row filter operators as is", () => {
+    const getFilterDescription = (rowFilter: RowFilter) =>
+      getStepDescription({ rowFilters: [rowFilter] }).replace(
+        "Has Events matching the row filter: ",
+        "",
+      );
+    expect(
+      getFilterDescription({
+        column: "country",
+        operator: "in",
+        values: ["US", "CA"],
+      }),
+    ).toBe("country in US, CA");
+    expect(
+      getFilterDescription({ column: "country", operator: "is_null" }),
+    ).toBe("country is_null");
+    expect(
+      getFilterDescription({ operator: "sql_expr", values: ["amount > 0"] }),
+    ).toBe("sql_expr amount > 0");
+  });
+
+  it("uses column display names", () => {
+    expect(
+      getStepDescription(
+        { rowFilters: [country] },
+        {
+          ...eventsTable,
+          columns: [column("country", "string", { name: "Country" })],
+        },
       ),
-    ).toBe("Has an Orders row within 7 days after step 2");
-  });
-});
-
-describe("parseSingleAggregateFilter", () => {
-  it("parses a single comparison", () => {
-    expect(parseSingleAggregateFilter(" >= 3 ")).toEqual({
-      operator: ">=",
-      value: "3",
-    });
+    ).toBe("Has Events matching the row filter: Country = US");
   });
 
-  it("normalizes <> to !=", () => {
-    expect(parseSingleAggregateFilter("<>2.5")).toEqual({
-      operator: "!=",
-      value: "2.5",
-    });
-  });
-
-  it("returns null for ranges, empty, and invalid filters", () => {
-    expect(parseSingleAggregateFilter(">=3,<10")).toBeNull();
-    expect(parseSingleAggregateFilter("")).toBeNull();
-    expect(parseSingleAggregateFilter(">=3,lots")).toBeNull();
+  it("falls back to ids when the fact table is missing", () => {
+    expect(
+      getStepDescription(
+        {
+          rowFilters: [country],
+          aggregateFilterColumn: "amount",
+          aggregateFilter: ">100",
+        },
+        null,
+      ),
+    ).toBe(
+      "Has ftb_events matching the row filter: country = US and aggregate filter: total amount >100 per user_id",
+    );
   });
 });
 

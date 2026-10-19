@@ -15,18 +15,12 @@ export default function PopulationDefinition({
   const { getFactTableById } = useDefinitions();
   // TODO: Support multiple steps. Only the first step is shown for now.
   const step = population.steps[0];
-  const factTableId = step?.source.factTableId;
-  const factTable = factTableId ? getFactTableById(factTableId) : null;
-  const factTableName = factTable?.name || factTableId || "";
-  const description = step
+  const factTable = step ? getFactTableById(step.source.factTableId) : null;
+  const descriptionParts = step
     ? describePopulationStep({
-        steps: [step],
-        index: 0,
-        factTableName,
-        aggregateColumnName: factTable?.columns.find(
-          (c) => c.column === step.aggregateFilterColumn,
-        )?.name,
-        unit: population.userIdTypes.join(", "),
+        step,
+        identifierTypes: population.userIdTypes,
+        factTable,
       })
     : null;
 
@@ -38,16 +32,18 @@ export default function PopulationDefinition({
         </Heading>
       </Flex>
 
-      {description && (
+      {step && descriptionParts && (
         <Box mb="4">
           <Text size="sm">
-            {description.before}
+            {descriptionParts.beforeFactTableName}
             {factTable ? (
-              <Link href={`/fact-tables/${factTableId}`}>{factTableName}</Link>
+              <Link href={`/fact-tables/${step.source.factTableId}`}>
+                {descriptionParts.factTableName}
+              </Link>
             ) : (
-              factTableName
+              descriptionParts.factTableName
             )}
-            {description.after}
+            {descriptionParts.afterFactTableName}
           </Text>
         </Box>
       )}

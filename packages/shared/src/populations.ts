@@ -1,10 +1,7 @@
 import type { PopulationStep } from "shared/validators";
-import type { FactTableInterface } from "shared/types/fact-table";
+import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
-import {
-  AggregateFilterCondition,
-  parseAggregateFilter,
-} from "./aggregate-filters";
+import { parseAggregateFilter } from "./aggregate-filters";
 
 export const MAX_POPULATION_STEPS = 20;
 /** Distinct fact tables a population's steps may read from. */
@@ -47,101 +44,91 @@ export function getPopulationStepsLabel(
     .join(" → ");
 }
 
-export const POPULATION_AGGREGATE_OPERATORS = [
-  { operator: ">=", label: "at least" },
-  { operator: ">", label: "more than" },
-  { operator: "=", label: "exactly" },
-  { operator: "<=", label: "at most" },
-  { operator: "<", label: "less than" },
-  { operator: "!=", label: "not equal to" },
-] as const;
-
 function pluralize(n: number, unit: string): string {
   return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
 }
 
-export type PopulationStepDescription = {
-  before: string;
+export type PopulationStepFactTable = Pick<
+  FactTableInterface,
+  "name" | "columns"
+>;
+
+export type PopulationStepDescriptionParts = {
+  beforeFactTableName: string;
   factTableName: string;
-  after: string;
+  afterFactTableName: string;
 };
 
-// A one-line summary such as "Has an Orders row within 7 days after step 1",
-// split around the fact table name so callers can link it without
-// searching the text (a name like "Has" would match the wrong words). Row
-// filters are counted rather than spelled out.
+function getColumnDisplayName(
+  columnKey: string,
+  factTable: PopulationStepFactTable | null,
+): string {
+  return (
+    factTable?.columns.find((c) => c.column === columnKey)?.name || columnKey
+  );
+}
+
+function describeRowFilter(
+  { column, operator, values = [] }: RowFilter,
+  factTable: PopulationStepFactTable | null,
+): string {
+  return [
+    column && getColumnDisplayName(column, factTable),
+    operator,
+    values.join(", "),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+// A one-line summary such as "Has Events matching the row filter: country = US
+// in the last 1 week", split around the fact table name so callers can link it
+// without searching the text
+// TODO: Describe conversion windows once Populations support multiple steps.
 export function describePopulationStep({
-  steps,
-  index,
-  factTableName,
-  aggregateColumnName,
-  unit,
+  step,
+  identifierTypes,
+  factTable,
 }: {
-  steps: PopulationStep[];
-  index: number;
-  factTableName: string;
-  aggregateColumnName?: string;
-  unit: string;
-}): PopulationStepDescription {
-  const step = steps[index];
-  const article = /^[aeiou]/i.test(factTableName) ? "an" : "a";
-  const parts = ["row"];
+  step: PopulationStep;
+  identifierTypes: string[];
+  factTable: PopulationStepFactTable | null;
+}): PopulationStepDescriptionParts {
+  const { rowFilters, aggregateFilter, aggregateFilterColumn } = step;
 
-  if (step.rowFilters.length) {
-    parts.push(`matching ${pluralize(step.rowFilters.length, "filters")}`);
+  const filtersDescriptions: string[] = [];
+
+  if (rowFilters?.length) {
+    const rowFiltersPrefix =
+      rowFilters?.length === 1 ? "row filter: " : "row filters: ";
+    const rowFiltersDescription = `${rowFiltersPrefix}${rowFilters
+      .map((rf) => describeRowFilter(rf, factTable))
+      .join(", ")}`;
+    filtersDescriptions.push(rowFiltersDescription);
   }
 
-  const { aggregateFilter, aggregateFilterColumn } = step;
   if (aggregateFilter && aggregateFilterColumn) {
-    const subject =
-      aggregateFilterColumn === "$$count"
-        ? "rows"
-        : `total ${aggregateColumnName || aggregateFilterColumn}`;
-    const single = parseSingleAggregateFilter(aggregateFilter);
-    const label = single
-      ? POPULATION_AGGREGATE_OPERATORS.find(
-          (o) => o.operator === single.operator,
-        )?.label
-      : undefined;
-    parts.push(
-      single && label
-        ? aggregateFilterColumn === "$$count"
-          ? `with ${label} ${single.value} rows per ${unit}`
-          : `with ${subject} ${label} ${single.value} per ${unit}`
-        : `with ${subject} ${aggregateFilter} per ${unit}`,
-    );
+    const isCount = aggregateFilterColumn === "$$count";
+    const aggregateFilterDescription = isCount
+      ? `count ${aggregateFilter} per ${identifierTypes.join(", ")}`
+      : `total ${getColumnDisplayName(aggregateFilterColumn, factTable)} ${aggregateFilter} per ${identifierTypes.join(", ")}`;
+    filtersDescriptions.push(`aggregate filter: ${aggregateFilterDescription}`);
   }
+
+  let after = filtersDescriptions.length
+    ? ` matching the ${filtersDescriptions.join(" and ")}`
+    : "";
 
   const { type, windowValue, windowUnit } = step.windowSettings;
   if (type === "lookback") {
-    parts.push(`in the last ${pluralize(windowValue, windowUnit)}`);
-  } else if (type === "conversion" && index > 0) {
-    parts.push(
-      `within ${pluralize(windowValue, windowUnit)} after step ${index}`,
-    );
+    after += ` in the last ${pluralize(windowValue, windowUnit)}`;
   }
 
   return {
-    before: `Has ${article} `,
-    factTableName,
-    after: ` ${parts.join(" ")}`,
+    beforeFactTableName: "Has ",
+    factTableName: factTable?.name || step.source.factTableId,
+    afterFactTableName: after,
   };
-}
-
-// Returns null when the filter can't be shown as one operator and value, such
-// as a range like ">=3,<10". "<>" is normalized to "!=".
-export function parseSingleAggregateFilter(
-  aggregateFilter: string,
-): AggregateFilterCondition | null {
-  const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
-  if (conditions.length !== 1 || invalid.length) return null;
-  const [{ operator, value }] = conditions;
-  return { operator: normalizeOperator(operator), value };
-}
-
-// POPULATION_AGGREGATE_OPERATORS offers "!=" but not its "<>" synonym.
-function normalizeOperator(operator: string): string {
-  return operator === "<>" ? "!=" : operator;
 }
 
 // Returns every violation so an editor can show them all at once.
