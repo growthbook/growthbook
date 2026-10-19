@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  apiEventUser,
+  actorIdField,
+  REQUIRES_PERSON_NOTE,
+  REVIEW_VERDICT_NOTE,
+} from "./event-user";
+import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
@@ -18,6 +24,17 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  REVERT_COMMENT_IGNORED_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+  SAVED_GROUP_DESCRIPTION,
+  SAVED_GROUP_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -40,8 +57,11 @@ const revisionParamsStrict = savedGroupIdParams.extend({
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z.string().optional(),
-  revisionComment: z.string().optional(),
+  revisionTitle: z.string().describe(NEW_DRAFT_TITLE_DESCRIPTION).optional(),
+  revisionComment: z
+    .string()
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION)
+    .optional(),
 };
 
 // ---- Shared response schemas ----
@@ -82,9 +102,10 @@ const revisionStatusQuery = z.string().refine(
 const apiReviewValidator = namedSchema(
   "SavedGroupRevisionReview",
   reviewValidator
-    .omit({ dateCreated: true })
+    .omit({ dateCreated: true, user: true })
     .extend({
       dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
     })
     .strict(),
 );
@@ -93,9 +114,10 @@ const apiReviewValidator = namedSchema(
 const apiActivityLogEntryValidator = namedSchema(
   "SavedGroupRevisionActivityLogEntry",
   activityLogEntryValidator
-    .omit({ dateCreated: true })
+    .omit({ dateCreated: true, user: true })
     .extend({
       dateCreated: z.string().meta({ format: "date-time" }),
+      user: apiEventUser.optional(),
     })
     .strict(),
 );
@@ -111,7 +133,10 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       version: z.number().int().optional(),
       title: z.string().optional(),
       status: revisionStatusSchema,
-      authorId: z.string(),
+      authorId: actorIdField,
+      author: apiEventUser
+        .optional()
+        .describe("Who created the revision, with an API key's name"),
       authorEmail: z.string().optional(),
       contributors: z.array(z.string()).optional(),
       revertedFrom: z.string().optional(),
@@ -122,7 +147,8 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
-          userId: z.string(),
+          userId: actorIdField,
+          user: apiEventUser.optional(),
           dateCreated: z.string().meta({ format: "date-time" }),
         })
         .strict()
@@ -193,7 +219,7 @@ export const listSavedGroupRevisionsValidator = {
         ),
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),
@@ -225,7 +251,7 @@ export const getSavedGroupRevisionsValidator = {
         ),
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),
@@ -242,15 +268,14 @@ export const getSavedGroupRevisionLatestValidator = {
   path: "/saved-groups-revisions/:savedGroupId/latest",
   operationId: "getSavedGroupRevisionLatest",
   summary: "Get the most recent active draft revision",
-  description:
-    "Returns the most recently updated open (non-merged, non-discarded) revision for the saved group. Returns 404 if there is no active draft. Pass `mine=true` to restrict to drafts authored by the calling user (requires a user-scoped API key).",
+  description: `Returns the most recently updated open (non-merged, non-discarded) revision for the saved group. Returns 404 if there is no active draft. Pass \`mine=true\` to restrict to drafts authored by the calling user. ${REQUIRES_PERSON_NOTE}`,
   tags: ["saved-group-revisions"],
   paramsSchema: savedGroupIdParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
       mine: booleanQueryField.describe(
-        "If true, return only the most recent active draft authored by the calling user. Requires a user-scoped API key.",
+        `If true, return only the most recent active draft authored by the calling user. ${REQUIRES_PERSON_NOTE}`,
       ),
     })
     .strict(),
@@ -299,6 +324,7 @@ export const getSavedGroupRevisionMergeStatusValidator = {
 export const postSavedGroupRevisionValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevision",
   summary: "Create a draft revision",
   description:
@@ -307,8 +333,8 @@ export const postSavedGroupRevisionValidator = {
   paramsSchema: savedGroupIdParams,
   bodySchema: z
     .object({
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -318,6 +344,7 @@ export const postSavedGroupRevisionValidator = {
 export const postSavedGroupRevisionDiscardValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/discard",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -336,6 +363,12 @@ export const postSavedGroupRevisionDiscardValidator = {
 export const postSavedGroupRevisionPublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/publish",
+  confirmation: [
+    "savedGroup.publish",
+    "savedGroup.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -357,6 +390,14 @@ export const postSavedGroupRevisionPublishValidator = {
 export const postSavedGroupRevisionRevertValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/revert",
+  confirmation: [
+    "savedGroup.draft",
+    "savedGroup.publish",
+    "savedGroup.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  // Holds once the strategy is known: a draft, or a publish that lands.
+  confirmationInHandler: true,
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
@@ -371,8 +412,11 @@ export const postSavedGroupRevisionRevertValidator = {
         .describe(
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z
+        .string()
+        .describe(REVERT_COMMENT_IGNORED_DESCRIPTION)
+        .optional(),
       // `ignoreWarnings` ALONE on every Saved Group body: the dependents guard
       // soft-warns and asks for this acknowledgment, and a strict body must
       // accept the retry. Saved Groups have no schema or validation hooks, so
@@ -389,6 +433,7 @@ export const postSavedGroupRevisionRevertValidator = {
 export const postSavedGroupRevisionRebaseValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/rebase",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRebase",
   summary: "Rebase a draft revision onto the current live saved group",
   description:
@@ -417,6 +462,7 @@ export const postSavedGroupRevisionRebaseValidator = {
 export const postSavedGroupRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/request-review",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -436,16 +482,16 @@ export const postSavedGroupRevisionRequestReviewValidator = {
 export const postSavedGroupRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/submit-review",
+  confirmation: ["savedGroup.review"] as const,
   operationId: "postSavedGroupRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
-  description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Submitting `approve` or `request-changes` needs Review access. A `comment` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+  description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
-      comment: z.string().optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -460,6 +506,7 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
 export const putSavedGroupRevisionMetadataValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/metadata",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionMetadata",
   summary: "Update saved group metadata in a draft revision",
   description:
@@ -469,9 +516,9 @@ export const putSavedGroupRevisionMetadataValidator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      name: z.string().optional(),
+      name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z.string().optional(),
+      description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
       projects: z.array(z.string()).optional(),
     })
     .strict(),
@@ -482,6 +529,7 @@ export const putSavedGroupRevisionMetadataValidator = {
 export const putSavedGroupRevisionConditionValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/condition",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionCondition",
   summary: "Update the condition of a condition saved group draft revision",
   description:
@@ -503,6 +551,7 @@ export const putSavedGroupRevisionConditionValidator = {
 export const putSavedGroupRevisionValuesValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/values",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionValues",
   summary: "Replace the values list in a list saved group draft revision",
   description:
@@ -522,6 +571,7 @@ export const putSavedGroupRevisionValuesValidator = {
 export const putSavedGroupRevisionArchiveValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/archive",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -542,6 +592,7 @@ export const putSavedGroupRevisionArchiveValidator = {
 export const postSavedGroupRevisionItemsAddValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/items/add",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionItemsAdd",
   summary: "Append items to a list saved group draft revision",
   description:
@@ -561,6 +612,7 @@ export const postSavedGroupRevisionItemsAddValidator = {
 export const postSavedGroupRevisionItemsRemoveValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/items/remove",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionItemsRemove",
   summary: "Remove items from a list saved group draft revision",
   description:
@@ -599,6 +651,7 @@ export type SavedGroupRevisionItemsBody = z.infer<
 export const postSavedGroupRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postSavedGroupRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -626,6 +679,7 @@ export const postSavedGroupRevisionSchedulePublishValidator = {
 export const postSavedGroupRevisionReopenValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/reopen",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -640,6 +694,7 @@ export const postSavedGroupRevisionReopenValidator = {
 export const postSavedGroupRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/recall-review",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -654,10 +709,10 @@ export const postSavedGroupRevisionRecallReviewValidator = {
 export const postSavedGroupRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/undo-review",
+  confirmation: ["savedGroup.review"] as const,
   operationId: "postSavedGroupRevisionUndoReview",
   summary: "Retract your own review verdict",
-  description:
-    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),

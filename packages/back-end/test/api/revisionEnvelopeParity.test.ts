@@ -138,6 +138,7 @@ describe("revision API envelope parity", () => {
 
     expect(Object.keys(envelopeOf(constant)).sort()).toEqual([
       "activityLog",
+      "author",
       "authorId",
       "autoPublishOnApproval",
       "contributors",

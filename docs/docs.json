@@ -294,12 +294,17 @@
                       "integrations/in-app-ai-assistant",
                       "integrations/ai-agents/wizard",
                       "integrations/mcp",
-                      "integrations/ai-agents/agent-skills"
+                      "integrations/ai-agents/agent-skills",
+                      "integrations/ai-agents/api-keys"
                     ]
                   },
                   "integrations/vercel",
                   "integrations/framer",
-                  "integrations/slack",
+                  {
+                    "group": "Slack",
+                    "root": "integrations/slack",
+                    "pages": ["integrations/slack/legacy-webhooks"]
+                  },
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
@@ -976,7 +981,10 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",
@@ -1126,6 +1134,17 @@
                   "api/AutoRuns/operation/updateAutoRun",
                   "api/AutoRuns/operation/appendAutoRunArtifact"
                 ]
+              },
+              {
+                "group": "Populations",
+                "tag": "BETA",
+                "pages": [
+                  "api/Populations/operation/listPopulations",
+                  "api/Populations/operation/createPopulation",
+                  "api/Populations/operation/getPopulation",
+                  "api/Populations/operation/updatePopulation",
+                  "api/Populations/operation/deletePopulation"
+                ]
               }
             ]
           },
@@ -1150,6 +1169,8 @@
               "api/ConfigSchemaSource_model",
               "api/ConfigSchemaVerify_model",
               "api/ConfigSchemaWarning_model",
+              "api/Confirmation_model",
+              "api/ConfirmationHeld_model",
               "api/Constant_model",
               "api/ConstantReferences_model",
               "api/ConstantRevision_model",
@@ -1213,6 +1234,7 @@
               "api/NamespaceExperimentMember_model",
               "api/Organization_model",
               "api/PaginationFields_model",
+              "api/Population_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",
@@ -1239,7 +1261,8 @@
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]

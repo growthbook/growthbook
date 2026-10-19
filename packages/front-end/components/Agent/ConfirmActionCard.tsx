@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Markdown from "@/components/Markdown/Markdown";
@@ -51,27 +52,7 @@ export default function ConfirmActionCard({
         <Text size="sm" weight="medium">
           Apply this change?
         </Text>
-        <Flex
-          align="center"
-          gap="2"
-          wrap="wrap"
-          style={{
-            padding: "6px 8px",
-            borderRadius: "var(--radius-2)",
-            background: "var(--gray-a3)",
-          }}
-        >
-          <MethodPill method={prompt.method} />
-          <code
-            style={{
-              fontSize: 12,
-              color: "var(--gray-12)",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {prompt.path}
-          </code>
-        </Flex>
+        <RequestLine method={prompt.method} path={prompt.path} />
         {prompt.summary &&
           prompt.summary !== `${prompt.method} ${prompt.path}` && (
             // On the card's scale, or the write reads larger than its heading.
@@ -116,6 +97,45 @@ export default function ConfirmActionCard({
   );
 }
 
+export function RequestLine({
+  method,
+  path,
+}: {
+  method: string;
+  path: string;
+}) {
+  return (
+    <Flex
+      align="start"
+      gap="2"
+      style={{
+        padding: "6px 8px",
+        borderRadius: "var(--radius-2)",
+        background: "var(--gray-a3)",
+      }}
+    >
+      <MethodPill method={method} />
+      <code
+        style={{
+          minWidth: 0,
+          fontSize: 12,
+          lineHeight: "18px",
+          color: "var(--gray-12)",
+          overflowWrap: "break-word",
+        }}
+      >
+        {/* Breaks after a "/" or "-", so the path wraps beside the method. */}
+        {path.split(/(?<=[/-])/).map((part, i) => (
+          <Fragment key={i}>
+            {part}
+            <wbr />
+          </Fragment>
+        ))}
+      </code>
+    </Flex>
+  );
+}
+
 /** HTTP-method color mapping for the gated-call pill. */
 const METHOD_COLORS: Record<string, { bg: string; fg: string }> = {
   GET: { bg: "var(--blue-a4)", fg: "var(--blue-11)" },
@@ -141,6 +161,7 @@ function MethodPill({ method }: { method: string }) {
         background: colors.bg,
         color: colors.fg,
         fontSize: 11,
+        lineHeight: "16px",
         fontWeight: 600,
         letterSpacing: 0.3,
         fontFamily: "var(--font-mono, monospace)",

@@ -10,8 +10,13 @@
  * GrowthBook's own account (Pricing Phase 1, P0). JSON flags are typed as
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
+ *
+ * Exception: "new-metric-creation-flow" is added ahead of the flag's creation
+ * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
  */
 export type AppFeatures = {
+  // Added ahead of the flag's creation in GrowthBook's own account
+  "eppo-importer": boolean;
   "papercups-config": Record<string, unknown>;
   "show-experiment-groups": boolean;
   "show-experiment-targeting": boolean;
@@ -144,5 +149,7 @@ export type AppFeatures = {
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
+  populations: boolean;
   "new-data-source-onboarding": boolean;
+  "new-metric-creation-flow": boolean;
 };

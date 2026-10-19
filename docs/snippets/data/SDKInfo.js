@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.2.0",
+    version: "3.2.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -590,7 +590,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.0",
+    version: "0.11.1",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -622,6 +622,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.11.1",
+      },
+      {
+        trackingPlugin: "≥ v0.11.1",
       },
       {
         caseInsensitiveMembership: "≥ v0.10.9",
@@ -818,7 +824,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.4",
+    version: "1.3.1",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [

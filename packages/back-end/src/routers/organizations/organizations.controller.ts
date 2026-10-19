@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   assertTargetingRulesDisjoint,
@@ -12,7 +13,11 @@ import {
 import { getRoles } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
+import {
+  AgreementType,
+  ConfirmRule,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -32,6 +37,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
@@ -854,6 +860,7 @@ export async function getOrganization(
     watch,
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   ] = await Promise.all([
     resolveLicense(),
     getInstallationName(org),
@@ -862,6 +869,9 @@ export async function getOrganization(
     context.models.watch.getWatchedByUser(userId),
     getSdkPayloadSizeAlerts(context),
     context.models.apiKeys.getExpiringPersonalAccessTokens(userId),
+    context.permissions.canCreateApiKey()
+      ? context.models.apiKeys.getExpiringOrgApiKeys()
+      : [],
   ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
@@ -914,6 +924,11 @@ export async function getOrganization(
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
   const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
+  // Keeps the "license" prefix the UI branches on without exposing the key.
+  const canSeeLicenseKey = context.permissions.canManageBilling();
+  const maskKey = (key?: string) =>
+    key && !canSeeLicenseKey ? `${key.slice(0, 8)}…` : key;
+
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
@@ -926,7 +941,7 @@ export async function getOrganization(
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
-    license,
+    license: license && { ...license, id: maskKey(license.id) },
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
@@ -944,7 +959,7 @@ export async function getOrganization(
       name,
       id,
       url,
-      licenseKey,
+      licenseKey: maskKey(licenseKey),
       freeSeats,
       enterprise: org.enterprise,
       disableSelfServeBilling,
@@ -972,6 +987,7 @@ export async function getOrganization(
     usage: getUsageFromCache(org),
     sdkPayloadSizeAlerts,
     expiringPersonalAccessTokens,
+    expiringApiKeys,
   });
 }
 
@@ -1589,6 +1605,9 @@ export async function putOrganization(
       context.permissions.throwPermissionError();
     }
   }
+  if (licenseKey && !context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
   if (settings) {
     (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
       if (k === "environments") {
@@ -1858,6 +1877,27 @@ export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
   });
 }
 
+// The current role of each key that approved as itself, so the review panel
+// judges a key's approval the way publishing does. Members' roles are already
+// on the client.
+// The roles of org keys that approved, for the review panel. Like members'
+// roles, they're visible to every member.
+export async function getApproverKeyRoles(
+  req: AuthRequest<null, null, { ids?: unknown }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const ids = z
+    .string()
+    .catch("")
+    .parse(req.query.ids)
+    .split(",")
+    .filter((id) => id && !context.org.members.some((m) => m.id === id))
+    .slice(0, 100);
+  const roles = await getApproverRoles(context, ids);
+  res.status(200).json({ status: 200, roles: Object.fromEntries(roles) });
+}
+
 // Rejects a malformed date rather than letting `new Date()` yield Invalid Date,
 // which would persist as null and silently read as "never expires".
 function parseExpiresAt(input: string | null | undefined): Date | null {
@@ -1912,8 +1952,11 @@ export async function postApiKey(
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
-    projectRoles?: ProjectMemberRole[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
+    requesterHeader?: ApiKeyInterface["requesterHeader"];
+    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: string | null;
+    confirmRules?: ConfirmRule[] | null;
   }>,
   res: Response,
 ) {
@@ -1927,7 +1970,10 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt: expiresAtInput,
+    confirmRules,
   } = req.body;
 
   const expiresAt = parseExpiresAt(expiresAtInput);
@@ -1949,6 +1995,7 @@ export async function postApiKey(
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
   // Handle organization secret tokens
@@ -1960,7 +2007,10 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      requesterHeader,
+      requesterPermissions,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -1989,8 +2039,11 @@ export async function putApiKey(
       limitAccessByEnvironment?: boolean;
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
-      projectRoles?: ProjectMemberRole[];
+      projectRoles?: ApiKeyInterface["projectRoles"];
+      requesterHeader?: ApiKeyInterface["requesterHeader"];
+      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       expiresAt?: string | null;
+      confirmRules?: ConfirmRule[] | null;
     },
     { id: string }
   >,
@@ -2006,7 +2059,10 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
+    requesterHeader,
+    requesterPermissions,
     expiresAt,
+    confirmRules,
   } = req.body;
 
   // The model returns both the pre- and post-update docs from a single read so
@@ -2021,8 +2077,11 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
+      requesterHeader,
+      requesterPermissions,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
+      confirmRules,
     });
 
   await req.audit({

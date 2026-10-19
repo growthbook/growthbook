@@ -1508,32 +1508,42 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
+// "utc" shows warehouse dates (see parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,
+  timeZone: "utc" | "local" = "utc",
 ): string {
+  const tz = timeZone === "utc" ? "UTC" : undefined;
   switch (granularity) {
     case "year":
-      return date.toLocaleDateString(undefined, { year: "numeric" });
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        timeZone: tz,
+      });
     case "month":
       return date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
+        timeZone: tz,
       });
     case "week":
       return `Week of ${date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
         day: "numeric",
+        timeZone: tz,
       })}`;
     case "hour":
       return `${date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: tz,
       })} ${date.toLocaleTimeString(undefined, {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: tz,
       })}`;
     case "day":
     default:
@@ -1541,6 +1551,7 @@ export function formatDateByGranularity(
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: tz,
       });
   }
 }

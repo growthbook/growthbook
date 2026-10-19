@@ -51,7 +51,7 @@ export function getUserExperimentExposuresQuery(
                   dialect,
                 )}
               ) ${tableAlias}
-              WHERE ${dialect.castToString(userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
+              WHERE ${(dialect.castToFilterString ?? dialect.castToString)(userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
             `;
           })
           .join("\nUNION ALL\n")}

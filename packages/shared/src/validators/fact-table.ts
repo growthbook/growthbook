@@ -12,6 +12,11 @@ import {
   apiAggregatedTableRunSummaryValidator,
   apiAggregatedTableRunValidator,
 } from "./aggregated-fact-table-run";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -270,6 +275,37 @@ export const rowFilterOperators = [
   "sql_expr",
   "saved_filter",
 ] as const;
+
+/**
+ * The operators that compare a column against plain string values. Every one is
+ * safe to accept from an untrusted caller: the column is an identifier the
+ * caller must still allowlist, and the values are escaped as string literals.
+ *
+ * The set deliberately excludes `sql_expr` and `saved_filter`, whose values
+ * `getRowFilterSQL` interpolates into the WHERE clause verbatim — an endpoint
+ * that accepts row filters over the wire must not accept those.
+ */
+export const stringRowFilterOperators = [
+  "=",
+  "!=",
+  "in",
+  "not_in",
+  "contains",
+  "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
+  "starts_with",
+  "ends_with",
+  "is_null",
+  "not_null",
+] as const;
+
+/** A row filter restricted to {@link stringRowFilterOperators}, with a column. */
+export const stringRowFilterValidator = z.object({
+  operator: z.enum(stringRowFilterOperators),
+  column: z.string().min(1),
+  values: z.array(z.string()).optional(),
+});
 
 /**
  * `between` / `not_between` describe a lower and an upper bound, so a third
@@ -695,7 +731,7 @@ export const windowSettingsValidator = z.object({
 });
 
 export const quantileSettingsValidator = z.object({
-  quantile: z.number(),
+  quantile: z.number().gt(0).lt(1),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
   // Override the source-column name used to recover per-row event counts for
@@ -975,7 +1011,11 @@ export const apiFactTableColumnValidator = namedSchema(
           "Display name for the column (can be different from the actual column name)",
         )
         .optional(),
-      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+      description: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe("What the column contains.")
+        .optional(),
       alwaysInlineFilter: z
         .boolean()
         .describe(
@@ -1217,11 +1257,11 @@ export type ApiAggregatedFactTable = z.infer<
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 export const postFactTableBody = z
   .object({
-    name: z.string(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1263,11 +1303,11 @@ export const postFactTableBody = z
 // Corresponds to payload-schemas/UpdateFactTablePayload.yaml
 const updateFactTableBody = z
   .object({
-    name: z.string().optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1309,7 +1349,7 @@ const updateFactTableBody = z
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
 export const postFactTableFilterBodyFields = z.object({
-  name: z.string(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
@@ -1386,6 +1426,7 @@ export const postFactTableValidator = {
     })
     .strict(),
   summary: "Create a single fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1427,6 +1468,7 @@ export const updateFactTableValidator = {
     })
     .strict(),
   summary: "Update a single fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1450,6 +1492,7 @@ export const deleteFactTableValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table",
+  confirmation: ["factTable.delete"] as const,
   operationId: "deleteFactTable",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1489,6 +1532,7 @@ export const postFactTableFilterValidator = {
     })
     .strict(),
   summary: "Create a single fact table filter",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1526,6 +1570,7 @@ export const updateFactTableFilterValidator = {
     })
     .strict(),
   summary: "Update a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1549,6 +1594,7 @@ export const deleteFactTableFilterValidator = {
     })
     .strict(),
   summary: "Deletes a single fact table filter",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableFilter",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1578,7 +1624,11 @@ const postFactTableVirtualColumnBody = z
       )
       .meta({ example: "revenue_vc" }),
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype.describe(
       "The data type of the computed column",
@@ -1593,7 +1643,11 @@ const postFactTableVirtualColumnBody = z
 const updateFactTableVirtualColumnBody = z
   .object({
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype
       .describe("The data type of the computed column")
@@ -1615,6 +1669,7 @@ export const postFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Create a virtual (computed) column on a fact table",
+  confirmation: ["factTable.create"] as const,
   operationId: "postFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1639,6 +1694,7 @@ export const updateFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Update a virtual (computed) column on a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "updateFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1662,6 +1718,7 @@ export const deleteFactTableVirtualColumnValidator = {
     })
     .strict(),
   summary: "Delete a virtual (computed) column from a fact table",
+  confirmation: ["factTable.edit"] as const,
   operationId: "deleteFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "delete" as const,
@@ -1724,6 +1781,7 @@ export const refreshAggregatedFactTableValidator = {
     .strict(),
   summary:
     "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  confirmation: [],
   operationId: "refreshAggregatedFactTable",
   tags: ["fact-tables"],
   method: "post" as const,

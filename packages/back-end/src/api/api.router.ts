@@ -19,6 +19,7 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -57,6 +58,7 @@ import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
 import { metaRoutes } from "./meta/meta.router";
+import { confirmationsRoutes } from "./confirmations/confirmations.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
@@ -77,6 +79,7 @@ const API_MODELS: ModelClass[] = [
   LearningModel,
   HoldoutModel,
   AutoRunModel,
+  PopulationModel,
 ];
 
 const router = Router();
@@ -197,6 +200,7 @@ export const allRoutes = [
   ...queriesRoutes,
   ...settingsRoutes,
   ...metaRoutes,
+  ...confirmationsRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,

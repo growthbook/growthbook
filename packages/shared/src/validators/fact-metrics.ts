@@ -9,6 +9,11 @@ import {
 } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  MARKDOWN_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Shared sub-schemas for fact metric column references
 
@@ -653,11 +658,15 @@ export const factMetricCreateArchivedField = z
 
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
 export const postFactMetricBodyFields = z.object({
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z.string().describe(METRIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_DESCRIPTION)
+    .optional(),
   owner: ownerInputField.optional(),
   projects: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   metricType: apiMetricTypeEnum,
   numerator: postNumeratorRef.nullable().optional(),
   denominator: postDenominatorRef.optional(),
@@ -926,6 +935,7 @@ export const postFactMetricValidator = {
     })
     .strict(),
   summary: "Create a single fact metric",
+  confirmation: ["metric.create"] as const,
   operationId: "postFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -976,6 +986,7 @@ export const updateFactMetricValidator = {
     })
     .strict(),
   summary: "Update a single fact metric",
+  confirmation: ["metric.edit"] as const,
   operationId: "updateFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -999,6 +1010,7 @@ export const deleteFactMetricValidator = {
     })
     .strict(),
   summary: "Deletes a single fact metric",
+  confirmation: ["metric.delete"] as const,
   operationId: "deleteFactMetric",
   tags: ["fact-metrics"],
   method: "delete" as const,
@@ -1016,6 +1028,7 @@ export const postFactMetricAnalysisValidator = {
     })
     .strict(),
   summary: "Create a fact metric analysis",
+  confirmation: [],
   operationId: "postFactMetricAnalysis",
   tags: ["fact-metrics"],
   method: "post" as const,

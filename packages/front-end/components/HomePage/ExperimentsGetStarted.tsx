@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
+import { isProjectListValidForProject } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -22,13 +23,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project, projects } =
-    useDefinitions();
+  const {
+    metrics,
+    datasources,
+    factTables,
+    mutateDefinitions,
+    project,
+    projects,
+  } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
-  const [metricsOpen, setMetricsOpen] = useState(false);
   const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
   const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
 
@@ -77,8 +83,15 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     }
   };
 
+  const factMetricFlow = useFactMetricFlow("get-started");
+  // The new page explains a missing fact table; the old modal can't.
+  const canOpenFactMetricFlow =
+    factMetricFlow.newFlow ||
+    factTables.some((f) => isProjectListValidForProject(f.projects, project));
+
   return (
     <>
+      {factMetricFlow.modal}
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
@@ -92,16 +105,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           />
         )}
 
-        {metricsOpen && (
-          <MetricForm
-            current={{}}
-            edit={false}
-            source="get-started"
-            onClose={() => {
-              setMetricsOpen(false);
-            }}
-          />
-        )}
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -220,22 +223,28 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta="Add metric"
+                    cta={
+                      canOpenFactMetricFlow ? "Add metric" : "Create Fact Table"
+                    }
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetric({
-                        projects: [project],
-                      }) &&
-                      !hasMetrics
+                      !hasMetrics &&
+                      // Check the permission for the step the button names.
+                      (canOpenFactMetricFlow
+                        ? !permissionsUtil.canCreateFactMetric({
+                            projects: [project],
+                          })
+                        : !permissionsUtil.canViewCreateFactTableModal(
+                            project,
+                            projects,
+                          ))
                     }
                     imageLeft={false}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/metrics");
-                      } else {
-                        setMetricsOpen(true);
-                      }
+                      if (finished) router.push("/metrics");
+                      else if (canOpenFactMetricFlow) factMetricFlow.open();
+                      else router.push("/fact-tables");
                     }}
                   />
                   <GetStartedStep
