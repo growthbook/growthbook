@@ -1844,7 +1844,6 @@ export default abstract class SqlIntegration
       },
     );
 
-    // Raw exposure-query column references for __filteredNewExposures (aliased `e`).
     const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
       exposureQuery,
       baseIdType,

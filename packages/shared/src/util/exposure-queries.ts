@@ -35,9 +35,8 @@ type ExposureQueryColumnMapping = Pick<
   | "variationIdColumn"
 >;
 
-// Resolve which physical column holds each role. An unset mapping falls back to
-// the canonical name (the pre-mapping behavior), so SQL that already aliases its
-// columns to the canonical names needs no mapping.
+// An unset mapping falls back to the canonical name, so SQL that aliases its
+// columns to those names needs no mapping.
 export function getExposureQueryExperimentIdColumn(
   query: ExposureQueryColumnMapping,
 ): string {

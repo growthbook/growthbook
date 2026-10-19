@@ -28,6 +28,9 @@ export function getMetricAnalysisPopulationCTEs(
   },
 ): string {
   if (settings.populationType === "exposureQuery" && populationExposureQuery) {
+    const timestampColumn = getExposureQueryTimestampColumn(
+      populationExposureQuery,
+    );
     return `
       __rawExperiment AS (
         ${compileSqlTemplate(
@@ -49,14 +52,10 @@ export function getMetricAnalysisPopulationCTEs(
         FROM
             __rawExperiment
         WHERE
-            ${getExposureQueryTimestampColumn(
-              populationExposureQuery,
-            )} >= ${dialect.toTimestamp(settings.startDate)}
+            ${timestampColumn} >= ${dialect.toTimestamp(settings.startDate)}
             ${
               settings.endDate
-                ? `AND ${getExposureQueryTimestampColumn(
-                    populationExposureQuery,
-                  )} <= ${dialect.toTimestamp(settings.endDate)}`
+                ? `AND ${timestampColumn} <= ${dialect.toTimestamp(settings.endDate)}`
                 : ""
             }
         ),`;

@@ -507,8 +507,7 @@ export async function testQueryValidity(
     return undefined;
   }
 
-  // Require the physical columns the query actually declares (roles may map to
-  // non-canonical column names); dimensions and name columns stay canonical.
+  // Dimensions and name columns aren't remappable, so they stay canonical
   const requiredColumns = new Set([
     getExposureQueryExperimentIdColumn(query),
     getExposureQueryVariationIdColumn(query),

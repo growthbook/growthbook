@@ -199,9 +199,8 @@ export interface ExposureQuery {
   projects?: string[];
   /**
    * Column-role mappings for SQL that doesn't alias its columns to the canonical
-   * role names. An unset role resolves by canonical name (`experiment_id`,
-   * `variation_id`, `timestamp`, and each identifier type's own name) — the
-   * pre-mapping behavior. `userIdColumns` stores only remapped identifier types.
+   * role names (`experiment_id`, `variation_id`, `timestamp`, and each
+   * identifier type's own name). Only remapped roles are stored.
    */
   userIdColumns?: Record<string, string>;
   timestampColumn?: string;

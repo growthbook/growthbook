@@ -590,7 +590,7 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export type ResolvedExposureQuery = {
   query: string;
   identifierType: string;
-  // Column-role mappings (see ExposureQuery); unset roles resolve by canonical name.
+  // Column-role mappings, as on ExposureQuery
   userIdColumns?: Record<string, string>;
   timestampColumn?: string;
   experimentIdColumn?: string;
