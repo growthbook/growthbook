@@ -56,6 +56,12 @@ export type ContextualBanditSrmResult = {
   pValue: number;
   degreesOfFreedom: number;
   latestPeriod?: ContextualBanditSrmLatestPeriod;
+  /**
+   * Distinct users dropped from the SRM test for seeing multiple variations
+   * within a single (leaf_id, bandit_version) cell — the Multiple Exposures
+   * health signal.
+   */
+  multipleExposures: number;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
@@ -525,23 +531,23 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
-
-        // Similar to experiment `analysisSummary` pattern, persist a lightweight health
-        // summary on the CB doc so list views can render the shared status without loading
-        // the full snapshot.
-        const summaryTotalUsers =
-          result.traffic?.overall?.variationUnits?.reduce(
-            (sum, n) => sum + n,
-            0,
-          ) ?? 0;
-        pendingAnalysisSummary = {
-          snapshotId: this.model.id,
-          health: {
-            srm: result.srm?.pValue ?? null,
-            totalUsers: summaryTotalUsers,
-          },
-        };
       }
+
+      // Similar to experiment `analysisSummary` pattern, persist a lightweight health
+      // summary on the CB doc so list views can render the shared status without loading
+      // the full snapshot.
+      const summaryTotalUsers =
+        result.traffic?.overall?.variationUnits?.reduce(
+          (sum, n) => sum + n,
+          0,
+        ) ?? 0;
+      pendingAnalysisSummary = {
+        snapshotId: this.model.id,
+        health: {
+          srm: result.srm?.pValue ?? null,
+          totalUsers: summaryTotalUsers,
+        },
+      };
     }
 
     // Persist the snapshot (including `contextualBanditEventId`) before writing the

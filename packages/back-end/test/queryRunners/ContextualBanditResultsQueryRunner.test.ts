@@ -656,6 +656,18 @@ describe("ContextualBanditResultsQueryRunner", () => {
         expect.objectContaining({ status: "success" }),
       );
       expect(updated.contextualBanditEventId).toBeUndefined();
+      // Even though the event link already exists (so the event is not
+      // re-persisted), the health summary is still rebuilt and re-patched so a
+      // retry repairs a summary write that failed on a previous attempt.
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).toHaveBeenCalledWith(
+        cb.id,
+        expect.objectContaining({
+          snapshotId: "cbs_1",
+          health: expect.objectContaining({ totalUsers: expect.any(Number) }),
+        }),
+      );
     });
 
     it("on `failed`, stamps `status: error` + error message and does NOT persist a CBE", async () => {
