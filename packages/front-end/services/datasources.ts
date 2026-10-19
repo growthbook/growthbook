@@ -18,6 +18,11 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import {
+  isGA4EventsTable,
+  shardFilter,
+  SourceTableTemplate,
+} from "@/services/factTables";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -115,6 +120,48 @@ WHERE
        (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
   },
+};
+
+// GA4Schema's assignment query for a picked events table. user_id is left out
+// because logged-out events have none. GA4 stores a param by how its value
+// looks, so a key sent as "123" lands in int_value and "control" in
+// string_value.
+export const GA4_EXPOSURE_TEMPLATE: SourceTableTemplate = {
+  matches: isGA4EventsTable,
+  name: "GA4 Experiment Exposures",
+  columns: [
+    { column: "anonymous_id", datatype: "string" },
+    { column: "timestamp", datatype: "date" },
+    { column: "experiment_id", datatype: "string" },
+    { column: "variation_id", datatype: "string" },
+    ...GA4Schema.experimentDimensions.map((column) => ({
+      column,
+      datatype: "string" as const,
+    })),
+  ],
+  getSql: (table, rowFilterWhere) => `SELECT
+  user_pseudo_id as anonymous_id,
+  TIMESTAMP_MICROS(event_timestamp) as timestamp,
+  COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
+  COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id,
+  geo.country as country,
+  traffic_source.source as source,
+  traffic_source.medium as medium,
+  device.category as device,
+  device.web_info.browser as browser,
+  device.operating_system as os
+FROM
+  ${table.path},
+  UNNEST(event_params) AS experiment_id_param,
+  UNNEST(event_params) AS variation_id_param
+WHERE
+  ${shardFilter(true)}
+  AND event_name = 'experiment_viewed'
+  AND experiment_id_param.key = 'experiment_id'
+  AND variation_id_param.key = 'variation_id'
+  AND user_pseudo_id IS NOT NULL${
+    rowFilterWhere ? `\n  AND ${rowFilterWhere}` : ""
+  }`,
 };
 
 const SnowplowSchema: SchemaInterface = {
