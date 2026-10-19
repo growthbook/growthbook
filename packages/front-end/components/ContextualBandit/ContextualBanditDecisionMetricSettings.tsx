@@ -207,7 +207,7 @@ export default function ContextualBanditDecisionMetricSettings({
             <Text>
               {factTableForMetric
                 ? "Add a mean or proportion Fact Metric to use as the decision metric, then continue."
-                : "This Data Source has no Fact Metrics. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric, so create one for this Data Source before continuing."}
+                : "This Data Source has no Fact Tables. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric. Create a Fact Table for this Data Source, then add a Fact Metric to it."}
             </Text>
             {factMetricFlow.createButton(
               {
@@ -215,7 +215,7 @@ export default function ContextualBanditDecisionMetricSettings({
                 datasource: datasourceId || undefined,
                 project,
               },
-              { variant: "outline", children: "Add Fact Metric" },
+              { variant: "outline" },
             )}
           </Flex>
         </Callout>

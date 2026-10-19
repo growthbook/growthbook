@@ -72,7 +72,7 @@ export default function MetricSlices({
         <Text color="text-mid">
           No slice columns on this fact table.{" "}
           {embedded ? (
-            "You can add slice columns after saving this form."
+            "Add slice columns on the fact table after you save."
           ) : (
             <Link href={`/fact-tables/${factTable.id}`}>Add one</Link>
           )}

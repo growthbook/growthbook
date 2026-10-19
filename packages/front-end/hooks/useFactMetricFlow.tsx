@@ -207,7 +207,13 @@ export default function useFactMetricFlow(
     const action = creation(target);
     const { children, showPermissionError, ...buttonProps } = props;
     const label = children ?? action.label;
-    const button = action.disabledReason ? (
+    const permissionCallout = showPermissionError && action.permissionError;
+    // The callout already explains a permission block, so skip the tooltip.
+    const button = permissionCallout ? (
+      <Button {...buttonProps} disabled>
+        {label}
+      </Button>
+    ) : action.disabledReason ? (
       <Tooltip content={action.disabledReason}>
         <span style={{ cursor: "not-allowed" }}>
           <Button
@@ -236,7 +242,7 @@ export default function useFactMetricFlow(
     );
     return (
       <>
-        {showPermissionError && action.permissionError && (
+        {permissionCallout && (
           <Callout status="info" mb="3">
             {action.permissionError}
           </Callout>
@@ -296,37 +302,37 @@ export default function useFactMetricFlow(
             : "Map Template Fields to Your Fact Table"}
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        {error ? (
-          <Callout status="error">{error}</Callout>
-        ) : (
-          template && (
-            <TemplateFieldMapping
-              template={template}
-              hideHeading
-              onCancel={close}
-              onMapped={(mapped) => {
-                if (mapped.metricType === "funnel" || !mapped.numerator) return;
-                const mappedTemplate: Partial<StandardFactMetricInterface> = {
-                  ...mapped,
-                  metricType: mapped.metricType,
-                  numerator: mapped.numerator,
-                  funnelSettings: null,
-                };
-                setModalTarget((current) =>
-                  current ? { ...current, mappedTemplate } : null,
-                );
-              }}
-            />
-          )
-        )}
-      </Modal.Body>
-      {error && (
-        <Modal.Footer>
-          <Button variant="outline" onClick={close}>
-            Close
-          </Button>
-        </Modal.Footer>
+      {error ? (
+        <>
+          <Modal.Body>
+            <Callout status="error">{error}</Callout>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="outline" onClick={close}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </>
+      ) : (
+        template && (
+          <TemplateFieldMapping
+            template={template}
+            inModal
+            onCancel={close}
+            onMapped={(mapped) => {
+              if (mapped.metricType === "funnel" || !mapped.numerator) return;
+              const mappedTemplate: Partial<StandardFactMetricInterface> = {
+                ...mapped,
+                metricType: mapped.metricType,
+                numerator: mapped.numerator,
+                funnelSettings: null,
+              };
+              setModalTarget((current) =>
+                current ? { ...current, mappedTemplate } : null,
+              );
+            }}
+          />
+        )
       )}
     </Modal.Root>
   ) : !modalTarget ? null : embedded && newFlow ? (
