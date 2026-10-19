@@ -44,7 +44,7 @@ export default function ContextualBanditHealthTab({
 
   const traffic = latest?.traffic ?? null;
   const srm = latest?.srm?.pValue ?? null;
-  const multipleExposures = latest?.multipleExposures ?? 0;
+  const multipleExposures = latest?.multipleExposures ?? null;
   const overallUsers = useMemo(
     () =>
       frozenVariations.map(
@@ -119,11 +119,18 @@ export default function ContextualBanditHealthTab({
       </div>
 
       <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
-        <MultipleExposuresCard
-          totalUsers={totalUsers}
-          multipleExposures={multipleExposures}
-          isBandit
-        />
+        {multipleExposures === null ? (
+          <Callout status="info">
+            Multiple exposures data will appear after a successful results
+            refresh.
+          </Callout>
+        ) : (
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            multipleExposures={multipleExposures}
+            isBandit
+          />
+        )}
       </div>
     </Flex>
   );

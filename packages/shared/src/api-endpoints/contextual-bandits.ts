@@ -249,7 +249,7 @@ export const getContextualBanditResults = {
           queries: z.array(queryPointerValidator),
           runStarted: z.string().nullable(),
           dateCreated: z.string(),
-          multipleExposures: z.number(),
+          multipleExposures: z.number().optional(),
           type: z.string(),
           triggeredBy: z.string(),
           srm: z
