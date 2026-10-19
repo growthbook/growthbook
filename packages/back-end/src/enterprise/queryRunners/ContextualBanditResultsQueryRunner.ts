@@ -30,6 +30,7 @@ import {
 } from "back-end/src/enterprise/services/contextualBandits";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getIntegrationIdentifierQuote } from "back-end/src/services/datasource";
 import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -204,6 +205,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const canComputeSrm = queryHasContextualBanditSrmColumns(
       cbUnitsSettings.exposureQuery.query,
+      getIntegrationIdentifierQuote(this.integration),
     );
     if (!canComputeSrm) {
       logger.info(

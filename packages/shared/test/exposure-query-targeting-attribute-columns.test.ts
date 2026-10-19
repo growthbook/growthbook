@@ -151,6 +151,34 @@ describe("exposure query targeting attribute columns", () => {
       ).toBe(false);
     });
 
+    it("detects bandit_version as a double-quoted (ANSI/PostgreSQL) column alias", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          'SELECT user_id, source.version AS "bandit_version" FROM exposures',
+        ),
+      ).toBe(true);
+    });
+
+    it("detects bandit_version as a backtick-quoted alias when the dialect quotes with backticks", () => {
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, source.version AS `bandit_version` FROM exposures",
+          "`",
+        ),
+      ).toBe(true);
+    });
+
+    it("treats double quotes as a string literal for backtick-quoting dialects (MySQL)", () => {
+      // Under MySQL semantics `"bandit_version"` is a string literal, not an
+      // identifier, so it must not count as a real column reference.
+      expect(
+        queryHasContextualBanditVersionColumn(
+          'SELECT user_id, "bandit_version" AS note FROM exposures',
+          "`",
+        ),
+      ).toBe(false);
+    });
+
     it("returns false for undefined queries", () => {
       expect(queryHasContextualBanditVersionColumn(undefined)).toBe(false);
     });
@@ -169,6 +197,22 @@ describe("exposure query targeting attribute columns", () => {
       expect(
         queryHasContextualBanditSrmColumns(
           "SELECT bandit_version, leaf_id -- variation_weights not selected\nFROM exposures",
+        ),
+      ).toBe(false);
+    });
+
+    it("detects required columns exposed via double-quoted (ANSI/PostgreSQL) aliases", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          'SELECT source.version AS "bandit_version", source.leaf AS "leaf_id", source.weights AS "variation_weights" FROM exposures',
+        ),
+      ).toBe(true);
+    });
+
+    it("still ignores a required column that only appears in a single-quoted string", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id, 'variation_weights' AS note FROM exposures",
         ),
       ).toBe(false);
     });
