@@ -40,6 +40,7 @@ import {
   REVIEW_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
 } from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -305,6 +306,7 @@ export const getConfigRevisionMergeStatusValidator = {
 export const postConfigRevisionValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevision",
   summary: "Create a draft revision",
   description:
@@ -321,6 +323,7 @@ export const postConfigRevisionValidator = {
 export const postConfigRevisionDiscardValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/discard",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -335,6 +338,12 @@ export const postConfigRevisionDiscardValidator = {
 export const postConfigRevisionPublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/publish",
+  confirmation: [
+    "config.publish",
+    "config.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -356,6 +365,14 @@ export const postConfigRevisionPublishValidator = {
 export const postConfigRevisionRevertValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/revert",
+  confirmation: [
+    "config.draft",
+    "config.publish",
+    "config.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  // Holds once the strategy is known: a draft, or a publish that lands.
+  confirmationInHandler: true,
   operationId: "postConfigRevisionRevert",
   summary: "Revert the config to a prior revision",
   description:
@@ -387,6 +404,7 @@ export const postConfigRevisionRevertValidator = {
 export const postConfigRevisionRebaseValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/rebase",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevisionRebase",
   summary: "Rebase a draft revision onto the current live config",
   description:
@@ -415,6 +433,7 @@ export const postConfigRevisionRebaseValidator = {
 export const postConfigRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/request-review",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -434,6 +453,7 @@ export const postConfigRevisionRequestReviewValidator = {
 export const postConfigRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/submit-review",
+  confirmation: ["config.review"] as const,
   operationId: "postConfigRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -455,6 +475,7 @@ export const postConfigRevisionSubmitReviewValidator = {
 export const postConfigRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/schedule-publish",
+  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postConfigRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -482,6 +503,7 @@ export const postConfigRevisionSchedulePublishValidator = {
 export const postConfigRevisionReopenValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/reopen",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -496,6 +518,7 @@ export const postConfigRevisionReopenValidator = {
 export const postConfigRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/recall-review",
+  confirmation: ["config.draft"] as const,
   operationId: "postConfigRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -512,6 +535,7 @@ export const postConfigRevisionRecallReviewValidator = {
 export const putConfigRevisionMetadataValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/metadata",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionMetadata",
   summary: "Update config metadata in a draft revision",
   description:
@@ -550,6 +574,7 @@ export const putConfigRevisionMetadataValidator = {
 export const putConfigRevisionValueValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/value",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionValue",
   summary: "Update the value of a config draft revision",
   description:
@@ -580,6 +605,7 @@ export const putConfigRevisionValueValidator = {
 export const putConfigRevisionPropertyValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/property",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionProperty",
   summary: "Set one property of a config draft revision's value",
   description:
@@ -605,6 +631,7 @@ export const putConfigRevisionPropertyValidator = {
 export const deleteConfigRevisionPropertyValidator = {
   method: "delete" as const,
   path: "/configs-revisions/:key/:version/property",
+  confirmation: ["config.draft"] as const,
   operationId: "deleteConfigRevisionProperty",
   summary: "Remove one property from a config draft revision's value",
   description:
@@ -624,6 +651,7 @@ export const deleteConfigRevisionPropertyValidator = {
 export const putConfigRevisionSchemaValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/schema",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionSchema",
   summary: "Update or import the schema of a config draft revision",
   description:
@@ -654,6 +682,7 @@ export const putConfigRevisionSchemaValidator = {
 export const putConfigRevisionProjectionValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/projection",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionProjection",
   summary: "Set (or update) a config's per-source render projection on a draft",
   description:
@@ -687,6 +716,7 @@ export const putConfigRevisionProjectionValidator = {
 export const deleteConfigRevisionProjectionValidator = {
   method: "delete" as const,
   path: "/configs-revisions/:key/:version/projection",
+  confirmation: ["config.draft"] as const,
   operationId: "deleteConfigRevisionProjection",
   summary: "Remove a config's per-source render projection on a draft",
   description:
@@ -707,6 +737,7 @@ export const deleteConfigRevisionProjectionValidator = {
 export const putConfigRevisionArchiveValidator = {
   method: "put" as const,
   path: "/configs-revisions/:key/:version/archive",
+  confirmation: ["config.draft"] as const,
   operationId: "putConfigRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -727,6 +758,7 @@ export const putConfigRevisionArchiveValidator = {
 export const postConfigRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/undo-review",
+  confirmation: ["config.review"] as const,
   operationId: "postConfigRevisionUndoReview",
   summary: "Retract your own review verdict",
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,

@@ -4,15 +4,19 @@ import {
 } from "../../src/validators/signup-attribution";
 
 describe("attributionCookieSchema", () => {
-  it("accepts known click IDs including li_fat_id", () => {
+  it("accepts known click IDs including Google and LinkedIn tags", () => {
     const parsed = attributionCookieSchema.parse({
       utm_source: "linkedin",
       li_fat_id: "abc123",
       gclid: "g",
+      gbraid: "gb",
+      wbraid: "wb",
       fbclid: "f",
       msclkid: "m",
     });
     expect(parsed.li_fat_id).toBe("abc123");
+    expect(parsed.gbraid).toBe("gb");
+    expect(parsed.wbraid).toBe("wb");
   });
 
   it("passes through unknown keys so new cookie fields do not fail parse", () => {

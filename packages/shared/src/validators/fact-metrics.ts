@@ -935,6 +935,7 @@ export const postFactMetricValidator = {
     })
     .strict(),
   summary: "Create a single fact metric",
+  confirmation: ["metric.create"] as const,
   operationId: "postFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -985,6 +986,7 @@ export const updateFactMetricValidator = {
     })
     .strict(),
   summary: "Update a single fact metric",
+  confirmation: ["metric.edit"] as const,
   operationId: "updateFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -1008,6 +1010,7 @@ export const deleteFactMetricValidator = {
     })
     .strict(),
   summary: "Deletes a single fact metric",
+  confirmation: ["metric.delete"] as const,
   operationId: "deleteFactMetric",
   tags: ["fact-metrics"],
   method: "delete" as const,
@@ -1025,6 +1028,7 @@ export const postFactMetricAnalysisValidator = {
     })
     .strict(),
   summary: "Create a fact metric analysis",
+  confirmation: [],
   operationId: "postFactMetricAnalysis",
   tags: ["fact-metrics"],
   method: "post" as const,

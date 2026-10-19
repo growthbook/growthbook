@@ -14,6 +14,7 @@ import {
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
+import { parseWarehouseDate } from "shared/dates";
 import {
   compareJourneyStepValues,
   journeyDisplayLookaheadDepth,
@@ -62,7 +63,7 @@ function formatCellForTable(
       context.resolvedGranularity
     ) {
       return formatDateByGranularity(
-        new Date(raw),
+        parseWarehouseDate(raw),
         context.resolvedGranularity,
       );
     }
@@ -753,7 +754,10 @@ export default function useExplorationTableData(
           entries.push([
             PREV_BUCKET_DATE_KEY,
             typeof prevDim0 === "string" && resolvedGranularity
-              ? formatDateByGranularity(new Date(prevDim0), resolvedGranularity)
+              ? formatDateByGranularity(
+                  parseWarehouseDate(prevDim0),
+                  resolvedGranularity,
+                )
               : null,
           ] as const);
         }

@@ -20,6 +20,7 @@ import {
   GENERIC_NAME_DESCRIPTION,
   MARKDOWN_DESCRIPTION,
 } from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // Per-source naming captured from an import, replayed on typed-projection export.
 // Presentation metadata only — never part of the schema contract, so never affects drift.
@@ -864,6 +865,7 @@ export const verifyConfigSchemaValidator = {
   paramsSchema: configKeyParams,
   responseSchema: apiConfigSchemaVerifyValidator,
   summary: "Verify a config's schema against a source (drift check)",
+  confirmation: [],
   operationId: "verifyConfigSchema",
   tags: ["configs"],
   method: "post" as const,
@@ -913,6 +915,7 @@ export const postConfigValidator = {
   paramsSchema: z.never(),
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
+  confirmation: ["config.create"] as const,
   operationId: "postConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -934,6 +937,7 @@ export const updateConfigValidator = {
   summary: "Partially update a single config",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
+  confirmation: ["config.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "updateConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -960,6 +964,8 @@ export const archiveConfigValidator = {
   summary: "Archive a single config",
   description:
     'Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it. When archiving would strip a value that live features or other configs still consume, the request returns a 422 listing the blocking gates — re-submit with `"ignoreWarnings": true` in the request body to acknowledge and proceed. A locked config, or one whose org requires approval, returns its own gate (unlock or route the change through a draft revision).',
+  confirmation: ["config.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "archiveConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -973,6 +979,8 @@ export const unarchiveConfigValidator = {
   paramsSchema: configKeyParams,
   responseSchema: apiConfigArchiveResponse,
   summary: "Unarchive a single config",
+  confirmation: ["config.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "unarchiveConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -986,6 +994,7 @@ export const deleteConfigValidator = {
   paramsSchema: configKeyParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a single config",
+  confirmation: ["config.delete"] as const,
   operationId: "deleteConfig",
   tags: ["configs"],
   method: "delete" as const,
@@ -1009,6 +1018,7 @@ export const lockConfigValidator = {
   summary: "Lock a config at its current published revision",
   description:
     "Locks the Config to its current published revision. Drafts can still be created and edited, but direct updates, publishes, scheduled publishes, reverts, and archives are blocked. The response returns the pinned revision in `lockedRevision`. Unlocking requires Bypass draft approvals access.",
+  confirmation: ["config.other"] as const,
   operationId: "lockConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -1024,6 +1034,7 @@ export const unlockConfigValidator = {
   summary: "Unlock a config",
   description:
     "Removes the Config lock so changes can be published again. The caller must have Bypass draft approvals access in the Config's Project.",
+  confirmation: ["config.other"] as const,
   operationId: "unlockConfig",
   tags: ["configs"],
   method: "post" as const,

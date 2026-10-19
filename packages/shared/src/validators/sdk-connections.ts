@@ -172,6 +172,7 @@ export const postSdkConnectionValidator = {
     })
     .strict(),
   summary: "Create a single sdk connection",
+  confirmation: ["sdkConnection.create"] as const,
   operationId: "postSdkConnection",
   tags: ["sdk-connections"],
   method: "post" as const,
@@ -205,6 +206,7 @@ export const putSdkConnectionValidator = {
     })
     .strict(),
   summary: "Update a single sdk connection",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -221,6 +223,7 @@ export const deleteSdkConnectionValidator = {
     })
     .strict(),
   summary: "Deletes a single SDK connection",
+  confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

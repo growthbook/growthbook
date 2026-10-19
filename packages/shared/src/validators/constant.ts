@@ -17,6 +17,7 @@ import {
   GENERIC_NAME_DESCRIPTION,
   MARKDOWN_DESCRIPTION,
 } from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
 // via `$extends`). Configs are separate but resolve like `json` constants.
@@ -587,6 +588,7 @@ export const postConstantValidator = {
   paramsSchema: z.never(),
   responseSchema: apiConstantResponse,
   summary: "Create a single constant",
+  confirmation: ["constant.create"] as const,
   operationId: "postConstant",
   tags: ["constants"],
   method: "post" as const,
@@ -609,6 +611,7 @@ export const updateConstantValidator = {
   summary: "Partially update a single constant",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "updateConstant",
   tags: ["constants"],
   method: "post" as const,
@@ -625,6 +628,8 @@ export const archiveConstantValidator = {
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantArchiveResponse,
   summary: "Archive a single constant",
+  confirmation: ["constant.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "archiveConstant",
   tags: ["constants"],
   method: "post" as const,
@@ -638,6 +643,8 @@ export const unarchiveConstantValidator = {
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantArchiveResponse,
   summary: "Unarchive a single constant",
+  confirmation: ["constant.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "unarchiveConstant",
   tags: ["constants"],
   method: "post" as const,
@@ -651,6 +658,7 @@ export const deleteConstantValidator = {
   paramsSchema: constantKeyParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a single constant",
+  confirmation: ["constant.delete"] as const,
   operationId: "deleteConstant",
   tags: ["constants"],
   method: "delete" as const,

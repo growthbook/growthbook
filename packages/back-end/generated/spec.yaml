@@ -86,7 +86,10 @@ info:
     If a key has an expiration date, every response includes it in the
     `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before
     the key stops working. Requests made with an expired key fail with a `401`
-    that says where to create a replacement.
+    that says where to create a replacement. See
+    [Expiration](/integrations/ai-agents/api-keys#expiration) for choosing a
+    key's expiration, the warnings before it lapses, and the organization
+    policies.
 
 
     ## Naming who asked
@@ -166,7 +169,104 @@ info:
     - If a request is blocked (an approval requirement, a warning, a Custom
     Hook, schema validation or a permission error), stop and ask a person. Don't
     retry with an override field, a different key or another workaround unless a
-    person asked you to.
+    person asked you to. If a write answers `202` with a `confirmation`, give a
+    person its `url` and wait (see [Waiting for
+    confirmation](#waiting-for-confirmation)).
+
+
+    ## Waiting for confirmation
+
+
+    A key can require a person to confirm some writes before they run (see [API
+    Keys for Agents](/integrations/ai-agents/api-keys#require-confirmation)). A
+    held write doesn't run. It answers `202 Accepted` with the confirmation, a
+    `Location` header to poll, and a `Retry-After` header with the seconds to
+    wait between polls:
+
+
+    ```json
+
+    {
+      "confirmation": {
+        "id": "cnf_abc123",
+        "status": "pending",
+        "actions": [
+          { "action": "feature.publish", "environments": ["production"] }
+        ],
+        "summary": "Publish revision 3 of checkout-redesign",
+        "url": "https://app.growthbook.io/confirmations/cnf_abc123",
+        "expiresAt": "2026-10-15T18:00:00.000Z",
+        "response": null,
+        "note": null
+      },
+      "message": "A person must confirm this in GrowthBook. Give them the url, then poll the Location."
+    }
+
+    ```
+
+
+    Give the person the `url`, then poll [`GET
+    /v1/confirmations/{id}`](/api/meta/operation/getConfirmation). Pass `wait`
+    (in seconds, up to 30) to hold the poll open until the status changes:
+
+
+    ```bash
+
+    curl "https://api.growthbook.io/api/v1/confirmations/cnf_abc123?wait=30" \
+
+    -H "Authorization: Bearer secret_abc123DEF456"
+
+    ```
+
+
+    | `status`    |
+    Meaning                                                                                                              
+    |
+
+    | ----------- |
+    ---------------------------------------------------------------------------------------------------------------------
+    |
+
+    | `pending`   | Waiting for a person, until `expiresAt` (an hour after the
+    request)                                                   |
+
+    | `running`   | Confirmed, and running
+    now                                                                                           
+    |
+
+    | `completed` | It ran. `response` holds the status and body the request
+    returned, which may be an error                              |
+
+    | `rejected`  | A person declined it, and nothing
+    ran                                                                                
+    |
+
+    | `expired`   | Nobody decided in time, or it acts on something that changed
+    after it was held (with a `400` `response`). Nothing ran |
+
+
+    `note` carries anything the person left for the agent when they decided.
+    `actions` lists what the request was held for, each with the environments it
+    touches.
+
+
+    - Only the key that made the request, or another token of the same person,
+    can read the confirmation.
+
+    - Sending the same request again while it's pending returns the same
+    confirmation.
+
+    - A request that publishes, reverts or archives, or that changes a Feature
+    Flag or an Experiment's status, schedule, targeting or traffic, isn't run if
+    what it acts on changed after it was held. Other writes, such as editing
+    settings or a draft, run as sent, so they can overwrite changes made while
+    they waited.
+
+    - A confirmed request runs once, with the key's permissions (or the member's
+    role it assumes), not the confirmer's. Send it again to retry, which asks
+    for a new confirmation.
+
+    - Confirming isn't a review approval.
 
 
     ## Errors
@@ -579,6 +679,12 @@ tags:
   - name: ConfigSchemaWarning_model
     x-displayName: Config Schema Warning
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigSchemaWarning" />
+  - name: Confirmation_model
+    x-displayName: Confirmation
+    description: <SchemaDefinition schemaRef="#/components/schemas/Confirmation" />
+  - name: ConfirmationHeld_model
+    x-displayName: Confirmation Held
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfirmationHeld" />
   - name: Constant_model
     x-displayName: Constant
     description: <SchemaDefinition schemaRef="#/components/schemas/Constant" />
@@ -2503,6 +2609,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4105,6 +4213,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4143,6 +4253,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -4229,6 +4341,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4335,6 +4449,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4584,6 +4700,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -4907,6 +5025,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5012,6 +5132,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5105,6 +5227,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5197,6 +5321,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5277,6 +5403,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -5360,6 +5488,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -6318,6 +6448,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7034,6 +7166,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7115,6 +7249,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7202,6 +7338,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7764,6 +7902,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7844,6 +7984,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7898,6 +8040,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -7973,6 +8117,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8126,6 +8272,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8233,6 +8381,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8285,6 +8435,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -8389,6 +8541,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -9374,6 +9528,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10298,6 +10454,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10331,6 +10489,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10412,6 +10572,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10511,6 +10673,8 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10847,6 +11011,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11322,6 +11488,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11439,6 +11607,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11534,6 +11704,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11622,6 +11794,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11699,6 +11873,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11779,6 +11955,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -12411,6 +12589,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13153,6 +13333,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13229,6 +13411,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13312,6 +13496,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13997,6 +14183,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14075,6 +14263,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14150,6 +14340,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14259,6 +14451,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14333,6 +14527,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14384,6 +14580,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14436,6 +14634,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14531,6 +14731,8 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14579,6 +14781,8 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14865,6 +15069,8 @@ paths:
                   - draftDateUpdated
                   - conflicts
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -14962,6 +15168,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15072,6 +15280,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15114,6 +15324,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15160,6 +15372,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15257,6 +15471,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15348,6 +15564,8 @@ paths:
                 required:
                   - archetype
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -15436,6 +15654,8 @@ paths:
                 required:
                   - archetype
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -15463,6 +15683,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -16228,6 +16450,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -17007,6 +17231,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17158,6 +17384,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17264,6 +17492,8 @@ paths:
                   - checklistItems
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -17360,6 +17590,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17468,6 +17700,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17552,6 +17786,8 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -17751,6 +17987,8 @@ paths:
                 required:
                   - screenshot
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -17794,6 +18032,8 @@ paths:
                 type: object
                 properties: {}
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -17867,6 +18107,8 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -17968,6 +18210,8 @@ paths:
                 required:
                   - visualChangeset
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18742,6 +18986,8 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18869,6 +19115,8 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18930,6 +19178,8 @@ paths:
                   - revisionVersion
                   - published
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19404,6 +19654,8 @@ paths:
                 required:
                   - metric
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -19822,6 +20074,8 @@ paths:
                 required:
                   - updatedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -19849,6 +20103,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20096,6 +20352,8 @@ paths:
                 required:
                   - segment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20218,6 +20476,8 @@ paths:
                 required:
                   - segment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20247,6 +20507,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20346,6 +20608,8 @@ paths:
                 required:
                   - dimension
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20438,6 +20702,8 @@ paths:
                 required:
                   - dimension
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20467,6 +20733,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -20610,6 +20878,8 @@ paths:
                 required:
                   - project
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20720,6 +20990,8 @@ paths:
                 required:
                   - project
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20749,6 +21021,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20834,6 +21108,8 @@ paths:
                 required:
                   - environment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20886,6 +21162,8 @@ paths:
                 required:
                   - environment
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -20913,6 +21191,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -21053,6 +21333,8 @@ paths:
                 required:
                   - attribute
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21149,6 +21431,8 @@ paths:
                 required:
                   - attribute
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21176,6 +21460,8 @@ paths:
                 required:
                   - deletedProperty
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -21313,6 +21599,8 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -21440,6 +21728,8 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -21466,6 +21756,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22146,6 +22438,8 @@ paths:
                   - nModified
                   - visualChangeset
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22232,6 +22526,8 @@ paths:
                   - nModified
                   - visualChangeId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22313,6 +22609,8 @@ paths:
                 required:
                   - nModified
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22439,6 +22737,8 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -22641,6 +22941,8 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22669,6 +22971,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22733,6 +23037,8 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22773,6 +23079,8 @@ paths:
                 required:
                   - savedGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -22977,6 +23285,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23160,6 +23470,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23228,6 +23540,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23299,6 +23613,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23380,6 +23696,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23451,6 +23769,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23520,6 +23840,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23587,6 +23909,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23663,6 +23987,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23709,6 +24035,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23754,6 +24082,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23833,6 +24163,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23883,6 +24215,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24013,6 +24347,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24092,6 +24428,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24139,6 +24477,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24222,6 +24562,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24332,6 +24674,8 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -24642,6 +24986,8 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24676,6 +25022,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24761,6 +25109,8 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24847,6 +25197,8 @@ paths:
                 required:
                   - constant
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -24989,6 +25341,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25165,6 +25519,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25242,6 +25598,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25346,6 +25704,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25435,6 +25795,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25511,6 +25873,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25557,6 +25921,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25602,6 +25968,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25704,6 +26072,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25754,6 +26124,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25871,6 +26243,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -25973,6 +26347,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26020,6 +26396,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26126,6 +26504,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -26397,6 +26777,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -27102,6 +27484,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27136,6 +27520,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27231,6 +27617,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27316,6 +27704,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27367,6 +27757,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27403,6 +27795,8 @@ paths:
                 required:
                   - config
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27543,6 +27937,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27777,6 +28173,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -27909,6 +28307,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28029,6 +28429,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28084,6 +28486,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28216,6 +28620,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28347,6 +28753,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28399,6 +28807,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28503,6 +28913,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28592,6 +29004,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28668,6 +29082,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28718,6 +29134,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28764,6 +29182,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28809,6 +29229,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -28911,6 +29333,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29041,6 +29465,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29147,6 +29573,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29194,6 +29622,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29302,6 +29732,8 @@ paths:
                 required:
                   - revision
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29473,6 +29905,8 @@ paths:
                   - bypassedGates
                   - warnings
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29571,6 +30005,8 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -29763,6 +30199,8 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29797,6 +30235,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29883,6 +30323,8 @@ paths:
                 required:
                   - customHook
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -29986,6 +30428,8 @@ paths:
                 required:
                   - organization
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -30032,6 +30476,8 @@ paths:
                 required:
                   - organization
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30236,6 +30682,8 @@ paths:
                 required:
                   - factTable
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -30409,6 +30857,8 @@ paths:
                 required:
                   - factTable
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -30438,6 +30888,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30528,6 +30980,8 @@ paths:
                 required:
                   - factTableFilter
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30614,6 +31068,8 @@ paths:
                 required:
                   - factTableFilter
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30646,6 +31102,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30723,6 +31181,8 @@ paths:
                 required:
                   - factTableColumn
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30792,6 +31252,8 @@ paths:
                 required:
                   - factTableColumn
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -30824,6 +31286,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -31740,6 +32204,8 @@ paths:
                 required:
                   - factMetric
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -32476,6 +32942,8 @@ paths:
                 required:
                   - factMetric
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -32506,6 +32974,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -33596,6 +34066,8 @@ paths:
                   - factMetricsUpdated
                   - errors
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -33662,6 +34134,8 @@ paths:
                     items:
                       type: string
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -33764,7 +34238,8 @@ paths:
   /v1/members/{id}/role:
     post:
       operationId: updateMemberRole
-      summary: >-
+      summary: Update a member's role
+      description: >-
         Update a member's global role (including any environment restrictions,
         if applicable). Can also update a member's project roles if your plan
         supports it.
@@ -33867,6 +34342,8 @@ paths:
                 required:
                   - updatedMember
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -33893,6 +34370,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -33951,7 +34430,8 @@ paths:
   /v1/settings/approvals:
     put:
       operationId: putApprovalSettings
-      summary: >-
+      summary: Update approval settings
+      description: >-
         Replace the approval requirements for feature flags, configs and
         constants, for saved groups, and the Targeting Projects review mode.
         Each family is replaced wholesale when supplied; omit one to leave it
@@ -34007,6 +34487,8 @@ paths:
                   - approvalFlows
                   - targetingReviewMode
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -34041,6 +34523,42 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/version' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/confirmations/{id}:
+    get:
+      operationId: getConfirmation
+      summary: Get a confirmation
+      description: >-
+        Poll a held request until a person confirms or rejects it in GrowthBook.
+        Pass `wait` (seconds, max 30) to hold the request open until the status
+        changes.
+      tags:
+        - meta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/wait'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confirmation:
+                    $ref: '#/components/schemas/Confirmation'
+                required:
+                  - confirmation
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/confirmations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/information-schema-tables/{tableId}:
     get:
@@ -34656,6 +35174,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -34707,6 +35227,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34754,6 +35276,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34803,6 +35327,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34868,6 +35394,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34922,6 +35450,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -34989,6 +35519,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35045,6 +35577,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35115,6 +35649,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35190,6 +35726,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35265,6 +35803,8 @@ paths:
                       - deleted
                       - rampScheduleId
                     additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35365,6 +35905,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -35850,6 +36392,8 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -36265,6 +36809,8 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -36770,6 +37316,8 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37188,6 +37736,8 @@ paths:
                   - nextStepAt
                   - awaitingApproval
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37299,6 +37849,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37637,6 +38189,8 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -37756,6 +38310,8 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -37996,6 +38552,8 @@ paths:
                 required:
                   - report
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -38089,6 +38647,8 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -38180,6 +38740,8 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -38220,6 +38782,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -38313,6 +38877,8 @@ paths:
                 required:
                   - namespace
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -38411,6 +38977,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -45445,6 +46013,8 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -49009,6 +49579,8 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -52602,6 +53174,8 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -52827,6 +53401,8 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -52961,6 +53537,8 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -53034,6 +53612,8 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53067,6 +53647,8 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53102,6 +53684,8 @@ paths:
                 required:
                   - snapshotId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53237,6 +53821,8 @@ paths:
                 required:
                   - contextualBandit
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53334,6 +53920,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53392,6 +53980,8 @@ paths:
                 required:
                   - contextualBanditQuery
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53456,6 +54046,8 @@ paths:
                 required:
                   - contextualBanditQuery
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53610,6 +54202,8 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -53667,6 +54261,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53800,6 +54396,8 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -53861,6 +54459,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53937,6 +54537,8 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54012,6 +54614,8 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54182,6 +54786,8 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54213,6 +54819,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54325,6 +54933,8 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54395,6 +55005,8 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -54439,6 +55051,8 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -54502,6 +55116,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -54715,6 +55331,8 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -54928,6 +55546,8 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -55197,6 +55817,8 @@ paths:
                   - added
                   - updated
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -60361,6 +60983,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -60703,6 +61327,8 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -61044,6 +61670,8 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -61137,6 +61765,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -61705,6 +62335,8 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -61766,6 +62398,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -61830,6 +62464,8 @@ paths:
                 required:
                   - learning
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -61897,6 +62533,8 @@ paths:
                 required:
                   - learning
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -62225,6 +62863,8 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -62421,6 +63061,8 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -62511,6 +63153,8 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -62569,6 +63213,8 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -62621,6 +63267,8 @@ paths:
                 required:
                   - holdout
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -62665,6 +63313,7 @@ paths:
                   enum:
                     - cli-wizard
                     - skill
+                    - eppo-import
                 agent:
                   type: string
                   maxLength: 50
@@ -62694,6 +63343,8 @@ paths:
                 required:
                   - autoRun
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -62828,6 +63479,8 @@ paths:
                 required:
                   - autoRun
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -62863,6 +63516,9 @@ paths:
                     - attribute
                     - metric
                     - fact-table
+                    - saved-group
+                    - environment
+                    - tag
                 id:
                   description: Id, or key for Feature Flags
                   type: string
@@ -62881,6 +63537,19 @@ paths:
                     - type: string
                       maxLength: 500
                     - type: 'null'
+                externalId:
+                  anyOf:
+                    - type: string
+                      maxLength: 200
+                    - type: 'null'
+                action:
+                  type: string
+                  enum:
+                    - created
+                    - updated
+                    - existing
+                    - deleted
+                    - failed
               required:
                 - kind
                 - id
@@ -62910,6 +63579,7 @@ paths:
                     enum:
                       - cli-wizard
                       - skill
+                      - eppo-import
                   agent:
                     anyOf:
                       - type: string
@@ -62966,6 +63636,8 @@ paths:
                   - dateCompleted
                   - url
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -63197,6 +63869,8 @@ paths:
                 required:
                   - population
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -63404,6 +64078,8 @@ paths:
                 required:
                   - population
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -63434,6 +64110,8 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -64161,6 +64839,15 @@ components:
       schema:
         description: Name of the global role
         type: string
+    wait:
+      name: wait
+      in: query
+      description: Seconds to wait for a decision before responding, up to 30
+      schema:
+        description: Seconds to wait for a decision before responding, up to 30
+        type: integer
+        minimum: 0
+        maximum: 30
     tableId:
       name: tableId
       in: path
@@ -64250,6 +64937,24 @@ components:
           - running
           - analysis-period
           - stopped
+  responses:
+    ConfirmationHeld:
+      description: >-
+        Held until a person confirms it in GrowthBook. Poll the Location until
+        the confirmation completes.
+      headers:
+        Location:
+          description: The confirmation to poll
+          schema:
+            type: string
+        Retry-After:
+          description: Seconds to wait before polling
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConfirmationHeld'
   schemas:
     FeatureV1:
       type: object
@@ -70607,6 +71312,10 @@ components:
                 type: array
                 items:
                   type: string
+              projects:
+                type: array
+                items:
+                  type: string
             required:
               - id
               - name
@@ -70616,6 +71325,7 @@ components:
               - sql
               - includesNameColumns
               - dimensionColumns
+              - projects
             additionalProperties: false
         identifierJoinQueries:
           type: array
@@ -74470,6 +75180,155 @@ components:
             type: string
       required:
         - requireReviewOn
+      additionalProperties: false
+    Confirmation:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - rejected
+            - expired
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+                enum:
+                  - feature.create
+                  - feature.draft
+                  - feature.review
+                  - feature.publish
+                  - feature.archive
+                  - feature.delete
+                  - feature.other
+                  - experiment.create
+                  - experiment.draft
+                  - experiment.start
+                  - experiment.stop
+                  - experiment.targeting
+                  - experiment.traffic
+                  - experiment.phases
+                  - experiment.visualEditor
+                  - experiment.other
+                  - savedGroup.create
+                  - savedGroup.draft
+                  - savedGroup.review
+                  - savedGroup.publish
+                  - savedGroup.archive
+                  - savedGroup.delete
+                  - savedGroup.other
+                  - constant.create
+                  - constant.draft
+                  - constant.review
+                  - constant.publish
+                  - constant.archive
+                  - constant.delete
+                  - constant.other
+                  - config.create
+                  - config.draft
+                  - config.review
+                  - config.publish
+                  - config.archive
+                  - config.delete
+                  - config.other
+                  - rampSchedule.create
+                  - rampSchedule.start
+                  - rampSchedule.pause
+                  - rampSchedule.progression
+                  - rampSchedule.approve
+                  - rampSchedule.edit
+                  - rampSchedule.delete
+                  - rampSchedule.other
+                  - settings.approvals
+                  - settings.other
+                  - access.members
+                  - access.teams
+                  - customHook.create
+                  - customHook.edit
+                  - customHook.delete
+                  - environment.create
+                  - environment.edit
+                  - environment.delete
+                  - project.create
+                  - project.edit
+                  - project.delete
+                  - attribute.create
+                  - attribute.edit
+                  - attribute.delete
+                  - customField.create
+                  - customField.edit
+                  - customField.delete
+                  - sdkConnection.create
+                  - sdkConnection.edit
+                  - sdkConnection.delete
+                  - metric.create
+                  - metric.edit
+                  - metric.delete
+                  - factTable.create
+                  - factTable.edit
+                  - factTable.delete
+                  - segment.create
+                  - segment.edit
+                  - segment.delete
+                  - dimension.create
+                  - dimension.edit
+                  - dimension.delete
+                  - override.ignoreWarnings
+                  - override.skipSchemaValidation
+                  - override.skipHooks
+                  - override.bypassApproval
+                  - override.restBypassesReviews
+                  - override.draftLimit
+                  - override.skipChecklist
+                  - override.bypassDuplicateKeyCheck
+                  - other.write
+              environments:
+                type: array
+                items:
+                  type: string
+            required:
+              - action
+              - environments
+            additionalProperties: false
+        summary:
+          type: string
+        url:
+          type: string
+        expiresAt:
+          type: string
+        response:
+          anyOf:
+            - type: object
+              properties:
+                status:
+                  type: number
+                body: {}
+              required:
+                - status
+                - body
+              additionalProperties: false
+            - type: 'null'
+        note:
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - id
+        - status
+        - actions
+        - summary
+        - url
+        - expiresAt
+        - response
+        - note
       additionalProperties: false
     InformationSchemaTable:
       type: object
@@ -82738,6 +83597,7 @@ components:
           enum:
             - cli-wizard
             - skill
+            - eppo-import
         agent:
           anyOf:
             - type: string
@@ -82777,6 +83637,9 @@ components:
                   - attribute
                   - metric
                   - fact-table
+                  - saved-group
+                  - environment
+                  - tag
               id:
                 type: string
               label:
@@ -82790,6 +83653,20 @@ components:
                 anyOf:
                   - type: string
                   - type: 'null'
+              externalId:
+                description: Id in the system this was imported from, when it was imported
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              action:
+                description: What the run did to this object
+                type: string
+                enum:
+                  - created
+                  - updated
+                  - existing
+                  - deleted
+                  - failed
               dateCreated:
                 type: string
                 format: date-time
@@ -83006,6 +83883,168 @@ components:
         - userIdTypes
         - steps
       additionalProperties: false
+    ConfirmationHeld:
+      type: object
+      properties:
+        confirmation:
+          $ref: '#/components/schemas/Confirmation'
+        message:
+          type: string
+      required:
+        - confirmation
+        - message
+      additionalProperties: false
+      $defs:
+        Confirmation:
+          id: Confirmation
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - running
+                - completed
+                - rejected
+                - expired
+            actions:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - feature.create
+                      - feature.draft
+                      - feature.review
+                      - feature.publish
+                      - feature.archive
+                      - feature.delete
+                      - feature.other
+                      - experiment.create
+                      - experiment.draft
+                      - experiment.start
+                      - experiment.stop
+                      - experiment.targeting
+                      - experiment.traffic
+                      - experiment.phases
+                      - experiment.visualEditor
+                      - experiment.other
+                      - savedGroup.create
+                      - savedGroup.draft
+                      - savedGroup.review
+                      - savedGroup.publish
+                      - savedGroup.archive
+                      - savedGroup.delete
+                      - savedGroup.other
+                      - constant.create
+                      - constant.draft
+                      - constant.review
+                      - constant.publish
+                      - constant.archive
+                      - constant.delete
+                      - constant.other
+                      - config.create
+                      - config.draft
+                      - config.review
+                      - config.publish
+                      - config.archive
+                      - config.delete
+                      - config.other
+                      - rampSchedule.create
+                      - rampSchedule.start
+                      - rampSchedule.pause
+                      - rampSchedule.progression
+                      - rampSchedule.approve
+                      - rampSchedule.edit
+                      - rampSchedule.delete
+                      - rampSchedule.other
+                      - settings.approvals
+                      - settings.other
+                      - access.members
+                      - access.teams
+                      - customHook.create
+                      - customHook.edit
+                      - customHook.delete
+                      - environment.create
+                      - environment.edit
+                      - environment.delete
+                      - project.create
+                      - project.edit
+                      - project.delete
+                      - attribute.create
+                      - attribute.edit
+                      - attribute.delete
+                      - customField.create
+                      - customField.edit
+                      - customField.delete
+                      - sdkConnection.create
+                      - sdkConnection.edit
+                      - sdkConnection.delete
+                      - metric.create
+                      - metric.edit
+                      - metric.delete
+                      - factTable.create
+                      - factTable.edit
+                      - factTable.delete
+                      - segment.create
+                      - segment.edit
+                      - segment.delete
+                      - dimension.create
+                      - dimension.edit
+                      - dimension.delete
+                      - override.ignoreWarnings
+                      - override.skipSchemaValidation
+                      - override.skipHooks
+                      - override.bypassApproval
+                      - override.restBypassesReviews
+                      - override.draftLimit
+                      - override.skipChecklist
+                      - override.bypassDuplicateKeyCheck
+                      - other.write
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - action
+                  - environments
+                additionalProperties: false
+            summary:
+              type: string
+            url:
+              type: string
+            expiresAt:
+              type: string
+            response:
+              anyOf:
+                - type: object
+                  properties:
+                    status:
+                      type: number
+                    body: {}
+                  required:
+                    - status
+                    - body
+                  additionalProperties: false
+                - type: 'null'
+            note:
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - id
+            - status
+            - actions
+            - summary
+            - url
+            - expiresAt
+            - response
+            - note
+          additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -86210,6 +87249,9 @@ components:
             - attribute
             - metric
             - fact-table
+            - saved-group
+            - environment
+            - tag
         id:
           type: string
         label:
@@ -86223,6 +87265,20 @@ components:
           anyOf:
             - type: string
             - type: 'null'
+        externalId:
+          description: Id in the system this was imported from, when it was imported
+          anyOf:
+            - type: string
+            - type: 'null'
+        action:
+          description: What the run did to this object
+          type: string
+          enum:
+            - created
+            - updated
+            - existing
+            - deleted
+            - failed
         dateCreated:
           type: string
           format: date-time
@@ -86348,6 +87404,8 @@ x-tagGroups:
       - ConfigSchemaSource_model
       - ConfigSchemaVerify_model
       - ConfigSchemaWarning_model
+      - Confirmation_model
+      - ConfirmationHeld_model
       - Constant_model
       - ConstantReferences_model
       - ConstantRevision_model

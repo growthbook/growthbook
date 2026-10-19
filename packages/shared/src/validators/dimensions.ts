@@ -100,6 +100,7 @@ export const postDimensionValidator = {
     })
     .strict(),
   summary: "Create a single dimension",
+  confirmation: ["dimension.create"] as const,
   operationId: "postDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -141,6 +142,7 @@ export const updateDimensionValidator = {
     })
     .strict(),
   summary: "Update a single dimension",
+  confirmation: ["dimension.edit"] as const,
   operationId: "updateDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -164,6 +166,7 @@ export const deleteDimensionValidator = {
     })
     .strict(),
   summary: "Deletes a single dimension",
+  confirmation: ["dimension.delete"] as const,
   operationId: "deleteDimension",
   tags: ["dimensions"],
   method: "delete" as const,

@@ -34,6 +34,7 @@ import {
   SAVED_GROUP_DESCRIPTION,
   SAVED_GROUP_NAME_DESCRIPTION,
 } from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -323,6 +324,7 @@ export const getSavedGroupRevisionMergeStatusValidator = {
 export const postSavedGroupRevisionValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevision",
   summary: "Create a draft revision",
   description:
@@ -342,6 +344,7 @@ export const postSavedGroupRevisionValidator = {
 export const postSavedGroupRevisionDiscardValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/discard",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -360,6 +363,12 @@ export const postSavedGroupRevisionDiscardValidator = {
 export const postSavedGroupRevisionPublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/publish",
+  confirmation: [
+    "savedGroup.publish",
+    "savedGroup.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -381,6 +390,14 @@ export const postSavedGroupRevisionPublishValidator = {
 export const postSavedGroupRevisionRevertValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/revert",
+  confirmation: [
+    "savedGroup.draft",
+    "savedGroup.publish",
+    "savedGroup.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  // Holds once the strategy is known: a draft, or a publish that lands.
+  confirmationInHandler: true,
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
@@ -416,6 +433,7 @@ export const postSavedGroupRevisionRevertValidator = {
 export const postSavedGroupRevisionRebaseValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/rebase",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRebase",
   summary: "Rebase a draft revision onto the current live saved group",
   description:
@@ -444,6 +462,7 @@ export const postSavedGroupRevisionRebaseValidator = {
 export const postSavedGroupRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/request-review",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -463,6 +482,7 @@ export const postSavedGroupRevisionRequestReviewValidator = {
 export const postSavedGroupRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/submit-review",
+  confirmation: ["savedGroup.review"] as const,
   operationId: "postSavedGroupRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -486,6 +506,7 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
 export const putSavedGroupRevisionMetadataValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/metadata",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionMetadata",
   summary: "Update saved group metadata in a draft revision",
   description:
@@ -508,6 +529,7 @@ export const putSavedGroupRevisionMetadataValidator = {
 export const putSavedGroupRevisionConditionValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/condition",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionCondition",
   summary: "Update the condition of a condition saved group draft revision",
   description:
@@ -529,6 +551,7 @@ export const putSavedGroupRevisionConditionValidator = {
 export const putSavedGroupRevisionValuesValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/values",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionValues",
   summary: "Replace the values list in a list saved group draft revision",
   description:
@@ -548,6 +571,7 @@ export const putSavedGroupRevisionValuesValidator = {
 export const putSavedGroupRevisionArchiveValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/archive",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "putSavedGroupRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -568,6 +592,7 @@ export const putSavedGroupRevisionArchiveValidator = {
 export const postSavedGroupRevisionItemsAddValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/items/add",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionItemsAdd",
   summary: "Append items to a list saved group draft revision",
   description:
@@ -587,6 +612,7 @@ export const postSavedGroupRevisionItemsAddValidator = {
 export const postSavedGroupRevisionItemsRemoveValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/items/remove",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionItemsRemove",
   summary: "Remove items from a list saved group draft revision",
   description:
@@ -625,6 +651,7 @@ export type SavedGroupRevisionItemsBody = z.infer<
 export const postSavedGroupRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postSavedGroupRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -652,6 +679,7 @@ export const postSavedGroupRevisionSchedulePublishValidator = {
 export const postSavedGroupRevisionReopenValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/reopen",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -666,6 +694,7 @@ export const postSavedGroupRevisionReopenValidator = {
 export const postSavedGroupRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/recall-review",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -680,6 +709,7 @@ export const postSavedGroupRevisionRecallReviewValidator = {
 export const postSavedGroupRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/undo-review",
+  confirmation: ["savedGroup.review"] as const,
   operationId: "postSavedGroupRevisionUndoReview",
   summary: "Retract your own review verdict",
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,

@@ -98,6 +98,7 @@ export const postArchetypeValidator = {
     })
     .strict(),
   summary: "Create a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "postArchetype",
   tags: ["archetypes"],
   method: "post" as const,
@@ -131,6 +132,7 @@ export const putArchetypeValidator = {
     })
     .strict(),
   summary: "Update a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "putArchetype",
   tags: ["archetypes"],
   method: "put" as const,
@@ -151,6 +153,7 @@ export const deleteArchetypeValidator = {
     })
     .strict(),
   summary: "Deletes a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "deleteArchetype",
   tags: ["archetypes"],
   method: "delete" as const,
