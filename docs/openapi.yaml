@@ -79735,6 +79735,8 @@ components:
                     - type: 'null'
                 totalUsers:
                   type: number
+                multipleExposures:
+                  type: number
               required:
                 - srm
                 - totalUsers

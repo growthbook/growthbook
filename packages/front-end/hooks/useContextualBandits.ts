@@ -144,10 +144,11 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   };
 }
 
-/** Health inputs (srm / totalUsers) driving the CB status badge and Health tab. */
+/** Health inputs (srm / totalUsers / multipleExposures) driving the CB status badge and Health tab. */
 export type ContextualBanditStatusHealth = {
   srm: number | null;
   totalUsers: number;
+  multipleExposures: number;
 };
 
 /**
@@ -172,6 +173,7 @@ export function useContextualBanditStatusHealth(
       return {
         srm: latest.srm?.pValue ?? null,
         totalUsers,
+        multipleExposures: latest.multipleExposures ?? 0,
       };
     }
     const persisted = cb.analysisSummary?.health;
@@ -179,6 +181,7 @@ export function useContextualBanditStatusHealth(
       return {
         srm: persisted.srm ?? null,
         totalUsers: persisted.totalUsers,
+        multipleExposures: persisted.multipleExposures ?? 0,
       };
     }
     return undefined;
@@ -201,6 +204,7 @@ export function useContextualBanditHealthIssues(
     const resultStatus = getContextualBanditResultStatus({
       srm: health.srm,
       totalUsers: health.totalUsers,
+      multipleExposures: health.multipleExposures,
       numOfVariations,
       healthSettings,
     });
@@ -208,6 +212,12 @@ export function useContextualBanditHealthIssues(
     const issues: IssueValue[] = [];
     if (resultStatus.unhealthyData.srm) {
       issues.push({ label: "Balance", value: "balanceCheck" });
+    }
+    if (resultStatus.unhealthyData.multipleExposures) {
+      issues.push({
+        label: "Multiple Exposures",
+        value: "multipleExposures",
+      });
     }
     return issues;
   }, [health, orgSettings, numOfVariations]);

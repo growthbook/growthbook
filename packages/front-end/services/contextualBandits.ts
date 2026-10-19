@@ -14,6 +14,7 @@ export function contextualBanditStatusIndicatorData(
   health?: {
     srm: number | null;
     totalUsers: number;
+    multipleExposures?: number;
   },
 ): ExperimentDataForStatusStringDates {
   return {
@@ -28,6 +29,7 @@ export function contextualBanditStatusIndicatorData(
           health: {
             srm: health.srm,
             totalUsers: health.totalUsers,
+            multipleExposures: health.multipleExposures ?? 0,
           },
         }
       : undefined,

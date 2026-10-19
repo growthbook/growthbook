@@ -781,11 +781,13 @@ export function getExperimentResultStatus({
 export function getContextualBanditResultStatus({
   srm,
   totalUsers,
+  multipleExposures = 0,
   numOfVariations,
   healthSettings,
 }: {
   srm: number | null;
   totalUsers: number;
+  multipleExposures?: number;
   numOfVariations: number;
   healthSettings: ExperimentHealthSettings;
 }): ExperimentResultStatusData | undefined {
@@ -794,6 +796,8 @@ export function getContextualBanditResultStatus({
       status: "no-data",
     };
   }
+
+  const unhealthyData: ExperimentUnhealthyData = {};
 
   const srmHealthData = getSRMHealthData({
     // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
@@ -804,12 +808,33 @@ export function getContextualBanditResultStatus({
     // Bandits reweight frequently, so use the bandit-specific minimum.
     minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   });
-
   if (srmHealthData === "unhealthy") {
+    unhealthyData.srm = true;
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    unhealthyData.multipleExposures = {
+      rawDecimal: multipleExposuresHealthData.rawDecimal,
+      multipleExposedUsers: multipleExposures,
+    };
+  }
+
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
     return {
       status: "unhealthy",
-      unhealthyData: { srm: true },
-      tooltip: "SRM",
+      unhealthyData,
+      tooltip: [
+        unhealthyData.srm ? "SRM" : null,
+        unhealthyData.multipleExposures ? "Multiple exposures" : null,
+      ]
+        .filter(Boolean)
+        .join(", "),
     };
   }
 

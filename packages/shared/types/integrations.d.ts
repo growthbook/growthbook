@@ -879,6 +879,7 @@ export type ContextualBanditSrmQueryResponseRows = {
   variation: string;
   observed: number;
   expected: number;
+  multiple_exposures: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {

@@ -106,6 +106,7 @@ export const contextualBanditSnapshotValidator = baseSchema
         pValue: z.number(),
         degreesOfFreedom: z.number().int().nonnegative(),
         latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
+        multipleExposures: z.number().int().nonnegative().optional(),
       })
       .optional(),
     traffic: contextualBanditTrafficValidator.optional(),

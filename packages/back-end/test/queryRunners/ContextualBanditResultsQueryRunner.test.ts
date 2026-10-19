@@ -479,6 +479,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
           variation: "",
           observed: 0,
           expected: 0,
+          multiple_exposures: 7,
         },
         {
           row_type: "cell",
@@ -533,6 +534,9 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(result.srm?.statistic).toBe(3.5);
       expect(result.srm?.degreesOfFreedom).toBe(2);
       expect(result.srm?.pValue).toBeGreaterThan(0);
+      // The multiple-exposure count on the summary row is surfaced for the
+      // Multiple Exposures health check.
+      expect(result.srm?.multipleExposures).toBe(7);
       expect(result.srm?.latestPeriod?.banditVersion).toBe("v3");
       // All leaves for the period, each with per-variation arrays. Unobserved
       // cells default to 0 (CA variation 1 was not emitted).

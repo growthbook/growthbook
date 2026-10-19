@@ -851,6 +851,7 @@ export default abstract class SqlIntegration
         variation: row.variation != null ? `${row.variation}` : "",
         observed: parseFloat(row.observed) || 0,
         expected: parseFloat(row.expected) || 0,
+        multiple_exposures: parseInt(row.multiple_exposures, 10) || 0,
       })),
       statistics,
     };

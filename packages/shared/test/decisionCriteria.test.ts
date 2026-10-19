@@ -1500,6 +1500,50 @@ describe("getContextualBanditResultStatus", () => {
 
     expect(status?.status).toBe("no-data");
   });
+
+  it("flags multiple exposures above the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      totalUsers: 10000,
+      // 2% > 1% threshold
+      multipleExposures: 200,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(
+      status?.status === "unhealthy" &&
+        !!status.unhealthyData.multipleExposures,
+    ).toBe(true);
+    expect(status?.tooltip).toBe("Multiple exposures");
+  });
+
+  it("stays healthy when multiple exposures are below the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      totalUsers: 10000,
+      // 0.1% < 1% threshold
+      multipleExposures: 10,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status).toBeUndefined();
+  });
+
+  it("reports both SRM and multiple exposures when both are unhealthy", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.0001,
+      totalUsers: 10000,
+      multipleExposures: 200,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(status?.tooltip).toBe("SRM, Multiple exposures");
+  });
 });
 
 describe("resolveScheduledShipDecision", () => {

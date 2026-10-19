@@ -1568,7 +1568,7 @@ export function toContextualBanditSnapshotStatusSummary(
     queries: cbs.queries,
     runStarted: cbs.runStarted,
     dateCreated: cbs.dateCreated,
-    multipleExposures: 0,
+    multipleExposures: cbs.srm?.multipleExposures ?? 0,
     type: "standard",
     triggeredBy: cbs.triggeredBy,
   };

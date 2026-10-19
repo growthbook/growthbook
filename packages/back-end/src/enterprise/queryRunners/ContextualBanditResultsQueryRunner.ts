@@ -56,12 +56,7 @@ export type ContextualBanditSrmResult = {
   pValue: number;
   degreesOfFreedom: number;
   latestPeriod?: ContextualBanditSrmLatestPeriod;
-  /**
-   * Distinct users dropped from the SRM test for seeing multiple variations
-   * within a single (leaf_id, bandit_version) cell — the Multiple Exposures
-   * health signal.
-   */
-  multipleExposures: number;
+  multipleExposures?: number;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
@@ -402,6 +397,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       statistic: summary.statistic,
       pValue: chi2pvalue(summary.statistic, degreesOfFreedom),
       degreesOfFreedom,
+      multipleExposures: Math.max(0, Number(summary.multiple_exposures) || 0),
       ...this.extractSrmLatestPeriod(srmRows),
     };
   }
@@ -546,6 +542,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         health: {
           srm: result.srm?.pValue ?? null,
           totalUsers: summaryTotalUsers,
+          multipleExposures: result.srm?.multipleExposures ?? 0,
         },
       };
     }

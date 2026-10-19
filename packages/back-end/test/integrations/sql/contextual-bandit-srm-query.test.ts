@@ -108,6 +108,15 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain(
       "JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)",
     );
+
+    // Multiple-exposure users: distinct users who saw >1 variation within a
+    // single (leaf_id, bandit_version) cell are counted (period-scoped so
+    // legitimate cross-period reassignment is not flagged) and attached to the
+    // summary row via a CROSS JOIN.
+    expect(c).toContain("__cbMultipleExposures");
+    expect(c).toContain("COUNT(DISTINCTuid)ASmultiple_exposures");
+    expect(c).toContain("__min_variation<>__max_variation");
+    expect(c).toContain("CROSSJOIN__cbMultipleExposures");
   });
 
   it("emits one observed/expected pair and array index per variation", () => {

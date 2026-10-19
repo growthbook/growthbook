@@ -225,6 +225,16 @@ export function getContextualBanditSrmQuery(
         FROM
           __cbGroups
       )
+      , __cbMultipleExposures AS (
+        -- Distinct users who saw more than one variation within a single
+        -- (leaf_id, bandit_version) cell.
+        SELECT
+          COUNT(DISTINCT uid) AS multiple_exposures
+        FROM
+          __cbRankedExposures
+        WHERE
+          __min_variation <> __max_variation
+      )
       , __cbLatestVersion AS (
         -- Most recent bandit period (weight-update generation).
         SELECT bandit_version
@@ -242,9 +252,10 @@ export function getContextualBanditSrmQuery(
         ${latestBreakdownRows}
       )
     -- Row 0 (row_type='summary') carries the overall statistic + degrees of
-    -- freedom (across ALL periods). The remaining rows (row_type='cell') are the
-    -- raw observed/expected per leaf & variation for the latest period only, so
-    -- they will NOT reconcile to the statistic.
+    -- freedom (across ALL periods) and the multiple-exposure user count. The
+    -- remaining rows (row_type='cell') are the raw observed/expected per leaf &
+    -- variation for the latest period only, so they will NOT reconcile to the
+    -- statistic.
     SELECT
       ${dialect.castToString("'summary'")} AS row_type
       , statistic AS statistic
@@ -254,8 +265,10 @@ export function getContextualBanditSrmQuery(
       , ${dialect.castToString("''")} AS variation
       , 0 AS observed
       , 0 AS expected
+      , m.multiple_exposures AS multiple_exposures
     FROM
       __cbResult
+      CROSS JOIN __cbMultipleExposures m
     UNION ALL
     SELECT
       ${dialect.castToString("'cell'")} AS row_type
@@ -266,6 +279,7 @@ export function getContextualBanditSrmQuery(
       , variation AS variation
       , observed AS observed
       , expected AS expected
+      , 0 AS multiple_exposures
     FROM
       __cbLatestBreakdown
     `,
