@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
-  apiKeyToggleRequiresAdmin,
+  canSetApiKeyDisabled,
   requesterHeaderPolicy,
 } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
@@ -65,7 +65,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onCopy,
 }) => {
   const { organization, userId, users, settings } = useUser();
-  const canManageTokens = usePermissionsUtil().canDeleteApiKey();
+  const permissionsUtil = usePermissionsUtil();
   const { getProjectById } = useDefinitions();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
@@ -75,8 +75,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     !!key.disabled &&
     !!key.disabledBy &&
     key.disabledBy !== userId;
+  const canToggle = (key: ApiKeyInterface) =>
+    canSetApiKeyDisabled(permissionsUtil, key, userId || "", !key.disabled);
+  // A PAT the owner can't toggle keeps a locked toggle that explains why; org keys hide it.
   const isAdminLocked = (key: ApiKeyInterface) =>
-    !canManageTokens && apiKeyToggleRequiresAdmin(key, userId || "");
+    !!key.userId && !canToggle(key);
+  const hasActions =
+    canDeleteKeys || !!(onEdit || onToggleDisabled || onCopy || onShowAuditLog);
   const disabledByTitle = (key: ApiKeyInterface) => {
     const disabler = key.disabledBy ? users.get(key.disabledBy) : undefined;
     return `Disabled by ${disabler?.name || disabler?.email || "a former member"}`;
@@ -146,14 +151,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             >
               Expires
             </SortableTableColumnHeader>
-            {canDeleteKeys && <TableColumnHeader width="40px" />}
+            {hasActions && <TableColumnHeader width="40px" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {!visibleKeys.length && (
             <TableRow>
               <TableCell
-                colSpan={canDeleteKeys ? 8 : 7}
+                colSpan={hasActions ? 8 : 7}
                 style={{ textAlign: "center" }}
               >
                 <Text color="text-low">All of these keys have expired.</Text>
@@ -219,7 +224,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     getValue={onReveal(key.id)}
                   />
                 ) : (
-                  <em>hidden</em>
+                  <Tooltip content="Revealing a key's value requires permission to create API keys.">
+                    <span>
+                      <Text color="text-low">Hidden</Text>
+                    </span>
+                  </Tooltip>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
@@ -274,7 +283,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   }
                 />
               </TableCell>
-              {canDeleteKeys && (
+              {hasActions && (
                 <TableCell>
                   <ApiKeyRowMenu
                     apiKey={key}
@@ -282,7 +291,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     onDelete={onDelete}
                     onEdit={onEdit}
                     onToggleClick={
-                      onToggleDisabled ? setPendingToggle : undefined
+                      onToggleDisabled && (canToggle(key) || isAdminLocked(key))
+                        ? setPendingToggle
+                        : undefined
                     }
                     toggleLockedReason={
                       isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined

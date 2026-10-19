@@ -214,6 +214,7 @@ export const confirmationLinkValidator = z.strictObject({
   type: z.enum([
     "feature",
     "experiment",
+    "contextualBandit",
     "savedGroup",
     "constant",
     "config",

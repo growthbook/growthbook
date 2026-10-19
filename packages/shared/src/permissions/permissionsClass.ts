@@ -167,12 +167,24 @@ export class Permissions {
     return this.checkGlobalPermission("manageIntegrations");
   };
 
+  public canViewApiKeys = (): boolean => {
+    return this.checkGlobalPermission("viewApiKeys");
+  };
+
   public canCreateApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("createApiKeys");
+  };
+
+  public canUpdateApiKey = (): boolean => {
+    return this.checkGlobalPermission("editApiKeys");
   };
 
   public canDeleteApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("deleteApiKeys");
+  };
+
+  public canManagePersonalAccessTokens = (): boolean => {
+    return this.checkGlobalPermission("managePersonalAccessTokens");
   };
 
   public canManageTeam = (): boolean => {
