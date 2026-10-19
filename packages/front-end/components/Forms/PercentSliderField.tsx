@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Slider } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import {
   capTypedPercent,
@@ -85,20 +85,5 @@ export function PercentField({
       />
       <Text as="span">%</Text>
     </Box>
-  );
-}
-
-/** The same value as a 0-100 slider. */
-export function PercentSlider({ value, onChange, disabled, ariaLabel }: Props) {
-  return (
-    <Slider
-      value={[isNaN(value) ? 0 : decimalToPercent(value)]}
-      min={0}
-      max={100}
-      step={1}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      onValueChange={(e) => onChange(clamp(e[0] / 100))}
-    />
   );
 }

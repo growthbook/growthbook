@@ -64,6 +64,7 @@ export default function HypothesisField({
       editable={editable}
       editOnDemand={canEdit}
       emptyLabel="No hypothesis"
+      collapsibleToolbar
       onSaved={(hypothesis) => {
         if (aiSuggestion.current) {
           track("experiment-hypothesis-saved-after-ai-suggestion", {

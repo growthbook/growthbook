@@ -20,6 +20,7 @@ export interface Props {
   aiButtonText?: string;
   onAISuggestionReceived?: (result: string) => void;
   trackingSource?: string;
+  collapsibleToolbar?: boolean;
 }
 
 /**
@@ -38,6 +39,7 @@ const AIRichTextField = forwardRef<RichTextEditorHandle, Props>(
       aiButtonText,
       onAISuggestionReceived,
       trackingSource,
+      collapsibleToolbar = false,
     },
     ref,
   ) {
@@ -69,6 +71,7 @@ const AIRichTextField = forwardRef<RichTextEditorHandle, Props>(
           autoFocus={autoFocus}
           height={height}
           autoGrow
+          collapsibleToolbar={collapsibleToolbar}
           footer={
             aiSuggestFunction ? (
               <Flex

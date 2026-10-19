@@ -81,6 +81,7 @@ import {
   resolveDraftPick,
 } from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
+import FunnelConnector from "./FunnelConnector";
 import {
   getDuplicateVariationIds,
   repairVariationValues,
@@ -180,20 +181,31 @@ export default function VariationValuesTable({
 
   return (
     <Box mx="auto" style={{ width: tableWidth + BORDERS, maxWidth: "100%" }}>
-      {onChangeFlagView ? (
-        <Flex justify="end" mb="2">
-          <SegmentedControl
-            aria-label="Show Feature Flag values from"
-            size="sm"
-            value={flagView}
-            setValue={onChangeFlagView}
-            options={[
-              { value: "draft", label: "Draft" },
-              { value: "live", label: "Live" },
-            ]}
-          />
+      <Box position="relative">
+        <Box
+          position="absolute"
+          top="0"
+          bottom="0"
+          left="50%"
+          style={{ transform: "translateX(-50%)" }}
+        >
+          <FunnelConnector fill />
+        </Box>
+        <Flex justify="end" align="center" pt="3" pb="2" minHeight="22px">
+          {onChangeFlagView ? (
+            <SegmentedControl
+              aria-label="Show Feature Flag values from"
+              size="sm"
+              value={flagView}
+              setValue={onChangeFlagView}
+              options={[
+                { value: "draft", label: "Draft" },
+                { value: "live", label: "Live" },
+              ]}
+            />
+          ) : null}
         </Flex>
-      ) : null}
+      </Box>
       <Box className="appbox mb-0" style={{ overflow: "hidden" }}>
         <Box
           style={{ overflowX: "auto", overflowY: "hidden" }}

@@ -5,6 +5,8 @@ import {
 } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -109,6 +111,10 @@ export default function EditTargetingModal({
   );
 
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
 
   const settings = useOrgSettings();
 
@@ -162,6 +168,12 @@ export default function EditTargetingModal({
             helpText={
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
+          />
+          <LinkHashAttributeCallout
+            experimentId={experiment.id}
+            datasource={datasource}
+            hashAttribute={form.watch("hashAttribute")}
+            source="Edit Targeting"
           />
           {orgStickyBucketing ? (
             <StickyBucketingToggle

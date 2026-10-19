@@ -1,0 +1,65 @@
+import { useState } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { distributeWeights } from "@/services/utils";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+
+export default function EditTrafficModal({
+  experiment,
+  coverage: savedCoverage,
+  weights: savedWeights,
+  close,
+  stage,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  coverage: number;
+  weights: number[];
+  close: () => void;
+  stage: (traffic: { coverage: number; variationWeights: number[] }) => void;
+}) {
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const variations = getLatestPhaseVariations(experiment);
+  const [coverage, setCoverage] = useState(savedCoverage);
+  const [weights, setWeights] = useState(savedWeights);
+
+  return (
+    <ModalStandard
+      trackingEventModalType="edit-traffic-modal"
+      open={true}
+      close={close}
+      header="Edit Population & Split"
+      cta="Apply"
+      submit={async () =>
+        stage({
+          coverage,
+          variationWeights: isBandit
+            ? savedWeights
+            : distributeWeights(weights, true),
+        })
+      }
+      size="lg"
+    >
+      <div className="pt-2">
+        <FeatureVariationsInput
+          label={null}
+          valueAsId
+          hideSplits={isBandit}
+          startEditingSplits
+          coverage={coverage}
+          setCoverage={setCoverage}
+          setWeight={(i, weight) =>
+            setWeights((prev) => prev.map((w, j) => (j === i ? weight : w)))
+          }
+          variations={variations.map((v, i) => ({
+            value: v.key || "",
+            name: v.name,
+            weight: weights[i] ?? 0,
+            id: v.id,
+          }))}
+          showPreview
+        />
+      </div>
+    </ModalStandard>
+  );
+}

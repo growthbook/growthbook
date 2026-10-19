@@ -308,14 +308,6 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  // The funnel's environments describe exactly one implementation.
-  const soleLinkedFeature =
-    linkedFeatures.length === 1 &&
-    !experiment.hasVisualChangesets &&
-    !experiment.hasURLRedirects
-      ? linkedFeatures[0]
-      : null;
-
   const canAddAny = canAddLinkedChanges && !disableEditing;
   // Linking a Feature Flag writes at once, which would strand it: a holdout
   // changes only with nothing linked.
@@ -497,7 +489,6 @@ export default function Implementation({
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             phaseIndex={phases.length - 1}
-            servedValueFeature={soleLinkedFeature}
             linkedFeatures={linkedFeatures}
             // Values land in drafts in every status; publishing them is what
             // goes through review.

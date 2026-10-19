@@ -6,3 +6,14 @@
 .caret {
   color: var(--slate-a6);
 }
+
+.cardActions {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+
+  .card:hover &,
+  &:focus-within,
+  &:has([data-state="open"]) {
+    opacity: 1;
+  }
+}

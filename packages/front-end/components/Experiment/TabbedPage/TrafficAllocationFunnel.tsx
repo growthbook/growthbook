@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
@@ -13,61 +14,36 @@ import {
 } from "shared/experiments";
 import { generateVariationId } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
+import { PiPencilSimple, PiPlus } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import Link from "@/ui/Link";
-import {
-  EnvironmentStateChips,
-  environmentStateTense,
-  getEnvironmentStates,
-  stageEnvironmentInputs,
-  statesFromInputs,
-} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import {
-  environmentStatesDiffer,
-  hasUnpublishedChanges,
-} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import {
-  PercentField,
-  PercentSlider,
-} from "@/components/Forms/PercentSliderField";
+import { PercentField } from "@/components/Forms/PercentSliderField";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
-import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
-import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
-import SelectField from "@/components/Forms/SelectField";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
+import FunnelConnector from "./FunnelConnector";
 import VariationValuesTable, {
   FlagView,
   FUNNEL_WIDTH,
 } from "./VariationValuesTable";
 import VariationDetails from "./VariationDetails";
-import {
-  DraftPick,
-  FlagDraftPicks,
-  resolveDraftPick,
-  withoutDraft,
-  withPickedDraft,
-} from "./draftPicks";
+import { DraftPick, FlagDraftPicks, withPickedDraft } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
@@ -101,8 +77,6 @@ export interface Props {
   holdoutLockedReason?: string | null;
   setEditVariationIndex?: (index: number) => void;
   editVariationKeys?: () => void;
-  /** The sole linked Feature Flag, whose environments and draft the header describes. */
-  servedValueFeature?: LinkedFeatureInfo | null;
   /** Every linked Feature Flag, one value row each under the variations. */
   linkedFeatures?: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
@@ -131,9 +105,23 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function FunnelRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="center" justify="between" gap="4" minHeight="32px">
+      <Text color="text-mid">{label}</Text>
+      {children}
+    </Flex>
+  );
+}
+
 function FunnelCard({
   title,
-  inlineSummary,
   onEdit,
   children,
   disabled = false,
@@ -141,7 +129,6 @@ function FunnelCard({
   menu,
 }: {
   title: string;
-  inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
   disabled?: boolean;
@@ -152,7 +139,7 @@ function FunnelCard({
 }) {
   return (
     <Box
-      className="appbox"
+      className={clsx("appbox", styles.card)}
       maxWidth={`${FUNNEL_WIDTH}px`}
       width="100%"
       mb="0"
@@ -160,22 +147,15 @@ function FunnelCard({
       style={{ paddingLeft: 16, paddingRight: 16 }}
     >
       <Flex justify="between" align="center" gap="3">
-        <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="lg" weight="medium" color="text-high">
-            {title}
-          </Text>
-          {inlineSummary ? (
-            <Text color="text-low" ml="1">
-              {inlineSummary}
-            </Text>
-          ) : null}
-        </Flex>
-        <Flex align="center" gap="3">
+        <Text size="lg" weight="medium" color="text-high">
+          {title}
+        </Text>
+        <Flex align="center" gap="3" className={styles.cardActions}>
           {onEdit && !disabled ? (
             <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
               <IconButton
                 variant="ghost"
-                color="violet"
+                color="gray"
                 radius="medium"
                 disabled={!!editBlockedReason}
                 onClick={() => onEdit()}
@@ -214,22 +194,6 @@ function FunnelCard({
   );
 }
 
-function FunnelConnector({ label }: { label?: ReactNode }) {
-  return (
-    <Flex direction="column" align="center" justify="center">
-      <Box className={styles.connectorLine} height="15px" />
-      <Box mt="-3" mb="-1" className={styles.caret}>
-        <PiCaretDownBold size="11" />
-      </Box>
-      {label ? (
-        <Text size="sm" color="text-low" my="1">
-          {label}
-        </Text>
-      ) : null}
-    </Flex>
-  );
-}
-
 export default function TrafficAllocationFunnel({
   phaseIndex = null,
   experiment,
@@ -244,7 +208,6 @@ export default function TrafficAllocationFunnel({
   holdoutLockedReason = null,
   setEditVariationIndex,
   editVariationKeys,
-  servedValueFeature: storedServedValueFeature,
   linkedFeatures = [],
   canEditFlagValues = false,
   otherImplementations,
@@ -315,6 +278,7 @@ export default function TrafficAllocationFunnel({
     });
   };
   const [reordering, setReordering] = useState(false);
+  const [editingTraffic, setEditingTraffic] = useState(false);
   const storedVariations = () =>
     getLatestPhaseVariations(experiment).map(
       ({ id, key, name, description, screenshots }): Variation => ({
@@ -366,7 +330,6 @@ export default function TrafficAllocationFunnel({
     getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const permissionsUtil = usePermissionsUtil();
 
   // Each flag's row picks the draft it shows; the readouts here follow it.
   const [draftPickValue, setDraftPicks] = useStagedState<
@@ -400,74 +363,6 @@ export default function TrafficAllocationFunnel({
   const flagView: FlagView = !canViewLive
     ? "draft"
     : (chosenFlagView ?? (draftsDiffer || flagNeedsAction ? "draft" : "live"));
-  const showingLive = flagView === "live";
-  const servedValueFeature = useMemo(
-    () =>
-      !storedServedValueFeature
-        ? null
-        : showingLive
-          ? withoutDraft(storedServedValueFeature)
-          : withPickedDraft(
-              storedServedValueFeature,
-              draftPickValue[storedServedValueFeature.feature.id],
-            ),
-    [storedServedValueFeature, draftPickValue, showingLive],
-  );
-
-  const liveRule = servedValueFeature?.liveHasMatchingRule
-    ? servedValueFeature
-    : undefined;
-  const environmentsDiffer = servedValueFeature
-    ? environmentStatesDiffer(servedValueFeature)
-    : false;
-
-  const hasDraftChanges = !showingLive && draftsDiffer;
-  // Re-scoping environments stages a draft without re-bucketing.
-  const canEditEnvironments =
-    !showingLive &&
-    !!servedValueFeature &&
-    !servedValueFeature.pendingRemoval &&
-    canEditExperiment &&
-    permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
-  const [editEnvironments, setEditEnvironments] = useState(false);
-  const envStateSource = hasDraftChanges
-    ? servedValueFeature?.pendingDraft
-    : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
-  const environmentsAreDraft = hasDraftChanges && environmentsDiffer;
-
-  const stagedScope = servedValueFeature
-    ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
-    : null;
-  // What a staged scope lands on.
-  const scopeBaseInputs =
-    (hasDraftChanges
-      ? servedValueFeature?.pendingDraft?.environmentInputs
-      : servedValueFeature?.liveEnvironmentInputs) ??
-    servedValueFeature?.environmentInputs ??
-    {};
-  const environmentStates = getEnvironmentStates(
-    stagedScope && servedValueFeature
-      ? {
-          environmentStates: statesFromInputs(
-            stageEnvironmentInputs(scopeBaseInputs, stagedScope),
-          ),
-        }
-      : envStateSource || { environmentStates: {} },
-    {
-      future: environmentStateTense({
-        status: experiment.status,
-        unpublished: environmentsAreDraft || !!stagedScope,
-        // The row's pick, which may not be the draft that launches.
-        launches:
-          !storedServedValueFeature ||
-          resolveDraftPick(
-            storedServedValueFeature,
-            draftPickValue[storedServedValueFeature.feature.id],
-          ).launches,
-      }),
-    },
-  );
-
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
   const variationsLocked = isRunning;
@@ -521,9 +416,6 @@ export default function TrafficAllocationFunnel({
   }
 
   const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
-  const includedLabel = namespaceCoverage
-    ? `${percentFormatter.format(namespaceCoverage)} traffic included`
-    : undefined;
   const phaseVariations = getLatestPhaseVariations(experiment);
   const numVariations = phaseVariations.length;
   const variationWeights = phase.variationWeights ?? [];
@@ -543,44 +435,8 @@ export default function TrafficAllocationFunnel({
             close={() => setChoosingHoldout(false)}
           />
         ) : null}
-        {editEnvironments && servedValueFeature && flagEnvironments && (
-          <EditExperimentEnvironmentsModal
-            info={servedValueFeature}
-            stagedScope={stagedScope}
-            environmentStates={environmentStates}
-            environmentInputs={scopeBaseInputs}
-            showFlag
-            close={() => setEditEnvironments(false)}
-            apply={(scope) => {
-              flagEnvironments.set(servedValueFeature.feature.id, scope);
-              setEditEnvironments(false);
-            }}
-          />
-        )}
         <Flex direction="column">
           <Flex align="center" direction="column">
-            {environmentStates.length > 0 &&
-            servedValueFeature?.state !== "archived" ? (
-              <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
-                <Text color="text-high" weight="semibold">
-                  Environments:
-                </Text>
-                <EnvironmentStateChips states={environmentStates} />
-                {canEditEnvironments && flagEnvironments ? (
-                  <IconButton
-                    variant="ghost"
-                    color="violet"
-                    radius="medium"
-                    size="1"
-                    onClick={() => setEditEnvironments(true)}
-                    aria-label="Edit environments"
-                  >
-                    <PiPencilSimple size="14" />
-                  </IconButton>
-                ) : null}
-              </Flex>
-            ) : null}
-
             {!isHoldout && holdoutId ? (
               <>
                 <FunnelCard
@@ -612,52 +468,26 @@ export default function TrafficAllocationFunnel({
               </>
             ) : null}
 
-            {!isHoldout && hasNamespace && (
-              <>
-                <FunnelCard
-                  title="Namespace"
-                  onEdit={editNamespace}
-                  inlineSummary={
-                    <Text size="lg" color="text-mid">
-                      {namespaceName}
-                    </Text>
-                  }
-                  disabled={!safeToEdit}
-                />
-                <FunnelConnector label={includedLabel} />
-              </>
-            )}
-
             <FunnelCard
               title="Targeting"
               onEdit={editTargeting}
               disabled={!safeToEdit}
               menu={
-                canAddNamespace || canAddHoldout ? (
-                  <>
-                    {canAddHoldout ? (
-                      <DropdownMenuItem
-                        onClick={() => setChoosingHoldout(true)}
-                      >
-                        Add to holdout
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canAddNamespace ? (
-                      <DropdownMenuItem onClick={() => editNamespace?.()}>
-                        Add namespace
-                      </DropdownMenuItem>
-                    ) : null}
-                  </>
+                canAddHoldout ? (
+                  <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
+                    Add to holdout
+                  </DropdownMenuItem>
                 ) : null
               }
             >
-              <SetupFieldRow label="Audience" content="text">
-                {targetsEveryone ? (
-                  <Text color="text-mid">
-                    <em>Everyone</em>
-                  </Text>
-                ) : (
-                  <Flex direction="column" gap="3">
+              {targetsEveryone ? (
+                <FunnelRow label="Audience">
+                  <Text color="text-high">Everyone</Text>
+                </FunnelRow>
+              ) : (
+                <Box py="1">
+                  <Text color="text-mid">Audience</Text>
+                  <Flex direction="column" gap="3" mt="2">
                     {hasCondition ? (
                       <ConditionDisplay condition={phase.condition} />
                     ) : null}
@@ -670,67 +500,72 @@ export default function TrafficAllocationFunnel({
                       <ConditionDisplay prerequisites={phase.prerequisites} />
                     ) : null}
                   </Flex>
-                )}
-              </SetupFieldRow>
+                </Box>
+              )}
               <AssignmentAttribute
-                experiment={experiment}
                 hashAttribute={hashAttribute}
                 fallbackAttribute={fallbackAttribute}
-                editInline={editInline}
-                stagePatch={stagePatch}
               />
             </FunnelCard>
 
-            <FunnelConnector />
-
-            <FunnelCard title="Traffic">
-              {!isHoldout ? (
-                <Box mb="1">
-                  <SetupFieldRow
-                    label="Included %"
-                    content={editInline ? "control" : "text"}
-                    labelAlign="center"
-                    tooltip="The share of everyone who matches the targeting above that this experiment runs on."
-                  >
-                    {editInline ? (
-                      <PercentField
-                        value={coverage}
-                        onChange={(next) => stagePatch({ coverage: next })}
-                        ariaLabel="Included %"
-                      />
-                    ) : (
-                      <Text color="text-mid">
-                        {Math.round(coverage * 100)}%
+            {!isHoldout && hasNamespace ? (
+              <>
+                <FunnelConnector />
+                <FunnelCard
+                  title="Namespace"
+                  onEdit={editNamespace}
+                  disabled={!safeToEdit}
+                >
+                  <FunnelRow label="Name">
+                    <Text color="text-high">{namespaceName}</Text>
+                  </FunnelRow>
+                  {namespaceCoverage ? (
+                    <FunnelRow label="Traffic included">
+                      <Text color="text-high">
+                        {percentFormatter.format(namespaceCoverage)}
                       </Text>
-                    )}
-                  </SetupFieldRow>
-                  <Box mt="1">
-                    {editInline ? (
-                      <PercentSlider
-                        value={coverage}
-                        onChange={(next) => stagePatch({ coverage: next })}
-                        ariaLabel="Included %"
-                      />
-                    ) : (
-                      <Box
-                        overflow="hidden"
-                        style={{
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: "var(--gray-a4)",
-                        }}
-                      >
-                        <Box
-                          style={{
-                            width: `${Math.min(100, Math.max(0, coverage * 100))}%`,
-                            height: "100%",
-                            backgroundColor: "var(--violet-9)",
-                          }}
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
+                    </FunnelRow>
+                  ) : null}
+                </FunnelCard>
+                <FunnelConnector />
+              </>
+            ) : canAddNamespace ? (
+              <Flex direction="column" align="center">
+                <Box className={styles.connectorLine} height="12px" />
+                <Link color="gray" size="sm" onClick={() => editNamespace?.()}>
+                  <Flex align="center" gap="1" py="1">
+                    <PiPlus />
+                    Namespace
+                  </Flex>
+                </Link>
+                <Box className={styles.connectorLine} height="12px" />
+              </Flex>
+            ) : (
+              <FunnelConnector />
+            )}
+
+            <FunnelCard
+              title={isHoldout ? "Traffic" : "Population"}
+              onEdit={
+                isHoldout
+                  ? null
+                  : editInline
+                    ? () => setEditingTraffic(true)
+                    : editTargeting
+              }
+            >
+              {!isHoldout ? (
+                <FunnelRow label="Included %">
+                  {editInline ? (
+                    <PercentField
+                      value={coverage}
+                      onChange={(next) => stagePatch({ coverage: next })}
+                      ariaLabel="Included %"
+                    />
+                  ) : (
+                    <Text color="text-high">{Math.round(coverage * 100)}%</Text>
+                  )}
+                </FunnelRow>
               ) : (
                 <Flex direction="column" gap="1">
                   <Text color="text-mid">
@@ -750,9 +585,18 @@ export default function TrafficAllocationFunnel({
           </Flex>
           {!isHoldout && (
             <>
-              <Flex justify="center">
-                <Box className={styles.connectorLine} height="24px" mb="2" />
-              </Flex>
+              {editingTraffic ? (
+                <EditTrafficModal
+                  experiment={experiment}
+                  coverage={coverage}
+                  weights={variationWeights}
+                  close={() => setEditingTraffic(false)}
+                  stage={(traffic) => {
+                    stagePatch(traffic);
+                    setEditingTraffic(false);
+                  }}
+                />
+              ) : null}
 
               {reordering ? (
                 <ReorderVariationsModal
@@ -817,78 +661,19 @@ export default function TrafficAllocationFunnel({
 }
 
 function AssignmentAttribute({
-  experiment,
   hashAttribute,
   fallbackAttribute,
-  editInline,
-  stagePatch,
 }: {
-  experiment: ExperimentInterfaceStringDates;
   hashAttribute: string;
   fallbackAttribute: string;
-  editInline: boolean;
-  stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
-  // The picker is too narrow for a popover above it.
-  const formatAttributeOption = useMemo(
-    () => attributeOptionLabelFormatter("right"),
-    [],
-  );
-  const attributeOptions = useHashAttributeOptions(
-    experiment.attributeScopeAllProjects || !experiment.project
-      ? null
-      : [experiment.project],
-    hashAttribute,
-  );
-
-  const { getDatasourceById } = useDefinitions();
-  const datasource = experiment.datasource
-    ? getDatasourceById(experiment.datasource)
-    : null;
-
   return (
-    <>
-      <SetupFieldRow
-        label="Assignment attribute"
-        content={editInline ? "control" : "text"}
-        labelAlign="center"
-        fieldMaxWidth="100px"
-        tooltip="Hashed with the tracking key to decide which variation each user gets."
-      >
-        {editInline ? (
-          <SelectField
-            size="md"
-            value={hashAttribute}
-            options={attributeOptions}
-            sort={false}
-            formatOptionLabel={formatAttributeOption}
-            onChange={(v) =>
-              // A fallback matching the attribute it backs up is no fallback.
-              stagePatch({
-                hashAttribute: v,
-                ...(v === fallbackAttribute && { fallbackAttribute: "" }),
-              })
-            }
-          />
-        ) : (
-          <Box>
-            <AttributeBadge attributeId={hashAttribute} />
-            {fallbackAttribute ? (
-              <>
-                , <AttributeBadge attributeId={fallbackAttribute} />
-              </>
-            ) : null}
-          </Box>
-        )}
-      </SetupFieldRow>
-      {editInline ? (
-        <LinkHashAttributeCallout
-          experimentId={experiment.id}
-          datasource={datasource}
-          hashAttribute={hashAttribute}
-          source="Experiment Setup"
-        />
-      ) : null}
-    </>
+    <FunnelRow label="Assignment attribute">
+      <Text color="text-high">
+        {fallbackAttribute
+          ? `${hashAttribute}, ${fallbackAttribute}`
+          : hashAttribute}
+      </Text>
+    </FunnelRow>
   );
 }

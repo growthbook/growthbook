@@ -41,6 +41,7 @@ export interface Props {
   editOnDemand?: boolean;
   /** Shown in place of an empty value that isn't being edited. */
   emptyLabel?: string;
+  collapsibleToolbar?: boolean;
 }
 
 /**
@@ -62,6 +63,7 @@ export default function InlineMarkdownField({
   labelAction,
   editOnDemand,
   emptyLabel,
+  collapsibleToolbar = false,
 }: Props) {
   const savedValue = experiment[field] || "";
   const [value, setValue] = useStagedState(`inline:${field}`, savedValue);
@@ -125,6 +127,7 @@ export default function InlineMarkdownField({
         aiButtonText={aiButtonText}
         onAISuggestionReceived={onAISuggestionReceived}
         trackingSource={trackingSource}
+        collapsibleToolbar={collapsibleToolbar}
       />
     );
   }

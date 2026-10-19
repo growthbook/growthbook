@@ -54,10 +54,6 @@ export function resolveDraftPick(
   };
 }
 
-export function withoutDraft(info: LinkedFeatureInfo): LinkedFeatureInfo {
-  return info.pendingDraft ? { ...info, pendingDraft: undefined } : info;
-}
-
 /** The flag with the draft its row picked in place of the newest, or none when starting one. */
 export function withPickedDraft(
   info: LinkedFeatureInfo,
