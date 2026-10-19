@@ -43,6 +43,7 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import UILink from "@/ui/Link";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -625,15 +626,13 @@ const MetricsList = (): React.ReactElement => {
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
-                        <Text as="p" mb="0">
-                          {factMetricFlow.button(
-                            {},
-                            !canCreateFactMetric
-                              ? "You don't have permission to add Fact Metrics in this Project."
-                              : undefined,
-                            "Create a Fact Metric instead",
-                          )}
-                        </Text>
+                        {factMetricFlow.newFlow && canCreateFactMetric && (
+                          <Text as="p" mb="0">
+                            <UILink href={factMetricFlow.href()}>
+                              Create a Fact Metric instead
+                            </UILink>
+                          </Text>
+                        )}
                       </Flex>
                     ),
                   }}
