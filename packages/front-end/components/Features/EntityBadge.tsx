@@ -1,7 +1,9 @@
 import React from "react";
+import clsx from "clsx";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import styles from "./EntityBadge.module.scss";
 
 const ENTITY_BADGE_MAX_WIDTH = 400;
 
@@ -17,6 +19,7 @@ export function LinkedEntityBadge({
   return (
     <Badge
       color="gray"
+      className={styles.badge}
       label={
         <Link
           href={href}
@@ -47,12 +50,18 @@ export function LinkedEntityBadge({
   );
 }
 
-export function PlainEntityBadge({ label }: { label: string }) {
+export function PlainEntityBadge({
+  label,
+  maxWidth = ENTITY_BADGE_MAX_WIDTH,
+}: {
+  label: string;
+  maxWidth?: number;
+}) {
   return (
     <Badge
       color="gray"
-      className="text-ellipsis d-inline-block"
-      style={{ maxWidth: ENTITY_BADGE_MAX_WIDTH }}
+      className={clsx(styles.badge, "text-ellipsis d-inline-block")}
+      style={{ maxWidth }}
       title={label}
       label={
         <Text size="inherit" whiteSpace="pre" color="text-high">

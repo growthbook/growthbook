@@ -13,7 +13,6 @@ import VirtualizedCode, {
   isLongCode,
   RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
-import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
@@ -21,6 +20,7 @@ import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
+import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -161,18 +161,7 @@ export function MultiValuesDisplay({
             groupName={displayValue}
           />
         ) : (
-          <Badge
-            key={i}
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
+          <PlainEntityBadge key={i} label={displayValue} maxWidth={300} />
         );
       })}
       {values.length > MULTI_VALUE_LIMIT && (
@@ -316,7 +305,7 @@ function getConditionOrParts({
           borderLeft: "2px solid var(--gray-6)",
         }}
       >
-        <Flex direction="column" gap="2">
+        <Flex direction="column" gap="1">
           {groupContent}
         </Flex>
       </Box>,
@@ -363,19 +352,7 @@ function getConditionParts({
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
         const displayValue = field.substring(6);
-        fieldEl = (
-          <Badge
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
-        );
+        fieldEl = <PlainEntityBadge label={displayValue} maxWidth={300} />;
       } else {
         fieldEl = (
           <Tooltip
@@ -469,17 +446,7 @@ function getConditionParts({
               <PlainEntityBadge label={displayValue} />
             )
           ) : (
-            <Badge
-              color="gray"
-              className="text-ellipsis d-inline-block"
-              style={{ maxWidth: 300 }}
-              title={displayValue}
-              label={
-                <Text size="inherit" whiteSpace="pre" color="text-high">
-                  {displayValue}
-                </Text>
-              }
-            />
+            <PlainEntityBadge label={displayValue} maxWidth={300} />
           )
         ) : (
           ""
@@ -494,12 +461,16 @@ export default function ConditionDisplay({
   savedGroups: savedGroupTargeting,
   prerequisites,
   prefix,
+  variant = "default",
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
   prefix?: ReactNode;
+  // "rows" sits each part on a 28px row, in the field text color.
+  variant?: "default" | "rows";
 }) {
+  const rows = variant === "rows";
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
   const attributeIds = useMemo(() => new Set(attributes.keys()), [attributes]);
@@ -523,7 +494,7 @@ export default function ConditionDisplay({
     parts.push(
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
-        groupClassName="col-auto"
+        groupClassName={rows ? undefined : "col-auto"}
         initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
         prefix={!prefixUsed ? prefix : undefined}
@@ -617,7 +588,11 @@ export default function ConditionDisplay({
   }
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex
+      direction="column"
+      gap={rows ? "0" : "1"}
+      className={rows ? styles.rows : undefined}
+    >
       {parts}
     </Flex>
   );

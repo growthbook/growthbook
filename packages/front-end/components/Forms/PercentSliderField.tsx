@@ -3,6 +3,7 @@ import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import {
   capTypedPercent,
+  COVERAGE_DECIMALS,
   coverageFromPercent,
   coverageToPercent,
   decimalToPercent,
@@ -51,7 +52,7 @@ export function PercentField({
 
   const onBlurCommit = commitOn === "blur";
   const cap = (raw: string) =>
-    decimals === undefined ? raw : capTypedPercent(raw, decimals);
+    capTypedPercent(raw, decimals ?? COVERAGE_DECIMALS);
   const commit = (raw: string) =>
     onChange(
       clamp(
@@ -65,7 +66,7 @@ export function PercentField({
     <Box
       position="relative"
       display="inline-block"
-      className={`${styles.percentInputWrapMd} ${own.autoWidth}`}
+      className={`${styles.percentInputWrapMd} ${own.field}`}
     >
       <Field
         size="md"

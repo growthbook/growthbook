@@ -88,6 +88,7 @@ export default function ValueDisplay({
   linkify,
   fontSize,
   lineHeight,
+  monochrome,
 }: {
   value: string;
   type: FeatureValueType;
@@ -117,6 +118,7 @@ export default function ValueDisplay({
   fontSize?: string;
   // Override the rendered code line height (passed through to InlineCode).
   lineHeight?: number;
+  monochrome?: boolean;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -296,6 +298,7 @@ export default function ValueDisplay({
               linkify={resolvedLinkify}
               fontSize={fontSize}
               lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           ) : (
             <InlineCode
@@ -305,6 +308,7 @@ export default function ValueDisplay({
               linkify={resolvedLinkify}
               fontSize={fontSize}
               lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           )}
         </Box>

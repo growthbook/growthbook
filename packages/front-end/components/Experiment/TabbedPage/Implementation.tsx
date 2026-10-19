@@ -58,6 +58,7 @@ import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import HoldoutEnvironments from "./HoldoutEnvironments";
+import VariationDetails from "./VariationDetails";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
@@ -472,30 +473,37 @@ export default function Implementation({
           Implementation
         </Heading>
         {showTrafficFunnel ? (
-          <TrafficAllocationFunnel
-            holdoutDraft={holdoutDraft}
-            canStageHoldout={canStageHoldout}
-            canJoinHoldout={canJoinHoldout}
-            holdoutLockedReason={holdoutLockedReason}
-            experiment={stagedExperiment}
-            stageVariations={setVariationsDraft}
-            flagEnvironments={flagEnvironments}
-            editTargeting={pendingScheduledStart ? null : editTargeting}
-            targetingDraft={targetingDraft}
-            editNamespace={pendingScheduledStart ? null : editNamespace}
-            canAddVariation={!pendingScheduledStart && !!canAddVariation}
-            setEditVariationIndex={setEditMetadataIndex}
-            editVariationKeys={() => setEditingKeys(true)}
-            canEditExperiment={canEditExperiment}
-            safeToEdit={safeToEdit}
-            phaseIndex={phases.length - 1}
-            linkedFeatures={linkedFeatures}
-            // Values land in drafts in every status; publishing them is what
-            // goes through review.
-            canEditFlagValues={canEditExperiment}
-            implementationColumns={implementationColumns}
-            addImplementation={addImplementation}
-          />
+          <>
+            <TrafficAllocationFunnel
+              holdoutDraft={holdoutDraft}
+              canStageHoldout={canStageHoldout}
+              canJoinHoldout={canJoinHoldout}
+              holdoutLockedReason={holdoutLockedReason}
+              experiment={stagedExperiment}
+              stageVariations={setVariationsDraft}
+              flagEnvironments={flagEnvironments}
+              editTargeting={pendingScheduledStart ? null : editTargeting}
+              targetingDraft={targetingDraft}
+              editNamespace={pendingScheduledStart ? null : editNamespace}
+              canAddVariation={!pendingScheduledStart && !!canAddVariation}
+              editVariationKeys={() => setEditingKeys(true)}
+              canEditExperiment={canEditExperiment}
+              safeToEdit={safeToEdit}
+              phaseIndex={phases.length - 1}
+              linkedFeatures={linkedFeatures}
+              // Values land in drafts in every status; publishing them is what
+              // goes through review.
+              canEditFlagValues={canEditExperiment}
+              implementationColumns={implementationColumns}
+              addImplementation={addImplementation}
+            />
+            <VariationDetails
+              experiment={stagedExperiment}
+              canEdit={canEditExperiment}
+              onEdit={setEditMetadataIndex}
+              mutate={mutate}
+            />
+          </>
         ) : (
           <TrafficAndTargeting
             experiment={experiment}

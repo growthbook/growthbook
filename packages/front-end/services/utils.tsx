@@ -185,7 +185,7 @@ export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
 export const VARIATION_WEIGHT_DECIMALS = 2;
-const COVERAGE_DECIMALS = 6;
+export const COVERAGE_DECIMALS = 4;
 
 export function capTypedPercent(raw: string, decimals: number): string {
   const match = raw.match(
@@ -205,6 +205,13 @@ export function decimalToPercent(val: number, precision: number = 4): number {
 }
 export function floatRound(val: number, precision: number = 4): number {
   return parseFloat(val.toFixed(precision));
+}
+
+// Within one step of the stored precision, as getEqualWeights leaves an
+// uneven count.
+export function isEqualSplit(weights: number[]): boolean {
+  const step = Math.pow(10, -(VARIATION_WEIGHT_DECIMALS + 2));
+  return floatRound(Math.max(...weights) - Math.min(...weights)) <= step;
 }
 
 // Updates one of the variation weights and rebalances

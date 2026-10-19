@@ -8,10 +8,13 @@ import {
   PiPlusBold,
 } from "react-icons/pi";
 import {
+  capTypedPercent,
+  COVERAGE_DECIMALS,
   coverageFromPercent,
   coverageToPercent,
   decimalToPercent,
   distributeWeights,
+  isEqualSplit,
   percentToDecimalForNumber,
 } from "@/services/utils";
 import {
@@ -103,9 +106,7 @@ export default function FeatureVariationsInput({
     () => variations?.map((v) => v.weight) || [],
     [variations],
   );
-  const isEqualWeights = weights?.every(
-    (w) => Math.abs(w - weights[0]) < 0.0001,
-  );
+  const isEqualWeights = isEqualSplit(weights);
 
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
@@ -238,7 +239,9 @@ export default function FeatureVariationsInput({
                           : coverageToPercent(coverage ?? 0)
                       }
                       onChange={(e) => {
-                        let decimal = coverageFromPercent(e.target.value);
+                        let decimal = coverageFromPercent(
+                          capTypedPercent(e.target.value, COVERAGE_DECIMALS),
+                        );
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
                         setCoverage?.(decimal);
@@ -327,7 +330,9 @@ export default function FeatureVariationsInput({
                           : coverageToPercent(coverage ?? 0)
                       }
                       onChange={(e) => {
-                        let decimal = coverageFromPercent(e.target.value);
+                        let decimal = coverageFromPercent(
+                          capTypedPercent(e.target.value, COVERAGE_DECIMALS),
+                        );
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
                         setCoverage?.(decimal);

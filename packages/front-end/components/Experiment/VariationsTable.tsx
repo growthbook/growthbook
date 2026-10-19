@@ -5,12 +5,7 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import {
-  PiCameraLight,
-  PiCameraPlusLight,
-  PiPencilSimple,
-  PiPlusCircle,
-} from "react-icons/pi";
+import { PiCameraLight, PiCameraPlusLight, PiPlusCircle } from "react-icons/pi";
 import clsx from "clsx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -24,9 +19,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import QuickEditButton, {
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 import styles from "./VariationsTable.module.scss";
-
-export const MAX_VARIATION_WIDTH = 336;
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
 const NO_IMAGE_SIZE = 42;
@@ -34,14 +30,9 @@ const MAX_IMAGE_HEIGHT = 150;
 
 /** Narrower than this and a card has no room for a name beside its controls. */
 const MIN_VARIATION_WIDTH = 220;
-const VARIATION_GRID_GAP_PX = 16;
 
 /** Wraps on the grid's own width, not the viewport's, so a docked details panel narrows it. */
 const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
-
-/** How wide the grid can get, so anything aligned to it can match. */
-const variationGridMaxWidth = (cols: number) =>
-  `${cols * MAX_VARIATION_WIDTH + (cols - 1) * VARIATION_GRID_GAP_PX}px`;
 
 const imageCache = {};
 
@@ -145,8 +136,8 @@ interface Props {
   onRemoveVariation?: (variationIndex: number) => void;
   onEditKey?: (variationIndex: number) => void;
   onReorder?: () => void;
-  // When true, the grid is centered and capped at 3 columns.
-  centered?: boolean;
+  // When true, the cards fill the grid's own width, wrapping as it narrows.
+  fill?: boolean;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -224,7 +215,6 @@ export function VariationBox({
   onRemoveVariation,
   onEditKey,
   onReorder,
-  capWidth = false,
 }: {
   i: number;
   v: Variation;
@@ -247,7 +237,6 @@ export function VariationBox({
   onRemoveVariation?: (variationIndex: number) => void;
   onEditKey?: (variationIndex: number) => void;
   onReorder?: () => void;
-  capWidth?: boolean;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -268,10 +257,12 @@ export function VariationBox({
       key={i}
       p="4"
       pb="3"
-      className="appbox mb-0 position-relative variation"
+      className={clsx(
+        "appbox mb-0 position-relative variation",
+        revealsQuickEdit,
+      )}
       style={{
         minWidth,
-        maxWidth: capWidth ? MAX_VARIATION_WIDTH + "px" : undefined,
         // Fill the grid-item wrapper so all cards in a row share the same height.
         height: "100%",
       }}
@@ -285,17 +276,10 @@ export function VariationBox({
             {/* Radix ghost buttons carry a negative margin. */}
             <Flex align="center" gap="1" flexShrink="0" mr="-1">
               {canEdit && onEditMetadata ? (
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  color="violet"
-                  radius="medium"
-                  style={{ margin: 0 }}
+                <QuickEditButton
+                  label="Edit variation"
                   onClick={() => onEditMetadata(i)}
-                  aria-label="Edit variation"
-                >
-                  <PiPencilSimple size="14" />
-                </IconButton>
+                />
               ) : null}
               {canEdit && (onRemoveVariation || onEditKey || onReorder) ? (
                 <DropdownMenu
@@ -423,7 +407,7 @@ const VariationsTable: FC<Props> = ({
   onRemoveVariation,
   onEditKey,
   onReorder,
-  centered = false,
+  fill = false,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
   const phases = experiment.phases || [];
@@ -442,11 +426,7 @@ const VariationsTable: FC<Props> = ({
     (v) => v.screenshots.length > 0,
   );
 
-  const cols = centered
-    ? Math.min(variations.length, 3)
-    : variations.length > 4
-      ? 4
-      : variations.length;
+  const cols = variations.length > 4 ? 4 : variations.length;
   const gap = "4";
 
   const lastIndex = variations.length - 1;
@@ -455,14 +435,9 @@ const VariationsTable: FC<Props> = ({
     <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
-        style={{
-          gridAutoRows: "1fr",
-          ...(centered
-            ? { maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }
-            : {}),
-        }}
-        {...(centered
-          ? { justify: "center", columns: VARIATION_GRID_COLUMNS }
+        style={{ gridAutoRows: "1fr" }}
+        {...(fill
+          ? { columns: VARIATION_GRID_COLUMNS }
           : {
               columns: {
                 initial: "1",
@@ -499,7 +474,6 @@ const VariationsTable: FC<Props> = ({
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }
-              capWidth={centered}
             />
           );
 

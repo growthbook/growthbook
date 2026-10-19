@@ -188,11 +188,11 @@ export function ColumnFooter({
       style={{ gridRow: layout.detailsRow, gridColumn: layout.column }}
     >
       {start || end ? (
-        <Flex align="center" gap="3" width="100%" minWidth="0">
+        <div className={styles.footerLine}>
           {start}
           <Box flexGrow="1" />
           {end}
-        </Flex>
+        </div>
       ) : null}
       <Flex direction="column" gap="1" className={styles.footerMessages}>
         {children}

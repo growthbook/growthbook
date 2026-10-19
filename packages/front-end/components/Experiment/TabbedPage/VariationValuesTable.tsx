@@ -63,6 +63,7 @@ import FeatureValueCell from "@/components/Features/FeatureValueCell";
 import { getDefaultVariationValue } from "@/services/features";
 import {
   decimalToPercent,
+  isEqualSplit,
   rebalance,
   VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
@@ -98,7 +99,7 @@ import styles from "./VariationValuesTable.module.scss";
 
 export type FlagView = "draft" | "live";
 
-export const FUNNEL_WIDTH = 692;
+const TABLE_MIN_WIDTH = 692;
 const VARIATION_MIN_WIDTH = 180;
 const VARIATION_NARROWEST_WIDTH = 130;
 const SPLIT_WIDTH = 124;
@@ -181,7 +182,7 @@ export default function VariationValuesTable({
     ...Array(columnCount).fill(`${FLAG_WIDTH}px`),
   ].join(" ");
   const tableWidth = Math.max(
-    FUNNEL_WIDTH - BORDERS,
+    TABLE_MIN_WIDTH - BORDERS,
     VARIATION_MIN_WIDTH + SPLIT_WIDTH + columnCount * FLAG_WIDTH,
   );
   const firstValueRow = 2;
@@ -308,7 +309,7 @@ export default function VariationValuesTable({
               style={{ gridRow: detailsRow, gridColumn: 1 }}
             >
               {onAddVariation ? (
-                <Flex>
+                <div className={styles.footerLine}>
                   <Link onClick={onAddVariation}>
                     <Flex
                       align="center"
@@ -316,10 +317,10 @@ export default function VariationValuesTable({
                       style={{ whiteSpace: "nowrap" }}
                     >
                       <PiPlus />
-                      Add variation
+                      <span className={styles.baselineText}>Add variation</span>
                     </Flex>
                   </Link>
-                </Flex>
+                </div>
               ) : null}
             </div>
 
@@ -385,7 +386,7 @@ function SplitColumn({
   onChange: ((split: number[]) => void) | null;
   note: string | null;
 }) {
-  const equal = split.every((w) => Math.abs(w - split[0]) < 0.0001);
+  const equal = isEqualSplit(split);
   return (
     <>
       <div
@@ -423,16 +424,20 @@ function SplitColumn({
         style={{ gridRow: detailsRow, gridColumn: column }}
       >
         {note ? (
-          <Text size="sm" color="text-low">
-            {note}
-          </Text>
+          <div className={styles.footerLine}>
+            <Text size="sm" color="text-low">
+              {note}
+            </Text>
+          </div>
         ) : onChange && !equal ? (
-          <Link
-            size="sm"
-            onClick={() => onChange(getEqualWeights(variations.length))}
-          >
-            Set equal
-          </Link>
+          <div className={styles.footerLine}>
+            <Link
+              size="sm"
+              onClick={() => onChange(getEqualWeights(variations.length))}
+            >
+              Set equal
+            </Link>
+          </div>
         ) : null}
       </div>
     </>
@@ -885,7 +890,7 @@ function FlagColumn({
       : []),
   ];
   const showEnvironments =
-    environmentStates.length > 0 && !orphaned && !removing;
+    environmentStates.length > 0 && !orphaned && !removing && !notLive;
   const canEditEnvironments = canEditFlag && showEnvironments;
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
@@ -895,42 +900,18 @@ function FlagColumn({
         pendingDraft.title,
         !!pendingDraft.title,
       )
-    : startsDraft
-      ? "New draft"
-      : notLive
-        ? "Not live"
-        : "Live";
-  const revisionStatus = showsDraft
-    ? pendingDraft.status
-    : startsDraft
-      ? "draft"
-      : "live";
+    : "New draft";
+  const revisionStatus = showsDraft ? pendingDraft.status : "draft";
   const revisionNotes = showsDraft
     ? draftNotes
-    : startsDraft
-      ? ["Saving starts a new draft of this Feature Flag."]
-      : notLive
-        ? [
-            "This experiment isn't in the live revision of this Feature Flag yet.",
-          ]
-        : ["What this Feature Flag serves now."];
+    : ["Saving starts a new draft of this Feature Flag."];
   const inReview =
     !!shownDraft &&
     (needsApproval ||
       ["pending-review", "approved", "changes-requested"].includes(
         shownDraft.status,
       ));
-  const revisionDot = (
-    <StatusDot
-      color={
-        notLive
-          ? "var(--gray-8)"
-          : revisionStatus === "live"
-            ? "var(--green-9)"
-            : draftStatusDotColor(revisionStatus)
-      }
-    />
-  );
+  const revisionDot = <StatusDot color={draftStatusDotColor(revisionStatus)} />;
   const revisionPicker =
     canChooseTarget && !showingLive ? (
       <DropdownMenu
@@ -996,9 +977,11 @@ function FlagColumn({
     revisionDetails(
       <Flex align="center" gap="2" minWidth="0" style={{ cursor: "default" }}>
         {revisionDot}
-        <Text size="sm" color="text-low" truncate>
-          {revisionName}
-        </Text>
+        <span className={styles.baselineText}>
+          <Text size="sm" color="text-low" truncate>
+            {revisionName}
+          </Text>
+        </span>
       </Flex>,
     )
   );
@@ -1174,12 +1157,14 @@ function FlagColumn({
             />
           ) : null
         }
-        end={noValues ? null : revisionControl}
+        end={!noValues && (showsDraft || startsDraft) ? revisionControl : null}
       >
         {noValues ? (
           !orphaned ? (
             <Text size="sm" color="text-low">
-              Not in the live revision yet.
+              {pendingDraft
+                ? `Not on the live Feature Flag yet. ${draftMention} adds it.`
+                : "Not on the live Feature Flag yet."}
             </Text>
           ) : linkAction && !showingLive ? (
             stagedLinkAction

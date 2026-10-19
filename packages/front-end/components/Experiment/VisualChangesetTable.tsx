@@ -605,7 +605,7 @@ export default function VisualChangesetColumn({
             });
           }}
         >
-          {locked("Edit targeting")}
+          {locked("Edit URL targeting")}
         </DropdownMenuItem>,
         <DropdownMenuSeparator key="separator" />,
         <DropdownMenuItem
@@ -670,7 +670,7 @@ export default function VisualChangesetColumn({
         layout={layout}
         title={
           <>
-            <HeaderText>Changes</HeaderText>
+            <HeaderText>Visual changes</HeaderText>
             {target ? (
               <Flex minWidth="0">
                 <HeaderText muted>(</HeaderText>

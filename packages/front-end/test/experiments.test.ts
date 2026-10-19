@@ -5,6 +5,7 @@ import {
   coverageToPercent,
   decimalToPercent,
   floatRound,
+  isEqualSplit,
   percentToDecimal,
   rebalance,
 } from "@/services/utils";
@@ -93,5 +94,18 @@ describe("variation weighting functions", () => {
     expect(floatRound(0.546859483, 3)).toEqual(0.547);
     expect(floatRound(0.546859483, 4)).toEqual(0.5469);
     expect(floatRound(0.546859483, 5)).toEqual(0.54686);
+  });
+});
+
+describe("isEqualSplit", () => {
+  it("treats getEqualWeights as equal, including uneven counts", () => {
+    [2, 3, 6, 7].forEach((n) => {
+      expect(isEqualSplit(getEqualWeights(n))).toBe(true);
+    });
+  });
+
+  it("rejects splits that differ by more than one step", () => {
+    expect(isEqualSplit([0.25, 0.25, 0.5])).toBe(false);
+    expect(isEqualSplit([0.5001, 0.4999])).toBe(false);
   });
 });

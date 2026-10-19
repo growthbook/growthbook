@@ -1,26 +1,32 @@
-@import "../../styles/colors.scss";
+@import "../../styles/percent-suffix";
 
+// Shrinks to its field, so the "%" sits against the field's edge.
 .percentInputWrap {
+  @include percent-suffix;
+  display: inline-block;
+
   span {
-    position: absolute;
-    right: 26px;
-    top: 7px;
-    z-index: 10000;
-    color: $gray-600;
+    color: var(--slate-11);
+  }
+
+  &.hideArrows input {
+    padding-right: calc(var(--space-2) + #{$suffix-room});
+  }
+
+  &.hideArrows span {
+    right: var(--space-2);
   }
 }
 
 // An md field filling a fixed-width grid column.
 .percentInputWrapMd {
+  @include percent-suffix;
+
   input {
     width: 100%;
   }
 
   span {
-    position: absolute;
-    right: 26px;
-    top: 50%;
-    transform: translateY(-50%);
     color: var(--slate-11);
   }
 }

@@ -4,6 +4,12 @@
   min-width: 0;
 }
 
+.caretTriggerRoot,
+.baselineText {
+  align-self: baseline;
+  min-width: 0;
+}
+
 .caretTrigger {
   border-bottom: 1px solid transparent;
 
@@ -35,6 +41,7 @@
 .fieldLine {
   display: flex;
   align-items: center;
+  min-width: 0;
   min-height: 32px;
 }
 
@@ -106,6 +113,20 @@
 
 .footerMessages:empty {
   display: none;
+}
+
+.footerLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+
+  &::before {
+    content: "\200b";
+    margin-inline-end: calc(-1 * var(--space-3));
+  }
 }
 
 .columnHeader {

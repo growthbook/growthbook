@@ -19,6 +19,7 @@ export default function ForceSummary({
   lineHeight,
   actionsOverlay,
   showCopyButton = true,
+  monochrome,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -37,6 +38,7 @@ export default function ForceSummary({
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
   showCopyButton?: boolean;
+  monochrome?: boolean;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -76,6 +78,7 @@ export default function ForceSummary({
             defaultValue={feature.defaultValue}
             fontSize={fontSize}
             lineHeight={lineHeight}
+            monochrome={monochrome}
             actionsOverlay={actionsOverlay}
             fullStyle={{
               maxHeight: maxHeight ?? 150,

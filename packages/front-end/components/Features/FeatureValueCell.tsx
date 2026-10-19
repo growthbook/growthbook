@@ -65,9 +65,9 @@ export default function FeatureValueCell({
       ) : (
         <Box
           className={clsx(
-            styles.frame,
+            styles.value,
+            (editable || error) && styles.frame,
             cornerStyles.hoverActions,
-            (value === undefined || !isJson) && styles.oneLine,
             error && styles.error,
           )}
         >
@@ -81,6 +81,7 @@ export default function FeatureValueCell({
               sparse={sparse}
               fontSize="0.7rem"
               lineHeight={1.3}
+              monochrome
               actionsOverlay={isJson ? JSON_ACTIONS : ONE_LINE_ACTIONS}
             />
           )}

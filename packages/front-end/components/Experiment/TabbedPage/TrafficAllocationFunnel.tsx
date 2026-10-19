@@ -14,11 +14,10 @@ import {
 } from "shared/experiments";
 import { generateVariationId } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimple, PiPlus } from "react-icons/pi";
+import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
-import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
@@ -39,11 +38,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import FunnelConnector from "./FunnelConnector";
 import { ImplementationColumn } from "./ImplementationColumn";
-import VariationValuesTable, {
-  FlagView,
-  FUNNEL_WIDTH,
-} from "./VariationValuesTable";
-import VariationDetails from "./VariationDetails";
+import VariationValuesTable, { FlagView } from "./VariationValuesTable";
 import { DraftPick, FlagDraftPicks, withPickedDraft } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
@@ -76,7 +71,6 @@ export interface Props {
   canJoinHoldout?: boolean;
   /** Why the holdout is fixed, shown on its disabled pencil. */
   holdoutLockedReason?: string | null;
-  setEditVariationIndex?: (index: number) => void;
   editVariationKeys?: () => void;
   /** Every linked Feature Flag, one value row each under the variations. */
   linkedFeatures?: LinkedFeatureInfo[];
@@ -112,7 +106,7 @@ function FunnelRow({
   children,
 }: {
   label: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <Flex align="center" justify="between" gap="4" minHeight="32px">
@@ -122,6 +116,9 @@ function FunnelRow({
   );
 }
 
+const CARD_WIDTH = 450;
+const GROWN_CARD_WIDTH = 600;
+
 function FunnelCard({
   title,
   onEdit,
@@ -129,6 +126,7 @@ function FunnelCard({
   disabled = false,
   editBlockedReason,
   menu,
+  grow = false,
 }: {
   title: string;
   onEdit?: (() => void) | null;
@@ -138,12 +136,14 @@ function FunnelCard({
   editBlockedReason?: string | null;
   /** Items for the menu right of the pencil; no menu without them. */
   menu?: ReactNode;
+  grow?: boolean;
 }) {
   return (
     <Box
       className={clsx("appbox", styles.card)}
-      maxWidth={`${FUNNEL_WIDTH}px`}
-      width="100%"
+      width={grow ? "fit-content" : "100%"}
+      minWidth={grow ? `min(${CARD_WIDTH}px, 100%)` : undefined}
+      maxWidth={`min(${grow ? GROWN_CARD_WIDTH : CARD_WIDTH}px, 100%)`}
       mb="0"
       py="3"
       style={{ paddingLeft: 16, paddingRight: 16 }}
@@ -208,7 +208,6 @@ export default function TrafficAllocationFunnel({
   canStageHoldout = false,
   canJoinHoldout = false,
   holdoutLockedReason = null,
-  setEditVariationIndex,
   editVariationKeys,
   linkedFeatures = [],
   canEditFlagValues = false,
@@ -331,6 +330,9 @@ export default function TrafficAllocationFunnel({
 
   const { coverage: namespaceCoverage, name: namespaceName } =
     getNamespaceDisplayData(phase?.namespace, namespaces);
+  const namespaceDeleted =
+    !!hasNamespace &&
+    !namespaces?.some((n) => n.name === phase?.namespace?.name);
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -478,6 +480,7 @@ export default function TrafficAllocationFunnel({
 
             <FunnelCard
               title="Targeting"
+              grow
               onEdit={editTargeting}
               disabled={!safeToEdit}
               menu={
@@ -493,22 +496,21 @@ export default function TrafficAllocationFunnel({
                   <Text color="text-high">Everyone</Text>
                 </FunnelRow>
               ) : (
-                <Box py="1">
-                  <Text color="text-mid">Audience</Text>
-                  <Flex direction="column" gap="3" mt="2">
-                    {hasCondition ? (
-                      <ConditionDisplay condition={phase.condition} />
-                    ) : null}
-                    {hasSavedGroups ? (
-                      <SavedGroupTargetingDisplay
-                        savedGroups={phase.savedGroups}
-                      />
-                    ) : null}
-                    {hasPrerequisites ? (
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
-                    ) : null}
-                  </Flex>
-                </Box>
+                <>
+                  <FunnelRow label="Audience" />
+                  <Box pl="4" mb="2">
+                    <ConditionDisplay
+                      variant="rows"
+                      condition={hasCondition ? phase.condition : undefined}
+                      savedGroups={
+                        hasSavedGroups ? phase.savedGroups : undefined
+                      }
+                      prerequisites={
+                        hasPrerequisites ? phase.prerequisites : undefined
+                      }
+                    />
+                  </Box>
+                </>
               )}
               <AssignmentAttribute
                 hashAttribute={hashAttribute}
@@ -525,10 +527,21 @@ export default function TrafficAllocationFunnel({
                   disabled={!safeToEdit}
                 >
                   <FunnelRow label="Name">
-                    <Text color="text-high">{namespaceName}</Text>
+                    {namespaceDeleted ? (
+                      <Tooltip content="This namespace no longer exists. The experiment still splits traffic by it, but it can't be chosen again.">
+                        <Flex align="center" gap="1">
+                          <PiWarningFill
+                            style={{ color: "var(--amber-11)", flexShrink: 0 }}
+                          />
+                          <Text color="text-high">{namespaceName}</Text>
+                        </Flex>
+                      </Tooltip>
+                    ) : (
+                      <Text color="text-high">{namespaceName}</Text>
+                    )}
                   </FunnelRow>
                   {namespaceCoverage ? (
-                    <FunnelRow label="Traffic included">
+                    <FunnelRow label="Namespace percentage">
                       <Text color="text-high">
                         {percentFormatter.format(namespaceCoverage)}
                       </Text>
@@ -563,12 +576,12 @@ export default function TrafficAllocationFunnel({
               }
             >
               {!isHoldout ? (
-                <FunnelRow label="Included %">
+                <FunnelRow label="Rollout percentage">
                   {editInline ? (
                     <PercentField
                       value={coverage}
                       onChange={(next) => stagePatch({ coverage: next })}
-                      ariaLabel="Included %"
+                      ariaLabel="Rollout percentage"
                     />
                   ) : (
                     <Text color="text-high">{Math.round(coverage * 100)}%</Text>
@@ -655,16 +668,6 @@ export default function TrafficAllocationFunnel({
           )}
         </Flex>
       </Frame>
-      {!isHoldout ? (
-        <VariationDetails
-          experiment={experiment}
-          onEdit={
-            canEditExperiment && setEditVariationIndex
-              ? setEditVariationIndex
-              : undefined
-          }
-        />
-      ) : null}
     </>
   );
 }

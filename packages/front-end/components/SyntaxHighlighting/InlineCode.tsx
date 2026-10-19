@@ -103,6 +103,7 @@ export interface Props {
   // Line number of the first line of `code`, so `boldLines` still matches when
   // `code` is one slice of a longer value (see VirtualizedCode).
   firstLineNumber?: number;
+  monochrome?: boolean;
 }
 
 export default function InlineCode({
@@ -115,6 +116,7 @@ export default function InlineCode({
   fontSize = "0.85rem",
   lineHeight = 1.5,
   firstLineNumber = 1,
+  monochrome = false,
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
@@ -128,6 +130,11 @@ export default function InlineCode({
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";
   style['pre[class*="language-"]'].whiteSpace = "pre-wrap";
   style['code[class*="language-"]'].overflowWrap = "anywhere";
+  if (monochrome) {
+    Object.values(style).forEach((s) => {
+      if (s.color) s.color = "inherit";
+    });
+  }
 
   const boldLineSet = boldLines?.length ? new Set(boldLines) : null;
   // react-syntax-highlighter only passes a real line number to `lineProps` when
