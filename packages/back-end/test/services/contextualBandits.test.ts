@@ -526,9 +526,11 @@ describe("persistContextualBanditEvent", () => {
     );
   });
 
-  it("is idempotent per snapshot: reuses an existing event without creating a duplicate or re-applying weights", async () => {
-    const cb = makeCb();
-    const cbs = makeCbs();
+  it("reuses an existing event (no duplicate) but resumes the unfinished weight update when a prior attempt never applied the weights", async () => {
+    // The event was created on a prior attempt, but the weight update failed before
+    // committing — so the live CB still sits at the run's banditVersion (never bumped).
+    const cb = makeCb({ stage: "exploit", banditVersion: 2 });
+    const cbs = makeCbs({ banditVersion: 2 });
     const result = makeResult();
 
     const existingEvent = {
@@ -539,16 +541,19 @@ describe("persistContextualBanditEvent", () => {
       attributes: result.attributes,
       responses: result.responses,
       weightsWereUpdated: true,
+      seed: "seed_existing",
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
 
     const createCbeMock = jest.fn();
-    const applyWeightEpochUpdateMock = jest.fn();
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
     const getBySnapshotIdMock = jest.fn().mockResolvedValue(existingEvent);
 
     const context = {
       org: { id: "org_1" },
+      logger: { warn: jest.fn(), error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
@@ -565,10 +570,66 @@ describe("persistContextualBanditEvent", () => {
     const cbe = await persistContextualBanditEvent(context, cbs, result);
 
     expect(getBySnapshotIdMock).toHaveBeenCalledWith(cbs.id);
+    // No duplicate event: the persisted one is reused.
     expect(cbe).toBe(existingEvent);
     expect(createCbeMock).not.toHaveBeenCalled();
+    // ...but the unfinished work is completed: weights are (re)applied, reusing the
+    // seed the event already recorded, and the SDK payload is refreshed.
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
+    expect(applyWeightEpochUpdateMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ newSeed: "seed_existing", bumpVersion: true }),
+    );
+    expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalled();
+  });
+
+  it("does not re-apply weights on resume once a prior attempt already applied them (version bumped), but still retries the payload refresh", async () => {
+    // A prior attempt applied the weights (bumping banditVersion past the run's) and
+    // then failed on the payload refresh; the resume must not double-apply.
+    const cb = makeCb({ stage: "exploit", banditVersion: 3 });
+    const cbs = makeCbs({ banditVersion: 2 });
+    const result = makeResult();
+
+    const existingEvent = {
+      id: "cbe_existing",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      weightsWereUpdated: true,
+      seed: "seed_existing",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const createCbeMock = jest.fn();
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
+
+    const context = {
+      org: { id: "org_1" },
+      logger: { warn: jest.fn(), error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
+          update: jest.fn().mockResolvedValue(cb),
+        },
+        contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(existingEvent),
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    const cbe = await persistContextualBanditEvent(context, cbs, result);
+
+    expect(cbe).toBe(existingEvent);
+    expect(createCbeMock).not.toHaveBeenCalled();
+    // Weights already applied (stale epoch) → not reapplied, but the payload refresh
+    // is retried so a prior refresh failure is recovered.
     expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
-    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
+    expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalled();
   });
 
   it("leaves the persisted weights alone on a no-weight run", async () => {
