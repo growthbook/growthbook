@@ -133,6 +133,26 @@ describe("getSavedGroupIdsForFeatureDefinitions", () => {
     expect([...ids].sort()).toEqual(["grp_old", "grp_phase", "grp_prereq"]);
   });
 
+  it("collects interleaving targeting and prerequisites", () => {
+    const ids = getSavedGroupIdsForFeatureDefinitions({
+      features: [feature({})],
+      interleavings: [
+        {
+          condition: '{"$savedGroups":["grp_cond"]}',
+          savedGroups: [{ match: "any", ids: ["grp_targeting"] }],
+          prerequisites: [
+            { id: "parent", condition: '{"$savedGroups":["grp_prereq"]}' },
+          ],
+        },
+      ],
+    });
+    expect([...ids].sort()).toEqual([
+      "grp_cond",
+      "grp_prereq",
+      "grp_targeting",
+    ]);
+  });
+
   it("finds $savedGroups wherever nested expansion can reach it", () => {
     const ids = getSavedGroupIdsForFeatureDefinitions({
       features: [

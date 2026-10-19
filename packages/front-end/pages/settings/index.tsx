@@ -27,6 +27,7 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES, getProviderForAIModel } from "shared/ai";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
+import { FEATURE_KEY_REGEX } from "shared/validators";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -477,10 +478,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // Make sure the feature key example is valid
     if (
       transformedOrgSettings.featureKeyExample &&
-      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+      !transformedOrgSettings.featureKeyExample.match(FEATURE_KEY_REGEX)
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
+        "Feature key examples can only include letters, numbers, and the characters _-.:|",
       );
     }
 

@@ -3,7 +3,7 @@ import {
   getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
-import { postFeatureV2Validator } from "shared/validators";
+import { FEATURE_KEY_REGEX, postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -72,9 +72,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+    if (!req.body.id.match(FEATURE_KEY_REGEX)) {
       throw new Error(
-        "Feature keys can only include letters, numbers, hyphens, and underscores.",
+        "Feature keys can only include letters, numbers, and the characters _-.:|",
       );
     }
 

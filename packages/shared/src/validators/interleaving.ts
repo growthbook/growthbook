@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { baseSchema } from "./base-model";
-import { featureEnvironment, JSONSchemaDef } from "./features";
+import {
+  featureEnvironment,
+  FEATURE_KEY_REGEX,
+  JSONSchemaDef,
+} from "./features";
 import { ownerField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
@@ -80,7 +84,17 @@ export const interleavingValidator = baseSchema
     dateStarted: z.date().optional(),
     dateStopped: z.date().optional(),
 
-    // Experiment id in exposures (`experiment_id`) and the pseudo flag key.
+    // Code-facing key, like a feature key: customer code passes it to
+    // `interleave()` and the SDK payload's pseudo flag is `$interleave:<key>`.
+    key: z
+      .string()
+      .regex(
+        FEATURE_KEY_REGEX,
+        "Interleaving keys can only include letters, numbers, and the characters _-.:|",
+      ),
+    // Experiment id in exposures (`experiment_id`), used only for analysis.
+    // Like experiment tracking keys it may repeat (e.g. re-running a test);
+    // defaults to `key` on create.
     trackingKey: z.string(),
     // Per-user diversion into the interleaving (the draft itself is seeded
     // per impression by the SDK's ranking seed).

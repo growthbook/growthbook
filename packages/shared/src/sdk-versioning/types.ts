@@ -16,6 +16,7 @@ export type SDKCapability =
   | "caseInsensitiveMembership"
   | "namespacesV2"
   | "contextualBandits"
+  | "interleaving"
   | "trackingPlugin"
   | "savedGroupReferencesV2";
 

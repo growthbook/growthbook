@@ -245,6 +245,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
         },
+        interleavings: {
+          getAllPayloadInterleavings: jest.fn().mockResolvedValue([]),
+        },
         rampSchedules: {
           getPayloadRampMonitoredRuleMap: jest
             .fn()
@@ -295,6 +298,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        interleavings: {
+          getAllPayloadInterleavings: jest.fn().mockResolvedValue([]),
         },
         rampSchedules: {
           getPayloadRampMonitoredRuleMap: jest
@@ -710,6 +716,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
         },
+        interleavings: {
+          getAllPayloadInterleavings: jest.fn().mockResolvedValue([]),
+        },
         rampSchedules: {
           getPayloadRampMonitoredRuleMap: jest
             .fn()
@@ -831,6 +840,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
         },
+        interleavings: {
+          getAllPayloadInterleavings: jest.fn().mockResolvedValue([]),
+        },
         rampSchedules: {
           getPayloadRampMonitoredRuleMap: jest
             .fn()
@@ -894,6 +906,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        interleavings: {
+          getAllPayloadInterleavings: jest.fn().mockResolvedValue([]),
         },
         rampSchedules: {
           getPayloadRampMonitoredRuleMap: jest
