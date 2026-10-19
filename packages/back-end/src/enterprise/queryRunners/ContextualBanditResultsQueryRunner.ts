@@ -470,14 +470,28 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     result?: ContextualBanditQueryRunResult;
     error?: string;
   }): Promise<ContextualBanditSnapshotInterface> {
+    const decisionQuerySucceeded =
+      queries.find((q) => q.name === CONTEXTUAL_BANDIT_ROWS_QUERY_NAME)
+        ?.status === "succeeded";
+    const partialRunLostDecisionMetric =
+      status === "partially-succeeded" && !decisionQuerySucceeded;
+    const effectiveStatus: QueryStatus = partialRunLostDecisionMetric
+      ? "failed"
+      : status;
+    const resolvedError =
+      error ??
+      (partialRunLostDecisionMetric
+        ? "Contextual bandit decision-metric query failed; results were not published."
+        : undefined);
+
     const updates: UpdateProps<ContextualBanditSnapshotInterface> = {
       queries,
       ...(runStarted ? { runStarted } : {}),
-      ...(error !== undefined ? { error } : {}),
+      ...(resolvedError !== undefined ? { error: resolvedError } : {}),
       status:
-        status === "running"
+        effectiveStatus === "running"
           ? "running"
-          : status === "failed"
+          : effectiveStatus === "failed"
             ? "error"
             : "success",
     };
@@ -487,7 +501,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     // durable `contextualBanditEventId` link is persisted first.
     let pendingAnalysisSummary: ContextualBanditAnalysisSummary | undefined;
 
-    if (status === "succeeded" && result) {
+    // A `partially-succeeded` status here means the weights were updated but a health query failed.
+    if (
+      (effectiveStatus === "succeeded" ||
+        effectiveStatus === "partially-succeeded") &&
+      result
+    ) {
       const latest = await this.getLatestModel();
       if (!latest.contextualBanditEventId) {
         const cbe = await persistContextualBanditEvent(
