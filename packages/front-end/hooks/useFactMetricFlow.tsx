@@ -74,7 +74,7 @@ export default function useFactMetricFlow(
     useState<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const creation = (target: FactMetricCreationTarget) => {
+  const creation = (target: FactMetricCreationTarget = {}) => {
     const targetProject = target.project ?? project;
     const factTableId =
       target.factTable ??
@@ -308,9 +308,11 @@ export default function useFactMetricFlow(
             <Callout status="error">{error}</Callout>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="outline" onClick={close}>
-              Close
-            </Button>
+            <Modal.Close>
+              <Button variant="ghost" onClick={close}>
+                Close
+              </Button>
+            </Modal.Close>
           </Modal.Footer>
         </>
       ) : (
@@ -389,6 +391,7 @@ export default function useFactMetricFlow(
   );
 
   return {
+    creation,
     createButton,
     open,
     edit,

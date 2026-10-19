@@ -245,22 +245,24 @@ export default function TemplateFieldMapping({
       </Flex>
     </>
   );
-  const actions = (
-    <>
-      <Button variant="soft" color="gray" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button onClick={handleContinue} disabled={!canContinue}>
-        Continue
-      </Button>
-    </>
+  const continueButton = (
+    <Button onClick={handleContinue} disabled={!canContinue}>
+      Continue
+    </Button>
   );
 
   if (inModal) {
     return (
       <>
         <Modal.Body>{fields}</Modal.Body>
-        <Modal.Footer>{actions}</Modal.Footer>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          </Modal.Close>
+          {continueButton}
+        </Modal.Footer>
       </>
     );
   }
@@ -272,7 +274,10 @@ export default function TemplateFieldMapping({
       </Heading>
       {fields}
       <Flex gap="2" mt="3">
-        {actions}
+        <Button variant="soft" color="gray" onClick={onCancel}>
+          Cancel
+        </Button>
+        {continueButton}
       </Flex>
     </Frame>
   );
