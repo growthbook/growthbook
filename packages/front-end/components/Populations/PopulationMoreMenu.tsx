@@ -2,7 +2,7 @@ import { useState } from "react";
 import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { radixSize } from "@/ui/sizes";
 import {
   DropdownMenu,
@@ -16,10 +16,12 @@ export default function PopulationMoreMenu({
   population,
   onDuplicated,
   onDeleted,
+  onAuditLog,
 }: {
   population: ApiPopulation;
   onDuplicated: (copy: ApiPopulation) => Promise<unknown> | void;
   onDeleted: () => Promise<unknown> | void;
+  onAuditLog?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const restApiCall = useRestApiCall();
@@ -27,7 +29,7 @@ export default function PopulationMoreMenu({
 
   const canDuplicate = permissionsUtil.canCreatePopulation(population);
   const canDelete = permissionsUtil.canDeletePopulation(population);
-  if (!canDuplicate && !canDelete) return null;
+  if (!canDuplicate && !canDelete && !onAuditLog) return null;
 
   return (
     <DropdownMenu
@@ -42,12 +44,23 @@ export default function PopulationMoreMenu({
           highContrast
           aria-label="Population actions"
         >
-          <PiDotsThreeVertical size={18} />
+          <BsThreeDotsVertical size={16} />
         </IconButton>
       }
       menuPlacement="end"
       variant="soft"
     >
+      {onAuditLog && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpen(false);
+            onAuditLog();
+          }}
+        >
+          Audit log
+        </DropdownMenuItem>
+      )}
+      {onAuditLog && (canDuplicate || canDelete) && <DropdownMenuSeparator />}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
@@ -71,7 +84,6 @@ export default function PopulationMoreMenu({
           Duplicate
         </DropdownMenuItem>
       )}
-      {canDuplicate && canDelete && <DropdownMenuSeparator />}
       {canDelete && (
         <DropdownMenuItem
           color="red"
