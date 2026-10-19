@@ -540,6 +540,7 @@ describe("persistContextualBanditEvent", () => {
       snapshotId: cbs.id,
       attributes: result.attributes,
       responses: result.responses,
+      leaf_map: result.leaf_map,
       weightsWereUpdated: true,
       seed: "seed_existing",
       dateCreated: new Date(),
@@ -580,6 +581,99 @@ describe("persistContextualBanditEvent", () => {
       expect.objectContaining({ newSeed: "seed_existing", bumpVersion: true }),
     );
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalled();
+  });
+
+  it("serves the saved event's weights on resume, not the freshly re-run result's", async () => {
+    // The event persisted on a prior attempt, but the weight write failed, so the
+    // live CB still sits at the run's banditVersion. A resume re-runs analysis,
+    // which is non-deterministic for high-cardinality attributes (unseeded split
+    // search) and can produce different leaf conditions/weights. The served
+    // weights must match what the event recorded, not the divergent re-run.
+    const cb = makeCb({ stage: "exploit", banditVersion: 2 });
+    const cbs = makeCbs({ banditVersion: 2 });
+
+    // What the event recorded on the original attempt.
+    const eventResult = makeResult({
+      responses: [
+        {
+          context: { country: "US" },
+          leafId: 0,
+          updatedWeights: [0.3, 0.7],
+          updateMessage: "ok",
+        },
+      ],
+      leaf_map: [
+        {
+          leafId: 0,
+          context: [{ attribute: "country", levels: ["US"], operator: "in" }],
+        },
+      ],
+    });
+    // A fresh re-run yields different leaf conditions and weights.
+    const rerunResult = makeResult({
+      responses: [
+        {
+          context: { country: "CA" },
+          leafId: 0,
+          updatedWeights: [0.9, 0.1],
+          updateMessage: "ok",
+        },
+      ],
+      leaf_map: [
+        {
+          leafId: 0,
+          context: [{ attribute: "country", levels: ["CA"], operator: "in" }],
+        },
+      ],
+    });
+
+    const existingEvent = {
+      id: "cbe_existing",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: eventResult.attributes,
+      responses: eventResult.responses,
+      leaf_map: eventResult.leaf_map,
+      weightsWereUpdated: true,
+      seed: "seed_existing",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
+
+    const context = {
+      org: { id: "org_1" },
+      logger: { warn: jest.fn(), error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
+          update: jest.fn().mockResolvedValue(cb),
+        },
+        contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(existingEvent),
+          create: jest.fn(),
+        },
+      },
+    } as unknown as ReqContext;
+
+    await persistContextualBanditEvent(context, cbs, rerunResult);
+
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
+    const appliedWeights =
+      applyWeightEpochUpdateMock.mock.calls[0][1].currentLeafWeights;
+    // Weights match the event...
+    expect(appliedWeights).toEqual(
+      leafWeightsFromContextualBanditResult(eventResult, cb.variations),
+    );
+    expect(appliedWeights[0].condition).toEqual({ country: "US" });
+    // ...and NOT the divergent re-run result.
+    expect(appliedWeights).not.toEqual(
+      leafWeightsFromContextualBanditResult(rerunResult, cb.variations),
+    );
   });
 
   it("does not re-apply weights on resume once a prior attempt already applied them (version bumped), but still retries the payload refresh", async () => {

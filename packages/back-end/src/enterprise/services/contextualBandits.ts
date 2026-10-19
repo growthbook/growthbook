@@ -1778,7 +1778,7 @@ export async function cancelContextualBanditLatestRunningSnapshot(
  * skipped.
  */
 export function leafWeightsFromContextualBanditResult(
-  result: ContextualBanditResult,
+  result: Pick<ContextualBanditResult, "responses" | "leaf_map">,
   variations: { id: string }[],
 ): LeafWeight[] {
   const responses = result.responses ?? [];
@@ -1891,6 +1891,10 @@ export async function persistContextualBanditEvent(
   // today's cb.variations (which may have gained pending arms/tombstones).
   const engineVariations =
     cbs.frozenSettings?.variations ?? getActiveVariations(cb.variations);
+  // On a resume, serve the weights the event already recorded — never the
+  // freshly re-run `result`.
+  const weightsSource: Pick<ContextualBanditResult, "responses" | "leaf_map"> =
+    existingEvent ?? result;
   const weightsWereUpdated = existingEvent
     ? existingEvent.weightsWereUpdated
     : discardWeights
@@ -1902,7 +1906,7 @@ export async function persistContextualBanditEvent(
         );
   const leafWeights = discardWeights
     ? []
-    : leafWeightsFromContextualBanditResult(result, engineVariations);
+    : leafWeightsFromContextualBanditResult(weightsSource, engineVariations);
 
   // Generate a new random seed when weights are updated to re-bucket users each period;
   // on a resume, reuse the seed the event already recorded so the replay is consistent.
