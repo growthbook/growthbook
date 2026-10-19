@@ -588,15 +588,17 @@ export default function CloudUsage() {
           />
         </Box>
       )}
-      {totalEventForwarderEvents > 0 && (
+      {/* Metered orgs see the cap even before their first event */}
+      {(typeof limits.eventForwarderEvents === "number" ||
+        totalEventForwarderEvents > 0) && (
         <Box mt="5">
           <Heading as="h3" size="sm" mb="2">
             Event Forwarder Events
           </Heading>
-          {limits.eventForwarderEvents !== "unlimited" && (
+          {typeof limits.eventForwarderEvents === "number" && (
             <UsageMeter
               used={totalEventForwarderEvents}
-              limit={limits.eventForwarderEvents ?? 1_000_000}
+              limit={limits.eventForwarderEvents}
               noun="events"
               period={
                 monthsAgo === 0
@@ -605,24 +607,26 @@ export default function CloudUsage() {
               }
             />
           )}
-          <DailyGraph
-            data={usage.map((u) => ({
-              ts: new Date(u.date),
-              v: { [TOTAL_KEY]: u.eventForwarderEvents },
-            }))}
-            series={[
-              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
-            ]}
-            formatValue={(v) => requestsFormatter.format(v)}
-            formatTooltipValue={(v) => v.toLocaleString()}
-            start={startDate}
-            end={endDate}
-            limitLine={
-              limits.eventForwarderEvents === "unlimited"
-                ? null
-                : limits.eventForwarderEvents
-            }
-          />
+          {totalEventForwarderEvents > 0 && (
+            <DailyGraph
+              data={usage.map((u) => ({
+                ts: new Date(u.date),
+                v: { [TOTAL_KEY]: u.eventForwarderEvents },
+              }))}
+              series={[
+                { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+              ]}
+              formatValue={(v) => requestsFormatter.format(v)}
+              formatTooltipValue={(v) => v.toLocaleString()}
+              start={startDate}
+              end={endDate}
+              limitLine={
+                typeof limits.eventForwarderEvents === "number"
+                  ? limits.eventForwarderEvents
+                  : null
+              }
+            />
+          )}
         </Box>
       )}
       <Box mt="5">
@@ -658,7 +662,7 @@ export function UsageMeter({
   // "this month" or e.g. "in Sep 2026" for a past month
   period?: string;
 }) {
-  const pct = limit > 0 ? (used / limit) * 100 : 0;
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
   const color = pct >= 100 ? "red" : pct >= 80 ? "amber" : "violet";
   return (
     <Box mb="3">
@@ -666,15 +670,9 @@ export function UsageMeter({
         {requestsFormatter.format(used)} of {requestsFormatter.format(limit)}{" "}
         {noun} {period}
       </Text>
+      {/* Used share as a complete segment; ProgressBar's slate filler is the headroom */}
       <ProgressBar
-        segments={[
-          {
-            id: "usage",
-            weight: 100,
-            completion: Math.min(100, pct),
-            color,
-          },
-        ]}
+        segments={[{ id: "usage", weight: pct, completion: 100, color }]}
       />
     </Box>
   );

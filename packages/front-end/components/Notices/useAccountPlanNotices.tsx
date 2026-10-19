@@ -91,11 +91,16 @@ export default function useAccountPlanNotices(): AppNotice[] {
       title:
         forwarder === "over"
           ? "Event Forwarder event limit exceeded"
-          : "Approaching Event Forwarder event limit. Events stop forwarding once exceeded",
-      details: usageDetails(
-        "https://docs.growthbook.io/app/event-forwarder#usage-limits",
-        "Clicked Read About Event Forwarder Limits Link in Tooltip",
-        "Event Forwarder",
+          : "Approaching Event Forwarder event limit",
+      details: (
+        <>
+          Forwarding stops for the rest of the month once the limit is exceeded.{" "}
+          {usageDetails(
+            "https://docs.growthbook.io/app/event-forwarder#usage-limits",
+            "Clicked Read About Event Forwarder Limits Link in Tooltip",
+            "Event Forwarder",
+          )}
+        </>
       ),
       upgrade: {
         source:

@@ -674,7 +674,8 @@ export default function EventForwarder({
           eventForwarderConfig?.status === "schema_update_error" ||
           pollTimedOut ||
           !!primaryConnectorErrorMessage)));
-  const canToggle = canEdit && (isReady || isPaused);
+  // Pause/Resume can't lift a usage block, so hide them while blocked.
+  const canToggle = canEdit && (isReady || isPaused) && !isBlocked;
   const action = isReady ? "pause" : "resume";
   const databricksParams =
     dataSource.params as Partial<DatabricksConnectionParams>;
@@ -697,8 +698,16 @@ export default function EventForwarder({
                 <EventForwarderSetupIndicator />
               ) : (
                 <Badge
-                  label={statusLabels[eventForwarderConfig.status]}
-                  color={statusColors[eventForwarderConfig.status]}
+                  label={
+                    isBlocked
+                      ? "Limit reached"
+                      : statusLabels[eventForwarderConfig.status]
+                  }
+                  color={
+                    isBlocked
+                      ? "amber"
+                      : statusColors[eventForwarderConfig.status]
+                  }
                   variant="soft"
                 />
               )}
