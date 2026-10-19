@@ -77,6 +77,30 @@ export function getColumnMappingError(
   return null;
 }
 
+const normalizeColumnName = (name: string) =>
+  name.replace(/[^a-z]/gi, "").toLowerCase();
+
+// Ignores case and separators, so userId matches user_id
+export const findColumnByName = (columns: DetectedColumn[], name: string) =>
+  columns.find(
+    (c) => normalizeColumnName(c.column) === normalizeColumnName(name),
+  )?.column ?? "";
+
+export const haveSameColumnNames = (a: DetectedColumn[], b: DetectedColumn[]) =>
+  a.length === b.length && a.every((c, i) => c.column === b[i].column);
+
+// An identifier type whose column matches its own name resolves without a
+// mapping, so only remapped types are stored.
+export const getRemappedUserIdColumns = (
+  userIdTypes: string[],
+  userIdColumns: Record<string, string>,
+): Record<string, string> =>
+  Object.fromEntries(
+    userIdTypes
+      .filter((t) => userIdColumns[t] !== t)
+      .map((t) => [t, userIdColumns[t]]),
+  );
+
 const tableSuffixFilter = (prefix: string) =>
   `(_TABLE_SUFFIX BETWEEN '${prefix}{{date startDateISO "yyyyMMdd"}}' AND '${prefix}{{date endDateISO "yyyyMMdd"}}')`;
 

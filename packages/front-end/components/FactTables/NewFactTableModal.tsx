@@ -23,10 +23,7 @@ import {
   getInitialFactTableQuery,
 } from "@/services/datasources";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
-import {
-  findTableTemplate,
-  useSourceTable,
-} from "@/components/SchemaBrowser/useSourceTable";
+import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   ColumnKindBadge,
   validColumn,
@@ -37,11 +34,13 @@ import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  findColumnByName,
   GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultTimestampColumn,
   getNewFactTableProjects,
-  getPickerTableName,
+  getRemappedUserIdColumns,
+  haveSameColumnNames,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
@@ -59,9 +58,6 @@ import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
-
-const normalizeIdentifier = (name: string) =>
-  name.replace(/[^a-z]/gi, "").toLowerCase();
 
 const INLINE_FILTER_CANDIDATES = [
   "event_name",
@@ -366,19 +362,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
 
   const handleColumnsDetected = useCallback(
-    (columns: DetectedColumn[], ranSql: string | null) => {
+    (columns: DetectedColumn[], ranSql: string | null = null) => {
       setDetectedSql(ranSql);
       setDetected(columns);
 
       // Only re-detect when the SQL returns a different set of columns.
       // Better types for the same columns leave the configuration alone.
-      if (
-        detected &&
-        detected.length === columns.length &&
-        detected.every((c, i) => c.column === columns[i].column)
-      ) {
-        return;
-      }
+      if (detected && haveSameColumnNames(detected, columns)) return;
 
       const exists = (column: string) =>
         columns.some((c) => c.column === column);
@@ -397,11 +387,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           idTypes.flatMap((idType) => {
             const current = prev[idType];
             if (current && exists(current)) return [[idType, current]];
-            const match = columns.find(
-              (c) =>
-                normalizeIdentifier(c.column) === normalizeIdentifier(idType),
-            );
-            return match ? [[idType, match.column]] : [];
+            const match = findColumnByName(columns, idType);
+            return match ? [[idType, match]] : [];
           }),
         ),
       );
@@ -448,19 +435,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     templates: [GA4_EVENTS_TEMPLATE],
     selectColumns: (columnNames) => getColumnSelection(columnNames).sqlColumns,
     setSql,
-    onSelectTable: (table) => {
-      const previous = source.selectedTable;
-      if (
-        !name ||
-        (previous && name === getPickerTableName(previous, source.template))
-      ) {
-        setName(
-          getPickerTableName(
-            table,
-            findTableTemplate([GA4_EVENTS_TEMPLATE], table),
-          ),
-        );
-      }
+    onSelectTable: (tableName) => {
+      if (!name || name === source.tableName) setName(tableName);
       setRemovedColumns([]);
       // Otherwise the previous table's mappings carry over
       setDetected(null);
@@ -514,13 +490,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       throw new Error("Select at least one identifier column");
     }
 
-    // Only remapped types need to be stored; an identifier whose column matches
-    // its own name resolves without a mapping.
-    const remapped = Object.fromEntries(
-      userIdTypes
-        .filter((t) => userIdColumns[t] !== t)
-        .map((t) => [t, userIdColumns[t]]),
-    );
+    const remapped = getRemappedUserIdColumns(userIdTypes, userIdColumns);
 
     const columns =
       mode === "table" && sqlColumns.length

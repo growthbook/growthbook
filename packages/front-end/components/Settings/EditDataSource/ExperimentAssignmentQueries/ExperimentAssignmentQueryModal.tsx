@@ -16,16 +16,15 @@ import {
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
-import {
-  findTableTemplate,
-  useSourceTable,
-} from "@/components/SchemaBrowser/useSourceTable";
+import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import {
+  findColumnByName,
   getDefaultTimestampColumn,
-  getPickerTableName,
+  getRemappedUserIdColumns,
+  haveSameColumnNames,
   isDimensionCandidate,
   isIdentifierCandidate,
   isTimestampCandidate,
@@ -49,10 +48,6 @@ import Table, { TableBody } from "@/ui/Table";
 const BODY_HEIGHT = "calc(93vh - 200px)";
 const TEMPLATES = [GA4_EXPOSURE_TEMPLATE];
 
-const normalize = (name: string) => name.replace(/[^a-z]/gi, "").toLowerCase();
-
-// An EAQ must return experiment id, variation id, timestamp, and at least one
-// identifier column — so the query needs a date column plus a few others.
 function getExposureQueryColumnMappingError(
   columns: DetectedColumn[],
   fromTable = false,
@@ -175,7 +170,7 @@ export const ExperimentAssignmentQueryModal = ({
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
   const identifierTypes = useMemo(
-    () => (dataSource.settings?.userIdTypes || []).map((t) => t.userIdType),
+    () => (dataSource.settings.userIdTypes || []).map((t) => t.userIdType),
     [dataSource],
   );
   const canRunQueries = permissionsUtil.canRunTestQueries(dataSource);
@@ -219,42 +214,25 @@ export const ExperimentAssignmentQueryModal = ({
   const removesLegacyIdentifierType =
     !!exposureQuery?.userIdType &&
     removedIdentifierTypes.includes(exposureQuery.userIdType);
-  // Saved mappings whose column the SQL no longer returns.
   const missingRoleColumns = Object.entries(savedRoleColumns).filter(
     ([, column]) => !columns.some((c) => c.column === column),
   );
 
-  const removeIdentifier = (idType: string) =>
-    setUserIdColumns((prev) => {
-      const next = { ...prev };
-      delete next[idType];
-      return next;
-    });
-
   const handleColumnsDetected = useCallback(
-    (cols: DetectedColumn[], ranSql: string | null) => {
+    (cols: DetectedColumn[], ranSql: string | null = null) => {
       setDetectedSql(ranSql);
       setDetected(cols);
 
       // Same columns as before? Leave the user's mapping choices alone.
-      if (
-        detected &&
-        detected.length === cols.length &&
-        detected.every((c, i) => c.column === cols[i].column)
-      ) {
-        return;
-      }
+      if (detected && haveSameColumnNames(detected, cols)) return;
 
-      const byName = (target: string) =>
-        cols.find((c) => normalize(c.column) === normalize(target))?.column ||
-        "";
       const exists = (column: string) => cols.some((c) => c.column === column);
 
       setExperimentIdColumn((prev) =>
-        exists(prev) ? prev : byName("experiment_id"),
+        exists(prev) ? prev : findColumnByName(cols, "experiment_id"),
       );
       setVariationIdColumn((prev) =>
-        exists(prev) ? prev : byName("variation_id"),
+        exists(prev) ? prev : findColumnByName(cols, "variation_id"),
       );
       setTimestampColumn((prev) =>
         exists(prev) ? prev : getDefaultTimestampColumn(cols),
@@ -264,7 +242,7 @@ export const ExperimentAssignmentQueryModal = ({
           identifierTypes.flatMap((idType) => {
             const current = prev[idType];
             if (current && exists(current)) return [[idType, current]];
-            const match = byName(idType);
+            const match = findColumnByName(cols, idType);
             return match ? [[idType, match]] : [];
           }),
         ),
@@ -291,14 +269,8 @@ export const ExperimentAssignmentQueryModal = ({
       return columnNames.filter((c) => used.has(c));
     },
     setSql,
-    onSelectTable: (table) => {
-      const previous = source.selectedTable;
-      if (
-        !name ||
-        (previous && name === getPickerTableName(previous, source.template))
-      ) {
-        setName(getPickerTableName(table, findTableTemplate(TEMPLATES, table)));
-      }
+    onSelectTable: (tableName) => {
+      if (!name || name === source.tableName) setName(tableName);
       // Otherwise the previous table's mappings carry over
       setDetected(null);
       setExperimentIdColumn("");
@@ -389,18 +361,16 @@ export const ExperimentAssignmentQueryModal = ({
     if (!variationId) throw new Error("Select a variation id column");
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const userIdTypes = mappedUserIdTypes;
-    if (!userIdTypes.length) {
+    if (!mappedUserIdTypes.length) {
       throw new Error("Map at least one identifier column");
     }
 
-    // A physical column can't play two roles (e.g. experiment id and variation
-    // id) — that would make the generated SQL filter/group on the wrong thing.
+    // The generated SQL can't tell roles apart when they share a column
     const mappedColumns = [
       experimentId,
       variationId,
       timestamp,
-      ...userIdTypes.map((t) => userIdColumns[t]),
+      ...mappedUserIdTypes.map((t) => userIdColumns[t]),
     ];
     const duplicate = mappedColumns.find(
       (c, i) => mappedColumns.indexOf(c) !== i,
@@ -411,12 +381,9 @@ export const ExperimentAssignmentQueryModal = ({
       );
     }
 
-    // Only store mappings that differ from the canonical role name; anything
-    // named canonically resolves without a mapping.
-    const remappedUserIds = Object.fromEntries(
-      userIdTypes
-        .filter((t) => userIdColumns[t] !== t)
-        .map((t) => [t, userIdColumns[t]]),
+    const remappedUserIds = getRemappedUserIdColumns(
+      mappedUserIdTypes,
+      userIdColumns,
     );
 
     const savedColumns =
@@ -436,8 +403,8 @@ export const ExperimentAssignmentQueryModal = ({
       name,
       description,
       // The server keeps a saved query's legacy identifier as is
-      userIdType: exposureQuery?.userIdType || userIdTypes[0],
-      userIdTypes,
+      userIdType: exposureQuery?.userIdType || mappedUserIdTypes[0],
+      userIdTypes: mappedUserIdTypes,
       query: querySql,
       dimensions: dimensions.filter((d) =>
         dimensionOptions.some((o) => o.value === d),
@@ -600,7 +567,7 @@ export const ExperimentAssignmentQueryModal = ({
                 }
                 value={projects}
                 options={projectOptions}
-                onChange={(v) => setProjects(v)}
+                onChange={setProjects}
                 required={!canCoverAllProjects}
                 helpText={
                   canCoverAllProjects
@@ -683,7 +650,9 @@ export const ExperimentAssignmentQueryModal = ({
                       setValue={(v) =>
                         setUserIdColumns((prev) => ({ ...prev, [idType]: v }))
                       }
-                      onRemove={() => removeIdentifier(idType)}
+                      onRemove={() =>
+                        setUserIdColumns((prev) => omit(prev, idType))
+                      }
                     />
                   ))}
                 </TableBody>
@@ -714,7 +683,7 @@ export const ExperimentAssignmentQueryModal = ({
               placeholder="No dimensions"
               value={dimensions}
               options={dimensionOptions}
-              onChange={(v) => setDimensions(v)}
+              onChange={setDimensions}
               helpText="Columns to break experiment results down by."
             />
           </Flex>

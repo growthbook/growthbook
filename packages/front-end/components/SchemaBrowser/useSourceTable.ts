@@ -23,6 +23,7 @@ import {
   getDefaultPartitionColumn,
   getPartitionFormats,
   getPickerTableColumns,
+  getPickerTableName,
   getPickerTableSql,
   isPseudoColumn,
   SourceTableTemplate,
@@ -36,18 +37,10 @@ export type SourceMode = "table" | "sql";
 
 export type SourceTable = ReturnType<typeof useSourceTable>;
 
-export const findTableTemplate = (
-  templates: SourceTableTemplate[],
-  table: SchemaBrowserTable,
-) => templates.find((t) => t.matches(table)) ?? null;
-
-// Table mode builds the SQL from a picked table, its row filters and a
-// partition filter, reading columns from the information schema.
 export function useSourceTable({
   datasource,
   tableModeAvailable,
-  initialMode = "table",
-  templates = [],
+  templates,
   selectColumns,
   setSql,
   onSelectTable,
@@ -55,20 +48,19 @@ export function useSourceTable({
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   tableModeAvailable: boolean;
-  initialMode?: SourceMode;
-  templates?: SourceTableTemplate[];
+  templates: SourceTableTemplate[];
   // The columns to SELECT from the table's columns; empty selects every one
   selectColumns: (columnNames: string[]) => string[];
   // Switching to SQL mode seeds the editor with the generated SQL
   setSql: (sql: string) => void;
-  onSelectTable: (table: SchemaBrowserTable) => void;
-  onColumnsDetected: (columns: DetectedColumn[], sql: null) => void;
+  onSelectTable: (tableName: string) => void;
+  onColumnsDetected: (columns: DetectedColumn[]) => void;
 }) {
   const { apiCall } = useAuth();
   const datasourceId = datasource?.id ?? "";
   const datasourceType = datasource?.type;
 
-  const [preferredMode, setPreferredMode] = useState<SourceMode>(initialMode);
+  const [preferredMode, setPreferredMode] = useState<SourceMode>("table");
   const mode = tableModeAvailable ? preferredMode : "sql";
   const [selectedTable, setSelectedTable] = useState<SchemaBrowserTable | null>(
     null,
@@ -91,14 +83,17 @@ export function useSourceTable({
     setUnlistedColumns(null);
   }, [datasourceId]);
 
-  const template = selectedTable
-    ? findTableTemplate(templates, selectedTable)
+  const findTemplate = (table: SchemaBrowserTable) =>
+    templates.find((t) => t.matches(table)) ?? null;
+  const template = selectedTable ? findTemplate(selectedTable) : null;
+  const tableName = selectedTable
+    ? getPickerTableName(selectedTable, template)
     : null;
 
   const selectTable = (table: SchemaBrowserTable) => {
     // Unlisted tables share an empty id
     if (table.path === selectedTable?.path) return;
-    onSelectTable(table);
+    onSelectTable(getPickerTableName(table, findTemplate(table)));
     setSelectedTable(table);
     setUnlistedColumns(null);
     setRowFilters([]);
@@ -222,7 +217,7 @@ export function useSourceTable({
   );
   useEffect(() => {
     if (mode === "table" && pickerColumns) {
-      onColumnsDetected(pickerColumns, null);
+      onColumnsDetected(pickerColumns);
     }
   }, [mode, pickerColumns, onColumnsDetected]);
 
@@ -325,6 +320,7 @@ export function useSourceTable({
     selectedTable,
     selectTable,
     template,
+    tableName,
     tableColumnsError,
     loadingColumns,
     retryColumns,
