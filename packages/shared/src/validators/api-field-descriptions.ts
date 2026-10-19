@@ -27,6 +27,9 @@ export const EXPERIMENT_TRACKING_KEY_DESCRIPTION =
 export const EXPERIMENT_HYPOTHESIS_DESCRIPTION =
   "Markdown. If we change X, metric Y will move because Z.";
 
+export const BANDIT_TRACKING_KEY_DESCRIPTION =
+  "Key sent with exposure events. Keep it short, in kebab-case. Changing it after launch splits exposures across two keys.";
+
 export const VARIATION_KEY_DESCRIPTION =
   "Key sent with exposure events (e.g. `0`, `1`). Changing it after launch splits exposures.";
 
@@ -62,7 +65,7 @@ export const REQUEST_REVIEW_COMMENT_DESCRIPTION =
   "Markdown. What changed and why, for reviewers. Replaces the draft's comment; leaving it out clears it.";
 
 export const PUBLISH_COMMENT_DESCRIPTION =
-  "Note recorded in the audit log for this publish. Becomes the draft's comment only if the draft has none.";
+  "Note recorded in the audit log for this publish. Also becomes the draft's comment if the draft has none; otherwise the existing draft comment is kept.";
 
 export const REVERT_COMMENT_IGNORED_DESCRIPTION =
   "Currently ignored. Use `title` to describe the revert.";
@@ -77,7 +80,7 @@ export const ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION =
   "Limits which Projects can use this environment. Omit to keep the current list; send `[]` to allow all Projects.";
 
 export const REVIEW_COMMENT_DESCRIPTION =
-  'Markdown. Why you approved, requested changes or commented. A comment alone doesn\'t approve; send `action: "approve"` to approve.';
+  "Markdown. Why you approved, requested changes or commented.";
 
 export const REVIEW_ACTION_DESCRIPTION =
   "`approve`, `request-changes` or `comment`. Defaults to `comment`, which doesn't change whether the draft is approved.";

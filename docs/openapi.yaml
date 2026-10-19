@@ -14499,10 +14499,7 @@ paths:
               type: object
               properties:
                 comment:
-                  description: >-
-                    Markdown. Why you approved, requested changes or commented.
-                    A comment alone doesn't approve; send `action: "approve"` to
-                    approve.
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 action:
                   description: >-
@@ -15216,8 +15213,9 @@ paths:
               properties:
                 comment:
                   description: >-
-                    Note recorded in the audit log for this publish. Becomes the
-                    draft's comment only if the draft has none.
+                    Note recorded in the audit log for this publish. Also
+                    becomes the draft's comment if the draft has none; otherwise
+                    the existing draft comment is kept.
                   type: string
                 bypassApproval:
                   description: >-
@@ -23971,10 +23969,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: >-
-                    Markdown. Why you approved, requested changes or commented.
-                    A comment alone doesn't approve; send `action: "approve"` to
-                    approve.
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -25857,10 +25852,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: >-
-                    Markdown. Why you approved, requested changes or commented.
-                    A comment alone doesn't approve; send `action: "approve"` to
-                    approve.
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -29066,10 +29058,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
-                  description: >-
-                    Markdown. Why you approved, requested changes or commented.
-                    A comment alone doesn't approve; send `action: "approve"` to
-                    approve.
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -53295,11 +53284,8 @@ paths:
                     type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short, in kebab-case
-                    (usually the Feature Flag key). If your organization
-                    requires a tracking key format, a key that doesn't match is
-                    rejected with `invalid_tracking_key`. Changing it after
-                    launch splits exposures across two keys.
+                    Key sent with exposure events. Keep it short, in kebab-case.
+                    Changing it after launch splits exposures across two keys.
                   type: string
                 hashAttribute:
                   type: string
@@ -53455,11 +53441,8 @@ paths:
                     type: string
                 trackingKey:
                   description: >-
-                    Key sent with exposure events. Keep it short, in kebab-case
-                    (usually the Feature Flag key). If your organization
-                    requires a tracking key format, a key that doesn't match is
-                    rejected with `invalid_tracking_key`. Changing it after
-                    launch splits exposures across two keys.
+                    Key sent with exposure events. Keep it short, in kebab-case.
+                    Changing it after launch splits exposures across two keys.
                   type: string
                 hashAttribute:
                   type: string
