@@ -1,6 +1,7 @@
 import { DetectedColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
+  GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultPartitionColumn,
   getDefaultTimestampColumn,
@@ -128,13 +129,14 @@ describe("getPickerTableSql", () => {
     format: "",
   });
 
-  it("uses the GA4 query for a GA4 events export only", () => {
+  it("uses the GA4 template for a GA4 events export only", () => {
     const [events, users] = getSchemaBrowserTables(GA4, true);
-    expect(getPickerTableSql(events)).toContain(
+    expect(GA4_EVENTS_TEMPLATE.matches(events)).toBe(true);
+    expect(GA4_EVENTS_TEMPLATE.matches(users)).toBe(false);
+    expect(GA4_EVENTS_TEMPLATE.getSql(events, "")).toContain(
       "FROM\n  `proj.analytics_123.events_*`",
     );
-    expect(getPickerTableName(events)).toBe("GA4 Events");
-    expect(getPickerTableSql(users)).toMatch(/^SELECT \* FROM/);
+    expect(getPickerTableName(events, GA4_EVENTS_TEMPLATE)).toBe("GA4 Events");
   });
 
   it("adds only a lower bound on the partition column", () => {
@@ -214,10 +216,7 @@ describe("getPickerTableSql", () => {
 
   it("filters GA4's hand-written query but keeps its columns", () => {
     const [events] = getSchemaBrowserTables(GA4, true);
-    const sql = getPickerTableSql(events, {
-      columns: ["x"],
-      rowFilterWhere: "(x = 1)",
-    });
+    const sql = GA4_EVENTS_TEMPLATE.getSql(events, "(x = 1)");
     expect(sql).toMatch(/^SELECT\n {2}TIMESTAMP_MICROS/);
     expect(sql).toMatch(/_TABLE_SUFFIX .*\n {2}AND \(x = 1\)$/);
   });
@@ -298,21 +297,16 @@ describe("isPseudoColumn", () => {
 describe("getPickerTableColumns", () => {
   it("lists every column GA4's query returns, in order", () => {
     const [events] = getSchemaBrowserTables(GA4, true);
-    const selected = getPickerTableSql(events)
+    const selected = GA4_EVENTS_TEMPLATE.getSql(events, "")
       .split("\nFROM")[0]
       .split(",\n")
       .map((line) => line.trim().match(/(\w+)$/)?.[1]);
-    expect(getPickerTableColumns(events, []).map((c) => c.column)).toEqual(
-      selected,
-    );
+    expect(GA4_EVENTS_TEMPLATE.columns.map((c) => c.column)).toEqual(selected);
   });
 
   it("maps a plain table's information schema types", () => {
     expect(
-      getPickerTableColumns(tracks, [
-        col("ts", "TIMESTAMP"),
-        col("user_id", "STRING"),
-      ]),
+      getPickerTableColumns([col("ts", "TIMESTAMP"), col("user_id", "STRING")]),
     ).toEqual([
       { column: "ts", datatype: "date" },
       { column: "user_id", datatype: "string" },
@@ -321,7 +315,7 @@ describe("getPickerTableColumns", () => {
 
   it("rules a table out only on known types", () => {
     const error = (...columns: ReturnType<typeof col>[]) =>
-      getColumnMappingError(getPickerTableColumns(tracks, columns), true);
+      getColumnMappingError(getPickerTableColumns(columns), true);
     expect(error(col("user_id", "STRING"), col("amount", "NUMERIC"))).toBe(
       "Selected table does not have a timestamp column.",
     );

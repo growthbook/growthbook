@@ -77,7 +77,7 @@ export function getColumnMappingError(
 const tableSuffixFilter = (prefix: string) =>
   `(_TABLE_SUFFIX BETWEEN '${prefix}{{date startDateISO "yyyyMMdd"}}' AND '${prefix}{{date endDateISO "yyyyMMdd"}}')`;
 
-const shardFilter = (hasIntraday?: boolean) =>
+export const shardFilter = (hasIntraday?: boolean) =>
   hasIntraday
     ? `(${tableSuffixFilter("")} OR ${tableSuffixFilter("intraday_")})`
     : tableSuffixFilter("");
@@ -109,6 +109,16 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   table.tableName === "events_*" &&
   table.schemaName.startsWith("analytics_");
 
+// A table that gets a hand-written query instead of a generated SELECT
+export type SourceTableTemplate = {
+  matches: (table: SchemaBrowserTable) => boolean;
+  name: string;
+  // The information schema only knows the raw table's columns
+  columns: DetectedColumn[];
+  // Row filters read the raw table's columns
+  getSql: (table: SchemaBrowserTable, rowFilterWhere: string) => string;
+};
+
 // Output of getGA4EventsSql, typed by the GA4 export schema
 const GA4_EVENTS_COLUMNS: DetectedColumn[] = [
   { column: "timestamp", datatype: "date" },
@@ -137,17 +147,21 @@ const BIGQUERY_RESERVED_PREFIX =
 export const isPseudoColumn = (c: Column, datasourceType?: DataSourceType) =>
   datasourceType === "bigquery" && BIGQUERY_RESERVED_PREFIX.test(c.columnName);
 
-export function getPickerTableColumns(
-  table: SchemaBrowserTable,
-  columns: Column[],
-): DetectedColumn[] {
-  return isGA4EventsTable(table)
-    ? GA4_EVENTS_COLUMNS
-    : columns.map((c) => ({
-        column: c.columnName,
-        datatype: mapDatabaseTypeToEnum(c.dataType),
-      }));
-}
+export const GA4_EVENTS_TEMPLATE: SourceTableTemplate = {
+  matches: isGA4EventsTable,
+  name: "GA4 Events",
+  columns: GA4_EVENTS_COLUMNS,
+  getSql: (table, rowFilterWhere) => {
+    const sql = getGA4EventsSql(table.path);
+    return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
+  },
+};
+
+export const getPickerTableColumns = (columns: Column[]): DetectedColumn[] =>
+  columns.map((c) => ({
+    column: c.columnName,
+    datatype: mapDatabaseTypeToEnum(c.dataType),
+  }));
 
 // String partitions (Hive-style `dt`) can be any format, so only a partitioned
 // timestamp is picked by default. BigQuery's _PARTITIONTIME holds the start of
@@ -229,12 +243,6 @@ export function getPickerTableSql(
     rowFilterWhere?: string;
   } = {},
 ): string {
-  // GA4 picks its own columns; row filters read the raw export columns
-  if (isGA4EventsTable(table)) {
-    const sql = getGA4EventsSql(table.path);
-    return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
-  }
-
   const quote = (c: string) =>
     SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
 
@@ -269,8 +277,7 @@ export function getDefaultTimestampColumn(columns: DetectedColumn[]): string {
   return (preferred ?? dates[0])?.column ?? "";
 }
 
-export function getPickerTableName(table: SchemaBrowserTable): string {
-  return isGA4EventsTable(table)
-    ? "GA4 Events"
-    : table.tableName.replace(/_?\*$/, "");
-}
+export const getPickerTableName = (
+  table: SchemaBrowserTable,
+  template: SourceTableTemplate | null,
+) => template?.name ?? table.tableName.replace(/_?\*$/, "");

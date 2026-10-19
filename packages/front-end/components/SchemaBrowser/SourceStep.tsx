@@ -1,5 +1,6 @@
 import {
   MutableRefObject,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -19,21 +20,15 @@ import {
 } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
-import {
-  DetectedColumn,
-  RowFilter,
-  RowFilterTestResults,
-} from "shared/types/fact-table";
+import { DetectedColumn } from "shared/types/fact-table";
 import {
   isManagedWarehouseUnavailable,
-  isProjectListValidForProject,
   parseIntWithDefault,
 } from "shared/util";
 import type { TestQueryType } from "shared/types/query";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import { getColumnMappingError } from "@/services/factTables";
 import {
   getSchemaBrowserTables,
   getUnlistedTable,
@@ -53,13 +48,14 @@ import {
 import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import { RowFilterEditorRows } from "@/components/FactTables/RowFilterFields";
 import { RowFilterSampleRowsModal } from "@/components/FactTables/SampleRowsModal";
-import {
-  FilterColumnSource,
-  isRowFilterComplete,
-} from "@/components/FactTables/rowFilterUtils";
+import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
+import {
+  SAMPLE_ROW_LIMIT,
+  SourceTable,
+} from "@/components/SchemaBrowser/useSourceTable";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
@@ -67,12 +63,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
-
-export const SAMPLE_ROW_LIMIT = 20;
-
-export type FactTableSqlMode = "table" | "sql";
 
 const panelBorder = {
   border: "1px solid var(--gray-a3)",
@@ -298,55 +289,54 @@ type TestQueryResults = {
   columns?: DetectedColumn[];
 };
 
-export default function NewFactTableSqlStep({
+export default function SourceStep({
   datasourceId,
-  setDatasourceId,
+  datasourceHeader,
   sql,
   setSql,
   detected,
   hasFreshResults,
   onColumnsDetected,
   validateRef,
-  mode,
-  setMode,
-  selectedTable,
-  onSelectTable,
-  tableColumnsError,
-  loadingColumns,
-  retryColumns,
-  refreshColumns,
   columnError,
-  rowFilters,
-  setRowFilters,
-  columnSource,
-  testRowFilters,
-  rowFilterError,
+  getColumnMappingError,
+  queryType,
+  placeholder,
+  source,
 }: {
   datasourceId: string;
-  setDatasourceId: (id: string) => void;
+  // Shown above the table picker or the SQL editor, e.g. a Data Source picker
+  datasourceHeader?: ReactNode;
   sql: string;
   setSql: (sql: string) => void;
   detected: DetectedColumn[] | null;
   hasFreshResults: boolean;
   onColumnsDetected: (columns: DetectedColumn[], sql: string) => void;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
-  mode: FactTableSqlMode;
-  setMode: (mode: FactTableSqlMode) => void;
-  selectedTable: SchemaBrowserTable | null;
-  onSelectTable: (table: SchemaBrowserTable) => void;
-  tableColumnsError: string | null;
-  loadingColumns: boolean;
-  retryColumns: () => void;
-  refreshColumns: () => Promise<void>;
   columnError: string | null;
-  rowFilters: RowFilter[];
-  setRowFilters: (rowFilters: RowFilter[]) => void;
-  columnSource: FilterColumnSource | null;
-  testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
-  rowFilterError: string | null;
+  // Whether the detected columns are enough for the object being created
+  getColumnMappingError: (columns: DetectedColumn[]) => string | null;
+  queryType: TestQueryType;
+  placeholder: string;
+  source: SourceTable;
 }) {
   const { apiCall } = useAuth();
-  const { getDatasourceById, datasources, project } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
+  const {
+    mode,
+    setMode,
+    selectedTable,
+    selectTable,
+    tableColumnsError,
+    loadingColumns,
+    retryColumns,
+    refreshColumns,
+    rowFilters,
+    setRowFilters,
+    columnSource,
+    testRowFilters,
+    rowFilterError,
+  } = source;
   const permissionsUtil = usePermissionsUtil();
 
   const [testQueryResults, setTestQueryResults] =
@@ -372,10 +362,6 @@ export default function NewFactTableSqlStep({
     datasource?.properties?.supportsInformationSchema;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
-  const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
-
   const runQuery = useCallback(
     async (limit: number): Promise<TestQueryResults> => {
       setTestingQuery(true);
@@ -388,7 +374,7 @@ export default function NewFactTableSqlStep({
             datasourceId,
             limit,
             detectColumns: true,
-            queryType: "factTableTest" satisfies TestQueryType,
+            queryType,
           }),
         });
         const results = { ...res, error: res.error || "" };
@@ -407,7 +393,7 @@ export default function NewFactTableSqlStep({
         setTestingQuery(false);
       }
     },
-    [apiCall, datasourceId, sql, onColumnsDetected],
+    [apiCall, datasourceId, sql, onColumnsDetected, queryType],
   );
 
   useEffect(() => {
@@ -425,7 +411,14 @@ export default function NewFactTableSqlStep({
     return () => {
       validateRef.current = null;
     };
-  }, [validateRef, hasFreshResults, columnError, runQuery, mode]);
+  }, [
+    validateRef,
+    hasFreshResults,
+    columnError,
+    runQuery,
+    mode,
+    getColumnMappingError,
+  ]);
 
   const sqlEditor = (
     <AreaWithHeader
@@ -504,7 +497,7 @@ export default function NewFactTableSqlStep({
             if (formatError) setFormatError(null);
             setSql(v);
           }}
-          placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
+          placeholder={placeholder}
           fullHeight
           setCursorData={setCursorData}
           onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}
@@ -513,22 +506,6 @@ export default function NewFactTableSqlStep({
         />
       </Box>
     </AreaWithHeader>
-  );
-
-  const datasourceSelect = (
-    <Select
-      aria-label="Data Source"
-      value={datasourceId}
-      setValue={setDatasourceId}
-      placeholder="Select..."
-      mb="0"
-    >
-      {validDatasources.map((d) => (
-        <SelectItem key={d.id} value={d.id}>
-          {d.name}
-        </SelectItem>
-      ))}
-    </Select>
   );
 
   const resultsTable = testQueryResults ? (
@@ -579,12 +556,12 @@ export default function NewFactTableSqlStep({
         >
           Need joins or complex logic?
         </Callout>
-        {datasourceSelect}
+        {datasourceHeader}
         <TablePicker
           key={datasource.id}
           datasource={datasource}
           selectedTable={selectedTable}
-          onSelectTable={onSelectTable}
+          onSelectTable={selectTable}
           refreshColumns={refreshColumns}
         />
         {tableColumnsError ? (
@@ -661,7 +638,7 @@ export default function NewFactTableSqlStep({
 
   return (
     <Flex direction="column" gap="2" height="100%">
-      <Box width="320px">{datasourceSelect}</Box>
+      {datasourceHeader ? <Box width="320px">{datasourceHeader}</Box> : null}
       <Box flexGrow="1" style={{ minHeight: 0 }}>
         <PanelGroup direction="horizontal">
           <Panel defaultSize={70}>
