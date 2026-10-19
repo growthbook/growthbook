@@ -1,5 +1,6 @@
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { postVisualChangesetsValidator } from "shared/validators";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -32,7 +33,7 @@ export const postVisualChangesets = createApiRequestHandler(
   );
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(req.context, experiment),
     urlPatterns,
     editorUrl: req.body.editorUrl,
     context: req.context,

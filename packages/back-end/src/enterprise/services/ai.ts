@@ -28,7 +28,6 @@ import {
   AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
-  getMaxOutputTokens,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
@@ -410,6 +409,8 @@ export const simpleCompletion = async ({
   returnType = "text",
   jsonSchema,
   overrideModel,
+  resolvedModel,
+  maxOutputTokens,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -420,13 +421,22 @@ export const simpleCompletion = async ({
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: AIModel;
+  /**
+   * A model getAISettingsForOrg already resolved. Skips the override
+   * entitlement check, which would drop a managed model on Cloud.
+   */
+  resolvedModel?: AIModel;
+  /** Hard stop on the reply; latency-sensitive callers keep it small. */
+  maxOutputTokens?: number;
 }) => {
   const { defaultAIModel, keySource } = await getAISettingsForOrg(
     context,
     true,
   );
 
-  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const model =
+    resolvedModel ??
+    resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -450,6 +460,7 @@ export const simpleCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
+    ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
   };
 
   let numTokensUsed: number | undefined;
@@ -625,7 +636,7 @@ export const streamingChatCompletion = async ({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     messages: [systemMessage, ...messages],
     ...getProviderOptions(model),
-    maxOutputTokens: getMaxOutputTokens(model),
+    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),

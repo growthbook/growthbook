@@ -18,13 +18,16 @@ import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getInitialFactTableQuery, validateSQL } from "@/services/datasources";
+import {
+  getInitialFactTableQuery,
+  validateSQL,
+  getNewExperimentDatasourceDefaults,
+} from "@/services/datasources";
 import { getNewFactTableProjects } from "@/services/factTables";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
