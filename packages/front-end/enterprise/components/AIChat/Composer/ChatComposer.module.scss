@@ -107,7 +107,9 @@
 .compactWrapperSeamless {
   border-top: none;
   background: transparent;
-  padding: 10px 24px 32px;
+  // Nothing above the message box (set in review; was 10px, tried 8px
+  // and 4px).
+  padding: 0 24px 32px;
 }
 
 // And the message box lifted a little off its container (set in review):
@@ -118,6 +120,10 @@
 // focused, in place of the violet border and ring (still a clear change
 // from its resting border, so focus stays visible). Off for reduced motion.
 .compactWrapperSeamless .compactBox {
+  // White, as the design system's text areas (set in review): it was the
+  // page's background, the existing pages' light purple with "Interim
+  // colors" on.
+  background: var(--color-panel-solid);
   box-shadow:
     0 0 3px var(--slate-a2),
     0 1px 2px var(--slate-a2),

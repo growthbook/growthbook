@@ -84,7 +84,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
   // Clear of the docked GrowthBot rail, moving with it (PROTOTYPE, set in
   // review).
   right: var(--agent-rail-width, 0px);
-  transition: right 200ms ease;
+  transition: right 150ms cubic-bezier(0.22, 1, 0.36, 1);
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }

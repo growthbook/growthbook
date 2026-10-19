@@ -3,6 +3,7 @@ import { SidebarLinkProps } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import AppRail from "./AppRail";
+import MockLiveChat from "./MockLiveChat";
 import PrototypeControls from "./PrototypeControls";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
@@ -92,6 +93,9 @@ const Layout = (): React.ReactElement => {
       <AppRail />
       {/* PROTOTYPE ONLY: prototype settings, lower right (set in review). */}
       <PrototypeControls />
+      {/* PROTOTYPE ONLY: a mock of live chat, with "Show live chat" on
+        (set in review). */}
+      <MockLiveChat />
 
       <TopNav
         pageTitle={pageTitle}

@@ -27,6 +27,8 @@ const MULTI_ORG_KEY = "gb-prototype-multiple-orgs";
 const EXISTING_COLORS_KEY = "gb-prototype-existing-page-colors";
 const INTERIM_SETTINGS_KEY = "gb-prototype-interim-settings";
 const DOCKED_GROWTHBOT_KEY = "gb-prototype-docked-growthbot";
+const SHOW_LIVE_CHAT_KEY = "gb-prototype-show-live-chat";
+const LIVE_CHAT_IN_HELP_KEY = "gb-prototype-live-chat-in-help";
 const COLLAPSED_KEY = "gb-prototype-panel-collapsed";
 // v2: right and bottom (was left and top).
 const POSITION_KEY = "gb-prototype-panel-position-v2";
@@ -85,19 +87,36 @@ export function usePrototypeExistingPageColors(): boolean {
 
 // "Interim settings menu": until Settings is redesigned as its own page
 // with its own navigation, the side nav's Settings opens a menu of today's
-// settings pages, SDK Configuration's included (AppRail.tsx), and /settings
-// is today's General settings. Off: the redesign (a single Settings link,
-// /settings a placeholder).
+// settings pages (AppRail.tsx; SDK Configuration is a main section), and
+// /settings is today's General settings. Off: the redesign (a single
+// Settings link, /settings a placeholder).
 export function usePrototypeInterimSettings(): boolean {
   return useSetting(INTERIM_SETTINGS_KEY);
 }
 
 // "Docked GrowthBot" (set in review): the GrowthBot drawer as part of the
-// page's chrome, a right rail below the header (set in review; tried full
-// height) that the page makes room for, instead of floating over it (AgentPanel.tsx). Expanded, it fills the
+// page's chrome, a full-height right rail (set in review; tried below the
+// header) that the page makes room for, instead of floating over it (AgentPanel.tsx). Expanded, it fills the
 // page area (focus mode). Off: as before.
 export function usePrototypeDockedGrowthBot(): boolean {
   return useSetting(DOCKED_GROWTHBOT_KEY);
+}
+
+// "Show live chat" (set in review): a mock of the live chat (Pylon), its
+// bubble in the lower-right corner opening a mock chat window
+// (MockLiveChat.tsx). Mock only: Pylon isn't loaded.
+export function usePrototypeShowLiveChat(): boolean {
+  return useSetting(SHOW_LIVE_CHAT_KEY);
+}
+
+// "Live chat in Help menu" (set in review), with Show live chat on: no
+// bubble; the side nav's Help menu opens the mock chat instead, with a fake
+// unread badge on Help (HelpMenu.tsx). Off, or without Show live chat: as
+// before.
+export function usePrototypeLiveChatInHelp(): boolean {
+  const show = useSetting(SHOW_LIVE_CHAT_KEY);
+  const inHelp = useSetting(LIVE_CHAT_IN_HELP_KEY);
+  return show && inHelp;
 }
 
 function Toggle({
@@ -240,6 +259,8 @@ export default function PrototypeControls() {
   const existingColors = usePrototypeExistingPageColors();
   const interimSettings = usePrototypeInterimSettings();
   const dockedGrowthBot = usePrototypeDockedGrowthBot();
+  const showLiveChat = usePrototypeShowLiveChat();
+  const liveChatInHelpSetting = useSetting(LIVE_CHAT_IN_HELP_KEY);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -406,11 +427,29 @@ export default function PrototypeControls() {
           />
           <Toggle
             label="Docked GrowthBot"
-            info="Shows the GrowthBot drawer as a right rail below the header, with the page making room for it, instead of floating over the page. Expanding it fills the page area. On smaller screens it still floats."
+            info="Shows the GrowthBot drawer as a full-height right rail, with the page making room for it and the GrowthBot button at its top, instead of floating over the page. Expanding it fills the page area. On smaller screens it still floats."
             checked={dockedGrowthBot}
             onChange={(v) => writeSetting(DOCKED_GROWTHBOT_KEY, v)}
           />
         </div>
+        {/* Live chat's two settings together, as GrowthBot's (set in
+          review). */}
+        <fieldset className={styles.group}>
+          <legend className={styles.groupTitle}>Live chat</legend>
+          <Toggle
+            label="Show live chat"
+            info="Shows a mock of the live chat (Pylon): a chat bubble in the lower-right corner that opens a mock chat window. Nothing is sent anywhere."
+            checked={showLiveChat}
+            onChange={(v) => writeSetting(SHOW_LIVE_CHAT_KEY, v)}
+          />
+          <Toggle
+            label="In Help menu"
+            info="With Show live chat on: no bubble; live chat is in the side nav's Help menu instead, with a mock unread badge on Help."
+            checked={liveChatInHelpSetting}
+            disabled={!showLiveChat}
+            onChange={(v) => writeSetting(LIVE_CHAT_IN_HELP_KEY, v)}
+          />
+        </fieldset>
         {isPrototype() ? <GrowthBotControls /> : null}
       </div>
     </div>

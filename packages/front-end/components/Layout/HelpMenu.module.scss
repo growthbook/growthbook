@@ -1,0 +1,22 @@
+// PROTOTYPE (set in review): the mock live chat's unread badge on Help in
+// the side nav (HelpMenu.tsx). Expanded, the profile menu's red count pill
+// (ProfileMenu.module.scss's .countBadge) at the row's end; collapsed, an
+// 8px red dot on the icon's top right, ringed in the rail's colour so it
+// reads against the icon, as GrowthBot's limit dot.
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  background: var(--red-9);
+  border: 1.5px solid var(--rail-bg, var(--color-panel-solid));
+}

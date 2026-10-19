@@ -16,6 +16,7 @@ import {
   PiArrowCircleUp,
   PiCaretRightBold,
   PiChartLine,
+  PiCode,
   PiDatabase,
   PiFlagPennant,
   PiFlask,
@@ -34,10 +35,14 @@ import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
+import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
-import { usePrototypeInterimSettings } from "./PrototypeControls";
+import {
+  usePrototypeDockedGrowthBot,
+  usePrototypeInterimSettings,
+} from "./PrototypeControls";
 import GrowthBookLogo from "./GrowthBookLogo";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
@@ -58,9 +63,10 @@ import styles from "./AppRail.module.scss";
 //
 // Sections and their pages come from sidebarNav.ts (unchanged, so permission
 // and feature-flag filters, beta flags and the ⌘K palette stay in sync), less
-// Home (the logo links home), SDK Configuration and Settings: Settings is a
-// single link (its pages, SDK Configuration's included, are reached from the
-// Settings page while Settings is redesigned as one page).
+// Home (the logo links home) and Settings: Settings is a single link (its
+// pages are reached from the Settings page while Settings is redesigned as
+// one page). SDK Configuration is a main section (set in review; its pages
+// were reached from Settings too).
 
 // Search's magnifying glass, thickened (opticalWeight.tsx; set in review).
 const SearchIcon = withOpticalWeight(PiMagnifyingGlass);
@@ -98,10 +104,13 @@ const SECTION_ICONS: Record<string, IconType> = {
   "Product Analytics": withOpticalWeight(PiChartLine),
   "Metrics and Data": PiDatabase,
   Insights: LightbulbNoHighlight,
+  // A main section below Insights (set in review; was in the Settings
+  // menu), with its pages as today; the code icon, as today's sidebar's,
+  // thickened as the others (set in review).
+  "SDK Configuration": withOpticalWeight(PiCode),
 };
 const RAIL_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
 const SETTINGS_LINK = navlinks.find((l) => l.name === "Settings");
-const SDK_LINK = navlinks.find((l) => l.name === "SDK Configuration");
 
 const COLLAPSED_CLASS = "app-rail-collapsed";
 // The rail's width transition (AppRail.module.scss's .rail).
@@ -130,9 +139,9 @@ const isMac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-// The rail's collapsed state, per user, in localStorage. Also puts
-// .app-rail-collapsed on <html>, which sets --app-rail-width (global.scss)
-// for everything laid out beside the rail.
+// The rail's collapsed state, per user, in localStorage. AppRail puts
+// .app-rail-collapsed on <html> from it, which sets --app-rail-width
+// (global.scss) for everything laid out beside the rail.
 function useRailCollapsed(): [boolean, () => void] {
   const { userId } = useUser();
   const key = userId ? `gb-app-rail-collapsed:${userId}` : null;
@@ -149,13 +158,8 @@ function useRailCollapsed(): [boolean, () => void] {
     setCollapsed(saved);
   }, [key]);
 
-  useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.toggle(COLLAPSED_CLASS, collapsed);
-  }, [collapsed]);
-  useEffect(
-    () => () => document.documentElement.classList.remove(COLLAPSED_CLASS),
-    [],
-  );
+  // (.app-rail-collapsed is set by AppRail, from this and the docked
+  // GrowthBot rail's temporary collapse.)
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -214,13 +218,11 @@ function permittedSections(filterProps: SidebarLinkFilterProps): Section[] {
 // PROTOTYPE: the interim Settings menu (PrototypeControls.tsx's "Interim
 // settings menu"; set in review). Until Settings is redesigned as its own
 // page with its own navigation, Settings is a section like the others, its
-// menu holding every page today's Settings and SDK Configuration have (the
-// same permission and feature filters). Four columns, a group each (set
-// in review; tried two, Settings and SDK Configuration, about 650px tall,
-// and three, with Customization and Integrations stacked): SDK
-// Configuration as it is today, then today's Settings pages sorted into
-// Organization, Integrations and Customization. A Settings page not listed
-// here goes under Organization.
+// menu holding every page today's Settings has (the same permission and
+// feature filters), in three columns, a group each: Organization,
+// Integrations and Customization. A Settings page not listed here goes
+// under Organization. (Set in review: tried two columns and three; then
+// four, with SDK Configuration first, until it became a main section.)
 const INTERIM_SETTINGS_GROUPS: { name: string; pages: string[] }[] = [
   {
     name: "Organization",
@@ -281,16 +283,13 @@ function interimSettingsSection(
     }
     return { name, pages };
   };
-  const sdk: PageGroup = {
-    name: SDK_LINK?.name ?? "SDK Configuration",
-    pages: permittedPages(SDK_LINK, filterProps),
-  };
   const organization = group(0);
   const customization = group(1);
   const integrations = group(2);
-  // Most used on the left (set in review; SDK Configuration was last):
-  // SDK Configuration, Organization, Integrations, then Customization.
-  const columns = [[sdk], [organization], [integrations], [customization]]
+  // Most used on the left (set in review): Organization, Integrations, then
+  // Customization. (SDK Configuration was the first column, until it moved
+  // to a main section; set in review.)
+  const columns = [[organization], [integrations], [customization]]
     .map((column) => column.filter((g) => g.pages.length))
     .filter((column) => column.length);
   if (!columns.length) return null;
@@ -299,9 +298,7 @@ function interimSettingsSection(
     Icon: SettingsIcon,
     // Organization's first, so a click on Settings still goes to General,
     // not SDK Connections (set in review).
-    pages: [organization, integrations, customization, sdk].flatMap(
-      (g) => g.pages,
-    ),
+    pages: [organization, integrations, customization].flatMap((g) => g.pages),
     columns,
   };
 }
@@ -800,7 +797,35 @@ export default function AppRail() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+  // Whether the next change of collapsed state animates (below).
+  const userToggled = useRef(false);
+  // PROTOTYPE ("Docked GrowthBot", set in review): opening the docked
+  // GrowthBot rail collapses the side nav, if it's expanded, to leave the
+  // page room, as a click on its toggle would (animated, and saved), and
+  // it stays collapsed when the rail closes (set in review; it was only
+  // while the rail was open, then expanded again).
+  const { open: agentOpen } = useAgentPanel();
+  const dockedGrowthBot = usePrototypeDockedGrowthBot();
+  const dockedOpen = dockedGrowthBot && agentOpen && !isNarrow;
+  const wasDockedOpen = useRef(dockedOpen);
+  useEffect(() => {
+    if (wasDockedOpen.current === dockedOpen) return;
+    wasDockedOpen.current = dockedOpen;
+    if (dockedOpen && !collapsedPref) {
+      userToggled.current = true;
+      toggleCollapsed();
+    }
+  }, [dockedOpen, collapsedPref, toggleCollapsed]);
   const collapsed = collapsedPref && !isNarrow;
+  // On <html>, for the rail's width and everything laid out beside it
+  // (--app-rail-width). Below 1180px the CSS keeps it expanded.
+  useIsomorphicLayoutEffect(() => {
+    document.documentElement.classList.toggle(COLLAPSED_CLASS, collapsedPref);
+  }, [collapsedPref]);
+  useEffect(
+    () => () => document.documentElement.classList.remove(COLLAPSED_CLASS),
+    [],
+  );
   // A touch screen, with no hover (set in review): menus open on a tap.
   const [noHover, setNoHover] = useState(false);
   useEffect(() => {
@@ -817,7 +842,6 @@ export default function AppRail() {
   // collapsing looked abrupt beside expanding, where the widening rail
   // reveals them). Expanding, and on load, it follows at once; instant for
   // reduced motion.
-  const userToggled = useRef(false);
   const toggleAnimated = () => {
     userToggled.current = true;
     toggleCollapsed();
@@ -883,9 +907,9 @@ export default function AppRail() {
     (link.subLinks || []).some((l) => l.path.test(route));
   const activeSection =
     sections.find((s) => isActive(s.link))?.link.name ?? null;
-  const settingsActive =
-    (!!SETTINGS_LINK && isActive(SETTINGS_LINK)) ||
-    (!!SDK_LINK && isActive(SDK_LINK));
+  // (SDK Configuration's pages no longer count as Settings: it's its own
+  // section; set in review.)
+  const settingsActive = !!SETTINGS_LINK && isActive(SETTINGS_LINK);
 
   // Expanded: every section starts closed, and each time the rail expands;
   // the user opens the one they want (set in review; the current page's

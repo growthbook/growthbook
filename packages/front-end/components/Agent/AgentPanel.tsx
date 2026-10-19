@@ -104,13 +104,17 @@ function resolveAgentPanelInternalHref(href: string): string | null {
   return resolveAgentInternalHref(href, currentOrigin);
 }
 
+// The first two shortened (set in review; were "Help me understand and
+// analyze my product metrics" and "Show me how my recently started
+// experiments are going"), so each fits on one line in the docked rail,
+// all four starting "Help me".
 const STARTER_PROMPTS = [
   {
-    prompt: "Help me understand and analyze my product metrics",
+    prompt: "Help me analyze my product metrics",
     Icon: PiChartLine,
   },
   {
-    prompt: "Show me how my recently started experiments are going",
+    prompt: "Help me check on my recent experiments",
     Icon: PiChartLineUp,
   },
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
@@ -216,10 +220,12 @@ const PANEL_SLIDE_MS = 200;
 // PROTOTYPE ("Docked GrowthBot", set in review): the docked rail's width,
 // the page's head start when it opens, and the header's height, which it
 // sits below.
-// 416px (set in review; was 400px, then 424px).
-const DOCKED_WIDTH = "416px";
+// 400px (set in review; tried 424px and 416px).
+const DOCKED_WIDTH = "400px";
 const HEADER_HEIGHT = "44px";
-const DOCKED_OPEN_DELAY_MS = 50;
+// 80ms (set in review; was 50ms, and the page sometimes still fell
+// behind), with the page's push quicker and front-loaded (global.scss).
+const DOCKED_OPEN_DELAY_MS = 80;
 
 export default function AgentPanel({
   open,
@@ -508,6 +514,13 @@ export default function AgentPanel({
   // nav is off-canvas (1180px and under), it floats as before.
   const dockSetting = usePrototypeDockedGrowthBot();
   const docked = dockSetting && !sidebarCollapsed;
+  // Full height (set in review; tried starting below the header, then as a
+  // setting): the rail runs from the window's top, square, without its top
+  // outline, over the header's right end. Its top row sits in the header's
+  // band; the header's GrowthBot button fades out while it's open
+  // (GrowthBotButton.module.scss; html.agent-dock-full), the rail's X in
+  // its corner. Expanded, it covers the header beside the side nav.
+  const fullHeight = docked;
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!docked || !rendered || !el) return;
@@ -536,10 +549,17 @@ export default function AgentPanel({
     if (docked && open)
       root.style.setProperty("--agent-rail-width", DOCKED_WIDTH);
     else root.style.removeProperty("--agent-rail-width");
-  }, [docked, open]);
+    root.classList.toggle("agent-dock-full", fullHeight && open);
+    root.classList.toggle(
+      "agent-dock-full-expanded",
+      fullHeight && open && expanded,
+    );
+  }, [docked, open, fullHeight, expanded]);
   useEffect(
     () => () => {
-      document.documentElement.style.removeProperty("--agent-rail-width");
+      const root = document.documentElement;
+      root.style.removeProperty("--agent-rail-width");
+      root.classList.remove("agent-dock-full", "agent-dock-full-expanded");
     },
     [],
   );
@@ -740,7 +760,7 @@ export default function AgentPanel({
       style={{
         position: "fixed",
         right: 0,
-        top: docked ? HEADER_HEIGHT : 0,
+        top: docked && !fullHeight ? HEADER_HEIGHT : 0,
         bottom: 0,
         // Right-anchored, overlapping the navbar. Expanded grows to ~90% of the
         // main content region (100vw minus the 240px sidebar, or full width when
@@ -769,10 +789,12 @@ export default function AgentPanel({
         // it.
         ...(docked
           ? {
-              borderTop: "1px solid var(--gray-a3)",
+              // Full height, no top line and square: it meets the window's
+              // top, as the side nav does.
+              borderTop: fullHeight ? "none" : "1px solid var(--gray-a3)",
               // Square in focus mode (set in review), where it fills the
               // page area beside the side nav.
-              borderTopLeftRadius: expanded ? 0 : 12,
+              borderTopLeftRadius: expanded || fullHeight ? 0 : 12,
               overflow: "hidden",
             }
           : {}),
@@ -815,18 +837,23 @@ export default function AgentPanel({
       <Flex
         align="center"
         justify="between"
-        // Docked, 24px on the left, as the rest of the rail, and 32px on
-        // the right, so the close button lines up with the header's
-        // GrowthBot button (set in review; was 16px).
-        pl={docked ? "5" : "4"}
-        pr={docked ? "6" : "4"}
+        // Docked, 24px either side, as the rest of the rail (set in review;
+        // was 16px; the right was 32px, to line up with the header's
+        // GrowthBot button).
+        px={docked ? "5" : "4"}
         // Docked, 20px above (set in review; was 12px, tried 24px, the page
         // frame's top), so this row lines up with the page's title row
         // beside it. 20px isn't on Radix's scale, so it's in style.
         pt={docked ? undefined : "3"}
-        pb="3"
+        pb={docked ? undefined : "3"}
         style={{
-          paddingTop: docked ? 20 : undefined,
+          // Docked, in the header's 44px band at the top of the rail (set
+          // in review; was a row below it, under the header's GrowthBot
+          // button, which hides while the rail's open), 2px below its
+          // centre (set in review), in line with the header's breadcrumb.
+          minHeight: docked ? 44 : undefined,
+          paddingTop: docked ? 8 : undefined,
+          paddingBottom: docked ? 4 : undefined,
           // Docked, no line under it (set in review): one continuous panel.
           borderBottom: docked ? "none" : "1px solid var(--gray-a3)",
           // Docked, on the rail's own colour (set in review), so it's one
@@ -976,9 +1003,8 @@ export default function AgentPanel({
         style={{
           flex: 1,
           overflowY: "auto",
-          // Docked, 16px on top (set in review; was 20px), with no line
-          // above it now.
-          padding: docked ? "16px 24px 20px" : "20px",
+          // Docked, 20px on top (set in review; tried 16px).
+          padding: docked ? "20px 24px" : "20px",
         }}
       >
         {/* At the limit (prototype) with no conversation open: the limit
@@ -1013,6 +1039,7 @@ export default function AgentPanel({
                   alignSelf: "flex-start",
                   width: expanded ? "100%" : "min(640px, 100%)",
                 }}
+                className={docked ? styles.dockedIntro : undefined}
               >
                 {/* Docked, the greeting sits on the rail, without its box
                   (set in review), so its text starts at the rail's 32px
@@ -1031,20 +1058,53 @@ export default function AgentPanel({
                 >
                   <Flex direction="column" gap="3">
                     <Text size="md" weight="semibold">
-                      Hey there! 👋
+                      {/* Docked, by name (set in review), as the header's
+                        button: GrowthBot, GrowthBook's AI assistant. */}
+                      {docked ? "Hi, I’m GrowthBot 👋" : "Hey there! 👋"}
                     </Text>
                     <Text size="md" color="text-mid">
-                      I&apos;m your AI Assistant. I have access to your
-                      experiments, Feature Flags, metrics, and database schemas.
-                      Let me know what you&apos;d like to build or explore
-                      today!
+                      {/* Docked, in slate (set in review): .dockedIntro. */}
+                      {docked
+                        ? "I’m your GrowthBook AI assistant. "
+                        : "I’m your AI Assistant. "}
+                      I have access to your experiments, Feature Flags, metrics,
+                      and database schemas.
+                      {/* Docked, the invitation as its own paragraph, 8px
+                        below (set in review; tried a plain line break). */}
+                      {docked ? (
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: "var(--space-2)",
+                          }}
+                        >
+                          Let me know what you&apos;d like to build or explore
+                          today!
+                        </span>
+                      ) : (
+                        <>
+                          {" "}
+                          Let me know what you&apos;d like to build or explore
+                          today!
+                        </>
+                      )}
                     </Text>
                   </Flex>
                 </Box>
                 <Flex direction="column" gap="2">
-                  <Heading as="h3" size="xs" color="text-low">
-                    Suggestions
-                  </Heading>
+                  {docked ? (
+                    // Docked, as the greeting above (set in review): 14px,
+                    // semibold, its colour; still a heading.
+                    <h3 className={styles.introHeading}>
+                      <Text size="md" weight="semibold">
+                        Suggestions
+                      </Text>
+                    </h3>
+                  ) : (
+                    <Heading as="h3" size="xs" color="text-low">
+                      Suggestions
+                    </Heading>
+                  )}
                   <Grid columns={expanded ? "2" : "1"} gap="2">
                     {STARTER_PROMPTS.map(({ prompt, Icon }) => (
                       <Button

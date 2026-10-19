@@ -86,6 +86,9 @@ export default function GrowthBotButton() {
         experimentHeaderStyles.outlineButton,
         modalStandardStyles.ghostButton,
       ],
+      // Fades out while the full-height docked rail is open (set in
+      // review).
+      styles.fades,
       dockedOpen && styles.dockedOpen,
     ),
     style: (interimColors

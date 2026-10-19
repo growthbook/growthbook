@@ -438,7 +438,13 @@ export default function FactTablesPage() {
       ) : (
         <Box>
           <Flex justify="between" mb="3" gap="3" align="center" wrap="wrap">
-            <Box className="relative" width={{ initial: "100%", sm: "40%" }}>
+            <Box
+              className="relative"
+              width={{ initial: "100%", sm: "40%" }}
+              // PROTOTYPE (set in review): no narrower than 160px when space is
+              // short, e.g. with the docked GrowthBot rail open.
+              style={{ minWidth: 160 }}
+            >
               <Field
                 placeholder="Search..."
                 type="search"

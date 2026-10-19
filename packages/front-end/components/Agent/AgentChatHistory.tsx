@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDownBold,
-  PiChatCircleTextBold,
+  PiRobotBold,
   PiChatCircleDots,
   PiClockCounterClockwise,
   PiPlus,
@@ -105,12 +105,13 @@ export default function AgentChatHistory({
               color: "var(--slate-12)",
             }}
           >
-            {/* A chat bubble icon (set in review; tried the details page's
-              comments icon, two bubbles), so it reads as the conversation
-              picker whatever the title; on one line with it (Button puts its children in a
+            {/* GrowthBot's robot head (set in review; was a chat bubble,
+              tried the comments icon), as the header's GrowthBot button,
+              so the rail says whose conversations these are whatever the
+              title; on one line with it (Button puts its children in a
               wrapper of their own, where they'd stack). */}
             <Flex as="span" align="center" gap="2" minWidth="0">
-              <PiChatCircleTextBold
+              <PiRobotBold
                 size={16}
                 aria-hidden="true"
                 style={{ flexShrink: 0 }}

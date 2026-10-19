@@ -9,6 +9,40 @@
   overflow-wrap: anywhere;
 }
 
+// PROTOTYPE (set in review): a list table wider than its space
+// (data-auto-scroll, Table.tsx) scrolls sideways in its own box, rather
+// than running past the page (e.g. under the docked GrowthBot rail). Its
+// header doesn't stick then: a scroll box can't let it stick to the
+// window. Not inside the experiments list, which scrolls its own box
+// (ExperimentsListTable's data-overflow); its rules stand.
+// The outline moves onto the scroll box, as the experiments list's, so it
+// stays whole while the table scrolls under it.
+.wrapper[data-table-list][data-auto-scroll="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+  border-radius: var(--radius-4);
+
+  :global(.rt-TableRootTable) {
+    border: none;
+    border-radius: 0;
+  }
+
+  :global(.rt-TableHeader) {
+    position: static !important;
+  }
+
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    box-shadow: inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
+  }
+}
+
+:global([data-overflow="true"])
+  .wrapper[data-table-list][data-auto-scroll="true"] {
+  overflow: visible;
+  border: none !important;
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;

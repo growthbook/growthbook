@@ -1,0 +1,257 @@
+// PROTOTYPE ONLY (set in review): the mock live chat (MockLiveChat.tsx),
+// after Pylon's bubble and window: a 56px violet bubble 20px from the
+// lower-right corner, and a 380px-wide window with rounded corners and a
+// soft shadow. Above the page's chrome and the header (1010), below the
+// prototype panel (1040) and the GrowthBot panel (10001), which it takes
+// turns with anyway.
+
+$z: 1030;
+$ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+.bubble {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: $z;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: var(--violet-9);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    0 2px 6px var(--black-a3),
+    0 8px 20px -4px var(--black-a4);
+  transition:
+    transform 160ms $ease-out,
+    background-color 150ms ease;
+
+  &:hover {
+    background: var(--violet-10);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:hover,
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+// The window: 380 × 560px, shorter in a short browser window, in the
+// corner, or above the bubble (56px and a 16px gap). It grows in from the
+// corner over 180ms (none for reduced motion).
+.window {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: $z;
+  width: min(380px, calc(100vw - 40px));
+  height: min(560px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  box-shadow:
+    0 0 3px var(--black-a2),
+    0 4px 12px var(--black-a3),
+    0 16px 40px -8px var(--black-a4);
+  overflow: hidden;
+  transform-origin: 100% 100%;
+  animation: windowIn 180ms $ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.window.aboveBubble {
+  bottom: 92px;
+  height: min(560px, calc(100vh - 112px));
+}
+
+@keyframes windowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// The header: violet, as the bubble, with who you're talking to and how
+// soon they reply, and a close button.
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 16px 16px 20px;
+  background: var(--violet-9);
+  color: #fff;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  opacity: 0.9;
+}
+
+.onlineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--grass-9);
+  box-shadow: 0 0 0 2px var(--violet-9);
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+  }
+}
+
+// The conversation: support on the left in grey, you on the right in
+// violet, as chat bubbles.
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  background: var(--slate-2);
+}
+
+.message {
+  max-width: 82%;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fromSupport {
+  align-self: flex-start;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  color: var(--slate-12);
+}
+
+.fromUser {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--violet-9);
+  color: #fff;
+}
+
+// The message box and send button.
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 12px 8px 16px;
+  border-top: 1px solid var(--slate-a4);
+}
+
+.input {
+  flex: 1;
+  min-height: 36px;
+  max-height: 120px;
+  padding: 8px 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--slate-12);
+  font-size: 14px;
+  line-height: 20px;
+
+  &::placeholder {
+    color: var(--slate-9);
+  }
+}
+
+.send {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: var(--violet-9);
+  color: #fff;
+  cursor: pointer;
+
+  &:disabled {
+    background: var(--slate-a4);
+    color: var(--slate-9);
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+}
+
+// Says it's a mock, so no one waits for a reply.
+.footnote {
+  padding: 0 16px 10px;
+  color: var(--slate-10);
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+}

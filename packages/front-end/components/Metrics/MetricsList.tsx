@@ -39,6 +39,7 @@ import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -583,22 +584,27 @@ const MetricsList = (): React.ReactElement => {
       <Box mt="4">
         <CustomMarkdown page={"metricList"} />
       </Box>
-      <Flex justify="between" mb="3" gap="3" align="center">
-        <Box className="relative" width="40%">
-          <Field
-            size="legacy"
-            placeholder="Search..."
-            type="search"
-            {...searchInputProps}
+      <SearchFilterRow
+        mb="3"
+        search={
+          <Box className="relative">
+            <Field
+              size="legacy"
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+        }
+        filters={
+          <MetricSearchFilters
+            combinedMetrics={combinedMetrics}
+            searchInputProps={searchInputProps}
+            setSearchValue={setSearchValue}
+            syntaxFilters={syntaxFilters}
           />
-        </Box>
-        <MetricSearchFilters
-          combinedMetrics={combinedMetrics}
-          searchInputProps={searchInputProps}
-          setSearchValue={setSearchValue}
-          syntaxFilters={syntaxFilters}
-        />
-      </Flex>
+        }
+      />
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"

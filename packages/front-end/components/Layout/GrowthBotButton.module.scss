@@ -64,3 +64,23 @@
     background-color: var(--slate-a4);
   }
 }
+
+// Full height (set in review): while the docked rail is open, the rail
+// covers this corner of the header and its top row takes the button's
+// place, its X closing it, so the button fades out (out of reach of the
+// pointer and the keyboard too) and back when the rail closes. Instant for
+// reduced motion. (Tried: on the rail with a white fill.)
+.fades {
+  transition:
+    opacity 150ms ease,
+    visibility 150ms;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+:global(html.agent-dock-full) .dockedOpen.dockedOpen.dockedOpen {
+  opacity: 0;
+  visibility: hidden;
+}
