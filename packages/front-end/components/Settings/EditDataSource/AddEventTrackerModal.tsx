@@ -25,15 +25,20 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
 export function getAddableEventTrackers(
-  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
+  datasource: DataSourceInterfaceWithParams,
   aiTraceIngestEnabled: boolean,
 ) {
+  // Older warehouses skip identifier syncing, which the AI fact tables rely on.
+  const aiTracesAddable =
+    aiTraceIngestEnabled &&
+    datasource.type === "growthbook_clickhouse" &&
+    !!datasource.settings.useJsonColumns;
   return [...eventSchemas, ...addOnlyEventSchemas].filter(
     (s) =>
       !!s.types?.includes(datasource.type) &&
       hasEventTrackerSql(s.value) &&
       s.value !== datasource.settings?.schemaFormat &&
-      (s.value !== "growthbook_ai_traces" || aiTraceIngestEnabled),
+      (s.value !== "growthbook_ai_traces" || aiTracesAddable),
   );
 }
 

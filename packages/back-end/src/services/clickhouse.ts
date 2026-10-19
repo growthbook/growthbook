@@ -1,4 +1,7 @@
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS,
+  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+} from "shared/constants";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
@@ -19,7 +22,7 @@ import type {
   FeatureEvalItem,
   SessionEventItem,
 } from "shared/validators";
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -301,6 +304,18 @@ export async function syncManagedWarehouseIdentifiers(
     { skipExposureQueryValidation: true },
   );
 
+  for (const id of Object.values(MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS)) {
+    const aiFt = await dangerouslyGetFactTableByIdBypassPermission(
+      context.org.id,
+      id,
+    );
+    if (!aiFt || aiFt.datasource !== datasource.id) continue;
+    const changes = getAiTracesIdentifierChanges(aiFt, idAttributeIdentifier);
+    if (changes) {
+      await dangerouslySyncManagedWarehouseFactTable(context, aiFt, changes);
+    }
+  }
+
   // Update the events fact table sql + columns + userIdTypes
   const ft = await dangerouslyGetFactTableByIdBypassPermission(
     context.org.id,
@@ -408,6 +423,47 @@ export async function syncManagedWarehouseIdentifiers(
     columns: newColumns,
     userIdTypes: newUserIdTypes,
   });
+}
+
+// The AI traces fact tables are user-editable, so only swap the `UserId AS <id>`
+// alias and its column/identifier type, leaving any other edits in place. Returns
+// null when the SQL no longer has the other identifier's alias.
+function getAiTracesIdentifierChanges(
+  ft: FactTableInterface,
+  idType: ManagedWarehouseIdAttributeIdentifier,
+): Pick<FactTableInterface, "sql" | "columns" | "userIdTypes"> | null {
+  const oldIdType = idType === "user_id" ? "device_id" : "user_id";
+  const sql = ft.sql.replace(
+    new RegExp(`\\bUserId\\s+AS\\s+${oldIdType}\\b`, "gi"),
+    `UserId AS ${idType}`,
+  );
+  if (sql === ft.sql) return null;
+
+  const hasNewColumn = ft.columns.some((c) => c.column === idType);
+  const columns = ft.columns.map((col) => {
+    if (col.column === oldIdType) {
+      return hasNewColumn
+        ? { ...col, deleted: true, dateUpdated: new Date() }
+        : {
+            ...col,
+            column: idType,
+            name: col.name === oldIdType ? idType : col.name,
+            dateUpdated: new Date(),
+          };
+    }
+    if (col.column === idType && col.deleted) {
+      return { ...col, deleted: false, dateUpdated: new Date() };
+    }
+    return col;
+  });
+
+  return {
+    sql,
+    columns,
+    userIdTypes: [
+      ...new Set(ft.userIdTypes.map((t) => (t === oldIdType ? idType : t))),
+    ],
+  };
 }
 
 /**

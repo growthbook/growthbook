@@ -5,7 +5,10 @@ import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS,
+  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+} from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
@@ -1138,6 +1141,7 @@ function getGrowthBookAiTracesResources(
     factTables: [
       {
         factTable: {
+          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.spans,
           name: "AI spans",
           description:
             "One row per AI span (model calls, tool calls, and agent runs) with latency, token, and cost details",
@@ -1231,6 +1235,7 @@ WHERE ${dateClause}`,
       },
       {
         factTable: {
+          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.turns,
           name: "AI turns",
           description:
             "One row per trace (a request to your AI feature) with its model calls, tool calls, tokens, and cost",
@@ -1279,6 +1284,7 @@ WHERE ${dateClause}
       },
       {
         factTable: {
+          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.conversations,
           name: "AI conversations",
           description:
             "One row per conversation with its turns, model calls, tool calls, tokens, and cost",
@@ -1450,7 +1456,7 @@ export function getDatasourceTemplateResources({
   schemaOptions: Record<string, string>;
   existingFactTables: Pick<
     FactTableInterface,
-    "name" | "datasource" | "archived"
+    "id" | "name" | "datasource" | "archived"
   >[];
 }): InitialDatasourceResources {
   const existingNames = new Set(
@@ -1458,6 +1464,8 @@ export function getDatasourceTemplateResources({
       .filter((f) => f.datasource === datasource.id && !f.archived)
       .map((f) => f.name),
   );
+  // Fixed ids are unique per org, archived or not.
+  const existingIds = new Set(existingFactTables.map((f) => f.id));
   const resources = getInitialDatasourceResources({
     datasource: {
       ...datasource,
@@ -1470,7 +1478,9 @@ export function getDatasourceTemplateResources({
   });
   return {
     factTables: resources.factTables.filter(
-      (f) => !existingNames.has(f.factTable.name),
+      (f) =>
+        !existingNames.has(f.factTable.name) &&
+        !(f.factTable.id && existingIds.has(f.factTable.id)),
     ),
   };
 }

@@ -6,6 +6,7 @@ import {
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
 import { validateSQL } from "@/services/datasources";
+import { getAddableEventTrackers } from "@/components/Settings/EditDataSource/AddEventTrackerModal";
 
 // initial-resources imports getDefaultFactMetricProps, which pulls in a React
 // component tree the generators never touch.
@@ -376,10 +377,21 @@ describe("getDatasourceTemplateResources", () => {
       template: "langfuse",
       schemaOptions: {},
       existingFactTables: [
-        { name: "Langfuse Traces", datasource: "ds_business", archived: false },
-        // Archived, or on another Data Source: still created.
-        { name: "Langfuse Scores", datasource: "ds_business", archived: true },
         {
+          id: "ftb_1",
+          name: "Langfuse Traces",
+          datasource: "ds_business",
+          archived: false,
+        },
+        // Archived, or on another Data Source: still created.
+        {
+          id: "ftb_2",
+          name: "Langfuse Scores",
+          datasource: "ds_business",
+          archived: true,
+        },
+        {
+          id: "ftb_3",
           name: "Langfuse Observations",
           datasource: "ds_other",
           archived: false,
@@ -460,6 +472,56 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
       }
     },
   );
+
+  it("gives each fact table a fixed id and skips ones already taken", () => {
+    const ds = managedWarehouse();
+    const { factTables } = getInitialDatasourceResources({
+      datasource: aiTraces(ds),
+    });
+    expect(factTables.map((f) => f.factTable.id)).toEqual([
+      "ch_ai_spans",
+      "ch_ai_turns",
+      "ch_ai_conversations",
+    ]);
+
+    const resources = getDatasourceTemplateResources({
+      datasource: ds,
+      template: "growthbook_ai_traces",
+      schemaOptions: {},
+      existingFactTables: [
+        {
+          id: "ch_ai_spans",
+          name: "Renamed spans",
+          datasource: "ds_managed",
+          archived: true,
+        },
+      ],
+    });
+    expect(resources.factTables.map((f) => f.factTable.name)).toEqual([
+      "AI turns",
+      "AI conversations",
+    ]);
+  });
+
+  it("is only addable to JSON-columns Managed Warehouses with the flag on", () => {
+    const addable = (
+      ds: DataSourceInterfaceWithParams,
+      flag: boolean,
+    ): boolean =>
+      getAddableEventTrackers(ds, flag).some(
+        (t) => t.value === "growthbook_ai_traces",
+      );
+    const legacy = managedWarehouse();
+    const json = {
+      ...legacy,
+      settings: { ...legacy.settings, useJsonColumns: true },
+    } as DataSourceInterfaceWithParams;
+
+    expect(addable(json, true)).toBe(true);
+    expect(addable(json, false)).toBe(false);
+    expect(addable(legacy, true)).toBe(false);
+    expect(addable(aiTraces(json), true)).toBe(false);
+  });
 
   it("still builds the Events fact table for the Managed Warehouse itself", () => {
     const { factTables } = getInitialDatasourceResources({
