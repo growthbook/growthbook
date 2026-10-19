@@ -1,6 +1,6 @@
 import { FC } from "react";
+import { FEATURE_KEY_PATTERN } from "shared/constants";
 import { UseFormRegisterReturn } from "react-hook-form";
-import { FEATURE_KEY_REGEX } from "shared/validators";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
@@ -11,7 +11,7 @@ const FeatureKeyField: FC<{
     size="legacy"
     label="Feature Key"
     {...keyField}
-    pattern={FEATURE_KEY_REGEX.source}
+    pattern={FEATURE_KEY_PATTERN}
     placeholder={useOrgSettings().featureKeyExample || "my-feature"}
     required
     title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."

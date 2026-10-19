@@ -1,9 +1,13 @@
 import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
+import {
   validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
-import { FEATURE_KEY_REGEX, postFeatureV2Validator } from "shared/validators";
+import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -72,10 +76,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    if (!req.body.id.match(FEATURE_KEY_REGEX)) {
-      throw new Error(
-        "Feature keys can only include letters, numbers, and the characters _-.:|",
-      );
+    if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+      throw new Error(FEATURE_KEY_PATTERN_ERROR);
     }
 
     const orgEnvs = getEnvironments(req.context.org);

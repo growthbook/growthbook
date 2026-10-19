@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
+  FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -27,7 +28,6 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES, getProviderForAIModel } from "shared/ai";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
-import { FEATURE_KEY_REGEX } from "shared/validators";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -478,10 +478,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // Make sure the feature key example is valid
     if (
       transformedOrgSettings.featureKeyExample &&
-      !transformedOrgSettings.featureKeyExample.match(FEATURE_KEY_REGEX)
+      !new RegExp(FEATURE_KEY_PATTERN).test(
+        transformedOrgSettings.featureKeyExample,
+      )
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, and the characters _-.:|",
+        "Feature key examples can only include letters, numbers, and the characters _, -, ., :, and |.",
       );
     }
 

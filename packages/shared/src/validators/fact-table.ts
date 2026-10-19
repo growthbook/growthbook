@@ -12,6 +12,11 @@ import {
   apiAggregatedTableRunSummaryValidator,
   apiAggregatedTableRunValidator,
 } from "./aggregated-fact-table-run";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -1006,7 +1011,11 @@ export const apiFactTableColumnValidator = namedSchema(
           "Display name for the column (can be different from the actual column name)",
         )
         .optional(),
-      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+      description: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe("What the column contains.")
+        .optional(),
       alwaysInlineFilter: z
         .boolean()
         .describe(
@@ -1248,11 +1257,11 @@ export type ApiAggregatedFactTable = z.infer<
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 export const postFactTableBody = z
   .object({
-    name: z.string(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1294,11 +1303,11 @@ export const postFactTableBody = z
 // Corresponds to payload-schemas/UpdateFactTablePayload.yaml
 const updateFactTableBody = z
   .object({
-    name: z.string().optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     owner: ownerInputField.optional(),
     projects: z
@@ -1340,7 +1349,7 @@ const updateFactTableBody = z
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
 export const postFactTableFilterBodyFields = z.object({
-  name: z.string(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
   description: z
     .string()
     .max(MAX_DESCRIPTION_LENGTH)
@@ -1615,7 +1624,11 @@ const postFactTableVirtualColumnBody = z
       )
       .meta({ example: "revenue_vc" }),
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype.describe(
       "The data type of the computed column",
@@ -1630,7 +1643,11 @@ const postFactTableVirtualColumnBody = z
 const updateFactTableVirtualColumnBody = z
   .object({
     name: z.string().describe("Display name for the column").optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: virtualColumnDatatype
       .describe("The data type of the computed column")

@@ -13,6 +13,10 @@ import {
   publishBypassedGatesField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
@@ -470,7 +474,11 @@ const postConstantApiBody = z
     ),
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(MARKDOWN_DESCRIPTION)
+      .optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
   })
@@ -478,7 +486,7 @@ const postConstantApiBody = z
 
 const updateConstantApiBody = z
   .object({
-    name: z.string().optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
     value: z.string().optional(),
     environmentValues: z
       .record(z.string(), z.string())
@@ -486,7 +494,11 @@ const updateConstantApiBody = z
         "Per-environment value overrides (environment id → value). When provided, this REPLACES the entire override map — send the complete set, not just the environments you want to change (omit the field to leave overrides unchanged).",
       )
       .optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(MARKDOWN_DESCRIPTION)
+      .optional(),
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     bypassApproval: bypassApprovalField,

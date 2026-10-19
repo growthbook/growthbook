@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { FEATURE_KEY_PATTERN, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import {
   apiJSONSchemaDefInput,
   featureEnvironment,
-  FEATURE_KEY_REGEX,
   JSONSchemaDef,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -76,8 +75,8 @@ export type InterleavingVariation = z.infer<
 const interleavingKeyField = z
   .string()
   .regex(
-    FEATURE_KEY_REGEX,
-    "Interleaving keys can only include letters, numbers, and the characters _-.:|",
+    new RegExp(FEATURE_KEY_PATTERN),
+    "Interleaving keys can only include letters, numbers, and the characters _, -, ., :, and |.",
   );
 
 export const interleavingValidator = baseSchema

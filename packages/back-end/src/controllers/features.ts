@@ -60,7 +60,11 @@ import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+} from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -70,7 +74,6 @@ import {
 import {
   ACTIVE_DRAFT_STATUSES,
   eventUserIdentity,
-  FEATURE_KEY_REGEX,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -918,7 +921,7 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  if (!id) {
+  if (typeof id !== "string" || !id) {
     throw new Error("Must specify feature key");
   }
 
@@ -935,10 +938,8 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(FEATURE_KEY_REGEX)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, and the characters _-.:|",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {
