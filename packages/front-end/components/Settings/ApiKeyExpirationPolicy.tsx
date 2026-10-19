@@ -4,10 +4,12 @@ import {
   maxExpirationDate,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
+import { canApplyExpirationPolicy } from "shared/permissions";
 import { date } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { hasFileConfig } from "@/services/env";
 import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
@@ -97,13 +99,14 @@ const ApiKeyExpirationPolicy: FC<{
   const nonCompliant = keys.filter((k) =>
     violatesExpirationPolicy(k.expiresAt, saved),
   );
-  const locked = hasFileConfig();
+  const clickable =
+    canApplyExpirationPolicy(usePermissionsUtil(), kind) && !hasFileConfig();
   const badge = (
     <Badge
       color="amber"
       variant="soft"
       label={`${nonCompliant.length} non-compliant`}
-      style={locked ? undefined : { cursor: "pointer" }}
+      style={clickable ? { cursor: "pointer" } : undefined}
     />
   );
 
@@ -121,12 +124,12 @@ const ApiKeyExpirationPolicy: FC<{
               </Text>
               {nonCompliant.length > 0 && (
                 <Tooltip
-                  content={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum, marked in the Expires column.${locked ? "" : " Click to apply the limit to them."}`}
+                  content={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum, marked in the Expires column.${clickable ? " Click to apply the limit to them." : ""}`}
                 >
-                  {locked ? (
-                    <span>{badge}</span>
-                  ) : (
+                  {clickable ? (
                     <Link onClick={() => setApplying(true)}>{badge}</Link>
+                  ) : (
+                    <span>{badge}</span>
                   )}
                 </Tooltip>
               )}

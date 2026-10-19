@@ -89,6 +89,7 @@ export const rampPlanActions = (
 const LINK_PAGES: Record<ConfirmationLink["type"], (id: string) => string> = {
   feature: (id) => `features/${id}`,
   experiment: (id) => `experiment/${id}`,
+  contextualBandit: (id) => `contextual-bandit/${id}`,
   savedGroup: (id) => `saved-groups/${id}`,
   constant: (id) => `constants/${id}`,
   config: (id) => `configs/${id}`,
