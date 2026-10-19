@@ -710,8 +710,7 @@ export default function FinishSettingUp({
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
                     No exposure queries yet. Write a query to start running
-                    experiments. Add another if identifier types live in
-                    different tables.
+                    experiments.
                   </Text>
                 </Box>
               )}
