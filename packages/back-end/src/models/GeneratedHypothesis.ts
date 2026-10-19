@@ -5,6 +5,7 @@ import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis"
 import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { ReqContext } from "back-end/types/request";
+import { resolveNewFeatureKey } from "back-end/src/services/featureKeys";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
@@ -173,9 +174,13 @@ export const findOrCreateGeneratedHypothesis = async (
     });
   } else {
     // linked feature flag
-    const featureId = `${slug}-feature-flag`;
+    const readableKey = `${slug}-feature-flag`;
+    const featureId = org.settings?.obfuscateFeatureKeys
+      ? await resolveNewFeatureKey(context, { name: readableKey })
+      : readableKey;
     await createFeature(context, {
       id: featureId,
+      ...(featureId !== readableKey ? { name: readableKey } : {}),
       archived: false,
       description: `Feature flag for ${slug} experiment`,
       organization: org.id,

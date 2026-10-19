@@ -13,6 +13,7 @@ import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
@@ -21,6 +22,8 @@ export default function FeatureSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
+  // A safety setting: once saved as on, it can't be turned off.
+  const opaqueKeysLocked = !!useOrgSettings().obfuscateFeatureKeys;
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes",
@@ -172,7 +175,14 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-obfuscateFeatureKeys"
               label="Generate opaque keys for new Feature Flags"
-              description="New Feature Flags get a random key, like f_8k2j9x4p, that people can't choose. SDK payloads and code then don't reveal what a Feature Flag is for, and its name is shown in GrowthBook instead. Existing keys don't change."
+              description={
+                opaqueKeysLocked
+                  ? "On. New Feature Flags get a random key, like f_8k2j9x4p, that people and API clients can't choose. This is a safety setting and can't be turned off."
+                  : form.watch("obfuscateFeatureKeys")
+                    ? "New Feature Flags will get a random key that people and API clients can't choose. Once you save, this can't be turned off. Existing keys don't change."
+                    : "New Feature Flags get a random key, like f_8k2j9x4p, that people can't choose. SDK payloads and code then don't reveal what a Feature Flag is for, and its name is shown in GrowthBook instead. Existing keys don't change."
+              }
+              disabled={opaqueKeysLocked}
               value={!!form.watch("obfuscateFeatureKeys")}
               setValue={(value) =>
                 form.setValue("obfuscateFeatureKeys", value, {

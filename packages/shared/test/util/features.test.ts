@@ -8,6 +8,8 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  generateOpaqueFeatureKey,
+  isOpaqueFeatureKey,
   rampPlanLacksHashAttribute,
   rampPlanControlledFields,
   getDefaultHashAttribute,
@@ -4940,5 +4942,19 @@ describe("draftHasChangesOutsideTargetRef", () => {
       prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
     });
     expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+});
+
+describe("opaque feature keys", () => {
+  it("generates keys that are recognized as opaque", () => {
+    for (let i = 0; i < 20; i++) {
+      expect(isOpaqueFeatureKey(generateOpaqueFeatureKey())).toBe(true);
+    }
+  });
+
+  it("rejects readable keys", () => {
+    expect(isOpaqueFeatureKey("express-checkout-button")).toBe(false);
+    expect(isOpaqueFeatureKey("f_short")).toBe(false);
+    expect(isOpaqueFeatureKey("f_ABCDEFGHIJ")).toBe(false);
   });
 });

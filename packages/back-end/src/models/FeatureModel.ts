@@ -24,6 +24,7 @@ import {
   toRampAttachments,
   toMonitoringSelection,
   withKeptIdentifierType,
+  isOpaqueFeatureKey,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -1156,6 +1157,14 @@ export async function createFeature(
   { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
+
+  // Safety net for `obfuscateFeatureKeys`: whatever the caller, a new Feature
+  // Flag in such an org must have a generated key.
+  if (org.settings?.obfuscateFeatureKeys && !isOpaqueFeatureKey(data.id)) {
+    throw new BadRequestError(
+      "This organization generates Feature Flag keys. Omit `id` and send a `name`.",
+    );
+  }
 
   const linkedExperiments = getLinkedExperiments(data);
 

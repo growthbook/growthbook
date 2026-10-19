@@ -5196,6 +5196,10 @@ export function featureMatchesSearch(
 
 // Random key for orgs that keep keys opaque (`obfuscateFeatureKeys`), so SDK
 // payloads and client code don't reveal what a Feature Flag is for.
+export function isOpaqueFeatureKey(key: string): boolean {
+  return /^f_[a-z0-9]{10}$/.test(key);
+}
+
 export function generateOpaqueFeatureKey(): string {
   const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
   const bytes = new Uint8Array(10);
