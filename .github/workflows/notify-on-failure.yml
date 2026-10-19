@@ -12,6 +12,8 @@ on:
         PR Preview Environment,
         Release,
         Rollback to SHA,
+        Agent skills drift,
+        Bump agent skills,
       ]
     types: [completed]
     branches: [main]
