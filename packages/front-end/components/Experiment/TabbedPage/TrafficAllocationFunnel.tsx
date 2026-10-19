@@ -1,13 +1,4 @@
-import {
-  Dispatch,
-  ReactNode,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import clsx from "clsx";
+import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -21,21 +12,14 @@ import {
   hasTargetingConfigured,
 } from "shared/experiments";
 import { generateVariationId } from "shared/util";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
-import EditSplitModal from "@/components/Experiment/EditSplitModal";
-import VariationsTable, {
-  VARIATION_GRID_GAP_PX,
-  variationGridColumnCount,
-  variationGridMaxWidth,
-} from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
@@ -72,11 +56,16 @@ import SelectField from "@/components/Forms/SelectField";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
-import FlagValueRows from "./FlagValueRows";
+import VariationValuesTable, {
+  FlagView,
+  FUNNEL_WIDTH,
+} from "./VariationValuesTable";
+import VariationDetails from "./VariationDetails";
 import {
   DraftPick,
   FlagDraftPicks,
   resolveDraftPick,
+  withoutDraft,
   withPickedDraft,
 } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
@@ -87,6 +76,7 @@ import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
   useRegisterExperimentEdit,
+  useStagedState,
 } from "./ExperimentEdits";
 import { onlyTrafficChanged } from "./targetingDraft";
 
@@ -117,15 +107,10 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
   canEditFlagValues?: boolean;
-  /** Links another Feature Flag from under the value rows. */
-  addFeatureFlag?: (() => void) | null;
-  /** Why a Feature Flag can't be added right now. */
-  addFeatureFlagBlockedReason?: string | null;
-  /** The URL Redirect and Visual Editor sections, under the Feature Flags. */
+  /** The URL Redirect and Visual Editor sections, and adding more. */
   otherImplementations?: ReactNode;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
-  mutate?: () => void;
   /**
    * The targeting the page has confirmed but not yet written, and the way to
    * change it. Held by the page, since the modal that stages it lives there.
@@ -169,7 +154,7 @@ function FunnelCard({
   return (
     <Box
       className="appbox"
-      maxWidth="692px"
+      maxWidth={`${FUNNEL_WIDTH}px`}
       width="100%"
       mb="0"
       py="3"
@@ -246,62 +231,6 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
   );
 }
 
-function VariationFork({ count }: { count: number }) {
-  const cols = Math.min(count, 3);
-  // One arrow per column the cards below actually take once they wrap, or a
-  // wrapped arrow's bus points off the edge.
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const [shown, setShown] = useState(cols);
-  useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    const measure = () =>
-      setShown(variationGridColumnCount(grid.clientWidth, cols));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(grid);
-    return () => observer.disconnect();
-  }, [cols]);
-
-  return (
-    <Box>
-      {/* Stem down to the horizontal bus */}
-      <Flex direction="column" align="center">
-        <Box className={styles.connectorLine} height="12px" />
-      </Flex>
-      <Grid
-        ref={gridRef}
-        columns={`repeat(${shown}, 1fr)`}
-        gap="4"
-        justify="center"
-        style={{ maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }}
-      >
-        {Array.from({ length: shown }).map((_, i) => (
-          <Flex
-            key={i}
-            direction="column"
-            align="center"
-            className={styles.cell}
-          >
-            {i > 0 ? (
-              <Box className={clsx(styles.busSegment, styles.busSegmentLeft)} />
-            ) : null}
-            {i < shown - 1 ? (
-              <Box
-                className={clsx(styles.busSegment, styles.busSegmentRight)}
-              />
-            ) : null}
-            <Box className={styles.connectorLine} height="22px" />
-            <Box mt="-3" mb="-1" className={styles.caret}>
-              <PiCaretDownBold size="11" />
-            </Box>
-          </Flex>
-        ))}
-      </Grid>
-    </Box>
-  );
-}
-
 export default function TrafficAllocationFunnel({
   phaseIndex = null,
   experiment,
@@ -319,12 +248,9 @@ export default function TrafficAllocationFunnel({
   servedValueFeature: storedServedValueFeature,
   linkedFeatures = [],
   canEditFlagValues = false,
-  addFeatureFlag,
-  addFeatureFlagBlockedReason = null,
   otherImplementations,
   canEditExperiment = false,
   safeToEdit = false,
-  mutate,
   targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
@@ -377,8 +303,6 @@ export default function TrafficAllocationFunnel({
     staged?.hashAttribute ?? experiment.hashAttribute ?? "id";
   const fallbackAttribute =
     staged?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
-
-  const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
   const stageVariationList = (
     variations: Variation[],
@@ -446,16 +370,16 @@ export default function TrafficAllocationFunnel({
   const permissionsUtil = usePermissionsUtil();
 
   // Each flag's row picks the draft it shows; the readouts here follow it.
-  const [draftPickValue, setDraftPicks] = useState<Record<string, DraftPick>>(
-    {},
-  );
+  const [draftPickValue, setDraftPicks] = useStagedState<
+    Record<string, DraftPick>
+  >("draft-picks", {});
   const draftPicks: FlagDraftPicks = useMemo(
     () => ({
       value: draftPickValue,
       set: (featureId, pick) =>
         setDraftPicks((prev) => ({ ...prev, [featureId]: pick })),
     }),
-    [draftPickValue],
+    [draftPickValue, setDraftPicks],
   );
   const pickedFeatures = useMemo(
     () =>
@@ -464,15 +388,37 @@ export default function TrafficAllocationFunnel({
       ),
     [linkedFeatures, draftPickValue],
   );
+  // A draft to show only when something it shows actually moved: any linked
+  // flag counts, since the value rows show every flag's draft.
+  const draftsDiffer = useMemo(
+    () => pickedFeatures.some(hasUnpublishedChanges),
+    [pickedFeatures],
+  );
+  // Once the experiment runs, what its flags serve and what their drafts
+  // propose can differ, so the table shows one or the other. In Draft, live
+  // serves nothing yet.
+  const canViewLive =
+    experiment.status !== "draft" && linkedFeatures.length > 0;
+  const [chosenFlagView, setFlagView] = useState<FlagView | null>(null);
+  // A flag with no rule, or one a draft is taking out, is resolved in Draft.
+  const flagNeedsAction = linkedFeatures.some(
+    (info) => info.state === "discarded" || !!info.pendingRemoval,
+  );
+  const flagView: FlagView = !canViewLive
+    ? "draft"
+    : (chosenFlagView ?? (draftsDiffer || flagNeedsAction ? "draft" : "live"));
+  const showingLive = flagView === "live";
   const servedValueFeature = useMemo(
     () =>
-      storedServedValueFeature
-        ? withPickedDraft(
-            storedServedValueFeature,
-            draftPickValue[storedServedValueFeature.feature.id],
-          )
-        : null,
-    [storedServedValueFeature, draftPickValue],
+      !storedServedValueFeature
+        ? null
+        : showingLive
+          ? withoutDraft(storedServedValueFeature)
+          : withPickedDraft(
+              storedServedValueFeature,
+              draftPickValue[storedServedValueFeature.feature.id],
+            ),
+    [storedServedValueFeature, draftPickValue, showingLive],
   );
 
   const liveRule = servedValueFeature?.liveHasMatchingRule
@@ -482,14 +428,10 @@ export default function TrafficAllocationFunnel({
     ? environmentStatesDiffer(servedValueFeature)
     : false;
 
-  // A draft to show only when something it shows actually moved: any linked
-  // flag counts, since the value rows show every flag's draft.
-  const hasDraftChanges = useMemo(
-    () => pickedFeatures.some(hasUnpublishedChanges),
-    [pickedFeatures],
-  );
+  const hasDraftChanges = !showingLive && draftsDiffer;
   // Re-scoping environments stages a draft without re-bucketing.
   const canEditEnvironments =
+    !showingLive &&
     !!servedValueFeature &&
     !servedValueFeature.pendingRemoval &&
     canEditExperiment &&
@@ -595,355 +537,295 @@ export default function TrafficAllocationFunnel({
   const coverage = phase.coverage ?? 1;
 
   return (
-    <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
-      {choosingHoldout ? (
-        <AddToHoldoutModal
-          experiment={experiment}
-          holdoutId={holdoutId}
-          stage={stageHoldout}
-          close={() => setChoosingHoldout(false)}
-        />
-      ) : null}
-      {editEnvironments && servedValueFeature && flagEnvironments && (
-        <EditExperimentEnvironmentsModal
-          info={servedValueFeature}
-          stagedScope={stagedScope}
-          environmentStates={environmentStates}
-          environmentInputs={scopeBaseInputs}
-          showFlag
-          close={() => setEditEnvironments(false)}
-          apply={(scope) => {
-            flagEnvironments.set(servedValueFeature.feature.id, scope);
-            setEditEnvironments(false);
-          }}
-        />
-      )}
-      <Flex direction="column">
-        <Flex align="center" direction="column">
-          {/* An archived Feature Flag serves nothing; its row says why. */}
-          {environmentStates.length > 0 &&
-          servedValueFeature?.state !== "archived" ? (
-            <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
-              <Text color="text-high" weight="semibold">
-                Environments:
-              </Text>
-              <EnvironmentStateChips states={environmentStates} />
-              {canEditEnvironments && flagEnvironments ? (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  radius="medium"
-                  size="1"
-                  onClick={() => setEditEnvironments(true)}
-                  aria-label="Edit environments"
-                >
-                  <PiPencilSimple size="14" />
-                </IconButton>
-              ) : null}
-            </Flex>
-          ) : null}
-
-          {!isHoldout && holdoutId ? (
-            <>
-              <FunnelCard
-                title="Holdout"
-                onEdit={
-                  canJoinHoldout || holdoutLockedReason
-                    ? () => setChoosingHoldout(true)
-                    : null
-                }
-                editBlockedReason={holdoutLockedReason}
-                menu={
-                  canStageHoldout ? (
-                    <DropdownMenuItem color="red" onClick={leaveHoldout}>
-                      Remove from holdout
-                    </DropdownMenuItem>
-                  ) : null
-                }
-              >
-                <SetupFieldRow label="Name" content="text">
-                  {/* A new tab, so following it never costs the page's edits. */}
-                  <Link href={`/holdout/${holdoutId}`} external>
-                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
-                  </Link>
-                </SetupFieldRow>
-                <SetupFieldRow label="ID" content="text">
-                  <Text color="text-mid">{holdoutId}</Text>
-                </SetupFieldRow>
-              </FunnelCard>
-              <FunnelConnector />
-            </>
-          ) : null}
-
-          {!isHoldout && hasNamespace && (
-            <>
-              <FunnelCard
-                title="Namespace"
-                onEdit={editNamespace}
-                inlineSummary={
-                  <Text size="lg" color="text-mid">
-                    {namespaceName}
-                  </Text>
-                }
-                disabled={!safeToEdit}
-              />
-              <FunnelConnector label={includedLabel} />
-            </>
-          )}
-
-          <FunnelCard
-            title="Targeting"
-            onEdit={editTargeting}
-            disabled={!safeToEdit}
-            menu={
-              canAddNamespace || canAddHoldout ? (
-                <>
-                  {canAddHoldout ? (
-                    <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
-                      Add to holdout
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canAddNamespace ? (
-                    <DropdownMenuItem onClick={() => editNamespace?.()}>
-                      Add namespace
-                    </DropdownMenuItem>
-                  ) : null}
-                </>
-              ) : null
-            }
-          >
-            <SetupFieldRow label="Audience" content="text">
-              {targetsEveryone ? (
-                <Text color="text-mid">
-                  <em>Everyone</em>
+    <>
+      <Frame
+        px="4"
+        style={{ backgroundColor: "var(--gray-a2)", border: "none" }}
+      >
+        {choosingHoldout ? (
+          <AddToHoldoutModal
+            experiment={experiment}
+            holdoutId={holdoutId}
+            stage={stageHoldout}
+            close={() => setChoosingHoldout(false)}
+          />
+        ) : null}
+        {editEnvironments && servedValueFeature && flagEnvironments && (
+          <EditExperimentEnvironmentsModal
+            info={servedValueFeature}
+            stagedScope={stagedScope}
+            environmentStates={environmentStates}
+            environmentInputs={scopeBaseInputs}
+            showFlag
+            close={() => setEditEnvironments(false)}
+            apply={(scope) => {
+              flagEnvironments.set(servedValueFeature.feature.id, scope);
+              setEditEnvironments(false);
+            }}
+          />
+        )}
+        <Flex direction="column">
+          <Flex align="center" direction="column">
+            {/* An archived Feature Flag serves nothing; its row says why. */}
+            {environmentStates.length > 0 &&
+            servedValueFeature?.state !== "archived" ? (
+              <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
+                <Text color="text-high" weight="semibold">
+                  Environments:
                 </Text>
+                <EnvironmentStateChips states={environmentStates} />
+                {canEditEnvironments && flagEnvironments ? (
+                  <IconButton
+                    variant="ghost"
+                    color="violet"
+                    radius="medium"
+                    size="1"
+                    onClick={() => setEditEnvironments(true)}
+                    aria-label="Edit environments"
+                  >
+                    <PiPencilSimple size="14" />
+                  </IconButton>
+                ) : null}
+              </Flex>
+            ) : null}
+
+            {!isHoldout && holdoutId ? (
+              <>
+                <FunnelCard
+                  title="Holdout"
+                  onEdit={
+                    canJoinHoldout || holdoutLockedReason
+                      ? () => setChoosingHoldout(true)
+                      : null
+                  }
+                  editBlockedReason={holdoutLockedReason}
+                  menu={
+                    canStageHoldout ? (
+                      <DropdownMenuItem color="red" onClick={leaveHoldout}>
+                        Remove from holdout
+                      </DropdownMenuItem>
+                    ) : null
+                  }
+                >
+                  <SetupFieldRow label="Name" content="text">
+                    {/* A new tab, so following it never costs the page's edits. */}
+                    <Link href={`/holdout/${holdoutId}`} external>
+                      {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
+                    </Link>
+                  </SetupFieldRow>
+                  <SetupFieldRow label="ID" content="text">
+                    <Text color="text-mid">{holdoutId}</Text>
+                  </SetupFieldRow>
+                </FunnelCard>
+                <FunnelConnector />
+              </>
+            ) : null}
+
+            {!isHoldout && hasNamespace && (
+              <>
+                <FunnelCard
+                  title="Namespace"
+                  onEdit={editNamespace}
+                  inlineSummary={
+                    <Text size="lg" color="text-mid">
+                      {namespaceName}
+                    </Text>
+                  }
+                  disabled={!safeToEdit}
+                />
+                <FunnelConnector label={includedLabel} />
+              </>
+            )}
+
+            <FunnelCard
+              title="Targeting"
+              onEdit={editTargeting}
+              disabled={!safeToEdit}
+              menu={
+                canAddNamespace || canAddHoldout ? (
+                  <>
+                    {canAddHoldout ? (
+                      <DropdownMenuItem
+                        onClick={() => setChoosingHoldout(true)}
+                      >
+                        Add to holdout
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canAddNamespace ? (
+                      <DropdownMenuItem onClick={() => editNamespace?.()}>
+                        Add namespace
+                      </DropdownMenuItem>
+                    ) : null}
+                  </>
+                ) : null
+              }
+            >
+              <SetupFieldRow label="Audience" content="text">
+                {targetsEveryone ? (
+                  <Text color="text-mid">
+                    <em>Everyone</em>
+                  </Text>
+                ) : (
+                  <Flex direction="column" gap="3">
+                    {hasCondition ? (
+                      <ConditionDisplay condition={phase.condition} />
+                    ) : null}
+                    {hasSavedGroups ? (
+                      <SavedGroupTargetingDisplay
+                        savedGroups={phase.savedGroups}
+                      />
+                    ) : null}
+                    {hasPrerequisites ? (
+                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                    ) : null}
+                  </Flex>
+                )}
+              </SetupFieldRow>
+              <AssignmentAttribute
+                experiment={experiment}
+                hashAttribute={hashAttribute}
+                fallbackAttribute={fallbackAttribute}
+                editInline={editInline}
+                stagePatch={stagePatch}
+              />
+            </FunnelCard>
+
+            <FunnelConnector />
+
+            {/* No pencil: the percentage edits in place, the split has its own
+              editor, and each variation carries its own. */}
+            <FunnelCard title="Traffic">
+              {!isHoldout ? (
+                <Box mb="1">
+                  <SetupFieldRow
+                    label="Included %"
+                    content={editInline ? "control" : "text"}
+                    labelAlign="center"
+                    tooltip="The share of everyone who matches the targeting above that this experiment runs on."
+                  >
+                    {editInline ? (
+                      <PercentField
+                        value={coverage}
+                        onChange={(next) => stagePatch({ coverage: next })}
+                        ariaLabel="Included %"
+                      />
+                    ) : (
+                      <Text color="text-mid">
+                        {Math.round(coverage * 100)}%
+                      </Text>
+                    )}
+                  </SetupFieldRow>
+                  {/* The bar keeps its place while a draft is edited: the
+                    slider is the same readout, made draggable. */}
+                  <Box mt="1">
+                    {editInline ? (
+                      <PercentSlider
+                        value={coverage}
+                        onChange={(next) => stagePatch({ coverage: next })}
+                        ariaLabel="Included %"
+                      />
+                    ) : (
+                      <Box
+                        overflow="hidden"
+                        style={{
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: "var(--gray-a4)",
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: `${Math.min(100, Math.max(0, coverage * 100))}%`,
+                            height: "100%",
+                            backgroundColor: "var(--violet-9)",
+                          }}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
               ) : (
-                <Flex direction="column" gap="3">
-                  {hasCondition ? (
-                    <ConditionDisplay condition={phase.condition} />
-                  ) : null}
-                  {hasSavedGroups ? (
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  ) : null}
-                  {hasPrerequisites ? (
-                    <ConditionDisplay prerequisites={phase.prerequisites} />
-                  ) : null}
+                <Flex direction="column" gap="1">
+                  <Text color="text-mid">
+                    {holdoutTraffic.inHoldoutPercent}% in holdout
+                  </Text>
+                  <Text color="text-mid">
+                    {holdoutTraffic.forMeasurementPercent}% not in holdout (for
+                    measurement)
+                  </Text>
+                  <Text color="text-mid">
+                    {holdoutTraffic.notForMeasurementPercent}% not in holdout
+                    (not for measurement)
+                  </Text>
                 </Flex>
               )}
-            </SetupFieldRow>
-            <AssignmentAttribute
-              experiment={experiment}
-              hashAttribute={hashAttribute}
-              fallbackAttribute={fallbackAttribute}
-              editInline={editInline}
-              stagePatch={stagePatch}
-            />
-          </FunnelCard>
-
-          <FunnelConnector />
-
-          {/* No pencil: the percentage edits in place, the split has its own
-              editor, and each variation carries its own. */}
-          <FunnelCard title="Traffic">
-            {!isHoldout ? (
-              <Box mb="1">
-                <SetupFieldRow
-                  label="Included %"
-                  content={editInline ? "control" : "text"}
-                  labelAlign="center"
-                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
-                >
-                  {editInline ? (
-                    <PercentField
-                      value={coverage}
-                      onChange={(next) => stagePatch({ coverage: next })}
-                      ariaLabel="Included %"
-                    />
-                  ) : (
-                    <Text color="text-mid">{Math.round(coverage * 100)}%</Text>
-                  )}
-                </SetupFieldRow>
-                {/* The bar keeps its place while a draft is edited: the
-                    slider is the same readout, made draggable. */}
-                <Box mt="1">
-                  {editInline ? (
-                    <PercentSlider
-                      value={coverage}
-                      onChange={(next) => stagePatch({ coverage: next })}
-                      ariaLabel="Included %"
-                    />
-                  ) : (
-                    <Box
-                      overflow="hidden"
-                      style={{
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: "var(--gray-a4)",
-                      }}
-                    >
-                      <Box
-                        style={{
-                          width: `${Math.min(100, Math.max(0, coverage * 100))}%`,
-                          height: "100%",
-                          backgroundColor: "var(--violet-9)",
-                        }}
-                      />
-                    </Box>
-                  )}
-                </Box>
-              </Box>
-            ) : (
-              <Flex direction="column" gap="1">
-                <Text color="text-mid">
-                  {holdoutTraffic.inHoldoutPercent}% in holdout
-                </Text>
-                <Text color="text-mid">
-                  {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-                  measurement)
-                </Text>
-                <Text color="text-mid">
-                  {holdoutTraffic.notForMeasurementPercent}% not in holdout (not
-                  for measurement)
-                </Text>
+            </FunnelCard>
+          </Flex>
+          {!isHoldout && (
+            <>
+              <Flex justify="center">
+                <Box className={styles.connectorLine} height="24px" mb="2" />
               </Flex>
-            )}
-          </FunnelCard>
-        </Flex>
-        {!isHoldout && (
-          <>
-            {isBandit ? (
-              <VariationFork count={numVariations} />
-            ) : (
-              <Box pb="4">
-                <Flex direction="column" align="center">
-                  <Box className={styles.connectorLine} height="6px" />
-                  {/* The label stays centred on the stem, so the pencil hangs
-                      off its right rather than taking room in the row. */}
-                  <Box position="relative">
-                    <Text size="md" weight="medium" color="text-mid">
-                      Split
-                    </Text>
-                    {editInline ? (
-                      <Box
-                        position="absolute"
-                        left="100%"
-                        top="50%"
-                        ml="1"
-                        style={{ lineHeight: 0, transform: "translateY(-50%)" }}
-                      >
-                        <Tooltip content="Edit Split">
-                          <IconButton
-                            variant="ghost"
-                            color="violet"
-                            radius="medium"
-                            size="1"
-                            onClick={() => setEditingSplit(0)}
-                            aria-label="Edit Split"
-                          >
-                            <PiPencilSimple size="14" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    ) : null}
-                  </Box>
-                </Flex>
-                {/* Coverage is already shown above, so this bar is purely the
-                    split between variations. Held to the grid's width so the
-                    two line up. */}
-                <Box
-                  mx="auto"
-                  style={{
-                    maxWidth: variationGridMaxWidth(Math.min(numVariations, 3)),
-                  }}
-                >
-                  <ExperimentSplitVisual
-                    slim
-                    connector
-                    overhang={VARIATION_GRID_GAP_PX / 2}
-                    bleed={2}
-                    coverage={1}
-                    stackLeft
-                    type="string"
-                    onSegmentClick={
-                      editInline ? (i) => setEditingSplit(i) : undefined
-                    }
-                    values={phaseVariations.map((v, i) => ({
-                      value: v.key,
-                      weight: variationWeights[i] ?? 0,
-                      name: v.name,
-                    }))}
-                  />
-                </Box>
-              </Box>
-            )}
 
-            {editingSplit !== null ? (
-              <EditSplitModal
-                variations={phaseVariations}
-                weights={variationWeights}
-                focusIndex={editingSplit}
-                close={() => setEditingSplit(null)}
-                onConfirm={(weights) => {
-                  stagePatch({ variationWeights: weights });
-                  setEditingSplit(null);
-                }}
-              />
-            ) : null}
+              {reordering ? (
+                <ReorderVariationsModal
+                  experiment={experiment}
+                  weights={variationWeights}
+                  close={() => setReordering(false)}
+                  stage={stageVariationList}
+                />
+              ) : null}
 
-            {reordering ? (
-              <ReorderVariationsModal
+              <VariationValuesTable
                 experiment={experiment}
-                weights={variationWeights}
-                close={() => setReordering(false)}
-                stage={stageVariationList}
+                linkedFeatures={linkedFeatures}
+                canEditFlagValues={canEditFlagValues}
+                flagEnvironments={flagEnvironments}
+                draftPicks={draftPicks}
+                flagView={flagView}
+                onChangeFlagView={canViewLive ? setFlagView : null}
+                split={variationWeights}
+                onChangeSplit={
+                  editInline && !isBandit
+                    ? (weights) => stagePatch({ variationWeights: weights })
+                    : null
+                }
+                splitNote={isBandit ? "Managed by the bandit" : null}
+                onEditKey={
+                  canEditExperiment && !variationsLocked && setEditKeyIndex
+                    ? setEditKeyIndex
+                    : undefined
+                }
+                onRemoveVariation={
+                  canRestructure && numVariations > 2
+                    ? removeVariation
+                    : undefined
+                }
+                onReorder={
+                  canRestructure ? () => setReordering(true) : undefined
+                }
+                onAddVariation={
+                  canStageVariations && canAddVariation
+                    ? addVariation
+                    : undefined
+                }
               />
-            ) : null}
-
-            <VariationsTable
-              experiment={experiment}
-              canEditExperiment={canEditExperiment}
-              mutate={mutate}
-              noMargin
-              centered
-              showSplit={false}
-              // Names, descriptions and screenshots aren't served, so they
-              // stay editable while it runs.
-              onEditMetadata={
-                canEditExperiment && setEditVariationIndex
-                  ? (index) => setEditVariationIndex(index)
-                  : undefined
-              }
-              onEditKey={
-                canEditExperiment && !variationsLocked && setEditKeyIndex
-                  ? setEditKeyIndex
-                  : undefined
-              }
-              onRemoveVariation={
-                canRestructure && numVariations > 2
-                  ? removeVariation
-                  : undefined
-              }
-              onReorder={canRestructure ? () => setReordering(true) : undefined}
-              onAddVariation={
-                canStageVariations && canAddVariation ? addVariation : undefined
-              }
-            />
-            <FlagValueRows
-              experiment={experiment}
-              flagEnvironments={flagEnvironments}
-              draftPicks={draftPicks}
-              linkedFeatures={linkedFeatures}
-              canEdit={canEditFlagValues}
-              onAddFlag={addFeatureFlag}
-              addFlagBlockedReason={addFeatureFlagBlockedReason}
-            />
-            {otherImplementations}
-          </>
-        )}
-      </Flex>
-    </Frame>
+              {otherImplementations}
+            </>
+          )}
+        </Flex>
+      </Frame>
+      {!isHoldout ? (
+        <VariationDetails
+          experiment={experiment}
+          onEdit={
+            canEditExperiment && setEditVariationIndex
+              ? setEditVariationIndex
+              : undefined
+          }
+        />
+      ) : null}
+    </>
   );
 }
 

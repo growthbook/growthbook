@@ -9,6 +9,7 @@ import Text from "@/ui/Text";
 import {
   experimentFieldChanges,
   useRegisterExperimentEdit,
+  useStagedState,
 } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Metadata from "@/ui/Metadata";
@@ -63,9 +64,12 @@ export default function InlineMarkdownField({
   emptyLabel,
 }: Props) {
   const savedValue = experiment[field] || "";
-  const [editingOnDemand, setEditingOnDemand] = useState(false);
+  const [value, setValue] = useStagedState(`inline:${field}`, savedValue);
+  // A value kept from before a reload opens its editor again.
+  const [editingOnDemand, setEditingOnDemand] = useState(
+    () => value.trim() !== savedValue.trim(),
+  );
   const editable = editableHere || editingOnDemand;
-  const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
 
   const dirty = editable && value.trim() !== savedValue.trim();

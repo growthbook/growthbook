@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
@@ -64,6 +64,11 @@ export default function useUnsavedChangesGuard(
     };
   }, [hasUnsavedChanges]);
 
+  // Lets the next unload through unwarned, for a leave that loses nothing.
+  const allowUnload = useCallback(() => {
+    navigationConfirmed.current = true;
+  }, []);
+
   const confirmNavigation = async () => {
     if (!pendingHref) return;
     navigationConfirmed.current = true;
@@ -80,5 +85,6 @@ export default function useUnsavedChangesGuard(
     pendingHref,
     confirmNavigation,
     cancelNavigation: () => setPendingHref(null),
+    allowUnload,
   };
 }

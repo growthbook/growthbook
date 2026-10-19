@@ -23,6 +23,10 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import {
+  stagedEditsScope,
+  useStagedState,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
@@ -41,9 +45,6 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  // Staged targeting edits, saved by the setup tab's save bar.
-  const [targetingDraft, setTargetingDraft] =
-    useState<ExperimentTargetingData | null>(null);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
@@ -57,6 +58,13 @@ const ExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
+  // Staged targeting edits, saved by the setup tab's save bar.
+  const [targetingDraft, setTargetingDraft] =
+    useStagedState<ExperimentTargetingData | null>(
+      "targeting",
+      null,
+      data ? stagedEditsScope(data.experiment) : null,
+    );
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
     useRunningExperimentStatus();

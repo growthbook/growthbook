@@ -7,8 +7,6 @@ import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
 import RadixButton from "@/ui/Button";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -83,12 +81,15 @@ export async function openVisualEditor({
   browser,
   deviceType,
   bypassChecks = false,
+  beforeLeave,
 }: {
   vc: VisualChangesetInterface;
   apiCall: AuthContextValue["apiCall"];
   browser: string;
   deviceType: string;
   bypassChecks?: boolean;
+  // Runs just before the page is left for the editor.
+  beforeLeave?: () => void;
 }): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
   if (!url) {
@@ -184,6 +185,7 @@ export async function openVisualEditor({
     status: "success",
     type: browser + " - " + deviceType,
   });
+  beforeLeave?.();
   window.location.href = url;
   return null;
 }
@@ -194,14 +196,13 @@ const OpenVisualEditorLink: FC<{
   useRadix?: boolean;
   useLink?: boolean;
   button?: string | JSX.Element;
-  // Why it can't open right now; shown on the disabled control.
-  disabledReason?: string | null;
+  beforeLeave?: () => void;
 }> = ({
   visualChangeset,
   openSettings,
   useRadix = true,
   useLink,
-  disabledReason = null,
+  beforeLeave,
   button = (
     <>
       Open AI Visual Editor
@@ -228,6 +229,7 @@ const OpenVisualEditorLink: FC<{
       apiCall,
       browser,
       deviceType,
+      beforeLeave,
     });
     if (!res) {
       // Stay in a loading state until window redirects
@@ -245,20 +247,6 @@ const OpenVisualEditorLink: FC<{
       return;
     }
   };
-
-  if (disabledReason) {
-    return (
-      <Tooltip content={disabledReason}>
-        {useLink ? (
-          <Text color="text-disabled">{button}</Text>
-        ) : (
-          <RadixButton variant="ghost" disabled>
-            {button}
-          </RadixButton>
-        )}
-      </Tooltip>
-    );
-  }
 
   return (
     <>
@@ -326,6 +314,7 @@ const OpenVisualEditorLink: FC<{
                     browser,
                     deviceType,
                     bypassChecks: true,
+                    beforeLeave,
                   });
                 }}
               >

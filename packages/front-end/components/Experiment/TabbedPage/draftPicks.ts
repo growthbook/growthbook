@@ -54,6 +54,11 @@ export function resolveDraftPick(
   };
 }
 
+/** The flag as live has it, with no draft over it. */
+export function withoutDraft(info: LinkedFeatureInfo): LinkedFeatureInfo {
+  return info.pendingDraft ? { ...info, pendingDraft: undefined } : info;
+}
+
 /** The flag with the draft its row picked in place of the newest, or none when starting one. */
 export function withPickedDraft(
   info: LinkedFeatureInfo,

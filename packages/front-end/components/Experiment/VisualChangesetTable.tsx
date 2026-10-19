@@ -28,9 +28,7 @@ import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import { useLinkedChangeAddGate } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import {
-  AddImplementationButton,
   CardHeaderDivider,
   ImplementationCard,
   ImplementationCardHeader,
@@ -42,6 +40,7 @@ import {
   ShownVisualChangeset,
   VisualTargeting,
 } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import { useExperimentEdits } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
@@ -480,7 +479,6 @@ function VisualChangesetCard({
   canEdit,
   lockedReason,
   canLaunch,
-  launchBlockedReason,
   environmentStates,
   handlers,
   onEditTargeting,
@@ -495,7 +493,6 @@ function VisualChangesetCard({
   lockedReason: string | null;
   // The editor only opens while the experiment is a draft.
   canLaunch: boolean;
-  launchBlockedReason: string | null;
   environmentStates?: LinkedChangeEnvStates;
   handlers: ChangeHandlers;
   onEditTargeting: () => void;
@@ -503,6 +500,7 @@ function VisualChangesetCard({
   onRemove: () => void;
   onUndo: () => void;
 }) {
+  const edits = useExperimentEdits();
   const vc = shown.changeset;
   const removed = shown.staged === "removed";
   const editable = canEdit && !removed;
@@ -586,7 +584,8 @@ function VisualChangesetCard({
                 <OpenVisualEditorLink
                   visualChangeset={vc}
                   useLink
-                  disabledReason={launchBlockedReason}
+                  // Staged edits are kept for the return.
+                  beforeLeave={edits?.allowUnload}
                   button={
                     <Flex align="center" gap="1">
                       <PiPencilSimple size="14" />
@@ -682,10 +681,7 @@ export default function VisualEditorRows({
   canEdit,
   lockedReason = null,
   canLaunch,
-  launchBlockedReason = null,
   environmentStates,
-  onAdd,
-  addBlockedReason = null,
   onStageTargeting,
   onStageChange,
   onRemove,
@@ -699,11 +695,7 @@ export default function VisualEditorRows({
   // Why the edits it offers can't be made by this user.
   lockedReason?: string | null;
   canLaunch: boolean;
-  // Why the Visual Editor can't open now; opening it leaves the page.
-  launchBlockedReason?: string | null;
   environmentStates?: LinkedChangeEnvStates;
-  onAdd: (() => void) | null;
-  addBlockedReason?: string | null;
   onStageTargeting: (
     stored: VisualChangesetInterface,
     targeting: VisualTargeting,
@@ -715,10 +707,6 @@ export default function VisualEditorRows({
   onRemove: (id: string) => void;
   onUndo: (id: string) => void;
 }) {
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
-    "visual",
-    experiment,
-  );
   const [editingTargeting, setEditingTargeting] =
     useState<ShownVisualChangeset | null>(null);
   const [editingVisualChange, setEditingVisualChange] = useState<{
@@ -758,16 +746,6 @@ export default function VisualEditorRows({
       heading={
         <ImplementationHeading>AI Visual Editor Changes</ImplementationHeading>
       }
-      add={
-        onAdd ? (
-          <AddImplementationButton
-            label="Add AI Visual Editor changes"
-            onClick={onAdd}
-            disabledReason={addBlockedReason ?? unsupportedReason}
-            commercialFeature={commercialFeature}
-          />
-        ) : null
-      }
     >
       {editingTargeting ? (
         <VisualChangesetModal
@@ -801,7 +779,6 @@ export default function VisualEditorRows({
           canEdit={canEdit}
           lockedReason={lockedReason}
           canLaunch={canLaunch}
-          launchBlockedReason={launchBlockedReason}
           environmentStates={environmentStates}
           handlers={handlers}
           onEditTargeting={() => {

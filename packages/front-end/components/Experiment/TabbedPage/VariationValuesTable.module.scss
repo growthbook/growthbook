@@ -1,0 +1,76 @@
+// Each layer gives way, so the choice is cut short rather than overflowing.
+.caretTriggerRoot,
+.caretTrigger {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.caretTrigger {
+  border-bottom: 1px solid transparent;
+
+  &:hover {
+    border-bottom-color: currentColor;
+  }
+}
+
+// One row per variation, one column per linked implementation. Cells are
+// placed by row and column, so each column's component owns its own cells.
+.grid {
+  display: grid;
+  min-width: 100%;
+}
+
+.headerCell,
+.cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--gray-a4);
+  background: var(--color-panel-solid);
+}
+
+// Also the card's title bar: "Variations" leads it.
+.headerCell {
+  min-height: 44px;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom-color: var(--gray-a5);
+}
+
+// The variation names stay put while the values scroll sideways.
+.pinnedStart {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.pinnedEnd {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.fullRow {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+// Each column's state, under its values: where it serves, which revision,
+// and anything that needs doing. A column with nothing to say takes no room.
+.detailsCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-panel-solid);
+
+  &:empty {
+    padding: 0;
+  }
+}

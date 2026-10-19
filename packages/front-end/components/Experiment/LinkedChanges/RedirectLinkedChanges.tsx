@@ -7,9 +7,7 @@ import { IconButton } from "@radix-ui/themes";
 import { PiLink, PiPencilSimple } from "react-icons/pi";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import { useLinkedChangeAddGate } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import {
-  AddImplementationButton,
   CardHeaderDivider,
   ImplementationCard,
   ImplementationCardHeader,
@@ -179,8 +177,6 @@ export default function UrlRedirectRows({
   canEdit,
   lockedReason = null,
   environmentStates,
-  onAdd,
-  addBlockedReason = null,
   onEdit,
   onRemove,
   onUndo,
@@ -193,30 +189,14 @@ export default function UrlRedirectRows({
   // Why the edits it offers can't be made by this user.
   lockedReason?: string | null;
   environmentStates?: LinkedChangeEnvStates;
-  onAdd: (() => void) | null;
-  addBlockedReason?: string | null;
   onEdit: (redirect: ShownRedirect) => void;
   onRemove: (redirect: ShownRedirect) => void;
   onUndo: (redirect: ShownRedirect) => void;
 }) {
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
-    "urlredirect",
-    experiment,
-  );
   return (
     <ImplementationSection
       cols={Math.min(variations.length, 3)}
       heading={<ImplementationHeading>URL Redirects</ImplementationHeading>}
-      add={
-        onAdd ? (
-          <AddImplementationButton
-            label="Add URL redirect"
-            onClick={onAdd}
-            disabledReason={addBlockedReason ?? unsupportedReason}
-            commercialFeature={commercialFeature}
-          />
-        ) : null
-      }
     >
       {urlRedirects.map((r) => (
         <RedirectCard

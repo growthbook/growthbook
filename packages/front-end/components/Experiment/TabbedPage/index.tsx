@@ -62,7 +62,10 @@ import {
   ExperimentEditsProvider,
   experimentFieldChanges,
   HoldoutDraft,
+  stagedEditsScope,
+  useExperimentEdits,
   useRegisterExperimentEdit,
+  useStagedState,
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -116,6 +119,7 @@ export default function TabbedPage(props: Props) {
   return (
     <ExperimentEditsProvider
       experimentId={props.experiment.id}
+      scope={stagedEditsScope(props.experiment)}
       mutate={props.mutate}
     >
       <TabbedPageContents {...props} />
@@ -160,6 +164,7 @@ function TabbedPageContents({
   const router = useRouter();
 
   const { apiCall } = useAuth();
+  const edits = useExperimentEdits();
 
   const [compareModal, setCompareModal] = useState(false);
   // Open state is remembered per experiment; width is a global preference.
@@ -180,8 +185,9 @@ function TabbedPageContents({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
   // Joining, changing or leaving a holdout waits for the page's Save too.
-  const [stagedHoldout, setStagedHoldout] =
-    useState<HoldoutDraft["value"]>(null);
+  const [stagedHoldout, setStagedHoldout] = useStagedState<
+    HoldoutDraft["value"]
+  >("holdout", null);
   useRegisterExperimentEdit("holdout", stagedHoldout !== null, {
     changes: () =>
       stagedHoldout !== null
@@ -569,6 +575,8 @@ function TabbedPageContents({
               apiCall,
               browser,
               deviceType,
+              // Staged edits are kept for the return.
+              beforeLeave: edits?.allowUnload,
             });
           }}
           cta="Open AI Visual Editor"

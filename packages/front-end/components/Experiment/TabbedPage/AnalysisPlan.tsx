@@ -36,6 +36,7 @@ import {
 import {
   experimentFieldChanges,
   useRegisterExperimentEdit,
+  useStagedState,
 } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
@@ -81,7 +82,10 @@ export default function AnalysisPlan({
   // What the settings modal staged, beyond the fields this section holds in its
   // own state.
   const [advanced, setAdvanced] =
-    useState<ExperimentAnalysisSettingsDraft | null>(null);
+    useStagedState<ExperimentAnalysisSettingsDraft | null>(
+      "analysis-plan:advanced",
+      null,
+    );
 
   const metricOverrides =
     (advanced && "metricOverrides" in advanced
@@ -119,25 +123,42 @@ export default function AnalysisPlan({
     [datasources, demoDataSourceId, defaultDataSource, experiment.project],
   );
 
-  const [datasource, setDatasource] = useState(
+  const [datasource, setDatasource] = useStagedState(
+    "analysis-plan:datasource",
     experiment.datasource || suggestedDatasource,
   );
-  const [exposureQueryId, setExposureQueryId] = useState(
+  const [exposureQueryId, setExposureQueryId] = useStagedState(
+    "analysis-plan:exposureQueryId",
     experiment.exposureQueryId || "",
   );
-  const [goalMetrics, setGoalMetrics] = useState(experiment.goalMetrics || []);
-  const [secondaryMetrics, setSecondaryMetrics] = useState(
+  const [goalMetrics, setGoalMetrics] = useStagedState(
+    "analysis-plan:goalMetrics",
+    experiment.goalMetrics || [],
+  );
+  const [secondaryMetrics, setSecondaryMetrics] = useStagedState(
+    "analysis-plan:secondaryMetrics",
     experiment.secondaryMetrics || [],
   );
-  const [guardrailMetrics, setGuardrailMetrics] = useState(
+  const [guardrailMetrics, setGuardrailMetrics] = useStagedState(
+    "analysis-plan:guardrailMetrics",
     experiment.guardrailMetrics || [],
   );
   // Only what someone changed here is sent, so a write from elsewhere on the
   // page isn't reverted by the copy this section holds. A suggested datasource
   // isn't a change until touched, or every load would raise the save bar.
-  const [touched, setTouched] = useState<ReadonlySet<PlanField>>(new Set());
-  const touch = (...fields: PlanField[]) =>
-    setTouched((prev) => new Set([...prev, ...fields]));
+  const [touchedFields, setTouchedFields] = useStagedState<PlanField[]>(
+    "analysis-plan:touched",
+    [],
+  );
+  const touched: ReadonlySet<PlanField> = useMemo(
+    () => new Set(touchedFields),
+    [touchedFields],
+  );
+  const touch = useCallback(
+    (...fields: PlanField[]) =>
+      setTouchedFields((prev) => [...new Set([...prev, ...fields])]),
+    [setTouchedFields],
+  );
   const current = {
     datasource,
     exposureQueryId,
@@ -196,6 +217,11 @@ export default function AnalysisPlan({
       experiment.secondaryMetrics,
       experiment.guardrailMetrics,
       suggestedDatasource,
+      setDatasource,
+      setExposureQueryId,
+      setGoalMetrics,
+      setSecondaryMetrics,
+      setGuardrailMetrics,
     ],
   );
   useEffect(() => resync(touchedRef.current), [resync]);
@@ -207,12 +233,12 @@ export default function AnalysisPlan({
         ...Object.fromEntries(sent.map((field) => [field, current[field]])),
       }),
     onSaved: () => {
-      setTouched(new Set());
+      setTouchedFields([]);
       setAdvanced(null);
     },
     discard: () => {
       setAdvanced(null);
-      setTouched(new Set());
+      setTouchedFields([]);
       resync(new Set(), false);
     },
   });
@@ -278,6 +304,8 @@ export default function AnalysisPlan({
     exposureQueryId,
     mismatched,
     experiment.exposureQueryId,
+    setExposureQueryId,
+    touch,
   ]);
 
   const activationMetric =

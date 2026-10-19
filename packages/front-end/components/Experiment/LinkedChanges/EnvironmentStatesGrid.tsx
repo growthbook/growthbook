@@ -345,8 +345,9 @@ export function EnvironmentInputsPopover({
   return (
     <Popover
       openOnHover
-      side="top"
-      align="end"
+      // Below, so it doesn't cover the values it sits under.
+      side="bottom"
+      align="start"
       avoidCollisions={false}
       trigger={
         <EnvironmentsCount active={active} total={environmentStates.length} />
@@ -421,9 +422,10 @@ const EnvironmentsCount = forwardRef<
         display: "inline-flex",
         alignItems: "center",
         gap: "var(--space-1)",
+        flexShrink: 0,
       }}
     >
-      <Text size="sm" color="text-low">
+      <Text size="sm" color="text-low" whiteSpace="nowrap">
         Environments {active}/{total}
       </Text>
     </span>

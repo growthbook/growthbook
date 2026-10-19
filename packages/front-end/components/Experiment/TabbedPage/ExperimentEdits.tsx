@@ -1,6 +1,8 @@
 import {
   createContext,
+  Dispatch,
   ReactNode,
+  SetStateAction,
   useCallback,
   useContext,
   useEffect,
@@ -41,6 +43,8 @@ type PendingEdit = {
 );
 
 interface ExperimentEditsValue {
+  /** Where the page's staged edits are kept. */
+  scope: string;
   /** Anything on the page edited but not yet written. */
   dirty: boolean;
   saving: boolean;
@@ -49,6 +53,8 @@ interface ExperimentEditsValue {
   discardAll: () => void;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
+  /** Leaves the page unwarned: staged edits are kept for the return. */
+  allowUnload: () => void;
 }
 
 /**
@@ -77,21 +83,121 @@ export function experimentFieldChanges(
   return { experiment: { changes, base } };
 }
 
+const STAGED_EDITS_PREFIX = "gb-experiment-edits";
+
+/**
+ * Where an experiment's staged edits are kept: per status too, so edits staged
+ * in Draft never come back once it's running.
+ */
+export function stagedEditsScope(
+  experiment: Pick<ExperimentInterfaceStringDates, "id" | "status">,
+): string {
+  return `${experiment.id}:${experiment.status}`;
+}
+
+function readStaged<T>(key: string | null, initial: T): T {
+  if (!key) return initial;
+  try {
+    const stored = sessionStorage.getItem(key);
+    return stored === null ? initial : (JSON.parse(stored) as T);
+  } catch {
+    return initial;
+  }
+}
+
+function clearStagedEdits(scope: string) {
+  try {
+    const prefix = `${STAGED_EDITS_PREFIX}:${scope}:`;
+    const keys = Array.from({ length: sessionStorage.length }, (_, i) =>
+      sessionStorage.key(i),
+    );
+    keys.forEach((key) => {
+      if (key?.startsWith(prefix)) sessionStorage.removeItem(key);
+    });
+  } catch {
+    // Storage is blocked; there's nothing kept to clear.
+  }
+}
+
+/**
+ * State for an edit staged on the experiment page, kept in this tab's session
+ * storage so a reload, or a trip to the Visual Editor, doesn't lose it. Back
+ * at `initial`, nothing is kept. Outside the page's provider, pass `scope`.
+ */
+export function useStagedState<T>(
+  slot: string,
+  initial: T,
+  scope?: string | null,
+): [T, Dispatch<SetStateAction<T>>] {
+  const providerScope = useContext(ExperimentEditsContext)?.scope ?? null;
+  const resolvedScope = scope === undefined ? providerScope : scope;
+  const key = resolvedScope
+    ? `${STAGED_EDITS_PREFIX}:${resolvedScope}:${slot}`
+    : null;
+  const [state, setState] = useState(() => ({
+    key,
+    value: readStaged(key, initial),
+  }));
+  // Another experiment, or the same one in a new status, has its own edits.
+  let current = state;
+  if (state.key !== key) {
+    current = { key, value: readStaged(key, initial) };
+    setState(current);
+  }
+
+  const initialJson = JSON.stringify(initial);
+  useEffect(() => {
+    if (!current.key) return;
+    try {
+      const json = JSON.stringify(current.value);
+      if (json === initialJson) sessionStorage.removeItem(current.key);
+      else sessionStorage.setItem(current.key, json);
+    } catch {
+      // Storage is full or blocked; the edit still lives on the page.
+    }
+  }, [current.key, current.value, initialJson]);
+
+  const set: Dispatch<SetStateAction<T>> = useCallback(
+    (next) =>
+      setState((prev) => ({
+        key: prev.key,
+        value:
+          typeof next === "function"
+            ? (next as (prev: T) => T)(prev.value)
+            : next,
+      })),
+    [],
+  );
+  return [current.value, set];
+}
+
 /**
  * Collects the page's in-place edits so one Save writes them together, rather
  * than every field posting the moment it loses focus.
  */
 export function ExperimentEditsProvider({
   experimentId,
+  scope,
   mutate,
   children,
 }: {
   experimentId: string;
+  scope: string;
   mutate: () => void;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
   const edits = useRef(new Map<string, PendingEdit>());
+
+  // Edits staged under a status the experiment has left stay behind, so they
+  // can't come back if it returns to it.
+  const previousScope = useRef(scope);
+  useEffect(() => {
+    const left = previousScope.current;
+    previousScope.current = scope;
+    if (left === scope || !left.startsWith(`${experimentId}:`)) return;
+    clearStagedEdits(left);
+  }, [scope, experimentId]);
   const [dirtyIds, setDirtyIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,8 +287,10 @@ export function ExperimentEditsProvider({
     discardAll,
   );
 
+  const { allowUnload } = navigationGuard;
   const value = useMemo(
     () => ({
+      scope,
       dirty: dirtyIds.length > 0,
       saving,
       error,
@@ -190,8 +298,19 @@ export function ExperimentEditsProvider({
       discardAll,
       register,
       checkChanges,
+      allowUnload,
     }),
-    [dirtyIds, saving, error, saveAll, discardAll, register, checkChanges],
+    [
+      scope,
+      dirtyIds,
+      saving,
+      error,
+      saveAll,
+      discardAll,
+      register,
+      checkChanges,
+      allowUnload,
+    ],
   );
 
   return (

@@ -1,6 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   resolveDraftPick,
+  withoutDraft,
   withPickedDraft,
 } from "@/components/Experiment/TabbedPage/draftPicks";
 
@@ -69,5 +70,13 @@ describe("withPickedDraft", () => {
     expect(
       withPickedDraft(flag, { newestVersion: 7, target: "new" }).pendingDraft,
     ).toBeUndefined();
+  });
+});
+
+describe("withoutDraft", () => {
+  it("shows the flag as live has it, and leaves one with no draft as is", () => {
+    expect(withoutDraft(info(7, 5)).pendingDraft).toBeUndefined();
+    const live = info();
+    expect(withoutDraft(live)).toBe(live);
   });
 });

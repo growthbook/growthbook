@@ -58,6 +58,14 @@ export const EMPTY_LINKED_CHANGES: LinkedChangesDraft = {
   removedVisual: [],
 };
 
+/** A key for a redirect added on the page that no staged one holds. */
+export function newRedirectKey(draft: LinkedChangesDraft): string {
+  const taken = new Set(draft.addedRedirects.map((r) => r.key));
+  let n = draft.addedRedirects.length + 1;
+  while (taken.has(`new-redirect-${n}`)) n++;
+  return `new-redirect-${n}`;
+}
+
 type StagedMark = "added" | "edited" | "removed" | null;
 
 export type ShownRedirect = RedirectFields & {

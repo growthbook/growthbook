@@ -14,7 +14,9 @@ import Avatar from "@/ui/Avatar";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
+import { AddImplementationButton } from "@/components/Experiment/TabbedPage/ImplementationCard";
 import { ICON_PROPERTIES } from "./constants";
 
 // What adding each no-code kind needs: an SDK that applies it, and the plan
@@ -39,7 +41,12 @@ const ADD_GATES = {
   }
 >;
 
-type AddableKind = "feature" | keyof typeof ADD_GATES;
+export type AddableKind = "feature" | keyof typeof ADD_GATES;
+export const ADDABLE_KINDS: AddableKind[] = [
+  "feature",
+  "visual",
+  "urlredirect",
+];
 
 const ADD_OPTIONS: Record<
   AddableKind,
@@ -152,60 +159,107 @@ function AddImplementationItem({
   );
 }
 
-/** Adds a kind the experiment doesn't have yet; each kind it has adds under its own section. */
+const ADD_LABELS: Record<AddableKind, string> = {
+  feature: "Add Feature Flag",
+  visual: "Add AI Visual Editor changes",
+  urlredirect: "Add URL redirect",
+};
+
+function AddAnotherButton({
+  type,
+  experiment,
+  onClick,
+  blockedReason,
+}: {
+  type: AddableKind;
+  experiment: ExperimentInterfaceStringDates;
+  onClick: () => void;
+  blockedReason?: string | null;
+}) {
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    type,
+    experiment,
+  );
+  return (
+    <AddImplementationButton
+      label={ADD_LABELS[type]}
+      onClick={onClick}
+      disabledReason={blockedReason ?? unsupportedReason}
+      commercialFeature={commercialFeature}
+    />
+  );
+}
+
+/**
+ * Adds any kind of implementation. An experiment with just one kind adds more
+ * of it first, with the other kinds behind the caret.
+ */
 export function AddImplementationMenu({
   experiment,
-  onFeatureFlag,
-  onVisualEditor,
-  onUrlRedirect,
+  onAdd,
+  primary = null,
   blockedReasons = {},
 }: {
   experiment: ExperimentInterfaceStringDates;
-  // Absent for a kind the menu doesn't offer.
-  onFeatureFlag: (() => void) | null;
-  onVisualEditor: (() => void) | null;
-  onUrlRedirect: (() => void) | null;
+  onAdd: Record<AddableKind, () => void>;
+  primary?: AddableKind | null;
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
+  const items = ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
+    <AddImplementationItem
+      key={type}
+      type={type}
+      experiment={experiment}
+      onClick={onAdd[type]}
+      blockedReason={blockedReasons[type]}
+    />
+  ));
+  if (!primary) {
+    return (
+      <DropdownMenu
+        trigger={
+          <Button
+            variant="outline"
+            icon={<PiCaretDownFill />}
+            iconPosition="right"
+          >
+            Add implementation
+          </Button>
+        }
+        menuPlacement="end"
+        variant="soft"
+      >
+        {items}
+      </DropdownMenu>
+    );
+  }
   return (
-    <DropdownMenu
-      trigger={
-        <Button
-          variant="outline"
-          icon={<PiCaretDownFill />}
-          iconPosition="right"
+    <SplitButton
+      variant="outline"
+      menu={
+        <DropdownMenu
+          trigger={
+            <Button
+              variant="outline"
+              aria-label="Add another kind of implementation"
+            >
+              <PiCaretDownFill />
+            </Button>
+          }
+          menuPlacement="end"
+          variant="soft"
         >
-          Add implementation
-        </Button>
+          {items}
+        </DropdownMenu>
       }
-      menuPlacement="end"
-      variant="soft"
     >
-      {onFeatureFlag ? (
-        <AddImplementationItem
-          type="feature"
-          experiment={experiment}
-          onClick={onFeatureFlag}
-          blockedReason={blockedReasons.feature}
-        />
-      ) : null}
-      {onVisualEditor ? (
-        <AddImplementationItem
-          type="visual"
-          experiment={experiment}
-          onClick={onVisualEditor}
-          blockedReason={blockedReasons.visual}
-        />
-      ) : null}
-      {onUrlRedirect ? (
-        <AddImplementationItem
-          type="urlredirect"
-          experiment={experiment}
-          onClick={onUrlRedirect}
-          blockedReason={blockedReasons.urlredirect}
-        />
-      ) : null}
-    </DropdownMenu>
+      <AddAnotherButton
+        type={primary}
+        experiment={experiment}
+        onClick={onAdd[primary]}
+        blockedReason={blockedReasons[primary]}
+      />
+    </SplitButton>
   );
 }

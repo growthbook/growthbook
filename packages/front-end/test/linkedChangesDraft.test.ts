@@ -7,6 +7,7 @@ import {
   hasSetAsideVisualChanges,
   LinkedChangesDraft,
   linkedChangesBody,
+  newRedirectKey,
   pruneLinkedChanges,
   RedirectFields,
   removeRedirect,
@@ -110,6 +111,14 @@ describe("linkedChangesDraft", () => {
       { ...fields({ urlPattern: "https://b.com" }), key: "new-1" },
     ]);
     expect(removeRedirect(draft, added)).toEqual(EMPTY);
+  });
+
+  it("keys a new redirect apart from every one still staged", () => {
+    let draft = addRedirect(EMPTY, newRedirectKey(EMPTY), fields());
+    draft = addRedirect(draft, newRedirectKey(draft), fields());
+    const [first] = shownUrlRedirects(draft, []);
+    draft = removeRedirect(draft, first);
+    expect(newRedirectKey(draft)).not.toBe(draft.addedRedirects[0].key);
   });
 
   it("removing a redirect drops its edit, and Undo takes both back", () => {
