@@ -80,10 +80,18 @@ export default function ContextualBanditHealthTab({
     );
   }
 
-  if (!traffic || totalUsers === 0) {
+  if (!traffic) {
     return (
       <Callout status="info" mt="3">
         Traffic data will appear after a successful results refresh.
+      </Callout>
+    );
+  }
+
+  if (totalUsers === 0) {
+    return (
+      <Callout status="info" mt="3">
+        No data found. It is likely there are no units in your Bandit yet.
       </Callout>
     );
   }
