@@ -63,6 +63,7 @@ import {
 import { isCurrentStepReadyForApproval } from "back-end/src/services/rampScheduleEvaluator";
 import {
   createRevision,
+  discardRevision,
   getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -1272,7 +1273,15 @@ export async function restoreRampBaseStates(
   }
 }
 
-export const featureEntityHandler: EntityHandler = {
+// A `LandingConflictError` from landingSequence: a lost CAS that wrote nothing.
+// Matched by name because that module's import graph spans every revision
+// adapter.
+function isLostFeatureLanding(e: unknown): boolean {
+  return e instanceof ConflictError && e.name === "LandingConflictError";
+}
+
+// One landing attempt; `featureEntityHandler` below retries it.
+const featureLandingAttempt: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment, judgeTargeting, notes } = opts;
 
@@ -1384,15 +1393,64 @@ export const featureEntityHandler: EntityHandler = {
     });
 
     const forceResult: MergeResultChanges = { rules: updatedRules };
-    await publishRevision({
-      context: ctx,
-      feature,
-      revision,
-      result: forceResult,
-      comment: stepLabel,
-      bypassLockdown: true,
-      rampEnginePublish: true,
-    });
+    try {
+      await publishRevision({
+        context: ctx,
+        feature,
+        revision,
+        result: forceResult,
+        comment: stepLabel,
+        bypassLockdown: true,
+        rampEnginePublish: true,
+      });
+    } catch (e) {
+      if (isLostFeatureLanding(e)) {
+        // Nothing landed: retire the draft rather than leave it unpublished.
+        try {
+          await discardRevision(ctx, revision, user, null);
+        } catch (err) {
+          logger.warn(
+            { err, featureId: feature.id, version: revision.version },
+            "Failed to discard ramp draft after a lost feature landing",
+          );
+        }
+      }
+      throw e;
+    }
+  },
+};
+
+// Schedules on one feature fire in parallel (one job per schedule), so a rival
+// landing can win the feature CAS between our read and our write.
+const FEATURE_LANDING_ATTEMPTS = 5;
+
+export const featureEntityHandler: EntityHandler = {
+  async applyActions(ctx, entityId, actions, opts) {
+    for (let attempt = 1; ; attempt++) {
+      // Per attempt, so a retried apply does not repeat its notes.
+      const notes: string[] = [];
+      try {
+        await featureLandingAttempt.applyActions(ctx, entityId, actions, {
+          ...opts,
+          notes,
+        });
+        opts.notes?.push(...notes);
+        return;
+      } catch (e) {
+        // A lost landing wrote nothing, so re-reading the feature and
+        // re-applying the patch keeps the rival's change and adds ours.
+        if (!isLostFeatureLanding(e) || attempt >= FEATURE_LANDING_ATTEMPTS) {
+          throw e;
+        }
+        logger.info(
+          { featureId: entityId, attempt, stepLabel: opts.stepLabel },
+          "Ramp publish lost a concurrent feature landing; retrying on fresh state",
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, 250 * attempt + Math.random() * 250),
+        );
+      }
+    }
   },
 };
 
