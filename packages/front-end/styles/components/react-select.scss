@@ -349,13 +349,15 @@
   }
 }
 
+// `gb-field-indicator` gives a text field's corner buttons the same look.
 .gb-multi-select__clear-indicator,
 .gb-select__clear-indicator,
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle {
+.gb-select__scope-toggle,
+.gb-field-indicator {
   width: 22px;
   height: 22px;
   margin: 0 1px;
@@ -379,7 +381,8 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle {
+.gb-select__scope-toggle,
+.gb-field-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -398,6 +401,12 @@
     height: 14px;
     fill: currentColor;
   }
+}
+
+// An indicator's accent (the constant picker's "@") shows while it's in use.
+.gb-field-indicator:hover .gb-field-indicator__accent,
+.gb-field-indicator[data-state="open"] .gb-field-indicator__accent {
+  color: var(--ruby-11);
 }
 
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,

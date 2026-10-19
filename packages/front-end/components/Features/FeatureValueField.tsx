@@ -52,6 +52,8 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
+import TextField from "@/ui/TextField";
 import RadioGroup from "@/ui/RadioGroup";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -103,6 +105,11 @@ export interface Props {
   // unless `actionsOverlay` places it.
   inlineConstantButton?: boolean;
   inlineConstantButtonSize?: "1" | "2";
+  /**
+   * Strings edit in the design-system TextField, growing from one line, with
+   * the constant picker and copy inside it. Off by default.
+   */
+  multilineTextField?: boolean;
   /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
@@ -157,6 +164,7 @@ export default function FeatureValueField({
   fullWidth = false,
   inlineConstantButton = false,
   inlineConstantButtonSize,
+  multilineTextField = false,
   size,
   sparse,
   setSparse,
@@ -199,6 +207,7 @@ export default function FeatureValueField({
         value={value}
         valueType={valueType}
         project={pickerProject}
+        compact={multilineTextField}
       />
     ) : null;
   const jsonEditorRef = useRef<Ace.Editor | null>(null);
@@ -343,6 +352,7 @@ export default function FeatureValueField({
         }}
         label={label}
         disabled={disabled}
+        size={size}
       />
     );
   }
@@ -917,7 +927,8 @@ export default function FeatureValueField({
     </Tooltip>
   );
 
-  const copyUnderField = !copyHidden && !actionsOverlay;
+  const stringTextField = multilineTextField && valueType === "string";
+  const copyUnderField = !copyHidden && !actionsOverlay && !stringTextField;
   const combinedHelpTextForString =
     valueType === "string" &&
     (helpText || usedConstantTags || copyUnderField) ? (
@@ -936,9 +947,7 @@ export default function FeatureValueField({
   // the field (only in a feature context) — rendered beside the label text, not
   // nested inside the field's <label> element.
   const showStringPicker = valueType === "string" && showConstantPicker;
-  const constantInActions =
-    !!actionsOverlay?.withConstantButton && showStringPicker;
-  const compactConstant = inlineConstantButton || constantInActions;
+  const compactConstant = inlineConstantButton || stringTextField;
   const stringInsertButton = showStringPicker ? (
     <InsertConstantButton
       valueType="string"
@@ -948,6 +957,7 @@ export default function FeatureValueField({
       disabled={disabled}
       iconOnly={compactConstant}
       iconSize={inlineConstantButtonSize}
+      indicator={stringTextField}
       // Inline has no label above to offset from.
       iconMt={compactConstant ? "0" : undefined}
     />
@@ -966,7 +976,50 @@ export default function FeatureValueField({
       </Flex>
     ) : null;
 
-  const field = (
+  // In the TextField's right slot, styled like a select's indicator buttons.
+  const copyIndicator = (
+    <UITooltip content={copySuccess ? "Copied" : "Copy to clipboard"}>
+      <button
+        type="button"
+        className="gb-field-indicator gb-field-indicator--reveal"
+        aria-label="Copy to clipboard"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!copySuccess) performCopy(value);
+        }}
+      >
+        {copySuccess ? <PiCheck /> : <PiCopy />}
+      </button>
+    </UITooltip>
+  );
+
+  const field = stringTextField ? (
+    <TextField
+      multiline
+      ref={stringInputRef}
+      label={label}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
+      helpText={combinedHelpTextForString}
+      inputClassName={
+        outlineStyle && outlineStyle !== "default" ? outlineStyle : undefined
+      }
+      append={
+        stringInsertButton || !copyHidden ? (
+          // As tight to the edge and each other as a select's indicators.
+          <Flex align="center" style={{ margin: "0 -6px 0 -4px" }}>
+            {stringInsertButton}
+            {copyHidden ? null : copyIndicator}
+          </Flex>
+        ) : undefined
+      }
+      disabled={disabled}
+    />
+  ) : (
     <Field
       size={size}
       ref={stringInputRef}
@@ -1002,20 +1055,16 @@ export default function FeatureValueField({
     />
   );
 
-  const overlayActions = !!actionsOverlay && (!copyHidden || constantInActions);
   const overlaidField =
-    valueType === "string" && overlayActions ? (
+    valueType === "string" &&
+    !stringTextField &&
+    actionsOverlay &&
+    !copyHidden ? (
       <CornerActions
         overlay={actionsOverlay}
         position={{ bottom: 0, right: 0 }}
         gap="2"
-        actions={
-          <>
-            {/* In a span like the copy button's tooltip, so both sit on one line. */}
-            {constantInActions ? <span>{stringInsertButton}</span> : null}
-            {copyHidden ? null : copyButton}
-          </>
-        }
+        actions={copyButton}
       >
         {field}
       </CornerActions>
