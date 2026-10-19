@@ -184,6 +184,7 @@ const MemberPersonalAccessTokens: FC = () => {
             </Box>
             {expiredCount > 0 && (
               <Switch
+                ml="auto"
                 size="sm"
                 label={`Show expired tokens (${expiredCount})`}
                 value={showExpired}

@@ -54,6 +54,13 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  contextualBanditChangeActions,
+  pinnedFields,
+  plainWriteSummary,
+  queuedDraftsHold,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 const COLLECTION = "contextualbandits";
 
@@ -115,6 +122,17 @@ const BaseClass = MakeModelClass({
               "Link at least one Feature Flag before starting this contextual bandit",
             );
           }
+          const queued = await queuedDraftsHold(
+            req.context,
+            cb.pendingFeatureDrafts,
+          );
+          await requireConfirmation(req.context, {
+            actions: ["experiment.start", ...queued.actions],
+            project: cb.project,
+            summary: `Start ${cb.name}`,
+            links: queued.links,
+            pin: [cb.status, queued.pin],
+          });
           const { updated } = await executeContextualBanditStart(
             req.context,
             cb,
@@ -187,6 +205,18 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
+          // A live bandit's variation change re-weights it and publishes its
+          // linked flags; a draft's only stages them.
+          await requireConfirmation(req.context, {
+            actions:
+              cb.status === "running"
+                ? ["experiment.traffic", "feature.publish"]
+                : ["experiment.draft", "feature.draft"],
+            project: cb.project,
+            summary: `Change the variations of ${cb.name}`,
+            links: [],
+            pin: [cb.status, cb.variations],
+          });
           const { updated, featureDraftPublishFailures } =
             await executeContextualBanditVariationChange(req.context, cb, {
               addVariations: req.body.addVariations,
@@ -432,6 +462,33 @@ export class ContextualBanditModel extends BaseClass {
       banditVersion: 0,
       seed: uuidv4(),
     };
+  }
+
+  // Held by what the update changes, which takes the bandit as it is now.
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (existing) {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const changes = await this.processApiUpdateBody(body);
+      await requireConfirmation(req.context, {
+        actions: contextualBanditChangeActions(existing, changes),
+        project: existing.project,
+        summary:
+          plainWriteSummary(
+            "put",
+            "/contextual-bandits/:id",
+            "Contextual Bandit",
+            existing.name,
+            body,
+          ) ?? `Update ${existing.name}`,
+        links: [],
+        pin: [existing.status, pinnedFields(existing, changes)],
+      });
+    }
+    return super.handleApiUpdate(req);
   }
 
   protected async processApiUpdateBody(rawBody: unknown) {
