@@ -1,4 +1,4 @@
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import type { ApiPopulation } from "shared/validators";
 import { describePopulationStep } from "shared/populations";
@@ -48,13 +48,8 @@ export default function PopulationDefinition({
         </Box>
       )}
 
-      <Grid
-        columns="auto 1fr"
-        gapX="4"
-        gapY="2"
-        pt="3"
-        style={{ borderTop: "1px solid var(--gray-a5)" }}
-      >
+      <Separator size="4" mb="3" />
+      <Grid columns="auto 1fr" gapX="4" gapY="2">
         <Text size="sm" color="text-mid">
           Created
         </Text>
