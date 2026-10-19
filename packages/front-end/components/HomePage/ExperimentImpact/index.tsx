@@ -28,6 +28,7 @@ import {
   getStandardErrorFromLargestSample,
   jamesSteinAdjustment,
 } from "./JamesSteinAdjustment";
+import { getRelativeEffectTelemetry } from "./telemetry";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
@@ -73,8 +74,8 @@ type ExperimentWithImpact = {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
     se: number;
-    relativeEffect: number;
-    relativeEffectStandardError: number;
+    relativeEffect?: number;
+    relativeEffectStandardError?: number;
     selected: boolean;
   }[];
   type: ExperimentImpactType;
@@ -234,9 +235,7 @@ export function scaleImpactAndSetMissingExperiments({
                 scaledImpact: impact,
                 selected: e.winner === i,
                 se: se,
-                relativeEffect: relativeMetric?.uplift?.mean ?? 0,
-                relativeEffectStandardError:
-                  relativeMetric?.uplift?.stddev ?? 0,
+                ...getRelativeEffectTelemetry(relativeMetric),
               });
 
               allScaledImpacts.push(impact);

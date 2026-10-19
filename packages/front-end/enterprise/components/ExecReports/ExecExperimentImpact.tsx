@@ -345,9 +345,15 @@ export default function ExecExperimentImpact({
               variationImpact.scaledImpactAdjusted ??
               variationImpact.scaledImpact,
             standardError: variationImpact.se,
-            relativeEffect: variationImpact.relativeEffect,
-            relativeEffectStandardError:
-              variationImpact.relativeEffectStandardError,
+            ...(variationImpact.relativeEffect !== undefined
+              ? { relativeEffect: variationImpact.relativeEffect }
+              : {}),
+            ...(variationImpact.relativeEffectStandardError !== undefined
+              ? {
+                  relativeEffectStandardError:
+                    variationImpact.relativeEffectStandardError,
+                }
+              : {}),
           }),
         );
       }),
