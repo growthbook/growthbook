@@ -103,6 +103,7 @@ export const contextualBanditValidator = baseSchema
     banditModelVersion: z.number().int().nonnegative(),
 
     linkedFeatures: z.array(z.string()).optional(),
+    hasVisualChangesets: z.boolean().optional(),
 
     pendingFeatureDrafts: z
       .array(
@@ -191,6 +192,7 @@ export const apiContextualBanditValidator = namedSchema(
     analysisSummary: contextualBanditAnalysisSummaryValidator.optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
+    hasVisualChangesets: z.boolean().optional(),
   }),
 );
 

@@ -963,6 +963,11 @@ tags:
   - name: VisualChangeset_model
     x-displayName: Visual Changeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
+  - name: VisualEditorCbExperimentStub_model
+    x-displayName: Visual Editor Cb Experiment Stub
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/VisualEditorCbExperimentStub" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -21951,7 +21956,11 @@ paths:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    anyOf:
+                      - title: Experiment
+                        $ref: '#/components/schemas/Experiment'
+                      - title: Visual Editor Cb Experiment Stub
+                        $ref: '#/components/schemas/VisualEditorCbExperimentStub'
                 required:
                   - visualChangeset
                 additionalProperties: false
@@ -69698,6 +69707,8 @@ components:
           type: string
         experiment:
           type: string
+        contextualBandit:
+          type: string
         visualChanges:
           type: array
           items:
@@ -69744,7 +69755,6 @@ components:
       required:
         - urlPatterns
         - editorUrl
-        - experiment
         - visualChanges
       additionalProperties: false
     Metric:
@@ -70681,6 +70691,63 @@ components:
         - databases
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    VisualEditorCbExperimentStub:
+      type: object
+      properties:
+        id:
+          type: string
+        trackingKey:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        project:
+          type: string
+        hashAttribute:
+          type: string
+        hashVersion:
+          type: number
+          const: 2
+        type:
+          type: string
+          const: contextual-bandit
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
+                  - deactivated
+            required:
+              - variationId
+              - key
+              - name
+              - description
+            additionalProperties: false
+      required:
+        - id
+        - trackingKey
+        - name
+        - status
+        - project
+        - hashAttribute
+        - hashVersion
+        - type
+        - variations
       additionalProperties: false
     SavedGroup:
       type: object
@@ -79680,6 +79747,8 @@ components:
         nextSnapshotAttempt:
           type: string
           format: date-time
+        hasVisualChangesets:
+          type: boolean
       required:
         - id
         - dateCreated
@@ -86717,3 +86786,4 @@ x-tagGroups:
       - Team_model
       - VisualChange_model
       - VisualChangeset_model
+      - VisualEditorCbExperimentStub_model

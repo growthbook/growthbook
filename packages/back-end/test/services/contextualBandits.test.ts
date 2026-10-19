@@ -34,6 +34,16 @@ jest.mock("back-end/src/services/contextualBanditChanges", () => ({
   refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("back-end/src/services/contextualBanditVisualState", () => ({
+  onContextualBanditVisualStateChanged: jest.fn(async (context, cb) => {
+    const { refreshLinkedFeaturePayloads } = jest.requireMock(
+      "back-end/src/services/contextualBanditChanges",
+    );
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    return cb;
+  }),
+}));
+
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
 }));
