@@ -21,6 +21,11 @@ import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
+  DISARMED_BY_EDIT,
+  editDisarmsDraft,
+  REVISION_MODEL,
+} from "back-end/src/services/confirmations";
+import {
   assertCasAuthority,
   type CasAuthority,
 } from "back-end/src/models/casLoop";
@@ -1668,6 +1673,10 @@ export class RevisionModel extends BaseClass {
         // Read by the full advance proof: the pure-revert arm asks what this draft
         // reverts, so a concurrent change to it changes the authority answer.
         "revertedFrom",
+        // Read by the disarm backstop: arming between the read and the write must
+        // make this attempt lose.
+        "autoPublishOnApproval",
+        "scheduledPublishAt",
       ],
       async (existing) => {
         await assertCasAuthority(authority, existing);
@@ -1678,8 +1687,14 @@ export class RevisionModel extends BaseClass {
           { ...existing, target },
           userId,
         );
+        const disarm = editDisarmsDraft(
+          this.context,
+          REVISION_MODEL[existing.target.type],
+          { ...existing, target },
+        );
         return {
           target,
+          ...(disarm ? CLEARED_SCHEDULE : {}),
           // An approval reset starts a new cycle — demote the prior verdicts.
           ...(status
             ? {
@@ -1692,6 +1707,18 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             entry,
             ...(resetEntry ? [resetEntry] : []),
+            ...(disarm
+              ? [
+                  {
+                    id: uniqid("act_"),
+                    user: this.context.auditUser,
+                    userId,
+                    action: "scheduled-publish-canceled" as const,
+                    description: DISARMED_BY_EDIT,
+                    dateCreated: new Date(),
+                  },
+                ]
+              : []),
           ],
           contributors: this.withContributor(existing.contributors, userId),
         } as UpdateProps<Revision>;

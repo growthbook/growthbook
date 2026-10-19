@@ -1938,15 +1938,20 @@ export async function getContextForAgendaJobByOrgId(
 }
 
 // An API key as a principal, built the way the request middleware builds it.
-// Null when the key is gone or disabled. Unscoped PATs are stamped as their
-// user and never arrive here; a scoped one runs as its user under its cap.
+// Null when the key is gone, disabled or expired. A PAT runs as its user, under
+// its cap when scoped.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
 ): Promise<ApiReqContext | null> {
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
   const key = await getOrgApiKey(org, apiKeyId);
-  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+  if (
+    !key ||
+    key.disabled ||
+    (!key.role && !key.userId) ||
+    isExpired(key.expiresAt)
+  ) {
     return null;
   }
   // Armed while assuming a member, it replays only while the key still would.

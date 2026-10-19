@@ -446,6 +446,7 @@ export default function EditScheduleModal({
                     form.setValue("startAt", d ? d.toISOString() : "")
                   }
                   precision="datetime"
+                  timeZone="local"
                   scheduleEndDate={stopAt || undefined}
                   disableBefore={now}
                   disabled={experiment.status !== "draft"}
@@ -489,6 +490,7 @@ export default function EditScheduleModal({
                     form.setValue("stopAt", d ? d.toISOString() : "")
                   }
                   precision="datetime"
+                  timeZone="local"
                   scheduleStartDate={startAt || undefined}
                   disableBefore={startAt ? new Date(startAt) : now}
                 />

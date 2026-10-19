@@ -15,6 +15,8 @@
  * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
  */
 export type AppFeatures = {
+  // Added ahead of the flag's creation in GrowthBook's own account
+  "eppo-importer": boolean;
   "papercups-config": Record<string, unknown>;
   "show-experiment-groups": boolean;
   "show-experiment-targeting": boolean;

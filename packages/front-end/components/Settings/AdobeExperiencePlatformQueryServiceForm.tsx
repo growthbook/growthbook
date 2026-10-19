@@ -28,7 +28,7 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="Port"
           type="number"
@@ -38,7 +38,7 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="Database"
           name="database"
@@ -47,7 +47,7 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="Username"
           name="username"
@@ -56,7 +56,7 @@ const AdobeExperiencePlatformQueryServiceForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <TextField
           label="Technical account ID"
           name="technicalAccountId"

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   ownerEmailField,
   ownerField,
@@ -14,6 +17,11 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  SAVED_GROUP_DESCRIPTION,
+  SAVED_GROUP_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -131,7 +139,12 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 // Post body from postSavedGroup.yaml requestBody
 const postSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group"),
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION),
+    description: z
+      .string()
+      .max(MAX_SAVED_GROUP_DESCRIPTION_LENGTH)
+      .describe(SAVED_GROUP_DESCRIPTION)
+      .optional(),
     type: z
       .enum(["condition", "list"])
       .describe(
@@ -170,7 +183,10 @@ const postSavedGroupBody = z
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group").optional(),
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
+    // No `.max()`: the handler only checks a changed description, so a client
+    // echoing back an older, longer description still succeeds.
+    description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
     condition: z
       .string()
       .describe(
@@ -231,13 +247,14 @@ export const postSavedGroupValidator = {
     })
     .strict(),
   summary: "Create a single saved group",
+  confirmation: ["savedGroup.create"] as const,
   operationId: "postSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
   path: "/saved-groups",
   exampleRequest: {
     body: {
-      name: "internal-users",
+      name: "Internal users",
       values: ["userId-123", "userId-345", "userId-678"],
       attributeKey: "userId",
       owner: "",
@@ -277,6 +294,7 @@ export const updateSavedGroupValidator = {
   summary: "Partially update a single saved group",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
+  confirmation: ["savedGroup.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -300,6 +318,8 @@ export const archiveSavedGroupValidator = {
   summary: "Archive a single saved group",
   description:
     'Archives a Saved Group. If it is still referenced by a Feature Flag, experiment, or another Saved Group, the API returns 422 with the affected references. Send `"ignoreWarnings": true` to acknowledge those references and continue. When approval is required, create and publish an archive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.',
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -320,6 +340,8 @@ export const unarchiveSavedGroupValidator = {
   summary: "Unarchive a single saved group",
   description:
     "Unarchives a Saved Group. When approval is required, create and publish an unarchive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.",
+  confirmation: ["savedGroup.archive", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -337,6 +359,7 @@ export const deleteSavedGroupValidator = {
     })
     .strict(),
   summary: "Deletes a single saved group",
+  confirmation: ["savedGroup.delete"] as const,
   operationId: "deleteSavedGroup",
   tags: ["saved-groups"],
   method: "delete" as const,

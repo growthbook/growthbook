@@ -1,4 +1,5 @@
 import { OpenApiModelSpec } from "../api-model";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
@@ -20,6 +21,8 @@ import {
 export const startContextualBanditEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
+  confirmation: ["experiment.start", ...FEATURE_LANDING_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "startContextualBandit",
   validator: apiContextualBanditStartValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -29,6 +32,7 @@ export const startContextualBanditEndpoint = {
 export const stopContextualBanditEndpoint = {
   pathFragment: "/:id/stop",
   verb: "post" as const,
+  confirmation: ["experiment.stop"] as const,
   operationId: "stopContextualBandit",
   validator: apiContextualBanditStopValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -38,6 +42,7 @@ export const stopContextualBanditEndpoint = {
 export const refreshContextualBanditEndpoint = {
   pathFragment: "/:id/refresh",
   verb: "post" as const,
+  confirmation: ["experiment.traffic"] as const,
   operationId: "refreshContextualBandit",
   validator: apiContextualBanditRefreshValidator,
   zodReturnObject: apiContextualBanditRefreshReturn,
@@ -47,6 +52,13 @@ export const refreshContextualBanditEndpoint = {
 export const updateVariationsContextualBanditEndpoint = {
   pathFragment: "/:id/variations",
   verb: "post" as const,
+  confirmation: [
+    "experiment.draft",
+    "experiment.traffic",
+    "feature.draft",
+    "feature.publish",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateContextualBanditVariations",
   validator: apiContextualBanditUpdateVariationsValidator,
   zodReturnObject: apiContextualBanditVariationsReturn,
@@ -57,6 +69,7 @@ export const updateVariationsContextualBanditEndpoint = {
 export const cancelContextualBanditEndpoint = {
   pathFragment: "/:id/cancel",
   verb: "post" as const,
+  confirmation: [],
   operationId: "cancelContextualBandit",
   validator: apiContextualBanditCancelValidator,
   zodReturnObject: apiContextualBanditCancelReturn,
@@ -76,6 +89,19 @@ export const contextualBanditApiSpec = {
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
+  confirmation: {
+    create: ["experiment.create"],
+    update: [
+      "experiment.draft",
+      "experiment.start",
+      "experiment.stop",
+      "experiment.targeting",
+      "experiment.traffic",
+      "experiment.phases",
+      "experiment.other",
+    ],
+  },
+  confirmationInHandler: { update: true },
   customEndpoints: [
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,
