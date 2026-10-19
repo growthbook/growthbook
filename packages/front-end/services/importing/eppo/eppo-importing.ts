@@ -103,6 +103,7 @@ export type EppoFlag = {
   allocations?: EppoAllocation[];
   tag_names: string[];
   type?: "BANDIT" | "FEATURE_FLAG" | "LAYER";
+  created_at?: string;
 };
 
 export type EppoEntity = { id: number; name: string };
@@ -273,17 +274,19 @@ async function getAllPages<T>(
 }
 
 export type FetchOptions = {
-  // Only experiments created on or after this date (Eppo's `created_since`)
-  experimentsSince?: Date | null;
+  // Only experiments and flags created on or after this date. Experiments
+  // filter server-side (`created_since`); flags have no such filter and are
+  // filtered here on `created_at`.
+  createdSince?: Date | null;
 };
 
 export async function fetchEppoData(
   apiKey: string,
   apiCall: ApiCall,
-  { experimentsSince = null }: FetchOptions = {},
+  { createdSince = null }: FetchOptions = {},
 ): Promise<EppoData> {
-  const experimentsEndpoint = experimentsSince
-    ? `experiments?created_since=${encodeURIComponent(experimentsSince.toISOString())}`
+  const experimentsEndpoint = createdSince
+    ? `experiments?created_since=${encodeURIComponent(createdSince.toISOString())}`
     : "experiments";
   const get = <T>(endpoint: string) =>
     getFromEppo<T>(endpoint, apiKey, apiCall);
@@ -310,7 +313,11 @@ export async function fetchEppoData(
     environments,
     tags,
     audiences,
-    flags,
+    flags: createdSince
+      ? flags.filter(
+          (f) => !f.created_at || new Date(f.created_at) >= createdSince,
+        )
+      : flags,
     entities,
     factSources,
     metrics,

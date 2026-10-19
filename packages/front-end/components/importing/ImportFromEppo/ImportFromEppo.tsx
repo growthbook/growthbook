@@ -114,9 +114,9 @@ export default function ImportFromEppo() {
   }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
-  // Only experiments created on or after this date; blank is every experiment
-  const [experimentsSince, setExperimentsSince] = useSessionStorage(
-    "eppoExperimentsSince",
+  // Only experiments and flags created on or after this date; blank is all
+  const [createdSince, setCreatedSince] = useSessionStorage(
+    "eppoCreatedSince",
     "",
   );
   // Existing Project by name, or a new one created when the import starts
@@ -299,9 +299,7 @@ export default function ImportFromEppo() {
     try {
       const [data] = await Promise.all([
         fetchEppoData(apiKey, apiCall, {
-          experimentsSince: experimentsSince
-            ? new Date(experimentsSince)
-            : null,
+          createdSince: createdSince ? new Date(createdSince) : null,
         }),
         mutateDefinitions(),
         mutateFeatures(),
@@ -429,13 +427,14 @@ export default function ImportFromEppo() {
             helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
           <DatePicker
-            label="Experiments created after"
-            date={experimentsSince || undefined}
-            setDate={(d) => setExperimentsSince(d ? d.toISOString() : "")}
+            label="Created after"
+            date={createdSince || undefined}
+            setDate={(d) => setCreatedSince(d ? d.toISOString() : "")}
             precision="date"
             timeZone="local"
             disableAfter={new Date()}
-            helpText="Leave blank to fetch every experiment"
+            clearButton
+            helpText="Only experiments and Feature Flags created on or after this date. Leave blank for all."
           />
         </Grid>
         <Flex gap="3" mt="4">

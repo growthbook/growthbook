@@ -1704,21 +1704,45 @@ describe("runEppoImport", () => {
 });
 
 describe("fetchEppoData", () => {
-  const endpoints = async (since: Date | null) => {
+  const fetchWith = async (since: Date | null) => {
     const seen: string[] = [];
     const apiCall = <T>(url: string, options?: RequestInit) => {
       const body = JSON.parse(String(options?.body ?? "{}"));
       seen.push(body.endpoint);
-      return Promise.resolve([] as unknown as T);
+      const flags = body.endpoint.startsWith("feature-flags")
+        ? [
+            {
+              ...mkFlag([]),
+              id: 1,
+              key: "old",
+              created_at: "2025-01-01T00:00:00Z",
+            },
+            {
+              ...mkFlag([]),
+              id: 2,
+              key: "new",
+              created_at: "2026-06-01T00:00:00Z",
+            },
+            { ...mkFlag([]), id: 3, key: "undated" },
+          ]
+        : [];
+      return Promise.resolve(flags as unknown as T);
     };
-    await fetchEppoData("key", apiCall, { experimentsSince: since });
-    return seen;
+    const data = await fetchEppoData("key", apiCall, { createdSince: since });
+    return { seen, flagKeys: data.flags.map((f) => f.key) };
   };
 
-  it("fetches every experiment unless a start date is given", async () => {
-    expect(await endpoints(null)).toContain("experiments?limit=250&offset=0");
-    expect(await endpoints(new Date("2026-04-01T00:00:00Z"))).toContain(
+  it("fetches everything unless a start date is given", async () => {
+    const all = await fetchWith(null);
+    expect(all.seen).toContain("experiments?limit=250&offset=0");
+    expect(all.flagKeys).toEqual(["old", "new", "undated"]);
+  });
+
+  it("filters experiments server-side and flags by created_at", async () => {
+    const since = await fetchWith(new Date("2026-04-01T00:00:00Z"));
+    expect(since.seen).toContain(
       "experiments?created_since=2026-04-01T00%3A00%3A00.000Z&limit=250&offset=0",
     );
+    expect(since.flagKeys).toEqual(["new", "undated"]);
   });
 });
