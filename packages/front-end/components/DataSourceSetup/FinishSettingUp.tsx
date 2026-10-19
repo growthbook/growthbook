@@ -356,9 +356,15 @@ export default function FinishSettingUp({
     label: string,
     onClick: () => void,
     requiresIdentifiers: boolean,
-    allowed: boolean = canEdit,
+    permission: { allowed: boolean; deniedMessage: string } | null = null,
   ) => {
     const blocked = requiresIdentifiers && !hasIdentifiers;
+    const allowed = permission?.allowed ?? canEdit;
+    const reason = blocked
+      ? "Needs an identifier type"
+      : !allowed && permission
+        ? permission.deniedMessage
+        : null;
     return (
       <Flex direction="column" align="end" gap="1">
         <Button
@@ -368,9 +374,9 @@ export default function FinishSettingUp({
         >
           {label}
         </Button>
-        {blocked && (
+        {reason && (
           <Text size="sm" color="text-mid">
-            Needs an identifier type
+            {reason}
           </Text>
         )}
       </Flex>
@@ -764,7 +770,11 @@ export default function FinishSettingUp({
                 "Add fact table",
                 () => setFactTableOpen(true),
                 true,
-                canCreateFactTable,
+                {
+                  allowed: canCreateFactTable,
+                  deniedMessage:
+                    "You don't have permission to add a fact table",
+                },
               )
         }
       />
