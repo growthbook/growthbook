@@ -1,5 +1,8 @@
 import { getEqualWeights } from "shared/experiments";
 import {
+  capTypedPercent,
+  coverageFromPercent,
+  coverageToPercent,
   decimalToPercent,
   floatRound,
   percentToDecimal,
@@ -54,6 +57,20 @@ describe("variation weighting functions", () => {
     expect(percentToDecimal("40.7865434", 3)).toEqual(0.408);
     expect(decimalToPercent(0.869584, 4)).toEqual(86.96);
     expect(decimalToPercent(0.869584, 3)).toEqual(87);
+  });
+
+  it("cuts a typed weight to the decimals it keeps", () => {
+    expect(capTypedPercent("33.33333", 2)).toBe("33.33");
+    expect(capTypedPercent("33.33333", 3)).toBe("33.333");
+    expect(capTypedPercent("1000", 2)).toBe("100");
+    expect(capTypedPercent("12.", 2)).toBe("12.");
+    expect(capTypedPercent("", 2)).toBe("");
+  });
+
+  it("keeps a typed coverage as typed", () => {
+    expect(coverageFromPercent("33.3333")).toEqual(0.333333);
+    expect(coverageToPercent(0.333333)).toEqual(33.3333);
+    expect(coverageToPercent(0.5)).toEqual(50);
   });
 
   it("rebalances weights", () => {

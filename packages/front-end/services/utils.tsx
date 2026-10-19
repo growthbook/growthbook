@@ -184,6 +184,30 @@ export function percentToDecimalForNumber(
 export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
+/** Decimals a variation weight keeps, as a percentage. */
+export const VARIATION_WEIGHT_DECIMALS = 2;
+// Lenient, but short of the float noise in percent math.
+const COVERAGE_DECIMALS = 6;
+
+/**
+ * A percentage as it's typed, cut to three whole digits and `decimals`
+ * decimals, so a field never shows more than it keeps.
+ */
+export function capTypedPercent(raw: string, decimals: number): string {
+  const match = raw.match(
+    new RegExp(`^(\\d{0,3})\\d*(\\.\\d{0,${decimals}})?`),
+  );
+  return match ? match[1] + (match[2] ?? "") : raw;
+}
+
+/** A typed coverage percentage as a proportion, kept as typed. */
+export function coverageFromPercent(raw: string): number {
+  return parseFloat((parseFloat(raw) / 100).toFixed(COVERAGE_DECIMALS + 2));
+}
+/** A coverage proportion as the percentage its field shows. */
+export function coverageToPercent(coverage: number): number {
+  return decimalToPercent(coverage, COVERAGE_DECIMALS + 2);
+}
 export function decimalToPercent(val: number, precision: number = 4): number {
   return parseFloat((val * 100).toFixed(precision - 2));
 }

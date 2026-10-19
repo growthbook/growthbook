@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Box, Slider } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  capTypedPercent,
+  coverageFromPercent,
+  coverageToPercent,
+  decimalToPercent,
+  percentToDecimal,
+} from "@/services/utils";
 import Text from "@/ui/Text";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import own from "./PercentSliderField.module.scss";
@@ -19,6 +25,11 @@ export interface Props {
   commitOn?: "change" | "blur";
   /** Whole percentages by default; "any" takes fractions. */
   step?: number | "any";
+  /**
+   * Decimals the percentage keeps, cut as it's typed, as a variation weight's
+   * are. Without it, it's a coverage and keeps what's typed.
+   */
+  decimals?: number;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
@@ -31,14 +42,28 @@ export function PercentField({
   ariaLabel,
   commitOn = "change",
   step = 1,
+  decimals,
 }: Props) {
-  const percent = isNaN(value) ? "" : decimalToPercent(value);
+  const percent = isNaN(value)
+    ? ""
+    : decimals === undefined
+      ? coverageToPercent(value)
+      : decimalToPercent(value, decimals + 2);
   // Only used with commitOn="blur".
   const [typed, setTyped] = useState<string | number>(percent);
   useEffect(() => setTyped(percent), [percent]);
 
   const onBlurCommit = commitOn === "blur";
-  const commit = (raw: string) => onChange(clamp(percentToDecimal(raw)));
+  const cap = (raw: string) =>
+    decimals === undefined ? raw : capTypedPercent(raw, decimals);
+  const commit = (raw: string) =>
+    onChange(
+      clamp(
+        decimals === undefined
+          ? coverageFromPercent(raw)
+          : percentToDecimal(raw, decimals + 2),
+      ),
+    );
 
   return (
     <Box
@@ -51,7 +76,9 @@ export function PercentField({
         disabled={disabled}
         value={onBlurCommit ? typed : percent}
         onChange={(e) =>
-          onBlurCommit ? setTyped(e.target.value) : commit(e.target.value)
+          onBlurCommit
+            ? setTyped(cap(e.target.value))
+            : commit(cap(e.target.value))
         }
         onBlur={onBlurCommit ? (e) => commit(e.target.value) : undefined}
         type="number"

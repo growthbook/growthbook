@@ -9,10 +9,12 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import {
+  capTypedPercent,
   decimalToPercent,
   distributeWeights,
   floatRound,
   rebalance,
+  VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
 import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
@@ -292,9 +294,21 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   size="md"
                   id={`${variation.id}__${i}__3__input`}
                   value={val}
-                  onChange={(e) => setVal(parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    setVal(
+                      parseFloat(
+                        capTypedPercent(
+                          e.target.value,
+                          VARIATION_WEIGHT_DECIMALS,
+                        ),
+                      ),
+                    )
+                  }
                   onBlur={() => {
-                    const decimal = (val >= 0 ? val : 0) / 100;
+                    const decimal = floatRound(
+                      (val >= 0 ? val : 0) / 100,
+                      VARIATION_WEIGHT_DECIMALS + 2,
+                    );
                     rebalanceAndUpdate(i, decimal);
                   }}
                   type="number"

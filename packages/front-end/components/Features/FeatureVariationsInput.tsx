@@ -8,9 +8,10 @@ import {
   PiPlusBold,
 } from "react-icons/pi";
 import {
+  coverageFromPercent,
+  coverageToPercent,
   decimalToPercent,
   distributeWeights,
-  percentToDecimal,
   percentToDecimalForNumber,
 } from "@/services/utils";
 import {
@@ -234,10 +235,10 @@ export default function FeatureVariationsInput({
                       value={
                         isNaN(coverage ?? 0)
                           ? ""
-                          : decimalToPercent(coverage ?? 0)
+                          : coverageToPercent(coverage ?? 0)
                       }
                       onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
+                        let decimal = coverageFromPercent(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
                         setCoverage?.(decimal);
@@ -323,10 +324,10 @@ export default function FeatureVariationsInput({
                       value={
                         isNaN(coverage ?? 0)
                           ? ""
-                          : decimalToPercent(coverage ?? 0)
+                          : coverageToPercent(coverage ?? 0)
                       }
                       onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
+                        let decimal = coverageFromPercent(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
                         setCoverage?.(decimal);
