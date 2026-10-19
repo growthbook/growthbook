@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiIdentificationCard } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
@@ -9,6 +9,7 @@ import {
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import {
@@ -108,13 +109,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   return (
     <>
       {expiredCount > 0 && (
-        <Switch
-          mb="2"
-          size="sm"
-          label={`Show expired keys (${expiredCount})`}
-          value={showExpired}
-          onChange={setShowExpired}
-        />
+        <Flex justify="end" mb="2">
+          <Switch
+            size="sm"
+            label={`Show expired keys (${expiredCount})`}
+            value={showExpired}
+            onChange={setShowExpired}
+          />
+        </Flex>
       )}
       <Table variant="surface" layout="fixed" mb="3">
         <TableHeader>
@@ -173,22 +175,27 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
-                {requesterHeaderPolicy(key) === "required" && (
-                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
-                    <Flex
-                      align="start"
-                      gap="1"
-                      mt="1"
-                      width="fit-content"
-                      style={{ color: "var(--brown-10)" }}
-                    >
-                      {/* One text line tall, so the icon sits on the first row. */}
-                      <Flex flexShrink="0" align="center" height="16px">
-                        <PiIdentificationCard size={18} />
-                      </Flex>
-                      <Text size="sm">Requester required</Text>
-                    </Flex>
-                  </Tooltip>
+                {!key.userId && requesterHeaderPolicy(key) !== "optional" && (
+                  <KeyTrait
+                    icon={<PiIdentificationCard size={18} />}
+                    color="var(--brown-10)"
+                    tooltip={
+                      requesterHeaderPolicy(key) === "required"
+                        ? "Every request must name a member with X-GrowthBook-Requested-By"
+                        : "Requests that send X-GrowthBook-Requested-By are rejected"
+                    }
+                  >
+                    Requested-by {requesterHeaderPolicy(key)}
+                  </KeyTrait>
+                )}
+                {key.confirmRules && (
+                  <KeyTrait
+                    icon={<HumanInTheLoopIcon size={18} />}
+                    color="var(--violet-11)"
+                    tooltip="Risky actions made with this key wait for a person to confirm them."
+                  >
+                    Human-in-the-loop
+                  </KeyTrait>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
@@ -295,3 +302,27 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     </>
   );
 };
+
+function KeyTrait({
+  icon,
+  color,
+  tooltip,
+  children,
+}: {
+  icon: ReactNode;
+  color: string;
+  tooltip: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <Flex align="start" gap="1" mt="1" width="fit-content" style={{ color }}>
+        {/* One text line tall, so the icon sits on the first row. */}
+        <Flex flexShrink="0" align="center" height="16px">
+          {icon}
+        </Flex>
+        <Text size="sm">{children}</Text>
+      </Flex>
+    </Tooltip>
+  );
+}

@@ -35,7 +35,7 @@ export const RadixThemeMenuPortal = (
 export type SingleValue = {
   label: string;
   value: string;
-  tooltip?: string;
+  tooltip?: ReactNode;
   isDisabled?: boolean;
 };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -285,8 +285,8 @@ const SelectField: FC<SelectFieldProps> = ({
   onPaste,
   isOptionDisabled,
   noOptionsMessage,
-  // forces re-render when input is undefined
-  forceUndefinedValueToNull = false,
+  // An undefined react-select value leaves its previous selection uncontrolled.
+  forceUndefinedValueToNull = true,
   useMultilineLabels = false,
   containerStyles = {},
   extraIndicator,

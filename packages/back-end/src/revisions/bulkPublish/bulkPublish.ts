@@ -273,6 +273,7 @@ export async function planBulkPublish(
     };
 
     const bypassedGates: PlannedItemPublish["bypassedGates"] = [];
+    const skippedGates: PlannedItemPublish["skippedGates"] = [];
     let approvalBypassed = false;
     let itemBlocked = false;
     for (const gate of gates) {
@@ -287,6 +288,7 @@ export async function planBulkPublish(
           outcome: "bypassed",
           via: disposition.via,
         });
+        skippedGates.push({ ...gate, via: disposition.via });
         if (gate.severity === "warning") warnings.push(...gate.messages);
         if (gate.type === "approval-required") approvalBypassed = true;
       }
@@ -308,6 +310,7 @@ export async function planBulkPublish(
       },
       isApprovalBypass: approvalBypassed,
       bypassedGates,
+      skippedGates,
     });
   }
 

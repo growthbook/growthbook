@@ -1,6 +1,6 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
-import { FaDatabase, FaRedo } from "react-icons/fa";
-import { Box } from "@radix-ui/themes";
+import { PiArrowClockwise, PiDatabase } from "react-icons/pi";
+import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -40,7 +40,7 @@ export default function SchemaBrowserWrapper({
         <>
           <div className="d-flex justify-content-between px-2">
             <label className="font-weight-bold mb-1 d-flex align-items-center">
-              <FaDatabase className="mr-2" />
+              <PiDatabase className="mr-2" />
               <span className="pl-1">{datasourceName}</span>
             </label>
             {informationSchema && !informationSchema.error && (
@@ -55,20 +55,24 @@ export default function SchemaBrowserWrapper({
                           ).toLocaleString()}`}
                         </div>
                         {!canRunQueries ? (
-                          <Callout status="warning" mt="2">
-                            You do not have permission to refresh this
-                            information schema.
+                          <Callout status="warning" size="sm" mt="2">
+                            You don&apos;t have permission to load tables for
+                            this Data Source.
                           </Callout>
                         ) : null}
                       </div>
                     }
                     tipPosition="top"
+                    style={{ display: "flex" }}
                   >
-                    <button
-                      className="btn btn-link p-0 text-secondary"
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      color="gray"
+                      size="1"
+                      aria-label="Refresh tables"
                       disabled={fetching || !canRunQueries}
-                      onClick={async (e) => {
-                        e.preventDefault();
+                      onClick={async () => {
                         setError(null);
                         try {
                           await apiCall<{
@@ -86,8 +90,8 @@ export default function SchemaBrowserWrapper({
                         }
                       }}
                     >
-                      {fetching ? <LoadingSpinner /> : <FaRedo />}
-                    </button>
+                      {fetching ? <LoadingSpinner /> : <PiArrowClockwise />}
+                    </IconButton>
                   </Tooltip>
                 </label>
               </div>
