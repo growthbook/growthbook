@@ -232,6 +232,34 @@ function newRunner(
   );
 }
 
+// Typed view over the runner's private priming fields and the inherited
+// `startQuery` seam, so tests can set them up without `any` casts or lint
+// suppressions (both are forbidden by the repo guide).
+type RunnerTestInternals = {
+  snapshotSettings?: ContextualBanditSnapshotSettings;
+  variationNames: string[];
+  startQuery: (q: {
+    name: string;
+    query: string;
+  }) => Promise<{ name: string; query: string }>;
+};
+
+function runnerInternals(
+  runner: ContextualBanditResultsQueryRunner,
+): RunnerTestInternals {
+  return runner as unknown as RunnerTestInternals;
+}
+
+function primeRunner(
+  runner: ContextualBanditResultsQueryRunner,
+  snapshotSettings: ContextualBanditSnapshotSettings = makeSnapshotSettings(),
+  variationNames: string[] = ["Control", "Treatment"],
+): void {
+  const internals = runnerInternals(runner);
+  internals.snapshotSettings = snapshotSettings;
+  internals.variationNames = variationNames;
+}
+
 describe("ContextualBanditResultsQueryRunner", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -243,10 +271,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).variationNames = ["Control", "Treatment"];
+      primeRunner(runner);
 
       const rows: ExperimentMetricQueryResponseRows = [
         {
@@ -314,10 +339,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).variationNames = ["Control", "Treatment"];
+      primeRunner(runner);
 
       const rows: ExperimentMetricQueryResponseRows = [
         {
@@ -403,10 +425,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
           { id: "v2", weight: 0.5 },
         ],
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = snapshotSettings;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).variationNames = ["Control", "Treatment"];
+      primeRunner(runner, snapshotSettings);
 
       const rows: ExperimentMetricQueryResponseRows = [
         { variation: "0", users: 100, count: 100, main_sum: 5 },
@@ -455,10 +474,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).variationNames = ["Control", "Treatment"];
+      primeRunner(runner);
 
       const rows: ExperimentMetricQueryResponseRows = [
         { variation: "0", users: 100, count: 100, main_sum: 5 },
@@ -556,8 +572,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
     it("rejects when the rows sub-query is missing from the queryMap", async () => {
       const runner = newRunner(makeContext(makeCb()));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
+      runnerInternals(runner).snapshotSettings = makeSnapshotSettings();
       const queryMap: QueryMap = new Map();
       await expect(runner.runAnalysis(queryMap)).rejects.toThrow(
         /contextual-bandit-rows/,
@@ -707,8 +722,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const integration = makeIntegration();
       const runner = newRunner(context, makeCbsModel(), integration);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).startQuery = jest
+      runnerInternals(runner).startQuery = jest
         .fn()
         .mockImplementation(async (q: { name: string; query: string }) => ({
           name: q.name,
