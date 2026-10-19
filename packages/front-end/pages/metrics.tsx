@@ -53,7 +53,7 @@ const MetricsPage = (): React.ReactElement => {
             ) : !hasFactTables ? (
               <>
                 <p>
-                  Start by creating a <strong>Fact Table</strong>, which serves
+                  Start by creating a <strong>fact table</strong>, which serves
                   as the foundation for your metrics.
                 </p>
                 <LinkButton href="/fact-tables">Create fact table</LinkButton>
