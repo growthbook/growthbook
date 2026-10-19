@@ -45,6 +45,7 @@ export function getClusterRollupCTE({
               data.clusterRollupDenominator === null
                 ? `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_denominator`
                 : `, SUM(${data.clusterRollupDenominator}) AS ${data.alias}_denominator`;
+            const subCount = `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_sub_count`;
             const covariate = data.regressionAdjusted
               ? `, SUM(${data.clusterRollupCovariateNumerator}) AS ${data.alias}_covariate_value\n            ${
                   data.clusterRollupCovariateDenominator === null
@@ -90,7 +91,7 @@ export function getClusterRollupCTE({
                 ? `, MAX(cap${denSuffix}.${data.alias}_denominator_cap_lower) AS ${data.alias}_denominator_cap_lower`
                 : "",
             ].join("");
-            return `${numerator}\n            ${denominator}\n            ${covariate}\n            ${uncapped}\n            ${capCols}`;
+            return `${numerator}\n            ${denominator}\n            ${subCount}\n            ${covariate}\n            ${uncapped}\n            ${capCols}`;
           })
           .join("\n        ")}
       FROM

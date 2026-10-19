@@ -1707,5 +1707,50 @@ class TestThreeArmedCuped(TestCase):
         )
 
 
+class TestSubCount(TestCase):
+    def test_sub_count_flows_into_metric_stats(self):
+        """Cluster experiments carry a sub-unit count alongside cluster-grain users."""
+        rows = pd.DataFrame(
+            [
+                {
+                    "dimension": "All",
+                    "variation": "zero",
+                    "main_sum": 270,
+                    "main_sum_squares": 848.79,
+                    "users": 100,  # clusters (randomization unit)
+                    "count": 100,
+                    "sub_count": 540,  # sub-units (e.g. users) behind the clusters
+                },
+                {
+                    "dimension": "All",
+                    "variation": "one",
+                    "main_sum": 300,
+                    "main_sum_squares": 869,
+                    "users": 120,
+                    "count": 120,
+                    "sub_count": 610,
+                },
+            ]
+        )
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df, num_variations=2, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        self.assertEqual(result[0].variations[0].stats.sub_count, 540)
+        self.assertEqual(result[0].variations[1].stats.sub_count, 610)
+
+    def test_sub_count_defaults_to_zero_when_absent(self):
+        """Non-cluster experiments omit sub_count, which defaults to 0."""
+        df = get_metric_dfs(
+            MULTI_DIMENSION_STATISTICS_DF, {"zero": 0, "one": 1}, ["zero", "one"]
+        )
+        result = analyze_metric_df(
+            df, num_variations=2, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        for dim in result:
+            for variation in dim.variations:
+                self.assertEqual(variation.stats.sub_count, 0)
+
+
 if __name__ == "__main__":
     unittest_main()

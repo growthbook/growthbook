@@ -86,6 +86,8 @@ class MetricStats:
     count: int
     stddev: float
     mean: float
+    # Cluster experiments only
+    sub_count: int = 0
 
 
 @dataclass

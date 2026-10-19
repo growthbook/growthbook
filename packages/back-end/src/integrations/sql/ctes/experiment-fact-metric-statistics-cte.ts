@@ -159,6 +159,11 @@ export function getExperimentFactMetricStatisticsCTE(
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
+              isClusterExperiment
+                ? `, SUM(COALESCE(m.${data.alias}_sub_count, 0)) AS ${data.alias}_sub_count`
+                : ""
+            }
+            ${
               data.computeUncappedMetric
                 ? `
                 , SUM(${uncappedMain}) AS ${data.alias}_main_sum_uncapped 

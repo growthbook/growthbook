@@ -29,6 +29,13 @@ export function processExperimentFactMetricsQueryRows(
         }
       });
 
+      if (row[prefix + "sub_count"] !== undefined) {
+        metricData[prefix + "sub_count"] = parseIntWithDefault(
+          row[prefix + "sub_count"],
+          0,
+        );
+      }
+
       // A funnel metric emits one sum per step instead of the fixed column
       // set, so its columns can't come from a static list.
       Object.keys(row).forEach((key) => {
