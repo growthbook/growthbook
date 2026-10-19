@@ -2512,6 +2512,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\)[\s\S]*AS metric_b/,
     );
     expect(normalized).toMatch(/'assignment' AS kind[\s\S]*FROM __clusterAgg/);
+    // The __multiple__ pseudo-cluster is excluded so it does not inflate the
+    // total or mixed cluster counts.
+    expect(normalized).toMatch(
+      /'assignment' AS kind[\s\S]*?FROM __clusterAgg[\s\S]*?WHERE cluster_id <> '__multiple__'[\s\S]*?UNION ALL SELECT 'mapping'/,
+    );
   });
 
   it("emits a mapping branch counting multi-cluster sub-units", () => {

@@ -101,6 +101,7 @@ export function getExperimentClusterHealthQuery(
         "SUM(CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END)",
       )} AS metric_b
     FROM __clusterAgg
+    WHERE cluster_id <> '${MULTIPLE_CLUSTER_SENTINEL}'
     UNION ALL
     SELECT
       '${CLUSTER_HEALTH_KIND_MAPPING}' AS kind
