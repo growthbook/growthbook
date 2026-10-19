@@ -259,19 +259,19 @@ export default function ContextualBanditDetailPage({
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
   const pendingEach = pendingVariations.length === 1 ? "it" : "each of them";
-  const visualChangesetsSettled =
-    !visualChangesetsLoading && !visualChangesetsError;
   const pendingReasons = [
     linkedFeatures.length > 0
       ? "a linked Feature Flag rule to be published"
       : null,
-    !visualChangesetsSettled
-      ? "its AI Visual Editor changes to load"
-      : visualChangesets.length > 1
-        ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
-        : visualChangesets.length > 0
-          ? `an AI Visual Editor change to be saved for ${pendingEach}`
-          : null,
+    visualChangesetsError
+      ? null
+      : visualChangesetsLoading
+        ? "this Contextual Bandit's AI Visual Editor changes to load"
+        : visualChangesets.length > 1
+          ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
+          : visualChangesets.length > 0
+            ? `an AI Visual Editor change to be saved for ${pendingEach}`
+            : null,
   ]
     .filter(Boolean)
     .join(" and ");
@@ -570,13 +570,23 @@ export default function ContextualBanditDetailPage({
                         {pendingReasons
                           ? `waiting on ${pendingReasons} and will not receive any traffic until then. `
                           : "not receiving any traffic yet. "}
-                        {pendingVariations.length === 1
-                          ? "It activates"
-                          : "They activate"}{" "}
-                        automatically once{" "}
-                        {pendingReasons
-                          ? "that happens."
-                          : "a linked change is ready."}
+                        {visualChangesetsError ? (
+                          <>
+                            Couldn&apos;t load this Contextual Bandit&apos;s
+                            visual changes ({visualChangesetsError.message}).
+                            Reload the page and try again.
+                          </>
+                        ) : (
+                          <>
+                            {pendingVariations.length === 1
+                              ? "It activates"
+                              : "They activate"}{" "}
+                            automatically once{" "}
+                            {pendingReasons
+                              ? "that happens."
+                              : "a linked change is ready."}
+                          </>
+                        )}
                       </Text>
                     </Flex>
                   </Callout>
