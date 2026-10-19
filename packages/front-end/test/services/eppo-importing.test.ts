@@ -7,6 +7,7 @@ import {
   EppoAllocation,
   EppoData,
   EppoExperiment,
+  fetchEppoData,
   EppoFlag,
   EppoMetric,
   getCappingSettings,
@@ -1699,5 +1700,25 @@ describe("runEppoImport", () => {
       url: "/auto-runs/arun_1",
       body: { outcome: "failed" },
     });
+  });
+});
+
+describe("fetchEppoData", () => {
+  const endpoints = async (since: Date | null) => {
+    const seen: string[] = [];
+    const apiCall = <T>(url: string, options?: RequestInit) => {
+      const body = JSON.parse(String(options?.body ?? "{}"));
+      seen.push(body.endpoint);
+      return Promise.resolve([] as unknown as T);
+    };
+    await fetchEppoData("key", apiCall, { experimentsSince: since });
+    return seen;
+  };
+
+  it("fetches every experiment unless a start date is given", async () => {
+    expect(await endpoints(null)).toContain("experiments?limit=250&offset=0");
+    expect(await endpoints(new Date("2026-04-01T00:00:00Z"))).toContain(
+      "experiments?created_since=2026-04-01T00%3A00%3A00.000Z&limit=250&offset=0",
+    );
   });
 });

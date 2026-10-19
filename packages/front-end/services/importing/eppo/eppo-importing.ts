@@ -272,10 +272,19 @@ async function getAllPages<T>(
   return all;
 }
 
+export type FetchOptions = {
+  // Only experiments created on or after this date (Eppo's `created_since`)
+  experimentsSince?: Date | null;
+};
+
 export async function fetchEppoData(
   apiKey: string,
   apiCall: ApiCall,
+  { experimentsSince = null }: FetchOptions = {},
 ): Promise<EppoData> {
+  const experimentsEndpoint = experimentsSince
+    ? `experiments?created_since=${encodeURIComponent(experimentsSince.toISOString())}`
+    : "experiments";
   const get = <T>(endpoint: string) =>
     getFromEppo<T>(endpoint, apiKey, apiCall);
   const [
@@ -295,7 +304,7 @@ export async function fetchEppoData(
     get<EppoEntity>("definitions/entities"),
     get<EppoFactSource>("definitions/facts"),
     getAllPages<EppoMetric>("metrics", 50, apiKey, apiCall),
-    getAllPages<EppoExperiment>("experiments", 250, apiKey, apiCall),
+    getAllPages<EppoExperiment>(experimentsEndpoint, 250, apiKey, apiCall),
   ]);
   return {
     environments,

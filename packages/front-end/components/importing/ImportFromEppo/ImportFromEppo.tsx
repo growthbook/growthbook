@@ -36,6 +36,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { TextField } from "@/ui/TextField";
+import { Select, SelectItem } from "@/ui/Select";
 import Table, {
   TableBody,
   TableCell,
@@ -48,6 +49,12 @@ import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
+
+const monthsAgo = (months: number) => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - months);
+  return date;
+};
 
 const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   audiences: (id) => `/saved-groups/${id}`,
@@ -113,6 +120,11 @@ export default function ImportFromEppo() {
   }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
+  // Months of experiments to fetch; "all" is every experiment
+  const [experimentMonths, setExperimentMonths] = useSessionStorage(
+    "eppoExperimentMonths",
+    "all",
+  );
   // Existing Project by name, or a new one created when the import starts
   const [projectName, setProjectName] = useLocalStorage(
     "eppoImportProject",
@@ -292,7 +304,12 @@ export default function ImportFromEppo() {
     setError(null);
     try {
       const [data] = await Promise.all([
-        fetchEppoData(apiKey, apiCall),
+        fetchEppoData(apiKey, apiCall, {
+          experimentsSince:
+            experimentMonths === "all"
+              ? null
+              : monthsAgo(Number(experimentMonths)),
+        }),
         mutateDefinitions(),
         mutateFeatures(),
         mutateExperiments(),
@@ -418,6 +435,17 @@ export default function ImportFromEppo() {
             onChange={setDatasourceId}
             helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
+          <Select
+            label="Experiments created"
+            value={experimentMonths}
+            setValue={setExperimentMonths}
+          >
+            <SelectItem value="all">Any time</SelectItem>
+            <SelectItem value="3">In the last 3 months</SelectItem>
+            <SelectItem value="6">In the last 6 months</SelectItem>
+            <SelectItem value="12">In the last 12 months</SelectItem>
+            <SelectItem value="24">In the last 2 years</SelectItem>
+          </Select>
         </Grid>
         <Flex gap="3" mt="4">
           <Button
