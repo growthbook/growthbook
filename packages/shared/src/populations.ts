@@ -40,24 +40,11 @@ export function getPopulationStepsLabel(
   getFactTableName: (factTableId: string) => string | undefined,
 ): string {
   return steps
-    .map((step) => {
-      const name =
-        getFactTableName(step.source.factTableId) || step.source.factTableId;
-      return step.negation ? `no ${name}` : name;
-    })
+    .map(
+      (step) =>
+        getFactTableName(step.source.factTableId) || step.source.factTableId,
+    )
     .join(" → ");
-}
-
-// The step a conversion window is measured from. Negated steps have no date,
-// so they are skipped. Returns null for the first step.
-export function getPopulationStepAnchorIndex(
-  steps: Pick<PopulationStep, "negation">[],
-  stepIndex: number,
-): number | null {
-  for (let i = stepIndex - 1; i >= 0; i--) {
-    if (!steps[i].negation) return i;
-  }
-  return null;
 }
 
 export const POPULATION_AGGREGATE_OPERATORS = [
@@ -79,8 +66,8 @@ export type PopulationStepDescription = {
   after: string;
 };
 
-// A one-line summary such as "Doesn't have an Orders row within 7 days after
-// step 1", split around the fact table name so callers can link it without
+// A one-line summary such as "Has an Orders row within 7 days after step 1",
+// split around the fact table name so callers can link it without
 // searching the text (a name like "Has" would match the wrong words). Row
 // filters are counted rather than spelled out.
 export function describePopulationStep({
@@ -128,17 +115,14 @@ export function describePopulationStep({
   const { type, windowValue, windowUnit } = step.windowSettings;
   if (type === "lookback") {
     parts.push(`in the last ${pluralize(windowValue, windowUnit)}`);
-  } else if (type === "conversion") {
-    const anchor = getPopulationStepAnchorIndex(steps, index);
-    if (anchor !== null) {
-      parts.push(
-        `within ${pluralize(windowValue, windowUnit)} after step ${anchor + 1}`,
-      );
-    }
+  } else if (type === "conversion" && index > 0) {
+    parts.push(
+      `within ${pluralize(windowValue, windowUnit)} after step ${index}`,
+    );
   }
 
   return {
-    before: `${step.negation ? "Doesn't have" : "Has"} ${article} `,
+    before: `Has ${article} `,
     factTableName,
     after: ` ${parts.join(" ")}`,
   };
@@ -172,10 +156,6 @@ export function getPopulationRuleViolations({
   if (steps[0]?.windowSettings.type === "conversion") {
     violations.push("The first step cannot use a conversion window.");
   }
-  if (steps[0]?.negation) {
-    violations.push(`The first step cannot be a "doesn't have" step.`);
-  }
-
   const halfAggregateSteps = steps
     .map((step, i) =>
       !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,

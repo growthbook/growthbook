@@ -7,7 +7,6 @@ import {
   describePopulationStep,
   getPopulationFactTableIds,
   getPopulationRuleViolations,
-  getPopulationStepAnchorIndex,
   getPopulationStepsLabel,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
@@ -117,34 +116,6 @@ describe("getPopulationStepsLabel", () => {
       getPopulationStepsLabel([step("ftb_events"), step("ftb_gone")], getName),
     ).toBe("Events → ftb_gone");
   });
-
-  it("prefixes negated steps with no", () => {
-    expect(
-      getPopulationStepsLabel(
-        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
-        getName,
-      ),
-    ).toBe("Events → no Orders");
-  });
-});
-
-describe("getPopulationStepAnchorIndex", () => {
-  it("has no anchor for the first step", () => {
-    expect(getPopulationStepAnchorIndex([{}], 0)).toBeNull();
-  });
-
-  it("anchors to the previous step", () => {
-    expect(getPopulationStepAnchorIndex([{}, {}, {}], 2)).toBe(1);
-  });
-
-  it("skips negated steps", () => {
-    expect(
-      getPopulationStepAnchorIndex(
-        [{}, { negation: true }, { negation: true }, {}],
-        3,
-      ),
-    ).toBe(0);
-  });
 });
 
 describe("describePopulationStep", () => {
@@ -167,13 +138,13 @@ describe("describePopulationStep", () => {
   it("splits the sentence around the fact table name", () => {
     expect(
       describePopulationStep({
-        steps: [step("ftb_events"), { ...step("ftb_has"), negation: true }],
-        index: 1,
+        steps: [step("ftb_has")],
+        index: 0,
         factTableName: "Has",
         unit: "user_id",
       }),
     ).toEqual({
-      before: "Doesn't have a ",
+      before: "Has a ",
       factTableName: "Has",
       after: " row",
     });
@@ -185,14 +156,10 @@ describe("describePopulationStep", () => {
     );
   });
 
-  it("uses an before a vowel and describes negated steps", () => {
-    expect(
-      describe1(
-        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
-        1,
-        "Orders",
-      ),
-    ).toBe("Doesn't have an Orders row");
+  it("uses an before a vowel", () => {
+    expect(describe1([step("ftb_orders")], 0, "Orders")).toBe(
+      "Has an Orders row",
+    );
   });
 
   it("counts row filters", () => {
@@ -283,15 +250,11 @@ describe("describePopulationStep", () => {
     };
     expect(
       describe1(
-        [
-          step("ftb_events"),
-          { ...step("ftb_events"), negation: true },
-          conversion,
-        ],
+        [step("ftb_events"), step("ftb_events"), conversion],
         2,
         "Orders",
       ),
-    ).toBe("Has an Orders row within 7 days after step 1");
+    ).toBe("Has an Orders row within 7 days after step 2");
   });
 });
 
@@ -341,23 +304,6 @@ describe("getPopulationRuleViolations", () => {
         factTables: [events],
       }),
     ).toEqual(["The first step cannot use a conversion window."]);
-  });
-
-  it("rejects a negated first step but allows later ones", () => {
-    const run = (steps: PopulationStep[]) =>
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps,
-        factTables: [events, orders],
-      });
-
-    expect(run([{ ...step("ftb_events"), negation: true }])).toEqual([
-      `The first step cannot be a "doesn't have" step.`,
-    ]);
-    expect(
-      run([step("ftb_events"), { ...step("ftb_orders"), negation: true }]),
-    ).toEqual([]);
   });
 
   it("reports a fact table that was not found", () => {
