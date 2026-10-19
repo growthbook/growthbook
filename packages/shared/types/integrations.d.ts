@@ -846,6 +846,8 @@ export type ExperimentFactMetricsQueryResponseRows = {
   variation: string;
   users: number;
   count: number;
+  // Cluster experiments also emit a shared `sub_count` (distinct sub-units
+  // behind the clusters), covered by the index signature below.
   [key: string]: number | string;
 }[];
 

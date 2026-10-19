@@ -71,6 +71,7 @@ export function getExperimentFactMetricStatisticsCTE(
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , COUNT(*) AS users
+        ${isClusterExperiment ? `, SUM(COALESCE(m.sub_count, 0)) AS sub_count` : ""}
         ${metricData
           .map((data) => {
             // A funnel emits its own set of statistics
@@ -158,11 +159,6 @@ export function getExperimentFactMetricStatisticsCTE(
                 : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
-            ${
-              isClusterExperiment
-                ? `, SUM(COALESCE(m.${data.alias}_sub_count, 0)) AS ${data.alias}_sub_count`
-                : ""
-            }
             ${
               data.computeUncappedMetric
                 ? `

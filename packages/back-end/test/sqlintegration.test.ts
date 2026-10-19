@@ -2325,10 +2325,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     // Metric Drilldowns: the per-cluster sub-unit count is carried through the
     // rollup and summed downstream, so drilldowns can show user counts even for
     // ratio metrics (whose denominator is the denominator metric, not users).
-    expect(normalized).toMatch(/COUNT\(DISTINCT m\.user_id\) AS m0_sub_count/);
+    expect(normalized).toMatch(/COUNT\(DISTINCT m\.user_id\) AS sub_count/);
     expect(normalized).toMatch(
-      /SUM\(COALESCE\(m\.m0_sub_count, 0\)\) AS m0_sub_count/,
+      /SUM\(COALESCE\(m\.sub_count, 0\)\) AS sub_count/,
     );
+    expect(normalized).not.toContain("m0_sub_count");
 
     expect(format(normalized, "bigquery")).toMatchSnapshot();
   });
@@ -2366,7 +2367,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toContain("m0_denominator");
     // Cluster-level metrics are already at the cluster grain, so there is no
     // sub-unit rollup and thus no sub-unit count.
-    expect(normalized).not.toContain("m0_sub_count");
+    expect(normalized).not.toContain("sub_count");
     expect(normalized).toContain("FROM __userMetricAgg m");
     expect(normalized).toContain("COUNT(*) AS users");
   });
