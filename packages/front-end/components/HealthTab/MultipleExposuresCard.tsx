@@ -14,6 +14,10 @@ interface Props {
   multipleExposures: number;
   onNotify?: (issue: IssueValue) => void;
   snapshotId?: string;
+  // Contextual Bandits retain each user's first assignment in decision results
+  // (only the balance query drops duplicates within a leaf and period), so the
+  // warning must not claim these users were removed from results.
+  isBandit?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -27,6 +31,7 @@ export default function MultipleExposuresCard({
   multipleExposures,
   onNotify,
   snapshotId,
+  isBandit = false,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -82,10 +87,15 @@ export default function MultipleExposuresCard({
           ) : (
             <Callout status="warning">
               <strong>Multiple Exposures Warning</strong>.{" "}
-              {numberFormatter.format(multipleExposures)} users (
+              {numberFormatter.format(multipleExposures)}{" "}
+              {isBandit ? "units" : "users"} (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
-              variations and were automatically removed from results. Check for
-              bugs in your implementation, event tracking, or data pipeline.
+              variations
+              {isBandit
+                ? " and were left out of the balance check, but remain in results on their first exposure"
+                : " and were automatically removed from results"}
+              . Check for bugs in your implementation, event tracking, or data
+              pipeline.
             </Callout>
           )}
         </div>

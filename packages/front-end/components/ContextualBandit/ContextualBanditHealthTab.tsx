@@ -122,6 +122,7 @@ export default function ContextualBanditHealthTab({
         <MultipleExposuresCard
           totalUsers={totalUsers}
           multipleExposures={multipleExposures}
+          isBandit
         />
       </div>
     </Flex>
