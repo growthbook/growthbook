@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HUMAN_OVERRIDE_NOTE } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
@@ -156,19 +157,19 @@ export const postReleasePublishRevisionsValidator = {
         .boolean()
         .optional()
         .describe(
-          "Set to true to acknowledge warnings from experiment guards, schema changes, or archives. It can also force-publish an out-of-date draft when the caller has Bypass draft approvals access for that resource.",
+          `Set to true to acknowledge warnings from experiment guards, schema changes, or archives. It can also force-publish an out-of-date draft when the caller has Bypass draft approvals access for that resource. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       skipSchemaValidation: z
         .boolean()
         .optional()
         .describe(
-          "Set to true to publish despite schema or invariant failures. Validation still runs and the response still reports each failure. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
+          `Set to true to publish despite schema or invariant failures. Validation still runs and the response still reports each failure. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       skipHooks: z
         .boolean()
         .optional()
         .describe(
-          "Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
+          `Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       comment: z
         .string()

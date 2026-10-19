@@ -17,7 +17,7 @@ Every feature is defined by a unique **key**. This is what your engineering team
 <Warning>
 **Naming Conventions**
 
-Feature keys must only include letters, numbers, hyphens (-), and underscores (\_).
+Feature keys can only include letters, numbers, and the characters `_`, `-`, `.`, `:` and `|`. Keep them short and use kebab-case unless your organization has its own format.
 
 </Warning>
 
@@ -25,7 +25,9 @@ Feature keys must only include letters, numbers, hyphens (-), and underscores (\
 
 A Feature Flag can also have a **name**: what people see in GrowthBook, such as `Express checkout button`. When a Feature Flag has a name, GrowthBook shows it in lists, page headers, pickers and search instead of the key. You can change a name at any time; edits go through drafts and reviews like the description.
 
-The name is never sent to SDKs. Only the key is. When you type a name in the create form, GrowthBook fills in a matching key (`express-checkout-button`) that you can change before you save. Because only the key is served, you can also use an opaque key (for example `f_8k2j9x4p`) so your SDK payloads and client code don't reveal what you're building.
+The name is never sent to SDKs. Only the key is. When you type a name in the create form, GrowthBook fills in a matching key the same way it does for an experiment's tracking key (`express-checkout-button`, with a number added if that key is taken). You can change the key before you save.
+
+To keep keys from revealing what you're building, an admin can turn on **Generate opaque keys for new Feature Flags** under **Settings → General → Feature Flags**. New Feature Flags then get a random key such as `f_8k2j9x4p` that people can't choose, a name is required, and the REST API rejects requests that send their own `id`. Existing keys don't change.
 
 Names and keys are both searchable in the Feature Flag list, in the [command palette](/command-palette), and through the REST API's `search` parameter on `GET /api/v2/features`.
 

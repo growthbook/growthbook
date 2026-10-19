@@ -117,6 +117,7 @@ export const resolvers: Record<
   targetingReviewMode: genDefaultResolver("targetingReviewMode"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
+  obfuscateFeatureKeys: genDefaultResolver("obfuscateFeatureKeys"),
   banditScheduleValue: genDefaultResolver("banditScheduleValue"),
   banditScheduleUnit: genDefaultResolver("banditScheduleUnit"),
   banditBurnInValue: genDefaultResolver("banditBurnInValue"),

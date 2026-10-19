@@ -91,6 +91,7 @@ interface BaseSettings {
   targetingReviewMode: TargetingReviewRule[];
   featureKeyExample: string;
   featureRegexValidator: string;
+  obfuscateFeatureKeys: boolean;
   banditScheduleValue: number;
   banditScheduleUnit: "hours" | "days";
   banditBurnInValue: number;

@@ -141,6 +141,12 @@ export const apiSettingsValidator = namedSchema(
       maxConcurrentDrafts: z.coerce.number().optional(),
       featureKeyExample: z.string(),
       featureRegexValidator: z.string(),
+      obfuscateFeatureKeys: z
+        .boolean()
+        .describe(
+          "When true, GrowthBook generates an opaque key for each new Feature Flag and rejects a provided `id`. Send a `name` instead.",
+        )
+        .optional(),
       sparseJSONRulesByDefault: z.boolean().optional(),
       banditScheduleValue: z.coerce.number(),
       banditScheduleUnit: z.enum(["hours", "days"]),

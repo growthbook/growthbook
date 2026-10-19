@@ -170,6 +170,20 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
+              id="toggle-obfuscateFeatureKeys"
+              label="Generate opaque keys for new Feature Flags"
+              description="New Feature Flags get a random key, like f_8k2j9x4p, that people can't choose. SDK payloads and code then don't reveal what a Feature Flag is for, and its name is shown in GrowthBook instead. Existing keys don't change."
+              value={!!form.watch("obfuscateFeatureKeys")}
+              setValue={(value) =>
+                form.setValue("obfuscateFeatureKeys", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
               id="toggle-defaultFeatureRulesInAllEnvs"
               label="Create rules in all environments by default"
               description="If enabled, new Feature Flag rules will be created in all environments by default."

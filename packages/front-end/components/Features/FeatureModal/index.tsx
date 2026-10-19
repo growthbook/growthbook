@@ -1,4 +1,5 @@
 import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
+import { generateTrackingKey } from "shared/experiments";
 import {
   canEnableEnvironmentOnCreate,
   targetingRefusal,
@@ -21,10 +22,13 @@ import {
   stripConfigExtends,
   orderConfigsByLineage,
   isScopedConfig,
-  featureKeyFromName,
 } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import FeatureKeyField from "./FeatureKeyField";
+import EnvironmentSelect from "./EnvironmentSelect";
+import TagsField from "./TagsField";
+import ValueTypeField from "./ValueTypeField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
@@ -52,10 +56,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { TextField } from "@/ui/TextField";
-import FeatureKeyField from "./FeatureKeyField";
-import EnvironmentSelect from "./EnvironmentSelect";
-import TagsField from "./TagsField";
-import ValueTypeField from "./ValueTypeField";
+import Text from "@/ui/Text";
 
 export type Props = {
   close?: () => void;
@@ -194,7 +195,7 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { requireProjectForFeatures } = useOrgSettings();
+  const { requireProjectForFeatures, obfuscateFeatureKeys } = useOrgSettings();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -410,6 +411,8 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
+          // The back end generates the key when the org obfuscates keys.
+          ...(obfuscateFeatureKeys ? { id: undefined } : {}),
           duplicateOf: featureToDuplicate?.id,
           baseConfig: configKey,
           defaultValue: storedDefault,
@@ -448,20 +451,38 @@ export default function FeatureModal({
           maxLength={MAX_FEATURE_NAME_LENGTH}
           placeholder="Express checkout button"
           helpText="The name people see in GrowthBook. It's never sent to SDKs."
+          required={obfuscateFeatureKeys}
           {...form.register("name", {
-            onChange: (e) => {
-              if (!keyEdited) {
-                form.setValue("id", featureKeyFromName(e.target.value));
+            onChange: async (e) => {
+              if (keyEdited || obfuscateFeatureKeys) return;
+              const name = e.target.value;
+              if (!name) {
+                form.setValue("id", "");
+                return;
               }
+              // Same as experiment tracking keys: a taken key gets a numeric suffix.
+              const existingIds = new Set(allFeatures.map((f) => f.id));
+              form.setValue(
+                "id",
+                await generateTrackingKey({ name }, async (key) =>
+                  existingIds.has(key) ? key : null,
+                ),
+              );
             },
           })}
         />
 
-        <FeatureKeyField
-          keyField={form.register("id", {
-            onChange: () => setKeyEdited(true),
-          })}
-        />
+        {obfuscateFeatureKeys ? (
+          <Text as="p" size="small" color="text-mid" mb="3">
+            A random key is generated when you create this Feature Flag.
+          </Text>
+        ) : (
+          <FeatureKeyField
+            keyField={form.register("id", {
+              onChange: () => setKeyEdited(true),
+            })}
+          />
+        )}
 
         {projectOptions.length > 0 && (
           <SelectField

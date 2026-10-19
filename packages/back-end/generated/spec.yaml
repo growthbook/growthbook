@@ -140,6 +140,40 @@ info:
     ```
 
 
+    ## Naming and human review
+
+
+    People review what the API creates in the GrowthBook UI.
+
+
+    - Keep keys and names short (2-5 words). Follow your organization's Feature
+    Flag key format (`featureRegexValidator` and `featureKeyExample` in `GET
+    /v1/settings`), or use kebab-case if it has none. Feature Flag keys can't be
+    changed after creation, and an experiment's tracking key shouldn't change
+    after launch.
+
+    - Put context (why, plan, tickets, links) in `description`, not in names or
+    keys.
+
+    - Group with `tags`, not name prefixes. Projects (`project` or `projects`)
+    control access and where a resource can be used, so set them deliberately
+    instead of using them as labels.
+
+    - To create a Feature Flag disabled with `POST /v2/features`, list every
+    environment in `environments` with `enabled: false` (on `POST /v1/features`,
+    each entry also needs `rules: []`). An environment you leave out uses its
+    default state, which may be enabled.
+
+    - Leave publishing and production changes to a person unless asked.
+
+    - If a request is blocked (an approval requirement, a warning, a Custom
+    Hook, schema validation or a permission error), stop and ask a person. Don't
+    retry with an override field, a different key or another workaround unless a
+    person asked you to. If a write answers `202` with a `confirmation`, give a
+    person its `url` and wait (see [Waiting for
+    confirmation](#waiting-for-confirmation)).
+
+
     ## Waiting for confirmation
 
 
@@ -270,6 +304,11 @@ info:
 
 
     ### Publishing gates
+
+
+    Automated callers, including AI agents, should report a blocked response to
+    a person instead of retrying with an override. Use an override only when a
+    person has explicitly asked for it.
 
 
     Publish responses include a `gates` array that explains every blocker:
@@ -963,6 +1002,11 @@ tags:
   - name: VisualChangeset_model
     x-displayName: Visual Changeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
+  - name: VisualEditorCbExperimentStub_model
+    x-displayName: Visual Editor Cb Experiment Stub
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/VisualEditorCbExperimentStub" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -1029,9 +1073,16 @@ paths:
               type: object
               properties:
                 id:
+                  pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    A unique key name for the feature. Feature keys can only
-                    include letters, numbers, hyphens, and underscores.
+                    Unique, permanent key used in code and SDK payloads; the UI
+                    shows it when the Feature Flag has no `name`. Keep it short.
+                    If `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    follow it (`featureKeyExample` shows the format); otherwise
+                    use kebab-case (e.g. `checkout-express-pay`). Put context in
+                    `description`. Required, unless `obfuscateFeatureKeys` in
+                    `GET /api/v1/settings` is on: then GrowthBook generates an
+                    opaque key, so omit `id` and send a `name`.
                   type: string
                   minLength: 1
                 name:
@@ -1045,7 +1096,9 @@ paths:
                 archived:
                   type: boolean
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the Feature Flag gates and why, rollout plan,
+                    and links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 owner:
@@ -1102,7 +1155,9 @@ paths:
                     - type: string
                     - type: 'null'
                 tags:
-                  description: List of associated tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -1148,6 +1203,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1261,6 +1319,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1396,6 +1457,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 id:
@@ -1566,6 +1630,9 @@ paths:
                                       - savedGroups
                                     additionalProperties: false
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -1809,6 +1876,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -1924,6 +1994,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -2061,6 +2134,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     id:
@@ -2233,6 +2309,9 @@ paths:
                                           - savedGroups
                                         additionalProperties: false
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -2501,7 +2580,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -2511,7 +2592,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -2520,10 +2603,11 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
-                - id
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -2612,7 +2696,9 @@ paths:
                   type: string
                   maxLength: 200
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the Feature Flag gates and why, rollout plan,
+                    and links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 archived:
@@ -2656,8 +2742,9 @@ paths:
                     - type: 'null'
                 tags:
                   description: >-
-                    List of associated tags. Will override tags completely with
-                    submitted list
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names. Replaces the existing tags
+                    completely.
                   type: array
                   items:
                     type: string
@@ -2702,6 +2789,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -2815,6 +2905,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -2950,6 +3043,9 @@ paths:
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 id:
@@ -3120,6 +3216,9 @@ paths:
                                       - savedGroups
                                     additionalProperties: false
                                 description:
+                                  description: >-
+                                    Short note on why the rule exists (e.g.
+                                    `Beta testers only`).
                                   type: string
                                   maxLength: 10000
                                 condition:
@@ -3363,6 +3462,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -3478,6 +3580,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -3615,6 +3720,9 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     id:
@@ -3787,6 +3895,9 @@ paths:
                                           - savedGroups
                                         additionalProperties: false
                                     description:
+                                      description: >-
+                                        Short note on why the rule exists (e.g.
+                                        `Beta testers only`).
                                       type: string
                                       maxLength: 10000
                                     condition:
@@ -4076,7 +4187,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -4086,7 +4199,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -4095,7 +4210,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4304,7 +4421,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -4314,7 +4433,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -4323,7 +4444,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - revision
@@ -4582,7 +4705,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4913,7 +5038,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -4993,7 +5120,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -5003,7 +5132,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -5012,7 +5143,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - defaultValue
@@ -5105,7 +5238,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - prerequisites
@@ -5197,7 +5332,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - holdout
@@ -5277,7 +5414,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -5359,7 +5498,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -5437,6 +5578,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -5522,6 +5666,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -5693,6 +5840,9 @@ paths:
                     - type: object
                       properties:
                         description:
+                          description: >-
+                            Short note on why the rule exists (e.g. `Beta
+                            testers only`).
                           type: string
                         enabled:
                           type: boolean
@@ -6285,7 +6435,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -6295,7 +6447,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -6304,7 +6458,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - environment
@@ -6379,6 +6535,9 @@ paths:
                   type: object
                   properties:
                     description:
+                      description: >-
+                        Short note on why the rule exists (e.g. `Beta testers
+                        only`).
                       type: string
                     enabled:
                       type: boolean
@@ -6994,7 +7153,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -7004,7 +7165,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -7013,7 +7176,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - environment
@@ -7095,7 +7260,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -7181,7 +7348,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -7739,7 +7908,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -7826,7 +7997,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -7948,6 +8121,10 @@ paths:
                 comment:
                   type: string
                 action:
+                  description: >-
+                    `approve`, `request-changes` or `comment`. Defaults to
+                    `comment`, which doesn't change whether the draft is
+                    approved.
                   type: string
                   enum:
                     - approve
@@ -8108,7 +8285,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8184,7 +8363,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -8194,7 +8375,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -8203,7 +8386,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8338,7 +8523,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -8348,7 +8535,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -8357,7 +8546,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -8440,6 +8631,15 @@ paths:
         `allEnvironments` / `environments` scope fields.
 
 
+        ### Naming for human review
+
+
+        The `id` is the Feature Flag's permanent name in the UI and code. Keep
+        it short (`checkout-express-pay`) and put context in `description`. To
+        create it disabled, list every environment in `environments` with
+        `enabled: false`.
+
+
         ### Config-backed features (Config mode)
 
 
@@ -8497,9 +8697,16 @@ paths:
               type: object
               properties:
                 id:
+                  pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    A unique key name for the feature. Feature keys can only
-                    include letters, numbers, hyphens, and underscores.
+                    Unique, permanent key used in code and SDK payloads; the UI
+                    shows it when the Feature Flag has no `name`. Keep it short.
+                    If `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    follow it (`featureKeyExample` shows the format); otherwise
+                    use kebab-case (e.g. `checkout-express-pay`). Put context in
+                    `description`. Required, unless `obfuscateFeatureKeys` in
+                    `GET /api/v1/settings` is on: then GrowthBook generates an
+                    opaque key, so omit `id` and send a `name`.
                   type: string
                   minLength: 1
                 name:
@@ -8513,7 +8720,9 @@ paths:
                 archived:
                   type: boolean
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the Feature Flag gates and why, rollout plan,
+                    and links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 owner:
@@ -8583,7 +8792,9 @@ paths:
                     - type: string
                     - type: 'null'
                 tags:
-                  description: List of associated tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -8597,6 +8808,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -8751,6 +8965,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -8922,6 +9139,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -9091,6 +9311,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -9255,8 +9478,11 @@ paths:
                         additionalProperties: false
                 environments:
                   description: >-
-                    Per-environment enabled state. V2 rules are specified on the
-                    top-level `rules` field.
+                    Per-environment enabled state, keyed by environment ID. An
+                    environment you leave out uses its "Default state for new
+                    features" setting, which may be enabled. To create the
+                    Feature Flag disabled, list every environment with `enabled:
+                    false`. Rules go on the top-level `rules` field.
                   type: object
                   propertyNames:
                     type: string
@@ -9264,6 +9490,9 @@ paths:
                     type: object
                     properties:
                       enabled:
+                        description: >-
+                          Whether the Feature Flag is enabled in this
+                          environment.
                         type: boolean
                     additionalProperties: false
                 prerequisites:
@@ -9296,7 +9525,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -9306,7 +9537,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -9315,10 +9548,11 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
-                - id
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -9408,7 +9642,9 @@ paths:
                   type: string
                   maxLength: 200
                 description:
-                  description: Description of the feature
+                  description: >-
+                    Markdown. What the Feature Flag gates and why, rollout plan,
+                    and links. Put context here, not in the key.
                   type: string
                   maxLength: 10000
                 archived:
@@ -9461,8 +9697,9 @@ paths:
                     - type: 'null'
                 tags:
                   description: >-
-                    List of associated tags. Will override tags completely with
-                    submitted list
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names. Replaces the existing tags
+                    completely.
                   type: array
                   items:
                     type: string
@@ -9482,6 +9719,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -9636,6 +9876,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           condition:
@@ -9807,6 +10050,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -9976,6 +10222,9 @@ paths:
                       - type: object
                         properties:
                           description:
+                            description: >-
+                              Short note on why the rule exists (e.g. `Beta
+                              testers only`).
                             type: string
                             maxLength: 10000
                           id:
@@ -10149,6 +10398,9 @@ paths:
                     type: object
                     properties:
                       enabled:
+                        description: >-
+                          Whether the Feature Flag is enabled in this
+                          environment.
                         type: boolean
                     additionalProperties: false
                 prerequisites:
@@ -10202,7 +10454,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -10212,7 +10466,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -10221,7 +10477,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -10413,7 +10671,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -10423,7 +10683,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -10432,7 +10694,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - revision
@@ -10764,8 +11028,10 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -10776,7 +11042,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -11099,8 +11367,10 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 name:
                   description: >-
@@ -11111,6 +11381,9 @@ paths:
                   type: string
                   maxLength: 200
                 description:
+                  description: >-
+                    Markdown. What the Feature Flag gates and why, rollout plan,
+                    and links. Put context here, not in the key.
                   type: string
                 owner:
                   description: >-
@@ -11254,7 +11527,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -11329,13 +11604,13 @@ paths:
                     - type: 'null'
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11346,7 +11621,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -11356,7 +11633,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -11365,7 +11644,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - defaultValue
@@ -11443,13 +11724,13 @@ paths:
                     additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11460,7 +11741,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - prerequisites
@@ -11531,13 +11814,13 @@ paths:
                     - type: 'null'
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11548,7 +11831,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - holdout
@@ -11608,13 +11893,13 @@ paths:
                   type: boolean
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11625,7 +11910,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -11687,13 +11974,13 @@ paths:
                   type: boolean
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -11704,7 +11991,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - environment
@@ -12297,13 +12586,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -12314,7 +12603,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -12324,7 +12615,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -12333,7 +12626,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - rule
@@ -12408,6 +12703,9 @@ paths:
                   type: object
                   properties:
                     description:
+                      description: >-
+                        Short note on why the rule exists (e.g. `Beta testers
+                        only`).
                       type: string
                     enabled:
                       type: boolean
@@ -13032,13 +13330,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13049,7 +13347,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -13059,7 +13359,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -13068,7 +13370,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - rule
@@ -13129,13 +13433,13 @@ paths:
               properties:
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13146,7 +13450,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13210,13 +13516,13 @@ paths:
                     type: string
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13227,7 +13533,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - ruleIds
@@ -13890,13 +14198,13 @@ paths:
                   additionalProperties: false
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13907,7 +14215,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13975,13 +14285,13 @@ paths:
               properties:
                 revisionTitle:
                   description: >-
-                    Title for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
                   description: >-
-                    Comment for a newly created draft. Only used when version is
-                    "new"; ignored for existing revisions.
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -13992,7 +14302,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14056,6 +14368,9 @@ paths:
               type: object
               properties:
                 comment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Replaces the
+                    draft's comment; leaving it out clears it.
                   type: string
                 autoPublishOnApproval:
                   type: boolean
@@ -14144,7 +14459,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -14154,7 +14471,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -14163,7 +14482,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 lockEdits:
                   type: boolean
@@ -14230,8 +14551,13 @@ paths:
               type: object
               properties:
                 comment:
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 action:
+                  description: >-
+                    `approve`, `request-changes` or `comment`. Defaults to
+                    `comment`, which doesn't change whether the draft is
+                    approved.
                   type: string
                   enum:
                     - approve
@@ -14709,7 +15035,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14876,7 +15204,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -14934,6 +15264,10 @@ paths:
               type: object
               properties:
                 comment:
+                  description: >-
+                    Note recorded in the audit log for this publish. Also
+                    becomes the draft's comment if the draft has none; otherwise
+                    the existing draft comment is kept.
                   type: string
                 bypassApproval:
                   description: >-
@@ -14952,7 +15286,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -14962,7 +15298,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -14971,7 +15309,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -15123,8 +15463,10 @@ paths:
                     - draft
                     - publish
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -15135,7 +15477,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -15145,7 +15489,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -15154,7 +15500,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -15226,8 +15574,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name (e.g. `Logged-out US visitor`).
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 isPublic:
@@ -15317,8 +15667,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name (e.g. `Logged-out US visitor`).
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 isPublic:
@@ -15471,6 +15823,16 @@ paths:
     post:
       operationId: postExperiment
       summary: Create a single experiment
+      description: >-
+        Creates a new experiment.
+
+
+        ### Naming for human review
+
+
+        Keep `name` short; put reasoning in `hypothesis` and context in
+        `description`. `trackingKey` is sent with exposure events, so keep it
+        short and stable.
       tags:
         - experiments
       requestBody:
@@ -15519,16 +15881,26 @@ paths:
                     only be set if a templateId is not provided.
                   type: string
                 trackingKey:
+                  description: >-
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
+                    launch splits exposures across two keys.
                   type: string
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow creating an experiment even if another
                     experiment with the same tracking key already exists. This
                     is ignored if the organization requires unique tracking keys
-                    as a rule.
+                    as a rule. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 name:
-                  description: Name of the experiment
+                  description: >-
+                    Short display name (e.g. `Express checkout button`). Put
+                    reasoning in `hypothesis` and context in `description`.
                   type: string
                 type:
                   type: string
@@ -15547,13 +15919,16 @@ paths:
                     fields.
                   type: string
                 hypothesis:
-                  description: Hypothesis of the experiment
+                  description: Markdown. If we change X, metric Y will move because Z.
                   type: string
                 description:
-                  description: Description of the experiment
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -15713,10 +16088,15 @@ paths:
                           precedence.
                         type: string
                       key:
+                        description: >-
+                          Key sent with exposure events (e.g. `0`, `1`).
+                          Changing it after launch splits exposures.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                         maxLength: 10000
                       screenshots:
@@ -15746,6 +16126,7 @@ paths:
                     type: object
                     properties:
                       name:
+                        description: Short phase label (e.g. `Main`).
                         type: string
                       dateStarted:
                         format: date-time
@@ -16102,7 +16483,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - trackingKey
@@ -16270,16 +16653,26 @@ paths:
                     types; set `assignmentQuery.identifierType` instead.
                   type: string
                 trackingKey:
+                  description: >-
+                    Key sent with exposure events. Keep it short, in kebab-case
+                    (usually the Feature Flag key). If your organization
+                    requires a tracking key format, a key that doesn't match is
+                    rejected with `invalid_tracking_key`. Changing it after
+                    launch splits exposures across two keys.
                   type: string
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow updating the tracking key even if another
                     experiment with the same tracking key already exist. This is
                     ignored if the organization requires unique tracking keys as
-                    a rule.
+                    a rule. Only set this when a person has explicitly asked you
+                    to. If a check blocks you, stop and ask a person instead of
+                    working around it.
                   type: boolean
                 name:
-                  description: Name of the experiment
+                  description: >-
+                    Short display name (e.g. `Express checkout button`). Put
+                    reasoning in `hypothesis` and context in `description`.
                   type: string
                 type:
                   type: string
@@ -16290,13 +16683,16 @@ paths:
                   description: Project ID which the experiment belongs to
                   type: string
                 hypothesis:
-                  description: Hypothesis of the experiment
+                  description: Markdown. If we change X, metric Y will move because Z.
                   type: string
                 description:
-                  description: Description of the experiment
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -16474,10 +16870,15 @@ paths:
                           precedence.
                         type: string
                       key:
+                        description: >-
+                          Key sent with exposure events (e.g. `0`, `1`).
+                          Changing it after launch splits exposures.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                         maxLength: 10000
                       screenshots:
@@ -16867,7 +17268,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -17000,7 +17403,9 @@ paths:
                 skipChecklist:
                   description: >-
                     If true, skips validating the experiment satisfies all
-                    pre-launch checklist items
+                    pre-launch checklist items. Only set this when a person has
+                    explicitly asked you to. If a check blocks you, stop and ask
+                    a person instead of working around it.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -17011,7 +17416,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -17218,7 +17625,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - results
@@ -17412,7 +17821,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - enableTemporaryRollout
@@ -18931,10 +19342,12 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 name:
-                  description: Name of the metric
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
-                  description: Description of the metric
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 type:
@@ -18948,7 +19361,9 @@ paths:
                     - duration
                     - revenue
                 tags:
-                  description: List of tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -19363,10 +19778,12 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 name:
-                  description: Name of the metric
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
-                  description: Description of the metric
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 type:
@@ -19380,7 +19797,9 @@ paths:
                     - duration
                     - revenue
                 tags:
-                  description: List of tags
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -19909,7 +20328,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the segment
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -20038,7 +20457,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the segment
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -20195,7 +20614,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the dimension
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the dimension
@@ -20294,7 +20713,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Name of the dimension
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the dimension
@@ -20444,6 +20863,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -20457,6 +20877,7 @@ paths:
                     empty.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 publicId:
@@ -20562,7 +20983,7 @@ paths:
               type: object
               properties:
                 name:
-                  description: Project name.
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -20572,7 +20993,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
-                  description: Project description.
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 publicId:
@@ -20701,10 +21122,12 @@ paths:
               type: object
               properties:
                 id:
-                  description: The ID of the new environment
+                  description: >-
+                    Permanent ID, shown as the environment name (e.g.
+                    `production`). Short lowercase slug.
                   type: string
                 description:
-                  description: The description of the new environment
+                  description: Put context here, not in the name.
                   type: string
                 toggleOnList:
                   description: Show on feature list page
@@ -20713,6 +21136,9 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
+                  description: >-
+                    Limits which Projects can use this environment. Omit to
+                    allow all Projects.
                   type: array
                   items:
                     type: string
@@ -20762,7 +21188,7 @@ paths:
               type: object
               properties:
                 description:
-                  description: The description of the new environment
+                  description: Put context here, not in the name.
                   type: string
                 toggleOnList:
                   description: Show on feature list page
@@ -20771,6 +21197,9 @@ paths:
                   description: Default state for new features
                   type: boolean
                 projects:
+                  description: >-
+                    Limits which Projects can use this environment. Omit to keep
+                    the current list; send `[]` to allow all Projects.
                   type: array
                   items:
                     type: string
@@ -20877,7 +21306,10 @@ paths:
               type: object
               properties:
                 property:
-                  description: The attribute property
+                  description: >-
+                    Attribute name exactly as your SDK passes it (e.g.
+                    `userId`). The API can't rename it, and renaming it in the
+                    UI doesn't update SDK code or targeting conditions.
                   type: string
                 datatype:
                   description: The attribute datatype
@@ -20892,7 +21324,7 @@ paths:
                     - number[]
                     - secureString[]
                 description:
-                  description: The description of the new attribute
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 archived:
                   description: The attribute is archived
@@ -20916,10 +21348,17 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -20986,7 +21425,7 @@ paths:
                     - number[]
                     - secureString[]
                 description:
-                  description: The description of the new attribute
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 archived:
                   description: The attribute is archived
@@ -21010,10 +21449,17 @@ paths:
                     - date
                     - isoCountryCode
                 projects:
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -21124,6 +21570,9 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name, usually app and platform (e.g. `Web
+                    app`).
                   type: string
                 language:
                   type: string
@@ -21254,6 +21703,9 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name, usually app and platform (e.g. `Web
+                    app`).
                   type: string
                 language:
                   type: string
@@ -21922,7 +22374,11 @@ paths:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    anyOf:
+                      - title: Experiment
+                        $ref: '#/components/schemas/Experiment'
+                      - title: Visual Editor Cb Experiment Stub
+                        $ref: '#/components/schemas/VisualEditorCbExperimentStub'
                 required:
                   - visualChangeset
                 additionalProperties: false
@@ -22267,8 +22723,16 @@ paths:
               type: object
               properties:
                 name:
-                  description: The display name of the Saved Group
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
                   type: string
+                description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the Saved Group
+                    and why.
+                  type: string
+                  maxLength: 100
                 type:
                   description: >-
                     The type of Saved Group (inferred from other arguments if
@@ -22340,7 +22804,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/saved-groups' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"name":"internal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
+              -d '{"name":"Internal users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
   /v1/saved-groups-revisions:
     get:
       operationId: listSavedGroupRevisions
@@ -22475,7 +22939,14 @@ paths:
               type: object
               properties:
                 name:
-                  description: The display name of the Saved Group
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
+                  type: string
+                description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the Saved Group
+                    and why.
                   type: string
                 condition:
                   description: >-
@@ -22599,7 +23070,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22852,8 +23325,10 @@ paths:
               type: object
               properties:
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Markdown. What changed and why, for reviewers.
                   type: string
               additionalProperties: false
       responses:
@@ -23010,10 +23485,19 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 name:
+                  description: >-
+                    Short display name (e.g. `Internal employees`). Put details
+                    in `description`.
                   type: string
                 owner:
                   description: >-
@@ -23023,6 +23507,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: >-
+                    Short note (max 100 characters) on who is in the Saved Group
+                    and why.
                   type: string
                 projects:
                   type: array
@@ -23084,8 +23571,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 condition:
                   description: The JSON-encoded condition for the saved group
@@ -23150,8 +23643,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 values:
                   type: array
@@ -23216,8 +23715,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 archived:
                   type: boolean
@@ -23230,7 +23735,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - archived
@@ -23292,8 +23799,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 items:
                   type: array
@@ -23357,8 +23870,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 items:
                   type: array
@@ -23431,7 +23950,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23500,6 +24021,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -23677,7 +24199,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -23934,7 +24458,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24052,8 +24578,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -24064,7 +24592,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24166,6 +24696,7 @@ paths:
                   additionalProperties:
                     type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -24417,6 +24948,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 value:
                   type: string
@@ -24432,6 +24964,7 @@ paths:
                   additionalProperties:
                     type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -24460,7 +24993,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24470,7 +25005,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24479,7 +25016,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24577,7 +25116,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24587,7 +25128,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24596,7 +25139,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24659,7 +25204,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -24669,7 +25216,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24678,7 +25227,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -24986,10 +25537,17 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -24999,6 +25557,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -25060,8 +25619,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 value:
                   description: >-
@@ -25132,8 +25697,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 archived:
                   type: boolean
@@ -25146,7 +25717,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25156,7 +25729,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25165,7 +25740,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - archived
@@ -25233,7 +25810,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25243,7 +25822,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25252,7 +25833,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -25321,6 +25904,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -25498,7 +26082,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25508,7 +26094,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25517,7 +26105,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -25761,7 +26351,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25771,7 +26363,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25780,7 +26374,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -25898,8 +26494,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -25910,7 +26508,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -25920,7 +26520,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -25929,7 +26531,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -26082,6 +26686,7 @@ paths:
                       - config
                     additionalProperties: false
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -26169,7 +26774,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26179,7 +26786,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26188,7 +26797,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - key
@@ -26709,6 +27320,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 parent:
                   description: >-
@@ -26772,6 +27384,7 @@ paths:
                       - config
                     additionalProperties: false
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 project:
@@ -26863,7 +27476,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -26873,7 +27488,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -26882,7 +27499,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27002,7 +27621,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27012,7 +27633,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27021,7 +27644,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27083,7 +27708,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27093,7 +27720,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27102,7 +27731,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27501,10 +28132,17 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 owner:
                   description: >-
@@ -27514,6 +28152,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -27542,7 +28181,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27552,7 +28193,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27561,7 +28204,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27639,8 +28284,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 value:
                   description: >-
@@ -27664,7 +28315,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27674,7 +28327,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27683,7 +28338,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27754,8 +28411,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 property:
                   description: Name of the property to set in this config's own value.
@@ -27771,7 +28434,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27781,7 +28446,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27790,7 +28457,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - property
@@ -27931,8 +28600,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 schema:
                   $ref: '#/components/schemas/ConfigSchemaSource'
@@ -27953,7 +28628,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -27963,7 +28640,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -27972,7 +28651,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -28043,8 +28724,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 source:
                   description: >-
@@ -28071,7 +28758,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28081,7 +28770,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28090,7 +28781,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - source
@@ -28210,8 +28903,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
                   type: string
                 revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
                   type: string
                 archived:
                   type: boolean
@@ -28224,7 +28923,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28234,7 +28935,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28243,7 +28946,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - archived
@@ -28311,7 +29016,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28321,7 +29028,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28330,7 +29039,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -28399,6 +29110,7 @@ paths:
                     - request-changes
                     - comment
                 comment:
+                  description: Markdown. Why you approved, requested changes or commented.
                   type: string
                 skipAutoPublish:
                   type: boolean
@@ -28628,7 +29340,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28638,7 +29352,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28647,7 +29363,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -28856,7 +29574,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -28866,7 +29586,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -28875,7 +29597,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -28995,8 +29719,10 @@ paths:
                     - draft
                     - publish
                 title:
+                  description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
                 comment:
+                  description: Currently ignored. Use `title` to describe the revert.
                   type: string
                 ignoreWarnings:
                   description: >-
@@ -29007,7 +29733,9 @@ paths:
                     covers schema and invariant warnings. It never bypasses a
                     rejected Custom Hook. On revision publish endpoints, it can
                     also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access.
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -29017,7 +29745,9 @@ paths:
                     Hook; use `skipHooks` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -29026,7 +29756,9 @@ paths:
                     `skipSchemaValidation` for that. The caller must have Bypass
                     draft approvals access for Feature Flags, Configs, and
                     Constants in every Project. Otherwise, this field is
-                    ignored.
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -29118,7 +29850,9 @@ paths:
                     Set to true to acknowledge warnings from experiment guards,
                     schema changes, or archives. It can also force-publish an
                     out-of-date draft when the caller has Bypass draft approvals
-                    access for that resource.
+                    access for that resource. Only set this when a person has
+                    explicitly asked you to. If a check blocks you, stop and ask
+                    a person instead of working around it.
                   type: boolean
                 skipSchemaValidation:
                   description: >-
@@ -29126,12 +29860,18 @@ paths:
                     Validation still runs and the response still reports each
                     failure. The caller must have Bypass draft approvals access
                     for Feature Flags, Configs, and Constants in every Project.
+                    Only set this when a person has explicitly asked you to. If
+                    a check blocks you, stop and ask a person instead of working
+                    around it.
                   type: boolean
                 skipHooks:
                   description: >-
                     Set to true to publish despite Custom Hook rejections. The
                     caller must have Bypass draft approvals access for Feature
-                    Flags, Configs, and Constants in every Project.
+                    Flags, Configs, and Constants in every Project. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 comment:
                   description: >-
@@ -29873,9 +30613,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
-                  description: Description of the fact table
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -30050,9 +30791,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
-                  description: Description of the fact table
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -30261,6 +31003,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the fact table filter
@@ -30351,6 +31094,7 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
                   description: Description of the fact table filter
@@ -30451,6 +31195,7 @@ paths:
                   description: Display name for the column
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 numberFormat:
@@ -30526,6 +31271,7 @@ paths:
                   description: Display name for the column
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 numberFormat:
@@ -30832,8 +31578,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -30848,6 +31598,9 @@ paths:
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -31560,8 +32313,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: >-
+                    Short display name (e.g. `Purchases per user`). Put the
+                    definition in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 owner:
@@ -31576,6 +32333,9 @@ paths:
                   items:
                     type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -32418,9 +33178,10 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: Short display name. Put details in `description`.
                             type: string
                           description:
-                            description: Description of the fact table
+                            description: Markdown. Put context here, not in the name.
                             type: string
                             maxLength: 10000
                           owner:
@@ -32562,6 +33323,7 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: Short display name. Put details in `description`.
                             type: string
                           description:
                             description: Description of the fact table filter
@@ -32600,8 +33362,12 @@ paths:
                         type: object
                         properties:
                           name:
+                            description: >-
+                              Short display name (e.g. `Purchases per user`).
+                              Put the definition in `description`.
                             type: string
                           description:
+                            description: Markdown. Put context here, not in the name.
                             type: string
                             maxLength: 10000
                           owner:
@@ -32617,6 +33383,9 @@ paths:
                             items:
                               type: string
                           tags:
+                            description: >-
+                              Tags for filtering and grouping. Use these instead
+                              of encoding groups in names.
                             type: array
                             items:
                               type: string
@@ -35176,7 +35945,10 @@ paths:
                     Bypass a pending approval gate on the current step. Requires
                     admin-level (`FlagsBypassApprovals`) permission. When
                     omitted or `false`, a 409 is returned if the step has an
-                    unsatisfied `holdConditions.requiresApproval` gate.
+                    unsatisfied `holdConditions.requiresApproval` gate. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -37896,6 +38668,7 @@ paths:
                     organization.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 status:
                   type: string
@@ -52571,6 +53344,9 @@ paths:
                   items:
                     type: string
                 trackingKey:
+                  description: >-
+                    Key sent with exposure events. Keep it short, in kebab-case.
+                    Changing it after launch splits exposures across two keys.
                   type: string
                 hashAttribute:
                   type: string
@@ -52703,8 +53479,10 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                 project:
                   type: string
@@ -52716,10 +53494,16 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 trackingKey:
+                  description: >-
+                    Key sent with exposure events. Keep it short, in kebab-case.
+                    Changing it after launch splits exposures across two keys.
                   type: string
                 hashAttribute:
                   type: string
@@ -52731,10 +53515,15 @@ paths:
                     type: object
                     properties:
                       key:
+                        description: >-
+                          Key sent with exposure events (e.g. `0`, `1`).
+                          Changing it after launch splits exposures.
                         type: string
                       name:
+                        description: Short label shown in results (e.g. `Control`).
                         type: string
                       description:
+                        description: What this variation changes.
                         type: string
                     required:
                       - key
@@ -53364,13 +54153,17 @@ paths:
               type: object
               properties:
                 id:
-                  description: The unique key for the custom field
+                  description: >-
+                    Unique, permanent key used in API payloads (e.g.
+                    `jira_ticket`). Lowercase letters, numbers, hyphens, and
+                    underscores. Put the label in `name`.
                   type: string
                   minLength: 1
                 name:
                   description: The display name of the custom field
                   type: string
                 description:
+                  description: Help text shown under the field.
                   type: string
                 placeholder:
                   type: string
@@ -53582,6 +54375,7 @@ paths:
                   description: The display name of the custom field
                   type: string
                 description:
+                  description: Help text shown under the field.
                   type: string
                 placeholder:
                   type: string
@@ -53746,15 +54540,24 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 projects:
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -53808,15 +54611,24 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
                 projects:
+                  description: >-
+                    Project IDs that can use this. An empty list means all
+                    Projects. Projects control access and availability, so don't
+                    use them as labels.
                   type: array
                   items:
                     type: string
@@ -53938,10 +54750,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 createdBy:
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 role:
                   description: The global role for members of this team
@@ -54079,10 +54893,12 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                 createdBy:
                   type: string
                 description:
+                  description: Put context here, not in the name.
                   type: string
                 role:
                   description: The global role for members of this team
@@ -54386,8 +55202,10 @@ paths:
                   type: object
                   properties:
                     name:
+                      description: Short display name (e.g. `Checkout test`).
                       type: string
                     description:
+                      description: When to use this template.
                       type: string
                       maxLength: 10000
                   required:
@@ -54398,11 +55216,21 @@ paths:
                   enum:
                     - standard
                 hypothesis:
+                  description: >-
+                    Default hypothesis for experiments created from this
+                    template. Markdown. If we change X, metric Y will move
+                    because Z.
                   type: string
                 description:
+                  description: >-
+                    Default description for experiments created from this
+                    template. Markdown.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -54583,8 +55411,10 @@ paths:
                   type: object
                   properties:
                     name:
+                      description: Short display name (e.g. `Checkout test`).
                       type: string
                     description:
+                      description: When to use this template.
                       type: string
                       maxLength: 10000
                   required:
@@ -54595,11 +55425,21 @@ paths:
                   enum:
                     - standard
                 hypothesis:
+                  description: >-
+                    Default hypothesis for experiments created from this
+                    template. Markdown. If we change X, metric Y will move
+                    because Z.
                   type: string
                 description:
+                  description: >-
+                    Default description for experiments created from this
+                    template. Markdown.
                   type: string
                   maxLength: 10000
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -54828,8 +55668,10 @@ paths:
                             type: object
                             properties:
                               name:
+                                description: Short display name (e.g. `Checkout test`).
                                 type: string
                               description:
+                                description: When to use this template.
                                 type: string
                                 maxLength: 10000
                             required:
@@ -54840,11 +55682,21 @@ paths:
                             enum:
                               - standard
                           hypothesis:
+                            description: >-
+                              Default hypothesis for experiments created from
+                              this template. Markdown. If we change X, metric Y
+                              will move because Z.
                             type: string
                           description:
+                            description: >-
+                              Default description for experiments created from
+                              this template. Markdown.
                             type: string
                             maxLength: 10000
                           tags:
+                            description: >-
+                              Tags for filtering and grouping. Use these instead
+                              of encoding groups in names.
                             type: array
                             items:
                               type: string
@@ -61887,12 +62739,17 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                   minLength: 1
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 projects:
+                  description: >-
+                    Project IDs this Holdout applies to. Send an empty array for
+                    All Projects.
                   type: array
                   items:
                     type: string
@@ -61904,6 +62761,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -62080,9 +62940,11 @@ paths:
               type: object
               properties:
                 name:
+                  description: Short display name. Put details in `description`.
                   type: string
                   minLength: 1
                 description:
+                  description: Markdown. Put context here, not in the name.
                   type: string
                   maxLength: 10000
                 projects:
@@ -62100,6 +62962,9 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 tags:
+                  description: >-
+                    Tags for filtering and grouping. Use these instead of
+                    encoding groups in names.
                   type: array
                   items:
                     type: string
@@ -63478,12 +64343,16 @@ components:
       description: >-
         If the organization caps concurrent drafts per feature
         (`maxConcurrentDrafts` setting), requests at or over the cap are
-        rejected with a 409. Pass `true` to create the draft anyway.
+        rejected with a 409. Pass `true` to create the draft anyway. Only set
+        this when a person has explicitly asked you to. If a check blocks you,
+        stop and ask a person instead of working around it.
       schema:
         description: >-
           If the organization caps concurrent drafts per feature
           (`maxConcurrentDrafts` setting), requests at or over the cap are
-          rejected with a 409. Pass `true` to create the draft anyway.
+          rejected with a 409. Pass `true` to create the draft anyway. Only set
+          this when a person has explicitly asked you to. If a check blocks you,
+          stop and ask a person instead of working around it.
         anyOf:
           - type: string
             const: 'true'
@@ -68056,6 +68925,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -68163,6 +69033,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -68258,6 +69129,7 @@ components:
       type: object
       properties:
         description:
+          description: Short note on why the rule exists (e.g. `Beta testers only`).
           type: string
         enabled:
           type: boolean
@@ -69711,6 +70583,8 @@ components:
           type: string
         experiment:
           type: string
+        contextualBandit:
+          type: string
         visualChanges:
           type: array
           items:
@@ -69757,7 +70631,6 @@ components:
       required:
         - urlPatterns
         - editorUrl
-        - experiment
         - visualChanges
       additionalProperties: false
     Metric:
@@ -70694,6 +71567,63 @@ components:
         - databases
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    VisualEditorCbExperimentStub:
+      type: object
+      properties:
+        id:
+          type: string
+        trackingKey:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        project:
+          type: string
+        hashAttribute:
+          type: string
+        hashVersion:
+          type: number
+          const: 2
+        type:
+          type: string
+          const: contextual-bandit
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
+                  - deactivated
+            required:
+              - variationId
+              - key
+              - name
+              - description
+            additionalProperties: false
+      required:
+        - id
+        - trackingKey
+        - name
+        - status
+        - project
+        - hashAttribute
+        - hashVersion
+        - type
+        - variations
       additionalProperties: false
     SavedGroup:
       type: object
@@ -72719,6 +73649,7 @@ components:
             name)
           type: string
         description:
+          description: What the column contains.
           type: string
           maxLength: 10000
         alwaysInlineFilter:
@@ -72854,6 +73785,7 @@ components:
             name)
           type: string
         description:
+          description: What the column contains.
           type: string
           maxLength: 10000
         alwaysInlineFilter:
@@ -74218,6 +75150,11 @@ components:
           type: string
         featureRegexValidator:
           type: string
+        obfuscateFeatureKeys:
+          description: >-
+            When true, GrowthBook generates an opaque key for each new Feature
+            Flag and rejects a provided `id`. Send a `name` instead.
+          type: boolean
         sparseJSONRulesByDefault:
           type: boolean
         banditScheduleValue:
@@ -79672,6 +80609,8 @@ components:
         nextSnapshotAttempt:
           type: string
           format: date-time
+        hasVisualChangesets:
+          type: boolean
       required:
         - id
         - dateCreated
@@ -86709,3 +87648,4 @@ x-tagGroups:
       - Team_model
       - VisualChange_model
       - VisualChangeset_model
+      - VisualEditorCbExperimentStub_model

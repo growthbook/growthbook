@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
@@ -10,6 +14,7 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { resolveNewFeatureKey } from "back-end/src/services/featureKeys";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
@@ -80,15 +85,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  const existing = await getFeature(req.context, req.body.id);
+  const id = await resolveNewFeatureKey(req.context, req.body);
+  const existing = await getFeature(req.context, id);
   if (existing) {
-    throw new Error(`Feature id '${req.body.id}' already exists.`);
+    throw new Error(`Feature id '${id}' already exists.`);
   }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   const orgEnvs = getEnvironments(req.context.org);
@@ -135,7 +139,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,
-    id: req.body.id,
+    id,
     archived: !!req.body.archived,
     version: 1,
     environmentSettings: {},

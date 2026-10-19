@@ -60,7 +60,11 @@ import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+} from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -348,6 +352,7 @@ import {
   loadSavedGroupsWithNested,
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
+import { resolveNewFeatureKey } from "back-end/src/services/featureKeys";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -894,7 +899,7 @@ export async function postFeatures(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
-    id,
+    id: requestedId,
     environmentSettings,
     holdout,
     customFields,
@@ -917,11 +922,17 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  if (!id) {
-    throw new Error("Must specify feature key");
-  }
+  const id = await resolveNewFeatureKey(context, {
+    id: requestedId,
+    name: otherProps.name,
+  });
 
-  if (org.settings?.featureRegexValidator) {
+  // A generated key can't follow the org's key format, so the format only
+  // applies to keys people choose.
+  if (
+    org.settings?.featureRegexValidator &&
+    !org.settings?.obfuscateFeatureKeys
+  ) {
     const regex = new RegExp(org.settings.featureRegexValidator);
     if (!regex.test(id)) {
       throw new Error(
@@ -934,10 +945,8 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {

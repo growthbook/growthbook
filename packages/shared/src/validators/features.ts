@@ -3,6 +3,7 @@ import {
   statsEngines,
   MAX_DESCRIPTION_LENGTH,
   MAX_FEATURE_NAME_LENGTH,
+  FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
@@ -38,6 +39,12 @@ import {
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  FEATURE_DESCRIPTION,
+  FEATURE_KEY_DESCRIPTION,
+  RULE_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -1466,7 +1473,11 @@ const postFeatureForceRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1486,7 +1497,11 @@ const postFeatureRolloutRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1519,7 +1534,11 @@ const postFeatureExperimentRefRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("experiment-ref"),
@@ -1544,7 +1563,11 @@ const postFeatureExperimentRuleFields = {
   ...postFeatureRuleProjectScopeShape,
   ...v1RuleReadOnlyEcho,
   ...v1RuleSavedGroupInput,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(RULE_DESCRIPTION)
+    .optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1654,15 +1677,15 @@ const postFeatureBody = z
     id: z
       .string()
       .min(1)
-      .describe(
-        "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
-      ),
+      .meta({ pattern: FEATURE_KEY_PATTERN })
+      .describe(FEATURE_KEY_DESCRIPTION)
+      .optional(),
     name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     archived: z.boolean().optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
@@ -1693,7 +1716,7 @@ const postFeatureBody = z
         'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of associated tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
@@ -1728,7 +1751,7 @@ const updateFeatureBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
@@ -1755,9 +1778,7 @@ const updateFeatureBody = z
       .optional(),
     tags: z
       .array(z.string())
-      .describe(
-        "List of associated tags. Will override tags completely with submitted list",
-      )
+      .describe(`${TAGS_DESCRIPTION} Replaces the existing tags completely.`)
       .optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)

@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import {
-  featureKeyFromName,
+  generateOpaqueFeatureKey,
   featureMatchesSearch,
   featureMetadataEnvelope,
   normalizeMetadataValue,
@@ -63,26 +63,16 @@ describe("name in drafts created before names existed", () => {
   });
 });
 
-describe("featureKeyFromName", () => {
-  it("turns a display name into a kebab-case key", () => {
-    expect(featureKeyFromName("Express checkout button")).toBe(
-      "express-checkout-button",
-    );
+describe("generateOpaqueFeatureKey", () => {
+  it("returns an f_ key that is valid as a Feature Flag key", () => {
+    const key = generateOpaqueFeatureKey();
+    expect(key).toMatch(/^f_[a-z0-9]{10}$/);
   });
 
-  it("drops characters keys can't contain", () => {
-    expect(featureKeyFromName("  PAY-4821: Apple Pay / Google Pay!  ")).toBe(
-      "pay-4821-apple-pay-google-pay",
+  it("returns a different key each time", () => {
+    const keys = new Set(
+      Array.from({ length: 50 }, () => generateOpaqueFeatureKey()),
     );
-  });
-
-  it("keeps keys short", () => {
-    expect(featureKeyFromName("word ".repeat(40)).length).toBeLessThanOrEqual(
-      64,
-    );
-  });
-
-  it("returns an empty key for a name with no usable characters", () => {
-    expect(featureKeyFromName("!!!")).toBe("");
+    expect(keys.size).toBe(50);
   });
 });

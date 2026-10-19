@@ -5194,13 +5194,13 @@ export function featureMatchesSearch(
   );
 }
 
-// Suggested key for a new Feature Flag, derived from its display name:
-// "Express checkout button" -> "express-checkout-button".
-export function featureKeyFromName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64)
-    .replace(/-+$/, "");
+// Random key for orgs that keep keys opaque (`obfuscateFeatureKeys`), so SDK
+// payloads and client code don't reveal what a Feature Flag is for.
+export function generateOpaqueFeatureKey(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return (
+    "f_" + Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("")
+  );
 }
