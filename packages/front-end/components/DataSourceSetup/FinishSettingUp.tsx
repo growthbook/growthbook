@@ -1,4 +1,11 @@
-import { CSSProperties, ReactNode, useMemo, useState } from "react";
+import {
+  CSSProperties,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Box, Flex, Grid, IconButton, Progress } from "@radix-ui/themes";
 import { PiCheck, PiMinus, PiPencilSimple, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
@@ -79,9 +86,46 @@ const DEFAULT_IDENTIFIER_DESCRIPTIONS: Record<string, string> = {
   anonymous_id: "Anonymous visitors",
 };
 
+function exposureQuerySkipKey(dataSourceId: string) {
+  return `gb-finish-setting-up-skip-exposure:${dataSourceId}`;
+}
+
+function readExposureQuerySkipped(dataSourceId: string): boolean {
+  try {
+    return localStorage.getItem(exposureQuerySkipKey(dataSourceId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// Per browser, per Data Source. An org that does not run experiments can
+// finish setup without an exposure query.
+export function useExposureQuerySkipped(dataSourceId: string | undefined): {
+  skipped: boolean;
+  skip: () => void;
+} {
+  const [skipped, setSkipped] = useState(false);
+  useEffect(() => {
+    setSkipped(!!dataSourceId && readExposureQuerySkipped(dataSourceId));
+  }, [dataSourceId]);
+
+  const skip = useCallback(() => {
+    if (!dataSourceId) return;
+    try {
+      localStorage.setItem(exposureQuerySkipKey(dataSourceId), "1");
+    } catch {
+      // Private mode can reject the write. The step still completes this session.
+    }
+    setSkipped(true);
+  }, [dataSourceId]);
+
+  return { skipped, skip };
+}
+
 function getCompletion(
   dataSource: DataSourceInterfaceWithParams,
   factTableCount: number,
+  exposureQuerySkipped: boolean,
 ): Record<StepId, boolean> {
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
@@ -90,7 +134,8 @@ function getCompletion(
     identifiers: identifierTypes.length > 0,
     // One exposure query is enough. Identifier types are also used for joins
     // and metrics, so they don't each need to appear in an exposure query.
-    queries: exposureQueries.length > 0,
+    // Skipping is enough too, for orgs that do not run experiments.
+    queries: exposureQueries.length > 0 || exposureQuerySkipped,
     factTable: factTableCount > 0,
   };
 }
@@ -115,10 +160,11 @@ function getExcludedKeys(
 export function isDataSourceSetupComplete(
   dataSource: DataSourceInterfaceWithParams,
   factTableCount: number,
+  exposureQuerySkipped = false,
 ): boolean {
-  return Object.values(getCompletion(dataSource, factTableCount)).every(
-    Boolean,
-  );
+  return Object.values(
+    getCompletion(dataSource, factTableCount, exposureQuerySkipped),
+  ).every(Boolean);
 }
 
 export default function FinishSettingUp({
@@ -126,15 +172,19 @@ export default function FinishSettingUp({
   factTableCount,
   canEdit,
   onSave,
+  exposureQuerySkipped,
+  onSkipExposureQuery,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   factTableCount: number;
   canEdit: boolean;
   onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
+  exposureQuerySkipped: boolean;
+  onSkipExposureQuery: () => void;
 }) {
   const completion = useMemo(
-    () => getCompletion(dataSource, factTableCount),
-    [dataSource, factTableCount],
+    () => getCompletion(dataSource, factTableCount, exposureQuerySkipped),
+    [dataSource, factTableCount, exposureQuerySkipped],
   );
   const stepIds = Object.keys(completion) as StepId[];
   const completed = stepIds.filter((id) => completion[id]).length;
@@ -165,6 +215,13 @@ export default function FinishSettingUp({
   const [expandedStep, setExpandedStep] = useState<StepId | null>(() =>
     currentStep && EXPANDABLE_STEPS.includes(currentStep) ? currentStep : null,
   );
+  // localStorage is read after mount. Close a step that was only open because
+  // the skipped exposure query had not loaded yet.
+  useEffect(() => {
+    if (exposureQuerySkipped) {
+      setExpandedStep((step) => (step === "queries" ? null : step));
+    }
+  }, [exposureQuerySkipped]);
   const [identifierMode, setIdentifierMode] = useState<IdentifierMode>("view");
   // Rows the user has left out of this Data Source.
   const [excludedKeys, setExcludedKeys] = useState<string[]>(() =>
@@ -318,7 +375,9 @@ export default function FinishSettingUp({
     }
     setExcludedKeys(getExcludedKeys(copy, hashAttributeNames));
     setExpandedStep(
-      getCompletion(copy, factTableCount).queries ? null : "queries",
+      getCompletion(copy, factTableCount, exposureQuerySkipped).queries
+        ? null
+        : "queries",
     );
   };
 
@@ -711,34 +770,38 @@ export default function FinishSettingUp({
               </Box>
             )}
             <Flex align="center" justify="between" gap="3" mt="3">
-              <Box>
-                {exposureQueries.length > 0 &&
-                  uncoveredIdentifierTypes.length > 0 && (
-                    <HelperText status="warning" icon={null}>
-                      No query returns{" "}
-                      {uncoveredIdentifierTypes.map((userIdType, i) => (
-                        <span key={userIdType}>
-                          {i > 0 && ", "}
-                          <Text mono>{userIdType}</Text>
-                        </span>
-                      ))}{" "}
-                      yet. Add{" "}
-                      {uncoveredIdentifierTypes.length === 1 ? "it" : "them"} to
-                      an existing query or write a new one.
-                    </HelperText>
-                  )}
-              </Box>
               <Flex align="center" gap="3" flexShrink="0">
-                <Button variant="ghost" onClick={() => setExpandedStep(null)}>
-                  Close
-                </Button>
                 <Button
-                  disabled={!completion.queries}
+                  disabled={exposureQueries.length === 0}
                   onClick={() => setExpandedStep(null)}
                 >
                   Continue
                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    onSkipExposureQuery();
+                    setExpandedStep(null);
+                  }}
+                >
+                  Skip for now
+                </Button>
               </Flex>
+              {exposureQueries.length > 0 &&
+                uncoveredIdentifierTypes.length > 0 && (
+                  <HelperText status="warning" icon={null}>
+                    No query returns{" "}
+                    {uncoveredIdentifierTypes.map((userIdType, i) => (
+                      <span key={userIdType}>
+                        {i > 0 && ", "}
+                        <Text mono>{userIdType}</Text>
+                      </span>
+                    ))}{" "}
+                    yet. Add{" "}
+                    {uncoveredIdentifierTypes.length === 1 ? "it" : "them"} to
+                    an existing query or write a new one.
+                  </HelperText>
+                )}
             </Flex>
           </Box>
         )}

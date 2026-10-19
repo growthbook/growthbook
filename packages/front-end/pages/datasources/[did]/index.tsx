@@ -38,6 +38,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import FinishSettingUp, {
   isDataSourceSetupComplete,
+  useExposureQuerySkipped,
 } from "@/components/DataSourceSetup/FinishSettingUp";
 import Badge from "@/ui/Badge";
 import {
@@ -114,6 +115,8 @@ const DataSourcePage: FC = () => {
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
+  const { skipped: exposureQuerySkipped, skip: skipExposureQuery } =
+    useExposureQuerySkipped(did);
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature, settings: orgSettings } = useUser();
@@ -218,7 +221,7 @@ const DataSourcePage: FC = () => {
     supportsSQL &&
     !isManagedWarehouse &&
     newDataSourceOnboarding.enabled &&
-    !isDataSourceSetupComplete(d, factTables.length);
+    !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
   return (
     <div className="container pagecontents">
@@ -578,6 +581,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       factTableCount={factTables.length}
                       canEdit={canUpdateDataSourceSettings}
                       onSave={updateDataSourceSettings}
+                      exposureQuerySkipped={exposureQuerySkipped}
+                      onSkipExposureQuery={skipExposureQuery}
                     />
                   </Frame>
                 )}
