@@ -62,6 +62,17 @@ curl https://api.growthbook.io/api/v1/features \
 -H "X-GrowthBook-Requested-By: alice@example.com"
 ```
 
+## Naming and human review
+
+People review what the API creates in the GrowthBook UI.
+
+- Keep keys and names short (2-5 words). Follow your organization's Feature Flag key format (`featureRegexValidator` and `featureKeyExample` in `GET /v1/settings`), or use kebab-case if it has none. Feature Flag keys can't be changed after creation, and an experiment's tracking key shouldn't change after launch.
+- Put context (why, plan, tickets, links) in `description`, not in names or keys.
+- Group with `tags`, not name prefixes. Projects (`project` or `projects`) control access and where a resource can be used, so set them deliberately instead of using them as labels.
+- To create a Feature Flag disabled with `POST /v2/features`, list every environment in `environments` with `enabled: false` (on `POST /v1/features`, each entry also needs `rules: []`). An environment you leave out uses its default state, which may be enabled.
+- Leave publishing and production changes to a person unless asked.
+- If a request is blocked (an approval requirement, a warning, a Custom Hook, schema validation or a permission error), stop and ask a person. Don't retry with an override field, a different key or another workaround unless a person asked you to. If a write answers `202` with a `confirmation`, give a person its `url` and wait (see [Waiting for confirmation](#waiting-for-confirmation)).
+
 ## Waiting for confirmation
 
 A key can require a person to confirm some writes before they run (see [API Keys for Agents](/integrations/ai-agents/api-keys#require-confirmation)). A held write doesn't run. It answers `202 Accepted` with the confirmation, a `Location` header to poll, and a `Retry-After` header with the seconds to wait between polls:
@@ -125,6 +136,8 @@ The response body will be a JSON object with the following properties:
 - **message** - Information about the error
 
 ### Publishing gates
+
+Automated callers, including AI agents, should report a blocked response to a person instead of retrying with an override. Use an override only when a person has explicitly asked for it.
 
 Publish responses include a `gates` array that explains every blocker:
 
