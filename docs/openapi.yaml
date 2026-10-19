@@ -47,16 +47,18 @@ info:
     - **Personal Access Tokens**: These are sensitive and provide the same level
     of access as the user has to an organization, or less if the token's
     permissions are limited. These can be created by going to `Personal Access
-    Tokens` under your user menu. Admins with the `manageApiKeys` permission can
-    disable a member's token under `Settings -> Manage PATs`, and require new
-    tokens to expire within a maximum lifetime.
+    Tokens` under your user menu. Members with the API Keys **Manage members'
+    tokens** permission can disable a member's token under `Settings -> Manage
+    PATs`, and admins can require new tokens to expire within a maximum
+    lifetime.
 
     - **Secret Keys**: These are sensitive and provide the level of access of
     the role they are given, which can be any built-in or custom role, with
-    optional per-project role overrides and environment limits. Only Admins with
-    the `manageApiKeys` permission can manage Secret Keys on behalf of an
-    organization. These can be created by going to `Settings -> API Keys`, where
-    Admins can also require new Secret Keys to expire within a maximum lifetime.
+    optional per-project role overrides and environment limits. Managing Secret
+    Keys on behalf of an organization takes the [API Keys
+    permissions](/account/user-permissions). These can be created by going to
+    `Settings -> API Keys`, where Admins can also require new Secret Keys to
+    expire within a maximum lifetime.
 
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the
