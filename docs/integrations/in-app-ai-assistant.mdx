@@ -11,7 +11,9 @@ The in-app AI assistant is a chat panel built into GrowthBook. Ask it a question
 
 It knows which page you're on, so "summarize this experiment" or "add a rule to this flag" works without naming the experiment or flag. It acts with your permissions, and it asks you to confirm every change before it happens.
 
-{/* TODO(alyssa): Screenshot of a full GrowthBook page with the AI Assistant panel open on the right. */}
+<Frame>
+  <img src="/static/images/integrations/in-app-ai-assistant/assistant-panel.webp" alt="The AI Assistant panel open on the right side of the Experiments page" width="800" />
+</Frame>
 
 ### How it compares to other GrowthBook AI tools
 
@@ -43,7 +45,9 @@ An admin with permission to manage organization settings turns on AI once for th
 
 The sparkle button appears in the top navigation for everyone in the organization.
 
-{/* TODO(alyssa): Screenshot of Settings → General → AI & Prompts with Enable AI features turned on. */}
+<Frame>
+  <img src="/static/images/integrations/in-app-ai-assistant/ai-settings.webp" alt="AI Settings with Enable AI features turned on" width="600" />
+</Frame>
 
 ### Self-hosted setup
 
@@ -126,7 +130,9 @@ The assistant reads freely, but it can't change your GrowthBook configuration wi
 - **Confirm** runs that exact request.
 - **Cancel** stops it. Sending a new message instead also cancels the pending change.
 
-{/* TODO(alyssa): Screenshot of the "Apply this change?" card. Needs a configured AI provider to capture. */}
+<Frame>
+  <img src="/static/images/integrations/in-app-ai-assistant/confirm-change.webp" alt="The Apply this change? card asking to confirm creating a feature flag" width="450" />
+</Frame>
 
 All AI in GrowthBook inherits the permissions of the user who starts the action. The assistant has no separate API key. If you can't do something in the GrowthBook UI, the assistant can't do it either. Changes it makes are recorded under your name, the same as changes you make yourself.
 
@@ -141,12 +147,14 @@ With Ask Data turned on, the assistant can write and run read-only SQL against y
 Ask Data needs to be turned on in two places:
 
 1. **For the organization:** under **Settings → General → AI & Prompts**, turn on **Ask your data**. Schema, queries, and results are sent to your AI provider.
-2. **For each data source:** on the data source's page, find the **Ask Data** section and edit its settings:
+2. **For each data source:** open a SQL data source's page and scroll to the **Ask Data** section at the bottom. It only appears once **Ask your data** is turned on. Click **Edit** to change its settings:
    - **Enable Ask Data**
    - **Run policy:** **Auto-execute below cost threshold** or **Always confirm before executing**
    - **Cost threshold (GiB):** queries that would scan more than this amount need your confirmation. The default is 1 GiB.
 
-{/* TODO(alyssa): Screenshot of the Ask Data Settings modal on a data source page. */}
+<Frame>
+  <img src="/static/images/integrations/in-app-ai-assistant/ask-data-settings.webp" alt="The Ask Data Settings dialog with Enable Ask Data, Run policy, and Cost threshold" width="450" />
+</Frame>
 
 Cost estimates are only available for BigQuery. For other data sources, every Ask Data query needs your confirmation before it runs. When a query needs confirmation, the assistant shows an **Apply this change?** confirmation card that includes the estimated cost when one is available.
 
@@ -167,7 +175,9 @@ Admins can choose which skills the assistant uses. Under **Settings → General 
 
 Skills only guide the assistant. Turning one off doesn't change what the assistant is allowed to do, which is always limited by the user's permissions.
 
-{/* TODO(alyssa): Screenshot of the AI Assistant skills section. */}
+<Frame>
+  <img src="/static/images/integrations/in-app-ai-assistant/skills-settings.webp" alt="The AI Assistant skills settings with each skill turned on" width="800" />
+</Frame>
 
 On self-hosted GrowthBook, you can also add your own skills or replace the built-in ones by setting `AGENT_SKILLS_DIR`. Custom skills show a **Custom** badge in the skills list. See [AI Assistant Skills](/self-host/env#ai-assistant-skills) for the folder layout and file format.
 
