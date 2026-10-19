@@ -41,7 +41,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -549,6 +548,14 @@ export const ExperimentAssignmentQueryModal = ({
                 value={selectedTable.path.replace(/`/g, "")}
                 readOnly
                 append={<Link onClick={() => setStep(0)}>Change</Link>}
+                helpText={
+                  !source.template && partition.column ? (
+                    <>
+                      Filtered on partition column{" "}
+                      <code>{partition.column}</code> to limit data scanned.
+                    </>
+                  ) : undefined
+                }
               />
             ) : (
               <Code
@@ -669,33 +676,6 @@ export const ExperimentAssignmentQueryModal = ({
                       onRemove={() => removeIdentifier(idType)}
                     />
                   ))}
-                  {mode === "table" && !source.template ? (
-                    <ColumnMappingRow
-                      label="date partition"
-                      kind="partition"
-                      value={partition.column}
-                      options={partition.options}
-                      setValue={partition.setColumn}
-                      onRemove={() => partition.setColumn("")}
-                      append={
-                        partition.formats.length ? (
-                          <Select
-                            size="sm"
-                            mb="0"
-                            aria-label="Partition format"
-                            value={partition.format}
-                            setValue={partition.setFormat}
-                          >
-                            {partition.formats.map((f) => (
-                              <SelectItem key={f} value={f}>
-                                {f.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                        ) : null
-                      }
-                    />
-                  ) : null}
                 </TableBody>
               </Table>
               {mode === "table" && source.template ? (
