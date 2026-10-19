@@ -13,7 +13,22 @@ export default function PopulationDefinition({
   population: ApiPopulation;
 }) {
   const { getFactTableById } = useDefinitions();
-  const unit = population.userIdTypes.join(", ");
+  // TODO: Support multiple steps. Only the first step is shown for now.
+  const step = population.steps[0];
+  const factTableId = step?.source.factTableId;
+  const factTable = factTableId ? getFactTableById(factTableId) : null;
+  const factTableName = factTable?.name || factTableId || "";
+  const description = step
+    ? describePopulationStep({
+        steps: [step],
+        index: 0,
+        factTableName,
+        aggregateColumnName: factTable?.columns.find(
+          (c) => c.column === step.aggregateFilterColumn,
+        )?.name,
+        unit: population.userIdTypes.join(", "),
+      })
+    : null;
 
   return (
     <Box>
@@ -23,39 +38,19 @@ export default function PopulationDefinition({
         </Heading>
       </Flex>
 
-      <Box asChild mb="4" pl="4">
-        <ol style={{ margin: 0 }}>
-          {population.steps.map((step, i) => {
-            const factTableId = step.source.factTableId;
-            const factTable = getFactTableById(factTableId);
-            const factTableName = factTable?.name || factTableId;
-            const { before, after } = describePopulationStep({
-              steps: population.steps,
-              index: i,
-              factTableName,
-              aggregateColumnName: factTable?.columns.find(
-                (c) => c.column === step.aggregateFilterColumn,
-              )?.name,
-              unit,
-            });
-            return (
-              <li key={i}>
-                <Text size="sm">
-                  {before}
-                  {factTable ? (
-                    <Link href={`/fact-tables/${factTableId}`}>
-                      {factTableName}
-                    </Link>
-                  ) : (
-                    factTableName
-                  )}
-                  {after}
-                </Text>
-              </li>
-            );
-          })}
-        </ol>
-      </Box>
+      {description && (
+        <Box mb="4">
+          <Text size="sm">
+            {description.before}
+            {factTable ? (
+              <Link href={`/fact-tables/${factTableId}`}>{factTableName}</Link>
+            ) : (
+              factTableName
+            )}
+            {description.after}
+          </Text>
+        </Box>
+      )}
 
       <Grid
         columns="auto 1fr"
