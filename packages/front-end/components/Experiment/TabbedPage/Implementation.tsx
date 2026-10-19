@@ -34,7 +34,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
-import EditVariationKeyModal from "@/components/Experiment/EditVariationKeyModal";
+import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import TrafficAllocationFunnel, {
   TargetingDraft,
@@ -149,7 +149,7 @@ export default function Implementation({
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
     null,
   );
-  const [editKeyIndex, setEditKeyIndex] = useState<number | null>(null);
+  const [editingKeys, setEditingKeys] = useState(false);
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
 
@@ -463,11 +463,10 @@ export default function Implementation({
           }
         />
       ) : null}
-      {editKeyIndex !== null && canEditExperiment && (
-        <EditVariationKeyModal
+      {editingKeys && canEditExperiment && (
+        <EditVariationKeysModal
           experiment={stagedExperiment}
-          variationIndex={editKeyIndex}
-          close={() => setEditKeyIndex(null)}
+          close={() => setEditingKeys(false)}
           stage={setVariationsDraft}
         />
       )}
@@ -495,7 +494,7 @@ export default function Implementation({
             editNamespace={pendingScheduledStart ? null : editNamespace}
             canAddVariation={!pendingScheduledStart && !!canAddVariation}
             setEditVariationIndex={setEditMetadataIndex}
-            setEditKeyIndex={setEditKeyIndex}
+            editVariationKeys={() => setEditingKeys(true)}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             phaseIndex={phases.length - 1}

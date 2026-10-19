@@ -16,18 +16,33 @@
 // One row per variation, one column per linked implementation. Cells are
 // placed by row and column, so each column's component owns its own cells.
 .grid {
+  // Half the gutter between columns; SPLIT_WIDTH counts it.
+  --cell-inset: var(--space-3);
   display: grid;
   min-width: 100%;
 }
 
+// Half a gutter each side, so every pair of columns is the same distance apart.
 .headerCell,
 .cell {
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--cell-inset);
   border-bottom: 1px solid var(--gray-a4);
   background: var(--color-panel-solid);
+}
+
+// Rows align to the top, so a tall value doesn't pull its neighbours down.
+.cell {
+  align-items: flex-start;
+}
+
+// One field's height: what sits beside a field lines up with its first line.
+.fieldLine {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
 }
 
 // Also the card's title bar: "Variations" leads it.
@@ -45,32 +60,61 @@
   z-index: 1;
 }
 
-.pinnedEnd {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  justify-content: center;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.fullRow {
-  grid-column: 1 / -1;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-}
-
 // Each column's state, under its values: where it serves, which revision,
 // and anything that needs doing. A column with nothing to say takes no room.
 .detailsCell {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--cell-inset);
   background: var(--color-panel-solid);
 
   &:empty {
     padding: 0;
   }
+}
+
+// The first column keeps the card's own inset.
+.headerCell.pinnedStart,
+.cell.pinnedStart,
+.detailsCell.pinnedStart:not(:empty) {
+  padding-left: var(--space-3);
+}
+
+// The percent field grows with what's typed; here it stops at the column.
+.splitField {
+  width: 100%;
+  min-width: 0;
+
+  > *,
+  input {
+    max-width: 100%;
+  }
+}
+
+// The table's right edge gets the same inset as its left.
+.headerCell.lastColumn,
+.cell.lastColumn,
+.detailsCell.lastColumn {
+  padding-right: var(--space-3);
+}
+
+// Out of the way until the header is pointed at, or the menu is in use.
+.revealOnHover {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+
+  .headerCell:hover &,
+  &:focus-visible,
+  &:focus-within,
+  &[data-state="open"],
+  &:has([data-state="open"]) {
+    opacity: 1;
+  }
+}
+
+// A column's messages under its status row; none, no room.
+.footerMessages:empty {
+  display: none;
 }

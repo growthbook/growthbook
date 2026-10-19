@@ -336,10 +336,13 @@ export function EnvironmentInputsPopover({
   environmentStates,
   environmentInputs,
   note,
+  onEdit = null,
 }: {
   environmentStates: FeatureEnvironmentState[];
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   note?: string | null;
+  // Offered at the foot, where the changes are made.
+  onEdit?: (() => void) | null;
 }) {
   const active = environmentStates.filter((e) => e.isActive).length;
   return (
@@ -353,52 +356,66 @@ export function EnvironmentInputsPopover({
         <EnvironmentsCount active={active} total={environmentStates.length} />
       }
       content={
-        // The two settings get fixed columns so their marks line up.
-        <Grid
-          columns="max-content 40px 40px max-content"
-          gapX="4"
-          gapY="2"
-          align="center"
-        >
-          <Box />
-          <Flex justify="center">
-            <Text size="sm" color="text-low">
-              Flag
-            </Text>
-          </Flex>
-          <Flex justify="center">
-            <Text size="sm" color="text-low">
-              Rule
-            </Text>
-          </Flex>
-          <Box />
-          {environmentStates.map(({ env, state, isActive }) => {
-            const input = environmentInputs?.[env];
-            return (
-              <Fragment key={env}>
-                <EnvironmentName env={env} isActive={isActive} />
-                <EnvironmentSetting value={input ? input.flagEnabled : null} />
-                {/* A rule that doesn't target the environment is off there too. */}
-                <EnvironmentSetting
-                  value={input ? input.rule === "on" : null}
-                />
-                <Flex align="center" gap="1">
-                  <EnvironmentStateIcon isActive={isActive} />
-                  <Text size="sm" weight="medium">
-                    {ENVIRONMENT_STATE_LABELS[state]}
-                  </Text>
-                </Flex>
-              </Fragment>
-            );
-          })}
-          {note ? (
-            <Box gridColumn="1 / -1" mt="1">
+        <Flex direction="column" gap="2" width="fit-content">
+          {/* The two settings get fixed columns so their marks line up. */}
+          <Grid
+            columns="max-content 40px 40px max-content"
+            gapX="4"
+            gapY="2"
+            align="center"
+          >
+            <Box />
+            <Flex justify="center">
               <Text size="sm" color="text-low">
+                Flag
+              </Text>
+            </Flex>
+            <Flex justify="center">
+              <Text size="sm" color="text-low">
+                Rule
+              </Text>
+            </Flex>
+            <Box />
+            {environmentStates.map(({ env, state, isActive }) => {
+              const input = environmentInputs?.[env];
+              return (
+                <Fragment key={env}>
+                  <EnvironmentName env={env} isActive={isActive} />
+                  <EnvironmentSetting
+                    value={input ? input.flagEnabled : null}
+                  />
+                  {/* A rule that doesn't target the environment is off there too. */}
+                  <EnvironmentSetting
+                    value={input ? input.rule === "on" : null}
+                  />
+                  <Flex align="center" gap="1">
+                    <EnvironmentStateIcon isActive={isActive} />
+                    <Text size="sm" weight="medium">
+                      {ENVIRONMENT_STATE_LABELS[state]}
+                    </Text>
+                  </Flex>
+                </Fragment>
+              );
+            })}
+          </Grid>
+          {/* Wraps to the table's width rather than stretching its columns. */}
+          {/* Set like the revision popover beside it: a note, then its link. */}
+          {note ? (
+            <Box width="0" minWidth="100%">
+              {/* A block, so its lines take its own height, not the box's. */}
+              <Text as="div" size="sm">
                 {note}
               </Text>
             </Box>
           ) : null}
-        </Grid>
+          {onEdit ? (
+            <Text size="sm">
+              <Link underline="hover" onClick={onEdit}>
+                Edit environments
+              </Link>
+            </Text>
+          ) : null}
+        </Flex>
       }
     />
   );

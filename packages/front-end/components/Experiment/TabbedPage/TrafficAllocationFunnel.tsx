@@ -100,7 +100,7 @@ export interface Props {
   /** Why the holdout is fixed, shown on its disabled pencil. */
   holdoutLockedReason?: string | null;
   setEditVariationIndex?: (index: number) => void;
-  setEditKeyIndex?: (index: number) => void;
+  editVariationKeys?: () => void;
   /** The sole linked Feature Flag, whose environments and draft the header describes. */
   servedValueFeature?: LinkedFeatureInfo | null;
   /** Every linked Feature Flag, one value row each under the variations. */
@@ -244,7 +244,7 @@ export default function TrafficAllocationFunnel({
   canJoinHoldout = false,
   holdoutLockedReason = null,
   setEditVariationIndex,
-  setEditKeyIndex,
+  editVariationKeys,
   servedValueFeature: storedServedValueFeature,
   linkedFeatures = [],
   canEditFlagValues = false,
@@ -791,9 +791,9 @@ export default function TrafficAllocationFunnel({
                     : null
                 }
                 splitNote={isBandit ? "Managed by the bandit" : null}
-                onEditKey={
-                  canEditExperiment && !variationsLocked && setEditKeyIndex
-                    ? setEditKeyIndex
+                onEditKeys={
+                  canEditExperiment && !variationsLocked
+                    ? editVariationKeys
                     : undefined
                 }
                 onRemoveVariation={

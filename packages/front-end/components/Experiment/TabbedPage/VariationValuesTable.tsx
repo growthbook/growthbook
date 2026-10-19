@@ -49,6 +49,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -61,7 +62,11 @@ import SegmentedControl from "@/ui/SegmentedControl";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureValueCell from "@/components/Features/FeatureValueCell";
 import { getDefaultVariationValue } from "@/services/features";
-import { decimalToPercent, rebalance } from "@/services/utils";
+import {
+  decimalToPercent,
+  rebalance,
+  VARIATION_WEIGHT_DECIMALS,
+} from "@/services/utils";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 import { CardHeaderDivider } from "./ImplementationCard";
@@ -90,10 +95,10 @@ export const FUNNEL_WIDTH = 692;
 // Two flags fit beside the details panel at its default width on the widest
 // page, with room to spare: 1340 page - 360 panel - 48 page padding - 32
 // funnel padding = 900.
-const VARIATION_MIN_WIDTH = 140;
+const VARIATION_MIN_WIDTH = 180;
+// The percent field's own minimum, with half a gutter either side.
 const SPLIT_WIDTH = 124;
 const FLAG_WIDTH = 280;
-const MENU_WIDTH = 40;
 // The card's own border sits outside the grid.
 const BORDERS = 2;
 
@@ -148,7 +153,7 @@ export interface Props {
   onChangeSplit?: ((split: number[]) => void) | null;
   /** Shown under the split, such as who sets it. */
   splitNote?: string | null;
-  onEditKey?: (variationIndex: number) => void;
+  onEditKeys?: () => void;
   onRemoveVariation?: (variationIndex: number) => void;
   onReorder?: () => void;
   onAddVariation?: () => void;
@@ -170,34 +175,28 @@ export default function VariationValuesTable({
   split,
   onChangeSplit = null,
   splitNote = null,
-  onEditKey,
+  onEditKeys,
   onRemoveVariation,
   onReorder,
   onAddVariation,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
-  const hasMenu = !!(onEditKey || onRemoveVariation || onReorder);
+  const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
   // Fixed columns; the variations take what's left of the cards' width.
   const columns = [
     `minmax(${VARIATION_MIN_WIDTH}px, 1fr)`,
     `${SPLIT_WIDTH}px`,
     ...linkedFeatures.map(() => `${FLAG_WIDTH}px`),
-    `${MENU_WIDTH}px`,
   ].join(" ");
   const tableWidth = Math.max(
     FUNNEL_WIDTH - BORDERS,
-    VARIATION_MIN_WIDTH +
-      SPLIT_WIDTH +
-      linkedFeatures.length * FLAG_WIDTH +
-      MENU_WIDTH,
+    VARIATION_MIN_WIDTH + SPLIT_WIDTH + linkedFeatures.length * FLAG_WIDTH,
   );
-  // Rows: the header, one per variation, each column's state (empty cells
-  // take no room), then adding one.
+  // Rows: the header, one per variation, then each column's state beside
+  // adding a variation (empty cells take no room).
   const firstValueRow = 2;
   const detailsRow = firstValueRow + variations.length;
-  const addRow = detailsRow + 1;
   const firstFlagColumn = 3;
-  const endColumn = firstFlagColumn + linkedFeatures.length;
 
   if (!variations.length) return null;
 
@@ -234,6 +233,51 @@ export default function VariationValuesTable({
               <Heading as="h4" size="sm" color="text-high" mb="0">
                 Variations
               </Heading>
+              {hasMenu ? (
+                <Flex ml="auto">
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="1"
+                        highContrast
+                        className={styles.revealOnHover}
+                        aria-label="Variation actions"
+                      >
+                        <BsThreeDotsVertical size={14} />
+                      </IconButton>
+                    }
+                    menuPlacement="start"
+                    variant="soft"
+                  >
+                    {onReorder ? (
+                      <DropdownMenuItem onClick={onReorder}>
+                        Reorder variations
+                      </DropdownMenuItem>
+                    ) : null}
+                    {onEditKeys ? (
+                      <DropdownMenuItem onClick={onEditKeys}>
+                        Change variation IDs
+                      </DropdownMenuItem>
+                    ) : null}
+                    {onRemoveVariation ? (
+                      <DropdownSubMenu trigger="Remove variation">
+                        {variations.map((v, i) => (
+                          <DropdownMenuItem
+                            key={v.id}
+                            color="red"
+                            onClick={() => onRemoveVariation(i)}
+                          >
+                            <VariationLabel number={v.index} name={v.name} />
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownSubMenu>
+                    ) : null}
+                  </DropdownMenu>
+                </Flex>
+              ) : null}
             </div>
             {variations.map((v, i) => (
               <div
@@ -241,16 +285,31 @@ export default function VariationValuesTable({
                 className={clsx(styles.cell, styles.pinnedStart)}
                 style={{ gridRow: firstValueRow + i, gridColumn: 1 }}
               >
-                <VariationLabel number={v.index} name={v.name} />
+                <div className={styles.fieldLine}>
+                  <VariationLabel number={v.index} name={v.name} />
+                </div>
               </div>
             ))}
+            {/* Under the variations, beside each column's state. */}
             <div
               className={clsx(styles.detailsCell, styles.pinnedStart)}
               style={{ gridRow: detailsRow, gridColumn: 1 }}
-            />
+            >
+              {onAddVariation ? (
+                <Flex>
+                  <Link onClick={onAddVariation}>
+                    <Flex align="center" gap="1">
+                      <PiPlus />
+                      Add variation
+                    </Flex>
+                  </Link>
+                </Flex>
+              ) : null}
+            </div>
 
             <SplitColumn
               column={2}
+              last={!linkedFeatures.length}
               firstValueRow={firstValueRow}
               detailsRow={detailsRow}
               variations={variations}
@@ -263,6 +322,7 @@ export default function VariationValuesTable({
               <FlagColumn
                 key={info.feature.id}
                 column={firstFlagColumn + i}
+                last={i === linkedFeatures.length - 1}
                 firstValueRow={firstValueRow}
                 detailsRow={detailsRow}
                 experiment={experiment}
@@ -273,74 +333,6 @@ export default function VariationValuesTable({
                 showingLive={flagView === "live"}
               />
             ))}
-
-            {/* Kept without a menu, so the table's width never changes. */}
-            <div
-              className={clsx(styles.headerCell, styles.pinnedEnd)}
-              style={{ gridRow: 1, gridColumn: endColumn }}
-            />
-            {variations.map((v, i) => (
-              <div
-                key={v.id}
-                className={clsx(styles.cell, styles.pinnedEnd)}
-                style={{ gridRow: firstValueRow + i, gridColumn: endColumn }}
-              >
-                {hasMenu ? (
-                  <DropdownMenu
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="1"
-                        highContrast
-                        aria-label={`${v.name} actions`}
-                      >
-                        <BsThreeDotsVertical size={14} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
-                    variant="soft"
-                  >
-                    {onReorder ? (
-                      <DropdownMenuItem onClick={onReorder}>
-                        Reorder variations
-                      </DropdownMenuItem>
-                    ) : null}
-                    {onEditKey ? (
-                      <DropdownMenuItem onClick={() => onEditKey(i)}>
-                        Change variation ID
-                      </DropdownMenuItem>
-                    ) : null}
-                    {onRemoveVariation ? (
-                      <DropdownMenuItem
-                        color="red"
-                        onClick={() => onRemoveVariation(i)}
-                      >
-                        Remove variation
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenu>
-                ) : null}
-              </div>
-            ))}
-            <div
-              className={clsx(styles.detailsCell, styles.pinnedEnd)}
-              style={{ gridRow: detailsRow, gridColumn: endColumn }}
-            />
-
-            {onAddVariation ? (
-              <div className={styles.fullRow} style={{ gridRow: addRow }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<PiPlus />}
-                  onClick={onAddVariation}
-                >
-                  Add variation
-                </Button>
-              </div>
-            ) : null}
           </div>
         </Box>
       </Box>
@@ -351,6 +343,7 @@ export default function VariationValuesTable({
 /** Each variation's share of the traffic, rebalanced as one changes. */
 function SplitColumn({
   column,
+  last,
   firstValueRow,
   detailsRow,
   variations,
@@ -359,6 +352,8 @@ function SplitColumn({
   note,
 }: {
   column: number;
+  // The table's right edge, which gets the same inset as its left.
+  last: boolean;
   firstValueRow: number;
   detailsRow: number;
   variations: ReturnType<typeof getLatestPhaseVariations>;
@@ -370,7 +365,7 @@ function SplitColumn({
   return (
     <>
       <div
-        className={styles.headerCell}
+        className={clsx(styles.headerCell, last && styles.lastColumn)}
         style={{ gridRow: 1, gridColumn: column }}
       >
         <Text weight="medium">Split</Text>
@@ -378,25 +373,28 @@ function SplitColumn({
       {variations.map((v, i) => (
         <div
           key={v.id}
-          className={styles.cell}
+          className={clsx(styles.cell, last && styles.lastColumn)}
           style={{ gridRow: firstValueRow + i, gridColumn: column }}
         >
-          {onChange ? (
-            <PercentField
-              value={split[i] ?? 0}
-              // Otherwise the rest of the split rebalances mid-keystroke.
-              commitOn="blur"
-              step="any"
-              onChange={(weight) => onChange(rebalance(split, i, weight))}
-              ariaLabel={`${variationLabel(v)} split`}
-            />
-          ) : (
-            <Text>{decimalToPercent(split[i] ?? 0)}%</Text>
-          )}
+          <div className={clsx(styles.fieldLine, styles.splitField)}>
+            {onChange ? (
+              <PercentField
+                value={split[i] ?? 0}
+                // Otherwise the rest of the split rebalances mid-keystroke.
+                commitOn="blur"
+                step="any"
+                decimals={VARIATION_WEIGHT_DECIMALS}
+                onChange={(weight) => onChange(rebalance(split, i, weight))}
+                ariaLabel={`${variationLabel(v)} split`}
+              />
+            ) : (
+              <Text>{decimalToPercent(split[i] ?? 0)}%</Text>
+            )}
+          </div>
         </div>
       ))}
       <div
-        className={styles.detailsCell}
+        className={clsx(styles.detailsCell, last && styles.lastColumn)}
         style={{ gridRow: detailsRow, gridColumn: column }}
       >
         {note ? (
@@ -418,6 +416,7 @@ function SplitColumn({
 
 function FlagColumn({
   column,
+  last,
   firstValueRow,
   detailsRow,
   experiment,
@@ -428,6 +427,7 @@ function FlagColumn({
   showingLive,
 }: {
   column: number;
+  last: boolean;
   firstValueRow: number;
   detailsRow: number;
   experiment: ExperimentInterfaceStringDates;
@@ -697,8 +697,13 @@ function FlagColumn({
     ? reviewHref(shownDraft.version)
     : `/features/${feature.id}`;
   // A new tab, so following it never costs the page's unsaved edits.
-  const draftLink = (label: string, href = draftHref) => (
-    <Link href={href} external underline="always">
+  // Underlined in running text; a popover's links underline on hover.
+  const draftLink = (
+    label: string,
+    href = draftHref,
+    underline: "always" | "hover" = "always",
+  ) => (
+    <Link href={href} external underline={underline}>
       {label}
       <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
     </Link>
@@ -787,10 +792,23 @@ function FlagColumn({
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
+  // Says why values are outlined, which a tall value can hide.
+  if (!showingLive && duplicateIds.size) {
+    const repeated = new Intl.ListFormat("en", { type: "conjunction" }).format(
+      variations.filter((v) => duplicateIds.has(v.id)).map(variationLabel),
+    );
+    notices.push({
+      status: "error",
+      text:
+        duplicateIds.size === 2
+          ? `${repeated} serve the same value.`
+          : `${repeated} serve duplicate values.`,
+    });
+  }
   if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",
-      text: "Rules above this experiment on the Feature Flag may catch some users first.",
+      text: "Flag has rules above experiment's rule.",
     });
   }
 
@@ -853,16 +871,16 @@ function FlagColumn({
 
   const linkActionNote =
     linkAction === "keep"
-      ? `Kept in this experiment when you save. The rule goes back into Revision ${pendingRemoval?.version}.`
+      ? `Saving puts the rule back into Revision ${pendingRemoval?.version}.`
       : relinking
         ? experiment.status === "running"
-          ? "Saving adds this experiment to a new draft of this Feature Flag. Publish it from the Feature Flag to serve it."
+          ? "Saving adds the rule to a new draft. Publish it to serve the experiment."
           : launches
-            ? "Saving adds this experiment to a new draft of this Feature Flag, which publishes when the experiment starts."
-            : "Saving adds this experiment to a new draft of this Feature Flag."
+            ? "Saving adds the rule to a new draft, published when the experiment starts."
+            : "Saving adds the rule to a new draft."
         : info.liveHasMatchingRule
-          ? "When you save, a draft takes this experiment's rule out of the Feature Flag. Once it's published, the Feature Flag leaves this experiment."
-          : "Removed from this experiment when you save, along with its rule in any open draft.";
+          ? "Saving starts a draft that removes the rule. Publish it to unlink the flag."
+          : "Saving unlinks the flag.";
 
   // Nothing to show while there's no rule to hold the values.
   // Live has no rule for it yet: it serves nothing here.
@@ -986,7 +1004,9 @@ function FlagColumn({
             </Text>
           ))}
           {inReview ? (
-            <Text size="sm">{draftLink("Review & Publish")}</Text>
+            <Text size="sm">
+              {draftLink("Review & Publish", draftHref, "hover")}
+            </Text>
           ) : null}
         </Flex>
       }
@@ -1137,7 +1157,7 @@ function FlagColumn({
       ) : null}
 
       <div
-        className={styles.headerCell}
+        className={clsx(styles.headerCell, last && styles.lastColumn)}
         style={{ gridRow: 1, gridColumn: column }}
       >
         <Flex align="center" gap="2" width="100%" minWidth="0">
@@ -1156,7 +1176,12 @@ function FlagColumn({
             </Tooltip>
           ) : null}
           <Box flexGrow="1" />
-          <Flex align="center" gap="2" flexShrink="0">
+          <Flex
+            align="center"
+            gap="2"
+            flexShrink="0"
+            className={styles.revealOnHover}
+          >
             <Text size="sm" color="text-low" whiteSpace="nowrap">
               {VALUE_TYPE_LABELS[valueType]}
             </Text>
@@ -1192,7 +1217,7 @@ function FlagColumn({
           variations.map((v, i) => (
             <div
               key={v.id}
-              className={styles.cell}
+              className={clsx(styles.cell, last && styles.lastColumn)}
               style={{ gridRow: firstValueRow + i, gridColumn: column }}
             />
           ))
@@ -1204,7 +1229,7 @@ function FlagColumn({
             return (
               <div
                 key={v.id}
-                className={styles.cell}
+                className={clsx(styles.cell, last && styles.lastColumn)}
                 style={{ gridRow: firstValueRow + i, gridColumn: column }}
               >
                 <FeatureValueCell
@@ -1223,7 +1248,7 @@ function FlagColumn({
           })}
 
       <div
-        className={styles.detailsCell}
+        className={clsx(styles.detailsCell, last && styles.lastColumn)}
         style={{ gridRow: detailsRow, gridColumn: column }}
       >
         {showEnvironments || !noValues ? (
@@ -1233,44 +1258,52 @@ function FlagColumn({
                 environmentStates={environmentStates}
                 environmentInputs={environmentInputs}
                 note={environmentsTiming}
+                onEdit={
+                  canEditEnvironments && !showingLive
+                    ? () => setEditEnvironments(true)
+                    : null
+                }
               />
             ) : null}
             <Box flexGrow="1" />
             {noValues ? null : revisionControl}
           </Flex>
         ) : null}
-        {noValues ? (
-          !orphaned ? (
-            <Text size="sm" color="text-low">
-              Not in the live revision yet.
-            </Text>
+        {/* Set apart from the row above; collapses when there's nothing. */}
+        <Flex direction="column" gap="1" className={styles.footerMessages}>
+          {noValues ? (
+            !orphaned ? (
+              <Text size="sm" color="text-low">
+                Not in the live revision yet.
+              </Text>
+            ) : linkAction && !showingLive ? (
+              stagedLinkAction
+            ) : (
+              orphanNote
+            )
           ) : linkAction && !showingLive ? (
             stagedLinkAction
-          ) : (
-            orphanNote
-          )
-        ) : linkAction && !showingLive ? (
-          stagedLinkAction
-        ) : null}
-        {details.map((n, i) => (
-          <Flex key={i} align="baseline" gap="2" wrap="wrap">
-            <HelperText status={n.status} size="sm">
-              {n.text}
-            </HelperText>
-            {n.action ? <Text size="sm">{n.action}</Text> : null}
-          </Flex>
-        ))}
-        {pendingRemoval && !linkAction && canEditFlagLinks && !showingLive ? (
-          <Flex justify="end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => stageLinkAction("keep")}
-            >
-              Keep in experiment
-            </Button>
-          </Flex>
-        ) : null}
+          ) : null}
+          {details.map((n, i) => (
+            <Flex key={i} align="baseline" gap="2" wrap="wrap">
+              <HelperText status={n.status} size="sm">
+                {n.text}
+              </HelperText>
+              {n.action ? <Text size="sm">{n.action}</Text> : null}
+            </Flex>
+          ))}
+          {pendingRemoval && !linkAction && canEditFlagLinks && !showingLive ? (
+            <Flex justify="end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => stageLinkAction("keep")}
+              >
+                Keep in experiment
+              </Button>
+            </Flex>
+          ) : null}
+        </Flex>
       </div>
     </>
   );
