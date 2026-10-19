@@ -2,10 +2,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import {
-  DetectedFactTableColumn,
-  FactTableColumnType,
-} from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { quoteIdentifier } from "shared/sql";
@@ -47,14 +44,14 @@ export function getNewFactTableProjects({
  * the SQL is still on screen. An undetected type ("") is unknown, not wrong,
  * so it stays a candidate for both.
  */
-export const isTimestampCandidate = (c: DetectedFactTableColumn) =>
+export const isTimestampCandidate = (c: DetectedColumn) =>
   ["date", "other", ""].includes(c.datatype);
 
-export const isIdentifierCandidate = (c: DetectedFactTableColumn) =>
+export const isIdentifierCandidate = (c: DetectedColumn) =>
   ["string", "number", "other", ""].includes(c.datatype);
 
 export function getColumnMappingError(
-  columns: DetectedFactTableColumn[],
+  columns: DetectedColumn[],
   fromTable = false,
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
@@ -113,7 +110,7 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   table.schemaName.startsWith("analytics_");
 
 // Output of getGA4EventsSql, typed by the GA4 export schema
-const GA4_EVENTS_COLUMNS: DetectedFactTableColumn[] = [
+const GA4_EVENTS_COLUMNS: DetectedColumn[] = [
   { column: "timestamp", datatype: "date" },
   { column: "user_id", datatype: "string" },
   { column: "anonymous_id", datatype: "string" },
@@ -143,7 +140,7 @@ export const isPseudoColumn = (c: Column, datasourceType?: DataSourceType) =>
 export function getPickerTableColumns(
   table: SchemaBrowserTable,
   columns: Column[],
-): DetectedFactTableColumn[] {
+): DetectedColumn[] {
   return isGA4EventsTable(table)
     ? GA4_EVENTS_COLUMNS
     : columns.map((c) => ({
@@ -264,9 +261,7 @@ const TIMESTAMP_CANDIDATES = [
   "collector_tstamp",
 ];
 
-export function getDefaultTimestampColumn(
-  columns: DetectedFactTableColumn[],
-): string {
+export function getDefaultTimestampColumn(columns: DetectedColumn[]): string {
   const dates = columns.filter((c) => c.datatype === "date");
   const preferred = TIMESTAMP_CANDIDATES.map((name) =>
     dates.find((c) => c.column.toLowerCase() === name),

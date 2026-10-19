@@ -24,7 +24,7 @@ import {
 } from "react-icons/pi";
 import {
   CreateFactTableProps,
-  DetectedFactTableColumn,
+  DetectedColumn,
   FactFilterTestResults,
   FactTableInterface,
   FactTableType,
@@ -124,7 +124,7 @@ const TABLE_TYPES: {
 
 const MANY_COLUMNS = 50;
 
-const validColumn = (options: DetectedFactTableColumn[], column: string) =>
+const validColumn = (options: DetectedColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
 function MappingRow({
@@ -139,7 +139,7 @@ function MappingRow({
   icon: ReactNode;
   label: string;
   value: string;
-  options: DetectedFactTableColumn[];
+  options: DetectedColumn[];
   setValue: (column: string) => void;
   onRemove?: () => void;
   append?: ReactNode;
@@ -442,9 +442,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     format: string;
   } | null>(null);
 
-  const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
-    null,
-  );
+  const [detected, setDetected] = useState<DetectedColumn[] | null>(null);
   const [detectedSql, setDetectedSql] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [timestampColumn, setTimestampColumn] = useState("");
@@ -523,7 +521,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
 
   const handleColumnsDetected = useCallback(
-    (columns: DetectedFactTableColumn[], ranSql: string | null) => {
+    (columns: DetectedColumn[], ranSql: string | null) => {
       setDetectedSql(ranSql);
       setDetected(columns);
 
@@ -597,18 +595,15 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   useEffect(() => {
     if (!unlistedPath) return;
     let cancelled = false;
-    apiCall<{ error?: string; columns?: DetectedFactTableColumn[] }>(
-      "/query/test",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          query: `SELECT * FROM ${unlistedPath}`,
-          datasourceId,
-          limit: 0,
-          detectColumns: true,
-        }),
-      },
-    )
+    apiCall<{ error?: string; columns?: DetectedColumn[] }>("/query/test", {
+      method: "POST",
+      body: JSON.stringify({
+        query: `SELECT * FROM ${unlistedPath}`,
+        datasourceId,
+        limit: 0,
+        detectColumns: true,
+      }),
+    })
       .then((res) => ({
         error: res.error,
         // Detected types are already enum values, which map to themselves

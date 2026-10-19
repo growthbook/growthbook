@@ -81,6 +81,10 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         ? {
             query: populationExposureQuery.query,
             identifierType: params.settings.userIdType,
+            userIdColumns: populationExposureQuery.userIdColumns,
+            timestampColumn: populationExposureQuery.timestampColumn,
+            experimentIdColumn: populationExposureQuery.experimentIdColumn,
+            variationIdColumn: populationExposureQuery.variationIdColumn,
           }
         : undefined,
     };

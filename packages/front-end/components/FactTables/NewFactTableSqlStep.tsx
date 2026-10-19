@@ -20,7 +20,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
 import {
-  DetectedFactTableColumn,
+  DetectedColumn,
   RowFilter,
   RowFilterTestResults,
 } from "shared/types/fact-table";
@@ -295,7 +295,7 @@ type TestQueryResults = {
   error?: string;
   results?: TestQueryRow[];
   sql?: string;
-  columns?: DetectedFactTableColumn[];
+  columns?: DetectedColumn[];
 };
 
 export default function NewFactTableSqlStep({
@@ -326,9 +326,9 @@ export default function NewFactTableSqlStep({
   setDatasourceId: (id: string) => void;
   sql: string;
   setSql: (sql: string) => void;
-  detected: DetectedFactTableColumn[] | null;
+  detected: DetectedColumn[] | null;
   hasFreshResults: boolean;
-  onColumnsDetected: (columns: DetectedFactTableColumn[], sql: string) => void;
+  onColumnsDetected: (columns: DetectedColumn[], sql: string) => void;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
   mode: FactTableSqlMode;
   setMode: (mode: FactTableSqlMode) => void;

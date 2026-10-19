@@ -1,4 +1,4 @@
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import { DetectedColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
   getColumnMappingError,
@@ -15,9 +15,7 @@ import {
   getUnlistedTable,
 } from "@/services/schemaBrowserTables";
 
-const cols = (
-  ...datatypes: DetectedFactTableColumn["datatype"][]
-): DetectedFactTableColumn[] =>
+const cols = (...datatypes: DetectedColumn["datatype"][]): DetectedColumn[] =>
   datatypes.map((datatype, i) => ({ column: `c${i}`, datatype }));
 
 describe("getColumnMappingError", () => {
@@ -334,7 +332,7 @@ describe("getPickerTableColumns", () => {
 });
 
 describe("getDefaultTimestampColumn", () => {
-  const detected = (...names: string[]): DetectedFactTableColumn[] =>
+  const detected = (...names: string[]): DetectedColumn[] =>
     names.map((column) => ({
       column,
       datatype: column.endsWith("_id") ? "string" : "date",
