@@ -139,7 +139,7 @@ export function teamDraft<T>(
 
     const competitive = present.length === lists.length;
     for (const { ranker } of wanted) {
-      // An earlier pick this round may have taken this ranker's item
+      // With 3+ rankers (not currently supported) an earlier pick this round may have taken this ranker's item
       const item = next(ranker);
       if (item !== null) place(item, ranker, competitive);
     }
