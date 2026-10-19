@@ -193,6 +193,26 @@ describe("interleave", () => {
     gb.destroy();
   });
 
+  it("serves the first ranker's list when items have no id", async () => {
+    const { gb, onExposure } = setup();
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList: (config) => getList(config).map((name) => ({ name })),
+      fallbackConfig,
+    });
+    expect(res).toMatchObject({
+      inExperiment: false,
+      variation: "popular",
+      trackingProps: {},
+    });
+    expect(res.result.map((item) => item.name)).toEqual(rankedLists.popular);
+    expect(onExposure).not.toHaveBeenCalled();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+    gb.destroy();
+  });
+
   it("serves the default ranker's config without interleaving when targeting misses", async () => {
     const { gb, onExposure } = setup(
       { id: "u1" },
@@ -298,6 +318,27 @@ describe("interleave", () => {
     });
     expect(res.inExperiment).toBe(true);
     expect(onExposure.mock.calls[0][0].hashValue).toBe("u2");
+    client.destroy();
+  });
+
+  it("hashes with attribute overrides", async () => {
+    const { gb, onExposure } = setup();
+    await gb.setAttributeOverrides({ id: "override" });
+    await interleave(gb, { ranker: "search", getList, fallbackConfig });
+    expect(onExposure.mock.calls[0][0].hashValue).toBe("override");
+    gb.destroy();
+
+    const scopedExposure = jest.fn();
+    const client = new GrowthBookClient({
+      plugins: [interleavePlugin({ onExposure: scopedExposure })],
+    });
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({
+      attributes: { id: "u2" },
+      attributeOverrides: { id: "override" },
+    });
+    await interleave(user, { ranker: "search", getList, fallbackConfig });
+    expect(scopedExposure.mock.calls[0][0].hashValue).toBe("override");
     client.destroy();
   });
 });

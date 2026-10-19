@@ -77,13 +77,14 @@ function defaultItemId(item: unknown): string {
   if (typeof item === "string" || typeof item === "number") {
     return String(item);
   }
-  return String((item as { id?: unknown } | null)?.id);
+  const id = (item as { id?: unknown } | null)?.id;
+  return id === undefined || id === null ? "" : String(id);
 }
 
 function getAttributes(gb: InterleaveInstance): Attributes {
-  return "getUserContext" in gb
-    ? gb.getUserContext().attributes || {}
-    : gb.getAttributes();
+  if (!("getUserContext" in gb)) return gb.getAttributes();
+  const user = gb.getUserContext();
+  return { ...user.attributes, ...user.attributeOverrides };
 }
 
 export function teamDraft<T>(
@@ -201,6 +202,19 @@ export async function interleave<T>(
       items: await getList(v.config),
     })),
   );
+  if (lists.some((l) => l.items.some((item) => !getItemId(item)))) {
+    console.error(
+      `interleave: every item in "${ranker}" needs an id, pass getItemId`,
+    );
+    return {
+      result: lists[0].items,
+      inExperiment: false,
+      variation: lists[0].variation,
+      rankingId,
+      trackingProps: {},
+    };
+  }
+
   const seed = rule?.seed || ranker;
   const { items, meta } = teamDraft(
     lists,
