@@ -4,9 +4,15 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  EventUser as EventUserType,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
+import EventUser from "@/components/Avatar/EventUser";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import {
@@ -51,6 +57,7 @@ type ReviewRow = {
   groupName: string;
   groupId: string;
   authorId: string;
+  author: EventUserType;
   authorDisplay: string;
   status: RevisionStatus;
   dateCreated: Date;
@@ -70,6 +77,7 @@ function revisionToRow(revision: Revision): ReviewRow {
     groupName,
     groupId: revision.target.id,
     authorId: revision.authorId,
+    author: revisionActor(revision, revision.authorId),
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
@@ -107,15 +115,26 @@ const SavedGroupReviews: FC = () => {
     [revisions],
   );
 
-  const authors = useMemo(() => {
-    const authorSet = new Set(rows.map((r) => r.authorId));
-    return Array.from(authorSet).filter(Boolean);
-  }, [rows]);
+  const reviewItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: eventUserLabel(item.author, {
+        nameFor: (id) => getUserDisplay(id, false),
+      }),
+    }),
+    [getUserDisplay],
+  );
 
-  const reviewItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-  }));
+  const authors = useMemo(
+    () =>
+      new Map(
+        reviewItems
+          .filter((r) => r.authorId)
+          .map((r) => [r.authorId, r.authorDisplay] as const),
+      ),
+    [reviewItems],
+  );
 
   const {
     items,
@@ -258,10 +277,10 @@ const SavedGroupReviews: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={authors.map((a) => ({
-              name: getUserDisplay(a) || a,
-              id: a,
-              searchValue: getUserDisplay(a) || a,
+            items={Array.from(authors, ([id, label]) => ({
+              name: getUserDisplay(id, false) || label,
+              id,
+              searchValue: getUserDisplay(id, false) || label,
             }))}
             updateQuery={updateQuery}
           />
@@ -340,7 +359,9 @@ const SavedGroupReviews: FC = () => {
                   <TableCell>
                     <OverflowText maxWidth={400}>{row.title}</OverflowText>
                   </TableCell>
-                  <TableCell>{row.authorDisplay}</TableCell>
+                  <TableCell>
+                    <EventUser user={row.author} display="name" />
+                  </TableCell>
                   <TableCell title={datetime(row.dateUpdated)}>
                     {date(row.dateUpdated)}
                   </TableCell>

@@ -19,6 +19,11 @@ export const populationApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["list", "get", "create", "update", "delete"],
+  confirmation: {
+    create: ["other.write"],
+    update: ["other.write"],
+    delete: ["other.write"],
+  },
   crudValidatorOverrides: {
     list: {
       paramsSchema: z.never(),

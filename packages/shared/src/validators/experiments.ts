@@ -4,6 +4,8 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
+import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
   apiAssignmentQueryResponseFields,
@@ -1985,6 +1987,12 @@ export const postExperimentValidator = {
     })
     .strict(),
   summary: "Create a single experiment",
+  confirmation: [
+    "experiment.create",
+    "experiment.start",
+    "experiment.stop",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperiment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2092,6 +2100,18 @@ export const updateExperimentValidator = {
     })
     .strict(),
   summary: "Update a single experiment",
+  confirmation: [
+    "experiment.draft",
+    "experiment.start",
+    "experiment.stop",
+    "experiment.targeting",
+    "experiment.traffic",
+    "experiment.phases",
+    "experiment.other",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateExperiment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2117,6 +2137,12 @@ export const postExperimentStartValidator = {
   summary: "Start/Stage an experiment",
   description:
     "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
+  confirmation: [
+    "experiment.start",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -2143,7 +2169,8 @@ export const postExperimentCommentValidator = {
   paramsSchema: idParams,
   responseSchema: z.strictObject({ status: z.number() }),
   summary: "Post a comment on an experiment",
-  description: "Adds a new comment to an experiment's discussion thread.",
+  description: `Adds a new comment to an experiment's discussion thread, credited to the person behind the request. ${REQUIRES_PERSON_NOTE}`,
+  confirmation: ["other.write"] as const,
   operationId: "postExperimentComment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2160,6 +2187,7 @@ export const postExperimentStartChecklistManualCompleteValidator = {
   paramsSchema: idParams,
   responseSchema: experimentStartChecklistResponseValidator,
   summary: "Mark manual pre-launch checklist items complete",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postExperimentStartChecklistManualComplete",
   tags: ["experiments"],
   method: "post" as const,
@@ -2182,6 +2210,7 @@ export const postExperimentStopValidator = {
     })
     .strict(),
   summary: "Stop an experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentStop",
   tags: ["experiments"],
   method: "post" as const,
@@ -2210,6 +2239,7 @@ export const postExperimentModifyTemporaryRolloutValidator = {
     })
     .strict(),
   summary: "Modify temporary rollout status for a stopped experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentModifyTemporaryRollout",
   tags: ["experiments"],
   method: "post" as const,
@@ -2272,6 +2302,12 @@ export const putExperimentScheduleValidator = {
   summary: "Set an experiment's schedule and shipping automation",
   description:
     "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Setting a scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan` (any mode, including `notify`). The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
+  confirmation: [
+    "experiment.start",
+    "experiment.stop",
+    "experiment.other",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "putExperimentSchedule",
   tags: ["experiments"],
   method: "put" as const,
@@ -2330,6 +2366,7 @@ export const postExperimentSnapshotValidator = {
     })
     .strict(),
   summary: "Create Experiment Snapshot",
+  confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
   method: "post" as const,
@@ -2372,6 +2409,7 @@ export const postVariationImageUploadValidator = {
     })
     .strict(),
   summary: "Upload a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVariationImageUpload",
   tags: ["experiments"],
   method: "post" as const,
@@ -2396,6 +2434,7 @@ export const deleteVariationScreenshotValidator = {
   paramsSchema: idAndVariationParams,
   responseSchema: z.record(z.string(), z.any()),
   summary: "Delete a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "deleteVariationScreenshot",
   tags: ["experiments"],
   method: "delete" as const,

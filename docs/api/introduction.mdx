@@ -41,7 +41,71 @@ curl https://api.growthbook.io/api/v1/features \
 -H "Authorization: Bearer secret_abc123DEF456"
 ```
 
-If a key has an expiration date, every response includes it in the `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before the key stops working. Requests made with an expired key fail with a `401` that says where to create a replacement.
+If a key has an expiration date, every response includes it in the `X-GrowthBook-Key-Expires-At` header (ISO 8601), so scripts can warn before the key stops working. Requests made with an expired key fail with a `401` that says where to create a replacement. See [Expiration](/integrations/ai-agents/api-keys#expiration) for choosing a key's expiration, the warnings before it lapses, and the organization policies.
+
+## Naming who asked
+
+Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks show that member next to the key.
+
+Each key's settings under `Settings -> API Keys`:
+
+- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it, each with a 400.
+- **Permissions**, when a member is named:
+  - **Assume member's role** (the default): the request acts as that member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
+  - **Use key's role**: the key acts as itself, with its own permissions, and the name is only recorded in history. Drafts, verdicts and ownership are the key's, as when no member is named.
+
+A key that names no one, or uses its own role, acts as itself: it can draft and review with its own permissions, and its verdicts are judged on its role. A key belongs to no team, so its approval never satisfies a rule that requires approval from a team. No one can rule on a draft they created, and a key acting as itself can't rule on a draft it created or edited in either mode. An approval a key gives while assuming a member counts only where both the key and the member could approve, and stops counting if the key is disabled, expires or is deleted. Because the header isn't verified, whoever holds the key can act as any member. A value that does not match a member of the organization is rejected with a 400. A create request that omits `owner` defaults it to the member whose role the key assumes. Scheduled and auto-publishes run later with the permissions of the request that armed them, and don't run if that member has left the organization, the key has expired, or the key no longer assumes members' roles. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
+
+```bash
+curl https://api.growthbook.io/api/v1/features \
+-H "Authorization: Bearer secret_abc123DEF456" \
+-H "X-GrowthBook-Requested-By: alice@example.com"
+```
+
+## Waiting for confirmation
+
+A key can require a person to confirm some writes before they run (see [API Keys for Agents](/integrations/ai-agents/api-keys#require-confirmation)). A held write doesn't run. It answers `202 Accepted` with the confirmation, a `Location` header to poll, and a `Retry-After` header with the seconds to wait between polls:
+
+```json
+{
+  "confirmation": {
+    "id": "cnf_abc123",
+    "status": "pending",
+    "actions": [
+      { "action": "feature.publish", "environments": ["production"] }
+    ],
+    "summary": "Publish revision 3 of checkout-redesign",
+    "url": "https://app.growthbook.io/confirmations/cnf_abc123",
+    "expiresAt": "2026-10-15T18:00:00.000Z",
+    "response": null,
+    "note": null
+  },
+  "message": "A person must confirm this in GrowthBook. Give them the url, then poll the Location."
+}
+```
+
+Give the person the `url`, then poll [`GET /v1/confirmations/{id}`](/api/meta/operation/getConfirmation). Pass `wait` (in seconds, up to 30) to hold the poll open until the status changes:
+
+```bash
+curl "https://api.growthbook.io/api/v1/confirmations/cnf_abc123?wait=30" \
+-H "Authorization: Bearer secret_abc123DEF456"
+```
+
+| `status`    | Meaning                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pending`   | Waiting for a person, until `expiresAt` (an hour after the request)                                                   |
+| `running`   | Confirmed, and running now                                                                                            |
+| `completed` | It ran. `response` holds the status and body the request returned, which may be an error                              |
+| `rejected`  | A person declined it, and nothing ran                                                                                 |
+| `expired`   | Nobody decided in time, or it acts on something that changed after it was held (with a `400` `response`). Nothing ran |
+
+`note` carries anything the person left for the agent when they decided. `actions` lists what the request was held for, each with the environments it touches.
+
+- Only the key that made the request, or another token of the same person, can read the confirmation.
+- Sending the same request again while it's pending returns the same confirmation.
+- A request that publishes, reverts or archives, or that changes a Feature Flag or an Experiment's status, schedule, targeting or traffic, isn't run if what it acts on changed after it was held. Other writes, such as editing settings or a draft, run as sent, so they can overwrite changes made while they waited.
+- A confirmed request runs once, with the key's permissions (or the member's role it assumes), not the confirmer's. Send it again to retry, which asks for a new confirmation.
+- Confirming isn't a review approval.
 
 ## Errors
 
@@ -52,10 +116,23 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with `?ignoreWarnings=true` to proceed anyway.
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a `gates` array that explains every blocker:
+
+- `type`, `severity`, and `messages` identify the problem.
+- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, or `skipHooks` for Custom Hook rejections. A value of `null` means there is no request-body override.
+- `requiresPermission` identifies any additional permission needed to use the override.
+- `resolution` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in `resolution`.
+
+When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.

@@ -243,12 +243,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       );
     }
     const statsSettings = getContextualBanditSettingsForStatsEngine(
-      cb,
+      this.snapshotSettings,
       this.snapshotSettings.variations.map((v) => ({
         id: v.id,
         key: keyById.get(v.id) ?? v.id,
       })),
-      this.snapshotSettings.contextualAttributes,
     );
 
     const expSnapshotSettings = buildSnapshotSettingsForCb(

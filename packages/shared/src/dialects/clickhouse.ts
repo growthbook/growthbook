@@ -81,6 +81,7 @@ export const clickHouseDialect: SqlDialect = {
     return `if(length(${filtered}) > 0, arrayMin(${filtered}), NULL)`;
   },
   castToString: (col: string) => `toString(${col})`,
+  lowerString: (col: string) => `lowerUTF8(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `uniqState(${col})`,

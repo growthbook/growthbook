@@ -2,21 +2,26 @@ import { useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { useUser } from "@/services/UserContext";
+import { EventUser as EventUserType } from "shared/validators";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 
 interface Props extends MarginProps {
-  // Co-author user IDs, already excluding the revision's primary author.
+  // Co-author IDs (members or API keys), already excluding the primary author.
   coAuthorIds: string[];
+  // The stored actor behind each ID; defaults to a member lookup.
+  actorFor?: (id: string) => EventUserType;
 }
 
 // The collapsible "Co-authors (N)" caret toggle + avatar list, shared by the
 // feature and saved-group revision flows. Callers derive `coAuthorIds`
 // (however their revision model exposes contributors); this owns only the UI.
-export default function CoAuthorsList({ coAuthorIds, ...marginProps }: Props) {
+export default function CoAuthorsList({
+  coAuthorIds,
+  actorFor = (id) => ({ type: "dashboard", id, name: "", email: "" }),
+  ...marginProps
+}: Props) {
   const [open, setOpen] = useState(false);
-  const { users } = useUser();
 
   if (coAuthorIds.length === 0) return null;
 
@@ -41,23 +46,15 @@ export default function CoAuthorsList({ coAuthorIds, ...marginProps }: Props) {
       </Link>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthorIds.map((id) => {
-            const u = users.get(id);
-            return (
-              <EventUser
-                key={id}
-                user={{
-                  type: "dashboard",
-                  id,
-                  name: u?.name || "",
-                  email: u?.email || "",
-                }}
-                display="avatar-name-email"
-                size="sm"
-                wrap={true}
-              />
-            );
-          })}
+          {coAuthorIds.map((id) => (
+            <EventUser
+              key={id}
+              user={actorFor(id)}
+              display="avatar-name-email"
+              size="sm"
+              wrap={true}
+            />
+          ))}
         </Flex>
       )}
     </Box>

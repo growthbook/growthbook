@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
   apiPaginationFieldsValidator,
   savedGroupTargeting,
@@ -13,10 +14,9 @@ import {
 } from "./shared";
 import {
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
-  apiEventUserValidator,
   apiFeatureBaseRuleValidator,
   apiFeatureForceRuleValidator,
   apiFeatureRolloutRuleValidator,
@@ -29,6 +29,7 @@ import {
   apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- V2 scope extension ----
 
@@ -219,8 +220,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
       defaultValue: z
         .string()
         .describe(
@@ -307,9 +308,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       autoPublishEnabledBy: z
         .string()
         .describe(
-          "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+          "User or API key the deferred publish runs as, re-checked when it fires. A key that assumed a member's role is recorded as `<keyId>:<memberId>`.",
         )
         .optional(),
+      autoPublishEnabledByUser: apiEventUser
+        .optional()
+        .describe("Who armed the deferred publish, with an API key's name"),
       scheduledPublishAttempts: z
         .number()
         .int()
@@ -331,9 +335,9 @@ export const apiFeatureRevisionV2Validator = namedSchema(
               userId: z
                 .string()
                 .describe(
-                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                  "Who reviewed: a member's user ID, or an API key's ID when it reviewed as itself",
                 ),
-              user: apiEventUserValidator.optional(),
+              user: apiEventUser.optional(),
               status: z.enum([
                 "approved",
                 "changes-requested",
@@ -373,8 +377,8 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: apiEventUserValidator.optional(),
-      publishedBy: apiEventUserValidator.optional(),
+      createdBy: apiEventUser.optional(),
+      publishedBy: apiEventUser.optional(),
     })
     .strict(),
 );
@@ -681,7 +685,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -878,6 +882,8 @@ export const postFeatureV2Validator = {
     "  ]\n" +
     "}\n" +
     "```",
+  confirmation: ["feature.create", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -918,6 +924,12 @@ export const updateFeatureV2Validator = {
   summary: "Partially update a feature",
   description:
     "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -940,6 +952,8 @@ export const deleteFeatureV2Validator = {
   summary: "Deletes a single feature",
   description:
     'Permanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
+  confirmation: ["feature.delete"] as const,
+  confirmationInHandler: true,
   operationId: "deleteFeatureV2",
   tags: ["features-v2"],
   method: "delete" as const,
@@ -982,6 +996,8 @@ export const toggleFeatureV2Validator = {
   summary: "Toggle a feature in one or more environments",
   description:
     "Enables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "toggleFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -1005,6 +1021,12 @@ export const revertFeatureV2Validator = {
   summary: "Revert a feature to a specific revision",
   description:
     'Restores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -1021,7 +1043,7 @@ export const getFeatureRevisionsV2Validator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

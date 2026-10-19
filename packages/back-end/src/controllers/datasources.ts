@@ -1,12 +1,13 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
+import pick from "lodash/pick";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getDataSourceSaveChanges,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -42,6 +43,7 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -80,7 +82,6 @@ import {
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  getQueriesByDatasource,
   getQueriesByIds,
   getQueryById,
   updateQueryIfRunning,
@@ -367,6 +368,52 @@ export async function postManagedWarehouse(
   });
 }
 
+type PutDataSourceBody = {
+  name?: string;
+  description?: string;
+  type?: DataSourceType;
+  params?: DataSourceParams;
+  settings?: DataSourceSettings;
+  projects?: string[];
+  metricsToCreate?: AutoMetricToCreate[];
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+};
+
+/**
+ * Assignment queries are scoped to projects, so editing one needs the
+ * permission in the projects it covers rather than in every project of the
+ * data source. Anything else still needs the data source-wide permission.
+ */
+function assertCanUpdateDataSource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+) {
+  const { permissions } = context;
+  const { changesOtherFields, exposureQueryChanges } = getDataSourceSaveChanges(
+    datasource,
+    body,
+  );
+  if (
+    changesOtherFields &&
+    !permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    permissions.throwPermissionError();
+  }
+
+  const nextDatasource = { projects: body.projects ?? datasource.projects };
+  for (const change of exposureQueryChanges) {
+    if (
+      (change.previous &&
+        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+      (change.next &&
+        !permissions.canUpdateExposureQuery(change.next, nextDatasource))
+    ) {
+      permissions.throwPermissionError();
+    }
+  }
+}
+
 // Tests credentials without saving anything. Connection failures come back as a
 // 400 with the driver's message, the same as a failed save.
 export async function postTestDataSourceConnection(
@@ -438,19 +485,7 @@ export async function postTestDataSourceConnection(
 }
 
 export async function putDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
-      eventForwarderConfig?: EventForwarderConfigDraft | null;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<PutDataSourceBody, { id: string }>,
   res: Response<
     | {
         status: 200;
@@ -511,9 +546,7 @@ export async function putDataSource(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanUpdateDataSource(context, datasource, req.body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -1308,10 +1341,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId,
@@ -1328,10 +1357,14 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
-  // Only for dimension metadata; identifiers are edited with the whole query.
+  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+    context.permissions.throwPermissionError();
+  }
+  // Only dimension metadata; the rest of the query is edited through the data
+  // source save, which validates it.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...omit(updates, ["userIdType", "userIdTypes"]),
+    ...pick(updates, ["dimensions", "dimensionSlicesId", "dimensionMetadata"]),
   };
 
   try {
@@ -1612,31 +1645,6 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
-  });
-}
-
-export async function getDataSourceQueries(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const datasourceObj = await getDataSourceById(context, id);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
-  );
-
-  const queries = await getQueriesByDatasource(context.org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    queries,
   });
 }
 

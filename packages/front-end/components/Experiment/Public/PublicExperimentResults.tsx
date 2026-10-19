@@ -204,6 +204,7 @@ export default function PublicExperimentResults({
                 differenceType={analysis.settings?.differenceType}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
+                customMetricSlices={experiment.customMetricSlices}
               />
             ) : showCompactResults ? (
               <CompactResults
