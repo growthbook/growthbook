@@ -1,8 +1,13 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
-import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
+import { apiKeySchema, ConfirmRule } from "shared/validators";
+import {
+  apiKeyToggleRequiresAdmin,
+  canSetApiKeyDisabled,
+  changesApiKeyAuthority,
+  getRoleById,
+} from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
@@ -76,8 +81,10 @@ export class ApiKeyModel extends BaseClass {
       // filters to the caller's userId and postApiKeyReveal checks ownership.
       return (
         apiKey.userId === this.context.userId ||
-        this.context.permissions.canDeleteApiKey()
+        this.context.permissions.canManagePersonalAccessTokens()
       );
+    } else if (apiKey.secret) {
+      return this.context.permissions.canViewApiKeys();
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -96,8 +103,17 @@ export class ApiKeyModel extends BaseClass {
     if (!keys.length || keys.some((k) => !editable.has(k))) return false;
     // Admins can disable another member's PAT without being able to delete it —
     // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKey.secret && updates.disabled !== undefined) {
+      return canSetApiKeyDisabled(
+        this.context.permissions,
+        apiKey,
+        this.context.userId,
+        updates.disabled,
+      );
+    }
+    // Expiry-only updates come from applying the expiration policy.
     if (apiKeyToggleRequiresAdmin(apiKey, this.context.userId)) {
-      return this.context.permissions.canDeleteApiKey();
+      return this.context.permissions.canManagePersonalAccessTokens();
     }
     return this.canDelete(apiKey);
   }
@@ -135,8 +151,8 @@ export class ApiKeyModel extends BaseClass {
     return {
       id: doc.id,
       description: doc.description,
-      // Records whose PAT an admin revoked; absent for org keys.
-      userId: doc.userId,
+      // A token's owner, null for an org key: history access tells them apart.
+      userId: doc.userId ?? null,
       role: doc.role,
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
@@ -148,6 +164,7 @@ export class ApiKeyModel extends BaseClass {
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
+      confirmRules: doc.confirmRules,
     };
   }
 
@@ -380,6 +397,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader,
     requesterPermissions,
     expiresAt,
+    confirmRules,
   }: {
     description: string;
     roleId: string;
@@ -390,6 +408,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader?: ApiKeyInterface["requesterHeader"];
     requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -405,6 +424,7 @@ export class ApiKeyModel extends BaseClass {
       requesterHeader,
       requesterPermissions,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -418,6 +438,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     userId: string;
     description: string;
@@ -427,6 +448,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -442,6 +464,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -476,7 +499,9 @@ export class ApiKeyModel extends BaseClass {
     const doc = await this._findOne(id ? { id } : { key }, {
       bypassSanitization: true,
     });
-    if (!doc) this.context.throwNotFoundError();
+    // Missing and not permitted get the same answer, so the lookup tells a
+    // caller without delete rights nothing.
+    if (!doc || !this.canDelete(doc)) this.context.throwNotFoundError();
 
     await this.delete(doc);
     return doc;
@@ -514,6 +539,7 @@ export class ApiKeyModel extends BaseClass {
       requesterHeader,
       requesterPermissions,
       expiresAt,
+      confirmRules,
     }: {
       role?: string;
       scopedRole?: string;
@@ -526,6 +552,7 @@ export class ApiKeyModel extends BaseClass {
       requesterPermissions?: ApiKeyInterface["requesterPermissions"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
+      confirmRules?: ConfirmRule[] | null;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -561,23 +588,43 @@ export class ApiKeyModel extends BaseClass {
           additionalRoles: scopedRole ? additionalRoles : undefined,
           projectRoles: scopedRole ? projectRoles : undefined,
           ...(expiresAt !== undefined && { expiresAt }),
+          ...(confirmRules !== undefined && { confirmRules }),
         },
         { forceCanUpdate: true },
       );
       return { before: doc, after };
     }
 
-    // Editing a key's authority is at least as sensitive as revealing it, so we
-    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
-    if (!this.context.permissions.canCreateApiKey()) {
+    if (!this.context.permissions.canUpdateApiKey()) {
       this.context.permissions.throwPermissionError();
     }
-    if (!role) {
+    // An edit that names no role leaves the role and scope as they are.
+    const authority = {
+      ...(role !== undefined && {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        additionalRoles,
+        projectRoles,
+      }),
+      ...(requesterHeader !== undefined && { requesterHeader }),
+      ...(requesterPermissions !== undefined && { requesterPermissions }),
+      ...(confirmRules !== undefined && { confirmRules }),
+    };
+    if (
+      changesApiKeyAuthority(doc, { ...doc, ...authority }) &&
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "Changing an API key's role, scope, requester settings, or confirmations requires permission to create API keys.",
+      );
+    }
+    if (role !== undefined && !role) {
       this.context.throwBadRequestError("A role is required.");
     }
 
-    // Permission fields (role/scope/description) are intentionally editable by
-    // admins, as is the expiry, while the token's value and identity fields
+    // Permission fields (role/scope/description) are intentionally editable, as
+    // is the expiry, while the token's value and identity fields
     // (key, secret, userId) stay immutable. `canUpdate` blocks these fields, so we
     // bypass it for this specific permission-only update via `forceCanUpdate`;
     // the update object below is limited to permission fields, so identity
@@ -591,14 +638,8 @@ export class ApiKeyModel extends BaseClass {
     const after = await this._updateOne(
       doc,
       {
-        role,
-        limitAccessByEnvironment,
-        environments,
-        additionalRoles,
-        projectRoles,
+        ...authority,
         description,
-        ...(requesterHeader !== undefined && { requesterHeader }),
-        ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
       { forceCanUpdate: true },
@@ -750,22 +791,33 @@ export class ApiKeyModel extends BaseClass {
     )) as SecretApiKey;
   }
 
-  // The member's own PATs worth a top-nav warning: lapsing soon, or lapsed but still in use.
+  // The member's own PATs worth a warning: lapsing soon, or lapsed but still in use.
   public async getExpiringPersonalAccessTokens(userId: string) {
-    const now = new Date();
-    const tokens = await this._find({
+    return this.findExpiring({
       userId,
       oauthClientId: { $exists: false },
-      disabled: { $ne: true },
-      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
       // The app mints and replaces its own Visual Editor key; the member never made it.
       $nor: [{ role: "visualEditor", scoped: { $ne: true } }],
     });
-    return tokens
+  }
+
+  // The organization's own API keys worth a warning, for people who manage them.
+  public async getExpiringOrgApiKeys() {
+    return this.findExpiring({ userId: null, secret: true });
+  }
+
+  private async findExpiring(filter: Record<string, unknown>) {
+    const now = new Date();
+    const keys = await this._find({
+      ...filter,
+      disabled: { $ne: true },
+      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+    });
+    return keys
       .filter(
-        (t) =>
-          !isExpired(t.expiresAt, now) ||
-          (!!t.lastUsed && !!t.expiresAt && t.lastUsed > t.expiresAt),
+        (k) =>
+          !isExpired(k.expiresAt, now) ||
+          (!!k.lastUsed && !!k.expiresAt && k.lastUsed > k.expiresAt),
       )
       .map(({ id, description, expiresAt, lastUsed }) => ({
         id,
@@ -854,6 +906,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader,
     requesterPermissions,
     expiresAt,
+    confirmRules,
   }: {
     environment: string;
     project: string;
@@ -870,6 +923,7 @@ export class ApiKeyModel extends BaseClass {
     requesterHeader?: ApiKeyInterface["requesterHeader"];
     requesterPermissions?: ApiKeyInterface["requesterPermissions"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -902,6 +956,7 @@ export class ApiKeyModel extends BaseClass {
       ...(requesterHeader !== undefined && { requesterHeader }),
       ...(requesterPermissions !== undefined && { requesterPermissions }),
       expiresAt,
+      ...(confirmRules ? { confirmRules } : {}),
     });
   }
 }

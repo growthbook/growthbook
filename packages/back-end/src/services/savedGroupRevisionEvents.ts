@@ -9,7 +9,9 @@ import {
   webhookActor,
 } from "back-end/src/events/revisionReference";
 import { Context } from "back-end/src/models/BaseModel";
+import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
@@ -52,12 +54,28 @@ export async function dispatchSavedGroupRevisionEvent(
 ): Promise<void> {
   if (revision.target.type !== "saved-group") return;
   try {
-    const reference = {
+    const {
+      baseSavedGroup,
+      proposedSavedGroup,
+      proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
+    } = await toApiSavedGroupRevision(revision, context as ApiReqContext);
+    const payload = {
       ...(await revisionReference(context, revision)),
       savedGroup: {
         id: revision.target.id,
         name: revision.target.snapshot.groupName,
       },
+      baseSavedGroup,
+      proposedSavedGroup,
+      proposedChanges,
+      contributors,
+      revertedFrom,
+      reviews,
+      resolution,
     };
     const liveForRouting = await context.models.savedGroups.getById(
       revision.target.id,
@@ -89,11 +107,11 @@ export async function dispatchSavedGroupRevisionEvent(
 
     switch (action.type) {
       case "created":
-        await emit("revision.created", reference);
+        await emit("revision.created", payload);
         break;
       case "updated":
         await emit("revision.updated", {
-          ...reference,
+          ...payload,
           // Field-specific handlers pass the exact change; the generic
           // /revision controller omits it, so derive from the proposed changes.
           // The cross-entity `change` union includes kinds saved groups never
@@ -107,19 +125,19 @@ export async function dispatchSavedGroupRevisionEvent(
         });
         break;
       case "reviewRequested":
-        await emit("revision.reviewRequested", reference);
+        await emit("revision.reviewRequested", payload);
         break;
       case "reviewed": {
         const reviewer = webhookActor(context.auditUser);
         if (action.decision === "approve") {
           await emit("revision.approved", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment ?? null,
           });
         } else if (action.decision === "request-changes") {
           await emit("revision.changesRequested", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment ?? null,
           });
@@ -127,7 +145,7 @@ export async function dispatchSavedGroupRevisionEvent(
           // Empty comments are no-ops — don't emit an empty event.
           if (!action.comment) break;
           await emit("revision.commented", {
-            ...reference,
+            ...payload,
             reviewer,
             reviewComment: action.comment,
           });
@@ -135,17 +153,17 @@ export async function dispatchSavedGroupRevisionEvent(
         break;
       }
       case "rebased":
-        await emit("revision.rebased", reference);
+        await emit("revision.rebased", payload);
         break;
       case "published":
         await emit("revision.published", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
         });
         break;
       case "publishFailed":
         await emit("revision.publishFailed", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
           failureReason: action.reason,
           terminal: action.terminal,
@@ -153,19 +171,19 @@ export async function dispatchSavedGroupRevisionEvent(
         });
         break;
       case "discarded":
-        await emit("revision.discarded", reference);
+        await emit("revision.discarded", payload);
         break;
       case "reopened":
-        await emit("revision.reopened", reference);
+        await emit("revision.reopened", payload);
         break;
       case "recalled":
-        await emit("revision.recalled", reference);
+        await emit("revision.recalled", payload);
         break;
       case "reviewRetracted":
-        await emit("revision.reviewRetracted", reference);
+        await emit("revision.reviewRetracted", payload);
         break;
       case "publishScheduleChanged":
-        await emit("revision.publishScheduleChanged", reference);
+        await emit("revision.publishScheduleChanged", payload);
         break;
       case "reverted": {
         // `revertedFrom` is the id of the revision being reverted to; surface
@@ -177,7 +195,7 @@ export async function dispatchSavedGroupRevisionEvent(
               .catch(() => null)
           : null;
         await emit("revision.reverted", {
-          ...reference,
+          ...payload,
           ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }

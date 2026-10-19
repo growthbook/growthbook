@@ -23,6 +23,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/promote-image",
+  confirmation: ["other.write"] as const,
   operationId: "postVisualEditorAIPromoteImage",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
