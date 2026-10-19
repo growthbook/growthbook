@@ -330,11 +330,7 @@ export default function FinishSettingUp({
   };
 
   const identifierDescription =
-    expandedStep === "identifiers"
-      ? "Identifier types let you split traffic in an experiment and track metric conversions. Click Edit to uncheck any that aren't relevant for this Data Source."
-      : hasIdentifiers
-        ? identifierTypes.map((t) => t.userIdType).join(", ")
-        : "Tell us how you identify your users, such as user_id or anonymous_id. You can add several identifier types, but you need at least one.";
+    "Tell us how you identify your users (for example, user_id or id). This determines how you can split traffic for experiments and track metric conversions. Uncheck any that aren't relevant, and add any that might be missing.";
 
   const saveQuery = async (exposureQuery: ExposureQuery) => {
     if (!queryModal) return;
