@@ -75,7 +75,13 @@ function getExposureQueryColumnMappingError(
   return null;
 }
 
-// The columns each role reads from, keyed by role label.
+const ROLE_LABELS: Record<string, string> = {
+  experiment_id: "Experiment ID",
+  variation_id: "Variation ID",
+  timestamp: "Timestamp",
+};
+
+// The columns each role reads from, keyed by role (identifier types by name).
 function getRoleColumns(query: ExposureQuery): Record<string, string> {
   return {
     experiment_id: getExposureQueryExperimentIdColumn(query),
@@ -636,28 +642,31 @@ export const ExperimentAssignmentQueryModal = ({
               {missingRoleColumns.length > 0 ? (
                 <Callout status="warning" mb="2">
                   {`Your query no longer returns ${missingRoleColumns
-                    .map(([role, column]) => `"${column}" (${role})`)
+                    .map(
+                      ([role, column]) =>
+                        `"${column}" (${ROLE_LABELS[role] ?? role})`,
+                    )
                     .join(", ")}. Choose a new column for each.`}
                 </Callout>
               ) : null}
               <Table size="sm" variant="surface" layout="fixed" mb="2">
                 <TableBody>
                   <ColumnMappingRow
-                    label="experiment_id"
+                    label="Experiment ID"
                     kind="experiment"
                     value={experimentIdColumn}
                     options={columns}
                     setValue={setExperimentIdColumn}
                   />
                   <ColumnMappingRow
-                    label="variation_id"
+                    label="Variation ID"
                     kind="variation"
                     value={variationIdColumn}
                     options={columns}
                     setValue={setVariationIdColumn}
                   />
                   <ColumnMappingRow
-                    label="timestamp"
+                    label="Timestamp"
                     kind="timestamp"
                     value={timestampColumn}
                     options={timestampOptions}
