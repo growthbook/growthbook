@@ -1843,7 +1843,7 @@ export function normalizeMetadataValue(
   if (k === "tags" || k === "targetingProjects")
     return (v as string[] | null | undefined) ?? [];
   if (k === "targetingAllProjects") return !!v;
-  if (k === "description" || k === "owner" || k === "project")
+  if (k === "label" || k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
   // Normalize unset/undefined to null so a non-config snapshot doesn't diff
   // against an explicit null.

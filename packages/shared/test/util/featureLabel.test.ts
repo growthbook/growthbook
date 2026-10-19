@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   featureMatchesSearch,
   featureMetadataEnvelope,
+  normalizeMetadataValue,
 } from "../../src/util/features";
 import { metadataTouchesPayload } from "../../src/permissions/publishFootprint";
 
@@ -48,6 +49,15 @@ describe("label metadata", () => {
     expect(featureMetadataEnvelope(feature).label).toBe("Express checkout");
     expect(featureMetadataEnvelope({ id: "x" } as FeatureInterface).label).toBe(
       "",
+    );
+  });
+});
+
+describe("label in drafts created before labels existed", () => {
+  it("treats a missing label the same as an empty one", () => {
+    // Old revision snapshots have no `label`; the live envelope reports "".
+    expect(normalizeMetadataValue("label", undefined)).toEqual(
+      normalizeMetadataValue("label", ""),
     );
   });
 });
