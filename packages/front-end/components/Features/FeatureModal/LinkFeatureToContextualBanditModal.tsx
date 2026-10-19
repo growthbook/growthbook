@@ -1,3 +1,4 @@
+import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import {
   ContextualBanditRefRule,
@@ -45,6 +46,8 @@ import RuleEnvironmentScopeField from "@/components/Features/RuleModal/Environme
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/ui/HelperText";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { TextField } from "@/ui/TextField";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
@@ -110,6 +113,7 @@ const genFormDefaultValues = ({
     existing: "",
     valueType: type,
     version: 1,
+    name: cb.name || "",
     description: cb.description || "",
     id: "",
     owner: "",
@@ -182,6 +186,7 @@ export default function LinkFeatureToContextualBanditModal({
   >([]);
 
   const { apiCall } = useAuth();
+  const obfuscateFeatureKeys = !!useOrgSettings().obfuscateFeatureKeys;
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -337,7 +342,11 @@ export default function LinkFeatureToContextualBanditModal({
             `/feature`,
             {
               method: "POST",
-              body: JSON.stringify(featureToCreate),
+              body: JSON.stringify(
+                obfuscateFeatureKeys
+                  ? { ...featureToCreate, id: undefined }
+                  : featureToCreate,
+              ),
             },
           );
           if (!created?.feature?.id) {
@@ -415,7 +424,17 @@ export default function LinkFeatureToContextualBanditModal({
 
       {!existing && (
         <>
-          <FeatureKeyField keyField={form.register("id")} />
+          {obfuscateFeatureKeys ? (
+            <TextField
+              label="Name"
+              required
+              maxLength={MAX_FEATURE_NAME_LENGTH}
+              helpText="A random key is generated when you create this Feature Flag."
+              {...form.register("name")}
+            />
+          ) : (
+            <FeatureKeyField keyField={form.register("id")} />
+          )}
 
           <Flex direction="column" mt="3">
             {showTags && (

@@ -49,6 +49,7 @@ interface CommandPaletteItem {
   description: string;
   url: string;
   tags: string;
+  altName?: string;
   icon?: FC<{ className?: string }>;
   /** If set, activates "Show more" for this section instead of navigating */
   expandSection?: CommandPaletteItemType;
@@ -223,9 +224,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         type: "feature",
         name: f.name || f.id,
         // Indexed, not shown: the key stays searchable when a name replaces it.
-        description: [f.name ? f.id : "", f.description || ""]
+        // Descriptions are capped so the index stays fast for large orgs.
+        description: [f.name ? f.id : "", (f.description || "").slice(0, 300)]
           .filter(Boolean)
           .join(" "),
+        altName: f.name ? f.id : undefined,
         url: `/features/${f.id}`,
         tags: (f.tags || []).join(" "),
       });

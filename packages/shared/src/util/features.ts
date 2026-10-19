@@ -207,6 +207,7 @@ export function mergeRevision(
   if (revision.metadata) {
     const m = revision.metadata;
     if (m.description !== undefined) newFeature.description = m.description;
+    if (m.name !== undefined) newFeature.name = m.name;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
     if (m.targetingAllProjects !== undefined)
@@ -1439,8 +1440,12 @@ const revisionFieldFillers: Partial<{
   // Seed the whole envelope for old revisions that predate these fields, so a
   // legacy revision doesn't false-diff against the live baseline. Recorded keys
   // win; only the absent ones inherit.
+  // `name` is the exception: a revision without it predates names, so it had
+  // none. Inheriting the live name would make a later rename look like the
+  // base and let a draft's "" silently wipe it.
   metadata: (feature, current) => ({
     ...featureMetadataEnvelope(feature),
+    name: "",
     ...(current ?? {}),
   }),
   // Backfill envelope fields for legacy revisions that predate them. Without

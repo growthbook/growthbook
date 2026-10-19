@@ -15,6 +15,7 @@ import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import { cleanFeatureName } from "back-end/src/services/featureKeys";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -371,7 +372,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   let updates: Partial<FeatureInterface> = {
     ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
     ...(archived != null ? { archived } : {}),
-    ...(name != null ? { name } : {}),
+    ...(name != null ? { name: cleanFeatureName(req.context, name) } : {}),
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
     ...(targetingAllProjects != null ? { targetingAllProjects } : {}),

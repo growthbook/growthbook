@@ -40,6 +40,8 @@ export interface SearchableItem {
   name: string;
   description: string;
   tags: string;
+  /** Also scored by the abbreviation fallback, e.g. a Feature Flag's key when a name is shown. */
+  altName?: string;
 }
 
 /** Palette row types that use strict MiniSearch only (no typo fuzzy, no microfuzz). */
@@ -108,8 +110,11 @@ export function combinedSearch<T extends SearchableItem>(
     items
       .filter((item) => !matchedIds.has(item.id))
       .map((item) => {
-        const score = fuzzyMatchName(query, item.name);
-        return score !== null ? { item, score } : null;
+        const scores = [item.name, item.altName ?? ""]
+          .filter(Boolean)
+          .map((name) => fuzzyMatchName(query, name))
+          .filter((s): s is number => s !== null);
+        return scores.length ? { item, score: Math.min(...scores) } : null;
       })
       .filter((m) => m !== null)
       .sort((a, b) => a.score - b.score)

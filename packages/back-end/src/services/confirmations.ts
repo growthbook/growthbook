@@ -757,7 +757,11 @@ export function holdFeatureCreate(
     ],
     environments,
     project: feature.project,
-    summary: `Create ${feature.id}`,
+    // A generated key is new on every replay, so the confirmed request has to be
+    // recognized by its name instead.
+    summary: context.org.settings?.obfuscateFeatureKeys
+      ? `Create "${feature.name ?? ""}"`
+      : `Create ${feature.id}`,
     links: [],
     pin: null,
   });

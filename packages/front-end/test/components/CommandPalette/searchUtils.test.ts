@@ -5,6 +5,7 @@ import {
   partitionItemsForCommandPaletteSearch,
   searchCommandPalette,
   isStrictCommandPaletteSearchType,
+  combinedSearch,
 } from "@/components/CommandPalette/searchUtils";
 
 const ITEMS = [
@@ -341,6 +342,24 @@ describe("searchCommandPalette — strict types (no microfuzz, no MiniSearch fuz
     const names = searchWithMixedItems(mixed, "abc");
     expect(names.filter((n) => n === "alpha_bravo_charlie")).toEqual([
       "alpha_bravo_charlie",
+    ]);
+  });
+});
+
+describe("combinedSearch altName", () => {
+  it("matches an abbreviation of the key when a name is shown", () => {
+    const items = [
+      {
+        id: "f9",
+        name: "Express pay",
+        altName: "checkout_express_pay",
+        description: "",
+        tags: "",
+      },
+    ];
+    const index = buildCommandPaletteIndex(items);
+    expect(combinedSearch(index, items, "cep").map((i) => i.id)).toEqual([
+      "f9",
     ]);
   });
 });

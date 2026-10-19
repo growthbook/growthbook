@@ -8,6 +8,8 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  fillRevisionFromFeature,
+  mergeRevision,
   generateOpaqueFeatureKey,
   isOpaqueFeatureKey,
   rampPlanLacksHashAttribute,
@@ -4956,5 +4958,34 @@ describe("opaque feature keys", () => {
     expect(isOpaqueFeatureKey("express-checkout-button")).toBe(false);
     expect(isOpaqueFeatureKey("f_short")).toBe(false);
     expect(isOpaqueFeatureKey("f_ABCDEFGHIJ")).toBe(false);
+  });
+});
+
+describe("feature names in revisions", () => {
+  const named = {
+    id: "f_8k2j9x4p",
+    name: "Express checkout",
+    description: "",
+    environmentSettings: {},
+  } as unknown as FeatureInterface;
+
+  it("treats a revision without a name as having none", () => {
+    const filled = fillRevisionFromFeature(
+      { metadata: { description: "" } } as unknown as RevisionFields,
+      named,
+    );
+    expect(filled.metadata?.name).toBe("");
+  });
+
+  it("applies a draft's name", () => {
+    const merged = mergeRevision(
+      named,
+      {
+        defaultValue: "",
+        metadata: { name: "Renamed" },
+      } as unknown as FeatureRevisionInterface,
+      [],
+    );
+    expect(merged.name).toBe("Renamed");
   });
 });

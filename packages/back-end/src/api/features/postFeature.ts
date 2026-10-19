@@ -14,7 +14,10 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
-import { resolveNewFeatureKey } from "back-end/src/services/featureKeys";
+import {
+  cleanFeatureName,
+  resolveNewFeatureKey,
+} from "back-end/src/services/featureKeys";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
@@ -86,6 +89,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   const id = await resolveNewFeatureKey(req.context, req.body);
+  const name = cleanFeatureName(req.context, req.body.name);
   const existing = await getFeature(req.context, id);
   if (existing) {
     throw new Error(`Feature id '${id}' already exists.`);
@@ -128,7 +132,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     valueType: req.body.valueType,
     baseConfig: req.body.baseConfig ?? undefined,
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
-    ...(req.body.name ? { name: req.body.name } : {}),
+    ...(name ? { name } : {}),
     description: req.body.description || "",
     project: req.body.project || "",
     ...normalizeTargetingProjects({

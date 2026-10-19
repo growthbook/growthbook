@@ -314,7 +314,10 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  UnrecoverableApiError,
+} from "back-end/src/util/errors";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -352,7 +355,10 @@ import {
   loadSavedGroupsWithNested,
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
-import { resolveNewFeatureKey } from "back-end/src/services/featureKeys";
+import {
+  cleanFeatureName,
+  resolveNewFeatureKey,
+} from "back-end/src/services/featureKeys";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -926,6 +932,7 @@ export async function postFeatures(
     id: requestedId,
     name: otherProps.name,
   });
+  otherProps.name = cleanFeatureName(context, otherProps.name) || undefined;
 
   // A generated key can't follow the org's key format, so the format only
   // applies to keys people choose.
@@ -2804,6 +2811,10 @@ export async function postFeatureRevert(
     const metadataChanges: RevisionMetadata = {};
     let hasMetadataChanges = false;
     const m = revision.metadata;
+    if (m.name !== undefined && m.name !== (feature.name ?? "")) {
+      metadataChanges.name = m.name;
+      hasMetadataChanges = true;
+    }
     if (
       m.description !== undefined &&
       m.description !== (feature.description ?? "")
@@ -3682,6 +3693,13 @@ export async function postFeatureSync(
   const feature = await getFeature(context, id);
   // If this is a new feature, create it
   if (!feature) {
+    // Imports keep each flag's source key so existing SDK code still works,
+    // which an org with opaque keys has ruled out.
+    if (org.settings?.obfuscateFeatureKeys) {
+      throw new BadRequestError(
+        "Imports keep each Feature Flag's original key, so they can't create new Feature Flags while this organization generates opaque keys.",
+      );
+    }
     await postFeatures(req, res);
     return;
   }
@@ -3738,8 +3756,9 @@ export async function postFeatureSync(
   const metadata: Partial<
     Pick<FeatureInterface, "name" | "description" | "owner" | "tags">
   > = {};
-  if ((data.name ?? null) !== null && data.name !== (feature.name ?? "")) {
-    metadata.name = data.name;
+  const syncedName = cleanFeatureName(context, data.name);
+  if (syncedName !== undefined && syncedName !== (feature.name ?? "")) {
+    metadata.name = syncedName;
   }
   if (
     (data.description ?? null) !== null &&
@@ -5612,6 +5631,9 @@ export async function putFeature(
     baseline,
     ...updates
   } = req.body;
+  if ("name" in updates) {
+    updates.name = cleanFeatureName(context, updates.name) ?? "";
+  }
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }

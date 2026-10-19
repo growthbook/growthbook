@@ -25,10 +25,6 @@ import {
 } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import FeatureKeyField from "./FeatureKeyField";
-import EnvironmentSelect from "./EnvironmentSelect";
-import TagsField from "./TagsField";
-import ValueTypeField from "./ValueTypeField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
@@ -57,6 +53,10 @@ import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { TextField } from "@/ui/TextField";
 import Text from "@/ui/Text";
+import ValueTypeField from "./ValueTypeField";
+import TagsField from "./TagsField";
+import EnvironmentSelect from "./EnvironmentSelect";
+import FeatureKeyField from "./FeatureKeyField";
 
 export type Props = {
   close?: () => void;
@@ -139,7 +139,7 @@ const genFormDefaultValues = ({
         valueType: featureToDuplicate.valueType,
         defaultValue: featureToDuplicate.defaultValue,
         name: featureToDuplicate.name
-          ? `${featureToDuplicate.name} (copy)`
+          ? `${featureToDuplicate.name.slice(0, MAX_FEATURE_NAME_LENGTH - 7)} (copy)`
           : "",
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
@@ -195,7 +195,11 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { requireProjectForFeatures, obfuscateFeatureKeys } = useOrgSettings();
+  const {
+    requireProjectForFeatures,
+    obfuscateFeatureKeys,
+    featureRegexValidator,
+  } = useOrgSettings();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -462,18 +466,22 @@ export default function FeatureModal({
               }
               // Same as experiment tracking keys: a taken key gets a numeric suffix.
               const existingIds = new Set(allFeatures.map((f) => f.id));
-              form.setValue(
-                "id",
-                await generateTrackingKey({ name }, async (key) =>
-                  existingIds.has(key) ? key : null,
-                ),
+              const key = await generateTrackingKey({ name }, async (k) =>
+                existingIds.has(k) ? k : null,
               );
+              // Leave the key empty (showing the org's example) rather than
+              // suggest one that has no readable part or fails the org's format.
+              const usable =
+                /[a-z0-9]/.test(key.replace(/-\d+$/, "")) &&
+                (!featureRegexValidator ||
+                  new RegExp(featureRegexValidator).test(key));
+              form.setValue("id", usable ? key : "");
             },
           })}
         />
 
         {obfuscateFeatureKeys ? (
-          <Text as="p" size="small" color="text-mid" mb="3">
+          <Text as="p" size="sm" color="text-mid" mb="3">
             A random key is generated when you create this Feature Flag.
           </Text>
         ) : (
