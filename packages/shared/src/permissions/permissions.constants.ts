@@ -731,12 +731,13 @@ export const POLICY_METADATA_MAP: Record<
   },
   APIKeysCreate: {
     displayName: "Create",
-    description: "Create API secret keys and reveal their values",
+    description:
+      "Create API secret keys, reveal their values, and change what a key can do: its role, scope, requester settings, or confirmations",
   },
   APIKeysEdit: {
     displayName: "Edit",
     description:
-      "Change an API secret key's role, scope, description, and expiration, and re-enable disabled keys",
+      "Change an API secret key's description and expiration, and re-enable disabled keys. Changing what a key can do requires Create.",
   },
   APIKeysDelete: {
     displayName: "Disable & delete",

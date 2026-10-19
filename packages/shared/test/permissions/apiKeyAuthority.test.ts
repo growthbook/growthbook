@@ -2,6 +2,7 @@ import {
   apiKeyToggleRequiresAdmin,
   canApplyExpirationPolicy,
   canSetApiKeyDisabled,
+  changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
 import { Policy, permissionsFromRole } from "../../src/permissions";
 
@@ -183,5 +184,64 @@ describe("API key policies", () => {
     ],
   ])("%s grants %j", (policy, atoms) => {
     expect(apiKeyAtoms([policy])).toEqual(atoms);
+  });
+});
+
+describe("changesApiKeyAuthority", () => {
+  const stored = {
+    role: "readonly",
+    limitAccessByEnvironment: false,
+    environments: ["production"],
+  };
+
+  it("ignores an edit that only spells out the defaults", () => {
+    expect(
+      changesApiKeyAuthority(stored, {
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        additionalRoles: [],
+        projectRoles: [],
+        requesterHeader: "optional",
+        requesterPermissions: "assume",
+        confirmRules: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores reordering a limited key's environments", () => {
+    expect(
+      changesApiKeyAuthority(
+        { ...stored, limitAccessByEnvironment: true, environments: ["a", "b"] },
+        { ...stored, limitAccessByEnvironment: true, environments: ["b", "a"] },
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    { name: "a role change", after: { ...stored, role: "admin" } },
+    {
+      name: "a new environment limit",
+      after: { ...stored, limitAccessByEnvironment: true },
+    },
+    {
+      name: "acting with the key's own role",
+      after: { ...stored, requesterPermissions: "key" as const },
+    },
+    {
+      name: "turning confirmations on",
+      after: { ...stored, confirmRules: [{ actions: ["*"] }] },
+    },
+  ])("counts $name", ({ after }) => {
+    expect(changesApiKeyAuthority(stored, after)).toBe(true);
+  });
+
+  it("counts turning confirmations off", () => {
+    expect(
+      changesApiKeyAuthority(
+        { ...stored, confirmRules: [{ actions: ["*"] }] },
+        { ...stored, confirmRules: null },
+      ),
+    ).toBe(true);
   });
 });

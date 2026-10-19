@@ -5,6 +5,7 @@ import { apiKeySchema, ConfirmRule } from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
   canSetApiKeyDisabled,
+  changesApiKeyAuthority,
   getRoleById,
 } from "shared/permissions";
 import {
@@ -597,12 +598,33 @@ export class ApiKeyModel extends BaseClass {
     if (!this.context.permissions.canUpdateApiKey()) {
       this.context.permissions.throwPermissionError();
     }
-    if (!role) {
+    // An edit that names no role leaves the role and scope as they are.
+    const authority = {
+      ...(role !== undefined && {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        additionalRoles,
+        projectRoles,
+      }),
+      ...(requesterHeader !== undefined && { requesterHeader }),
+      ...(requesterPermissions !== undefined && { requesterPermissions }),
+      ...(confirmRules !== undefined && { confirmRules }),
+    };
+    if (
+      changesApiKeyAuthority(doc, { ...doc, ...authority }) &&
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "Changing an API key's role, scope, requester settings, or confirmations requires permission to create API keys.",
+      );
+    }
+    if (role !== undefined && !role) {
       this.context.throwBadRequestError("A role is required.");
     }
 
-    // Permission fields (role/scope/description) are intentionally editable by
-    // admins, as is the expiry, while the token's value and identity fields
+    // Permission fields (role/scope/description) are intentionally editable, as
+    // is the expiry, while the token's value and identity fields
     // (key, secret, userId) stay immutable. `canUpdate` blocks these fields, so we
     // bypass it for this specific permission-only update via `forceCanUpdate`;
     // the update object below is limited to permission fields, so identity
@@ -616,16 +638,9 @@ export class ApiKeyModel extends BaseClass {
     const after = await this._updateOne(
       doc,
       {
-        role,
-        limitAccessByEnvironment,
-        environments,
-        additionalRoles,
-        projectRoles,
+        ...authority,
         description,
-        ...(requesterHeader !== undefined && { requesterHeader }),
-        ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
-        ...(confirmRules !== undefined && { confirmRules }),
       },
       { forceCanUpdate: true },
     );

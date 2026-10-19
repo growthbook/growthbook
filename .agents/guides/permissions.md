@@ -12,7 +12,8 @@ Apply organization-wide, not restricted to projects or environments:
 
 - `manageTeam`, `manageBilling`
 - org API keys: `viewApiKeys`, `createApiKeys` (includes revealing key
-  values), `editApiKeys` (also re-enables), `deleteApiKeys` (also disables);
+  values, and changing a key's authority — see `changesApiKeyAuthority`),
+  `editApiKeys` (description, expiry, re-enable), `deleteApiKeys` (also disables);
   other members' PATs: `managePersonalAccessTokens` — see
   `canSetApiKeyDisabled` in `apiKeyAuthority.ts`
 - `organizationSettings`, `viewAuditLog`

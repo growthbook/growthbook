@@ -200,14 +200,15 @@ export async function countAuditByEntity(
   );
 }
 
-// A personal access token's audits record its owner as `userId`; org keys have none.
+// A personal access token's audits record its owner as `userId`. Older ones
+// don't, but record role `user` or `scoped`, which org keys never have.
 export async function getPersonalAccessTokenAuditIds(
   organization: string,
 ): Promise<string[]> {
   return AuditModel.distinct("entity.id", {
     organization,
     "entity.object": "apiKey",
-    details: { $regex: '"userId":"' },
+    details: { $regex: '"userId":"|"role":"user"|"scoped":true' },
   });
 }
 
