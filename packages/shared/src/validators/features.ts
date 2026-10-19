@@ -34,6 +34,7 @@ import {
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const FEATURE_KEY_REGEX = /^[a-zA-Z0-9_.:|-]+$/;
 
@@ -1830,6 +1831,8 @@ export const postFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.create", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "postFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1876,6 +1879,12 @@ export const updateFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1899,6 +1908,8 @@ export const deleteFeatureValidator = {
     '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.delete"] as const,
+  confirmationInHandler: true,
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
@@ -1942,6 +1953,8 @@ export const toggleFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1972,6 +1985,12 @@ export const revertFeatureValidator = {
     '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,

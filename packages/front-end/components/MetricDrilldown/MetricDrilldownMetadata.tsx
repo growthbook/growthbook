@@ -132,7 +132,7 @@ export function MetricDrilldownMetadata({
           label="Lookback Window Override"
           value={
             lookbackOverride.type === "date"
-              ? `${date(lookbackOverride.value)} - now/end`
+              ? `${date(lookbackOverride.value, "UTC")} - now/end`
               : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`
           }
         />

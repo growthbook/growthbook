@@ -868,6 +868,12 @@ export class HoldoutModel extends BaseClass {
     );
   }
 
+  public async getByExperimentId(
+    experimentId: string,
+  ): Promise<HoldoutInterface | null> {
+    return this._findOne({ experimentId });
+  }
+
   // Bypasses read scope: the Holdout reference is already committed on the
   // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
   public async getByIdForLinkage(

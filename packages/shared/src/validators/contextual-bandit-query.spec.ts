@@ -17,6 +17,11 @@ export const contextualBanditQueryApiSpec = {
     updateBody: apiUpdateContextualBanditQueryBody,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["experiment.create"],
+    update: ["experiment.other"],
+    delete: ["experiment.other"],
+  },
   crudValidatorOverrides: {
     list: apiListContextualBanditQueriesValidator,
   },

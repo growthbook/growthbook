@@ -41,9 +41,10 @@ import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import { PayloadSizeTopNavNotice } from "@/components/Features/SDKConnections/PayloadSizeNotices";
-import PatExpiryTopNavNotice from "@/components/PersonalAccessTokens/PatExpiryTopNavNotice";
+import NoticeStack from "@/components/Notices/NoticeStack";
+import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
+import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
+import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
@@ -63,6 +64,11 @@ const TopNav: FC<{
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
+  const notices = [
+    ...useAccountPlanNotices(),
+    ...usePayloadSizeNotices(),
+    ...useKeyExpiryNotices(),
+  ];
 
   const { updateUser, name, email, organization, hasCommercialFeature } =
     useUser();
@@ -481,13 +487,7 @@ const TopNav: FC<{
           {showNotices && (
             <>
               <div className="nav-link">
-                <AccountPlanNotices />
-              </div>
-              <div className="nav-link">
-                <PayloadSizeTopNavNotice />
-              </div>
-              <div className="nav-link">
-                <PatExpiryTopNavNotice />
+                <NoticeStack notices={notices} />
               </div>
               <div className="nav-link">
                 <AccountPlanBadge />

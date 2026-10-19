@@ -36,7 +36,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -47,7 +47,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -58,7 +58,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>User</label>
           <input
             type="text"
@@ -69,7 +69,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"
@@ -81,7 +81,7 @@ const MssqlForm: FC<{
             placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Request Timeout</label>
           <input
             type="number"
@@ -96,7 +96,7 @@ const MssqlForm: FC<{
             connection default is 15 seconds. Set to 0 to disable timeout.
           </div>
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Default Schema</label>
           <input
             type="text"

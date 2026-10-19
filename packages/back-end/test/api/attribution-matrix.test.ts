@@ -3,6 +3,8 @@ import request from "supertest";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyWithRole } from "shared/types/apikey";
+import { notificationEvents } from "shared/validators";
+import type { ZodType } from "zod";
 import { ReqContextClass } from "back-end/src/services/context";
 import { apiKeyEventUser } from "back-end/src/util/api-key.util";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
@@ -62,6 +64,15 @@ const org = {
     attributeSchema: [{ property: "userId", datatype: "string" }],
   },
 } as unknown as OrganizationInterface;
+
+// The documented payload schema for an event, to check what was actually sent.
+const payloadSchema = (resource: string, event: string) =>
+  (
+    notificationEvents as unknown as Record<
+      string,
+      Record<string, { schema: ZodType }>
+    >
+  )[resource][event].schema;
 
 type Person = typeof dana;
 const ACTORS = [
@@ -359,8 +370,8 @@ describe("attribution across callers", () => {
         organizationId: ORG_ID,
         event: `${cfg.event}.revision.approved`,
       });
-      // A reference to the revision with who authored and reviewed it, not
-      // the revision itself.
+      // Who authored and reviewed it, its content and its review history,
+      // matching the documented schema.
       const approvedObject = approvedEvent?.data?.data?.object;
       expect(approvedObject).toMatchObject({
         id,
@@ -368,8 +379,18 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         [cfg.event]: { id: entity?.id, name: cfg.create().name },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+        proposedChanges: expect.arrayContaining([
+          expect.objectContaining({ path: `/${cfg.edit[0]}` }),
+        ]),
+        reviews: expect.arrayContaining([
+          expect.objectContaining({ userId: bob.id, decision: "approve" }),
+        ]),
       });
       expect(approvedObject).not.toHaveProperty("activityLog");
+      expect(
+        payloadSchema(cfg.event, "revision.approved").safeParse(approvedObject)
+          .error,
+      ).toBeUndefined();
       expect(approvedEvent?.data?.user?.requestedBy?.id).toBe(bob.id);
 
       // Bob withdraws it with his own token; the history keeps the key as the
@@ -458,6 +479,7 @@ describe("attribution across callers", () => {
         id: "checkout-flow",
         valueType: "boolean",
         defaultValue: "false",
+        rules: [{ type: "force", value: "true", allEnvironments: true }],
         ...(EXPECT[actor].hasPerson ? {} : { owner: dana.id }),
       });
       expect(res.status).toBe(200);
@@ -565,8 +587,18 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         feature: { id },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+        defaultValue: "false",
+        metadata: expect.objectContaining({ description: "Updated" }),
+        rules: {
+          production: [
+            expect.objectContaining({ type: "force", value: "true" }),
+          ],
+        },
       });
-      expect(approvedObject).not.toHaveProperty("rules");
+      expect(
+        payloadSchema("feature", "revision.approved").safeParse(approvedObject)
+          .error,
+      ).toBeUndefined();
 
       const log = await as(actor).get(`${path}/log`);
       const commentEntry = log.body.log.find(
@@ -1248,7 +1280,7 @@ describe("attribution across callers", () => {
   });
 
   describe("revision webhooks", () => {
-    it("report the version a draft is based on", async () => {
+    it("carry a draft's base version, before, after and patch", async () => {
       const created = await as("a personal token").post(
         "/api/v1/saved-groups",
         {
@@ -1279,6 +1311,9 @@ describe("attribution across callers", () => {
       expect(event?.data?.data?.object).toMatchObject({
         version: second,
         baseVersion: first,
+        baseSavedGroup: { values: ["u2"] },
+        proposedSavedGroup: { values: ["u3"] },
+        proposedChanges: [{ op: "replace", path: "/values", value: ["u3"] }],
       });
     });
   });
