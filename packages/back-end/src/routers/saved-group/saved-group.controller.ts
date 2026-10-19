@@ -1,5 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { z } from "zod";
+import { MAX_SAVED_GROUP_DESCRIPTION_LENGTH } from "shared/constants";
 import type { Response } from "express";
 import { isEqual, omit } from "lodash";
 import {
@@ -158,8 +159,13 @@ export const postSavedGroup = async (
       context.permissions.canBypassSavedGroupSizeLimit(projects),
     );
   }
-  if (typeof description === "string" && description.length > 100) {
-    throw new Error("Description must be at most 100 characters");
+  if (
+    typeof description === "string" &&
+    description.length > MAX_SAVED_GROUP_DESCRIPTION_LENGTH
+  ) {
+    throw new Error(
+      `Description must be at most ${MAX_SAVED_GROUP_DESCRIPTION_LENGTH} characters`,
+    );
   }
 
   const savedGroup = await context.models.savedGroups.create({
@@ -793,8 +799,13 @@ export const putSavedGroup = async (
     fieldsToUpdate.currentUploadVersion = currentUploadVersion;
   }
   if (hasChanged(description, comparisonBase.description)) {
-    if (typeof description === "string" && description.length > 100) {
-      throw new Error("Description must be at most 100 characters");
+    if (
+      typeof description === "string" &&
+      description.length > MAX_SAVED_GROUP_DESCRIPTION_LENGTH
+    ) {
+      throw new Error(
+        `Description must be at most ${MAX_SAVED_GROUP_DESCRIPTION_LENGTH} characters`,
+      );
     }
     fieldsToUpdate.description = description;
   }

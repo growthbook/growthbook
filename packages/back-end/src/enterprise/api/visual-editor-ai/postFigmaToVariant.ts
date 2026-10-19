@@ -113,6 +113,7 @@ const validation = {
   responseSchema,
   method: "post" as const,
   path: "/visual-editor/ai/figma-to-variant",
+  confirmation: [],
   operationId: "postVisualEditorAIFigmaToVariant",
   // Internal endpoint used only by the Visual Editor extension — keep it
   // out of the public OpenAPI spec.

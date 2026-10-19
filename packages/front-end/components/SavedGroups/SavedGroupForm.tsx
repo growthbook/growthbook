@@ -1,4 +1,8 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
+  isInternalAttributeName,
+} from "shared/constants";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateSavedGroupProps,
@@ -21,7 +25,6 @@ import {
   isRemoteGroupSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
-import { isInternalAttributeName } from "shared/constants";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
@@ -731,7 +734,7 @@ const SavedGroupForm: FC<{
                 labelClassName="font-weight-bold"
                 required={false}
                 textarea
-                maxLength={100}
+                maxLength={MAX_SAVED_GROUP_DESCRIPTION_LENGTH}
                 value={form.watch("description")}
                 onChange={(e) => {
                   form.setValue("description", e.target.value);

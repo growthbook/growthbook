@@ -247,6 +247,7 @@ export const postSavedGroupUploadUrlValidator = {
   summary: "Get a signed URL to upload a remote saved group CSV",
   description:
     "Upload a CSV with one ID per line to the returned URL with `Content-Type: text/csv`, then create an upload with the `fileKey`. A first line equal to the attribute name is a header. Needs S3 or Google Cloud Storage.",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupUploadUrl",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -278,6 +279,7 @@ export const postSavedGroupUploadValidator = {
   summary: "Upload a new version of a remote saved group's IDs",
   description:
     "Records the next version of the group's IDs. The start and end of the file are checked for one ID per line, then the whole file in the background; loaders trim and deduplicate the IDs. Poll `GET /saved-groups/{id}/uploads/{version}` until it's valid, then set the group's `currentUploadVersion` with `PUT /saved-groups-revisions/{id}/{version}/upload-version` to use it. Loaders pick up the group's version from `currentUpload` and download it from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to a short-lived signed storage URL.",
+  confirmation: ["savedGroup.draft"] as const,
   operationId: "postSavedGroupUpload",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -326,6 +328,7 @@ export const deleteSavedGroupUploadValidator = {
   summary: "Delete an upload of a remote saved group",
   description:
     "Deletes the upload and its file. The version the group uses, or one an open draft uses, can't be deleted. Version numbers aren't reused. Needs permission to publish the saved group.",
+  confirmation: ["savedGroup.delete"] as const,
   operationId: "deleteSavedGroupUpload",
   tags: ["saved-groups"],
   method: "delete" as const,
@@ -354,6 +357,7 @@ export const postSavedGroupUploadLoadValidator = {
   summary: "Report loading a remote saved group upload into a data store",
   description:
     "Called by remote saved group loaders. Each report replaces the previous one from the same `storeId`. Needs permission to publish the saved group.",
+  confirmation: ["savedGroup.other"] as const,
   operationId: "postSavedGroupUploadLoad",
   tags: ["saved-groups"],
   method: "post" as const,
