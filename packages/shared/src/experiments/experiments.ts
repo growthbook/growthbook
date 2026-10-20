@@ -1477,6 +1477,12 @@ const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "ratio",
 ] as const;
 
+// Picker labels for the types that reach the unsupported-type message.
+const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
+  dailyParticipation: "Daily Participation",
+  funnel: "Funnel",
+};
+
 type ClusterMetricEligibility =
   | { allowed: true }
   | { allowed: false; reason: string };
@@ -1511,7 +1517,10 @@ export function getClusterExperimentMetricEligibility(
   ) {
     return {
       allowed: false,
-      reason: `Cluster experiments don't support ${metric.metricType} metrics. Use proportion, retention, mean, or ratio metrics.`,
+      reason: `Cluster experiments don't support ${
+        UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES[metric.metricType] ??
+        metric.metricType
+      } metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
   if (options.clusterSubUnitIdentifier) {
