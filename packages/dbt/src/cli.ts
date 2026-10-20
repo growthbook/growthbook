@@ -2,12 +2,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { archiveChanges, ManagedItem, metricKey } from "./prune";
-import {
-  BulkImportPayload,
-  DbtManifest,
-  TranslateWarning,
-  translate,
-} from "./translate";
+import { translate } from "./translate";
+import { BulkImportPayload, DbtManifest, TranslateWarning } from "./types";
 
 const HELP = `Usage: growthbook-dbt sync --datasource <ds_id> [options]
 

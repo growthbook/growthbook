@@ -7,4 +7,4 @@ export type {
   TranslateOptions,
   TranslateResult,
   TranslateWarning,
-} from "./translate";
+} from "./types";
