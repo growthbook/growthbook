@@ -1987,7 +1987,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                               // screens; the class drops it to static once
                               // x-scroll turns on (an overflow-x ancestor breaks
                               // document-sticky). `top` is inert when static.
-                              top: 44,
+                              // PROTOTYPE: and the header notices' banner.
+                              top: "calc(44px + var(--notice-banner-height, 0px))",
                               zIndex: 2,
                               background: "var(--color-panel-solid)",
                             }}

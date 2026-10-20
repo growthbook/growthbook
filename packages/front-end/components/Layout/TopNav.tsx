@@ -2,13 +2,25 @@ import { FC, useEffect, useState } from "react";
 import { FaBars } from "react-icons/fa";
 import Head from "next/head";
 import Breadcrumbs from "@/ui/Breadcrumbs";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import { PayloadSizeTopNavNotice } from "@/components/Features/SDKConnections/PayloadSizeNotices";
+import NoticeBanner from "@/components/Notices/NoticeBanner";
+import NoticeStack from "@/components/Notices/NoticeStack";
+import noticeStyles from "@/components/Notices/HeaderNotices.module.scss";
+import NoticeIndicator from "@/components/Notices/NoticeIndicator";
+import {
+  dismissBanner,
+  routeHeaderNotices,
+  useDismissedBanner,
+} from "@/components/Notices/headerNotices";
+import { useNoticeAction } from "@/components/Notices/NoticeListItem";
+import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
+import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
+import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
 import GrowthBotButton from "./GrowthBotButton";
+import { usePrototypeCurrentHeaderNotices } from "./PrototypeControls";
 
 // The app header (app header + side nav redesign,
 // app-header-rail-handoff.md): 44px (set in review; 56px in the spec, tried 48px), white, no bottom border. The
@@ -40,12 +52,45 @@ const TopNav: FC<{
   }, []);
 
   const { breadcrumb } = usePageHead();
+  // As main's TopNav (set in review), then split into the banner, the
+  // warnings badge and the trial's pill (PROTOTYPE, set in review;
+  // headerNotices.ts).
+  // The banner goes to one the viewer can act on, within a level.
+  const getNoticeAction = useNoticeAction();
+  // And the banner this viewer closed this session (set in review).
+  const dismissedBanner = useDismissedBanner();
+  const allNotices = [
+    ...useAccountPlanNotices(),
+    ...usePayloadSizeNotices(),
+    ...useKeyExpiryNotices(),
+  ];
+  // PROTOTYPE ("Current product treatment", set in review): as the product
+  // shows them today, main's NoticeStack, with no banner or badge.
+  const currentTreatment = usePrototypeCurrentHeaderNotices();
+  const notices = routeHeaderNotices(
+    allNotices,
+    (notice) => getNoticeAction(notice) !== null,
+    dismissedBanner,
+  );
+  const { banner } = notices;
 
   return (
     <>
       <Head>
         <title>{pageTitle ? `${pageTitle} | GrowthBook` : "GrowthBook"}</title>
       </Head>
+      {/* PROTOTYPE: errors, in a full-width banner above the header. */}
+      {showNotices && !currentTreatment && (
+        <NoticeBanner
+          notice={banner}
+          more={notices.bannerMore}
+          onDismiss={
+            banner && notices.bannerDismissible
+              ? () => dismissBanner(banner)
+              : undefined
+          }
+        />
+      )}
       <div
         className={`navbar ${styles.topbar} mb-2 position-fixed${
           scrolled ? ` ${styles.scrolled}` : ""
@@ -93,16 +138,31 @@ const TopNav: FC<{
             )}
           </div>
           <div className={styles.actions}>
-            {showNotices && (
-              <>
-                <div className="nav-link">
-                  <AccountPlanNotices />
+            {/* The header's notices, from main's notice system (set in
+              review; were AccountPlanNotices and PayloadSizeTopNavNotice).
+              PROTOTYPE (set in review; was main's NoticeStack, the top
+              notice as a pill and the rest behind "+N"): the warnings
+              badge, and before it the trial's countdown as the product's
+              pill (main's NoticeStack, set in review; tried the banner and
+              a chip); the top error is in the banner above, the others
+              behind its "+N" chip. The
+              prototype panel's Header notices can switch on fake ones
+              (prototypeNotices.ts). */}
+            {showNotices &&
+              (currentTreatment ? (
+                <div className={`nav-link ${noticeStyles.currentStack}`}>
+                  <NoticeStack notices={allNotices} />
                 </div>
-                <div className="nav-link">
-                  <PayloadSizeTopNavNotice />
-                </div>
-              </>
-            )}
+              ) : (
+                <>
+                  {notices.trial ? (
+                    <div className={noticeStyles.trialPill}>
+                      <NoticeStack notices={[notices.trial]} />
+                    </div>
+                  ) : null}
+                  <NoticeIndicator notices={notices.list} />
+                </>
+              ))}
             <GrowthBotButton />
             {/* Pages without the side nav (LayoutLite) keep the avatar here. */}
             {toggleLeftMenu ? null : <ProfileMenu />}

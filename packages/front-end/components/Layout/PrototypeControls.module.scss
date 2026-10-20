@@ -272,3 +272,49 @@
     outline-offset: 2px;
   }
 }
+
+// Reset to defaults, at the foot of the panel (set in review): the whole
+// panel's settings, so set apart from the groups above.
+.resetAll {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.25);
+  text-align: left;
+}
+
+// The body scrolls when it's taller than the window allows (set in review:
+// the Header notices section made it tall).
+.body {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+// Header notices (set in review): a label over each choice.
+.noticeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.noticeLabel {
+  font-size: 11px;
+  line-height: 14px;
+  opacity: 0.85;
+}
+
+.select {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #1f1f1f;
+  color: #f2f2f2;
+  font: inherit;
+
+  &:focus-visible {
+    outline: 2px solid #ffcc4d;
+    outline-offset: 1px;
+  }
+}

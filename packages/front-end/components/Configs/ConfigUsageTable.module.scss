@@ -40,7 +40,8 @@
   // overflow-x ancestor breaks document-sticky). Keep the breakpoint in sync
   // with .gridTable above.
   position: sticky;
-  top: 44px;
+  // PROTOTYPE: and below the header notices' banner, when there is one.
+  top: calc(44px + var(--notice-banner-height, 0px));
   z-index: 1;
   background: var(--color-panel-solid);
   box-shadow: inset 0 -1px var(--slate-a4);

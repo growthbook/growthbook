@@ -82,12 +82,15 @@ export default function HelpMenu({
   const [open, setOpen] = useState(false);
   // PROTOTYPE (set in review): with "Live chat in Help menu" on, a Chat
   // with Support item after View Docs (set in review; was first), opening the mock live chat (MockLiveChat.tsx),
-  // with its unread count; and on Help in the rail, a red count beside the
-  // label, or a red dot on the icon when collapsed, until the chat's opened.
+  // with a red dot while there's an unread message, and the same dot on
+  // Help's icon in the rail, until the chat's opened.
   const liveChat = usePrototypeLiveChatInHelp();
   const { unread } = useMockLiveChat();
   const unreadShown = liveChat ? unread : 0;
-  const unreadLabel = `${unreadShown} unread message${unreadShown === 1 ? "" : "s"}`;
+  // A dot, not a count (set in review; was the number in a red pill): the
+  // same 8px red dot on the icon, expanded or collapsed, and at the end of
+  // the menu item. Screen readers hear there's something new, not how many.
+  const unreadLabel = "new message";
   return (
     <DropdownMenu
       open={open}
@@ -120,16 +123,11 @@ export default function HelpMenu({
               className={iconClassName}
               aria-hidden="true"
             />
-            {collapsed && unreadShown ? (
+            {unreadShown ? (
               <span className={helpStyles.dot} aria-hidden="true" />
             ) : null}
           </span>
           {collapsed ? null : <span className={labelClassName}>Help</span>}
-          {!collapsed && unreadShown ? (
-            <span className={styles.countBadge} aria-hidden="true">
-              {unreadShown}
-            </span>
-          ) : null}
         </button>
       }
     >
@@ -153,9 +151,7 @@ export default function HelpMenu({
               ) : null}
             </span>
             {unreadShown ? (
-              <span className={styles.countBadge} aria-hidden="true">
-                {unreadShown}
-              </span>
+              <span className={helpStyles.itemDot} aria-hidden="true" />
             ) : null}
           </span>
         </DropdownMenuItem>

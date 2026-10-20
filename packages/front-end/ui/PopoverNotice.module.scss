@@ -1,0 +1,212 @@
+// PopoverNotice.tsx (PROTOTYPE, set in review).
+
+// The icon, centred on the header's 24px line; --slate-11 unless the
+// caller colours it.
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--slate-11);
+}
+
+// The header: 16px at 600, as Modal's titles, in the redesign's dark text,
+// --gray-12 (the Hypothesis field's text).
+.title {
+  color: var(--gray-12);
+  font-size: var(--font-size-3);
+  line-height: 24px;
+  font-weight: 600;
+}
+
+// The description, right under the header: 13px in the header's
+// --gray-12 (set in review; was --slate-11, the Analysis Plan's and
+// GrowthBot's notice's; tried --gray-10, 3.8:1 on white, under the 4.5:1
+// text needs, and --gray-11), set apart by size and weight alone.
+// Links in it keep its colour, underlined; lists and paragraphs in it lose
+// their last margin.
+.description {
+  margin-top: 2px;
+  color: var(--gray-12);
+  font-size: 13px;
+  line-height: 20px;
+
+  a {
+    color: inherit;
+    font-weight: 500;
+    text-decoration: underline;
+  }
+
+  p {
+    margin: 0 0 var(--space-2);
+  }
+
+  ul {
+    margin: 0 0 var(--space-2);
+    padding-left: var(--space-4);
+  }
+
+  > :last-child,
+  > :last-child > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+// The footer: its button(s), 16px below.
+.footer {
+  margin-top: 16px;
+}
+
+// --- Banded (status) ---
+// The band: the icon and header, 12px above and below, 16px in, on its
+// status's colour (the Callout's soft fills); no line under it (set in
+// review). With a close button, room on the right for it.
+.band {
+  position: relative;
+  padding: 12px 16px;
+  background: var(--band-bg);
+}
+
+.withClose {
+  padding-right: 44px;
+}
+
+.error {
+  --band-bg: var(--red-3);
+}
+
+// Warning: --amber-2 (set in review; tried --amber-3, the Callout's soft
+// fill, and --amber-9, the solid amber).
+.warning {
+  --band-bg: var(--amber-2);
+}
+
+// Its icon in --amber-11 (set in review), over whatever colour the caller
+// gave it.
+.warning .icon > * {
+  color: var(--amber-11);
+}
+
+.info {
+  --band-bg: var(--gray-2);
+}
+
+// The header on one line, cut short with an ellipsis before the close
+// button (set in review).
+.bandTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The close button in the band's top right corner, 8px in (set in review;
+// was centred on the header's line).
+.corner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+}
+
+// Below the band, on the popover's white: 16px in on both sides, as the
+// band (set in review; was lined up under the header's text, past the
+// icon).
+.bandBody.bandBody {
+  margin: 0;
+  padding: 16px;
+}
+
+// The footer: no padding above (set in review; was 12px, under a divider
+// since removed), so the description's own 16px is the gap to the buttons;
+// 12px below them, 16px in.
+.bandFooter {
+  padding: 0 16px 12px;
+}
+
+// The close button's glyph in grey.
+.close.close {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--gray-11);
+}
+
+// --- The list variant (PopoverNoticeGroup) ---
+// Each notice 16px in, with 20px under its buttons (set in review; 8px
+// more than the single notice's 12px, tried 4px), and the footer's 16px
+// gap above them; a line between notices, in --slate-a6 (the single
+// notice's footer divider's colour).
+.groupItems > * {
+  padding: 16px 16px 20px;
+}
+
+// The line between notices inset 16px at each side, within the notices'
+// padding rather than edge to edge (set in review).
+.groupItems > * + * {
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    // --slate-a4, as the bands' lines (set in review; was --slate-a6).
+    background: var(--slate-a4);
+  }
+}
+
+// The list's bands, with light lines (set in review, as the mockup): one
+// under each, and one over each after the first, between it and the group
+// above. Grey, --slate-a4 (set in review; tried --slate-a5, --slate-a6,
+// the lines between notices' grey, and each band's own colour, the a4
+// step). The
+// single notice's band has none.
+.groupBand {
+  // 8px above and below its label (set in review; 12px as the single
+  // notice's band).
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--slate-a4);
+}
+
+// Its close button centred on the label's line (measured): 7px down.
+.groupBand .corner {
+  top: 7px;
+}
+
+section + section > .groupBand {
+  border-top: 1px solid var(--slate-a4);
+}
+
+// The list's band labels one step down the type scale from the notices'
+// titles (set in review; were 16px, the same as them): 14px
+// (--font-size-2) on its 20px line, still 600; the icon centred on it.
+.groupLabel {
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+.groupBand .icon {
+  margin-top: 1px;
+}
+
+// The count after a band's label: just the number, as the experiments
+// list's tabs (pages/experiments/index.tsx): 8px after it, 12px, in
+// --gray-11, at 400.
+.groupCount {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-1);
+  font-weight: 400;
+  color: var(--gray-11);
+}
+
+// Only a notice's header sets how wide its popover grows (set in review):
+// the description and footer take whatever width that leaves, wrapping in
+// it, rather than widening it themselves.
+.description,
+.footer,
+.bandFooter {
+  contain: inline-size;
+}

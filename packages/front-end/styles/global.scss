@@ -10,9 +10,11 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-// Clears the app header (44px; TopNav.module.scss).
+// Clears the app header (44px; TopNav.module.scss), and the header
+// notices' error banner when there is one (PROTOTYPE, set in review;
+// NoticeBanner.tsx).
 main {
-  padding-top: 44px;
+  padding-top: calc(44px + var(--notice-banner-height, 0px));
 }
 
 // The side nav's width (AppRail.tsx), for everything laid out beside it:
@@ -728,7 +730,8 @@ pre {
 .feature-tabs {
   background-color: var(--color-background);
   // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
-  top: 43px;
+  // (PROTOTYPE: and below the header notices' error banner.)
+  top: calc(43px + var(--notice-banner-height, 0px));
   height: 40px;
   transition: 150ms all;
 
@@ -3275,7 +3278,7 @@ html {
 @media (max-width: 1180px) {
   .main {
     padding-left: 0;
-    padding-top: 44px;
+    padding-top: calc(44px + var(--notice-banner-height, 0px));
   }
   .sidebar.open {
     left: 0;

@@ -1,8 +1,9 @@
 // PROTOTYPE (set in review): the mock live chat's unread badge on Help in
-// the side nav (HelpMenu.tsx). Expanded, the profile menu's red count pill
-// (ProfileMenu.module.scss's .countBadge) at the row's end; collapsed, an
-// 8px red dot on the icon's top right, ringed in the rail's colour so it
-// reads against the icon, as GrowthBot's limit dot.
+// the side nav (HelpMenu.tsx): a dot, not a count (set in review; was a
+// red count pill when expanded). An 8px red dot on the icon's top right,
+// expanded or collapsed, ringed in the rail's colour so it reads against
+// the icon, as GrowthBot's limit dot; and an 8px dot at the end of the
+// menu item.
 .iconWrap {
   position: relative;
   display: inline-flex;
@@ -11,12 +12,51 @@
 
 .dot {
   position: absolute;
-  top: -2px;
-  right: -3px;
+  // A little further onto the icon (set in review; was -2px and -3px,
+  // tried 1px down).
+  top: 0;
+  right: 0;
   width: 8px;
   height: 8px;
   box-sizing: border-box;
   border-radius: 9999px;
   background: var(--red-9);
   border: 1.5px solid var(--rail-bg, var(--color-panel-solid));
+}
+
+// Centred under and over the docs and Slack items' 13px "opens in a new
+// tab" icons (set in review): in the same 13px slot at the row's end, with
+// their 4px more from the label (ProfileMenu.module.scss's .externalIcon).
+.itemDot {
+  flex-shrink: 0;
+  box-sizing: content-box;
+  width: 8px;
+  height: 8px;
+  margin: 0 2.5px 0 6.5px;
+  border-radius: 9999px;
+  background: var(--red-9);
+}
+
+// A gentle pulse on both dots, to draw the eye (set in review): shrinking
+// to 75% and back (tried growing to 125%) over the first 40% of a 2.4s
+// loop, then resting at its full size, so it reads as a heartbeat, not a
+// flicker. Still for reduced motion.
+@keyframes unreadPulse {
+  0%,
+  40%,
+  100% {
+    transform: scale(1);
+  }
+  20% {
+    transform: scale(0.75);
+  }
+}
+
+.dot,
+.itemDot {
+  animation: unreadPulse 2.4s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }

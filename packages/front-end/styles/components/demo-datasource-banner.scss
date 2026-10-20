@@ -1,6 +1,7 @@
 .demo-datasource-banner__wrapper {
   position: sticky;
-  top: 44px;
+  // PROTOTYPE: and below the header notices' banner, when there is one.
+  top: calc(44px + var(--notice-banner-height, 0px));
   z-index: 100;
 }
 

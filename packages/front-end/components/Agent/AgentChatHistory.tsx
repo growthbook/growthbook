@@ -158,21 +158,27 @@ export default function AgentChatHistory({
         </>
       ) : null}
       {groups.length === 0 ? (
-        <Flex
-          direction="column"
-          align="center"
-          gap="2"
-          px="4"
-          py="6"
-          style={{ color: "var(--color-text-low)" }}
-        >
-          <PiChatCircleDots size={22} />
-          <Text size="sm" weight="medium" color="text-mid" align="center">
-            No previous chats
-          </Text>
-          <Text size="sm" color="text-low" align="center">
-            Your conversations will show up here.
-          </Text>
+        // PROTOTYPE (set in review): as the experiment page's comments
+        // empty state (RailComments.tsx): a 24px icon in --slate-10, the
+        // title at md and 500 in --slate-12, the line under it at sm in
+        // --slate-11, 8px apart, centred.
+        <Flex direction="column" align="center" gap="2" px="4" py="6">
+          <PiChatCircleDots
+            size={24}
+            aria-hidden
+            style={{ color: "var(--slate-10)" }}
+          />
+          <Box style={{ color: "var(--slate-12)" }}>
+            <Text as="div" align="center" size="md" weight="medium">
+              No previous chats
+            </Text>
+          </Box>
+          {/* --slate-11, off the text tokens, so set on the wrapper. */}
+          <Box style={{ color: "var(--slate-11)", maxWidth: 240 }}>
+            <Text as="div" align="center" size="sm">
+              Your conversations will show up here.
+            </Text>
+          </Box>
         </Flex>
       ) : (
         groups.map((group, groupIdx) => (

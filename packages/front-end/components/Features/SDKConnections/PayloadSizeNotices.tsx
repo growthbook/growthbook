@@ -17,21 +17,17 @@ import {
   SdkPayloadSizeRecommendation,
 } from "shared/validators";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RadixStatusIcon } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import styles from "@/components/Layout/AccountPlanNotices.module.scss";
+import { AppNotice } from "@/components/Notices/notices";
+import { usePayloadSizeAlertsInput } from "@/components/Notices/prototypeNotices";
 
 const isSevere = (level: SdkPayloadSizeLevel) =>
   level === "danger" || level === "over-limit";
-
-const levelColor = (level: SdkPayloadSizeLevel) =>
-  isSevere(level) ? "red" : "amber";
 
 export function PayloadSizeIcon({
   connection,
@@ -228,28 +224,39 @@ const connectionsNoun = (count: number) =>
 const pluralConnections = (count: number) =>
   `${count} ${connectionsNoun(count)}`;
 
-export function PayloadSizeTopNavNotice() {
-  const { sdkPayloadSizeAlerts } = useUser();
-  if (!sdkPayloadSizeAlerts.length) return null;
+// The header's notice (NoticeStack), ported from main (set in review; was
+// PayloadSizeTopNavNotice, its own pill).
+export function usePayloadSizeNotices(): AppNotice[] {
+  // PROTOTYPE (set in review): the real alerts, or the prototype panel's
+  // fakes when it's switched on there (prototypeNotices.ts). On main:
+  // useUser().
+  const sdkPayloadSizeAlerts = usePayloadSizeAlertsInput();
+  if (!sdkPayloadSizeAlerts.length) return [];
   const level = worstSdkPayloadSizeLevel(
     sdkPayloadSizeAlerts.map((a) => a.level),
   );
-  // The pill names the worst level, so it counts only connections at it
+  // The title names the worst level, so it counts only connections at it
   const count =
     level === "over-limit"
       ? sdkPayloadSizeAlerts.filter((a) => a.level === "over-limit").length
       : sdkPayloadSizeAlerts.length;
   const fixes = summarizeSdkPayloadSizeFixes(sdkPayloadSizeAlerts);
-  return (
-    <Tooltip
-      body={
-        <Box className={styles["notice-tooltip"]}>
-          <Text as="p" mb="2">
+  return [
+    {
+      id: "sdk-payload-size",
+      severity: isSevere(level) ? "error" : "warning",
+      title: `${count === 1 ? "" : `${count} `}${connectionsNoun(count)} ${
+        level === "over-limit" ? "over max size" : "nearing max size"
+      }`,
+      href: "/sdks",
+      details: (
+        <>
+          <Text as="p" size="inherit" mb="2">
             {alertsExplanation(sdkPayloadSizeAlerts)}
           </Text>
           {fixes.length > 0 && (
             <>
-              <Text as="p" weight="semibold" mb="1">
+              <Text as="p" size="inherit" weight="semibold" mb="1">
                 To fix:
               </Text>
               <Box asChild pl="4" mb="0">
@@ -263,36 +270,8 @@ export function PayloadSizeTopNavNotice() {
               </Box>
             </>
           )}
-        </Box>
-      }
-    >
-      <Link
-        href="/sdks"
-        color={levelColor(level)}
-        underline="hover"
-        className={
-          styles[
-            isSevere(level) ? "error-notification" : "warning-notification"
-          ]
-        }
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          whiteSpace: "nowrap",
-          flexShrink: 0,
-        }}
-      >
-        <PiWarningFill size={15} />
-        {connectionsNoun(count)}{" "}
-        {level === "over-limit" ? "over max size" : "nearing max size"}
-        <Badge
-          label={String(count)}
-          color={levelColor(level)}
-          variant="solid"
-          radius="full"
-          size="xs"
-        />
-      </Link>
-    </Tooltip>
-  );
+        </>
+      ),
+    },
+  ];
 }

@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import {
   KeyboardEvent,
   PointerEvent,
@@ -16,6 +17,17 @@ import {
   setGrowthBotState,
   useGrowthBotPrototype,
 } from "@/components/Agent/prototypeGrowthBotState";
+import {
+  KeyNoticeState,
+  LICENSE_NOTICE_OPTIONS,
+  LicenseNoticeState,
+  PayloadNoticeState,
+  PrototypeNotices,
+  resetPrototypeNotices,
+  setPrototypeNotice,
+  usePrototypeNotices,
+  UsageNoticeState,
+} from "@/components/Notices/prototypeNotices";
 import styles from "./PrototypeControls.module.scss";
 
 // PROTOTYPE ONLY (set in review): a panel of prototype settings, in the
@@ -29,6 +41,7 @@ const INTERIM_SETTINGS_KEY = "gb-prototype-interim-settings";
 const DOCKED_GROWTHBOT_KEY = "gb-prototype-docked-growthbot";
 const SHOW_LIVE_CHAT_KEY = "gb-prototype-show-live-chat";
 const LIVE_CHAT_IN_HELP_KEY = "gb-prototype-live-chat-in-help";
+const CURRENT_NOTICES_KEY = "gb-prototype-current-header-notices";
 const COLLAPSED_KEY = "gb-prototype-panel-collapsed";
 // v2: right and bottom (was left and top).
 const POSITION_KEY = "gb-prototype-panel-position-v2";
@@ -37,11 +50,21 @@ const CHANGE_EVENT = "gb-prototype-settings-change";
 // nav's styles (TopNav.module.scss).
 export const EXISTING_COLORS_CLASS = "prototype-existing-page-colors";
 
+// On until turned off (set in review): what a browser that hasn't changed
+// them starts with, so reviewers see the current direction. Docked
+// GrowthBot, and live chat shown in the Help menu. The rest start off.
+const DEFAULT_ON = new Set([
+  DOCKED_GROWTHBOT_KEY,
+  SHOW_LIVE_CHAT_KEY,
+  LIVE_CHAT_IN_HELP_KEY,
+]);
+
 function readSetting(key: string): boolean {
   try {
-    return localStorage.getItem(key) === "true";
+    const value = localStorage.getItem(key);
+    return value === null ? DEFAULT_ON.has(key) : value === "true";
   } catch (e) {
-    return false;
+    return DEFAULT_ON.has(key);
   }
 }
 
@@ -63,11 +86,35 @@ function writeSetting(key: string, value: boolean) {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+// Reset to defaults (set in review): every setting in the panel back to
+// how a fresh browser starts (DEFAULT_ON above), GrowthBot's demo state
+// and the header notices (all off) too. Where the panel sits and whether it's collapsed stay as they are.
+const SETTING_KEYS = [
+  MULTI_ORG_KEY,
+  EXISTING_COLORS_KEY,
+  INTERIM_SETTINGS_KEY,
+  DOCKED_GROWTHBOT_KEY,
+  SHOW_LIVE_CHAT_KEY,
+  LIVE_CHAT_IN_HELP_KEY,
+  CURRENT_NOTICES_KEY,
+];
+
+function resetAllSettings() {
+  try {
+    SETTING_KEYS.forEach((key) => localStorage.removeItem(key));
+  } catch (e) {
+    // Storage blocked: nothing saved to clear.
+  }
+  resetGrowthBotPrototype();
+  resetPrototypeNotices();
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
 function useSetting(key: string): boolean {
   return useSyncExternalStore(
     subscribe,
     () => readSetting(key),
-    () => false,
+    () => DEFAULT_ON.has(key),
   );
 }
 
@@ -117,6 +164,15 @@ export function usePrototypeLiveChatInHelp(): boolean {
   const show = useSetting(SHOW_LIVE_CHAT_KEY);
   const inHelp = useSetting(LIVE_CHAT_IN_HELP_KEY);
   return show && inHelp;
+}
+
+// "Current product treatment" (set in review): the header's notices as the
+// product shows them today, main's NoticeStack (the top notice as a pill,
+// the rest behind "+N", before GrowthBot), in place of the redesign's
+// banner and warnings badge (TopNav.tsx). Off by default: the redesign.
+// The Header notices choices drive either.
+export function usePrototypeCurrentHeaderNotices(): boolean {
+  return useSetting(CURRENT_NOTICES_KEY);
 }
 
 function Toggle({
@@ -202,6 +258,130 @@ function GrowthBotControls() {
       >
         Reset
       </button>
+    </fieldset>
+  );
+}
+
+// Header notices (set in review): turns on fake versions of the header's
+// notices (prototypeNotices.ts), fed through production's notice system
+// (NoticeStack), so their treatment can be designed in context. One
+// three-way choice per independent notice, and the license slot as one
+// pick, as production shows one license notice at a time.
+function NoticeChoice<K extends keyof PrototypeNotices>({
+  noticeKey,
+  label,
+  options,
+  value,
+}: {
+  noticeKey: K;
+  label: string;
+  options: { value: PrototypeNotices[K]; label: string }[];
+  value: PrototypeNotices[K];
+}) {
+  return (
+    <div className={styles.noticeRow}>
+      <span className={styles.noticeLabel} id={`gb-proto-notice-${noticeKey}`}>
+        {label}
+      </span>
+      <div
+        className={styles.segmented}
+        role="radiogroup"
+        aria-labelledby={`gb-proto-notice-${noticeKey}`}
+      >
+        {options.map((option) => (
+          <label key={String(option.value)} className={styles.segment}>
+            <input
+              type="radio"
+              name={`gb-prototype-notice-${noticeKey}`}
+              className={styles.segmentInput}
+              checked={value === option.value}
+              onChange={() => setPrototypeNotice(noticeKey, option.value)}
+            />
+            <span className={styles.segmentLabel}>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const USAGE_OPTIONS: { value: UsageNoticeState; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "approaching", label: "Approaching" },
+  { value: "over", label: "Over" },
+];
+const PAYLOAD_OPTIONS: { value: PayloadNoticeState; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "nearing", label: "Nearing" },
+  { value: "over", label: "Over" },
+];
+const KEY_OPTIONS: { value: KeyNoticeState; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "expiring", label: "Expiring" },
+  { value: "expired", label: "Expired" },
+];
+
+function HeaderNoticeControls() {
+  const notices = usePrototypeNotices();
+  const currentTreatment = usePrototypeCurrentHeaderNotices();
+  return (
+    <fieldset className={styles.group}>
+      <legend className={styles.groupTitle}>Header notices</legend>
+      <Toggle
+        label="Current product treatment"
+        info="Shows the header notices as the product does today, before the redesign: the top notice as a pill, the rest behind +N. Off: the redesign's banner and notices badge."
+        checked={currentTreatment}
+        onChange={(v) => writeSetting(CURRENT_NOTICES_KEY, v)}
+      />
+      <NoticeChoice
+        noticeKey="cdn"
+        label="CDN usage"
+        options={USAGE_OPTIONS}
+        value={notices.cdn}
+      />
+      <NoticeChoice
+        noticeKey="warehouse"
+        label="Managed Warehouse usage"
+        options={USAGE_OPTIONS}
+        value={notices.warehouse}
+      />
+      <div className={styles.noticeRow}>
+        <label className={styles.noticeLabel} htmlFor="gb-proto-notice-license">
+          License (one at a time)
+        </label>
+        <select
+          id="gb-proto-notice-license"
+          className={styles.select}
+          value={notices.license}
+          onChange={(e) =>
+            setPrototypeNotice("license", e.target.value as LicenseNoticeState)
+          }
+        >
+          {LICENSE_NOTICE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <NoticeChoice
+        noticeKey="payload"
+        label="SDK payload size"
+        options={PAYLOAD_OPTIONS}
+        value={notices.payload}
+      />
+      <NoticeChoice
+        noticeKey="pat"
+        label="Personal access token"
+        options={KEY_OPTIONS}
+        value={notices.pat}
+      />
+      <NoticeChoice
+        noticeKey="apiKey"
+        label="API key"
+        options={KEY_OPTIONS}
+        value={notices.apiKey}
+      />
     </fieldset>
   );
 }
@@ -405,7 +585,11 @@ export default function PrototypeControls() {
           )}
         </button>
       </div>
-      <div id="gb-prototype-panel-body" hidden={collapsed}>
+      <div
+        id="gb-prototype-panel-body"
+        className={styles.body}
+        hidden={collapsed}
+      >
         <div className={styles.settings}>
           <Toggle
             label="Multiple organizations"
@@ -451,6 +635,14 @@ export default function PrototypeControls() {
           />
         </fieldset>
         {isPrototype() ? <GrowthBotControls /> : null}
+        <HeaderNoticeControls />
+        <button
+          type="button"
+          className={clsx(styles.reset, styles.resetAll)}
+          onClick={resetAllSettings}
+        >
+          Reset to defaults
+        </button>
       </div>
     </div>
   );

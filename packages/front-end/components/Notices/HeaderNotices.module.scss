@@ -1,0 +1,225 @@
+// PROTOTYPE (set in review): the header's notices (headerNotices.ts): the
+// error banner, the warnings badge and its list, and the trial chip.
+
+// --- The error banner (NoticeBanner.tsx) ---
+// Above the header (1010), between the side nav and the window's right
+// edge, or the docked GrowthBot rail's, following both as they open and
+// close (the header's 200ms). Its colours are the Callout's.
+.banner {
+  position: fixed;
+  top: 0;
+  left: var(--app-rail-width, 240px);
+  right: var(--agent-rail-width, 0px);
+  z-index: 1015;
+  // The line under it: the side nav's dividers' colour
+  // (AppRail.module.scss's --rail-divider), --slate-5, or --slate-a5 in
+  // dark mode.
+  --notice-banner-line: var(--slate-5);
+  :global(.dark-theme) & {
+    --notice-banner-line: var(--slate-a5);
+  }
+
+  // The Callout's text is dark (--gray-12; NoticeBanner.tsx); its icon
+  // keeps the Callout's colour: red for errors, violet for the trial.
+  :global(.rt-CalloutIcon) {
+    color: var(--accent-a11);
+  }
+  // The page's background under the Callout's see-through red.
+  background: var(--color-background);
+  // Below it, room to the header (set in review): 10px of its own, plus the
+  // 10px of header above the header's 24px controls, so 20px from the
+  // banner to them (tried 12px, and 20px of its own, which looked 30px).
+  // Counted in its height, so the header and page move down by it too.
+  padding-bottom: 10px;
+  transition:
+    left 200ms ease,
+    right 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  @media (max-width: 1180px) {
+    left: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The banner's info icon (NoticeBanner.tsx): after the text, its details
+// in a tooltip on hover or keyboard focus. Quiet, in the text's grey, a
+// step darker on hover.
+.bannerInfo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--gray-11);
+  vertical-align: top;
+  cursor: help;
+
+  &:hover {
+    color: var(--gray-12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// The banner's count of other errors (NoticeBanner.tsx): a plain button
+// around @/ui/Badge (soft red, small), after the text, the Badge's fill a
+// step deeper on hover and while its list is open, so it reads as
+// clickable; and the buttons' press.
+.bannerMore {
+  display: inline-flex;
+  vertical-align: top;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-2);
+  background: none;
+  cursor: pointer;
+
+  &:hover :global(.rt-Badge) {
+    background-color: var(--accent-a4);
+  }
+
+  &[data-state="open"] :global(.rt-Badge) {
+    background-color: var(--accent-a5);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+// After the info icon, 4px more room (set in review): 8px.
+.bannerInfo + .bannerMore {
+  margin-left: 8px;
+}
+
+// The trial's pill (TopNav.tsx): the product's own (NoticeStack.tsx), 8px
+// from the next item (the header's 4px and its own 4px; set in review, was
+// .nav-link's 16px either side).
+.trialPill {
+  display: inline-flex;
+  margin-right: 4px;
+}
+
+// While the full-height docked GrowthBot is open, its button leaves the
+// header's row (GrowthBotButton.module.scss), so the last notice drops the
+// room it kept for it, and sits on the page content's right edge.
+:global(html.agent-dock-full) .trialPill:not(:has(+ .triggerWrap)),
+:global(html.agent-dock-full) .indicator {
+  margin-right: 0;
+}
+
+// "Current product treatment" (TopNav.tsx): the product's stack in its
+// .nav-link, as today. With the docked GrowthBot open, its trailing 16px
+// goes (set in review), so it sits on the page content's right edge too.
+:global(html.agent-dock-full) .currentStack {
+  padding-right: 0;
+}
+
+// --- The warnings badge (NoticeIndicator.tsx) ---
+.triggerWrap {
+  display: inline-flex;
+}
+
+// A plain button around @/ui/Badge (NoticeIndicator.tsx): no look of its
+// own but a focus ring, and the Badge's fill a step deeper on hover and
+// while its list is open, so it reads as clickable.
+.indicator {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-2);
+  background: none;
+  cursor: pointer;
+  // 8px to GrowthBot.
+  margin-right: 4px;
+
+  &:hover :global(.rt-Badge) {
+    background-color: var(--accent-a4);
+  }
+
+  &[data-state="open"] :global(.rt-Badge) {
+    background-color: var(--accent-a5);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+}
+
+// --- The lists (the badge's, and the banner's other issues) ---
+// As the side nav menus and GrowthBot's notice: white, 8px corners.
+// As wide as its longest header on one line (set in review; was 380px
+// fixed): 380px at least, 560px at most (or the window, less 16px each
+// side). Only the headers set it: descriptions and buttons don't
+// (PopoverNotice.module.scss), so a long paragraph wraps rather than
+// stretching it. Past 560px, a banded header still truncates.
+.list.list {
+  width: max-content;
+  min-width: min(380px, calc(100vw - 32px));
+  max-width: min(560px, calc(100vw - 32px));
+  background: var(--color-panel-solid);
+  border-radius: 8px;
+  // A single notice's band keeps to the corners.
+  overflow: hidden;
+}
+
+.listBody {
+  outline: none;
+}
+
+// Scrolls past 480px (set in review: enough for two or three notices, so
+// it stays a quick look), or sooner if there's less room below the badge:
+// the space Radix measures under it (--radix-popover-content-available-
+// height; was a guess, the window less 140px, which missed the error
+// banner), less 16px.
+.listItems {
+  max-height: min(
+    480px,
+    calc(var(--radix-popover-content-available-height, 100vh) - 16px)
+  );
+  overflow-y: auto;
+}
+
+.iconAmber {
+  color: var(--amber-11);
+}
+
+.iconRed {
+  color: var(--red-11);
+}
+
+// A warning's solid action (NoticeListItem.tsx): --amber-11, the warning
+// icon's amber, with a white label, a step darker on hover.
+.amberSolid.amberSolid {
+  border-radius: var(--radius-3);
+  background-color: var(--amber-11);
+  color: white;
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--amber-11) 88%, black);
+  }
+}
+
+// A red notice's solid action: --red-11 (set in review; was Radix's --red-9,
+// 3.9:1 with its white label), a step darker on hover.
+.redSolid.redSolid {
+  border-radius: var(--radius-3);
+  background-color: var(--red-11);
+  color: white;
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--red-11) 88%, black);
+  }
+}

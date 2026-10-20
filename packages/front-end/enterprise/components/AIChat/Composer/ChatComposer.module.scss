@@ -107,9 +107,9 @@
 .compactWrapperSeamless {
   border-top: none;
   background: transparent;
-  // Nothing above the message box (set in review; was 10px, tried 8px
-  // and 4px).
-  padding: 0 24px 32px;
+  // 4px above the message box (set in review; was 10px, tried 8px, 4px
+  // and none).
+  padding: 4px 24px 32px;
 }
 
 // And the message box lifted a little off its container (set in review):

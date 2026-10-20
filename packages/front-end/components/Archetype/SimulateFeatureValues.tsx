@@ -262,7 +262,11 @@ export const SimulateFeatureValues: FC<{
           <table className="table gbtable table-hover appbox">
             <thead
               className="sticky-top bg-white shadow-sm"
-              style={{ top: "44px", zIndex: 900 }}
+              // PROTOTYPE: and the header notices' banner.
+              style={{
+                top: "calc(44px + var(--notice-banner-height, 0px))",
+                zIndex: 900,
+              }}
             >
               <tr>
                 <th>Feature Name</th>
