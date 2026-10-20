@@ -16,6 +16,7 @@ import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -104,37 +105,29 @@ export function getExperimentFactMetricsQuery(
     : "";
   const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const clusterSubUnit =
-    params.unitsSettings.isClusterExperiment &&
-    params.unitsSettings.clusterSubUnitIdentifier
-      ? params.unitsSettings.clusterSubUnitIdentifier
-      : null;
-  const clusterLevelMetricIds = new Set(settings.clusterLevelMetricIds ?? []);
-  const clusterLevelMetricCount = clusterSubUnit
-    ? metricsWithIndices.filter((m) => clusterLevelMetricIds.has(m.metric.id))
-        .length
-    : 0;
-  if (
-    clusterLevelMetricCount > 0 &&
-    clusterLevelMetricCount < metricsWithIndices.length
-  ) {
-    throw new Error(
-      "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
-    );
-  }
   // Cluster-level metrics join on the cluster id, with one unit row per
-  // cluster, so they skip the sub-unit rollup entirely.
-  const isClusterLevelQuery = clusterLevelMetricCount > 0;
+  // cluster, so they skip the sub-unit rollup entirely. resolveClusterMetricGrain
+  // also enforces that a single query is entirely one grain.
+  const {
+    clusterSubUnit,
+    isClusterLevelGroup: isClusterLevelQuery,
+    baseIdType: userIdType,
+  } = resolveClusterMetricGrain({
+    settings: {
+      isClusterExperiment: params.unitsSettings.isClusterExperiment,
+      clusterSubUnitIdentifier: params.unitsSettings.clusterSubUnitIdentifier,
+      clusterLevelMetricIds: settings.clusterLevelMetricIds,
+    },
+    metrics: metricsWithIndices.map((m) => m.metric),
+    exposureIdentifierType: params.unitsSettings.exposureQuery.identifierType,
+  });
+  if (!userIdType) {
+    throw new Error("Unable to determine user id type from exposureQuery");
+  }
   const clusterIdColumn =
     clusterSubUnit && !isClusterLevelQuery
       ? params.unitsSettings.exposureQuery.identifierType
       : null;
-  const userIdType = isClusterLevelQuery
-    ? params.unitsSettings.exposureQuery.identifierType
-    : (clusterSubUnit ?? params.unitsSettings.exposureQuery.identifierType);
-  if (!userIdType) {
-    throw new Error("Unable to determine user id type from exposureQuery");
-  }
 
   const banditDates = getBanditDates(settings.banditSettings);
   const hasFunnelMetrics = metricsWithIndices.some((m) =>

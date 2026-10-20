@@ -1378,6 +1378,22 @@ export function analyzeClusterMetricAsRatio(
 }
 
 /**
+ * The sub-unit identifier for a cluster experiment (e.g. user_id), or null when
+ * this is not a cluster experiment. Both flags must be set: `isClusterExperiment`
+ * without a `clusterSubUnitIdentifier` is treated as not a cluster experiment.
+ */
+export function getClusterSubUnit(
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+): string | null {
+  return settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+    ? settings.clusterSubUnitIdentifier
+    : null;
+}
+
+/**
  * Whether a metric in a cluster experiment is analyzed per sub-unit and rolled
  * up to the cluster. Metrics in `clusterLevelMetricIds` instead join on the
  * cluster id directly and are analyzed with the cluster as the unit.
@@ -1390,8 +1406,7 @@ export function isSubUnitClusterMetric(
   >,
 ): boolean {
   return (
-    !!settings.isClusterExperiment &&
-    !!settings.clusterSubUnitIdentifier &&
+    getClusterSubUnit(settings) !== null &&
     isFactMetric(m) &&
     !settings.clusterLevelMetricIds?.includes(m.id)
   );

@@ -2402,6 +2402,6 @@ describe("cluster experiment ratio analysis - bigquery", () => {
           factTableMap,
         },
       ),
-    ).toThrow("cannot share a query");
+    ).toThrow("cannot share a metric source cache");
   });
 });

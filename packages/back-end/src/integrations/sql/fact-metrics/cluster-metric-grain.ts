@@ -1,4 +1,5 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { getClusterSubUnit } from "shared/experiments";
 import type { ClusterMetricAnalysisLevel } from "shared/experiments";
 
 // Resolves the id-type grain for a per-experiment metric source cache (and its
@@ -36,10 +37,7 @@ export function resolveClusterMetricGrain({
   metrics: { id: string }[];
   exposureIdentifierType: string;
 }): ClusterMetricGrain {
-  const clusterSubUnit =
-    settings.isClusterExperiment && settings.clusterSubUnitIdentifier
-      ? settings.clusterSubUnitIdentifier
-      : null;
+  const clusterSubUnit = getClusterSubUnit(settings);
   if (!clusterSubUnit) {
     return {
       baseIdType: exposureIdentifierType,
@@ -76,7 +74,7 @@ export function getClusterMetricCacheLevel(
   >,
   metricId: string,
 ): ClusterMetricAnalysisLevel | undefined {
-  if (!settings.isClusterExperiment || !settings.clusterSubUnitIdentifier) {
+  if (!getClusterSubUnit(settings)) {
     return undefined;
   }
   return settings.clusterLevelMetricIds?.includes(metricId)

@@ -2,6 +2,7 @@ import type { QueryRunnerFailureCause } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getClusterSubUnit,
   getFactMetricFactTableIds,
   isFactMetric,
   isRegressionAdjusted,
@@ -158,8 +159,7 @@ export function getIncrementalRefreshMetricSources({
   // Cluster-level metrics can't share a cache as user-level metrics even on the same fact table.
   // Mirrors the `cluster:${group}` partitioning in experimentQueries.
   const clusterLevelMetricIds = new Set(
-    snapshotSettings.isClusterExperiment &&
-    snapshotSettings.clusterSubUnitIdentifier
+    getClusterSubUnit(snapshotSettings)
       ? (snapshotSettings.clusterLevelMetricIds ?? [])
       : [],
   );

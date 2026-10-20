@@ -3,6 +3,7 @@ import { parseIntWithDefault } from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
+  getClusterSubUnit,
   getFactMetricFactTableIds,
   getFactTableTemplateVariables,
   isFactFunnelMetric,
@@ -1766,10 +1767,7 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
-    const clusterSubUnit =
-      settings.isClusterExperiment && settings.clusterSubUnitIdentifier
-        ? settings.clusterSubUnitIdentifier
-        : null;
+    const clusterSubUnit = getClusterSubUnit(settings);
     const clusterIdColumn = clusterSubUnit
       ? exposureQuery.identifierType
       : null;
@@ -2679,35 +2677,22 @@ export default abstract class SqlIntegration
       );
     }
 
-    const clusterSubUnit =
-      params.settings.isClusterExperiment &&
-      params.settings.clusterSubUnitIdentifier
-        ? params.settings.clusterSubUnitIdentifier
-        : null;
-    const clusterLevelMetricIds = new Set(
-      params.settings.clusterLevelMetricIds ?? [],
-    );
-    const clusterLevelMetricCount = clusterSubUnit
-      ? params.metrics.filter((m) => clusterLevelMetricIds.has(m.id)).length
-      : 0;
-    if (
-      clusterLevelMetricCount > 0 &&
-      clusterLevelMetricCount < params.metrics.length
-    ) {
-      throw new Error(
-        "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
-      );
-    }
     // Cluster-level metrics join on the cluster id with one row per cluster, so
-    // they skip the sub-unit rollup entirely.
-    const isClusterLevelQuery = clusterLevelMetricCount > 0;
+    // they skip the sub-unit rollup entirely. resolveClusterMetricGrain also
+    // enforces that a single query is entirely one grain.
+    const {
+      clusterSubUnit,
+      isClusterLevelGroup: isClusterLevelQuery,
+      baseIdType: userIdType,
+    } = resolveClusterMetricGrain({
+      settings: params.settings,
+      metrics: params.metrics,
+      exposureIdentifierType: exposureQuery.identifierType,
+    });
     const clusterIdColumn =
       clusterSubUnit && !isClusterLevelQuery
         ? exposureQuery.identifierType
         : null;
-    const userIdType = isClusterLevelQuery
-      ? exposureQuery.identifierType
-      : (clusterSubUnit ?? exposureQuery.identifierType);
     // True only for the sub-unit rollup path; cluster-level queries analyze the
     // cluster as a standard unit (isClusterExperiment stays false there).
     const isClusterExperiment = clusterIdColumn !== null;

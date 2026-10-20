@@ -42,6 +42,7 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -4887,6 +4888,132 @@ export function assertClusterExperimentMetricsSupported({
       );
     }
   }
+}
+
+export type ClusterExperimentConfigFields = {
+  isClusterExperiment?: boolean | null;
+  exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+};
+
+function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
+  const sortedA = [...(a ?? [])].sort();
+  const sortedB = [...(b ?? [])].sort();
+  if (sortedA.length !== sortedB.length) return true;
+  return sortedA.some((value, i) => value !== sortedB[i]);
+}
+
+function clusterConfigRequiresRevalidation(
+  current: ClusterExperimentConfigFields,
+  previous: ClusterExperimentConfigFields,
+  currentIdentifier: string | undefined,
+  previousIdentifier: string | undefined,
+): boolean {
+  return (
+    !!current.isClusterExperiment !== !!previous.isClusterExperiment ||
+    (current.clusterSubUnitIdentifier ?? null) !==
+      (previous.clusterSubUnitIdentifier ?? null) ||
+    (current.exposureQueryId ?? null) !== (previous.exposureQueryId ?? null) ||
+    (currentIdentifier ?? null) !== (previousIdentifier ?? null) ||
+    clusterMetricListChanged(current.goalMetrics, previous.goalMetrics) ||
+    clusterMetricListChanged(
+      current.secondaryMetrics,
+      previous.secondaryMetrics,
+    ) ||
+    clusterMetricListChanged(
+      current.guardrailMetrics,
+      previous.guardrailMetrics,
+    )
+  );
+}
+
+export async function assertValidClusterExperimentConfig({
+  context,
+  datasource,
+  current,
+  previous,
+  metricMap,
+  metricGroups,
+  factTableMap,
+  wrapIdentifierError,
+}: {
+  context: ReqContext | ApiReqContext;
+  datasource: DataSourceInterface | null;
+  current: ClusterExperimentConfigFields;
+  previous?: ClusterExperimentConfigFields;
+  metricMap?: Map<string, ExperimentMetricInterface>;
+  metricGroups?: MetricGroupInterface[];
+  factTableMap?: FactTableMap;
+  wrapIdentifierError?: (message: string) => string;
+}): Promise<void> {
+  if (!current.isClusterExperiment) return;
+
+  const exposureQueries = datasource?.settings.queries?.exposure ?? [];
+  const currentQuery = exposureQueries.find(
+    (q) => q.id === current.exposureQueryId,
+  );
+  const clusterIdentifier = resolveAnalysisIdentifierType(
+    currentQuery,
+    current.exposureQueryIdentifierType,
+  );
+
+  if (previous) {
+    const previousQuery = exposureQueries.find(
+      (q) => q.id === previous.exposureQueryId,
+    );
+    const previousIdentifier = resolveAnalysisIdentifierType(
+      previousQuery,
+      previous.exposureQueryIdentifierType,
+    );
+    if (
+      !clusterConfigRequiresRevalidation(
+        current,
+        previous,
+        clusterIdentifier,
+        previousIdentifier,
+      )
+    ) {
+      return;
+    }
+  }
+
+  if (!datasource) {
+    throw new Error("Datasource not found.");
+  }
+
+  const identifierValidation = validateClusterExperimentIdentifiers(
+    currentQuery,
+    clusterIdentifier,
+    current.clusterSubUnitIdentifier ?? undefined,
+  );
+  if (!identifierValidation.ok) {
+    throw new Error(
+      wrapIdentifierError
+        ? wrapIdentifierError(identifierValidation.error)
+        : identifierValidation.error,
+    );
+  }
+
+  const resolvedMetricMap = metricMap ?? (await getMetricMap(context));
+  const resolvedMetricGroups =
+    metricGroups ?? (await context.models.metricGroups.getAll());
+  const resolvedFactTableMap = factTableMap ?? (await getFactTableMap(context));
+
+  assertClusterExperimentMetricsSupported({
+    goalMetrics: current.goalMetrics,
+    secondaryMetrics: current.secondaryMetrics,
+    guardrailMetrics: current.guardrailMetrics,
+    metricMap: resolvedMetricMap,
+    metricGroups: resolvedMetricGroups,
+    clusterIdentifier,
+    clusterSubUnitIdentifier: current.clusterSubUnitIdentifier,
+    factTableMap: resolvedFactTableMap,
+    datasource,
+  });
 }
 
 export function postExperimentApiPayloadToInterface(
